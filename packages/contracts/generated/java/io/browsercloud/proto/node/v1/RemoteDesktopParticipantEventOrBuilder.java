@@ -4,125 +4,147 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface RemoteDesktopParticipantEventOrBuilder extends
+public interface RemoteDesktopParticipantEventOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.RemoteDesktopParticipantEvent)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>string connection_id = 2 [json_name = "connectionId"];</code>
+   *
    * @return The connectionId.
    */
   java.lang.String getConnectionId();
+
   /**
    * <code>string connection_id = 2 [json_name = "connectionId"];</code>
+   *
    * @return The bytes for connectionId.
    */
-  com.google.protobuf.ByteString
-      getConnectionIdBytes();
+  com.google.protobuf.ByteString getConnectionIdBytes();
 
   /**
    * <code>string actor_id = 3 [json_name = "actorId"];</code>
+   *
    * @return The actorId.
    */
   java.lang.String getActorId();
+
   /**
    * <code>string actor_id = 3 [json_name = "actorId"];</code>
+   *
    * @return The bytes for actorId.
    */
-  com.google.protobuf.ByteString
-      getActorIdBytes();
+  com.google.protobuf.ByteString getActorIdBytes();
 
   /**
    * <code>string access_mode = 4 [json_name = "accessMode"];</code>
+   *
    * @return The accessMode.
    */
   java.lang.String getAccessMode();
+
   /**
    * <code>string access_mode = 4 [json_name = "accessMode"];</code>
+   *
    * @return The bytes for accessMode.
    */
-  com.google.protobuf.ByteString
-      getAccessModeBytes();
+  com.google.protobuf.ByteString getAccessModeBytes();
 
   /**
    * <code>bool view_only = 5 [json_name = "viewOnly"];</code>
+   *
    * @return The viewOnly.
    */
   boolean getViewOnly();
 
   /**
    * <code>string state = 6 [json_name = "state"];</code>
+   *
    * @return The state.
    */
   java.lang.String getState();
+
   /**
    * <code>string state = 6 [json_name = "state"];</code>
+   *
    * @return The bytes for state.
    */
-  com.google.protobuf.ByteString
-      getStateBytes();
+  com.google.protobuf.ByteString getStateBytes();
 
   /**
    * <code>string reason = 7 [json_name = "reason"];</code>
+   *
    * @return The reason.
    */
   java.lang.String getReason();
+
   /**
    * <code>string reason = 7 [json_name = "reason"];</code>
+   *
    * @return The bytes for reason.
    */
-  com.google.protobuf.ByteString
-      getReasonBytes();
+  com.google.protobuf.ByteString getReasonBytes();
 
   /**
    * <code>int64 observed_at_ms = 8 [json_name = "observedAtMs"];</code>
+   *
    * @return The observedAtMs.
    */
   long getObservedAtMs();
 
   /**
    * <code>string revoked_by = 9 [json_name = "revokedBy"];</code>
+   *
    * @return The revokedBy.
    */
   java.lang.String getRevokedBy();
-  /**
-   * <code>string revoked_by = 9 [json_name = "revokedBy"];</code>
-   * @return The bytes for revokedBy.
-   */
-  com.google.protobuf.ByteString
-      getRevokedByBytes();
 
   /**
+   * <code>string revoked_by = 9 [json_name = "revokedBy"];</code>
+   *
+   * @return The bytes for revokedBy.
+   */
+  com.google.protobuf.ByteString getRevokedByBytes();
+
+  /**
+   *
+   *
    * <pre>
    * Monotonic counters for this exact connection. Replayed or duplicated events must be merged
    * by maximum value, never summed blindly. N-1 Control Planes safely ignore these fields.
    * </pre>
    *
    * <code>uint64 forwarded_bytes = 10 [json_name = "forwardedBytes"];</code>
+   *
    * @return The forwardedBytes.
    */
   long getForwardedBytes();
 
   /**
    * <code>uint64 quota_wait_millis = 11 [json_name = "quotaWaitMillis"];</code>
+   *
    * @return The quotaWaitMillis.
    */
   long getQuotaWaitMillis();
 
   /**
    * <code>uint64 throttled_batches = 12 [json_name = "throttledBatches"];</code>
+   *
    * @return The throttledBatches.
    */
   long getThrottledBatches();

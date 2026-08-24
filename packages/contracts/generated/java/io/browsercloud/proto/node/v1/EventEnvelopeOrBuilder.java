@@ -4,88 +4,104 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface EventEnvelopeOrBuilder extends
+public interface EventEnvelopeOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.EventEnvelope)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string event_id = 1 [json_name = "eventId"];</code>
+   *
    * @return The eventId.
    */
   java.lang.String getEventId();
+
   /**
    * <code>string event_id = 1 [json_name = "eventId"];</code>
+   *
    * @return The bytes for eventId.
    */
-  com.google.protobuf.ByteString
-      getEventIdBytes();
+  com.google.protobuf.ByteString getEventIdBytes();
 
   /**
    * <code>string event_type = 2 [json_name = "eventType"];</code>
+   *
    * @return The eventType.
    */
   java.lang.String getEventType();
+
   /**
    * <code>string event_type = 2 [json_name = "eventType"];</code>
+   *
    * @return The bytes for eventType.
    */
-  com.google.protobuf.ByteString
-      getEventTypeBytes();
+  com.google.protobuf.ByteString getEventTypeBytes();
 
   /**
    * <code>string tenant_id = 3 [json_name = "tenantId"];</code>
+   *
    * @return The tenantId.
    */
   java.lang.String getTenantId();
+
   /**
    * <code>string tenant_id = 3 [json_name = "tenantId"];</code>
+   *
    * @return The bytes for tenantId.
    */
-  com.google.protobuf.ByteString
-      getTenantIdBytes();
+  com.google.protobuf.ByteString getTenantIdBytes();
 
   /**
    * <code>string session_id = 4 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
-  /**
-   * <code>string session_id = 4 [json_name = "sessionId"];</code>
-   * @return The bytes for sessionId.
-   */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
 
   /**
+   * <code>string session_id = 4 [json_name = "sessionId"];</code>
+   *
+   * @return The bytes for sessionId.
+   */
+  com.google.protobuf.ByteString getSessionIdBytes();
+
+  /**
+   *
+   *
    * <pre>
    * 版本控制
    * </pre>
    *
    * <code>int64 coordinator_term = 10 [json_name = "coordinatorTerm"];</code>
+   *
    * @return The coordinatorTerm.
    */
   long getCoordinatorTerm();
 
   /**
    * <code>int64 context_epoch = 11 [json_name = "contextEpoch"];</code>
+   *
    * @return The contextEpoch.
    */
   long getContextEpoch();
 
   /**
    * <code>int64 operation_epoch = 12 [json_name = "operationEpoch"];</code>
+   *
    * @return The operationEpoch.
    */
   long getOperationEpoch();
 
   /**
    * <code>int64 sequence = 13 [json_name = "sequence"];</code>
+   *
    * @return The sequence.
    */
   long getSequence();
 
   /**
    * <code>bytes payload = 20 [json_name = "payload"];</code>
+   *
    * @return The payload.
    */
   com.google.protobuf.ByteString getPayload();

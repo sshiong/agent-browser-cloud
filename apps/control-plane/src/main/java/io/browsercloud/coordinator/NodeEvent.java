@@ -21,6 +21,7 @@ public sealed interface NodeEvent
         NodeEvent.DiffTruncated,
         NodeEvent.AgentNavigationFailed,
         NodeEvent.AgentActionFailed,
+        NodeEvent.AgentFileUploadFailed,
         NodeEvent.HumanAssistFailed,
         NodeEvent.ChallengeAutomationFailed,
         NodeEvent.RemoteDesktopParticipantChanged,
@@ -234,7 +235,9 @@ public sealed interface NodeEvent
       String requestedRootRef,
       List<AgentActionOutcome> actionOutcomes,
       List<NativeDialog> nativeDialogs,
-      boolean nativeDialogEvidenceFresh)
+      boolean nativeDialogEvidenceFresh,
+      List<BrowserDownload> downloads,
+      boolean downloadEvidenceFresh)
       implements NodeEvent {
     public StateUpdated {
       tabs = tabs == null ? List.of() : List.copyOf(tabs);
@@ -242,6 +245,49 @@ public sealed interface NodeEvent
       targets = List.copyOf(targets);
       actionOutcomes = actionOutcomes == null ? List.of() : List.copyOf(actionOutcomes);
       nativeDialogs = nativeDialogs == null ? List.of() : List.copyOf(nativeDialogs);
+      downloads = downloads == null ? List.of() : List.copyOf(downloads);
+    }
+
+    public StateUpdated(
+        String sessionId,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        List<BrowserTab> tabs,
+        String activeTabId,
+        String stateHash,
+        String stateQuality,
+        List<InteractiveTarget> targets,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        String snapshotKind,
+        String requestedRootRef,
+        List<AgentActionOutcome> actionOutcomes,
+        List<NativeDialog> nativeDialogs,
+        boolean nativeDialogEvidenceFresh) {
+      this(
+          sessionId,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          tabs,
+          activeTabId,
+          stateHash,
+          stateQuality,
+          targets,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          snapshotKind,
+          requestedRootRef,
+          actionOutcomes,
+          nativeDialogs,
+          nativeDialogEvidenceFresh,
+          List.of(),
+          false);
     }
 
     public StateUpdated(
@@ -453,6 +499,17 @@ public sealed interface NodeEvent
       String defaultPrompt,
       boolean hasBrowserHandler) {}
 
+  record BrowserDownload(
+      String downloadId,
+      String filename,
+      String mimeType,
+      Long totalBytes,
+      long receivedBytes,
+      Integer progressBasisPoints,
+      String status,
+      java.time.Instant startedAt,
+      java.time.Instant updatedAt) {}
+
   record AgentActionOutcome(
       String actionId, String status, String errorCode, long stateVersion, long targetRevision) {}
 
@@ -533,7 +590,9 @@ public sealed interface NodeEvent
       long snapshotBytes,
       Long collectionCpuMillis,
       List<NativeDialog> nativeDialogs,
-      boolean nativeDialogEvidenceFresh)
+      boolean nativeDialogEvidenceFresh,
+      List<BrowserDownload> downloads,
+      boolean downloadEvidenceFresh)
       implements NodeEvent {
     public StateDiff {
       tabs = tabs == null ? List.of() : List.copyOf(tabs);
@@ -541,6 +600,57 @@ public sealed interface NodeEvent
       upsertedTargets = List.copyOf(upsertedTargets);
       removedTargetRefs = List.copyOf(removedTargetRefs);
       nativeDialogs = nativeDialogs == null ? List.of() : List.copyOf(nativeDialogs);
+      downloads = downloads == null ? List.of() : List.copyOf(downloads);
+    }
+
+    public StateDiff(
+        String sessionId,
+        long baseStateVersion,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        List<BrowserTab> tabs,
+        String activeTabId,
+        String stateHash,
+        String stateQuality,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        List<InteractiveTarget> upsertedTargets,
+        List<String> removedTargetRefs,
+        String snapshotKind,
+        String requestedRootRef,
+        String resyncRequestId,
+        long snapshotBytes,
+        Long collectionCpuMillis,
+        List<NativeDialog> nativeDialogs,
+        boolean nativeDialogEvidenceFresh) {
+      this(
+          sessionId,
+          baseStateVersion,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          tabs,
+          activeTabId,
+          stateHash,
+          stateQuality,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          upsertedTargets,
+          removedTargetRefs,
+          snapshotKind,
+          requestedRootRef,
+          resyncRequestId,
+          snapshotBytes,
+          collectionCpuMillis,
+          nativeDialogs,
+          nativeDialogEvidenceFresh,
+          List.of(),
+          false);
     }
 
     public StateDiff(
@@ -797,6 +907,9 @@ public sealed interface NodeEvent
 
   record AgentActionFailed(
       String sessionId, String taskId, String stepId, String toolId, String errorCode)
+      implements NodeEvent {}
+
+  record AgentFileUploadFailed(String sessionId, String uploadId, String errorCode)
       implements NodeEvent {}
 
   record HumanAssistFailed(

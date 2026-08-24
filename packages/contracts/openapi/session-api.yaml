@@ -577,6 +577,114 @@ paths:
                 $ref: "#/components/schemas/AgentClipboard"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}/agent-browser/files/uploads:
+    post:
+      operationId: uploadAgentBrowserFile
+      summary: Stream one bounded file to the Session Node and set an exact file input through CDP
+      description: >
+        File bytes travel only over the authenticated Control Plane to exact Browser Node stream.
+        PostgreSQL stores tenant-scoped lifecycle metadata and the durable Operation; public
+        responses and audit never contain bytes or Node-local paths. No OS file chooser is opened.
+      tags: [Session, Agent, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UploadAgentBrowserFileRequest"
+      responses:
+        "202":
+          description: File is staged and its durable state-fenced Node command is executing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentBrowserFileUpload"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/sessions/{sessionId}/agent-browser/files/uploads/{uploadId}:
+    get:
+      operationId: getAgentBrowserFileUpload
+      summary: Read the PostgreSQL-authoritative file upload lifecycle
+      tags: [Session, Agent, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: uploadId
+          in: path
+          required: true
+          schema: {type: string, pattern: "^afu_[A-Za-z0-9]{20}$"}
+      responses:
+        "200":
+          description: Tenant-scoped upload metadata; bytes and local paths are absent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentBrowserFileUpload"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/agent-browser/files/downloads:
+    get:
+      operationId: listAgentBrowserDownloads
+      summary: List the PostgreSQL-authoritative Browser download lifecycle
+      description: Download URLs and Node-local paths are never returned.
+      tags: [Session, Agent, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Current bounded download projection and evidence freshness.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentBrowserDownloadList"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}/agent-browser/files/downloads/{downloadId}:wait:
+    get:
+      operationId: waitForAgentBrowserDownload
+      summary: Wait for one download to reach a terminal authoritative state
+      description: Bounded waiter rereads PostgreSQL only; it never polls the Browser.
+      tags: [Session, Agent, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: downloadId
+          in: path
+          required: true
+          schema: {type: string, pattern: "^dld_[0-9a-f]{20}$"}
+        - name: timeoutMs
+          in: query
+          required: false
+          schema: {type: integer, minimum: 100, maximum: 30000, default: 30000}
+      responses:
+        "200":
+          description: Completed, canceled, or interrupted download state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentBrowserDownload"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "408":
+          description: Download did not reach a terminal state before the bounded timeout.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/sessions/{sessionId}/identity-spec:
     get:
       operationId: getSessionIdentitySpec
@@ -9405,6 +9513,72 @@ components:
         nativeDialogEvidenceFresh:
           type: boolean
           description: False after an observer gap or from N-1 Nodes. Stale dialogs remain visible but cannot be acted on.
+    UploadAgentBrowserFileRequest:
+      type: object
+      additionalProperties: false
+      required: [targetRef, targetRevision, baseStateVersion, baseContentHash, filename, mimeType, contentSha256, file]
+      properties:
+        targetRef: {type: string, minLength: 1, maxLength: 128}
+        targetRevision: {type: integer, format: int64, minimum: 1}
+        baseStateVersion: {type: integer, format: int64, minimum: 1}
+        baseContentHash: {type: string, pattern: "^[0-9a-f]{64}$"}
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Safe display filename; path separators and control characters are rejected.
+        mimeType: {type: string, minLength: 1, maxLength: 255, default: application/octet-stream}
+        contentSha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+        file:
+          type: string
+          format: binary
+          maxLength: 67108864
+    AgentBrowserFileUpload:
+      type: object
+      additionalProperties: false
+      required: [uploadId, operationId, sessionId, targetRef, filename, mimeType, contentSha256, contentBytes, state, requestId, createdAt, updatedAt]
+      properties:
+        uploadId: {type: string, pattern: "^afu_[A-Za-z0-9]{20}$"}
+        operationId: {type: string, pattern: "^op_[A-Za-z0-9]{16,32}$"}
+        sessionId: {type: string, pattern: "^ses_[A-Za-z0-9]{16,}$"}
+        targetRef: {type: string, maxLength: 128}
+        filename: {type: string, maxLength: 255}
+        mimeType: {type: string, maxLength: 255}
+        contentSha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+        contentBytes: {type: integer, format: int64, minimum: 1, maximum: 67108864}
+        state: {type: string, enum: [STAGING, EXECUTING, COMMITTED, FAILED]}
+        errorCode: {type: [string, "null"], maxLength: 128}
+        stateVersionAfter: {type: [integer, "null"], format: int64, minimum: 1}
+        requestId: {type: string, maxLength: 128}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+        completedAt: {type: [string, "null"], format: date-time}
+    AgentBrowserDownload:
+      type: object
+      additionalProperties: false
+      required: [downloadId, filename, mimeType, receivedBytes, status, startedAt, updatedAt]
+      properties:
+        downloadId: {type: string, pattern: "^dld_[0-9a-f]{20}$"}
+        filename: {type: string, maxLength: 255}
+        mimeType: {type: string, maxLength: 255}
+        size: {type: [integer, "null"], format: int64, minimum: 0}
+        receivedBytes: {type: integer, format: int64, minimum: 0}
+        progress: {type: [number, "null"], format: double, minimum: 0, maximum: 1}
+        status: {type: string, enum: [IN_PROGRESS, COMPLETED, CANCELED, INTERRUPTED]}
+        startedAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    AgentBrowserDownloadList:
+      type: object
+      additionalProperties: false
+      required: [stateCursor, evidenceFresh, dataStale, downloads]
+      properties:
+        stateCursor: {type: string, pattern: "^[0-9]+:[0-9]+:[a-f0-9]{64}$"}
+        evidenceFresh: {type: boolean}
+        dataStale: {type: boolean}
+        downloads:
+          type: array
+          maxItems: 32
+          items: {$ref: "#/components/schemas/AgentBrowserDownload"}
     AgentBrowserSnapshot:
       type: object
       additionalProperties: false

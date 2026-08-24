@@ -3,6 +3,8 @@ package io.browsercloud.proto.node.v1;
 import static io.grpc.MethodDescriptor.generateFullMethodName;
 
 /**
+ *
+ *
  * <pre>
  * Browser Node 将命令执行结果作为版本化事件回传给 Control Plane。
  * Control Plane 只有在 Inbox 去重和 Coordinator 状态提交成功后才确认事件。
@@ -19,144 +21,191 @@ public final class NodeEventServiceGrpc {
   public static final java.lang.String SERVICE_NAME = "browsercloud.node.v1.NodeEventService";
 
   // Static method descriptors that strictly reflect the proto.
-  private static volatile io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PublishRequest,
-      io.browsercloud.proto.node.v1.PublishResponse> getPublishMethod;
+  private static volatile io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.PublishRequest,
+          io.browsercloud.proto.node.v1.PublishResponse>
+      getPublishMethod;
 
   @io.grpc.stub.annotations.RpcMethod(
       fullMethodName = SERVICE_NAME + '/' + "Publish",
       requestType = io.browsercloud.proto.node.v1.PublishRequest.class,
       responseType = io.browsercloud.proto.node.v1.PublishResponse.class,
       methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
-  public static io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PublishRequest,
-      io.browsercloud.proto.node.v1.PublishResponse> getPublishMethod() {
-    io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PublishRequest, io.browsercloud.proto.node.v1.PublishResponse> getPublishMethod;
+  public static io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.PublishRequest,
+          io.browsercloud.proto.node.v1.PublishResponse>
+      getPublishMethod() {
+    io.grpc.MethodDescriptor<
+            io.browsercloud.proto.node.v1.PublishRequest,
+            io.browsercloud.proto.node.v1.PublishResponse>
+        getPublishMethod;
     if ((getPublishMethod = NodeEventServiceGrpc.getPublishMethod) == null) {
       synchronized (NodeEventServiceGrpc.class) {
         if ((getPublishMethod = NodeEventServiceGrpc.getPublishMethod) == null) {
-          NodeEventServiceGrpc.getPublishMethod = getPublishMethod =
-              io.grpc.MethodDescriptor.<io.browsercloud.proto.node.v1.PublishRequest, io.browsercloud.proto.node.v1.PublishResponse>newBuilder()
-              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
-              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "Publish"))
-              .setSampledToLocalTracing(true)
-              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.PublishRequest.getDefaultInstance()))
-              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.PublishResponse.getDefaultInstance()))
-              .setSchemaDescriptor(new NodeEventServiceMethodDescriptorSupplier("Publish"))
-              .build();
+          NodeEventServiceGrpc.getPublishMethod =
+              getPublishMethod =
+                  io.grpc.MethodDescriptor
+                      .<io.browsercloud.proto.node.v1.PublishRequest,
+                          io.browsercloud.proto.node.v1.PublishResponse>
+                          newBuilder()
+                      .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+                      .setFullMethodName(generateFullMethodName(SERVICE_NAME, "Publish"))
+                      .setSampledToLocalTracing(true)
+                      .setRequestMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.PublishRequest.getDefaultInstance()))
+                      .setResponseMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.PublishResponse.getDefaultInstance()))
+                      .setSchemaDescriptor(new NodeEventServiceMethodDescriptorSupplier("Publish"))
+                      .build();
         }
       }
     }
     return getPublishMethod;
   }
 
-  private static volatile io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.ReportCapacityRequest,
-      io.browsercloud.proto.node.v1.ReportCapacityResponse> getReportCapacityMethod;
+  private static volatile io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.ReportCapacityRequest,
+          io.browsercloud.proto.node.v1.ReportCapacityResponse>
+      getReportCapacityMethod;
 
   @io.grpc.stub.annotations.RpcMethod(
       fullMethodName = SERVICE_NAME + '/' + "ReportCapacity",
       requestType = io.browsercloud.proto.node.v1.ReportCapacityRequest.class,
       responseType = io.browsercloud.proto.node.v1.ReportCapacityResponse.class,
       methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
-  public static io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.ReportCapacityRequest,
-      io.browsercloud.proto.node.v1.ReportCapacityResponse> getReportCapacityMethod() {
-    io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.ReportCapacityRequest, io.browsercloud.proto.node.v1.ReportCapacityResponse> getReportCapacityMethod;
+  public static io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.ReportCapacityRequest,
+          io.browsercloud.proto.node.v1.ReportCapacityResponse>
+      getReportCapacityMethod() {
+    io.grpc.MethodDescriptor<
+            io.browsercloud.proto.node.v1.ReportCapacityRequest,
+            io.browsercloud.proto.node.v1.ReportCapacityResponse>
+        getReportCapacityMethod;
     if ((getReportCapacityMethod = NodeEventServiceGrpc.getReportCapacityMethod) == null) {
       synchronized (NodeEventServiceGrpc.class) {
         if ((getReportCapacityMethod = NodeEventServiceGrpc.getReportCapacityMethod) == null) {
-          NodeEventServiceGrpc.getReportCapacityMethod = getReportCapacityMethod =
-              io.grpc.MethodDescriptor.<io.browsercloud.proto.node.v1.ReportCapacityRequest, io.browsercloud.proto.node.v1.ReportCapacityResponse>newBuilder()
-              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
-              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "ReportCapacity"))
-              .setSampledToLocalTracing(true)
-              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.ReportCapacityRequest.getDefaultInstance()))
-              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.ReportCapacityResponse.getDefaultInstance()))
-              .setSchemaDescriptor(new NodeEventServiceMethodDescriptorSupplier("ReportCapacity"))
-              .build();
+          NodeEventServiceGrpc.getReportCapacityMethod =
+              getReportCapacityMethod =
+                  io.grpc.MethodDescriptor
+                      .<io.browsercloud.proto.node.v1.ReportCapacityRequest,
+                          io.browsercloud.proto.node.v1.ReportCapacityResponse>
+                          newBuilder()
+                      .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+                      .setFullMethodName(generateFullMethodName(SERVICE_NAME, "ReportCapacity"))
+                      .setSampledToLocalTracing(true)
+                      .setRequestMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.ReportCapacityRequest
+                                  .getDefaultInstance()))
+                      .setResponseMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.ReportCapacityResponse
+                                  .getDefaultInstance()))
+                      .setSchemaDescriptor(
+                          new NodeEventServiceMethodDescriptorSupplier("ReportCapacity"))
+                      .build();
         }
       }
     }
     return getReportCapacityMethod;
   }
 
-  private static volatile io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.ReportSessionResourcesRequest,
-      io.browsercloud.proto.node.v1.ReportSessionResourcesResponse> getReportSessionResourcesMethod;
+  private static volatile io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.ReportSessionResourcesRequest,
+          io.browsercloud.proto.node.v1.ReportSessionResourcesResponse>
+      getReportSessionResourcesMethod;
 
   @io.grpc.stub.annotations.RpcMethod(
       fullMethodName = SERVICE_NAME + '/' + "ReportSessionResources",
       requestType = io.browsercloud.proto.node.v1.ReportSessionResourcesRequest.class,
       responseType = io.browsercloud.proto.node.v1.ReportSessionResourcesResponse.class,
       methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
-  public static io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.ReportSessionResourcesRequest,
-      io.browsercloud.proto.node.v1.ReportSessionResourcesResponse> getReportSessionResourcesMethod() {
-    io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.ReportSessionResourcesRequest, io.browsercloud.proto.node.v1.ReportSessionResourcesResponse> getReportSessionResourcesMethod;
-    if ((getReportSessionResourcesMethod = NodeEventServiceGrpc.getReportSessionResourcesMethod) == null) {
+  public static io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.ReportSessionResourcesRequest,
+          io.browsercloud.proto.node.v1.ReportSessionResourcesResponse>
+      getReportSessionResourcesMethod() {
+    io.grpc.MethodDescriptor<
+            io.browsercloud.proto.node.v1.ReportSessionResourcesRequest,
+            io.browsercloud.proto.node.v1.ReportSessionResourcesResponse>
+        getReportSessionResourcesMethod;
+    if ((getReportSessionResourcesMethod = NodeEventServiceGrpc.getReportSessionResourcesMethod)
+        == null) {
       synchronized (NodeEventServiceGrpc.class) {
-        if ((getReportSessionResourcesMethod = NodeEventServiceGrpc.getReportSessionResourcesMethod) == null) {
-          NodeEventServiceGrpc.getReportSessionResourcesMethod = getReportSessionResourcesMethod =
-              io.grpc.MethodDescriptor.<io.browsercloud.proto.node.v1.ReportSessionResourcesRequest, io.browsercloud.proto.node.v1.ReportSessionResourcesResponse>newBuilder()
-              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
-              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "ReportSessionResources"))
-              .setSampledToLocalTracing(true)
-              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.ReportSessionResourcesRequest.getDefaultInstance()))
-              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.ReportSessionResourcesResponse.getDefaultInstance()))
-              .setSchemaDescriptor(new NodeEventServiceMethodDescriptorSupplier("ReportSessionResources"))
-              .build();
+        if ((getReportSessionResourcesMethod = NodeEventServiceGrpc.getReportSessionResourcesMethod)
+            == null) {
+          NodeEventServiceGrpc.getReportSessionResourcesMethod =
+              getReportSessionResourcesMethod =
+                  io.grpc.MethodDescriptor
+                      .<io.browsercloud.proto.node.v1.ReportSessionResourcesRequest,
+                          io.browsercloud.proto.node.v1.ReportSessionResourcesResponse>
+                          newBuilder()
+                      .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+                      .setFullMethodName(
+                          generateFullMethodName(SERVICE_NAME, "ReportSessionResources"))
+                      .setSampledToLocalTracing(true)
+                      .setRequestMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.ReportSessionResourcesRequest
+                                  .getDefaultInstance()))
+                      .setResponseMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.ReportSessionResourcesResponse
+                                  .getDefaultInstance()))
+                      .setSchemaDescriptor(
+                          new NodeEventServiceMethodDescriptorSupplier("ReportSessionResources"))
+                      .build();
         }
       }
     }
     return getReportSessionResourcesMethod;
   }
 
-  /**
-   * Creates a new async stub that supports all call types for the service
-   */
+  /** Creates a new async stub that supports all call types for the service */
   public static NodeEventServiceStub newStub(io.grpc.Channel channel) {
     io.grpc.stub.AbstractStub.StubFactory<NodeEventServiceStub> factory =
-      new io.grpc.stub.AbstractStub.StubFactory<NodeEventServiceStub>() {
-        @java.lang.Override
-        public NodeEventServiceStub newStub(io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
-          return new NodeEventServiceStub(channel, callOptions);
-        }
-      };
+        new io.grpc.stub.AbstractStub.StubFactory<NodeEventServiceStub>() {
+          @java.lang.Override
+          public NodeEventServiceStub newStub(
+              io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
+            return new NodeEventServiceStub(channel, callOptions);
+          }
+        };
     return NodeEventServiceStub.newStub(factory, channel);
   }
 
   /**
    * Creates a new blocking-style stub that supports unary and streaming output calls on the service
    */
-  public static NodeEventServiceBlockingStub newBlockingStub(
-      io.grpc.Channel channel) {
+  public static NodeEventServiceBlockingStub newBlockingStub(io.grpc.Channel channel) {
     io.grpc.stub.AbstractStub.StubFactory<NodeEventServiceBlockingStub> factory =
-      new io.grpc.stub.AbstractStub.StubFactory<NodeEventServiceBlockingStub>() {
-        @java.lang.Override
-        public NodeEventServiceBlockingStub newStub(io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
-          return new NodeEventServiceBlockingStub(channel, callOptions);
-        }
-      };
+        new io.grpc.stub.AbstractStub.StubFactory<NodeEventServiceBlockingStub>() {
+          @java.lang.Override
+          public NodeEventServiceBlockingStub newStub(
+              io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
+            return new NodeEventServiceBlockingStub(channel, callOptions);
+          }
+        };
     return NodeEventServiceBlockingStub.newStub(factory, channel);
   }
 
-  /**
-   * Creates a new ListenableFuture-style stub that supports unary calls on the service
-   */
-  public static NodeEventServiceFutureStub newFutureStub(
-      io.grpc.Channel channel) {
+  /** Creates a new ListenableFuture-style stub that supports unary calls on the service */
+  public static NodeEventServiceFutureStub newFutureStub(io.grpc.Channel channel) {
     io.grpc.stub.AbstractStub.StubFactory<NodeEventServiceFutureStub> factory =
-      new io.grpc.stub.AbstractStub.StubFactory<NodeEventServiceFutureStub>() {
-        @java.lang.Override
-        public NodeEventServiceFutureStub newStub(io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
-          return new NodeEventServiceFutureStub(channel, callOptions);
-        }
-      };
+        new io.grpc.stub.AbstractStub.StubFactory<NodeEventServiceFutureStub>() {
+          @java.lang.Override
+          public NodeEventServiceFutureStub newStub(
+              io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
+            return new NodeEventServiceFutureStub(channel, callOptions);
+          }
+        };
     return NodeEventServiceFutureStub.newStub(factory, channel);
   }
 
   /**
+   *
+   *
    * <pre>
    * Browser Node 将命令执行结果作为版本化事件回传给 Control Plane。
    * Control Plane 只有在 Inbox 去重和 Coordinator 状态提交成功后才确认事件。
@@ -164,52 +213,66 @@ public final class NodeEventServiceGrpc {
    */
   public interface AsyncService {
 
-    /**
-     */
-    default void publish(io.browsercloud.proto.node.v1.PublishRequest request,
-        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PublishResponse> responseObserver) {
+    /** */
+    default void publish(
+        io.browsercloud.proto.node.v1.PublishRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PublishResponse>
+            responseObserver) {
       io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getPublishMethod(), responseObserver);
     }
 
     /**
+     *
+     *
      * <pre>
      * mTLS-authenticated Browser Node registration and live PSI heartbeat.
      * </pre>
      */
-    default void reportCapacity(io.browsercloud.proto.node.v1.ReportCapacityRequest request,
-        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ReportCapacityResponse> responseObserver) {
-      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getReportCapacityMethod(), responseObserver);
+    default void reportCapacity(
+        io.browsercloud.proto.node.v1.ReportCapacityRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ReportCapacityResponse>
+            responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(
+          getReportCapacityMethod(), responseObserver);
     }
 
     /**
+     *
+     *
      * <pre>
      * Five-second, Session-scoped runtime telemetry. Values are measured by the
      * owning Browser Node and are rejected if the current Placement does not match.
      * </pre>
      */
-    default void reportSessionResources(io.browsercloud.proto.node.v1.ReportSessionResourcesRequest request,
-        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ReportSessionResourcesResponse> responseObserver) {
-      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getReportSessionResourcesMethod(), responseObserver);
+    default void reportSessionResources(
+        io.browsercloud.proto.node.v1.ReportSessionResourcesRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ReportSessionResourcesResponse>
+            responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(
+          getReportSessionResourcesMethod(), responseObserver);
     }
   }
 
   /**
    * Base class for the server implementation of the service NodeEventService.
+   *
    * <pre>
    * Browser Node 将命令执行结果作为版本化事件回传给 Control Plane。
    * Control Plane 只有在 Inbox 去重和 Coordinator 状态提交成功后才确认事件。
    * </pre>
    */
-  public static abstract class NodeEventServiceImplBase
+  public abstract static class NodeEventServiceImplBase
       implements io.grpc.BindableService, AsyncService {
 
-    @java.lang.Override public final io.grpc.ServerServiceDefinition bindService() {
+    @java.lang.Override
+    public final io.grpc.ServerServiceDefinition bindService() {
       return NodeEventServiceGrpc.bindService(this);
     }
   }
 
   /**
    * A stub to allow clients to do asynchronous rpc calls to service NodeEventService.
+   *
    * <pre>
    * Browser Node 将命令执行结果作为版本化事件回传给 Control Plane。
    * Control Plane 只有在 Inbox 去重和 Coordinator 状态提交成功后才确认事件。
@@ -217,51 +280,63 @@ public final class NodeEventServiceGrpc {
    */
   public static final class NodeEventServiceStub
       extends io.grpc.stub.AbstractAsyncStub<NodeEventServiceStub> {
-    private NodeEventServiceStub(
-        io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
+    private NodeEventServiceStub(io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
       super(channel, callOptions);
     }
 
     @java.lang.Override
-    protected NodeEventServiceStub build(
-        io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
+    protected NodeEventServiceStub build(io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
       return new NodeEventServiceStub(channel, callOptions);
     }
 
-    /**
-     */
-    public void publish(io.browsercloud.proto.node.v1.PublishRequest request,
-        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PublishResponse> responseObserver) {
+    /** */
+    public void publish(
+        io.browsercloud.proto.node.v1.PublishRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PublishResponse>
+            responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
           getChannel().newCall(getPublishMethod(), getCallOptions()), request, responseObserver);
     }
 
     /**
+     *
+     *
      * <pre>
      * mTLS-authenticated Browser Node registration and live PSI heartbeat.
      * </pre>
      */
-    public void reportCapacity(io.browsercloud.proto.node.v1.ReportCapacityRequest request,
-        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ReportCapacityResponse> responseObserver) {
+    public void reportCapacity(
+        io.browsercloud.proto.node.v1.ReportCapacityRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ReportCapacityResponse>
+            responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
-          getChannel().newCall(getReportCapacityMethod(), getCallOptions()), request, responseObserver);
+          getChannel().newCall(getReportCapacityMethod(), getCallOptions()),
+          request,
+          responseObserver);
     }
 
     /**
+     *
+     *
      * <pre>
      * Five-second, Session-scoped runtime telemetry. Values are measured by the
      * owning Browser Node and are rejected if the current Placement does not match.
      * </pre>
      */
-    public void reportSessionResources(io.browsercloud.proto.node.v1.ReportSessionResourcesRequest request,
-        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ReportSessionResourcesResponse> responseObserver) {
+    public void reportSessionResources(
+        io.browsercloud.proto.node.v1.ReportSessionResourcesRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ReportSessionResourcesResponse>
+            responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
-          getChannel().newCall(getReportSessionResourcesMethod(), getCallOptions()), request, responseObserver);
+          getChannel().newCall(getReportSessionResourcesMethod(), getCallOptions()),
+          request,
+          responseObserver);
     }
   }
 
   /**
    * A stub to allow clients to do synchronous rpc calls to service NodeEventService.
+   *
    * <pre>
    * Browser Node 将命令执行结果作为版本化事件回传给 Control Plane。
    * Control Plane 只有在 Inbox 去重和 Coordinator 状态提交成功后才确认事件。
@@ -269,8 +344,7 @@ public final class NodeEventServiceGrpc {
    */
   public static final class NodeEventServiceBlockingStub
       extends io.grpc.stub.AbstractBlockingStub<NodeEventServiceBlockingStub> {
-    private NodeEventServiceBlockingStub(
-        io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
+    private NodeEventServiceBlockingStub(io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
       super(channel, callOptions);
     }
 
@@ -280,30 +354,36 @@ public final class NodeEventServiceGrpc {
       return new NodeEventServiceBlockingStub(channel, callOptions);
     }
 
-    /**
-     */
-    public io.browsercloud.proto.node.v1.PublishResponse publish(io.browsercloud.proto.node.v1.PublishRequest request) {
+    /** */
+    public io.browsercloud.proto.node.v1.PublishResponse publish(
+        io.browsercloud.proto.node.v1.PublishRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getPublishMethod(), getCallOptions(), request);
     }
 
     /**
+     *
+     *
      * <pre>
      * mTLS-authenticated Browser Node registration and live PSI heartbeat.
      * </pre>
      */
-    public io.browsercloud.proto.node.v1.ReportCapacityResponse reportCapacity(io.browsercloud.proto.node.v1.ReportCapacityRequest request) {
+    public io.browsercloud.proto.node.v1.ReportCapacityResponse reportCapacity(
+        io.browsercloud.proto.node.v1.ReportCapacityRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getReportCapacityMethod(), getCallOptions(), request);
     }
 
     /**
+     *
+     *
      * <pre>
      * Five-second, Session-scoped runtime telemetry. Values are measured by the
      * owning Browser Node and are rejected if the current Placement does not match.
      * </pre>
      */
-    public io.browsercloud.proto.node.v1.ReportSessionResourcesResponse reportSessionResources(io.browsercloud.proto.node.v1.ReportSessionResourcesRequest request) {
+    public io.browsercloud.proto.node.v1.ReportSessionResourcesResponse reportSessionResources(
+        io.browsercloud.proto.node.v1.ReportSessionResourcesRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getReportSessionResourcesMethod(), getCallOptions(), request);
     }
@@ -311,6 +391,7 @@ public final class NodeEventServiceGrpc {
 
   /**
    * A stub to allow clients to do ListenableFuture-style rpc calls to service NodeEventService.
+   *
    * <pre>
    * Browser Node 将命令执行结果作为版本化事件回传给 Control Plane。
    * Control Plane 只有在 Inbox 去重和 Coordinator 状态提交成功后才确认事件。
@@ -318,8 +399,7 @@ public final class NodeEventServiceGrpc {
    */
   public static final class NodeEventServiceFutureStub
       extends io.grpc.stub.AbstractFutureStub<NodeEventServiceFutureStub> {
-    private NodeEventServiceFutureStub(
-        io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
+    private NodeEventServiceFutureStub(io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
       super(channel, callOptions);
     }
 
@@ -329,33 +409,40 @@ public final class NodeEventServiceGrpc {
       return new NodeEventServiceFutureStub(channel, callOptions);
     }
 
-    /**
-     */
-    public com.google.common.util.concurrent.ListenableFuture<io.browsercloud.proto.node.v1.PublishResponse> publish(
-        io.browsercloud.proto.node.v1.PublishRequest request) {
+    /** */
+    public com.google.common.util.concurrent.ListenableFuture<
+            io.browsercloud.proto.node.v1.PublishResponse>
+        publish(io.browsercloud.proto.node.v1.PublishRequest request) {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
           getChannel().newCall(getPublishMethod(), getCallOptions()), request);
     }
 
     /**
+     *
+     *
      * <pre>
      * mTLS-authenticated Browser Node registration and live PSI heartbeat.
      * </pre>
      */
-    public com.google.common.util.concurrent.ListenableFuture<io.browsercloud.proto.node.v1.ReportCapacityResponse> reportCapacity(
-        io.browsercloud.proto.node.v1.ReportCapacityRequest request) {
+    public com.google.common.util.concurrent.ListenableFuture<
+            io.browsercloud.proto.node.v1.ReportCapacityResponse>
+        reportCapacity(io.browsercloud.proto.node.v1.ReportCapacityRequest request) {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
           getChannel().newCall(getReportCapacityMethod(), getCallOptions()), request);
     }
 
     /**
+     *
+     *
      * <pre>
      * Five-second, Session-scoped runtime telemetry. Values are measured by the
      * owning Browser Node and are rejected if the current Placement does not match.
      * </pre>
      */
-    public com.google.common.util.concurrent.ListenableFuture<io.browsercloud.proto.node.v1.ReportSessionResourcesResponse> reportSessionResources(
-        io.browsercloud.proto.node.v1.ReportSessionResourcesRequest request) {
+    public com.google.common.util.concurrent.ListenableFuture<
+            io.browsercloud.proto.node.v1.ReportSessionResourcesResponse>
+        reportSessionResources(
+            io.browsercloud.proto.node.v1.ReportSessionResourcesRequest request) {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
           getChannel().newCall(getReportSessionResourcesMethod(), getCallOptions()), request);
     }
@@ -365,11 +452,11 @@ public final class NodeEventServiceGrpc {
   private static final int METHODID_REPORT_CAPACITY = 1;
   private static final int METHODID_REPORT_SESSION_RESOURCES = 2;
 
-  private static final class MethodHandlers<Req, Resp> implements
-      io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
-      io.grpc.stub.ServerCalls.ServerStreamingMethod<Req, Resp>,
-      io.grpc.stub.ServerCalls.ClientStreamingMethod<Req, Resp>,
-      io.grpc.stub.ServerCalls.BidiStreamingMethod<Req, Resp> {
+  private static final class MethodHandlers<Req, Resp>
+      implements io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
+          io.grpc.stub.ServerCalls.ServerStreamingMethod<Req, Resp>,
+          io.grpc.stub.ServerCalls.ClientStreamingMethod<Req, Resp>,
+          io.grpc.stub.ServerCalls.BidiStreamingMethod<Req, Resp> {
     private final AsyncService serviceImpl;
     private final int methodId;
 
@@ -383,16 +470,23 @@ public final class NodeEventServiceGrpc {
     public void invoke(Req request, io.grpc.stub.StreamObserver<Resp> responseObserver) {
       switch (methodId) {
         case METHODID_PUBLISH:
-          serviceImpl.publish((io.browsercloud.proto.node.v1.PublishRequest) request,
-              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PublishResponse>) responseObserver);
+          serviceImpl.publish(
+              (io.browsercloud.proto.node.v1.PublishRequest) request,
+              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PublishResponse>)
+                  responseObserver);
           break;
         case METHODID_REPORT_CAPACITY:
-          serviceImpl.reportCapacity((io.browsercloud.proto.node.v1.ReportCapacityRequest) request,
-              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ReportCapacityResponse>) responseObserver);
+          serviceImpl.reportCapacity(
+              (io.browsercloud.proto.node.v1.ReportCapacityRequest) request,
+              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ReportCapacityResponse>)
+                  responseObserver);
           break;
         case METHODID_REPORT_SESSION_RESOURCES:
-          serviceImpl.reportSessionResources((io.browsercloud.proto.node.v1.ReportSessionResourcesRequest) request,
-              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ReportSessionResourcesResponse>) responseObserver);
+          serviceImpl.reportSessionResources(
+              (io.browsercloud.proto.node.v1.ReportSessionResourcesRequest) request,
+              (io.grpc.stub.StreamObserver<
+                      io.browsercloud.proto.node.v1.ReportSessionResourcesResponse>)
+                  responseObserver);
           break;
         default:
           throw new AssertionError();
@@ -413,31 +507,31 @@ public final class NodeEventServiceGrpc {
   public static final io.grpc.ServerServiceDefinition bindService(AsyncService service) {
     return io.grpc.ServerServiceDefinition.builder(getServiceDescriptor())
         .addMethod(
-          getPublishMethod(),
-          io.grpc.stub.ServerCalls.asyncUnaryCall(
-            new MethodHandlers<
-              io.browsercloud.proto.node.v1.PublishRequest,
-              io.browsercloud.proto.node.v1.PublishResponse>(
-                service, METHODID_PUBLISH)))
+            getPublishMethod(),
+            io.grpc.stub.ServerCalls.asyncUnaryCall(
+                new MethodHandlers<
+                    io.browsercloud.proto.node.v1.PublishRequest,
+                    io.browsercloud.proto.node.v1.PublishResponse>(service, METHODID_PUBLISH)))
         .addMethod(
-          getReportCapacityMethod(),
-          io.grpc.stub.ServerCalls.asyncUnaryCall(
-            new MethodHandlers<
-              io.browsercloud.proto.node.v1.ReportCapacityRequest,
-              io.browsercloud.proto.node.v1.ReportCapacityResponse>(
-                service, METHODID_REPORT_CAPACITY)))
+            getReportCapacityMethod(),
+            io.grpc.stub.ServerCalls.asyncUnaryCall(
+                new MethodHandlers<
+                    io.browsercloud.proto.node.v1.ReportCapacityRequest,
+                    io.browsercloud.proto.node.v1.ReportCapacityResponse>(
+                    service, METHODID_REPORT_CAPACITY)))
         .addMethod(
-          getReportSessionResourcesMethod(),
-          io.grpc.stub.ServerCalls.asyncUnaryCall(
-            new MethodHandlers<
-              io.browsercloud.proto.node.v1.ReportSessionResourcesRequest,
-              io.browsercloud.proto.node.v1.ReportSessionResourcesResponse>(
-                service, METHODID_REPORT_SESSION_RESOURCES)))
+            getReportSessionResourcesMethod(),
+            io.grpc.stub.ServerCalls.asyncUnaryCall(
+                new MethodHandlers<
+                    io.browsercloud.proto.node.v1.ReportSessionResourcesRequest,
+                    io.browsercloud.proto.node.v1.ReportSessionResourcesResponse>(
+                    service, METHODID_REPORT_SESSION_RESOURCES)))
         .build();
   }
 
-  private static abstract class NodeEventServiceBaseDescriptorSupplier
-      implements io.grpc.protobuf.ProtoFileDescriptorSupplier, io.grpc.protobuf.ProtoServiceDescriptorSupplier {
+  private abstract static class NodeEventServiceBaseDescriptorSupplier
+      implements io.grpc.protobuf.ProtoFileDescriptorSupplier,
+          io.grpc.protobuf.ProtoServiceDescriptorSupplier {
     NodeEventServiceBaseDescriptorSupplier() {}
 
     @java.lang.Override
@@ -479,12 +573,14 @@ public final class NodeEventServiceGrpc {
       synchronized (NodeEventServiceGrpc.class) {
         result = serviceDescriptor;
         if (result == null) {
-          serviceDescriptor = result = io.grpc.ServiceDescriptor.newBuilder(SERVICE_NAME)
-              .setSchemaDescriptor(new NodeEventServiceFileDescriptorSupplier())
-              .addMethod(getPublishMethod())
-              .addMethod(getReportCapacityMethod())
-              .addMethod(getReportSessionResourcesMethod())
-              .build();
+          serviceDescriptor =
+              result =
+                  io.grpc.ServiceDescriptor.newBuilder(SERVICE_NAME)
+                      .setSchemaDescriptor(new NodeEventServiceFileDescriptorSupplier())
+                      .addMethod(getPublishMethod())
+                      .addMethod(getReportCapacityMethod())
+                      .addMethod(getReportSessionResourcesMethod())
+                      .build();
         }
       }
     }

@@ -4,22 +4,25 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface PublishRequestOrBuilder extends
+public interface PublishRequestOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.PublishRequest)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>.browsercloud.node.v1.EventEnvelope event = 1 [json_name = "event"];</code>
+   *
    * @return Whether the event field is set.
    */
   boolean hasEvent();
+
   /**
    * <code>.browsercloud.node.v1.EventEnvelope event = 1 [json_name = "event"];</code>
+   *
    * @return The event.
    */
   io.browsercloud.proto.node.v1.EventEnvelope getEvent();
-  /**
-   * <code>.browsercloud.node.v1.EventEnvelope event = 1 [json_name = "event"];</code>
-   */
+
+  /** <code>.browsercloud.node.v1.EventEnvelope event = 1 [json_name = "event"];</code> */
   io.browsercloud.proto.node.v1.EventEnvelopeOrBuilder getEventOrBuilder();
 }

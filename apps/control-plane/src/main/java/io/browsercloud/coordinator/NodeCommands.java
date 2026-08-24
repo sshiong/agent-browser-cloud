@@ -8,6 +8,7 @@ import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.proto.node.v1.AdjustRuntimeResourcesCommand;
 import io.browsercloud.proto.node.v1.AgentActionCommand;
 import io.browsercloud.proto.node.v1.AgentActionPrimitive;
+import io.browsercloud.proto.node.v1.AgentFileUploadCommand;
 import io.browsercloud.proto.node.v1.AgentNavigateCommand;
 import io.browsercloud.proto.node.v1.BeginHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand;
@@ -619,6 +620,35 @@ public final class NodeCommands {
     }
     var payload = builder.build().toByteArray();
     return command(session, operation, "AgentAction", payload);
+  }
+
+  public static NodeCommand agentFileUpload(
+      SessionContext session,
+      ExclusiveOperation operation,
+      String uploadId,
+      String targetRef,
+      long targetRevision,
+      long baseStateVersion,
+      String baseContentHash,
+      String filename,
+      String mimeType,
+      String contentSha256,
+      long contentBytes) {
+    var payload =
+        AgentFileUploadCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setUploadId(uploadId)
+            .setTargetRef(targetRef)
+            .setTargetRevision(targetRevision)
+            .setBaseStateVersion(baseStateVersion)
+            .setBaseContentHash(baseContentHash)
+            .setFilename(filename)
+            .setMimeType(mimeType)
+            .setContentSha256(contentSha256)
+            .setContentBytes(contentBytes)
+            .build()
+            .toByteArray();
+    return command(session, operation, "AgentFileUpload", payload);
   }
 
   public static NodeCommand agentChallengeInput(

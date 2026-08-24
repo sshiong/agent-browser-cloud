@@ -8,10 +8,11 @@ mod safety_monitor;
 use async_trait::async_trait;
 pub use dialog_monitor::NativeDialog;
 use futures_util::{SinkExt, StreamExt};
-pub use safety_monitor::{BrowserSafetyObservation, BrowserTransactionPolicy};
+pub use safety_monitor::{BrowserDownload, BrowserSafetyObservation, BrowserTransactionPolicy};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinHandle;
@@ -111,6 +112,12 @@ pub struct CurrentState {
     /// True only when every current Page Target is continuously observed or safely probed.
     #[serde(default)]
     pub native_dialog_evidence_fresh: bool,
+    /// URL-free bounded download lifecycle from Chromium Browser events.
+    #[serde(default)]
+    pub downloads: Vec<BrowserDownload>,
+    /// False after any Browser event observer gap; callers must not infer terminal state.
+    #[serde(default)]
+    pub download_evidence_fresh: bool,
     /// 交互目标列表
     pub targets: Vec<InteractiveTarget>,
     /// 状态质量
@@ -144,6 +151,10 @@ pub struct StateDiff {
     pub native_dialogs: Vec<NativeDialog>,
     #[serde(default)]
     pub native_dialog_evidence_fresh: bool,
+    #[serde(default)]
+    pub downloads: Vec<BrowserDownload>,
+    #[serde(default)]
+    pub download_evidence_fresh: bool,
     pub quality: StateQuality,
     pub content_hash: String,
     #[serde(default)]
@@ -219,6 +230,8 @@ pub fn diff_states(
         active_tab_id: current.active_tab_id.clone(),
         native_dialogs: current.native_dialogs.clone(),
         native_dialog_evidence_fresh: current.native_dialog_evidence_fresh,
+        downloads: current.downloads.clone(),
+        download_evidence_fresh: current.download_evidence_fresh,
         quality: current.quality.clone(),
         content_hash: current.content_hash.clone(),
         document_ready_state: current.document_ready_state.clone(),
@@ -428,6 +441,11 @@ struct RegisteredTarget {
     resolved: Option<ResolvedTarget>,
 }
 
+struct DownloadHashEvidence<'a> {
+    downloads: &'a [BrowserDownload],
+    fresh: bool,
+}
+
 #[derive(Debug, Clone)]
 pub struct ResolvedTarget {
     pub element_id: String,
@@ -439,6 +457,8 @@ pub struct ResolvedTarget {
     pub in_viewport: bool,
     pub occluded: bool,
     pub checked: Option<bool>,
+    pub control_type: Option<String>,
+    pub path: String,
 }
 
 impl CdpStateCollector {
@@ -2053,6 +2073,159 @@ impl CdpStateCollector {
         Ok(target)
     }
 
+    /// Sets a Session-staged file on the exact structured `<input type=file>` target through CDP.
+    /// This never opens or interacts with an OS file chooser.
+    pub async fn set_file_input_files(
+        &self,
+        session_id: &str,
+        target_ref: &str,
+        target_revision: u64,
+        staged_path: &Path,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            staged_path.is_absolute(),
+            "staged upload path must be absolute"
+        );
+        let metadata = tokio::fs::metadata(staged_path).await?;
+        anyhow::ensure!(metadata.is_file(), "staged upload is not a regular file");
+        let path = {
+            let registries = self.target_registries.lock().await;
+            let registry = registries
+                .get(session_id)
+                .ok_or_else(|| anyhow::anyhow!("target registry is unavailable"))?;
+            anyhow::ensure!(
+                registry.target_revision == target_revision,
+                "target revision is stale"
+            );
+            let target = registry
+                .targets
+                .get(target_ref)
+                .or_else(|| {
+                    registry
+                        .targets
+                        .values()
+                        .find(|target| target.interactive.element_id == target_ref)
+                })
+                .ok_or_else(|| anyhow::anyhow!("file input target is stale or unknown"))?;
+            anyhow::ensure!(target.evaluated.enabled, "file input target is not enabled");
+            anyhow::ensure!(
+                target.evaluated.control_type.as_deref() == Some("file"),
+                "target is not a file input"
+            );
+            target.evaluated.path.clone()
+        };
+        let websocket_url = self.active_page_websocket(session_id).await?;
+        let (mut socket, _) = timeout(
+            Duration::from_secs(3),
+            tokio_tungstenite::connect_async(websocket_url),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("CDP file upload connection timed out"))??;
+        let requested_path = serde_json::to_string(&path)?;
+        let expression = r#"
+          (() => {
+            const expected = __EXPECTED_PATH__;
+            const pathFor = (element) => {
+              const parts = [];
+              let current = element;
+              while (current && current.nodeType === Node.ELEMENT_NODE && parts.length < 24) {
+                const tag = current.tagName.toLowerCase();
+                let index = 1;
+                let sibling = current.previousElementSibling;
+                while (sibling) {
+                  if (sibling.tagName === current.tagName) index += 1;
+                  sibling = sibling.previousElementSibling;
+                }
+                parts.unshift(`${tag}:nth-of-type(${index})`);
+                const parent = current.parentElement;
+                if (parent) current = parent;
+                else {
+                  const root = current.getRootNode?.();
+                  if (root instanceof ShadowRoot) {
+                    parts.unshift('>>shadow>>');
+                    current = root.host;
+                  } else current = null;
+                }
+              }
+              return parts.join('>');
+            };
+            let found = null;
+            const walk = (walkRoot, prefix = '') => {
+              const elements = walkRoot === document
+                ? Array.from(document.querySelectorAll('*'))
+                : Array.from(walkRoot.querySelectorAll?.('*') || []);
+              for (const element of elements) {
+                const candidate = `${prefix}${pathFor(element)}`;
+                if (candidate === expected) { found = element; return true; }
+                if (element.shadowRoot && walk(element.shadowRoot, `${candidate}>>>`)) return true;
+                if (element.tagName === 'IFRAME') {
+                  try {
+                    if (element.contentDocument?.documentElement
+                        && walk(element.contentDocument, `${candidate}::frame::`)) return true;
+                  } catch (_) { /* cross-origin frames are not structured targets */ }
+                }
+              }
+              return false;
+            };
+            walk(document);
+            return found;
+          })()
+        "#
+        .replace("__EXPECTED_PATH__", &requested_path);
+        socket
+            .send(Message::Text(
+                serde_json::json!({
+                    "id": 501,
+                    "method": "Runtime.evaluate",
+                    "params": {
+                        "expression": expression,
+                        "returnByValue": false,
+                        "awaitPromise": false,
+                        "userGesture": true
+                    }
+                })
+                .to_string(),
+            ))
+            .await?;
+        let evaluated = next_cdp_response(&mut socket, 501, "file input resolve").await?;
+        let object_id = evaluated
+            .pointer("/result/result/objectId")
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| anyhow::anyhow!("file input target disappeared"))?;
+        socket
+            .send(Message::Text(
+                serde_json::json!({
+                    "id": 502,
+                    "method": "DOM.describeNode",
+                    "params": {"objectId": object_id}
+                })
+                .to_string(),
+            ))
+            .await?;
+        let described = next_cdp_response(&mut socket, 502, "file input describe").await?;
+        let backend_node_id = described
+            .pointer("/result/node/backendNodeId")
+            .and_then(serde_json::Value::as_u64)
+            .filter(|value| *value > 0)
+            .ok_or_else(|| anyhow::anyhow!("file input backend node is unavailable"))?;
+        socket
+            .send(Message::Text(
+                serde_json::json!({
+                    "id": 503,
+                    "method": "DOM.setFileInputFiles",
+                    "params": {
+                        "files": [staged_path.to_string_lossy()],
+                        "backendNodeId": backend_node_id
+                    }
+                })
+                .to_string(),
+            ))
+            .await?;
+        next_cdp_response(&mut socket, 503, "set file input files").await?;
+        Ok(())
+    }
+
     /// Returns the current CSS viewport used by CDP input coordinates.
     pub async fn viewport_size(&self, session_id: &str) -> anyhow::Result<(f64, f64)> {
         let websocket_url = self.active_page_websocket(session_id).await?;
@@ -2181,6 +2354,8 @@ impl CdpStateCollector {
             in_viewport: evaluated.in_viewport,
             occluded: evaluated.occluded,
             checked: evaluated.checked,
+            control_type: evaluated.control_type.clone(),
+            path: evaluated.path.clone(),
         });
         let interactive = InteractiveTarget {
             target_ref,
@@ -2240,19 +2415,22 @@ impl CdpStateCollector {
         tab_snapshot: &TabSnapshot,
         native_dialogs: &[NativeDialog],
         native_dialog_evidence_fresh: bool,
+        download_evidence: DownloadHashEvidence<'_>,
         truncated: bool,
         network_readiness_hash_bucket: u64,
     ) -> anyhow::Result<(String, String)> {
         let serialized_targets = serde_json::to_string(&page.targets)?;
         let content_hash = hex_sha256(
             format!(
-                "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+                "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
                 page.url,
                 page.title,
                 serde_json::to_string(&tab_snapshot.tabs)?,
                 tab_snapshot.active_tab_id,
                 serde_json::to_string(native_dialogs)?,
                 native_dialog_evidence_fresh,
+                serde_json::to_string(download_evidence.downloads)?,
+                download_evidence.fresh,
                 serialized_targets,
                 truncated,
                 page.document_ready_state,
@@ -2274,6 +2452,7 @@ impl CdpStateCollector {
     ) -> anyhow::Result<CurrentState> {
         let previous = self.last_states.read().await.get(session_id).cloned();
         let network_observation = self.browser_safety_observation(session_id).await;
+        let network_quiet_millis = network_observation.network_quiet_millis();
         let active_tab = tab_snapshot
             .tabs
             .iter()
@@ -2307,10 +2486,12 @@ impl CdpStateCollector {
         let fallback_target_fingerprint = hex_sha256(serde_json::to_string(&targets)?.as_bytes());
         let content_hash = hex_sha256(
             format!(
-                "native-dialog-blocked-v1\n{url}\n{title}\n{}\n{}\n{}\n{}\n{fallback_target_fingerprint}",
+                "native-dialog-blocked-v2\n{url}\n{title}\n{}\n{}\n{}\n{}\n{}\n{}\n{fallback_target_fingerprint}",
                 serde_json::to_string(&tab_snapshot.tabs)?,
                 tab_snapshot.active_tab_id,
                 serde_json::to_string(&native_dialogs)?, native_dialog_evidence_fresh,
+                serde_json::to_string(&network_observation.downloads)?,
+                network_observation.fresh,
             )
             .as_bytes(),
         );
@@ -2354,11 +2535,13 @@ impl CdpStateCollector {
             active_tab_id: tab_snapshot.active_tab_id,
             native_dialogs,
             native_dialog_evidence_fresh,
+            downloads: network_observation.downloads,
+            download_evidence_fresh: network_observation.fresh,
             targets,
             quality,
             content_hash,
             document_ready_state,
-            network_quiet_millis: network_observation.network_quiet_millis(),
+            network_quiet_millis,
             network_evidence_fresh: network_observation.fresh,
         };
         self.last_states
@@ -2446,6 +2629,10 @@ impl CdpStateCollector {
             &tab_snapshot,
             &native_dialogs,
             native_dialog_evidence_fresh,
+            DownloadHashEvidence {
+                downloads: &network_observation.downloads,
+                fresh: network_observation.fresh,
+            },
             page.truncated,
             network_readiness_hash_bucket,
         )?;
@@ -2508,6 +2695,8 @@ impl CdpStateCollector {
             active_tab_id: tab_snapshot.active_tab_id,
             native_dialogs,
             native_dialog_evidence_fresh,
+            downloads: network_observation.downloads,
+            download_evidence_fresh: network_observation.fresh,
             targets,
             quality: if page.truncated {
                 StateQuality::DepthLimited
@@ -2663,6 +2852,10 @@ impl CdpStateCollector {
             &tab_snapshot,
             &native_dialogs,
             native_dialog_evidence_fresh,
+            DownloadHashEvidence {
+                downloads: &network_observation.downloads,
+                fresh: network_observation.fresh,
+            },
             truncated,
             readiness_bucket,
         )?;
@@ -2702,6 +2895,8 @@ impl CdpStateCollector {
             active_tab_id: tab_snapshot.active_tab_id,
             native_dialogs,
             native_dialog_evidence_fresh,
+            downloads: network_observation.downloads,
+            download_evidence_fresh: network_observation.fresh,
             targets,
             quality: if truncated {
                 StateQuality::DepthLimited
@@ -2750,6 +2945,36 @@ fn hex_sha256(value: &[u8]) -> String {
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect()
+}
+
+async fn next_cdp_response<S>(
+    socket: &mut tokio_tungstenite::WebSocketStream<S>,
+    expected_id: i64,
+    operation: &str,
+) -> anyhow::Result<serde_json::Value>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
+    while let Some(message) = timeout(Duration::from_secs(3), socket.next())
+        .await
+        .map_err(|_| anyhow::anyhow!("CDP {operation} timed out"))?
+    {
+        let Message::Text(text) = message? else {
+            continue;
+        };
+        let response: serde_json::Value = serde_json::from_str(&text)?;
+        if response.get("id").and_then(serde_json::Value::as_i64) != Some(expected_id) {
+            continue;
+        }
+        if let Some(error) = response.get("error") {
+            anyhow::bail!("CDP {operation} failed: {error}");
+        }
+        if let Some(exception) = response.pointer("/result/exceptionDetails") {
+            anyhow::bail!("CDP {operation} was rejected: {exception}");
+        }
+        return Ok(response);
+    }
+    anyhow::bail!("CDP websocket closed before {operation} acknowledgement")
 }
 
 /// 将 Network Quiet 证据压缩为控制面恢复策略真正关心的有界语义。
@@ -3794,6 +4019,159 @@ mod tests {
         http_task.await.unwrap();
     }
 
+    #[tokio::test]
+    async fn sets_hidden_file_input_through_cdp_without_opening_a_file_chooser() {
+        let staged = std::env::temp_dir().join(format!(
+            "browsercloud-agent-file-{}.txt",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        tokio::fs::write(&staged, b"bounded file").await.unwrap();
+        let expected_path = staged.to_string_lossy().to_string();
+        let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let websocket_address = websocket_listener.local_addr().unwrap();
+        let websocket_task = tokio::spawn(async move {
+            let (stream, _) = websocket_listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            let Message::Text(resolve) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected file-input resolve")
+            };
+            let resolve: serde_json::Value = serde_json::from_str(&resolve).unwrap();
+            assert_eq!(resolve["method"], "Runtime.evaluate");
+            assert!(resolve["params"]["expression"]
+                .as_str()
+                .unwrap()
+                .contains("input:nth-of-type(1)"));
+            socket
+                .send(Message::Text(
+                    serde_json::json!({
+                        "id": 501,
+                        "result": {"result": {"type": "object", "objectId": "file-object-1"}}
+                    })
+                    .to_string(),
+                ))
+                .await
+                .unwrap();
+            let Message::Text(describe) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected DOM.describeNode")
+            };
+            let describe: serde_json::Value = serde_json::from_str(&describe).unwrap();
+            assert_eq!(describe["method"], "DOM.describeNode");
+            socket
+                .send(Message::Text(
+                    serde_json::json!({"id": 502, "result": {"node": {"backendNodeId": 77}}})
+                        .to_string(),
+                ))
+                .await
+                .unwrap();
+            let Message::Text(set_files) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected DOM.setFileInputFiles")
+            };
+            let set_files: serde_json::Value = serde_json::from_str(&set_files).unwrap();
+            assert_eq!(set_files["method"], "DOM.setFileInputFiles");
+            assert_eq!(set_files["params"]["backendNodeId"], 77);
+            assert_eq!(set_files["params"]["files"][0], expected_path);
+            assert_ne!(set_files["method"], "Page.setInterceptFileChooserDialog");
+            socket
+                .send(Message::Text(
+                    serde_json::json!({"id": 503, "result": {}}).to_string(),
+                ))
+                .await
+                .unwrap();
+        });
+
+        let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let http_address = http_listener.local_addr().unwrap();
+        let http_task = tokio::spawn(async move {
+            let (mut stream, _) = http_listener.accept().await.unwrap();
+            let mut request = vec![0_u8; 4096];
+            let count = stream.read(&mut request).await.unwrap();
+            assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list "));
+            let body = serde_json::json!([{
+                "id": "page-file",
+                "type": "page",
+                "url": "https://example.test/upload",
+                "webSocketDebuggerUrl": format!("ws://{websocket_address}/devtools/page/file")
+            }])
+            .to_string();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(), body
+            );
+            stream.write_all(response.as_bytes()).await.unwrap();
+        });
+
+        let collector = CdpStateCollector::new();
+        collector
+            .endpoints
+            .write()
+            .await
+            .insert("ses_file".to_owned(), format!("http://{http_address}"));
+        let evaluated = EvaluatedTarget {
+            path: "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(1)".to_owned(),
+            role: "button".to_owned(),
+            name: Some("Upload".to_owned()),
+            value: None,
+            control_type: Some("file".to_owned()),
+            bounds: None,
+            enabled: true,
+            visible: false,
+            sensitive: false,
+            focused: false,
+            checked: None,
+            selected: None,
+            interactive: true,
+            frame_id: "main".to_owned(),
+            in_viewport: false,
+            occluded: false,
+            visibility_reason: Some("DISPLAY_NONE".to_owned()),
+        };
+        let interactive = InteractiveTarget {
+            target_ref: "target:file".to_owned(),
+            element_id: "element-file".to_owned(),
+            role: "button".to_owned(),
+            name: Some("Upload".to_owned()),
+            value: None,
+            control_type: Some("file".to_owned()),
+            bounds: None,
+            enabled: true,
+            visible: false,
+            sensitive: false,
+            focused: false,
+            checked: None,
+            selected: None,
+            interactive: true,
+            frame_id: "main".to_owned(),
+            in_viewport: false,
+            occluded: false,
+            visibility_reason: Some("DISPLAY_NONE".to_owned()),
+        };
+        collector.target_registries.lock().await.insert(
+            "ses_file".to_owned(),
+            TargetRegistry {
+                target_revision: 7,
+                targets: HashMap::from([(
+                    "target:file".to_owned(),
+                    RegisteredTarget {
+                        evaluated,
+                        interactive,
+                        resolved: None,
+                    },
+                )]),
+            },
+        );
+        collector
+            .set_file_input_files("ses_file", "target:file", 7, &staged)
+            .await
+            .unwrap();
+
+        websocket_task.await.unwrap();
+        http_task.await.unwrap();
+        tokio::fs::remove_file(staged).await.unwrap();
+    }
+
     #[test]
     fn creates_bounded_diff_and_reports_truncation() {
         let target = |target_ref: &str, name: &str| InteractiveTarget {
@@ -3831,6 +4209,8 @@ mod tests {
             active_tab_id: "tab-1".to_owned(),
             native_dialogs: Vec::new(),
             native_dialog_evidence_fresh: true,
+            downloads: Vec::new(),
+            download_evidence_fresh: true,
             targets: vec![target("target:1:a", "A"), target("target:1:b", "B")],
             quality: StateQuality::Complete,
             content_hash: "old".to_owned(),

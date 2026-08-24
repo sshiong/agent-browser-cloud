@@ -52,6 +52,10 @@ public final class BrowserCloudGeneratedClient {
     operation("readAgentClipboard", "GET", "/api/v1/sessions/{sessionId}/agent-browser/clipboard", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "AgentClipboard"),
     operation("writeAgentClipboard", "PUT", "/api/v1/sessions/{sessionId}/agent-browser/clipboard", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "WriteAgentClipboardRequest", true, "AgentClipboard"),
     operation("clearAgentClipboard", "DELETE", "/api/v1/sessions/{sessionId}/agent-browser/clipboard", List.of("sessionId"), List.of("expectedVersion"), List.of("X-Tenant-Id"), "", false, "AgentClipboard"),
+    operation("uploadAgentBrowserFile", "POST", "/api/v1/sessions/{sessionId}/agent-browser/files/uploads", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "UploadAgentBrowserFileRequest", true, "AgentBrowserFileUpload"),
+    operation("getAgentBrowserFileUpload", "GET", "/api/v1/sessions/{sessionId}/agent-browser/files/uploads/{uploadId}", List.of("sessionId", "uploadId"), List.of(), List.of("X-Tenant-Id"), "", false, "AgentBrowserFileUpload"),
+    operation("listAgentBrowserDownloads", "GET", "/api/v1/sessions/{sessionId}/agent-browser/files/downloads", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "AgentBrowserDownloadList"),
+    operation("waitForAgentBrowserDownload", "GET", "/api/v1/sessions/{sessionId}/agent-browser/files/downloads/{downloadId}:wait", List.of("downloadId", "sessionId"), List.of("timeoutMs"), List.of("X-Tenant-Id"), "", false, "AgentBrowserDownload"),
     operation("getSessionIdentitySpec", "GET", "/api/v1/sessions/{sessionId}/identity-spec", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "SessionIdentitySpec"),
     operation("rejectDirectSessionIdentityMutation", "PUT", "/api/v1/sessions/{sessionId}/identity-spec", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "SessionIdentitySpecInput", true, ""),
     operation("createSessionIdentityChangeRequest", "POST", "/api/v1/sessions/{sessionId}/identity-change-requests", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CreateSessionIdentityChangeRequest", true, "SessionIdentityChangeRequest"),
@@ -310,6 +314,10 @@ public final class BrowserCloudGeneratedClient {
   public Response readAgentClipboard(Request request) { return call("readAgentClipboard", request); }
   public Response writeAgentClipboard(Request request) { return call("writeAgentClipboard", request); }
   public Response clearAgentClipboard(Request request) { return call("clearAgentClipboard", request); }
+  public Response uploadAgentBrowserFile(Request request) { return call("uploadAgentBrowserFile", request); }
+  public Response getAgentBrowserFileUpload(Request request) { return call("getAgentBrowserFileUpload", request); }
+  public Response listAgentBrowserDownloads(Request request) { return call("listAgentBrowserDownloads", request); }
+  public Response waitForAgentBrowserDownload(Request request) { return call("waitForAgentBrowserDownload", request); }
   public Response getSessionIdentitySpec(Request request) { return call("getSessionIdentitySpec", request); }
   public Response rejectDirectSessionIdentityMutation(Request request) { return call("rejectDirectSessionIdentityMutation", request); }
   public Response createSessionIdentityChangeRequest(Request request) { return call("createSessionIdentityChangeRequest", request); }

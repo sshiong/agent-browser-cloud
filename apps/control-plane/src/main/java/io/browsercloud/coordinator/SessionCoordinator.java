@@ -773,6 +773,16 @@ public final class SessionCoordinator {
         }
         yield CoordinatorResult.completed();
       }
+      case NodeEvent.AgentFileUploadFailed failed -> {
+        var operation = matchingActiveOperation(session.sessionId(), command);
+        if (operation.isEmpty()
+            || operation.orElseThrow().ownerType() != OwnerType.AGENT
+            || operation.orElseThrow().mode() != OperationMode.AGENT_INTERACTIVE
+            || !operation.orElseThrow().allowedCapabilities().contains("browser.file.upload")) {
+          yield CoordinatorResult.rejected("STALE_AGENT_FILE_OPERATION");
+        }
+        yield CoordinatorResult.completed();
+      }
       case NodeEvent.HumanAssistFailed failed -> {
         var operation = matchingActiveOperation(session.sessionId(), command);
         if (operation.isEmpty()
@@ -868,6 +878,7 @@ public final class SessionCoordinator {
       case NodeEvent.DiffTruncated truncated -> truncated.sessionId();
       case NodeEvent.AgentNavigationFailed failed -> failed.sessionId();
       case NodeEvent.AgentActionFailed failed -> failed.sessionId();
+      case NodeEvent.AgentFileUploadFailed failed -> failed.sessionId();
       case NodeEvent.HumanAssistFailed failed -> failed.sessionId();
       case NodeEvent.ChallengeAutomationFailed failed -> failed.sessionId();
       case NodeEvent.RemoteDesktopParticipantChanged changed -> changed.sessionId();

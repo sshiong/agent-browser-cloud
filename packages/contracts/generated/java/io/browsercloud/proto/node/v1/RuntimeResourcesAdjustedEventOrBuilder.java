@@ -4,396 +4,553 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface RuntimeResourcesAdjustedEventOrBuilder extends
+public interface RuntimeResourcesAdjustedEventOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.RuntimeResourcesAdjustedEvent)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>string node_id = 2 [json_name = "nodeId"];</code>
+   *
    * @return The nodeId.
    */
   java.lang.String getNodeId();
+
   /**
    * <code>string node_id = 2 [json_name = "nodeId"];</code>
+   *
    * @return The bytes for nodeId.
    */
-  com.google.protobuf.ByteString
-      getNodeIdBytes();
+  com.google.protobuf.ByteString getNodeIdBytes();
 
   /**
    * <code>string old_resource_class = 3 [json_name = "oldResourceClass"];</code>
+   *
    * @return The oldResourceClass.
    */
   java.lang.String getOldResourceClass();
+
   /**
    * <code>string old_resource_class = 3 [json_name = "oldResourceClass"];</code>
+   *
    * @return The bytes for oldResourceClass.
    */
-  com.google.protobuf.ByteString
-      getOldResourceClassBytes();
+  com.google.protobuf.ByteString getOldResourceClassBytes();
 
   /**
    * <code>uint32 old_cpu_millis = 4 [json_name = "oldCpuMillis"];</code>
+   *
    * @return The oldCpuMillis.
    */
   int getOldCpuMillis();
 
   /**
    * <code>uint32 old_memory_request_mib = 5 [json_name = "oldMemoryRequestMib"];</code>
+   *
    * @return The oldMemoryRequestMib.
    */
   int getOldMemoryRequestMib();
 
   /**
    * <code>uint32 old_memory_limit_mib = 6 [json_name = "oldMemoryLimitMib"];</code>
+   *
    * @return The oldMemoryLimitMib.
    */
   int getOldMemoryLimitMib();
 
   /**
    * <code>uint32 old_pid_limit = 7 [json_name = "oldPidLimit"];</code>
+   *
    * @return The oldPidLimit.
    */
   int getOldPidLimit();
 
   /**
    * <code>uint32 old_tab_budget = 8 [json_name = "oldTabBudget"];</code>
+   *
    * @return The oldTabBudget.
    */
   int getOldTabBudget();
 
   /**
    * <code>string new_resource_class = 9 [json_name = "newResourceClass"];</code>
+   *
    * @return The newResourceClass.
    */
   java.lang.String getNewResourceClass();
+
   /**
    * <code>string new_resource_class = 9 [json_name = "newResourceClass"];</code>
+   *
    * @return The bytes for newResourceClass.
    */
-  com.google.protobuf.ByteString
-      getNewResourceClassBytes();
+  com.google.protobuf.ByteString getNewResourceClassBytes();
 
   /**
    * <code>uint32 new_cpu_millis = 10 [json_name = "newCpuMillis"];</code>
+   *
    * @return The newCpuMillis.
    */
   int getNewCpuMillis();
 
   /**
    * <code>uint32 new_memory_request_mib = 11 [json_name = "newMemoryRequestMib"];</code>
+   *
    * @return The newMemoryRequestMib.
    */
   int getNewMemoryRequestMib();
 
   /**
    * <code>uint32 new_memory_limit_mib = 12 [json_name = "newMemoryLimitMib"];</code>
+   *
    * @return The newMemoryLimitMib.
    */
   int getNewMemoryLimitMib();
 
   /**
    * <code>uint32 new_pid_limit = 13 [json_name = "newPidLimit"];</code>
+   *
    * @return The newPidLimit.
    */
   int getNewPidLimit();
 
   /**
    * <code>uint32 new_tab_budget = 14 [json_name = "newTabBudget"];</code>
+   *
    * @return The newTabBudget.
    */
   int getNewTabBudget();
 
   /**
    * <code>string reason = 15 [json_name = "reason"];</code>
+   *
    * @return The reason.
    */
   java.lang.String getReason();
+
   /**
    * <code>string reason = 15 [json_name = "reason"];</code>
+   *
    * @return The bytes for reason.
    */
-  com.google.protobuf.ByteString
-      getReasonBytes();
+  com.google.protobuf.ByteString getReasonBytes();
 
   /**
    * <code>string operation_id = 16 [json_name = "operationId"];</code>
+   *
    * @return The operationId.
    */
   java.lang.String getOperationId();
-  /**
-   * <code>string operation_id = 16 [json_name = "operationId"];</code>
-   * @return The bytes for operationId.
-   */
-  com.google.protobuf.ByteString
-      getOperationIdBytes();
 
   /**
+   * <code>string operation_id = 16 [json_name = "operationId"];</code>
+   *
+   * @return The bytes for operationId.
+   */
+  com.google.protobuf.ByteString getOperationIdBytes();
+
+  /**
+   *
+   *
    * <pre>
    * N-1 Node 不会上报这些字段；Control Plane 此时只提交已确认的 Cgroup 调整。
    * </pre>
    *
-   * <code>optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return Whether the oldStateCollectorBudgetPercent field is set.
    */
   boolean hasOldStateCollectorBudgetPercent();
+
   /**
+   *
+   *
    * <pre>
    * N-1 Node 不会上报这些字段；Control Plane 此时只提交已确认的 Cgroup 调整。
    * </pre>
    *
-   * <code>optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return The oldStateCollectorBudgetPercent.
    */
   int getOldStateCollectorBudgetPercent();
 
   /**
-   * <code>optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return Whether the oldRemoteDesktopBitrateKbps field is set.
    */
   boolean hasOldRemoteDesktopBitrateKbps();
+
   /**
-   * <code>optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return The oldRemoteDesktopBitrateKbps.
    */
   int getOldRemoteDesktopBitrateKbps();
 
   /**
-   * <code>optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return Whether the newStateCollectorBudgetPercent field is set.
    */
   boolean hasNewStateCollectorBudgetPercent();
+
   /**
-   * <code>optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return The newStateCollectorBudgetPercent.
    */
   int getNewStateCollectorBudgetPercent();
 
   /**
-   * <code>optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return Whether the newRemoteDesktopBitrateKbps field is set.
    */
   boolean hasNewRemoteDesktopBitrateKbps();
+
   /**
-   * <code>optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return The newRemoteDesktopBitrateKbps.
    */
   int getNewRemoteDesktopBitrateKbps();
 
   /**
-   * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];</code>
+   * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];
+   * </code>
+   *
    * @return Whether the oldExtensionCpuWeight field is set.
    */
   boolean hasOldExtensionCpuWeight();
+
   /**
-   * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];</code>
+   * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];
+   * </code>
+   *
    * @return The oldExtensionCpuWeight.
    */
   int getOldExtensionCpuWeight();
 
   /**
-   * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];</code>
+   * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];
+   * </code>
+   *
    * @return Whether the newExtensionCpuWeight field is set.
    */
   boolean hasNewExtensionCpuWeight();
+
   /**
-   * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];</code>
+   * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];
+   * </code>
+   *
    * @return The newExtensionCpuWeight.
    */
   int getNewExtensionCpuWeight();
 
   /**
    * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];</code>
+   *
    * @return Whether the oldMediaEncoderSlots field is set.
    */
   boolean hasOldMediaEncoderSlots();
+
   /**
    * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];</code>
+   *
    * @return The oldMediaEncoderSlots.
    */
   int getOldMediaEncoderSlots();
 
   /**
    * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];</code>
+   *
    * @return Whether the newMediaEncoderSlots field is set.
    */
   boolean hasNewMediaEncoderSlots();
+
   /**
    * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];</code>
+   *
    * @return The newMediaEncoderSlots.
    */
   int getNewMediaEncoderSlots();
 
   /**
-   * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];</code>
+   * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];
+   * </code>
+   *
    * @return Whether the oldFreezeBackgroundTabs field is set.
    */
   boolean hasOldFreezeBackgroundTabs();
+
   /**
-   * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];</code>
+   * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];
+   * </code>
+   *
    * @return The oldFreezeBackgroundTabs.
    */
   boolean getOldFreezeBackgroundTabs();
 
   /**
-   * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];</code>
+   * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];
+   * </code>
+   *
    * @return Whether the newFreezeBackgroundTabs field is set.
    */
   boolean hasNewFreezeBackgroundTabs();
+
   /**
-   * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];</code>
+   * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];
+   * </code>
+   *
    * @return The newFreezeBackgroundTabs.
    */
   boolean getNewFreezeBackgroundTabs();
 
   /**
    * <code>optional bool old_block_new_tabs = 27 [json_name = "oldBlockNewTabs"];</code>
+   *
    * @return Whether the oldBlockNewTabs field is set.
    */
   boolean hasOldBlockNewTabs();
+
   /**
    * <code>optional bool old_block_new_tabs = 27 [json_name = "oldBlockNewTabs"];</code>
+   *
    * @return The oldBlockNewTabs.
    */
   boolean getOldBlockNewTabs();
 
   /**
    * <code>optional bool new_block_new_tabs = 28 [json_name = "newBlockNewTabs"];</code>
+   *
    * @return Whether the newBlockNewTabs field is set.
    */
   boolean hasNewBlockNewTabs();
+
   /**
    * <code>optional bool new_block_new_tabs = 28 [json_name = "newBlockNewTabs"];</code>
+   *
    * @return The newBlockNewTabs.
    */
   boolean getNewBlockNewTabs();
 
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];
+   * </code>
+   *
    * @return Whether the oldExtensionBackgroundPolicy field is set.
    */
   boolean hasOldExtensionBackgroundPolicy();
+
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];
+   * </code>
+   *
    * @return The oldExtensionBackgroundPolicy.
    */
   io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getOldExtensionBackgroundPolicy();
-  /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
-   */
-  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getOldExtensionBackgroundPolicyOrBuilder();
 
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder
+      getOldExtensionBackgroundPolicyOrBuilder();
+
+  /**
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];
+   * </code>
+   *
    * @return Whether the newExtensionBackgroundPolicy field is set.
    */
   boolean hasNewExtensionBackgroundPolicy();
+
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];
+   * </code>
+   *
    * @return The newExtensionBackgroundPolicy.
    */
   io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getNewExtensionBackgroundPolicy();
-  /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
-   */
-  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getNewExtensionBackgroundPolicyOrBuilder();
 
   /**
-   * <code>optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder
+      getNewExtensionBackgroundPolicyOrBuilder();
+
+  /**
+   * <code>
+   * optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];
+   * </code>
+   *
    * @return Whether the oldSuccessTraceSamplePercent field is set.
    */
   boolean hasOldSuccessTraceSamplePercent();
+
   /**
-   * <code>optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];</code>
+   * <code>
+   * optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];
+   * </code>
+   *
    * @return The oldSuccessTraceSamplePercent.
    */
   int getOldSuccessTraceSamplePercent();
 
   /**
-   * <code>optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];</code>
+   * <code>
+   * optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];
+   * </code>
+   *
    * @return Whether the newSuccessTraceSamplePercent field is set.
    */
   boolean hasNewSuccessTraceSamplePercent();
+
   /**
-   * <code>optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];</code>
+   * <code>
+   * optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];
+   * </code>
+   *
    * @return The newSuccessTraceSamplePercent.
    */
   int getNewSuccessTraceSamplePercent();
 
   /**
-   * <code>optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];</code>
+   * <code>optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];
+   * </code>
+   *
    * @return Whether the oldObserverFrameRateFps field is set.
    */
   boolean hasOldObserverFrameRateFps();
+
   /**
-   * <code>optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];</code>
+   * <code>optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];
+   * </code>
+   *
    * @return The oldObserverFrameRateFps.
    */
   int getOldObserverFrameRateFps();
 
   /**
-   * <code>optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];</code>
+   * <code>optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];
+   * </code>
+   *
    * @return Whether the newObserverFrameRateFps field is set.
    */
   boolean hasNewObserverFrameRateFps();
+
   /**
-   * <code>optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];</code>
+   * <code>optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];
+   * </code>
+   *
    * @return The newObserverFrameRateFps.
    */
   int getNewObserverFrameRateFps();
 
   /**
-   * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];</code>
+   * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];
+   * </code>
+   *
    * @return Whether the oldVideoRecordingEnabled field is set.
    */
   boolean hasOldVideoRecordingEnabled();
+
   /**
-   * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];</code>
+   * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];
+   * </code>
+   *
    * @return The oldVideoRecordingEnabled.
    */
   boolean getOldVideoRecordingEnabled();
 
   /**
-   * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];</code>
+   * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];
+   * </code>
+   *
    * @return Whether the newVideoRecordingEnabled field is set.
    */
   boolean hasNewVideoRecordingEnabled();
+
   /**
-   * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];</code>
+   * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];
+   * </code>
+   *
    * @return The newVideoRecordingEnabled.
    */
   boolean getNewVideoRecordingEnabled();
 
   /**
-   * <code>optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];
+   * </code>
+   *
    * @return Whether the oldSuccessScreenshotSamplePercent field is set.
    */
   boolean hasOldSuccessScreenshotSamplePercent();
+
   /**
-   * <code>optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];
+   * </code>
+   *
    * @return The oldSuccessScreenshotSamplePercent.
    */
   int getOldSuccessScreenshotSamplePercent();
 
   /**
-   * <code>optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];
+   * </code>
+   *
    * @return Whether the newSuccessScreenshotSamplePercent field is set.
    */
   boolean hasNewSuccessScreenshotSamplePercent();
+
   /**
-   * <code>optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];
+   * </code>
+   *
    * @return The newSuccessScreenshotSamplePercent.
    */
   int getNewSuccessScreenshotSamplePercent();

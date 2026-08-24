@@ -5,21 +5,25 @@
 package io.browsercloud.proto.node.v1;
 
 /**
+ *
+ *
  * <pre>
  * Runtime 停止事件
  * </pre>
  *
  * Protobuf type {@code browsercloud.node.v1.RuntimeStoppedEvent}
  */
-public final class RuntimeStoppedEvent extends
-    com.google.protobuf.GeneratedMessageV3 implements
+public final class RuntimeStoppedEvent extends com.google.protobuf.GeneratedMessageV3
+    implements
     // @@protoc_insertion_point(message_implements:browsercloud.node.v1.RuntimeStoppedEvent)
     RuntimeStoppedEventOrBuilder {
-private static final long serialVersionUID = 0L;
+  private static final long serialVersionUID = 0L;
+
   // Use RuntimeStoppedEvent.newBuilder() to construct.
   private RuntimeStoppedEvent(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
+
   private RuntimeStoppedEvent() {
     sessionId_ = "";
     reason_ = "";
@@ -30,29 +34,33 @@ private static final long serialVersionUID = 0L;
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
+  protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
     return new RuntimeStoppedEvent();
   }
 
-  public static final com.google.protobuf.Descriptors.Descriptor
-      getDescriptor() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_RuntimeStoppedEvent_descriptor;
+  public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_RuntimeStoppedEvent_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_RuntimeStoppedEvent_fieldAccessorTable
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_RuntimeStoppedEvent_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            io.browsercloud.proto.node.v1.RuntimeStoppedEvent.class, io.browsercloud.proto.node.v1.RuntimeStoppedEvent.Builder.class);
+            io.browsercloud.proto.node.v1.RuntimeStoppedEvent.class,
+            io.browsercloud.proto.node.v1.RuntimeStoppedEvent.Builder.class);
   }
 
   public static final int SESSION_ID_FIELD_NUMBER = 1;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object sessionId_ = "";
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   @java.lang.Override
@@ -61,25 +69,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       sessionId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getSessionIdBytes() {
+  public com.google.protobuf.ByteString getSessionIdBytes() {
     java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       sessionId_ = b;
       return b;
     } else {
@@ -88,10 +95,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int REASON_FIELD_NUMBER = 2;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object reason_ = "";
+
   /**
    * <code>string reason = 2 [json_name = "reason"];</code>
+   *
    * @return The reason.
    */
   @java.lang.Override
@@ -100,25 +110,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       reason_ = s;
       return s;
     }
   }
+
   /**
    * <code>string reason = 2 [json_name = "reason"];</code>
+   *
    * @return The bytes for reason.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getReasonBytes() {
+  public com.google.protobuf.ByteString getReasonBytes() {
     java.lang.Object ref = reason_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       reason_ = b;
       return b;
     } else {
@@ -128,8 +137,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int EXIT_CODE_FIELD_NUMBER = 3;
   private int exitCode_ = 0;
+
   /**
    * <code>int32 exit_code = 3 [json_name = "exitCode"];</code>
+   *
    * @return The exitCode.
    */
   @java.lang.Override
@@ -138,10 +149,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int PROFILE_ID_FIELD_NUMBER = 4;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object profileId_ = "";
+
   /**
    * <code>string profile_id = 4 [json_name = "profileId"];</code>
+   *
    * @return The profileId.
    */
   @java.lang.Override
@@ -150,25 +164,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       profileId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string profile_id = 4 [json_name = "profileId"];</code>
+   *
    * @return The bytes for profileId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getProfileIdBytes() {
+  public com.google.protobuf.ByteString getProfileIdBytes() {
     java.lang.Object ref = profileId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       profileId_ = b;
       return b;
     } else {
@@ -177,10 +190,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int CHECKPOINT_ID_FIELD_NUMBER = 5;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object checkpointId_ = "";
+
   /**
    * <code>string checkpoint_id = 5 [json_name = "checkpointId"];</code>
+   *
    * @return The checkpointId.
    */
   @java.lang.Override
@@ -189,25 +205,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       checkpointId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string checkpoint_id = 5 [json_name = "checkpointId"];</code>
+   *
    * @return The bytes for checkpointId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getCheckpointIdBytes() {
+  public com.google.protobuf.ByteString getCheckpointIdBytes() {
     java.lang.Object ref = checkpointId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       checkpointId_ = b;
       return b;
     } else {
@@ -217,8 +232,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int CHECKPOINT_EPOCH_FIELD_NUMBER = 6;
   private long checkpointEpoch_ = 0L;
+
   /**
    * <code>uint64 checkpoint_epoch = 6 [json_name = "checkpointEpoch"];</code>
+   *
    * @return The checkpointEpoch.
    */
   @java.lang.Override
@@ -228,8 +245,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int PROFILE_WRITE_EPOCH_FIELD_NUMBER = 7;
   private long profileWriteEpoch_ = 0L;
+
   /**
    * <code>uint64 profile_write_epoch = 7 [json_name = "profileWriteEpoch"];</code>
+   *
    * @return The profileWriteEpoch.
    */
   @java.lang.Override
@@ -239,8 +258,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int CORE_SIZE_BYTES_FIELD_NUMBER = 8;
   private long coreSizeBytes_ = 0L;
+
   /**
    * <code>uint64 core_size_bytes = 8 [json_name = "coreSizeBytes"];</code>
+   *
    * @return The coreSizeBytes.
    */
   @java.lang.Override
@@ -250,8 +271,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int CHECKPOINT_FILE_COUNT_FIELD_NUMBER = 9;
   private long checkpointFileCount_ = 0L;
+
   /**
    * <code>uint64 checkpoint_file_count = 9 [json_name = "checkpointFileCount"];</code>
+   *
    * @return The checkpointFileCount.
    */
   @java.lang.Override
@@ -260,10 +283,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int RESTORE_STATUS_FIELD_NUMBER = 10;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object restoreStatus_ = "";
+
   /**
    * <code>string restore_status = 10 [json_name = "restoreStatus"];</code>
+   *
    * @return The restoreStatus.
    */
   @java.lang.Override
@@ -272,25 +298,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       restoreStatus_ = s;
       return s;
     }
   }
+
   /**
    * <code>string restore_status = 10 [json_name = "restoreStatus"];</code>
+   *
    * @return The bytes for restoreStatus.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getRestoreStatusBytes() {
+  public com.google.protobuf.ByteString getRestoreStatusBytes() {
     java.lang.Object ref = restoreStatus_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       restoreStatus_ = b;
       return b;
     } else {
@@ -299,6 +324,7 @@ private static final long serialVersionUID = 0L;
   }
 
   private byte memoizedIsInitialized = -1;
+
   @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
@@ -310,8 +336,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @java.lang.Override
-  public void writeTo(com.google.protobuf.CodedOutputStream output)
-                      throws java.io.IOException {
+  public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(sessionId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 1, sessionId_);
     }
@@ -358,8 +383,7 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, reason_);
     }
     if (exitCode_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(3, exitCode_);
+      size += com.google.protobuf.CodedOutputStream.computeInt32Size(3, exitCode_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(profileId_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, profileId_);
@@ -368,20 +392,16 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, checkpointId_);
     }
     if (checkpointEpoch_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(6, checkpointEpoch_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(6, checkpointEpoch_);
     }
     if (profileWriteEpoch_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(7, profileWriteEpoch_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(7, profileWriteEpoch_);
     }
     if (coreSizeBytes_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(8, coreSizeBytes_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(8, coreSizeBytes_);
     }
     if (checkpointFileCount_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(9, checkpointFileCount_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(9, checkpointFileCount_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(restoreStatus_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, restoreStatus_);
@@ -394,33 +414,24 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public boolean equals(final java.lang.Object obj) {
     if (obj == this) {
-     return true;
+      return true;
     }
     if (!(obj instanceof io.browsercloud.proto.node.v1.RuntimeStoppedEvent)) {
       return super.equals(obj);
     }
-    io.browsercloud.proto.node.v1.RuntimeStoppedEvent other = (io.browsercloud.proto.node.v1.RuntimeStoppedEvent) obj;
+    io.browsercloud.proto.node.v1.RuntimeStoppedEvent other =
+        (io.browsercloud.proto.node.v1.RuntimeStoppedEvent) obj;
 
-    if (!getSessionId()
-        .equals(other.getSessionId())) return false;
-    if (!getReason()
-        .equals(other.getReason())) return false;
-    if (getExitCode()
-        != other.getExitCode()) return false;
-    if (!getProfileId()
-        .equals(other.getProfileId())) return false;
-    if (!getCheckpointId()
-        .equals(other.getCheckpointId())) return false;
-    if (getCheckpointEpoch()
-        != other.getCheckpointEpoch()) return false;
-    if (getProfileWriteEpoch()
-        != other.getProfileWriteEpoch()) return false;
-    if (getCoreSizeBytes()
-        != other.getCoreSizeBytes()) return false;
-    if (getCheckpointFileCount()
-        != other.getCheckpointFileCount()) return false;
-    if (!getRestoreStatus()
-        .equals(other.getRestoreStatus())) return false;
+    if (!getSessionId().equals(other.getSessionId())) return false;
+    if (!getReason().equals(other.getReason())) return false;
+    if (getExitCode() != other.getExitCode()) return false;
+    if (!getProfileId().equals(other.getProfileId())) return false;
+    if (!getCheckpointId().equals(other.getCheckpointId())) return false;
+    if (getCheckpointEpoch() != other.getCheckpointEpoch()) return false;
+    if (getProfileWriteEpoch() != other.getProfileWriteEpoch()) return false;
+    if (getCoreSizeBytes() != other.getCoreSizeBytes()) return false;
+    if (getCheckpointFileCount() != other.getCheckpointFileCount()) return false;
+    if (!getRestoreStatus().equals(other.getRestoreStatus())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -443,17 +454,13 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + CHECKPOINT_ID_FIELD_NUMBER;
     hash = (53 * hash) + getCheckpointId().hashCode();
     hash = (37 * hash) + CHECKPOINT_EPOCH_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        getCheckpointEpoch());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getCheckpointEpoch());
     hash = (37 * hash) + PROFILE_WRITE_EPOCH_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        getProfileWriteEpoch());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getProfileWriteEpoch());
     hash = (37 * hash) + CORE_SIZE_BYTES_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        getCoreSizeBytes());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getCoreSizeBytes());
     hash = (37 * hash) + CHECKPOINT_FILE_COUNT_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        getCheckpointFileCount());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getCheckpointFileCount());
     hash = (37 * hash) + RESTORE_STATUS_FIELD_NUMBER;
     hash = (53 * hash) + getRestoreStatus().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
@@ -462,131 +469,136 @@ private static final long serialVersionUID = 0L;
   }
 
   public static io.browsercloud.proto.node.v1.RuntimeStoppedEvent parseFrom(
-      java.nio.ByteBuffer data)
-      throws com.google.protobuf.InvalidProtocolBufferException {
+      java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.RuntimeStoppedEvent parseFrom(
-      java.nio.ByteBuffer data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.RuntimeStoppedEvent parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.RuntimeStoppedEvent parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.RuntimeStoppedEvent parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.RuntimeStoppedEvent parseFrom(
-      byte[] data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.RuntimeStoppedEvent parseFrom(java.io.InputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
-  }
+
   public static io.browsercloud.proto.node.v1.RuntimeStoppedEvent parseFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.RuntimeStoppedEvent parseDelimitedFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.RuntimeStoppedEvent parseFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   public static io.browsercloud.proto.node.v1.RuntimeStoppedEvent parseDelimitedFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
   }
+
+  public static io.browsercloud.proto.node.v1.RuntimeStoppedEvent parseDelimitedFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
+        PARSER, input, extensionRegistry);
+  }
+
   public static io.browsercloud.proto.node.v1.RuntimeStoppedEvent parseFrom(
-      com.google.protobuf.CodedInputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
+      com.google.protobuf.CodedInputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
+
   public static io.browsercloud.proto.node.v1.RuntimeStoppedEvent parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   @java.lang.Override
-  public Builder newBuilderForType() { return newBuilder(); }
+  public Builder newBuilderForType() {
+    return newBuilder();
+  }
+
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
+
   public static Builder newBuilder(io.browsercloud.proto.node.v1.RuntimeStoppedEvent prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
+
   @java.lang.Override
   public Builder toBuilder() {
-    return this == DEFAULT_INSTANCE
-        ? new Builder() : new Builder().mergeFrom(this);
+    return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
   }
 
   @java.lang.Override
-  protected Builder newBuilderForType(
-      com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+  protected Builder newBuilderForType(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
     Builder builder = new Builder(parent);
     return builder;
   }
+
   /**
+   *
+   *
    * <pre>
    * Runtime 停止事件
    * </pre>
    *
    * Protobuf type {@code browsercloud.node.v1.RuntimeStoppedEvent}
    */
-  public static final class Builder extends
-      com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+  public static final class Builder extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
+      implements
       // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.RuntimeStoppedEvent)
       io.browsercloud.proto.node.v1.RuntimeStoppedEventOrBuilder {
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_RuntimeStoppedEvent_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_RuntimeStoppedEvent_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_RuntimeStoppedEvent_fieldAccessorTable
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_RuntimeStoppedEvent_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              io.browsercloud.proto.node.v1.RuntimeStoppedEvent.class, io.browsercloud.proto.node.v1.RuntimeStoppedEvent.Builder.class);
+              io.browsercloud.proto.node.v1.RuntimeStoppedEvent.class,
+              io.browsercloud.proto.node.v1.RuntimeStoppedEvent.Builder.class);
     }
 
     // Construct using io.browsercloud.proto.node.v1.RuntimeStoppedEvent.newBuilder()
-    private Builder() {
+    private Builder() {}
 
-    }
-
-    private Builder(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+    private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
-
     }
+
     @java.lang.Override
     public Builder clear() {
       super.clear();
@@ -605,9 +617,9 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Descriptors.Descriptor
-        getDescriptorForType() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_RuntimeStoppedEvent_descriptor;
+    public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_RuntimeStoppedEvent_descriptor;
     }
 
     @java.lang.Override
@@ -626,8 +638,11 @@ private static final long serialVersionUID = 0L;
 
     @java.lang.Override
     public io.browsercloud.proto.node.v1.RuntimeStoppedEvent buildPartial() {
-      io.browsercloud.proto.node.v1.RuntimeStoppedEvent result = new io.browsercloud.proto.node.v1.RuntimeStoppedEvent(this);
-      if (bitField0_ != 0) { buildPartial0(result); }
+      io.browsercloud.proto.node.v1.RuntimeStoppedEvent result =
+          new io.browsercloud.proto.node.v1.RuntimeStoppedEvent(this);
+      if (bitField0_ != 0) {
+        buildPartial0(result);
+      }
       onBuilt();
       return result;
     }
@@ -670,38 +685,39 @@ private static final long serialVersionUID = 0L;
     public Builder clone() {
       return super.clone();
     }
+
     @java.lang.Override
     public Builder setField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.setField(field, value);
     }
+
     @java.lang.Override
-    public Builder clearField(
-        com.google.protobuf.Descriptors.FieldDescriptor field) {
+    public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
       return super.clearField(field);
     }
+
     @java.lang.Override
-    public Builder clearOneof(
-        com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+    public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
       return super.clearOneof(oneof);
     }
+
     @java.lang.Override
     public Builder setRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        int index, java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, int index, java.lang.Object value) {
       return super.setRepeatedField(field, index, value);
     }
+
     @java.lang.Override
     public Builder addRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.addRepeatedField(field, value);
     }
+
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof io.browsercloud.proto.node.v1.RuntimeStoppedEvent) {
-        return mergeFrom((io.browsercloud.proto.node.v1.RuntimeStoppedEvent)other);
+        return mergeFrom((io.browsercloud.proto.node.v1.RuntimeStoppedEvent) other);
       } else {
         super.mergeFrom(other);
         return this;
@@ -709,7 +725,8 @@ private static final long serialVersionUID = 0L;
     }
 
     public Builder mergeFrom(io.browsercloud.proto.node.v1.RuntimeStoppedEvent other) {
-      if (other == io.browsercloud.proto.node.v1.RuntimeStoppedEvent.getDefaultInstance()) return this;
+      if (other == io.browsercloud.proto.node.v1.RuntimeStoppedEvent.getDefaultInstance())
+        return this;
       if (!other.getSessionId().isEmpty()) {
         sessionId_ = other.sessionId_;
         bitField0_ |= 0x00000001;
@@ -776,62 +793,73 @@ private static final long serialVersionUID = 0L;
             case 0:
               done = true;
               break;
-            case 10: {
-              sessionId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000001;
-              break;
-            } // case 10
-            case 18: {
-              reason_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000002;
-              break;
-            } // case 18
-            case 24: {
-              exitCode_ = input.readInt32();
-              bitField0_ |= 0x00000004;
-              break;
-            } // case 24
-            case 34: {
-              profileId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000008;
-              break;
-            } // case 34
-            case 42: {
-              checkpointId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000010;
-              break;
-            } // case 42
-            case 48: {
-              checkpointEpoch_ = input.readUInt64();
-              bitField0_ |= 0x00000020;
-              break;
-            } // case 48
-            case 56: {
-              profileWriteEpoch_ = input.readUInt64();
-              bitField0_ |= 0x00000040;
-              break;
-            } // case 56
-            case 64: {
-              coreSizeBytes_ = input.readUInt64();
-              bitField0_ |= 0x00000080;
-              break;
-            } // case 64
-            case 72: {
-              checkpointFileCount_ = input.readUInt64();
-              bitField0_ |= 0x00000100;
-              break;
-            } // case 72
-            case 82: {
-              restoreStatus_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000200;
-              break;
-            } // case 82
-            default: {
-              if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                done = true; // was an endgroup tag
-              }
-              break;
-            } // default:
+            case 10:
+              {
+                sessionId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000001;
+                break;
+              } // case 10
+            case 18:
+              {
+                reason_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000002;
+                break;
+              } // case 18
+            case 24:
+              {
+                exitCode_ = input.readInt32();
+                bitField0_ |= 0x00000004;
+                break;
+              } // case 24
+            case 34:
+              {
+                profileId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000008;
+                break;
+              } // case 34
+            case 42:
+              {
+                checkpointId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000010;
+                break;
+              } // case 42
+            case 48:
+              {
+                checkpointEpoch_ = input.readUInt64();
+                bitField0_ |= 0x00000020;
+                break;
+              } // case 48
+            case 56:
+              {
+                profileWriteEpoch_ = input.readUInt64();
+                bitField0_ |= 0x00000040;
+                break;
+              } // case 56
+            case 64:
+              {
+                coreSizeBytes_ = input.readUInt64();
+                bitField0_ |= 0x00000080;
+                break;
+              } // case 64
+            case 72:
+              {
+                checkpointFileCount_ = input.readUInt64();
+                bitField0_ |= 0x00000100;
+                break;
+              } // case 72
+            case 82:
+              {
+                restoreStatus_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000200;
+                break;
+              } // case 82
+            default:
+              {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
           } // switch (tag)
         } // while (!done)
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -841,18 +869,20 @@ private static final long serialVersionUID = 0L;
       } // finally
       return this;
     }
+
     private int bitField0_;
 
     private java.lang.Object sessionId_ = "";
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return The sessionId.
      */
     public java.lang.String getSessionId() {
       java.lang.Object ref = sessionId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         sessionId_ = s;
         return s;
@@ -860,38 +890,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return The bytes for sessionId.
      */
-    public com.google.protobuf.ByteString
-        getSessionIdBytes() {
+    public com.google.protobuf.ByteString getSessionIdBytes() {
       java.lang.Object ref = sessionId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         sessionId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @param value The sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setSessionId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSessionId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       sessionId_ = value;
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSessionId() {
@@ -900,14 +935,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @param value The bytes for sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setSessionIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSessionIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       sessionId_ = value;
       bitField0_ |= 0x00000001;
@@ -916,15 +954,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object reason_ = "";
+
     /**
      * <code>string reason = 2 [json_name = "reason"];</code>
+     *
      * @return The reason.
      */
     public java.lang.String getReason() {
       java.lang.Object ref = reason_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         reason_ = s;
         return s;
@@ -932,38 +971,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string reason = 2 [json_name = "reason"];</code>
+     *
      * @return The bytes for reason.
      */
-    public com.google.protobuf.ByteString
-        getReasonBytes() {
+    public com.google.protobuf.ByteString getReasonBytes() {
       java.lang.Object ref = reason_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         reason_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string reason = 2 [json_name = "reason"];</code>
+     *
      * @param value The reason to set.
      * @return This builder for chaining.
      */
-    public Builder setReason(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setReason(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       reason_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
+
     /**
      * <code>string reason = 2 [json_name = "reason"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearReason() {
@@ -972,14 +1016,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string reason = 2 [json_name = "reason"];</code>
+     *
      * @param value The bytes for reason to set.
      * @return This builder for chaining.
      */
-    public Builder setReasonBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setReasonBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       reason_ = value;
       bitField0_ |= 0x00000002;
@@ -987,17 +1034,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int exitCode_ ;
+    private int exitCode_;
+
     /**
      * <code>int32 exit_code = 3 [json_name = "exitCode"];</code>
+     *
      * @return The exitCode.
      */
     @java.lang.Override
     public int getExitCode() {
       return exitCode_;
     }
+
     /**
      * <code>int32 exit_code = 3 [json_name = "exitCode"];</code>
+     *
      * @param value The exitCode to set.
      * @return This builder for chaining.
      */
@@ -1008,8 +1059,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>int32 exit_code = 3 [json_name = "exitCode"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearExitCode() {
@@ -1020,15 +1073,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object profileId_ = "";
+
     /**
      * <code>string profile_id = 4 [json_name = "profileId"];</code>
+     *
      * @return The profileId.
      */
     public java.lang.String getProfileId() {
       java.lang.Object ref = profileId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         profileId_ = s;
         return s;
@@ -1036,38 +1090,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string profile_id = 4 [json_name = "profileId"];</code>
+     *
      * @return The bytes for profileId.
      */
-    public com.google.protobuf.ByteString
-        getProfileIdBytes() {
+    public com.google.protobuf.ByteString getProfileIdBytes() {
       java.lang.Object ref = profileId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         profileId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string profile_id = 4 [json_name = "profileId"];</code>
+     *
      * @param value The profileId to set.
      * @return This builder for chaining.
      */
-    public Builder setProfileId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProfileId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       profileId_ = value;
       bitField0_ |= 0x00000008;
       onChanged();
       return this;
     }
+
     /**
      * <code>string profile_id = 4 [json_name = "profileId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearProfileId() {
@@ -1076,14 +1135,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string profile_id = 4 [json_name = "profileId"];</code>
+     *
      * @param value The bytes for profileId to set.
      * @return This builder for chaining.
      */
-    public Builder setProfileIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProfileIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       profileId_ = value;
       bitField0_ |= 0x00000008;
@@ -1092,15 +1154,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object checkpointId_ = "";
+
     /**
      * <code>string checkpoint_id = 5 [json_name = "checkpointId"];</code>
+     *
      * @return The checkpointId.
      */
     public java.lang.String getCheckpointId() {
       java.lang.Object ref = checkpointId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         checkpointId_ = s;
         return s;
@@ -1108,38 +1171,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string checkpoint_id = 5 [json_name = "checkpointId"];</code>
+     *
      * @return The bytes for checkpointId.
      */
-    public com.google.protobuf.ByteString
-        getCheckpointIdBytes() {
+    public com.google.protobuf.ByteString getCheckpointIdBytes() {
       java.lang.Object ref = checkpointId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         checkpointId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string checkpoint_id = 5 [json_name = "checkpointId"];</code>
+     *
      * @param value The checkpointId to set.
      * @return This builder for chaining.
      */
-    public Builder setCheckpointId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setCheckpointId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkpointId_ = value;
       bitField0_ |= 0x00000010;
       onChanged();
       return this;
     }
+
     /**
      * <code>string checkpoint_id = 5 [json_name = "checkpointId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearCheckpointId() {
@@ -1148,14 +1216,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string checkpoint_id = 5 [json_name = "checkpointId"];</code>
+     *
      * @param value The bytes for checkpointId to set.
      * @return This builder for chaining.
      */
-    public Builder setCheckpointIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setCheckpointIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       checkpointId_ = value;
       bitField0_ |= 0x00000010;
@@ -1163,17 +1234,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long checkpointEpoch_ ;
+    private long checkpointEpoch_;
+
     /**
      * <code>uint64 checkpoint_epoch = 6 [json_name = "checkpointEpoch"];</code>
+     *
      * @return The checkpointEpoch.
      */
     @java.lang.Override
     public long getCheckpointEpoch() {
       return checkpointEpoch_;
     }
+
     /**
      * <code>uint64 checkpoint_epoch = 6 [json_name = "checkpointEpoch"];</code>
+     *
      * @param value The checkpointEpoch to set.
      * @return This builder for chaining.
      */
@@ -1184,8 +1259,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint64 checkpoint_epoch = 6 [json_name = "checkpointEpoch"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearCheckpointEpoch() {
@@ -1195,17 +1272,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long profileWriteEpoch_ ;
+    private long profileWriteEpoch_;
+
     /**
      * <code>uint64 profile_write_epoch = 7 [json_name = "profileWriteEpoch"];</code>
+     *
      * @return The profileWriteEpoch.
      */
     @java.lang.Override
     public long getProfileWriteEpoch() {
       return profileWriteEpoch_;
     }
+
     /**
      * <code>uint64 profile_write_epoch = 7 [json_name = "profileWriteEpoch"];</code>
+     *
      * @param value The profileWriteEpoch to set.
      * @return This builder for chaining.
      */
@@ -1216,8 +1297,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint64 profile_write_epoch = 7 [json_name = "profileWriteEpoch"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearProfileWriteEpoch() {
@@ -1227,17 +1310,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long coreSizeBytes_ ;
+    private long coreSizeBytes_;
+
     /**
      * <code>uint64 core_size_bytes = 8 [json_name = "coreSizeBytes"];</code>
+     *
      * @return The coreSizeBytes.
      */
     @java.lang.Override
     public long getCoreSizeBytes() {
       return coreSizeBytes_;
     }
+
     /**
      * <code>uint64 core_size_bytes = 8 [json_name = "coreSizeBytes"];</code>
+     *
      * @param value The coreSizeBytes to set.
      * @return This builder for chaining.
      */
@@ -1248,8 +1335,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint64 core_size_bytes = 8 [json_name = "coreSizeBytes"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearCoreSizeBytes() {
@@ -1259,17 +1348,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long checkpointFileCount_ ;
+    private long checkpointFileCount_;
+
     /**
      * <code>uint64 checkpoint_file_count = 9 [json_name = "checkpointFileCount"];</code>
+     *
      * @return The checkpointFileCount.
      */
     @java.lang.Override
     public long getCheckpointFileCount() {
       return checkpointFileCount_;
     }
+
     /**
      * <code>uint64 checkpoint_file_count = 9 [json_name = "checkpointFileCount"];</code>
+     *
      * @param value The checkpointFileCount to set.
      * @return This builder for chaining.
      */
@@ -1280,8 +1373,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint64 checkpoint_file_count = 9 [json_name = "checkpointFileCount"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearCheckpointFileCount() {
@@ -1292,15 +1387,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object restoreStatus_ = "";
+
     /**
      * <code>string restore_status = 10 [json_name = "restoreStatus"];</code>
+     *
      * @return The restoreStatus.
      */
     public java.lang.String getRestoreStatus() {
       java.lang.Object ref = restoreStatus_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         restoreStatus_ = s;
         return s;
@@ -1308,38 +1404,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string restore_status = 10 [json_name = "restoreStatus"];</code>
+     *
      * @return The bytes for restoreStatus.
      */
-    public com.google.protobuf.ByteString
-        getRestoreStatusBytes() {
+    public com.google.protobuf.ByteString getRestoreStatusBytes() {
       java.lang.Object ref = restoreStatus_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         restoreStatus_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string restore_status = 10 [json_name = "restoreStatus"];</code>
+     *
      * @param value The restoreStatus to set.
      * @return This builder for chaining.
      */
-    public Builder setRestoreStatus(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setRestoreStatus(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       restoreStatus_ = value;
       bitField0_ |= 0x00000200;
       onChanged();
       return this;
     }
+
     /**
      * <code>string restore_status = 10 [json_name = "restoreStatus"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearRestoreStatus() {
@@ -1348,23 +1449,26 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string restore_status = 10 [json_name = "restoreStatus"];</code>
+     *
      * @param value The bytes for restoreStatus to set.
      * @return This builder for chaining.
      */
-    public Builder setRestoreStatusBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setRestoreStatusBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       restoreStatus_ = value;
       bitField0_ |= 0x00000200;
       onChanged();
       return this;
     }
+
     @java.lang.Override
-    public final Builder setUnknownFields(
-        final com.google.protobuf.UnknownFieldSet unknownFields) {
+    public final Builder setUnknownFields(final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.setUnknownFields(unknownFields);
     }
 
@@ -1374,12 +1478,12 @@ private static final long serialVersionUID = 0L;
       return super.mergeUnknownFields(unknownFields);
     }
 
-
     // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.RuntimeStoppedEvent)
   }
 
   // @@protoc_insertion_point(class_scope:browsercloud.node.v1.RuntimeStoppedEvent)
   private static final io.browsercloud.proto.node.v1.RuntimeStoppedEvent DEFAULT_INSTANCE;
+
   static {
     DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.RuntimeStoppedEvent();
   }
@@ -1388,27 +1492,27 @@ private static final long serialVersionUID = 0L;
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<RuntimeStoppedEvent>
-      PARSER = new com.google.protobuf.AbstractParser<RuntimeStoppedEvent>() {
-    @java.lang.Override
-    public RuntimeStoppedEvent parsePartialFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      Builder builder = newBuilder();
-      try {
-        builder.mergeFrom(input, extensionRegistry);
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(builder.buildPartial());
-      } catch (com.google.protobuf.UninitializedMessageException e) {
-        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(e)
-            .setUnfinishedMessage(builder.buildPartial());
-      }
-      return builder.buildPartial();
-    }
-  };
+  private static final com.google.protobuf.Parser<RuntimeStoppedEvent> PARSER =
+      new com.google.protobuf.AbstractParser<RuntimeStoppedEvent>() {
+        @java.lang.Override
+        public RuntimeStoppedEvent parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          Builder builder = newBuilder();
+          try {
+            builder.mergeFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            throw e.setUnfinishedMessage(builder.buildPartial());
+          } catch (com.google.protobuf.UninitializedMessageException e) {
+            throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+          } catch (java.io.IOException e) {
+            throw new com.google.protobuf.InvalidProtocolBufferException(e)
+                .setUnfinishedMessage(builder.buildPartial());
+          }
+          return builder.buildPartial();
+        }
+      };
 
   public static com.google.protobuf.Parser<RuntimeStoppedEvent> parser() {
     return PARSER;
@@ -1423,5 +1527,4 @@ private static final long serialVersionUID = 0L;
   public io.browsercloud.proto.node.v1.RuntimeStoppedEvent getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
-
 }

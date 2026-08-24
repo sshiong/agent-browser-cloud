@@ -4,8 +4,10 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.NodeEventReceived;
 import io.browsercloud.proto.node.v1.AgentActionFailedEvent;
+import io.browsercloud.proto.node.v1.AgentFileUploadFailedEvent;
 import io.browsercloud.proto.node.v1.AgentNavigationFailedEvent;
 import io.browsercloud.proto.node.v1.BrowserCrashEvent;
+import io.browsercloud.proto.node.v1.BrowserDownloadState;
 import io.browsercloud.proto.node.v1.BrowserNativeDialogState;
 import io.browsercloud.proto.node.v1.BrowserStateDiffEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
@@ -27,6 +29,7 @@ import io.browsercloud.proto.node.v1.RuntimeStoppedEvent;
 import io.browsercloud.proto.node.v1.SessionEvidenceCapturedEvent;
 import io.browsercloud.proto.node.v1.SessionRecordingFinalizedEvent;
 import java.security.MessageDigest;
+import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import org.springframework.stereotype.Component;
@@ -48,6 +51,7 @@ public class NodeEventMapper {
   static final String DIFF_TRUNCATED = "DiffTruncated";
   static final String AGENT_NAVIGATION_FAILED = "AgentNavigationFailed";
   static final String AGENT_ACTION_FAILED = "AgentActionFailed";
+  static final String AGENT_FILE_UPLOAD_FAILED = "AgentFileUploadFailed";
   static final String HUMAN_ASSIST_FAILED = "HumanAssistFailed";
   static final String CHALLENGE_AUTOMATION_FAILED = "ChallengeAutomationFailed";
   static final String REMOTE_DESKTOP_PARTICIPANT_CHANGED = "RemoteDesktopParticipantChanged";
@@ -457,6 +461,7 @@ public class NodeEventMapper {
               payload.getUpsertedTargetsList().stream().map(this::target).toList();
           var tabs = tabs(payload.getTabsList(), payload.getActiveTabId());
           var nativeDialogs = nativeDialogs(payload.getNativeDialogsList(), tabs);
+          var downloads = downloads(payload.getDownloadsList());
           if (payload.getNativeDialogEvidenceFresh() && tabs.isEmpty()) {
             throw new IllegalArgumentException(
                 "Fresh Native Dialog evidence requires Browser tabs");
@@ -485,7 +490,9 @@ public class NodeEventMapper {
               envelope.getPayload().size(),
               collectionCpuMillis,
               nativeDialogs,
-              payload.getNativeDialogEvidenceFresh());
+              payload.getNativeDialogEvidenceFresh(),
+              downloads,
+              payload.getDownloadEvidenceFresh());
         }
         case DIFF_TRUNCATED -> {
           var payload = DiffTruncatedEvent.parseFrom(envelope.getPayload());
@@ -554,6 +561,17 @@ public class NodeEventMapper {
               payload.getStepId(),
               payload.getToolId(),
               payload.getErrorCode());
+        }
+        case AGENT_FILE_UPLOAD_FAILED -> {
+          var payload = AgentFileUploadFailedEvent.parseFrom(envelope.getPayload());
+          requireText(payload.getUploadId(), "upload_id");
+          requireText(payload.getErrorCode(), "error_code");
+          if (!payload.getUploadId().matches("^afu_[A-Za-z0-9]{20}$")
+              || !payload.getErrorCode().matches("^[A-Z][A-Z0-9_]{2,127}$")) {
+            throw new IllegalArgumentException("Agent file upload failure metadata is invalid");
+          }
+          yield new NodeEvent.AgentFileUploadFailed(
+              payload.getSessionId(), payload.getUploadId(), payload.getErrorCode());
         }
         case HUMAN_ASSIST_FAILED -> {
           var payload = HumanAssistFailedEvent.parseFrom(envelope.getPayload());
@@ -810,6 +828,7 @@ public class NodeEventMapper {
       case NodeEvent.DiffTruncated truncated -> truncated.sessionId();
       case NodeEvent.AgentNavigationFailed failed -> failed.sessionId();
       case NodeEvent.AgentActionFailed failed -> failed.sessionId();
+      case NodeEvent.AgentFileUploadFailed failed -> failed.sessionId();
       case NodeEvent.HumanAssistFailed failed -> failed.sessionId();
       case NodeEvent.ChallengeAutomationFailed failed -> failed.sessionId();
       case NodeEvent.RemoteDesktopParticipantChanged changed -> changed.sessionId();
@@ -835,6 +854,7 @@ public class NodeEventMapper {
     var targets = payload.getTargetsList().stream().map(this::target).toList();
     var tabs = tabs(payload.getTabsList(), payload.getActiveTabId());
     var nativeDialogs = nativeDialogs(payload.getNativeDialogsList(), tabs);
+    var downloads = downloads(payload.getDownloadsList());
     if (payload.getNativeDialogEvidenceFresh() && tabs.isEmpty()) {
       throw new IllegalArgumentException("Fresh Native Dialog evidence requires Browser tabs");
     }
@@ -878,7 +898,57 @@ public class NodeEventMapper {
         payload.getRequestedRootRef(),
         actionOutcomes,
         nativeDialogs,
-        payload.getNativeDialogEvidenceFresh());
+        payload.getNativeDialogEvidenceFresh(),
+        downloads,
+        payload.getDownloadEvidenceFresh());
+  }
+
+  private List<NodeEvent.BrowserDownload> downloads(List<BrowserDownloadState> values) {
+    if (values.size() > 32) {
+      throw new IllegalArgumentException("Browser download count exceeds 32");
+    }
+    var downloads =
+        values.stream()
+            .map(
+                value -> {
+                  var totalBytes = value.hasTotalBytes() ? value.getTotalBytes() : null;
+                  var progress =
+                      value.hasProgressBasisPoints() ? value.getProgressBasisPoints() : null;
+                  if (!value.getDownloadId().matches("^dld_[0-9a-f]{20}$")
+                      || value.getFilename().isBlank()
+                      || value.getFilename().length() > 255
+                      || value.getFilename().indexOf('/') >= 0
+                      || value.getFilename().indexOf('\\') >= 0
+                      || value.getFilename().chars().anyMatch(Character::isISOControl)
+                      || value.getMimeType().isBlank()
+                      || value.getMimeType().length() > 255
+                      || value.getMimeType().chars().anyMatch(Character::isISOControl)
+                      || !java.util.Set.of("IN_PROGRESS", "COMPLETED", "CANCELED", "INTERRUPTED")
+                          .contains(value.getStatus())
+                      || (totalBytes != null && totalBytes <= 0)
+                      || (totalBytes != null && value.getReceivedBytes() > totalBytes)
+                      || (progress != null && progress > 10_000)
+                      || value.getStartedAtMs() <= 0
+                      || value.getUpdatedAtMs() < value.getStartedAtMs()) {
+                    throw new IllegalArgumentException("Browser download metadata is invalid");
+                  }
+                  return new NodeEvent.BrowserDownload(
+                      value.getDownloadId(),
+                      value.getFilename(),
+                      value.getMimeType(),
+                      totalBytes,
+                      value.getReceivedBytes(),
+                      progress,
+                      value.getStatus(),
+                      Instant.ofEpochMilli(value.getStartedAtMs()),
+                      Instant.ofEpochMilli(value.getUpdatedAtMs()));
+                })
+            .toList();
+    if (downloads.stream().map(NodeEvent.BrowserDownload::downloadId).distinct().count()
+        != downloads.size()) {
+      throw new IllegalArgumentException("Browser download identity is inconsistent");
+    }
+    return downloads;
   }
 
   private List<NodeEvent.NativeDialog> nativeDialogs(

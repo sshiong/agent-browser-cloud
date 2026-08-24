@@ -4,114 +4,133 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface ProfileWarmTierSyncedEventOrBuilder extends
+public interface ProfileWarmTierSyncedEventOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.ProfileWarmTierSyncedEvent)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>string node_id = 2 [json_name = "nodeId"];</code>
+   *
    * @return The nodeId.
    */
   java.lang.String getNodeId();
+
   /**
    * <code>string node_id = 2 [json_name = "nodeId"];</code>
+   *
    * @return The bytes for nodeId.
    */
-  com.google.protobuf.ByteString
-      getNodeIdBytes();
+  com.google.protobuf.ByteString getNodeIdBytes();
 
   /**
    * <code>string profile_id = 3 [json_name = "profileId"];</code>
+   *
    * @return The profileId.
    */
   java.lang.String getProfileId();
+
   /**
    * <code>string profile_id = 3 [json_name = "profileId"];</code>
+   *
    * @return The bytes for profileId.
    */
-  com.google.protobuf.ByteString
-      getProfileIdBytes();
+  com.google.protobuf.ByteString getProfileIdBytes();
 
   /**
    * <code>uint64 profile_write_epoch = 4 [json_name = "profileWriteEpoch"];</code>
+   *
    * @return The profileWriteEpoch.
    */
   long getProfileWriteEpoch();
 
   /**
    * <code>uint64 journal_sequence = 5 [json_name = "journalSequence"];</code>
+   *
    * @return The journalSequence.
    */
   long getJournalSequence();
 
   /**
    * <code>string transaction_barrier = 6 [json_name = "transactionBarrier"];</code>
+   *
    * @return The transactionBarrier.
    */
   java.lang.String getTransactionBarrier();
+
   /**
    * <code>string transaction_barrier = 6 [json_name = "transactionBarrier"];</code>
+   *
    * @return The bytes for transactionBarrier.
    */
-  com.google.protobuf.ByteString
-      getTransactionBarrierBytes();
+  com.google.protobuf.ByteString getTransactionBarrierBytes();
 
   /**
    * <code>uint64 changed_file_count = 7 [json_name = "changedFileCount"];</code>
+   *
    * @return The changedFileCount.
    */
   long getChangedFileCount();
 
   /**
    * <code>uint64 deleted_file_count = 8 [json_name = "deletedFileCount"];</code>
+   *
    * @return The deletedFileCount.
    */
   long getDeletedFileCount();
 
   /**
    * <code>uint64 reused_chunk_count = 9 [json_name = "reusedChunkCount"];</code>
+   *
    * @return The reusedChunkCount.
    */
   long getReusedChunkCount();
 
   /**
    * <code>uint64 uploaded_bytes = 10 [json_name = "uploadedBytes"];</code>
+   *
    * @return The uploadedBytes.
    */
   long getUploadedBytes();
 
   /**
    * <code>uint64 deferred_group_count = 11 [json_name = "deferredGroupCount"];</code>
+   *
    * @return The deferredGroupCount.
    */
   long getDeferredGroupCount();
 
   /**
    * <code>string manifest_sha256 = 12 [json_name = "manifestSha256"];</code>
+   *
    * @return The manifestSha256.
    */
   java.lang.String getManifestSha256();
+
   /**
    * <code>string manifest_sha256 = 12 [json_name = "manifestSha256"];</code>
+   *
    * @return The bytes for manifestSha256.
    */
-  com.google.protobuf.ByteString
-      getManifestSha256Bytes();
+  com.google.protobuf.ByteString getManifestSha256Bytes();
 
   /**
    * <code>int64 committed_at_ms = 13 [json_name = "committedAtMs"];</code>
+   *
    * @return The committedAtMs.
    */
   long getCommittedAtMs();

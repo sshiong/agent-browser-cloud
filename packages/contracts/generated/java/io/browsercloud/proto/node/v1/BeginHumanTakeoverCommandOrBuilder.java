@@ -4,31 +4,36 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface BeginHumanTakeoverCommandOrBuilder extends
+public interface BeginHumanTakeoverCommandOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.BeginHumanTakeoverCommand)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>string user_id = 2 [json_name = "userId"];</code>
+   *
    * @return The userId.
    */
   java.lang.String getUserId();
+
   /**
    * <code>string user_id = 2 [json_name = "userId"];</code>
+   *
    * @return The bytes for userId.
    */
-  com.google.protobuf.ByteString
-      getUserIdBytes();
+  com.google.protobuf.ByteString getUserIdBytes();
 }

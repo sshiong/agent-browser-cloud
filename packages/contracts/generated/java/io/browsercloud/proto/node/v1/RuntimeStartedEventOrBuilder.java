@@ -4,115 +4,134 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface RuntimeStartedEventOrBuilder extends
+public interface RuntimeStartedEventOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.RuntimeStartedEvent)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>uint32 pid = 2 [json_name = "pid"];</code>
+   *
    * @return The pid.
    */
   int getPid();
 
   /**
    * <code>uint64 browser_generation = 3 [json_name = "browserGeneration"];</code>
+   *
    * @return The browserGeneration.
    */
   long getBrowserGeneration();
 
   /**
    * <code>string cdp_endpoint = 4 [json_name = "cdpEndpoint"];</code>
+   *
    * @return The cdpEndpoint.
    */
   java.lang.String getCdpEndpoint();
+
   /**
    * <code>string cdp_endpoint = 4 [json_name = "cdpEndpoint"];</code>
+   *
    * @return The bytes for cdpEndpoint.
    */
-  com.google.protobuf.ByteString
-      getCdpEndpointBytes();
+  com.google.protobuf.ByteString getCdpEndpointBytes();
 
   /**
    * <code>string node_id = 5 [json_name = "nodeId"];</code>
+   *
    * @return The nodeId.
    */
   java.lang.String getNodeId();
+
   /**
    * <code>string node_id = 5 [json_name = "nodeId"];</code>
+   *
    * @return The bytes for nodeId.
    */
-  com.google.protobuf.ByteString
-      getNodeIdBytes();
+  com.google.protobuf.ByteString getNodeIdBytes();
 
   /**
    * <code>string runtime_build_id = 6 [json_name = "runtimeBuildId"];</code>
+   *
    * @return The runtimeBuildId.
    */
   java.lang.String getRuntimeBuildId();
+
   /**
    * <code>string runtime_build_id = 6 [json_name = "runtimeBuildId"];</code>
+   *
    * @return The bytes for runtimeBuildId.
    */
-  com.google.protobuf.ByteString
-      getRuntimeBuildIdBytes();
+  com.google.protobuf.ByteString getRuntimeBuildIdBytes();
 
   /**
    * <code>string proxy_binding_id = 7 [json_name = "proxyBindingId"];</code>
+   *
    * @return The proxyBindingId.
    */
   java.lang.String getProxyBindingId();
+
   /**
    * <code>string proxy_binding_id = 7 [json_name = "proxyBindingId"];</code>
+   *
    * @return The bytes for proxyBindingId.
    */
-  com.google.protobuf.ByteString
-      getProxyBindingIdBytes();
+  com.google.protobuf.ByteString getProxyBindingIdBytes();
 
   /**
    * <code>string exit_ip = 8 [json_name = "exitIp"];</code>
+   *
    * @return The exitIp.
    */
   java.lang.String getExitIp();
+
   /**
    * <code>string exit_ip = 8 [json_name = "exitIp"];</code>
+   *
    * @return The bytes for exitIp.
    */
-  com.google.protobuf.ByteString
-      getExitIpBytes();
+  com.google.protobuf.ByteString getExitIpBytes();
 
   /**
    * <code>string exit_country = 9 [json_name = "exitCountry"];</code>
+   *
    * @return The exitCountry.
    */
   java.lang.String getExitCountry();
+
   /**
    * <code>string exit_country = 9 [json_name = "exitCountry"];</code>
+   *
    * @return The bytes for exitCountry.
    */
-  com.google.protobuf.ByteString
-      getExitCountryBytes();
+  com.google.protobuf.ByteString getExitCountryBytes();
 
   /**
    * <code>string exit_asn = 10 [json_name = "exitAsn"];</code>
+   *
    * @return The exitAsn.
    */
   java.lang.String getExitAsn();
+
   /**
    * <code>string exit_asn = 10 [json_name = "exitAsn"];</code>
+   *
    * @return The bytes for exitAsn.
    */
-  com.google.protobuf.ByteString
-      getExitAsnBytes();
+  com.google.protobuf.ByteString getExitAsnBytes();
 }

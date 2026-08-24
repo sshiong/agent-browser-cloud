@@ -11,9 +11,10 @@ use node_contracts::proto::node_control_service_server::{
 use node_contracts::proto::node_event_service_client::NodeEventServiceClient;
 use node_contracts::proto::{
     AdjustRuntimeResourcesCommand, AgentActionCommand, AgentActionFailedEvent, AgentActionOutcome,
-    AgentActionPrimitive, AgentNavigateCommand, AgentNavigationFailedEvent,
-    BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserNativeDialogState, BrowserStateDiffEvent,
-    BrowserStateEvent, BrowserStateSnapshotBeginEvent, BrowserStateSnapshotChunkEvent,
+    AgentActionPrimitive, AgentFileUploadCommand, AgentFileUploadFailedEvent, AgentNavigateCommand,
+    AgentNavigationFailedEvent, BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserDownloadState,
+    BrowserNativeDialogState, BrowserStateDiffEvent, BrowserStateEvent,
+    BrowserStateSnapshotBeginEvent, BrowserStateSnapshotChunkEvent,
     BrowserStateSnapshotCommitEvent, BrowserTabState, BusinessRecoveryActionCommand,
     CaptureObserverScreenshotCommand, ChallengeAutomationActionCommand,
     ChallengeAutomationFailedEvent, ChallengeVisualAction, CommandAck, CommandEnvelope,
@@ -27,8 +28,9 @@ use node_contracts::proto::{
     RemoteDesktopParticipantEvent, ReportCapacityRequest, ReportSessionResourcesRequest,
     RequestStateResyncCommand, RevokeRemoteDesktopConnectionCommand, RuntimeResourcesAdjustedEvent,
     RuntimeStartedEvent, RuntimeStoppedEvent, SessionEvidenceCapturedEvent,
-    SessionRecordingFinalizedEvent, StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
-    UploadProfileImportRequest, UploadProfileImportResponse,
+    SessionRecordingFinalizedEvent, StageAgentBrowserFileRequest, StageAgentBrowserFileResponse,
+    StartRuntimeCommand, StopRuntimeCommand, TargetBounds, UploadProfileImportRequest,
+    UploadProfileImportResponse,
 };
 use node_journal::{
     CommandFenceDecision, PersistedAcknowledgement, PersistedCommandResult, RuntimeLease,
@@ -56,7 +58,7 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::{mpsc, Mutex, Semaphore};
 use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 use tonic::{Request, Response, Status};
@@ -76,6 +78,20 @@ fn rebound_action_target(
     } else {
         (action.element_id.clone(), current_target_revision)
     }
+}
+
+fn agent_file_cursor_is_current(
+    current_state_version: u64,
+    current_content_hash: &str,
+    current_target_revision: u64,
+    base_state_version: u64,
+    base_content_hash: &str,
+    target_revision: u64,
+) -> bool {
+    current_state_version >= base_state_version
+        && (current_state_version != base_state_version
+            || current_content_hash == base_content_hash)
+        && current_target_revision == target_revision
 }
 
 fn agent_action_error_code(tool_id: &str, error: &anyhow::Error) -> &'static str {
@@ -217,6 +233,8 @@ struct NodeControlService {
     session_evidence: SessionEvidenceRegistry,
     profile_import_staging_root: PathBuf,
     inflight_profile_imports: Arc<Mutex<HashSet<String>>>,
+    agent_file_staging_root: PathBuf,
+    inflight_agent_file_stages: Arc<Mutex<HashSet<String>>>,
     warm_tier_sync_inflight: Arc<Mutex<HashSet<String>>>,
     resource_report_interval_probes: u64,
     proxy_health_probe_interval_probes: u64,
@@ -661,6 +679,7 @@ impl NodeCapacityReporter {
             }
             .to_owned(),
         );
+        labels.insert("agentBrowserFiles".to_owned(), "cdp-file-v1".to_owned());
         labels.insert(
             "profileExport".to_owned(),
             if std::env::var("STORAGE_HELPER_SOCKET")
@@ -1554,6 +1573,29 @@ impl NodeControlService {
         Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
     }
 
+    async fn agent_file_upload_failed(
+        &self,
+        command: &CommandEnvelope,
+        payload: &AgentFileUploadCommand,
+        error_code: &str,
+    ) -> CommandResult {
+        let sequence = match self.next_event_sequence(&command.session_id).await {
+            Ok(sequence) => sequence,
+            Err(error) => return self.failed(command, error),
+        };
+        let event = Self::event(
+            command,
+            "AgentFileUploadFailed",
+            sequence,
+            AgentFileUploadFailedEvent {
+                session_id: command.session_id.clone(),
+                upload_id: payload.upload_id.clone(),
+                error_code: error_code.to_owned(),
+            },
+        );
+        Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
+    }
+
     async fn human_assist_failed(
         &self,
         command: &CommandEnvelope,
@@ -1669,6 +1711,22 @@ impl NodeControlService {
                 })
                 .collect(),
             native_dialog_evidence_fresh: state.native_dialog_evidence_fresh,
+            downloads: state
+                .downloads
+                .into_iter()
+                .map(|download| BrowserDownloadState {
+                    download_id: download.download_id,
+                    filename: download.filename,
+                    mime_type: download.mime_type,
+                    total_bytes: download.total_bytes,
+                    received_bytes: download.received_bytes,
+                    progress_basis_points: download.progress_basis_points,
+                    status: download.status,
+                    started_at_ms: i64::try_from(download.started_at_ms).unwrap_or(i64::MAX),
+                    updated_at_ms: i64::try_from(download.updated_at_ms).unwrap_or(i64::MAX),
+                })
+                .collect(),
+            download_evidence_fresh: state.download_evidence_fresh,
         }
     }
 
@@ -1756,6 +1814,22 @@ impl NodeControlService {
                 })
                 .collect(),
             native_dialog_evidence_fresh: diff.native_dialog_evidence_fresh,
+            downloads: diff
+                .downloads
+                .into_iter()
+                .map(|download| BrowserDownloadState {
+                    download_id: download.download_id,
+                    filename: download.filename,
+                    mime_type: download.mime_type,
+                    total_bytes: download.total_bytes,
+                    received_bytes: download.received_bytes,
+                    progress_basis_points: download.progress_basis_points,
+                    status: download.status,
+                    started_at_ms: i64::try_from(download.started_at_ms).unwrap_or(i64::MAX),
+                    updated_at_ms: i64::try_from(download.updated_at_ms).unwrap_or(i64::MAX),
+                })
+                .collect(),
+            download_evidence_fresh: diff.download_evidence_fresh,
         }
     }
 
@@ -5162,6 +5236,153 @@ impl NodeControlService {
                 }
                 Err(error) => self.failed(command, error.into()),
             },
+            "AgentFileUpload" => match AgentFileUploadCommand::decode(command.payload.as_slice()) {
+                Ok(payload) => {
+                    if payload.session_id != command.session_id
+                        || !payload.upload_id.starts_with("afu_")
+                        || payload.upload_id.len() != 24
+                        || !payload.upload_id.chars().all(|character| {
+                            character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
+                        })
+                        || payload.target_ref.is_empty()
+                        || payload.target_ref.len() > 128
+                        || payload.target_revision == 0
+                        || payload.base_state_version == 0
+                        || payload.base_content_hash.len() != 64
+                        || !payload
+                            .base_content_hash
+                            .chars()
+                            .all(|character| character.is_ascii_hexdigit())
+                        || payload.filename.is_empty()
+                        || payload.filename.len() > 255
+                        || payload.filename.contains(['/', '\\'])
+                        || payload.filename.chars().any(char::is_control)
+                        || payload.mime_type.is_empty()
+                        || payload.mime_type.len() > 255
+                        || payload.mime_type.chars().any(char::is_control)
+                        || payload.content_sha256.len() != 64
+                        || !payload
+                            .content_sha256
+                            .chars()
+                            .all(|character| character.is_ascii_hexdigit())
+                        || payload.content_bytes == 0
+                        || payload.content_bytes > 64 * 1024 * 1024
+                    {
+                        return self.failed(
+                            command,
+                            anyhow::anyhow!("Agent file upload payload is invalid"),
+                        );
+                    }
+                    if self.human_input_has_priority(&command.session_id) {
+                        return Self::defer_for_human_input(command);
+                    }
+                    let current = match self
+                        .state_collector
+                        .collect_current_state(&command.session_id)
+                        .await
+                    {
+                        Ok(state) => state,
+                        Err(error) => {
+                            tracing::warn!(upload_id = payload.upload_id, error = %error, "Agent file state is unavailable");
+                            return self
+                                .agent_file_upload_failed(command, &payload, "STATE_UNAVAILABLE")
+                                .await;
+                        }
+                    };
+                    // A periodic readiness/download observation may advance State Version between
+                    // the API claim and this journaled command without changing the file input.
+                    // Follow the Batch fast-path cursor rule: never accept a regression or a hash
+                    // mismatch at the claimed version, while the exact Target Revision is still
+                    // enforced again by set_file_input_files before the CDP side effect.
+                    if !agent_file_cursor_is_current(
+                        current.state_version,
+                        &current.content_hash,
+                        current.target_revision,
+                        payload.base_state_version,
+                        &payload.base_content_hash,
+                        payload.target_revision,
+                    ) {
+                        return self
+                            .agent_file_upload_failed(command, &payload, "STATE_STALE")
+                            .await;
+                    }
+                    let staged_path = self
+                        .agent_file_staging_root
+                        .join(&command.session_id)
+                        .join(format!("{}--{}", payload.upload_id, payload.filename));
+                    let (observed_bytes, observed_hash) = match hash_file(&staged_path).await {
+                        Ok(value) => value,
+                        Err(_) => {
+                            return self
+                                .agent_file_upload_failed(command, &payload, "FILE_STAGE_NOT_FOUND")
+                                .await
+                        }
+                    };
+                    if observed_bytes != payload.content_bytes
+                        || !observed_hash.eq_ignore_ascii_case(&payload.content_sha256)
+                    {
+                        return self
+                            .agent_file_upload_failed(
+                                command,
+                                &payload,
+                                "FILE_STAGE_INTEGRITY_MISMATCH",
+                            )
+                            .await;
+                    }
+                    if let Err(error) = self
+                        .state_collector
+                        .set_file_input_files(
+                            &command.session_id,
+                            &payload.target_ref,
+                            payload.target_revision,
+                            &staged_path,
+                        )
+                        .await
+                    {
+                        let message = error.to_string().to_ascii_lowercase();
+                        let code = if message.contains("revision is stale") {
+                            "STATE_STALE"
+                        } else if message.contains("file input")
+                            || message.contains("target is not")
+                        {
+                            "FILE_INPUT_TARGET_INVALID"
+                        } else if message.contains("cdp") {
+                            "CDP_ERROR"
+                        } else {
+                            "FILE_UPLOAD_FAILED"
+                        };
+                        tracing::warn!(upload_id = payload.upload_id, error = %error, "Agent file upload failed");
+                        return self.agent_file_upload_failed(command, &payload, code).await;
+                    }
+                    let state = match self
+                        .state_collector
+                        .collect_action_confirmation(&command.session_id)
+                        .await
+                    {
+                        Ok(state) => state,
+                        Err(_) => {
+                            return self
+                                .agent_file_upload_failed(
+                                    command,
+                                    &payload,
+                                    "POST_UPLOAD_STATE_UNAVAILABLE",
+                                )
+                                .await
+                        }
+                    };
+                    let sequence = match self.next_event_sequence(&command.session_id).await {
+                        Ok(sequence) => sequence,
+                        Err(error) => return self.failed(command, error),
+                    };
+                    let mut state_payload = Self::browser_state_payload(state.clone());
+                    state_payload.snapshot_kind = "AGENT_FILE_UPLOAD".to_owned();
+                    state_payload.requested_root_ref = payload.upload_id;
+                    let event =
+                        Self::event(command, "BrowserStateUpdated", sequence, state_payload);
+                    Self::state_result(Self::ack(&command.message_id, true, "", ""), event, state)
+                }
+                Err(error) => self.failed(command, error.into()),
+            },
             "ChallengeAutomationAction" => {
                 match ChallengeAutomationActionCommand::decode(command.payload.as_slice()) {
                     Ok(payload) => {
@@ -6622,6 +6843,12 @@ impl NodeControlService {
         self.journal
             .record_crash_and_stop_runtime(session_id, &persisted)
             .await?;
+        let staging = self.agent_file_staging_root.join(session_id);
+        if let Err(error) = tokio::fs::remove_dir_all(&staging).await {
+            if error.kind() != std::io::ErrorKind::NotFound {
+                tracing::warn!(session_id, error = %error, "Failed to remove Agent Browser file staging after crash");
+            }
+        }
         if let Err(error) = self.publish_and_mark(event).await {
             tracing::warn!(
                 session_id,
@@ -7005,6 +7232,16 @@ impl NodeControlService {
             }
             if command.command_type == "StopRuntime" {
                 self.success_trace_sampler.remove(&command.session_id).await;
+                let staging = self.agent_file_staging_root.join(&command.session_id);
+                if let Err(error) = tokio::fs::remove_dir_all(&staging).await {
+                    if error.kind() != std::io::ErrorKind::NotFound {
+                        tracing::warn!(
+                            session_id = %command.session_id,
+                            error = %error,
+                            "Failed to remove Agent Browser file staging after Runtime stop"
+                        );
+                    }
+                }
             }
         }
         Ok(Response::new(DispatchResponse {
@@ -7329,6 +7566,206 @@ impl NodeControlServiceRpc for NodeControlService {
         result.map(Response::new)
     }
 
+    async fn stage_agent_browser_file(
+        &self,
+        request: Request<tonic::Streaming<StageAgentBrowserFileRequest>>,
+    ) -> Result<Response<StageAgentBrowserFileResponse>, Status> {
+        const MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
+        const MAX_CHUNK_BYTES: usize = 1024 * 1024;
+        let mut stream = request.into_inner();
+        let first = stream
+            .message()
+            .await?
+            .ok_or_else(|| Status::invalid_argument("Agent Browser file stream is empty"))?;
+        validate_agent_file_chunk(&first, MAX_FILE_BYTES, MAX_CHUNK_BYTES)
+            .map_err(Status::invalid_argument)?;
+        if first.offset != 0 {
+            return Err(Status::invalid_argument(
+                "Agent Browser file must start at offset zero",
+            ));
+        }
+        let lease = self
+            .journal
+            .active_runtime_leases()
+            .await
+            .map_err(|_| Status::internal("Node Journal is unavailable"))?
+            .into_iter()
+            .find(|lease| lease.session_id == first.session_id)
+            .ok_or_else(|| Status::failed_precondition("Session Runtime is not active"))?;
+        if lease.tenant_id != first.tenant_id
+            || lease.coordinator_term != first.coordinator_term
+            || lease.context_epoch != first.context_epoch
+        {
+            return Err(Status::failed_precondition(
+                "Agent Browser file Session fence is stale",
+            ));
+        }
+        let inflight_key = first.session_id.clone();
+        if !self
+            .inflight_agent_file_stages
+            .lock()
+            .await
+            .insert(inflight_key.clone())
+        {
+            return Err(Status::already_exists(
+                "Agent Browser file is already being staged",
+            ));
+        }
+        let result = async {
+            let session_root = self.agent_file_staging_root.join(&first.session_id);
+            tokio::fs::create_dir_all(&session_root)
+                .await
+                .map_err(|_| Status::internal("Agent Browser staging is unavailable"))?;
+            let final_path = session_root.join(format!("{}--{}", first.upload_id, first.filename));
+            if tokio::fs::try_exists(&final_path)
+                .await
+                .map_err(|_| Status::internal("Agent Browser staging is unavailable"))?
+            {
+                let (observed_bytes, observed_hash) = hash_file(&final_path)
+                    .await
+                    .map_err(|_| Status::internal("Agent Browser staged file is unreadable"))?;
+                if observed_bytes == first.content_bytes
+                    && observed_hash.eq_ignore_ascii_case(&first.content_sha256)
+                {
+                    return Ok(StageAgentBrowserFileResponse {
+                        upload_id: first.upload_id,
+                        node_id: self.node_id.clone(),
+                        session_id: first.session_id,
+                        content_sha256: observed_hash,
+                        content_bytes: observed_bytes,
+                    });
+                }
+                return Err(Status::already_exists(
+                    "Agent Browser upload ID already has different content",
+                ));
+            }
+            let mut entries = tokio::fs::read_dir(&session_root)
+                .await
+                .map_err(|_| Status::internal("Agent Browser staging is unavailable"))?;
+            let mut staged_files = 0_u32;
+            let mut staged_bytes = 0_u64;
+            let upload_prefix = format!("{}--", first.upload_id);
+            while let Some(entry) = entries
+                .next_entry()
+                .await
+                .map_err(|_| Status::internal("Agent Browser staging is unavailable"))?
+            {
+                let name = entry.file_name();
+                let name = name.to_string_lossy();
+                if name.starts_with(&upload_prefix) {
+                    return Err(Status::already_exists(
+                        "Agent Browser upload ID already has different metadata",
+                    ));
+                }
+                if !name.starts_with("afu_") || !name.contains("--") {
+                    continue;
+                }
+                let metadata = entry
+                    .metadata()
+                    .await
+                    .map_err(|_| Status::internal("Agent Browser staging is unavailable"))?;
+                if metadata.is_file() {
+                    staged_files = staged_files.saturating_add(1);
+                    staged_bytes = staged_bytes.saturating_add(metadata.len());
+                }
+            }
+            if staged_files >= 32
+                || staged_bytes.saturating_add(first.content_bytes) > 256 * 1024 * 1024
+            {
+                return Err(Status::resource_exhausted(
+                    "Agent Browser Session staging capacity is exhausted",
+                ));
+            }
+            let temporary_path = session_root.join(format!(
+                "{}.{}.part",
+                first.upload_id,
+                uuid::Uuid::new_v4().simple()
+            ));
+            let mut options = tokio::fs::OpenOptions::new();
+            options.write(true).create_new(true);
+            #[cfg(unix)]
+            {
+                options.mode(0o600);
+            }
+            let mut file = options
+                .open(&temporary_path)
+                .await
+                .map_err(|_| Status::internal("Agent Browser staging is unavailable"))?;
+            let expected = AgentFileStageMetadata::from(&first);
+            let mut hasher = Sha256::new();
+            let mut written = 0_u64;
+            let mut chunk = Some(first);
+            while let Some(current) = chunk {
+                validate_agent_file_chunk(&current, MAX_FILE_BYTES, MAX_CHUNK_BYTES)
+                    .map_err(Status::invalid_argument)?;
+                if !expected.matches(&current) || current.offset != written {
+                    let _ = tokio::fs::remove_file(&temporary_path).await;
+                    return Err(Status::invalid_argument(
+                        "Agent Browser file chunk metadata or offset changed",
+                    ));
+                }
+                written = written
+                    .checked_add(current.data.len() as u64)
+                    .ok_or_else(|| Status::invalid_argument("Agent Browser file size overflow"))?;
+                if written > expected.content_bytes {
+                    let _ = tokio::fs::remove_file(&temporary_path).await;
+                    return Err(Status::invalid_argument(
+                        "Agent Browser file exceeds the declared size",
+                    ));
+                }
+                if file.write_all(&current.data).await.is_err() {
+                    drop(file);
+                    let _ = tokio::fs::remove_file(&temporary_path).await;
+                    return Err(Status::internal("Agent Browser staging write failed"));
+                }
+                hasher.update(&current.data);
+                chunk = match stream.message().await {
+                    Ok(next) => next,
+                    Err(status) => {
+                        drop(file);
+                        let _ = tokio::fs::remove_file(&temporary_path).await;
+                        return Err(status);
+                    }
+                };
+            }
+            if file.sync_all().await.is_err() {
+                drop(file);
+                let _ = tokio::fs::remove_file(&temporary_path).await;
+                return Err(Status::internal("Agent Browser staging sync failed"));
+            }
+            drop(file);
+            let observed_hash = format!("{:x}", hasher.finalize());
+            if written != expected.content_bytes
+                || !observed_hash.eq_ignore_ascii_case(&expected.content_sha256)
+            {
+                let _ = tokio::fs::remove_file(&temporary_path).await;
+                return Err(Status::invalid_argument(
+                    "Agent Browser file size or SHA-256 does not match",
+                ));
+            }
+            if tokio::fs::rename(&temporary_path, &final_path)
+                .await
+                .is_err()
+            {
+                let _ = tokio::fs::remove_file(&temporary_path).await;
+                return Err(Status::internal("Agent Browser staging commit failed"));
+            }
+            Ok(StageAgentBrowserFileResponse {
+                upload_id: expected.upload_id,
+                node_id: self.node_id.clone(),
+                session_id: expected.session_id,
+                content_sha256: observed_hash,
+                content_bytes: written,
+            })
+        }
+        .await;
+        self.inflight_agent_file_stages
+            .lock()
+            .await
+            .remove(&inflight_key);
+        result.map(Response::new)
+    }
+
     async fn presign_evidence_download(
         &self,
         request: Request<PresignEvidenceDownloadRequest>,
@@ -7542,6 +7979,114 @@ fn validate_profile_import_chunk(
     Ok(())
 }
 
+#[derive(Debug, Clone)]
+struct AgentFileStageMetadata {
+    upload_id: String,
+    tenant_id: String,
+    session_id: String,
+    coordinator_term: i64,
+    context_epoch: i64,
+    filename: String,
+    mime_type: String,
+    content_sha256: String,
+    content_bytes: u64,
+}
+
+impl From<&StageAgentBrowserFileRequest> for AgentFileStageMetadata {
+    fn from(value: &StageAgentBrowserFileRequest) -> Self {
+        Self {
+            upload_id: value.upload_id.clone(),
+            tenant_id: value.tenant_id.clone(),
+            session_id: value.session_id.clone(),
+            coordinator_term: value.coordinator_term,
+            context_epoch: value.context_epoch,
+            filename: value.filename.clone(),
+            mime_type: value.mime_type.clone(),
+            content_sha256: value.content_sha256.clone(),
+            content_bytes: value.content_bytes,
+        }
+    }
+}
+
+impl AgentFileStageMetadata {
+    fn matches(&self, value: &StageAgentBrowserFileRequest) -> bool {
+        self.upload_id == value.upload_id
+            && self.tenant_id == value.tenant_id
+            && self.session_id == value.session_id
+            && self.coordinator_term == value.coordinator_term
+            && self.context_epoch == value.context_epoch
+            && self.filename == value.filename
+            && self.mime_type == value.mime_type
+            && self
+                .content_sha256
+                .eq_ignore_ascii_case(&value.content_sha256)
+            && self.content_bytes == value.content_bytes
+    }
+}
+
+fn validate_agent_file_chunk(
+    value: &StageAgentBrowserFileRequest,
+    max_file_bytes: u64,
+    max_chunk_bytes: usize,
+) -> Result<(), &'static str> {
+    let identifier = |candidate: &str, prefix: &str| {
+        candidate.starts_with(prefix)
+            && candidate.len() <= 128
+            && candidate.chars().all(|character| {
+                character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
+            })
+    };
+    if !identifier(&value.upload_id, "afu_")
+        || value.upload_id.len() != 24
+        || !identifier(&value.session_id, "ses_")
+        || value.tenant_id.is_empty()
+        || value.tenant_id.len() > 128
+        || !value
+            .tenant_id
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-'))
+        || value.coordinator_term <= 0
+        || value.context_epoch <= 0
+        || value.filename.is_empty()
+        || value.filename.len() > 255
+        || value.filename.contains(['/', '\\'])
+        || value.filename.chars().any(char::is_control)
+        || value.mime_type.is_empty()
+        || value.mime_type.len() > 255
+        || value.mime_type.chars().any(char::is_control)
+        || value.content_sha256.len() != 64
+        || !value
+            .content_sha256
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+        || value.content_bytes == 0
+        || value.content_bytes > max_file_bytes
+        || value.data.is_empty()
+        || value.data.len() > max_chunk_bytes
+    {
+        return Err("Agent Browser file chunk is invalid or exceeds its bound");
+    }
+    Ok(())
+}
+
+async fn hash_file(path: &Path) -> anyhow::Result<(u64, String)> {
+    let mut file = tokio::fs::File::open(path).await?;
+    let mut buffer = vec![0_u8; 256 * 1024];
+    let mut bytes = 0_u64;
+    let mut hasher = Sha256::new();
+    loop {
+        let read = file.read(&mut buffer).await?;
+        if read == 0 {
+            break;
+        }
+        bytes = bytes
+            .checked_add(read as u64)
+            .ok_or_else(|| anyhow::anyhow!("staged file size overflow"))?;
+        hasher.update(&buffer[..read]);
+    }
+    Ok((bytes, format!("{:x}", hasher.finalize())))
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     rustls::crypto::ring::default_provider()
@@ -7599,6 +8144,8 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| runtime_root.join("profile-storage"));
     let profile_import_staging_root = profile_storage_root.join(".imports");
     tokio::fs::create_dir_all(&profile_import_staging_root).await?;
+    let agent_file_staging_root = runtime_root.join("agent-file-staging");
+    tokio::fs::create_dir_all(&agent_file_staging_root).await?;
     let extension_root = std::env::var("NODE_EXTENSION_ROOT")
         .ok()
         .map(|value| value.trim().to_owned())
@@ -7940,6 +8487,8 @@ async fn main() -> Result<()> {
         session_evidence: SessionEvidenceRegistry::default(),
         profile_import_staging_root,
         inflight_profile_imports: Arc::new(Mutex::new(HashSet::new())),
+        agent_file_staging_root,
+        inflight_agent_file_stages: Arc::new(Mutex::new(HashSet::new())),
         warm_tier_sync_inflight: Arc::new(Mutex::new(HashSet::new())),
         resource_report_interval_probes,
         proxy_health_probe_interval_probes,
@@ -8101,6 +8650,17 @@ mod tests {
             rebound_action_target(&action, 7),
             ("target:2:1".to_owned(), 2)
         );
+    }
+
+    #[test]
+    fn agent_file_cursor_allows_only_monotonic_forward_state_with_exact_target_revision() {
+        assert!(agent_file_cursor_is_current(12, "new", 7, 11, "old", 7));
+        assert!(agent_file_cursor_is_current(11, "same", 7, 11, "same", 7));
+        assert!(!agent_file_cursor_is_current(10, "old", 7, 11, "old", 7));
+        assert!(!agent_file_cursor_is_current(
+            11, "changed", 7, 11, "old", 7
+        ));
+        assert!(!agent_file_cursor_is_current(12, "new", 8, 11, "old", 7));
     }
 
     #[test]
@@ -8275,6 +8835,8 @@ mod tests {
             active_tab_id: "tab-1".to_owned(),
             native_dialogs: Vec::new(),
             native_dialog_evidence_fresh: true,
+            downloads: Vec::new(),
+            download_evidence_fresh: true,
             targets: Vec::new(),
             quality: StateQuality::Complete,
             content_hash: format!("hash-{version}"),
@@ -8578,6 +9140,8 @@ mod tests {
             desktop_enabled: false,
             profile_import_staging_root: root.join("profile-imports"),
             inflight_profile_imports: Arc::new(Mutex::new(HashSet::new())),
+            agent_file_staging_root: root.join("agent-files"),
+            inflight_agent_file_stages: Arc::new(Mutex::new(HashSet::new())),
             warm_tier_sync_inflight: Arc::new(Mutex::new(HashSet::new())),
         };
 

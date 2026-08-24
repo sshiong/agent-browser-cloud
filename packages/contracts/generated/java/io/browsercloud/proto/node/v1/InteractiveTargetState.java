@@ -4,50 +4,59 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-/**
- * Protobuf type {@code browsercloud.node.v1.InteractiveTargetState}
- */
-public final class InteractiveTargetState extends
-    com.google.protobuf.GeneratedMessageV3 implements
+/** Protobuf type {@code browsercloud.node.v1.InteractiveTargetState} */
+public final class InteractiveTargetState extends com.google.protobuf.GeneratedMessageV3
+    implements
     // @@protoc_insertion_point(message_implements:browsercloud.node.v1.InteractiveTargetState)
     InteractiveTargetStateOrBuilder {
-private static final long serialVersionUID = 0L;
+  private static final long serialVersionUID = 0L;
+
   // Use InteractiveTargetState.newBuilder() to construct.
   private InteractiveTargetState(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
+
   private InteractiveTargetState() {
     targetRef_ = "";
     role_ = "";
     name_ = "";
+    elementId_ = "";
+    value_ = "";
+    controlType_ = "";
+    frameId_ = "";
+    visibilityReason_ = "";
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
+  protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
     return new InteractiveTargetState();
   }
 
-  public static final com.google.protobuf.Descriptors.Descriptor
-      getDescriptor() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_InteractiveTargetState_descriptor;
+  public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_InteractiveTargetState_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_InteractiveTargetState_fieldAccessorTable
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_InteractiveTargetState_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            io.browsercloud.proto.node.v1.InteractiveTargetState.class, io.browsercloud.proto.node.v1.InteractiveTargetState.Builder.class);
+            io.browsercloud.proto.node.v1.InteractiveTargetState.class,
+            io.browsercloud.proto.node.v1.InteractiveTargetState.Builder.class);
   }
 
   private int bitField0_;
   public static final int TARGET_REF_FIELD_NUMBER = 1;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object targetRef_ = "";
+
   /**
    * <code>string target_ref = 1 [json_name = "targetRef"];</code>
+   *
    * @return The targetRef.
    */
   @java.lang.Override
@@ -56,25 +65,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       targetRef_ = s;
       return s;
     }
   }
+
   /**
    * <code>string target_ref = 1 [json_name = "targetRef"];</code>
+   *
    * @return The bytes for targetRef.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getTargetRefBytes() {
+  public com.google.protobuf.ByteString getTargetRefBytes() {
     java.lang.Object ref = targetRef_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       targetRef_ = b;
       return b;
     } else {
@@ -83,10 +91,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int ROLE_FIELD_NUMBER = 2;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object role_ = "";
+
   /**
    * <code>string role = 2 [json_name = "role"];</code>
+   *
    * @return The role.
    */
   @java.lang.Override
@@ -95,25 +106,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       role_ = s;
       return s;
     }
   }
+
   /**
    * <code>string role = 2 [json_name = "role"];</code>
+   *
    * @return The bytes for role.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getRoleBytes() {
+  public com.google.protobuf.ByteString getRoleBytes() {
     java.lang.Object ref = role_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       role_ = b;
       return b;
     } else {
@@ -122,18 +132,23 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int NAME_FIELD_NUMBER = 3;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object name_ = "";
+
   /**
    * <code>optional string name = 3 [json_name = "name"];</code>
+   *
    * @return Whether the name field is set.
    */
   @java.lang.Override
   public boolean hasName() {
     return ((bitField0_ & 0x00000001) != 0);
   }
+
   /**
    * <code>optional string name = 3 [json_name = "name"];</code>
+   *
    * @return The name.
    */
   @java.lang.Override
@@ -142,25 +157,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       name_ = s;
       return s;
     }
   }
+
   /**
    * <code>optional string name = 3 [json_name = "name"];</code>
+   *
    * @return The bytes for name.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getNameBytes() {
+  public com.google.protobuf.ByteString getNameBytes() {
     java.lang.Object ref = name_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       name_ = b;
       return b;
     } else {
@@ -170,34 +184,43 @@ private static final long serialVersionUID = 0L;
 
   public static final int BOUNDS_FIELD_NUMBER = 4;
   private io.browsercloud.proto.node.v1.TargetBounds bounds_;
+
   /**
    * <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code>
+   *
    * @return Whether the bounds field is set.
    */
   @java.lang.Override
   public boolean hasBounds() {
     return ((bitField0_ & 0x00000002) != 0);
   }
+
   /**
    * <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code>
+   *
    * @return The bounds.
    */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.TargetBounds getBounds() {
-    return bounds_ == null ? io.browsercloud.proto.node.v1.TargetBounds.getDefaultInstance() : bounds_;
+    return bounds_ == null
+        ? io.browsercloud.proto.node.v1.TargetBounds.getDefaultInstance()
+        : bounds_;
   }
-  /**
-   * <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code>
-   */
+
+  /** <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code> */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.TargetBoundsOrBuilder getBoundsOrBuilder() {
-    return bounds_ == null ? io.browsercloud.proto.node.v1.TargetBounds.getDefaultInstance() : bounds_;
+    return bounds_ == null
+        ? io.browsercloud.proto.node.v1.TargetBounds.getDefaultInstance()
+        : bounds_;
   }
 
   public static final int ENABLED_FIELD_NUMBER = 5;
   private boolean enabled_ = false;
+
   /**
    * <code>bool enabled = 5 [json_name = "enabled"];</code>
+   *
    * @return The enabled.
    */
   @java.lang.Override
@@ -207,8 +230,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int VISIBLE_FIELD_NUMBER = 6;
   private boolean visible_ = false;
+
   /**
    * <code>bool visible = 6 [json_name = "visible"];</code>
+   *
    * @return The visible.
    */
   @java.lang.Override
@@ -218,12 +243,16 @@ private static final long serialVersionUID = 0L;
 
   public static final int SENSITIVE_FIELD_NUMBER = 7;
   private boolean sensitive_ = false;
+
   /**
+   *
+   *
    * <pre>
    * Password/OTP 等目标只暴露敏感标志，不暴露名称或值。
    * </pre>
    *
    * <code>bool sensitive = 7 [json_name = "sensitive"];</code>
+   *
    * @return The sensitive.
    */
   @java.lang.Override
@@ -231,7 +260,355 @@ private static final long serialVersionUID = 0L;
     return sensitive_;
   }
 
+  public static final int ELEMENT_ID_FIELD_NUMBER = 8;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object elementId_ = "";
+
+  /**
+   *
+   *
+   * <pre>
+   * Stable across State/Target revisions for the same DOM/shadow/frame path. target_ref remains
+   * the version-fenced execution reference for N/N-1 callers.
+   * </pre>
+   *
+   * <code>string element_id = 8 [json_name = "elementId"];</code>
+   *
+   * @return The elementId.
+   */
+  @java.lang.Override
+  public java.lang.String getElementId() {
+    java.lang.Object ref = elementId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      elementId_ = s;
+      return s;
+    }
+  }
+
+  /**
+   *
+   *
+   * <pre>
+   * Stable across State/Target revisions for the same DOM/shadow/frame path. target_ref remains
+   * the version-fenced execution reference for N/N-1 callers.
+   * </pre>
+   *
+   * <code>string element_id = 8 [json_name = "elementId"];</code>
+   *
+   * @return The bytes for elementId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getElementIdBytes() {
+    java.lang.Object ref = elementId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      elementId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int VALUE_FIELD_NUMBER = 9;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object value_ = "";
+
+  /**
+   * <code>optional string value = 9 [json_name = "value"];</code>
+   *
+   * @return Whether the value field is set.
+   */
+  @java.lang.Override
+  public boolean hasValue() {
+    return ((bitField0_ & 0x00000004) != 0);
+  }
+
+  /**
+   * <code>optional string value = 9 [json_name = "value"];</code>
+   *
+   * @return The value.
+   */
+  @java.lang.Override
+  public java.lang.String getValue() {
+    java.lang.Object ref = value_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      value_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>optional string value = 9 [json_name = "value"];</code>
+   *
+   * @return The bytes for value.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getValueBytes() {
+    java.lang.Object ref = value_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      value_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int CONTROL_TYPE_FIELD_NUMBER = 10;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object controlType_ = "";
+
+  /**
+   * <code>optional string control_type = 10 [json_name = "controlType"];</code>
+   *
+   * @return Whether the controlType field is set.
+   */
+  @java.lang.Override
+  public boolean hasControlType() {
+    return ((bitField0_ & 0x00000008) != 0);
+  }
+
+  /**
+   * <code>optional string control_type = 10 [json_name = "controlType"];</code>
+   *
+   * @return The controlType.
+   */
+  @java.lang.Override
+  public java.lang.String getControlType() {
+    java.lang.Object ref = controlType_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      controlType_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>optional string control_type = 10 [json_name = "controlType"];</code>
+   *
+   * @return The bytes for controlType.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getControlTypeBytes() {
+    java.lang.Object ref = controlType_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      controlType_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int FOCUSED_FIELD_NUMBER = 11;
+  private boolean focused_ = false;
+
+  /**
+   * <code>bool focused = 11 [json_name = "focused"];</code>
+   *
+   * @return The focused.
+   */
+  @java.lang.Override
+  public boolean getFocused() {
+    return focused_;
+  }
+
+  public static final int CHECKED_FIELD_NUMBER = 12;
+  private boolean checked_ = false;
+
+  /**
+   * <code>optional bool checked = 12 [json_name = "checked"];</code>
+   *
+   * @return Whether the checked field is set.
+   */
+  @java.lang.Override
+  public boolean hasChecked() {
+    return ((bitField0_ & 0x00000010) != 0);
+  }
+
+  /**
+   * <code>optional bool checked = 12 [json_name = "checked"];</code>
+   *
+   * @return The checked.
+   */
+  @java.lang.Override
+  public boolean getChecked() {
+    return checked_;
+  }
+
+  public static final int SELECTED_FIELD_NUMBER = 13;
+  private boolean selected_ = false;
+
+  /**
+   * <code>optional bool selected = 13 [json_name = "selected"];</code>
+   *
+   * @return Whether the selected field is set.
+   */
+  @java.lang.Override
+  public boolean hasSelected() {
+    return ((bitField0_ & 0x00000020) != 0);
+  }
+
+  /**
+   * <code>optional bool selected = 13 [json_name = "selected"];</code>
+   *
+   * @return The selected.
+   */
+  @java.lang.Override
+  public boolean getSelected() {
+    return selected_;
+  }
+
+  public static final int INTERACTIVE_FIELD_NUMBER = 14;
+  private boolean interactive_ = false;
+
+  /**
+   * <code>bool interactive = 14 [json_name = "interactive"];</code>
+   *
+   * @return The interactive.
+   */
+  @java.lang.Override
+  public boolean getInteractive() {
+    return interactive_;
+  }
+
+  public static final int FRAME_ID_FIELD_NUMBER = 15;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object frameId_ = "";
+
+  /**
+   * <code>string frame_id = 15 [json_name = "frameId"];</code>
+   *
+   * @return The frameId.
+   */
+  @java.lang.Override
+  public java.lang.String getFrameId() {
+    java.lang.Object ref = frameId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      frameId_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string frame_id = 15 [json_name = "frameId"];</code>
+   *
+   * @return The bytes for frameId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getFrameIdBytes() {
+    java.lang.Object ref = frameId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      frameId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int IN_VIEWPORT_FIELD_NUMBER = 16;
+  private boolean inViewport_ = false;
+
+  /**
+   * <code>bool in_viewport = 16 [json_name = "inViewport"];</code>
+   *
+   * @return The inViewport.
+   */
+  @java.lang.Override
+  public boolean getInViewport() {
+    return inViewport_;
+  }
+
+  public static final int OCCLUDED_FIELD_NUMBER = 17;
+  private boolean occluded_ = false;
+
+  /**
+   * <code>bool occluded = 17 [json_name = "occluded"];</code>
+   *
+   * @return The occluded.
+   */
+  @java.lang.Override
+  public boolean getOccluded() {
+    return occluded_;
+  }
+
+  public static final int VISIBILITY_REASON_FIELD_NUMBER = 18;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object visibilityReason_ = "";
+
+  /**
+   * <code>optional string visibility_reason = 18 [json_name = "visibilityReason"];</code>
+   *
+   * @return Whether the visibilityReason field is set.
+   */
+  @java.lang.Override
+  public boolean hasVisibilityReason() {
+    return ((bitField0_ & 0x00000040) != 0);
+  }
+
+  /**
+   * <code>optional string visibility_reason = 18 [json_name = "visibilityReason"];</code>
+   *
+   * @return The visibilityReason.
+   */
+  @java.lang.Override
+  public java.lang.String getVisibilityReason() {
+    java.lang.Object ref = visibilityReason_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      visibilityReason_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>optional string visibility_reason = 18 [json_name = "visibilityReason"];</code>
+   *
+   * @return The bytes for visibilityReason.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getVisibilityReasonBytes() {
+    java.lang.Object ref = visibilityReason_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      visibilityReason_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
+
   @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
@@ -243,8 +620,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @java.lang.Override
-  public void writeTo(com.google.protobuf.CodedOutputStream output)
-                      throws java.io.IOException {
+  public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(targetRef_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 1, targetRef_);
     }
@@ -266,6 +642,39 @@ private static final long serialVersionUID = 0L;
     if (sensitive_ != false) {
       output.writeBool(7, sensitive_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(elementId_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 8, elementId_);
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 9, value_);
+    }
+    if (((bitField0_ & 0x00000008) != 0)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 10, controlType_);
+    }
+    if (focused_ != false) {
+      output.writeBool(11, focused_);
+    }
+    if (((bitField0_ & 0x00000010) != 0)) {
+      output.writeBool(12, checked_);
+    }
+    if (((bitField0_ & 0x00000020) != 0)) {
+      output.writeBool(13, selected_);
+    }
+    if (interactive_ != false) {
+      output.writeBool(14, interactive_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(frameId_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 15, frameId_);
+    }
+    if (inViewport_ != false) {
+      output.writeBool(16, inViewport_);
+    }
+    if (occluded_ != false) {
+      output.writeBool(17, occluded_);
+    }
+    if (((bitField0_ & 0x00000040) != 0)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 18, visibilityReason_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -285,20 +694,49 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, name_);
     }
     if (((bitField0_ & 0x00000002) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(4, getBounds());
+      size += com.google.protobuf.CodedOutputStream.computeMessageSize(4, getBounds());
     }
     if (enabled_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(5, enabled_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(5, enabled_);
     }
     if (visible_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(6, visible_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(6, visible_);
     }
     if (sensitive_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(7, sensitive_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(7, sensitive_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(elementId_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(8, elementId_);
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, value_);
+    }
+    if (((bitField0_ & 0x00000008) != 0)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, controlType_);
+    }
+    if (focused_ != false) {
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(11, focused_);
+    }
+    if (((bitField0_ & 0x00000010) != 0)) {
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(12, checked_);
+    }
+    if (((bitField0_ & 0x00000020) != 0)) {
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(13, selected_);
+    }
+    if (interactive_ != false) {
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(14, interactive_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(frameId_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(15, frameId_);
+    }
+    if (inViewport_ != false) {
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(16, inViewport_);
+    }
+    if (occluded_ != false) {
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(17, occluded_);
+    }
+    if (((bitField0_ & 0x00000040) != 0)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(18, visibilityReason_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -308,33 +746,53 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public boolean equals(final java.lang.Object obj) {
     if (obj == this) {
-     return true;
+      return true;
     }
     if (!(obj instanceof io.browsercloud.proto.node.v1.InteractiveTargetState)) {
       return super.equals(obj);
     }
-    io.browsercloud.proto.node.v1.InteractiveTargetState other = (io.browsercloud.proto.node.v1.InteractiveTargetState) obj;
+    io.browsercloud.proto.node.v1.InteractiveTargetState other =
+        (io.browsercloud.proto.node.v1.InteractiveTargetState) obj;
 
-    if (!getTargetRef()
-        .equals(other.getTargetRef())) return false;
-    if (!getRole()
-        .equals(other.getRole())) return false;
+    if (!getTargetRef().equals(other.getTargetRef())) return false;
+    if (!getRole().equals(other.getRole())) return false;
     if (hasName() != other.hasName()) return false;
     if (hasName()) {
-      if (!getName()
-          .equals(other.getName())) return false;
+      if (!getName().equals(other.getName())) return false;
     }
     if (hasBounds() != other.hasBounds()) return false;
     if (hasBounds()) {
-      if (!getBounds()
-          .equals(other.getBounds())) return false;
+      if (!getBounds().equals(other.getBounds())) return false;
     }
-    if (getEnabled()
-        != other.getEnabled()) return false;
-    if (getVisible()
-        != other.getVisible()) return false;
-    if (getSensitive()
-        != other.getSensitive()) return false;
+    if (getEnabled() != other.getEnabled()) return false;
+    if (getVisible() != other.getVisible()) return false;
+    if (getSensitive() != other.getSensitive()) return false;
+    if (!getElementId().equals(other.getElementId())) return false;
+    if (hasValue() != other.hasValue()) return false;
+    if (hasValue()) {
+      if (!getValue().equals(other.getValue())) return false;
+    }
+    if (hasControlType() != other.hasControlType()) return false;
+    if (hasControlType()) {
+      if (!getControlType().equals(other.getControlType())) return false;
+    }
+    if (getFocused() != other.getFocused()) return false;
+    if (hasChecked() != other.hasChecked()) return false;
+    if (hasChecked()) {
+      if (getChecked() != other.getChecked()) return false;
+    }
+    if (hasSelected() != other.hasSelected()) return false;
+    if (hasSelected()) {
+      if (getSelected() != other.getSelected()) return false;
+    }
+    if (getInteractive() != other.getInteractive()) return false;
+    if (!getFrameId().equals(other.getFrameId())) return false;
+    if (getInViewport() != other.getInViewport()) return false;
+    if (getOccluded() != other.getOccluded()) return false;
+    if (hasVisibilityReason() != other.hasVisibilityReason()) return false;
+    if (hasVisibilityReason()) {
+      if (!getVisibilityReason().equals(other.getVisibilityReason())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -359,129 +817,162 @@ private static final long serialVersionUID = 0L;
       hash = (53 * hash) + getBounds().hashCode();
     }
     hash = (37 * hash) + ENABLED_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getEnabled());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getEnabled());
     hash = (37 * hash) + VISIBLE_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getVisible());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getVisible());
     hash = (37 * hash) + SENSITIVE_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getSensitive());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getSensitive());
+    hash = (37 * hash) + ELEMENT_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getElementId().hashCode();
+    if (hasValue()) {
+      hash = (37 * hash) + VALUE_FIELD_NUMBER;
+      hash = (53 * hash) + getValue().hashCode();
+    }
+    if (hasControlType()) {
+      hash = (37 * hash) + CONTROL_TYPE_FIELD_NUMBER;
+      hash = (53 * hash) + getControlType().hashCode();
+    }
+    hash = (37 * hash) + FOCUSED_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getFocused());
+    if (hasChecked()) {
+      hash = (37 * hash) + CHECKED_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getChecked());
+    }
+    if (hasSelected()) {
+      hash = (37 * hash) + SELECTED_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getSelected());
+    }
+    hash = (37 * hash) + INTERACTIVE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getInteractive());
+    hash = (37 * hash) + FRAME_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getFrameId().hashCode();
+    hash = (37 * hash) + IN_VIEWPORT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getInViewport());
+    hash = (37 * hash) + OCCLUDED_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getOccluded());
+    if (hasVisibilityReason()) {
+      hash = (37 * hash) + VISIBILITY_REASON_FIELD_NUMBER;
+      hash = (53 * hash) + getVisibilityReason().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
   }
 
   public static io.browsercloud.proto.node.v1.InteractiveTargetState parseFrom(
-      java.nio.ByteBuffer data)
-      throws com.google.protobuf.InvalidProtocolBufferException {
+      java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.InteractiveTargetState parseFrom(
-      java.nio.ByteBuffer data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.InteractiveTargetState parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.InteractiveTargetState parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.InteractiveTargetState parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.InteractiveTargetState parseFrom(
-      byte[] data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.InteractiveTargetState parseFrom(java.io.InputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
-  }
+
   public static io.browsercloud.proto.node.v1.InteractiveTargetState parseFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.InteractiveTargetState parseDelimitedFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.InteractiveTargetState parseFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   public static io.browsercloud.proto.node.v1.InteractiveTargetState parseDelimitedFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
   }
+
+  public static io.browsercloud.proto.node.v1.InteractiveTargetState parseDelimitedFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
+        PARSER, input, extensionRegistry);
+  }
+
   public static io.browsercloud.proto.node.v1.InteractiveTargetState parseFrom(
-      com.google.protobuf.CodedInputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
+      com.google.protobuf.CodedInputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
+
   public static io.browsercloud.proto.node.v1.InteractiveTargetState parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   @java.lang.Override
-  public Builder newBuilderForType() { return newBuilder(); }
+  public Builder newBuilderForType() {
+    return newBuilder();
+  }
+
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
+
   public static Builder newBuilder(io.browsercloud.proto.node.v1.InteractiveTargetState prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
+
   @java.lang.Override
   public Builder toBuilder() {
-    return this == DEFAULT_INSTANCE
-        ? new Builder() : new Builder().mergeFrom(this);
+    return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
   }
 
   @java.lang.Override
-  protected Builder newBuilderForType(
-      com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+  protected Builder newBuilderForType(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
     Builder builder = new Builder(parent);
     return builder;
   }
-  /**
-   * Protobuf type {@code browsercloud.node.v1.InteractiveTargetState}
-   */
-  public static final class Builder extends
-      com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+
+  /** Protobuf type {@code browsercloud.node.v1.InteractiveTargetState} */
+  public static final class Builder extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
+      implements
       // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.InteractiveTargetState)
       io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder {
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_InteractiveTargetState_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_InteractiveTargetState_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_InteractiveTargetState_fieldAccessorTable
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_InteractiveTargetState_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              io.browsercloud.proto.node.v1.InteractiveTargetState.class, io.browsercloud.proto.node.v1.InteractiveTargetState.Builder.class);
+              io.browsercloud.proto.node.v1.InteractiveTargetState.class,
+              io.browsercloud.proto.node.v1.InteractiveTargetState.Builder.class);
     }
 
     // Construct using io.browsercloud.proto.node.v1.InteractiveTargetState.newBuilder()
@@ -489,17 +980,17 @@ private static final long serialVersionUID = 0L;
       maybeForceBuilderInitialization();
     }
 
-    private Builder(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+    private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
       maybeForceBuilderInitialization();
     }
+
     private void maybeForceBuilderInitialization() {
-      if (com.google.protobuf.GeneratedMessageV3
-              .alwaysUseFieldBuilders) {
+      if (com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders) {
         getBoundsFieldBuilder();
       }
     }
+
     @java.lang.Override
     public Builder clear() {
       super.clear();
@@ -515,13 +1006,24 @@ private static final long serialVersionUID = 0L;
       enabled_ = false;
       visible_ = false;
       sensitive_ = false;
+      elementId_ = "";
+      value_ = "";
+      controlType_ = "";
+      focused_ = false;
+      checked_ = false;
+      selected_ = false;
+      interactive_ = false;
+      frameId_ = "";
+      inViewport_ = false;
+      occluded_ = false;
+      visibilityReason_ = "";
       return this;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Descriptors.Descriptor
-        getDescriptorForType() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_InteractiveTargetState_descriptor;
+    public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_InteractiveTargetState_descriptor;
     }
 
     @java.lang.Override
@@ -540,8 +1042,11 @@ private static final long serialVersionUID = 0L;
 
     @java.lang.Override
     public io.browsercloud.proto.node.v1.InteractiveTargetState buildPartial() {
-      io.browsercloud.proto.node.v1.InteractiveTargetState result = new io.browsercloud.proto.node.v1.InteractiveTargetState(this);
-      if (bitField0_ != 0) { buildPartial0(result); }
+      io.browsercloud.proto.node.v1.InteractiveTargetState result =
+          new io.browsercloud.proto.node.v1.InteractiveTargetState(this);
+      if (bitField0_ != 0) {
+        buildPartial0(result);
+      }
       onBuilt();
       return result;
     }
@@ -560,9 +1065,7 @@ private static final long serialVersionUID = 0L;
         to_bitField0_ |= 0x00000001;
       }
       if (((from_bitField0_ & 0x00000008) != 0)) {
-        result.bounds_ = boundsBuilder_ == null
-            ? bounds_
-            : boundsBuilder_.build();
+        result.bounds_ = boundsBuilder_ == null ? bounds_ : boundsBuilder_.build();
         to_bitField0_ |= 0x00000002;
       }
       if (((from_bitField0_ & 0x00000010) != 0)) {
@@ -574,6 +1077,44 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000040) != 0)) {
         result.sensitive_ = sensitive_;
       }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.elementId_ = elementId_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.value_ = value_;
+        to_bitField0_ |= 0x00000004;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.controlType_ = controlType_;
+        to_bitField0_ |= 0x00000008;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.focused_ = focused_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.checked_ = checked_;
+        to_bitField0_ |= 0x00000010;
+      }
+      if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.selected_ = selected_;
+        to_bitField0_ |= 0x00000020;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        result.interactive_ = interactive_;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.frameId_ = frameId_;
+      }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.inViewport_ = inViewport_;
+      }
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.occluded_ = occluded_;
+      }
+      if (((from_bitField0_ & 0x00020000) != 0)) {
+        result.visibilityReason_ = visibilityReason_;
+        to_bitField0_ |= 0x00000040;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -581,38 +1122,39 @@ private static final long serialVersionUID = 0L;
     public Builder clone() {
       return super.clone();
     }
+
     @java.lang.Override
     public Builder setField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.setField(field, value);
     }
+
     @java.lang.Override
-    public Builder clearField(
-        com.google.protobuf.Descriptors.FieldDescriptor field) {
+    public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
       return super.clearField(field);
     }
+
     @java.lang.Override
-    public Builder clearOneof(
-        com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+    public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
       return super.clearOneof(oneof);
     }
+
     @java.lang.Override
     public Builder setRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        int index, java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, int index, java.lang.Object value) {
       return super.setRepeatedField(field, index, value);
     }
+
     @java.lang.Override
     public Builder addRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.addRepeatedField(field, value);
     }
+
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof io.browsercloud.proto.node.v1.InteractiveTargetState) {
-        return mergeFrom((io.browsercloud.proto.node.v1.InteractiveTargetState)other);
+        return mergeFrom((io.browsercloud.proto.node.v1.InteractiveTargetState) other);
       } else {
         super.mergeFrom(other);
         return this;
@@ -620,7 +1162,8 @@ private static final long serialVersionUID = 0L;
     }
 
     public Builder mergeFrom(io.browsercloud.proto.node.v1.InteractiveTargetState other) {
-      if (other == io.browsercloud.proto.node.v1.InteractiveTargetState.getDefaultInstance()) return this;
+      if (other == io.browsercloud.proto.node.v1.InteractiveTargetState.getDefaultInstance())
+        return this;
       if (!other.getTargetRef().isEmpty()) {
         targetRef_ = other.targetRef_;
         bitField0_ |= 0x00000001;
@@ -648,6 +1191,49 @@ private static final long serialVersionUID = 0L;
       if (other.getSensitive() != false) {
         setSensitive(other.getSensitive());
       }
+      if (!other.getElementId().isEmpty()) {
+        elementId_ = other.elementId_;
+        bitField0_ |= 0x00000080;
+        onChanged();
+      }
+      if (other.hasValue()) {
+        value_ = other.value_;
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
+      if (other.hasControlType()) {
+        controlType_ = other.controlType_;
+        bitField0_ |= 0x00000200;
+        onChanged();
+      }
+      if (other.getFocused() != false) {
+        setFocused(other.getFocused());
+      }
+      if (other.hasChecked()) {
+        setChecked(other.getChecked());
+      }
+      if (other.hasSelected()) {
+        setSelected(other.getSelected());
+      }
+      if (other.getInteractive() != false) {
+        setInteractive(other.getInteractive());
+      }
+      if (!other.getFrameId().isEmpty()) {
+        frameId_ = other.frameId_;
+        bitField0_ |= 0x00004000;
+        onChanged();
+      }
+      if (other.getInViewport() != false) {
+        setInViewport(other.getInViewport());
+      }
+      if (other.getOccluded() != false) {
+        setOccluded(other.getOccluded());
+      }
+      if (other.hasVisibilityReason()) {
+        visibilityReason_ = other.visibilityReason_;
+        bitField0_ |= 0x00020000;
+        onChanged();
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -674,49 +1260,121 @@ private static final long serialVersionUID = 0L;
             case 0:
               done = true;
               break;
-            case 10: {
-              targetRef_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000001;
-              break;
-            } // case 10
-            case 18: {
-              role_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000002;
-              break;
-            } // case 18
-            case 26: {
-              name_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000004;
-              break;
-            } // case 26
-            case 34: {
-              input.readMessage(
-                  getBoundsFieldBuilder().getBuilder(),
-                  extensionRegistry);
-              bitField0_ |= 0x00000008;
-              break;
-            } // case 34
-            case 40: {
-              enabled_ = input.readBool();
-              bitField0_ |= 0x00000010;
-              break;
-            } // case 40
-            case 48: {
-              visible_ = input.readBool();
-              bitField0_ |= 0x00000020;
-              break;
-            } // case 48
-            case 56: {
-              sensitive_ = input.readBool();
-              bitField0_ |= 0x00000040;
-              break;
-            } // case 56
-            default: {
-              if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                done = true; // was an endgroup tag
-              }
-              break;
-            } // default:
+            case 10:
+              {
+                targetRef_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000001;
+                break;
+              } // case 10
+            case 18:
+              {
+                role_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000002;
+                break;
+              } // case 18
+            case 26:
+              {
+                name_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000004;
+                break;
+              } // case 26
+            case 34:
+              {
+                input.readMessage(getBoundsFieldBuilder().getBuilder(), extensionRegistry);
+                bitField0_ |= 0x00000008;
+                break;
+              } // case 34
+            case 40:
+              {
+                enabled_ = input.readBool();
+                bitField0_ |= 0x00000010;
+                break;
+              } // case 40
+            case 48:
+              {
+                visible_ = input.readBool();
+                bitField0_ |= 0x00000020;
+                break;
+              } // case 48
+            case 56:
+              {
+                sensitive_ = input.readBool();
+                bitField0_ |= 0x00000040;
+                break;
+              } // case 56
+            case 66:
+              {
+                elementId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000080;
+                break;
+              } // case 66
+            case 74:
+              {
+                value_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000100;
+                break;
+              } // case 74
+            case 82:
+              {
+                controlType_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000200;
+                break;
+              } // case 82
+            case 88:
+              {
+                focused_ = input.readBool();
+                bitField0_ |= 0x00000400;
+                break;
+              } // case 88
+            case 96:
+              {
+                checked_ = input.readBool();
+                bitField0_ |= 0x00000800;
+                break;
+              } // case 96
+            case 104:
+              {
+                selected_ = input.readBool();
+                bitField0_ |= 0x00001000;
+                break;
+              } // case 104
+            case 112:
+              {
+                interactive_ = input.readBool();
+                bitField0_ |= 0x00002000;
+                break;
+              } // case 112
+            case 122:
+              {
+                frameId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00004000;
+                break;
+              } // case 122
+            case 128:
+              {
+                inViewport_ = input.readBool();
+                bitField0_ |= 0x00008000;
+                break;
+              } // case 128
+            case 136:
+              {
+                occluded_ = input.readBool();
+                bitField0_ |= 0x00010000;
+                break;
+              } // case 136
+            case 146:
+              {
+                visibilityReason_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00020000;
+                break;
+              } // case 146
+            default:
+              {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
           } // switch (tag)
         } // while (!done)
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -726,18 +1384,20 @@ private static final long serialVersionUID = 0L;
       } // finally
       return this;
     }
+
     private int bitField0_;
 
     private java.lang.Object targetRef_ = "";
+
     /**
      * <code>string target_ref = 1 [json_name = "targetRef"];</code>
+     *
      * @return The targetRef.
      */
     public java.lang.String getTargetRef() {
       java.lang.Object ref = targetRef_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         targetRef_ = s;
         return s;
@@ -745,38 +1405,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string target_ref = 1 [json_name = "targetRef"];</code>
+     *
      * @return The bytes for targetRef.
      */
-    public com.google.protobuf.ByteString
-        getTargetRefBytes() {
+    public com.google.protobuf.ByteString getTargetRefBytes() {
       java.lang.Object ref = targetRef_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         targetRef_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string target_ref = 1 [json_name = "targetRef"];</code>
+     *
      * @param value The targetRef to set.
      * @return This builder for chaining.
      */
-    public Builder setTargetRef(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setTargetRef(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       targetRef_ = value;
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
+
     /**
      * <code>string target_ref = 1 [json_name = "targetRef"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearTargetRef() {
@@ -785,14 +1450,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string target_ref = 1 [json_name = "targetRef"];</code>
+     *
      * @param value The bytes for targetRef to set.
      * @return This builder for chaining.
      */
-    public Builder setTargetRefBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setTargetRefBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       targetRef_ = value;
       bitField0_ |= 0x00000001;
@@ -801,15 +1469,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object role_ = "";
+
     /**
      * <code>string role = 2 [json_name = "role"];</code>
+     *
      * @return The role.
      */
     public java.lang.String getRole() {
       java.lang.Object ref = role_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         role_ = s;
         return s;
@@ -817,38 +1486,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string role = 2 [json_name = "role"];</code>
+     *
      * @return The bytes for role.
      */
-    public com.google.protobuf.ByteString
-        getRoleBytes() {
+    public com.google.protobuf.ByteString getRoleBytes() {
       java.lang.Object ref = role_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         role_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string role = 2 [json_name = "role"];</code>
+     *
      * @param value The role to set.
      * @return This builder for chaining.
      */
-    public Builder setRole(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setRole(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       role_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
+
     /**
      * <code>string role = 2 [json_name = "role"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearRole() {
@@ -857,14 +1531,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string role = 2 [json_name = "role"];</code>
+     *
      * @param value The bytes for role to set.
      * @return This builder for chaining.
      */
-    public Builder setRoleBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setRoleBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       role_ = value;
       bitField0_ |= 0x00000002;
@@ -873,22 +1550,25 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object name_ = "";
+
     /**
      * <code>optional string name = 3 [json_name = "name"];</code>
+     *
      * @return Whether the name field is set.
      */
     public boolean hasName() {
       return ((bitField0_ & 0x00000004) != 0);
     }
+
     /**
      * <code>optional string name = 3 [json_name = "name"];</code>
+     *
      * @return The name.
      */
     public java.lang.String getName() {
       java.lang.Object ref = name_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         name_ = s;
         return s;
@@ -896,38 +1576,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>optional string name = 3 [json_name = "name"];</code>
+     *
      * @return The bytes for name.
      */
-    public com.google.protobuf.ByteString
-        getNameBytes() {
+    public com.google.protobuf.ByteString getNameBytes() {
       java.lang.Object ref = name_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         name_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>optional string name = 3 [json_name = "name"];</code>
+     *
      * @param value The name to set.
      * @return This builder for chaining.
      */
-    public Builder setName(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setName(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       name_ = value;
       bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional string name = 3 [json_name = "name"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearName() {
@@ -936,14 +1621,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional string name = 3 [json_name = "name"];</code>
+     *
      * @param value The bytes for name to set.
      * @return This builder for chaining.
      */
-    public Builder setNameBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setNameBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       name_ = value;
       bitField0_ |= 0x00000004;
@@ -953,25 +1641,35 @@ private static final long serialVersionUID = 0L;
 
     private io.browsercloud.proto.node.v1.TargetBounds bounds_;
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.TargetBounds, io.browsercloud.proto.node.v1.TargetBounds.Builder, io.browsercloud.proto.node.v1.TargetBoundsOrBuilder> boundsBuilder_;
+            io.browsercloud.proto.node.v1.TargetBounds,
+            io.browsercloud.proto.node.v1.TargetBounds.Builder,
+            io.browsercloud.proto.node.v1.TargetBoundsOrBuilder>
+        boundsBuilder_;
+
     /**
      * <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code>
+     *
      * @return Whether the bounds field is set.
      */
     public boolean hasBounds() {
       return ((bitField0_ & 0x00000008) != 0);
     }
+
     /**
      * <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code>
+     *
      * @return The bounds.
      */
     public io.browsercloud.proto.node.v1.TargetBounds getBounds() {
       if (boundsBuilder_ == null) {
-        return bounds_ == null ? io.browsercloud.proto.node.v1.TargetBounds.getDefaultInstance() : bounds_;
+        return bounds_ == null
+            ? io.browsercloud.proto.node.v1.TargetBounds.getDefaultInstance()
+            : bounds_;
       } else {
         return boundsBuilder_.getMessage();
       }
     }
+
     /**
      * <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code>
      */
@@ -988,11 +1686,11 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code>
      */
-    public Builder setBounds(
-        io.browsercloud.proto.node.v1.TargetBounds.Builder builderForValue) {
+    public Builder setBounds(io.browsercloud.proto.node.v1.TargetBounds.Builder builderForValue) {
       if (boundsBuilder_ == null) {
         bounds_ = builderForValue.build();
       } else {
@@ -1002,14 +1700,15 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code>
      */
     public Builder mergeBounds(io.browsercloud.proto.node.v1.TargetBounds value) {
       if (boundsBuilder_ == null) {
-        if (((bitField0_ & 0x00000008) != 0) &&
-          bounds_ != null &&
-          bounds_ != io.browsercloud.proto.node.v1.TargetBounds.getDefaultInstance()) {
+        if (((bitField0_ & 0x00000008) != 0)
+            && bounds_ != null
+            && bounds_ != io.browsercloud.proto.node.v1.TargetBounds.getDefaultInstance()) {
           getBoundsBuilder().mergeFrom(value);
         } else {
           bounds_ = value;
@@ -1023,6 +1722,7 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+
     /**
      * <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code>
      */
@@ -1036,6 +1736,7 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code>
      */
@@ -1044,6 +1745,7 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return getBoundsFieldBuilder().getBuilder();
     }
+
     /**
      * <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code>
      */
@@ -1051,38 +1753,47 @@ private static final long serialVersionUID = 0L;
       if (boundsBuilder_ != null) {
         return boundsBuilder_.getMessageOrBuilder();
       } else {
-        return bounds_ == null ?
-            io.browsercloud.proto.node.v1.TargetBounds.getDefaultInstance() : bounds_;
+        return bounds_ == null
+            ? io.browsercloud.proto.node.v1.TargetBounds.getDefaultInstance()
+            : bounds_;
       }
     }
+
     /**
      * <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.TargetBounds, io.browsercloud.proto.node.v1.TargetBounds.Builder, io.browsercloud.proto.node.v1.TargetBoundsOrBuilder>
+            io.browsercloud.proto.node.v1.TargetBounds,
+            io.browsercloud.proto.node.v1.TargetBounds.Builder,
+            io.browsercloud.proto.node.v1.TargetBoundsOrBuilder>
         getBoundsFieldBuilder() {
       if (boundsBuilder_ == null) {
-        boundsBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            io.browsercloud.proto.node.v1.TargetBounds, io.browsercloud.proto.node.v1.TargetBounds.Builder, io.browsercloud.proto.node.v1.TargetBoundsOrBuilder>(
-                getBounds(),
-                getParentForChildren(),
-                isClean());
+        boundsBuilder_ =
+            new com.google.protobuf.SingleFieldBuilderV3<
+                io.browsercloud.proto.node.v1.TargetBounds,
+                io.browsercloud.proto.node.v1.TargetBounds.Builder,
+                io.browsercloud.proto.node.v1.TargetBoundsOrBuilder>(
+                getBounds(), getParentForChildren(), isClean());
         bounds_ = null;
       }
       return boundsBuilder_;
     }
 
-    private boolean enabled_ ;
+    private boolean enabled_;
+
     /**
      * <code>bool enabled = 5 [json_name = "enabled"];</code>
+     *
      * @return The enabled.
      */
     @java.lang.Override
     public boolean getEnabled() {
       return enabled_;
     }
+
     /**
      * <code>bool enabled = 5 [json_name = "enabled"];</code>
+     *
      * @param value The enabled to set.
      * @return This builder for chaining.
      */
@@ -1093,8 +1804,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>bool enabled = 5 [json_name = "enabled"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearEnabled() {
@@ -1104,17 +1817,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean visible_ ;
+    private boolean visible_;
+
     /**
      * <code>bool visible = 6 [json_name = "visible"];</code>
+     *
      * @return The visible.
      */
     @java.lang.Override
     public boolean getVisible() {
       return visible_;
     }
+
     /**
      * <code>bool visible = 6 [json_name = "visible"];</code>
+     *
      * @param value The visible to set.
      * @return This builder for chaining.
      */
@@ -1125,8 +1842,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>bool visible = 6 [json_name = "visible"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearVisible() {
@@ -1136,25 +1855,33 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean sensitive_ ;
+    private boolean sensitive_;
+
     /**
+     *
+     *
      * <pre>
      * Password/OTP 等目标只暴露敏感标志，不暴露名称或值。
      * </pre>
      *
      * <code>bool sensitive = 7 [json_name = "sensitive"];</code>
+     *
      * @return The sensitive.
      */
     @java.lang.Override
     public boolean getSensitive() {
       return sensitive_;
     }
+
     /**
+     *
+     *
      * <pre>
      * Password/OTP 等目标只暴露敏感标志，不暴露名称或值。
      * </pre>
      *
      * <code>bool sensitive = 7 [json_name = "sensitive"];</code>
+     *
      * @param value The sensitive to set.
      * @return This builder for chaining.
      */
@@ -1165,12 +1892,16 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * Password/OTP 等目标只暴露敏感标志，不暴露名称或值。
      * </pre>
      *
      * <code>bool sensitive = 7 [json_name = "sensitive"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSensitive() {
@@ -1179,9 +1910,724 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
+    private java.lang.Object elementId_ = "";
+
+    /**
+     *
+     *
+     * <pre>
+     * Stable across State/Target revisions for the same DOM/shadow/frame path. target_ref remains
+     * the version-fenced execution reference for N/N-1 callers.
+     * </pre>
+     *
+     * <code>string element_id = 8 [json_name = "elementId"];</code>
+     *
+     * @return The elementId.
+     */
+    public java.lang.String getElementId() {
+      java.lang.Object ref = elementId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        elementId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Stable across State/Target revisions for the same DOM/shadow/frame path. target_ref remains
+     * the version-fenced execution reference for N/N-1 callers.
+     * </pre>
+     *
+     * <code>string element_id = 8 [json_name = "elementId"];</code>
+     *
+     * @return The bytes for elementId.
+     */
+    public com.google.protobuf.ByteString getElementIdBytes() {
+      java.lang.Object ref = elementId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        elementId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Stable across State/Target revisions for the same DOM/shadow/frame path. target_ref remains
+     * the version-fenced execution reference for N/N-1 callers.
+     * </pre>
+     *
+     * <code>string element_id = 8 [json_name = "elementId"];</code>
+     *
+     * @param value The elementId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setElementId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      elementId_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Stable across State/Target revisions for the same DOM/shadow/frame path. target_ref remains
+     * the version-fenced execution reference for N/N-1 callers.
+     * </pre>
+     *
+     * <code>string element_id = 8 [json_name = "elementId"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearElementId() {
+      elementId_ = getDefaultInstance().getElementId();
+      bitField0_ = (bitField0_ & ~0x00000080);
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Stable across State/Target revisions for the same DOM/shadow/frame path. target_ref remains
+     * the version-fenced execution reference for N/N-1 callers.
+     * </pre>
+     *
+     * <code>string element_id = 8 [json_name = "elementId"];</code>
+     *
+     * @param value The bytes for elementId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setElementIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      elementId_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object value_ = "";
+
+    /**
+     * <code>optional string value = 9 [json_name = "value"];</code>
+     *
+     * @return Whether the value field is set.
+     */
+    public boolean hasValue() {
+      return ((bitField0_ & 0x00000100) != 0);
+    }
+
+    /**
+     * <code>optional string value = 9 [json_name = "value"];</code>
+     *
+     * @return The value.
+     */
+    public java.lang.String getValue() {
+      java.lang.Object ref = value_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        value_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>optional string value = 9 [json_name = "value"];</code>
+     *
+     * @return The bytes for value.
+     */
+    public com.google.protobuf.ByteString getValueBytes() {
+      java.lang.Object ref = value_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        value_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>optional string value = 9 [json_name = "value"];</code>
+     *
+     * @param value The value to set.
+     * @return This builder for chaining.
+     */
+    public Builder setValue(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      value_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>optional string value = 9 [json_name = "value"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearValue() {
+      value_ = getDefaultInstance().getValue();
+      bitField0_ = (bitField0_ & ~0x00000100);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>optional string value = 9 [json_name = "value"];</code>
+     *
+     * @param value The bytes for value to set.
+     * @return This builder for chaining.
+     */
+    public Builder setValueBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      value_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object controlType_ = "";
+
+    /**
+     * <code>optional string control_type = 10 [json_name = "controlType"];</code>
+     *
+     * @return Whether the controlType field is set.
+     */
+    public boolean hasControlType() {
+      return ((bitField0_ & 0x00000200) != 0);
+    }
+
+    /**
+     * <code>optional string control_type = 10 [json_name = "controlType"];</code>
+     *
+     * @return The controlType.
+     */
+    public java.lang.String getControlType() {
+      java.lang.Object ref = controlType_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        controlType_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>optional string control_type = 10 [json_name = "controlType"];</code>
+     *
+     * @return The bytes for controlType.
+     */
+    public com.google.protobuf.ByteString getControlTypeBytes() {
+      java.lang.Object ref = controlType_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        controlType_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>optional string control_type = 10 [json_name = "controlType"];</code>
+     *
+     * @param value The controlType to set.
+     * @return This builder for chaining.
+     */
+    public Builder setControlType(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      controlType_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>optional string control_type = 10 [json_name = "controlType"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearControlType() {
+      controlType_ = getDefaultInstance().getControlType();
+      bitField0_ = (bitField0_ & ~0x00000200);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>optional string control_type = 10 [json_name = "controlType"];</code>
+     *
+     * @param value The bytes for controlType to set.
+     * @return This builder for chaining.
+     */
+    public Builder setControlTypeBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      controlType_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+
+    private boolean focused_;
+
+    /**
+     * <code>bool focused = 11 [json_name = "focused"];</code>
+     *
+     * @return The focused.
+     */
     @java.lang.Override
-    public final Builder setUnknownFields(
-        final com.google.protobuf.UnknownFieldSet unknownFields) {
+    public boolean getFocused() {
+      return focused_;
+    }
+
+    /**
+     * <code>bool focused = 11 [json_name = "focused"];</code>
+     *
+     * @param value The focused to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFocused(boolean value) {
+
+      focused_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>bool focused = 11 [json_name = "focused"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearFocused() {
+      bitField0_ = (bitField0_ & ~0x00000400);
+      focused_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean checked_;
+
+    /**
+     * <code>optional bool checked = 12 [json_name = "checked"];</code>
+     *
+     * @return Whether the checked field is set.
+     */
+    @java.lang.Override
+    public boolean hasChecked() {
+      return ((bitField0_ & 0x00000800) != 0);
+    }
+
+    /**
+     * <code>optional bool checked = 12 [json_name = "checked"];</code>
+     *
+     * @return The checked.
+     */
+    @java.lang.Override
+    public boolean getChecked() {
+      return checked_;
+    }
+
+    /**
+     * <code>optional bool checked = 12 [json_name = "checked"];</code>
+     *
+     * @param value The checked to set.
+     * @return This builder for chaining.
+     */
+    public Builder setChecked(boolean value) {
+
+      checked_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>optional bool checked = 12 [json_name = "checked"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearChecked() {
+      bitField0_ = (bitField0_ & ~0x00000800);
+      checked_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean selected_;
+
+    /**
+     * <code>optional bool selected = 13 [json_name = "selected"];</code>
+     *
+     * @return Whether the selected field is set.
+     */
+    @java.lang.Override
+    public boolean hasSelected() {
+      return ((bitField0_ & 0x00001000) != 0);
+    }
+
+    /**
+     * <code>optional bool selected = 13 [json_name = "selected"];</code>
+     *
+     * @return The selected.
+     */
+    @java.lang.Override
+    public boolean getSelected() {
+      return selected_;
+    }
+
+    /**
+     * <code>optional bool selected = 13 [json_name = "selected"];</code>
+     *
+     * @param value The selected to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSelected(boolean value) {
+
+      selected_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>optional bool selected = 13 [json_name = "selected"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearSelected() {
+      bitField0_ = (bitField0_ & ~0x00001000);
+      selected_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean interactive_;
+
+    /**
+     * <code>bool interactive = 14 [json_name = "interactive"];</code>
+     *
+     * @return The interactive.
+     */
+    @java.lang.Override
+    public boolean getInteractive() {
+      return interactive_;
+    }
+
+    /**
+     * <code>bool interactive = 14 [json_name = "interactive"];</code>
+     *
+     * @param value The interactive to set.
+     * @return This builder for chaining.
+     */
+    public Builder setInteractive(boolean value) {
+
+      interactive_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>bool interactive = 14 [json_name = "interactive"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearInteractive() {
+      bitField0_ = (bitField0_ & ~0x00002000);
+      interactive_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object frameId_ = "";
+
+    /**
+     * <code>string frame_id = 15 [json_name = "frameId"];</code>
+     *
+     * @return The frameId.
+     */
+    public java.lang.String getFrameId() {
+      java.lang.Object ref = frameId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        frameId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string frame_id = 15 [json_name = "frameId"];</code>
+     *
+     * @return The bytes for frameId.
+     */
+    public com.google.protobuf.ByteString getFrameIdBytes() {
+      java.lang.Object ref = frameId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        frameId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string frame_id = 15 [json_name = "frameId"];</code>
+     *
+     * @param value The frameId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFrameId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      frameId_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string frame_id = 15 [json_name = "frameId"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearFrameId() {
+      frameId_ = getDefaultInstance().getFrameId();
+      bitField0_ = (bitField0_ & ~0x00004000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string frame_id = 15 [json_name = "frameId"];</code>
+     *
+     * @param value The bytes for frameId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFrameIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      frameId_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+
+    private boolean inViewport_;
+
+    /**
+     * <code>bool in_viewport = 16 [json_name = "inViewport"];</code>
+     *
+     * @return The inViewport.
+     */
+    @java.lang.Override
+    public boolean getInViewport() {
+      return inViewport_;
+    }
+
+    /**
+     * <code>bool in_viewport = 16 [json_name = "inViewport"];</code>
+     *
+     * @param value The inViewport to set.
+     * @return This builder for chaining.
+     */
+    public Builder setInViewport(boolean value) {
+
+      inViewport_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>bool in_viewport = 16 [json_name = "inViewport"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearInViewport() {
+      bitField0_ = (bitField0_ & ~0x00008000);
+      inViewport_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean occluded_;
+
+    /**
+     * <code>bool occluded = 17 [json_name = "occluded"];</code>
+     *
+     * @return The occluded.
+     */
+    @java.lang.Override
+    public boolean getOccluded() {
+      return occluded_;
+    }
+
+    /**
+     * <code>bool occluded = 17 [json_name = "occluded"];</code>
+     *
+     * @param value The occluded to set.
+     * @return This builder for chaining.
+     */
+    public Builder setOccluded(boolean value) {
+
+      occluded_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>bool occluded = 17 [json_name = "occluded"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearOccluded() {
+      bitField0_ = (bitField0_ & ~0x00010000);
+      occluded_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object visibilityReason_ = "";
+
+    /**
+     * <code>optional string visibility_reason = 18 [json_name = "visibilityReason"];</code>
+     *
+     * @return Whether the visibilityReason field is set.
+     */
+    public boolean hasVisibilityReason() {
+      return ((bitField0_ & 0x00020000) != 0);
+    }
+
+    /**
+     * <code>optional string visibility_reason = 18 [json_name = "visibilityReason"];</code>
+     *
+     * @return The visibilityReason.
+     */
+    public java.lang.String getVisibilityReason() {
+      java.lang.Object ref = visibilityReason_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        visibilityReason_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>optional string visibility_reason = 18 [json_name = "visibilityReason"];</code>
+     *
+     * @return The bytes for visibilityReason.
+     */
+    public com.google.protobuf.ByteString getVisibilityReasonBytes() {
+      java.lang.Object ref = visibilityReason_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        visibilityReason_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>optional string visibility_reason = 18 [json_name = "visibilityReason"];</code>
+     *
+     * @param value The visibilityReason to set.
+     * @return This builder for chaining.
+     */
+    public Builder setVisibilityReason(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      visibilityReason_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>optional string visibility_reason = 18 [json_name = "visibilityReason"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearVisibilityReason() {
+      visibilityReason_ = getDefaultInstance().getVisibilityReason();
+      bitField0_ = (bitField0_ & ~0x00020000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>optional string visibility_reason = 18 [json_name = "visibilityReason"];</code>
+     *
+     * @param value The bytes for visibilityReason to set.
+     * @return This builder for chaining.
+     */
+    public Builder setVisibilityReasonBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      visibilityReason_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+
+    @java.lang.Override
+    public final Builder setUnknownFields(final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.setUnknownFields(unknownFields);
     }
 
@@ -1191,12 +2637,12 @@ private static final long serialVersionUID = 0L;
       return super.mergeUnknownFields(unknownFields);
     }
 
-
     // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.InteractiveTargetState)
   }
 
   // @@protoc_insertion_point(class_scope:browsercloud.node.v1.InteractiveTargetState)
   private static final io.browsercloud.proto.node.v1.InteractiveTargetState DEFAULT_INSTANCE;
+
   static {
     DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.InteractiveTargetState();
   }
@@ -1205,27 +2651,27 @@ private static final long serialVersionUID = 0L;
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<InteractiveTargetState>
-      PARSER = new com.google.protobuf.AbstractParser<InteractiveTargetState>() {
-    @java.lang.Override
-    public InteractiveTargetState parsePartialFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      Builder builder = newBuilder();
-      try {
-        builder.mergeFrom(input, extensionRegistry);
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(builder.buildPartial());
-      } catch (com.google.protobuf.UninitializedMessageException e) {
-        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(e)
-            .setUnfinishedMessage(builder.buildPartial());
-      }
-      return builder.buildPartial();
-    }
-  };
+  private static final com.google.protobuf.Parser<InteractiveTargetState> PARSER =
+      new com.google.protobuf.AbstractParser<InteractiveTargetState>() {
+        @java.lang.Override
+        public InteractiveTargetState parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          Builder builder = newBuilder();
+          try {
+            builder.mergeFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            throw e.setUnfinishedMessage(builder.buildPartial());
+          } catch (com.google.protobuf.UninitializedMessageException e) {
+            throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+          } catch (java.io.IOException e) {
+            throw new com.google.protobuf.InvalidProtocolBufferException(e)
+                .setUnfinishedMessage(builder.buildPartial());
+          }
+          return builder.buildPartial();
+        }
+      };
 
   public static com.google.protobuf.Parser<InteractiveTargetState> parser() {
     return PARSER;
@@ -1240,5 +2686,4 @@ private static final long serialVersionUID = 0L;
   public io.browsercloud.proto.node.v1.InteractiveTargetState getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
-
 }

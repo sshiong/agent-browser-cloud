@@ -4,139 +4,298 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface AgentActionCommandOrBuilder extends
+public interface AgentActionCommandOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.AgentActionCommand)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>string task_id = 2 [json_name = "taskId"];</code>
+   *
    * @return The taskId.
    */
   java.lang.String getTaskId();
+
   /**
    * <code>string task_id = 2 [json_name = "taskId"];</code>
+   *
    * @return The bytes for taskId.
    */
-  com.google.protobuf.ByteString
-      getTaskIdBytes();
+  com.google.protobuf.ByteString getTaskIdBytes();
 
   /**
    * <code>string step_id = 3 [json_name = "stepId"];</code>
+   *
    * @return The stepId.
    */
   java.lang.String getStepId();
+
   /**
    * <code>string step_id = 3 [json_name = "stepId"];</code>
+   *
    * @return The bytes for stepId.
    */
-  com.google.protobuf.ByteString
-      getStepIdBytes();
+  com.google.protobuf.ByteString getStepIdBytes();
 
   /**
    * <code>string tool_id = 4 [json_name = "toolId"];</code>
+   *
    * @return The toolId.
    */
   java.lang.String getToolId();
+
   /**
    * <code>string tool_id = 4 [json_name = "toolId"];</code>
+   *
    * @return The bytes for toolId.
    */
-  com.google.protobuf.ByteString
-      getToolIdBytes();
+  com.google.protobuf.ByteString getToolIdBytes();
 
   /**
    * <code>string target_ref = 5 [json_name = "targetRef"];</code>
+   *
    * @return The targetRef.
    */
   java.lang.String getTargetRef();
+
   /**
    * <code>string target_ref = 5 [json_name = "targetRef"];</code>
+   *
    * @return The bytes for targetRef.
    */
-  com.google.protobuf.ByteString
-      getTargetRefBytes();
+  com.google.protobuf.ByteString getTargetRefBytes();
 
   /**
    * <code>uint64 target_revision = 6 [json_name = "targetRevision"];</code>
+   *
    * @return The targetRevision.
    */
   long getTargetRevision();
 
   /**
    * <code>string sealed_text = 7 [json_name = "sealedText"];</code>
+   *
    * @return The sealedText.
    */
   java.lang.String getSealedText();
+
   /**
    * <code>string sealed_text = 7 [json_name = "sealedText"];</code>
+   *
    * @return The bytes for sealedText.
    */
-  com.google.protobuf.ByteString
-      getSealedTextBytes();
+  com.google.protobuf.ByteString getSealedTextBytes();
 
   /**
    * <code>string text = 8 [json_name = "text"];</code>
+   *
    * @return The text.
    */
   java.lang.String getText();
+
   /**
    * <code>string text = 8 [json_name = "text"];</code>
+   *
    * @return The bytes for text.
    */
-  com.google.protobuf.ByteString
-      getTextBytes();
+  com.google.protobuf.ByteString getTextBytes();
 
   /**
    * <code>int32 scroll_delta_y = 9 [json_name = "scrollDeltaY"];</code>
+   *
    * @return The scrollDeltaY.
    */
   int getScrollDeltaY();
 
   /**
    * <code>string wait_condition = 10 [json_name = "waitCondition"];</code>
+   *
    * @return The waitCondition.
    */
   java.lang.String getWaitCondition();
+
   /**
    * <code>string wait_condition = 10 [json_name = "waitCondition"];</code>
+   *
    * @return The bytes for waitCondition.
    */
-  com.google.protobuf.ByteString
-      getWaitConditionBytes();
+  com.google.protobuf.ByteString getWaitConditionBytes();
 
   /**
    * <code>uint32 timeout_ms = 11 [json_name = "timeoutMs"];</code>
+   *
    * @return The timeoutMs.
    */
   int getTimeoutMs();
 
   /**
    * <code>uint64 base_state_version = 12 [json_name = "baseStateVersion"];</code>
+   *
    * @return The baseStateVersion.
    */
   long getBaseStateVersion();
 
   /**
    * <code>string base_content_hash = 13 [json_name = "baseContentHash"];</code>
+   *
    * @return The baseContentHash.
    */
   java.lang.String getBaseContentHash();
+
   /**
    * <code>string base_content_hash = 13 [json_name = "baseContentHash"];</code>
+   *
    * @return The bytes for baseContentHash.
    */
-  com.google.protobuf.ByteString
-      getBaseContentHashBytes();
+  com.google.protobuf.ByteString getBaseContentHashBytes();
+
+  /**
+   *
+   *
+   * <pre>
+   * Additive N/N-1 field. True only for an AUTONOMOUS, purpose-bound credential/OTP Step.
+   * </pre>
+   *
+   * <code>bool allow_sensitive_target = 14 [json_name = "allowSensitiveTarget"];</code>
+   *
+   * @return The allowSensitiveTarget.
+   */
+  boolean getAllowSensitiveTarget();
+
+  /**
+   *
+   *
+   * <pre>
+   * Browser-local bounded retry budget. Old Nodes default to zero and remain fail-closed.
+   * </pre>
+   *
+   * <code>uint32 maximum_attempts = 15 [json_name = "maximumAttempts"];</code>
+   *
+   * @return The maximumAttempts.
+   */
+  int getMaximumAttempts();
+
+  /**
+   *
+   *
+   * <pre>
+   * Ordered coarse execute_actions payload. Empty for legacy single-action commands.
+   * </pre>
+   *
+   * <code>repeated .browsercloud.node.v1.AgentActionPrimitive actions = 16 [json_name = "actions"];
+   * </code>
+   */
+  java.util.List<io.browsercloud.proto.node.v1.AgentActionPrimitive> getActionsList();
+
+  /**
+   *
+   *
+   * <pre>
+   * Ordered coarse execute_actions payload. Empty for legacy single-action commands.
+   * </pre>
+   *
+   * <code>repeated .browsercloud.node.v1.AgentActionPrimitive actions = 16 [json_name = "actions"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.AgentActionPrimitive getActions(int index);
+
+  /**
+   *
+   *
+   * <pre>
+   * Ordered coarse execute_actions payload. Empty for legacy single-action commands.
+   * </pre>
+   *
+   * <code>repeated .browsercloud.node.v1.AgentActionPrimitive actions = 16 [json_name = "actions"];
+   * </code>
+   */
+  int getActionsCount();
+
+  /**
+   *
+   *
+   * <pre>
+   * Ordered coarse execute_actions payload. Empty for legacy single-action commands.
+   * </pre>
+   *
+   * <code>repeated .browsercloud.node.v1.AgentActionPrimitive actions = 16 [json_name = "actions"];
+   * </code>
+   */
+  java.util.List<? extends io.browsercloud.proto.node.v1.AgentActionPrimitiveOrBuilder>
+      getActionsOrBuilderList();
+
+  /**
+   *
+   *
+   * <pre>
+   * Ordered coarse execute_actions payload. Empty for legacy single-action commands.
+   * </pre>
+   *
+   * <code>repeated .browsercloud.node.v1.AgentActionPrimitive actions = 16 [json_name = "actions"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.AgentActionPrimitiveOrBuilder getActionsOrBuilder(int index);
+
+  /**
+   * <code>bool stop_on_error = 17 [json_name = "stopOnError"];</code>
+   *
+   * @return The stopOnError.
+   */
+  boolean getStopOnError();
+
+  /**
+   * <code>string tab_id = 18 [json_name = "tabId"];</code>
+   *
+   * @return The tabId.
+   */
+  java.lang.String getTabId();
+
+  /**
+   * <code>string tab_id = 18 [json_name = "tabId"];</code>
+   *
+   * @return The bytes for tabId.
+   */
+  com.google.protobuf.ByteString getTabIdBytes();
+
+  /**
+   * <code>string tab_url = 19 [json_name = "tabUrl"];</code>
+   *
+   * @return The tabUrl.
+   */
+  java.lang.String getTabUrl();
+
+  /**
+   * <code>string tab_url = 19 [json_name = "tabUrl"];</code>
+   *
+   * @return The bytes for tabUrl.
+   */
+  com.google.protobuf.ByteString getTabUrlBytes();
+
+  /**
+   * <code>string dialog_id = 20 [json_name = "dialogId"];</code>
+   *
+   * @return The dialogId.
+   */
+  java.lang.String getDialogId();
+
+  /**
+   * <code>string dialog_id = 20 [json_name = "dialogId"];</code>
+   *
+   * @return The bytes for dialogId.
+   */
+  com.google.protobuf.ByteString getDialogIdBytes();
 }

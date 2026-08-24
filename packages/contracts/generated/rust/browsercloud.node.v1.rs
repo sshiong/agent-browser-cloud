@@ -123,6 +123,46 @@ pub struct UploadProfileImportResponse {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StageAgentBrowserFileRequest {
+    #[prost(string, tag="1")]
+    pub upload_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub tenant_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="4")]
+    pub coordinator_term: i64,
+    #[prost(int64, tag="5")]
+    pub context_epoch: i64,
+    #[prost(string, tag="6")]
+    pub filename: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub mime_type: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub content_sha256: ::prost::alloc::string::String,
+    #[prost(uint64, tag="9")]
+    pub content_bytes: u64,
+    #[prost(uint64, tag="10")]
+    pub offset: u64,
+    #[prost(bytes="vec", tag="11")]
+    pub data: ::prost::alloc::vec::Vec<u8>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StageAgentBrowserFileResponse {
+    #[prost(string, tag="1")]
+    pub upload_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub node_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub content_sha256: ::prost::alloc::string::String,
+    #[prost(uint64, tag="5")]
+    pub content_bytes: u64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PresignEvidenceDownloadRequest {
     #[prost(string, tag="1")]
     pub grant_id: ::prost::alloc::string::String,
@@ -548,6 +588,38 @@ pub struct StartRuntimeCommand {
     pub browser_transaction_policy_hash: ::prost::alloc::string::String,
     #[prost(uint64, tag="38")]
     pub browser_transaction_policy_version: u64,
+    /// Immutable Session identity projection. N-1 Nodes ignore these additive fields; upgraded
+    /// Nodes validate the complete cross-field set before spawning Chromium.
+    #[prost(string, tag="39")]
+    pub identity_user_agent: ::prost::alloc::string::String,
+    #[prost(string, tag="40")]
+    pub identity_timezone: ::prost::alloc::string::String,
+    #[prost(string, tag="41")]
+    pub identity_locale: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="42")]
+    pub identity_languages: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag="43")]
+    pub identity_webrtc_policy: ::prost::alloc::string::String,
+    #[prost(string, tag="44")]
+    pub identity_dns_policy: ::prost::alloc::string::String,
+    #[prost(uint32, tag="45")]
+    pub identity_viewport_width: u32,
+    #[prost(uint32, tag="46")]
+    pub identity_viewport_height: u32,
+    #[prost(uint32, tag="47")]
+    pub identity_screen_width: u32,
+    #[prost(uint32, tag="48")]
+    pub identity_screen_height: u32,
+    #[prost(double, tag="49")]
+    pub identity_device_scale_factor: f64,
+    #[prost(string, tag="50")]
+    pub identity_fingerprint_profile: ::prost::alloc::string::String,
+    #[prost(string, tag="51")]
+    pub identity_operating_system_profile: ::prost::alloc::string::String,
+    #[prost(uint64, tag="52")]
+    pub identity_spec_version: u64,
+    #[prost(string, tag="53")]
+    pub identity_spec_hash: ::prost::alloc::string::String,
 }
 /// Runtime 启动事件
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -952,6 +1024,60 @@ pub struct KeyInput {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BrowserTabState {
+    #[prost(string, tag="1")]
+    pub tab_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub url: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub title: ::prost::alloc::string::String,
+    #[prost(bool, tag="4")]
+    pub active: bool,
+}
+/// Browser-native JavaScript Dialog. DOM/A11y role=dialog remains an InteractiveTarget and must
+/// never be projected into this lifecycle.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BrowserNativeDialogState {
+    #[prost(string, tag="1")]
+    pub dialog_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub tab_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub dialog_type: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub message: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub default_prompt: ::prost::alloc::string::String,
+    #[prost(bool, tag="6")]
+    pub has_browser_handler: bool,
+}
+/// URL-free, filesystem-path-free Chromium download lifecycle. Size/progress remain optional when
+/// the server omits Content-Length. Control Plane persists terminal entries across Runtime restarts.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BrowserDownloadState {
+    #[prost(string, tag="1")]
+    pub download_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub filename: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub mime_type: ::prost::alloc::string::String,
+    #[prost(uint64, optional, tag="4")]
+    pub total_bytes: ::core::option::Option<u64>,
+    #[prost(uint64, tag="5")]
+    pub received_bytes: u64,
+    #[prost(uint32, optional, tag="6")]
+    pub progress_basis_points: ::core::option::Option<u32>,
+    #[prost(string, tag="7")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(int64, tag="8")]
+    pub started_at_ms: i64,
+    #[prost(int64, tag="9")]
+    pub updated_at_ms: i64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BrowserStateEvent {
     #[prost(string, tag="1")]
     pub session_id: ::prost::alloc::string::String,
@@ -983,6 +1109,26 @@ pub struct BrowserStateEvent {
     /// 仅当本 Runtime 代持续 Network 观察从未断线时为 true。
     #[prost(bool, tag="13")]
     pub network_evidence_fresh: bool,
+    /// Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+    #[prost(message, repeated, tag="14")]
+    pub action_outcomes: ::prost::alloc::vec::Vec<AgentActionOutcome>,
+    /// Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+    #[prost(message, repeated, tag="15")]
+    pub tabs: ::prost::alloc::vec::Vec<BrowserTabState>,
+    #[prost(string, tag="16")]
+    pub active_tab_id: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="17")]
+    pub native_dialogs: ::prost::alloc::vec::Vec<BrowserNativeDialogState>,
+    /// False means N-1 or an observer gap. Control Plane preserves the last projection but rejects
+    /// dialog actions until a continuous event stream or a safe Runtime probe restores freshness.
+    #[prost(bool, tag="18")]
+    pub native_dialog_evidence_fresh: bool,
+    #[prost(message, repeated, tag="19")]
+    pub downloads: ::prost::alloc::vec::Vec<BrowserDownloadState>,
+    /// False means the Browser-level event observer has a gap. No missing entry may be interpreted
+    /// as completed until a new Runtime establishes a continuous source.
+    #[prost(bool, tag="20")]
+    pub download_evidence_fresh: bool,
 }
 /// 显式 FULL Resync 的有界流式传输。Begin 声明不可变清单，Chunk 只承载状态
 /// protobuf 字节，Commit 允许 Control Plane 在校验全部分块和整流 SHA-256 后原子发布。
@@ -1132,6 +1278,74 @@ pub struct AgentActionCommand {
     pub base_state_version: u64,
     #[prost(string, tag="13")]
     pub base_content_hash: ::prost::alloc::string::String,
+    /// Additive N/N-1 field. True only for an AUTONOMOUS, purpose-bound credential/OTP Step.
+    #[prost(bool, tag="14")]
+    pub allow_sensitive_target: bool,
+    /// Browser-local bounded retry budget. Old Nodes default to zero and remain fail-closed.
+    #[prost(uint32, tag="15")]
+    pub maximum_attempts: u32,
+    /// Ordered coarse execute_actions payload. Empty for legacy single-action commands.
+    #[prost(message, repeated, tag="16")]
+    pub actions: ::prost::alloc::vec::Vec<AgentActionPrimitive>,
+    #[prost(bool, tag="17")]
+    pub stop_on_error: bool,
+    #[prost(string, tag="18")]
+    pub tab_id: ::prost::alloc::string::String,
+    #[prost(string, tag="19")]
+    pub tab_url: ::prost::alloc::string::String,
+    #[prost(string, tag="20")]
+    pub dialog_id: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentActionPrimitive {
+    #[prost(string, tag="1")]
+    pub action_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub tool_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub target_ref: ::prost::alloc::string::String,
+    #[prost(uint64, tag="4")]
+    pub target_revision: u64,
+    #[prost(string, tag="5")]
+    pub sealed_text: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(int32, tag="7")]
+    pub scroll_delta_y: i32,
+    #[prost(string, tag="8")]
+    pub wait_condition: ::prost::alloc::string::String,
+    #[prost(uint32, tag="9")]
+    pub timeout_ms: u32,
+    #[prost(bool, tag="10")]
+    pub allow_sensitive_target: bool,
+    #[prost(uint32, tag="11")]
+    pub maximum_attempts: u32,
+    /// Stable semantic identity captured from the authoritative Browser State. An upgraded Node
+    /// rebinds this identity against the latest target_revision before every primitive so a prior
+    /// mutation in the same batch cannot stale the following action. N-1 Nodes ignore this field.
+    #[prost(string, tag="12")]
+    pub element_id: ::prost::alloc::string::String,
+    #[prost(string, tag="13")]
+    pub tab_id: ::prost::alloc::string::String,
+    #[prost(string, tag="14")]
+    pub tab_url: ::prost::alloc::string::String,
+    #[prost(string, tag="15")]
+    pub dialog_id: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentActionOutcome {
+    #[prost(string, tag="1")]
+    pub action_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub error_code: ::prost::alloc::string::String,
+    #[prost(uint64, tag="4")]
+    pub state_version: u64,
+    #[prost(uint64, tag="5")]
+    pub target_revision: u64,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1145,6 +1359,42 @@ pub struct AgentActionFailedEvent {
     #[prost(string, tag="4")]
     pub tool_id: ::prost::alloc::string::String,
     #[prost(string, tag="5")]
+    pub error_code: ::prost::alloc::string::String,
+}
+/// Journaled consumption of a previously streamed, Session-bound staging file. No arbitrary path
+/// crosses the Control Plane/Node contract.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentFileUploadCommand {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub upload_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub target_ref: ::prost::alloc::string::String,
+    #[prost(uint64, tag="4")]
+    pub target_revision: u64,
+    #[prost(uint64, tag="5")]
+    pub base_state_version: u64,
+    #[prost(string, tag="6")]
+    pub base_content_hash: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub filename: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub mime_type: ::prost::alloc::string::String,
+    #[prost(string, tag="9")]
+    pub content_sha256: ::prost::alloc::string::String,
+    #[prost(uint64, tag="10")]
+    pub content_bytes: u64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentFileUploadFailedEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub upload_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
     pub error_code: ::prost::alloc::string::String,
 }
 /// User-authorized single-use click bound to a current Challenge Event and visual target anchor.
@@ -1190,6 +1440,70 @@ pub struct HumanAssistFailedEvent {
     #[prost(string, tag="3")]
     pub intent_id: ::prost::alloc::string::String,
     #[prost(string, tag="4")]
+    pub error_code: ::prost::alloc::string::String,
+}
+/// Model-proposed, policy-bounded visual action. Coordinates are normalized to the current
+/// viewport and are revalidated by the Node immediately before input. No text or secret is allowed.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ChallengeVisualAction {
+    #[prost(string, tag="1")]
+    pub action_type: ::prost::alloc::string::String,
+    #[prost(double, tag="2")]
+    pub x: f64,
+    #[prost(double, tag="3")]
+    pub y: f64,
+    #[prost(double, tag="4")]
+    pub end_x: f64,
+    #[prost(double, tag="5")]
+    pub end_y: f64,
+    #[prost(uint32, tag="6")]
+    pub repeat_count: u32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ChallengeAutomationActionCommand {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub run_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub job_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub challenge_event_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag="5")]
+    pub attempt_number: u32,
+    #[prost(uint64, tag="6")]
+    pub base_state_version: u64,
+    #[prost(string, tag="7")]
+    pub base_content_hash: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="8")]
+    pub actions: ::prost::alloc::vec::Vec<ChallengeVisualAction>,
+    #[prost(uint32, tag="9")]
+    pub motion_min_steps: u32,
+    #[prost(uint32, tag="10")]
+    pub motion_max_steps: u32,
+    #[prost(uint32, tag="11")]
+    pub motion_min_delay_ms: u32,
+    #[prost(uint32, tag="12")]
+    pub motion_max_delay_ms: u32,
+    #[prost(double, tag="13")]
+    pub target_offset_ratio: f64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ChallengeAutomationFailedEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub run_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub job_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub challenge_event_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag="5")]
+    pub attempt_number: u32,
+    #[prost(string, tag="6")]
     pub error_code: ::prost::alloc::string::String,
 }
 /// Administrator-requested, read-only Observer screenshot. The request contains no arbitrary CDP
@@ -1240,6 +1554,40 @@ pub struct SessionEvidenceCapturedEvent {
     #[prost(uint32, tag="15")]
     pub redacted_region_count: u32,
 }
+/// Emitted only after Storage Helper has committed the immutable recording manifest. The event
+/// carries bounded metadata and hashes, never frame bytes or storage credentials.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SessionRecordingFinalizedEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub recording_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="3")]
+    pub segment_count: u64,
+    #[prost(uint64, tag="4")]
+    pub frame_count: u64,
+    #[prost(uint64, tag="5")]
+    pub dropped_frames: u64,
+    #[prost(uint64, tag="6")]
+    pub redacted_frame_count: u64,
+    #[prost(uint64, tag="7")]
+    pub redacted_region_count: u64,
+    #[prost(uint32, tag="8")]
+    pub redaction_policy_version: u32,
+    #[prost(string, tag="9")]
+    pub manifest_object_key: ::prost::alloc::string::String,
+    #[prost(string, tag="10")]
+    pub manifest_sha256: ::prost::alloc::string::String,
+    #[prost(uint64, tag="11")]
+    pub manifest_bytes: u64,
+    #[prost(int64, tag="12")]
+    pub started_at_ms: i64,
+    #[prost(int64, tag="13")]
+    pub ended_at_ms: i64,
+    #[prost(string, tag="14")]
+    pub node_id: ::prost::alloc::string::String,
+}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BrowserStateDiffEvent {
@@ -1280,6 +1628,18 @@ pub struct BrowserStateDiffEvent {
     pub resync_request_id: ::prost::alloc::string::String,
     #[prost(uint64, optional, tag="17")]
     pub collection_cpu_millis: ::core::option::Option<u64>,
+    #[prost(message, repeated, tag="18")]
+    pub tabs: ::prost::alloc::vec::Vec<BrowserTabState>,
+    #[prost(string, tag="19")]
+    pub active_tab_id: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="20")]
+    pub native_dialogs: ::prost::alloc::vec::Vec<BrowserNativeDialogState>,
+    #[prost(bool, tag="21")]
+    pub native_dialog_evidence_fresh: bool,
+    #[prost(message, repeated, tag="22")]
+    pub downloads: ::prost::alloc::vec::Vec<BrowserDownloadState>,
+    #[prost(bool, tag="23")]
+    pub download_evidence_fresh: bool,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1315,6 +1675,30 @@ pub struct InteractiveTargetState {
     /// Password/OTP 等目标只暴露敏感标志，不暴露名称或值。
     #[prost(bool, tag="7")]
     pub sensitive: bool,
+    /// Stable across State/Target revisions for the same DOM/shadow/frame path. target_ref remains
+    /// the version-fenced execution reference for N/N-1 callers.
+    #[prost(string, tag="8")]
+    pub element_id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="9")]
+    pub value: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="10")]
+    pub control_type: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(bool, tag="11")]
+    pub focused: bool,
+    #[prost(bool, optional, tag="12")]
+    pub checked: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag="13")]
+    pub selected: ::core::option::Option<bool>,
+    #[prost(bool, tag="14")]
+    pub interactive: bool,
+    #[prost(string, tag="15")]
+    pub frame_id: ::prost::alloc::string::String,
+    #[prost(bool, tag="16")]
+    pub in_viewport: bool,
+    #[prost(bool, tag="17")]
+    pub occluded: bool,
+    #[prost(string, optional, tag="18")]
+    pub visibility_reason: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

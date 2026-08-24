@@ -4,175 +4,457 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface BrowserStateEventOrBuilder extends
+public interface BrowserStateEventOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.BrowserStateEvent)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>uint64 state_version = 2 [json_name = "stateVersion"];</code>
+   *
    * @return The stateVersion.
    */
   long getStateVersion();
 
   /**
    * <code>uint64 target_revision = 3 [json_name = "targetRevision"];</code>
+   *
    * @return The targetRevision.
    */
   long getTargetRevision();
 
   /**
    * <code>string url = 4 [json_name = "url"];</code>
+   *
    * @return The url.
    */
   java.lang.String getUrl();
+
   /**
    * <code>string url = 4 [json_name = "url"];</code>
+   *
    * @return The bytes for url.
    */
-  com.google.protobuf.ByteString
-      getUrlBytes();
+  com.google.protobuf.ByteString getUrlBytes();
 
   /**
    * <code>string title = 5 [json_name = "title"];</code>
+   *
    * @return The title.
    */
   java.lang.String getTitle();
+
   /**
    * <code>string title = 5 [json_name = "title"];</code>
+   *
    * @return The bytes for title.
    */
-  com.google.protobuf.ByteString
-      getTitleBytes();
+  com.google.protobuf.ByteString getTitleBytes();
 
   /**
    * <code>string state_quality = 6 [json_name = "stateQuality"];</code>
+   *
    * @return The stateQuality.
    */
   java.lang.String getStateQuality();
+
   /**
    * <code>string state_quality = 6 [json_name = "stateQuality"];</code>
+   *
    * @return The bytes for stateQuality.
    */
-  com.google.protobuf.ByteString
-      getStateQualityBytes();
+  com.google.protobuf.ByteString getStateQualityBytes();
 
   /**
    * <code>string content_hash = 7 [json_name = "contentHash"];</code>
+   *
    * @return The contentHash.
    */
   java.lang.String getContentHash();
-  /**
-   * <code>string content_hash = 7 [json_name = "contentHash"];</code>
-   * @return The bytes for contentHash.
-   */
-  com.google.protobuf.ByteString
-      getContentHashBytes();
 
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+   * <code>string content_hash = 7 [json_name = "contentHash"];</code>
+   *
+   * @return The bytes for contentHash.
    */
-  java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState>
-      getTargetsList();
+  com.google.protobuf.ByteString getContentHashBytes();
+
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+   * <code>
+   * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+   * </code>
+   */
+  java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState> getTargetsList();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+   * </code>
    */
   io.browsercloud.proto.node.v1.InteractiveTargetState getTargets(int index);
+
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+   * <code>
+   * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+   * </code>
    */
   int getTargetsCount();
+
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+   * <code>
+   * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+   * </code>
    */
   java.util.List<? extends io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder>
       getTargetsOrBuilderList();
-  /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
-   */
-  io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder getTargetsOrBuilder(
-      int index);
 
   /**
+   * <code>
+   * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder getTargetsOrBuilder(int index);
+
+  /**
+   *
+   *
    * <pre>
    * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
    * </pre>
    *
    * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
+   *
    * @return The snapshotKind.
    */
   java.lang.String getSnapshotKind();
+
   /**
+   *
+   *
    * <pre>
    * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
    * </pre>
    *
    * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
+   *
    * @return The bytes for snapshotKind.
    */
-  com.google.protobuf.ByteString
-      getSnapshotKindBytes();
+  com.google.protobuf.ByteString getSnapshotKindBytes();
 
   /**
    * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
+   *
    * @return The requestedRootRef.
    */
   java.lang.String getRequestedRootRef();
-  /**
-   * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
-   * @return The bytes for requestedRootRef.
-   */
-  com.google.protobuf.ByteString
-      getRequestedRootRefBytes();
 
   /**
+   * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
+   *
+   * @return The bytes for requestedRootRef.
+   */
+  com.google.protobuf.ByteString getRequestedRootRefBytes();
+
+  /**
+   *
+   *
    * <pre>
    * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
    * </pre>
    *
    * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+   *
    * @return The documentReadyState.
    */
   java.lang.String getDocumentReadyState();
+
   /**
+   *
+   *
    * <pre>
    * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
    * </pre>
    *
    * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+   *
    * @return The bytes for documentReadyState.
    */
-  com.google.protobuf.ByteString
-      getDocumentReadyStateBytes();
+  com.google.protobuf.ByteString getDocumentReadyStateBytes();
 
   /**
+   *
+   *
    * <pre>
    * 自最近一次 CDP Network 活动结束后的安静时长；存在在途请求时为 0。
    * </pre>
    *
    * <code>uint64 network_quiet_millis = 12 [json_name = "networkQuietMillis"];</code>
+   *
    * @return The networkQuietMillis.
    */
   long getNetworkQuietMillis();
 
   /**
+   *
+   *
    * <pre>
    * 仅当本 Runtime 代持续 Network 观察从未断线时为 true。
    * </pre>
    *
    * <code>bool network_evidence_fresh = 13 [json_name = "networkEvidenceFresh"];</code>
+   *
    * @return The networkEvidenceFresh.
    */
   boolean getNetworkEvidenceFresh();
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+   * </pre>
+   *
+   * <code>
+   * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+   * </code>
+   */
+  java.util.List<io.browsercloud.proto.node.v1.AgentActionOutcome> getActionOutcomesList();
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+   * </pre>
+   *
+   * <code>
+   * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.AgentActionOutcome getActionOutcomes(int index);
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+   * </pre>
+   *
+   * <code>
+   * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+   * </code>
+   */
+  int getActionOutcomesCount();
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+   * </pre>
+   *
+   * <code>
+   * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+   * </code>
+   */
+  java.util.List<? extends io.browsercloud.proto.node.v1.AgentActionOutcomeOrBuilder>
+      getActionOutcomesOrBuilderList();
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+   * </pre>
+   *
+   * <code>
+   * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.AgentActionOutcomeOrBuilder getActionOutcomesOrBuilder(int index);
+
+  /**
+   *
+   *
+   * <pre>
+   * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+   * </pre>
+   *
+   * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+   */
+  java.util.List<io.browsercloud.proto.node.v1.BrowserTabState> getTabsList();
+
+  /**
+   *
+   *
+   * <pre>
+   * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+   * </pre>
+   *
+   * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+   */
+  io.browsercloud.proto.node.v1.BrowserTabState getTabs(int index);
+
+  /**
+   *
+   *
+   * <pre>
+   * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+   * </pre>
+   *
+   * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+   */
+  int getTabsCount();
+
+  /**
+   *
+   *
+   * <pre>
+   * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+   * </pre>
+   *
+   * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+   */
+  java.util.List<? extends io.browsercloud.proto.node.v1.BrowserTabStateOrBuilder>
+      getTabsOrBuilderList();
+
+  /**
+   *
+   *
+   * <pre>
+   * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+   * </pre>
+   *
+   * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+   */
+  io.browsercloud.proto.node.v1.BrowserTabStateOrBuilder getTabsOrBuilder(int index);
+
+  /**
+   * <code>string active_tab_id = 16 [json_name = "activeTabId"];</code>
+   *
+   * @return The activeTabId.
+   */
+  java.lang.String getActiveTabId();
+
+  /**
+   * <code>string active_tab_id = 16 [json_name = "activeTabId"];</code>
+   *
+   * @return The bytes for activeTabId.
+   */
+  com.google.protobuf.ByteString getActiveTabIdBytes();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+   * </code>
+   */
+  java.util.List<io.browsercloud.proto.node.v1.BrowserNativeDialogState> getNativeDialogsList();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.BrowserNativeDialogState getNativeDialogs(int index);
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+   * </code>
+   */
+  int getNativeDialogsCount();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+   * </code>
+   */
+  java.util.List<? extends io.browsercloud.proto.node.v1.BrowserNativeDialogStateOrBuilder>
+      getNativeDialogsOrBuilderList();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.BrowserNativeDialogStateOrBuilder getNativeDialogsOrBuilder(
+      int index);
+
+  /**
+   *
+   *
+   * <pre>
+   * False means N-1 or an observer gap. Control Plane preserves the last projection but rejects
+   * dialog actions until a continuous event stream or a safe Runtime probe restores freshness.
+   * </pre>
+   *
+   * <code>bool native_dialog_evidence_fresh = 18 [json_name = "nativeDialogEvidenceFresh"];</code>
+   *
+   * @return The nativeDialogEvidenceFresh.
+   */
+  boolean getNativeDialogEvidenceFresh();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+   * </code>
+   */
+  java.util.List<io.browsercloud.proto.node.v1.BrowserDownloadState> getDownloadsList();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.BrowserDownloadState getDownloads(int index);
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+   * </code>
+   */
+  int getDownloadsCount();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+   * </code>
+   */
+  java.util.List<? extends io.browsercloud.proto.node.v1.BrowserDownloadStateOrBuilder>
+      getDownloadsOrBuilderList();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.BrowserDownloadStateOrBuilder getDownloadsOrBuilder(int index);
+
+  /**
+   *
+   *
+   * <pre>
+   * False means the Browser-level event observer has a gap. No missing entry may be interpreted
+   * as completed until a new Runtime establishes a continuous source.
+   * </pre>
+   *
+   * <code>bool download_evidence_fresh = 20 [json_name = "downloadEvidenceFresh"];</code>
+   *
+   * @return The downloadEvidenceFresh.
+   */
+  boolean getDownloadEvidenceFresh();
 }

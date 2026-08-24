@@ -4,18 +4,20 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-/**
- * Protobuf type {@code browsercloud.node.v1.PresignProfileExportDownloadRequest}
- */
-public final class PresignProfileExportDownloadRequest extends
-    com.google.protobuf.GeneratedMessageV3 implements
+/** Protobuf type {@code browsercloud.node.v1.PresignProfileExportDownloadRequest} */
+public final class PresignProfileExportDownloadRequest
+    extends com.google.protobuf.GeneratedMessageV3
+    implements
     // @@protoc_insertion_point(message_implements:browsercloud.node.v1.PresignProfileExportDownloadRequest)
     PresignProfileExportDownloadRequestOrBuilder {
-private static final long serialVersionUID = 0L;
+  private static final long serialVersionUID = 0L;
+
   // Use PresignProfileExportDownloadRequest.newBuilder() to construct.
-  private PresignProfileExportDownloadRequest(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  private PresignProfileExportDownloadRequest(
+      com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
+
   private PresignProfileExportDownloadRequest() {
     grantId_ = "";
     tenantId_ = "";
@@ -25,29 +27,33 @@ private static final long serialVersionUID = 0L;
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
+  protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
     return new PresignProfileExportDownloadRequest();
   }
 
-  public static final com.google.protobuf.Descriptors.Descriptor
-      getDescriptor() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_PresignProfileExportDownloadRequest_descriptor;
+  public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_PresignProfileExportDownloadRequest_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_PresignProfileExportDownloadRequest_fieldAccessorTable
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_PresignProfileExportDownloadRequest_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.class, io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.Builder.class);
+            io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.class,
+            io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.Builder.class);
   }
 
   public static final int GRANT_ID_FIELD_NUMBER = 1;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object grantId_ = "";
+
   /**
    * <code>string grant_id = 1 [json_name = "grantId"];</code>
+   *
    * @return The grantId.
    */
   @java.lang.Override
@@ -56,25 +62,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       grantId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string grant_id = 1 [json_name = "grantId"];</code>
+   *
    * @return The bytes for grantId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getGrantIdBytes() {
+  public com.google.protobuf.ByteString getGrantIdBytes() {
     java.lang.Object ref = grantId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       grantId_ = b;
       return b;
     } else {
@@ -83,10 +88,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int TENANT_ID_FIELD_NUMBER = 2;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object tenantId_ = "";
+
   /**
    * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+   *
    * @return The tenantId.
    */
   @java.lang.Override
@@ -95,25 +103,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       tenantId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+   *
    * @return The bytes for tenantId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getTenantIdBytes() {
+  public com.google.protobuf.ByteString getTenantIdBytes() {
     java.lang.Object ref = tenantId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       tenantId_ = b;
       return b;
     } else {
@@ -122,10 +129,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int PROFILE_ID_FIELD_NUMBER = 3;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object profileId_ = "";
+
   /**
    * <code>string profile_id = 3 [json_name = "profileId"];</code>
+   *
    * @return The profileId.
    */
   @java.lang.Override
@@ -134,25 +144,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       profileId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string profile_id = 3 [json_name = "profileId"];</code>
+   *
    * @return The bytes for profileId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getProfileIdBytes() {
+  public com.google.protobuf.ByteString getProfileIdBytes() {
     java.lang.Object ref = profileId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       profileId_ = b;
       return b;
     } else {
@@ -161,10 +170,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int CHECKPOINT_ID_FIELD_NUMBER = 4;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object checkpointId_ = "";
+
   /**
    * <code>string checkpoint_id = 4 [json_name = "checkpointId"];</code>
+   *
    * @return The checkpointId.
    */
   @java.lang.Override
@@ -173,25 +185,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       checkpointId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string checkpoint_id = 4 [json_name = "checkpointId"];</code>
+   *
    * @return The bytes for checkpointId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getCheckpointIdBytes() {
+  public com.google.protobuf.ByteString getCheckpointIdBytes() {
     java.lang.Object ref = checkpointId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       checkpointId_ = b;
       return b;
     } else {
@@ -201,8 +212,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int EXPIRES_IN_SECONDS_FIELD_NUMBER = 5;
   private int expiresInSeconds_ = 0;
+
   /**
    * <code>uint32 expires_in_seconds = 5 [json_name = "expiresInSeconds"];</code>
+   *
    * @return The expiresInSeconds.
    */
   @java.lang.Override
@@ -211,6 +224,7 @@ private static final long serialVersionUID = 0L;
   }
 
   private byte memoizedIsInitialized = -1;
+
   @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
@@ -222,8 +236,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @java.lang.Override
-  public void writeTo(com.google.protobuf.CodedOutputStream output)
-                      throws java.io.IOException {
+  public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(grantId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 1, grantId_);
     }
@@ -261,8 +274,7 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, checkpointId_);
     }
     if (expiresInSeconds_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(5, expiresInSeconds_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(5, expiresInSeconds_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -272,23 +284,19 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public boolean equals(final java.lang.Object obj) {
     if (obj == this) {
-     return true;
+      return true;
     }
     if (!(obj instanceof io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest)) {
       return super.equals(obj);
     }
-    io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest other = (io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest) obj;
+    io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest other =
+        (io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest) obj;
 
-    if (!getGrantId()
-        .equals(other.getGrantId())) return false;
-    if (!getTenantId()
-        .equals(other.getTenantId())) return false;
-    if (!getProfileId()
-        .equals(other.getProfileId())) return false;
-    if (!getCheckpointId()
-        .equals(other.getCheckpointId())) return false;
-    if (getExpiresInSeconds()
-        != other.getExpiresInSeconds()) return false;
+    if (!getGrantId().equals(other.getGrantId())) return false;
+    if (!getTenantId().equals(other.getTenantId())) return false;
+    if (!getProfileId().equals(other.getProfileId())) return false;
+    if (!getCheckpointId().equals(other.getCheckpointId())) return false;
+    if (getExpiresInSeconds() != other.getExpiresInSeconds()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -316,127 +324,131 @@ private static final long serialVersionUID = 0L;
   }
 
   public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest parseFrom(
-      java.nio.ByteBuffer data)
-      throws com.google.protobuf.InvalidProtocolBufferException {
+      java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest parseFrom(
-      java.nio.ByteBuffer data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest parseFrom(byte[] data)
-      throws com.google.protobuf.InvalidProtocolBufferException {
+
+  public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest parseFrom(
+      byte[] data) throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest parseFrom(
-      byte[] data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest parseFrom(java.io.InputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
-  }
+
   public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest parseFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest parseDelimitedFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest parseFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
-  public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest parseDelimitedFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+  public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest
+      parseDelimitedFrom(java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
   }
+
+  public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest
+      parseDelimitedFrom(
+          java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
+        PARSER, input, extensionRegistry);
+  }
+
   public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest parseFrom(
-      com.google.protobuf.CodedInputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
+      com.google.protobuf.CodedInputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
+
   public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   @java.lang.Override
-  public Builder newBuilderForType() { return newBuilder(); }
+  public Builder newBuilderForType() {
+    return newBuilder();
+  }
+
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest prototype) {
+
+  public static Builder newBuilder(
+      io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-  }
-  @java.lang.Override
-  public Builder toBuilder() {
-    return this == DEFAULT_INSTANCE
-        ? new Builder() : new Builder().mergeFrom(this);
   }
 
   @java.lang.Override
-  protected Builder newBuilderForType(
-      com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+  public Builder toBuilder() {
+    return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
+  }
+
+  @java.lang.Override
+  protected Builder newBuilderForType(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
     Builder builder = new Builder(parent);
     return builder;
   }
-  /**
-   * Protobuf type {@code browsercloud.node.v1.PresignProfileExportDownloadRequest}
-   */
-  public static final class Builder extends
-      com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+
+  /** Protobuf type {@code browsercloud.node.v1.PresignProfileExportDownloadRequest} */
+  public static final class Builder extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
+      implements
       // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.PresignProfileExportDownloadRequest)
       io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequestOrBuilder {
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_PresignProfileExportDownloadRequest_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_PresignProfileExportDownloadRequest_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_PresignProfileExportDownloadRequest_fieldAccessorTable
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_PresignProfileExportDownloadRequest_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.class, io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.Builder.class);
+              io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.class,
+              io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.Builder.class);
     }
 
-    // Construct using io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.newBuilder()
-    private Builder() {
+    // Construct using
+    // io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.newBuilder()
+    private Builder() {}
 
-    }
-
-    private Builder(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+    private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
-
     }
+
     @java.lang.Override
     public Builder clear() {
       super.clear();
@@ -450,13 +462,14 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Descriptors.Descriptor
-        getDescriptorForType() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_PresignProfileExportDownloadRequest_descriptor;
+    public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_PresignProfileExportDownloadRequest_descriptor;
     }
 
     @java.lang.Override
-    public io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest getDefaultInstanceForType() {
+    public io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest
+        getDefaultInstanceForType() {
       return io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.getDefaultInstance();
     }
 
@@ -471,13 +484,17 @@ private static final long serialVersionUID = 0L;
 
     @java.lang.Override
     public io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest buildPartial() {
-      io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest result = new io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest(this);
-      if (bitField0_ != 0) { buildPartial0(result); }
+      io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest result =
+          new io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest(this);
+      if (bitField0_ != 0) {
+        buildPartial0(result);
+      }
       onBuilt();
       return result;
     }
 
-    private void buildPartial0(io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest result) {
+    private void buildPartial0(
+        io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest result) {
       int from_bitField0_ = bitField0_;
       if (((from_bitField0_ & 0x00000001) != 0)) {
         result.grantId_ = grantId_;
@@ -500,46 +517,50 @@ private static final long serialVersionUID = 0L;
     public Builder clone() {
       return super.clone();
     }
+
     @java.lang.Override
     public Builder setField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.setField(field, value);
     }
+
     @java.lang.Override
-    public Builder clearField(
-        com.google.protobuf.Descriptors.FieldDescriptor field) {
+    public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
       return super.clearField(field);
     }
+
     @java.lang.Override
-    public Builder clearOneof(
-        com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+    public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
       return super.clearOneof(oneof);
     }
+
     @java.lang.Override
     public Builder setRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        int index, java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, int index, java.lang.Object value) {
       return super.setRepeatedField(field, index, value);
     }
+
     @java.lang.Override
     public Builder addRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.addRepeatedField(field, value);
     }
+
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest) {
-        return mergeFrom((io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest)other);
+        return mergeFrom((io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest) other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest other) {
-      if (other == io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.getDefaultInstance()) return this;
+    public Builder mergeFrom(
+        io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest other) {
+      if (other
+          == io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.getDefaultInstance())
+        return this;
       if (!other.getGrantId().isEmpty()) {
         grantId_ = other.grantId_;
         bitField0_ |= 0x00000001;
@@ -589,37 +610,43 @@ private static final long serialVersionUID = 0L;
             case 0:
               done = true;
               break;
-            case 10: {
-              grantId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000001;
-              break;
-            } // case 10
-            case 18: {
-              tenantId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000002;
-              break;
-            } // case 18
-            case 26: {
-              profileId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000004;
-              break;
-            } // case 26
-            case 34: {
-              checkpointId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000008;
-              break;
-            } // case 34
-            case 40: {
-              expiresInSeconds_ = input.readUInt32();
-              bitField0_ |= 0x00000010;
-              break;
-            } // case 40
-            default: {
-              if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                done = true; // was an endgroup tag
-              }
-              break;
-            } // default:
+            case 10:
+              {
+                grantId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000001;
+                break;
+              } // case 10
+            case 18:
+              {
+                tenantId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000002;
+                break;
+              } // case 18
+            case 26:
+              {
+                profileId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000004;
+                break;
+              } // case 26
+            case 34:
+              {
+                checkpointId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000008;
+                break;
+              } // case 34
+            case 40:
+              {
+                expiresInSeconds_ = input.readUInt32();
+                bitField0_ |= 0x00000010;
+                break;
+              } // case 40
+            default:
+              {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
           } // switch (tag)
         } // while (!done)
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -629,18 +656,20 @@ private static final long serialVersionUID = 0L;
       } // finally
       return this;
     }
+
     private int bitField0_;
 
     private java.lang.Object grantId_ = "";
+
     /**
      * <code>string grant_id = 1 [json_name = "grantId"];</code>
+     *
      * @return The grantId.
      */
     public java.lang.String getGrantId() {
       java.lang.Object ref = grantId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         grantId_ = s;
         return s;
@@ -648,38 +677,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string grant_id = 1 [json_name = "grantId"];</code>
+     *
      * @return The bytes for grantId.
      */
-    public com.google.protobuf.ByteString
-        getGrantIdBytes() {
+    public com.google.protobuf.ByteString getGrantIdBytes() {
       java.lang.Object ref = grantId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         grantId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string grant_id = 1 [json_name = "grantId"];</code>
+     *
      * @param value The grantId to set.
      * @return This builder for chaining.
      */
-    public Builder setGrantId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setGrantId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       grantId_ = value;
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
+
     /**
      * <code>string grant_id = 1 [json_name = "grantId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearGrantId() {
@@ -688,14 +722,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string grant_id = 1 [json_name = "grantId"];</code>
+     *
      * @param value The bytes for grantId to set.
      * @return This builder for chaining.
      */
-    public Builder setGrantIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setGrantIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       grantId_ = value;
       bitField0_ |= 0x00000001;
@@ -704,15 +741,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object tenantId_ = "";
+
     /**
      * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+     *
      * @return The tenantId.
      */
     public java.lang.String getTenantId() {
       java.lang.Object ref = tenantId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         tenantId_ = s;
         return s;
@@ -720,38 +758,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+     *
      * @return The bytes for tenantId.
      */
-    public com.google.protobuf.ByteString
-        getTenantIdBytes() {
+    public com.google.protobuf.ByteString getTenantIdBytes() {
       java.lang.Object ref = tenantId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         tenantId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+     *
      * @param value The tenantId to set.
      * @return This builder for chaining.
      */
-    public Builder setTenantId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setTenantId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       tenantId_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
+
     /**
      * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearTenantId() {
@@ -760,14 +803,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+     *
      * @param value The bytes for tenantId to set.
      * @return This builder for chaining.
      */
-    public Builder setTenantIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setTenantIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       tenantId_ = value;
       bitField0_ |= 0x00000002;
@@ -776,15 +822,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object profileId_ = "";
+
     /**
      * <code>string profile_id = 3 [json_name = "profileId"];</code>
+     *
      * @return The profileId.
      */
     public java.lang.String getProfileId() {
       java.lang.Object ref = profileId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         profileId_ = s;
         return s;
@@ -792,38 +839,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string profile_id = 3 [json_name = "profileId"];</code>
+     *
      * @return The bytes for profileId.
      */
-    public com.google.protobuf.ByteString
-        getProfileIdBytes() {
+    public com.google.protobuf.ByteString getProfileIdBytes() {
       java.lang.Object ref = profileId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         profileId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string profile_id = 3 [json_name = "profileId"];</code>
+     *
      * @param value The profileId to set.
      * @return This builder for chaining.
      */
-    public Builder setProfileId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProfileId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       profileId_ = value;
       bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
+
     /**
      * <code>string profile_id = 3 [json_name = "profileId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearProfileId() {
@@ -832,14 +884,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string profile_id = 3 [json_name = "profileId"];</code>
+     *
      * @param value The bytes for profileId to set.
      * @return This builder for chaining.
      */
-    public Builder setProfileIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProfileIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       profileId_ = value;
       bitField0_ |= 0x00000004;
@@ -848,15 +903,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object checkpointId_ = "";
+
     /**
      * <code>string checkpoint_id = 4 [json_name = "checkpointId"];</code>
+     *
      * @return The checkpointId.
      */
     public java.lang.String getCheckpointId() {
       java.lang.Object ref = checkpointId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         checkpointId_ = s;
         return s;
@@ -864,38 +920,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string checkpoint_id = 4 [json_name = "checkpointId"];</code>
+     *
      * @return The bytes for checkpointId.
      */
-    public com.google.protobuf.ByteString
-        getCheckpointIdBytes() {
+    public com.google.protobuf.ByteString getCheckpointIdBytes() {
       java.lang.Object ref = checkpointId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         checkpointId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string checkpoint_id = 4 [json_name = "checkpointId"];</code>
+     *
      * @param value The checkpointId to set.
      * @return This builder for chaining.
      */
-    public Builder setCheckpointId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setCheckpointId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkpointId_ = value;
       bitField0_ |= 0x00000008;
       onChanged();
       return this;
     }
+
     /**
      * <code>string checkpoint_id = 4 [json_name = "checkpointId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearCheckpointId() {
@@ -904,14 +965,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string checkpoint_id = 4 [json_name = "checkpointId"];</code>
+     *
      * @param value The bytes for checkpointId to set.
      * @return This builder for chaining.
      */
-    public Builder setCheckpointIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setCheckpointIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       checkpointId_ = value;
       bitField0_ |= 0x00000008;
@@ -919,17 +983,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int expiresInSeconds_ ;
+    private int expiresInSeconds_;
+
     /**
      * <code>uint32 expires_in_seconds = 5 [json_name = "expiresInSeconds"];</code>
+     *
      * @return The expiresInSeconds.
      */
     @java.lang.Override
     public int getExpiresInSeconds() {
       return expiresInSeconds_;
     }
+
     /**
      * <code>uint32 expires_in_seconds = 5 [json_name = "expiresInSeconds"];</code>
+     *
      * @param value The expiresInSeconds to set.
      * @return This builder for chaining.
      */
@@ -940,8 +1008,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 expires_in_seconds = 5 [json_name = "expiresInSeconds"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearExpiresInSeconds() {
@@ -950,9 +1020,9 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     @java.lang.Override
-    public final Builder setUnknownFields(
-        final com.google.protobuf.UnknownFieldSet unknownFields) {
+    public final Builder setUnknownFields(final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.setUnknownFields(unknownFields);
     }
 
@@ -962,41 +1032,43 @@ private static final long serialVersionUID = 0L;
       return super.mergeUnknownFields(unknownFields);
     }
 
-
     // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.PresignProfileExportDownloadRequest)
   }
 
   // @@protoc_insertion_point(class_scope:browsercloud.node.v1.PresignProfileExportDownloadRequest)
-  private static final io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest DEFAULT_INSTANCE;
+  private static final io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest
+      DEFAULT_INSTANCE;
+
   static {
     DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest();
   }
 
-  public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest getDefaultInstance() {
+  public static io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest
+      getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<PresignProfileExportDownloadRequest>
-      PARSER = new com.google.protobuf.AbstractParser<PresignProfileExportDownloadRequest>() {
-    @java.lang.Override
-    public PresignProfileExportDownloadRequest parsePartialFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      Builder builder = newBuilder();
-      try {
-        builder.mergeFrom(input, extensionRegistry);
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(builder.buildPartial());
-      } catch (com.google.protobuf.UninitializedMessageException e) {
-        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(e)
-            .setUnfinishedMessage(builder.buildPartial());
-      }
-      return builder.buildPartial();
-    }
-  };
+  private static final com.google.protobuf.Parser<PresignProfileExportDownloadRequest> PARSER =
+      new com.google.protobuf.AbstractParser<PresignProfileExportDownloadRequest>() {
+        @java.lang.Override
+        public PresignProfileExportDownloadRequest parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          Builder builder = newBuilder();
+          try {
+            builder.mergeFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            throw e.setUnfinishedMessage(builder.buildPartial());
+          } catch (com.google.protobuf.UninitializedMessageException e) {
+            throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+          } catch (java.io.IOException e) {
+            throw new com.google.protobuf.InvalidProtocolBufferException(e)
+                .setUnfinishedMessage(builder.buildPartial());
+          }
+          return builder.buildPartial();
+        }
+      };
 
   public static com.google.protobuf.Parser<PresignProfileExportDownloadRequest> parser() {
     return PARSER;
@@ -1008,8 +1080,8 @@ private static final long serialVersionUID = 0L;
   }
 
   @java.lang.Override
-  public io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest getDefaultInstanceForType() {
+  public io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest
+      getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
-
 }

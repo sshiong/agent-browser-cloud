@@ -4,55 +4,64 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface RevokeRemoteDesktopConnectionCommandOrBuilder extends
+public interface RevokeRemoteDesktopConnectionCommandOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.RevokeRemoteDesktopConnectionCommand)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>string connection_id = 2 [json_name = "connectionId"];</code>
+   *
    * @return The connectionId.
    */
   java.lang.String getConnectionId();
+
   /**
    * <code>string connection_id = 2 [json_name = "connectionId"];</code>
+   *
    * @return The bytes for connectionId.
    */
-  com.google.protobuf.ByteString
-      getConnectionIdBytes();
+  com.google.protobuf.ByteString getConnectionIdBytes();
 
   /**
    * <code>string reason = 3 [json_name = "reason"];</code>
+   *
    * @return The reason.
    */
   java.lang.String getReason();
+
   /**
    * <code>string reason = 3 [json_name = "reason"];</code>
+   *
    * @return The bytes for reason.
    */
-  com.google.protobuf.ByteString
-      getReasonBytes();
+  com.google.protobuf.ByteString getReasonBytes();
 
   /**
    * <code>string revoked_by = 4 [json_name = "revokedBy"];</code>
+   *
    * @return The revokedBy.
    */
   java.lang.String getRevokedBy();
+
   /**
    * <code>string revoked_by = 4 [json_name = "revokedBy"];</code>
+   *
    * @return The bytes for revokedBy.
    */
-  com.google.protobuf.ByteString
-      getRevokedByBytes();
+  com.google.protobuf.ByteString getRevokedByBytes();
 }

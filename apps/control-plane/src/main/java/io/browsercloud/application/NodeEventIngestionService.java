@@ -46,6 +46,7 @@ public class NodeEventIngestionService {
   private final SessionRecordingApplicationService recordings;
   private final ChallengeAutomationApplicationService challengeAutomation;
   private final ChallengeInputApplicationService challengeInputs;
+  private final AgentBrowserFileUploadStore fileUploads;
 
   public NodeEventIngestionService(
       InboxEventJpaRepository inboxRepository,
@@ -85,6 +86,7 @@ public class NodeEventIngestionService {
         stateSnapshotAssembler,
         challengeDetectionService,
         humanAssistService,
+        null,
         null,
         null,
         null,
@@ -137,6 +139,7 @@ public class NodeEventIngestionService {
         profileWarmTier,
         recordings,
         null,
+        null,
         null);
   }
 
@@ -164,7 +167,8 @@ public class NodeEventIngestionService {
       ProfileWarmTierApplicationService profileWarmTier,
       SessionRecordingApplicationService recordings,
       ChallengeAutomationApplicationService challengeAutomation,
-      ChallengeInputApplicationService challengeInputs) {
+      ChallengeInputApplicationService challengeInputs,
+      AgentBrowserFileUploadStore fileUploads) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
     this.browserStateRepository = browserStateRepository;
@@ -188,6 +192,59 @@ public class NodeEventIngestionService {
     this.recordings = recordings;
     this.challengeAutomation = challengeAutomation;
     this.challengeInputs = challengeInputs;
+    this.fileUploads = fileUploads;
+  }
+
+  /** Source-compatible constructor retained for focused tests and N-1 wiring. */
+  public NodeEventIngestionService(
+      InboxEventJpaRepository inboxRepository,
+      SessionCoordinator coordinator,
+      BrowserStateRepository browserStateRepository,
+      ProfileApplicationService profileApplicationService,
+      StaticProxyApplicationService proxyApplicationService,
+      SessionRepository sessionRepository,
+      NodeCommandGateway nodeCommandGateway,
+      AgentNavigationCompletionService agentNavigationCompletionService,
+      AuditApplicationService auditService,
+      DurableWorkflowApplicationService workflowService,
+      BrowserCapacityApplicationService browserCapacityService,
+      SessionResourceApplicationService resourceService,
+      BusinessRecoveryActionApplicationService recoveryActionService,
+      SessionEvidenceApplicationService evidenceService,
+      StateResyncAdmissionService stateResyncAdmissionService,
+      BrowserStateSnapshotAssembler stateSnapshotAssembler,
+      ChallengeDetectionService challengeDetectionService,
+      HumanAssistApplicationService humanAssistService,
+      RemoteDesktopParticipantApplicationService remoteDesktopParticipants,
+      ProfileWarmTierApplicationService profileWarmTier,
+      SessionRecordingApplicationService recordings,
+      ChallengeAutomationApplicationService challengeAutomation,
+      ChallengeInputApplicationService challengeInputs) {
+    this(
+        inboxRepository,
+        coordinator,
+        browserStateRepository,
+        profileApplicationService,
+        proxyApplicationService,
+        sessionRepository,
+        nodeCommandGateway,
+        agentNavigationCompletionService,
+        auditService,
+        workflowService,
+        browserCapacityService,
+        resourceService,
+        recoveryActionService,
+        evidenceService,
+        stateResyncAdmissionService,
+        stateSnapshotAssembler,
+        challengeDetectionService,
+        humanAssistService,
+        remoteDesktopParticipants,
+        profileWarmTier,
+        recordings,
+        challengeAutomation,
+        challengeInputs,
+        null);
   }
 
   @Transactional
@@ -251,6 +308,9 @@ public class NodeEventIngestionService {
         if (challengeInputs == null || !challengeInputs.failed(command, failed)) {
           agentNavigationCompletionService.actionFailed(command, failed);
         }
+      }
+      case NodeEvent.AgentFileUploadFailed failed -> {
+        if (fileUploads != null) fileUploads.failed(command, failed);
       }
       case NodeEvent.HumanAssistFailed failed -> humanAssistService.failed(command, failed);
       case NodeEvent.ChallengeAutomationFailed failed -> {
@@ -409,6 +469,10 @@ public class NodeEventIngestionService {
   }
 
   private void processAuthoritativeState(NodeEventReceived command, NodeEvent.StateUpdated state) {
+    if (fileUploads != null && fileUploads.stateUpdated(command, state)) {
+      recoveryActionService.stateUpdated(command, state);
+      return;
+    }
     if (challengeInputs != null && challengeInputs.stateUpdated(command, state)) {
       recoveryActionService.stateUpdated(command, state);
       return;

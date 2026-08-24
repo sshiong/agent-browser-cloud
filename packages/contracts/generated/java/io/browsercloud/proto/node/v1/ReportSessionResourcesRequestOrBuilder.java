@@ -4,301 +4,386 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface ReportSessionResourcesRequestOrBuilder extends
+public interface ReportSessionResourcesRequestOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.ReportSessionResourcesRequest)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string node_id = 1 [json_name = "nodeId"];</code>
+   *
    * @return The nodeId.
    */
   java.lang.String getNodeId();
+
   /**
    * <code>string node_id = 1 [json_name = "nodeId"];</code>
+   *
    * @return The bytes for nodeId.
    */
-  com.google.protobuf.ByteString
-      getNodeIdBytes();
+  com.google.protobuf.ByteString getNodeIdBytes();
 
   /**
    * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+   *
    * @return The tenantId.
    */
   java.lang.String getTenantId();
+
   /**
    * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+   *
    * @return The bytes for tenantId.
    */
-  com.google.protobuf.ByteString
-      getTenantIdBytes();
+  com.google.protobuf.ByteString getTenantIdBytes();
 
   /**
    * <code>string session_id = 3 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 3 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>int64 context_epoch = 4 [json_name = "contextEpoch"];</code>
+   *
    * @return The contextEpoch.
    */
   long getContextEpoch();
 
   /**
    * <code>int64 observed_at_ms = 5 [json_name = "observedAtMs"];</code>
+   *
    * @return The observedAtMs.
    */
   long getObservedAtMs();
 
   /**
    * <code>optional double cpu_percent = 10 [json_name = "cpuPercent"];</code>
+   *
    * @return Whether the cpuPercent field is set.
    */
   boolean hasCpuPercent();
+
   /**
    * <code>optional double cpu_percent = 10 [json_name = "cpuPercent"];</code>
+   *
    * @return The cpuPercent.
    */
   double getCpuPercent();
 
   /**
    * <code>optional uint64 memory_rss_mib = 11 [json_name = "memoryRssMib"];</code>
+   *
    * @return Whether the memoryRssMib field is set.
    */
   boolean hasMemoryRssMib();
+
   /**
    * <code>optional uint64 memory_rss_mib = 11 [json_name = "memoryRssMib"];</code>
+   *
    * @return The memoryRssMib.
    */
   long getMemoryRssMib();
 
   /**
    * <code>optional double memory_psi_some_avg10 = 12 [json_name = "memoryPsiSomeAvg10"];</code>
+   *
    * @return Whether the memoryPsiSomeAvg10 field is set.
    */
   boolean hasMemoryPsiSomeAvg10();
+
   /**
    * <code>optional double memory_psi_some_avg10 = 12 [json_name = "memoryPsiSomeAvg10"];</code>
+   *
    * @return The memoryPsiSomeAvg10.
    */
   double getMemoryPsiSomeAvg10();
 
   /**
    * <code>optional uint32 renderer_count = 13 [json_name = "rendererCount"];</code>
+   *
    * @return Whether the rendererCount field is set.
    */
   boolean hasRendererCount();
+
   /**
    * <code>optional uint32 renderer_count = 13 [json_name = "rendererCount"];</code>
+   *
    * @return The rendererCount.
    */
   int getRendererCount();
 
   /**
    * <code>optional uint32 tab_count = 14 [json_name = "tabCount"];</code>
+   *
    * @return Whether the tabCount field is set.
    */
   boolean hasTabCount();
+
   /**
    * <code>optional uint32 tab_count = 14 [json_name = "tabCount"];</code>
+   *
    * @return The tabCount.
    */
   int getTabCount();
 
   /**
    * <code>optional uint32 main_thread_blocked_ms = 15 [json_name = "mainThreadBlockedMs"];</code>
+   *
    * @return Whether the mainThreadBlockedMs field is set.
    */
   boolean hasMainThreadBlockedMs();
+
   /**
    * <code>optional uint32 main_thread_blocked_ms = 15 [json_name = "mainThreadBlockedMs"];</code>
+   *
    * @return The mainThreadBlockedMs.
    */
   int getMainThreadBlockedMs();
 
   /**
    * <code>optional uint32 agent_action_latency_ms = 16 [json_name = "agentActionLatencyMs"];</code>
+   *
    * @return Whether the agentActionLatencyMs field is set.
    */
   boolean hasAgentActionLatencyMs();
+
   /**
    * <code>optional uint32 agent_action_latency_ms = 16 [json_name = "agentActionLatencyMs"];</code>
+   *
    * @return The agentActionLatencyMs.
    */
   int getAgentActionLatencyMs();
 
   /**
    * <code>optional uint32 state_diff_queue_depth = 17 [json_name = "stateDiffQueueDepth"];</code>
+   *
    * @return Whether the stateDiffQueueDepth field is set.
    */
   boolean hasStateDiffQueueDepth();
+
   /**
    * <code>optional uint32 state_diff_queue_depth = 17 [json_name = "stateDiffQueueDepth"];</code>
+   *
    * @return The stateDiffQueueDepth.
    */
   int getStateDiffQueueDepth();
 
   /**
-   * <code>optional uint64 profile_io_bytes_per_second = 18 [json_name = "profileIoBytesPerSecond"];</code>
+   * <code>optional uint64 profile_io_bytes_per_second = 18 [json_name = "profileIoBytesPerSecond"];
+   * </code>
+   *
    * @return Whether the profileIoBytesPerSecond field is set.
    */
   boolean hasProfileIoBytesPerSecond();
+
   /**
-   * <code>optional uint64 profile_io_bytes_per_second = 18 [json_name = "profileIoBytesPerSecond"];</code>
+   * <code>optional uint64 profile_io_bytes_per_second = 18 [json_name = "profileIoBytesPerSecond"];
+   * </code>
+   *
    * @return The profileIoBytesPerSecond.
    */
   long getProfileIoBytesPerSecond();
 
   /**
    * <code>optional double extension_cpu_percent = 19 [json_name = "extensionCpuPercent"];</code>
+   *
    * @return Whether the extensionCpuPercent field is set.
    */
   boolean hasExtensionCpuPercent();
+
   /**
    * <code>optional double extension_cpu_percent = 19 [json_name = "extensionCpuPercent"];</code>
+   *
    * @return The extensionCpuPercent.
    */
   double getExtensionCpuPercent();
 
   /**
    * <code>optional uint64 extension_memory_mib = 20 [json_name = "extensionMemoryMib"];</code>
+   *
    * @return Whether the extensionMemoryMib field is set.
    */
   boolean hasExtensionMemoryMib();
+
   /**
    * <code>optional uint64 extension_memory_mib = 20 [json_name = "extensionMemoryMib"];</code>
+   *
    * @return The extensionMemoryMib.
    */
   long getExtensionMemoryMib();
 
   /**
-   * <code>optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];</code>
+   * <code>optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];
+   * </code>
+   *
    * @return Whether the remoteDesktopFrameAgeMs field is set.
    */
   boolean hasRemoteDesktopFrameAgeMs();
+
   /**
-   * <code>optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];</code>
+   * <code>optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];
+   * </code>
+   *
    * @return The remoteDesktopFrameAgeMs.
    */
   int getRemoteDesktopFrameAgeMs();
 
   /**
    * <code>optional double media_encoder_percent = 22 [json_name = "mediaEncoderPercent"];</code>
+   *
    * @return Whether the mediaEncoderPercent field is set.
    */
   boolean hasMediaEncoderPercent();
+
   /**
    * <code>optional double media_encoder_percent = 22 [json_name = "mediaEncoderPercent"];</code>
+   *
    * @return The mediaEncoderPercent.
    */
   double getMediaEncoderPercent();
 
   /**
    * <code>string danger_event = 23 [json_name = "dangerEvent"];</code>
+   *
    * @return The dangerEvent.
    */
   java.lang.String getDangerEvent();
+
   /**
    * <code>string danger_event = 23 [json_name = "dangerEvent"];</code>
+   *
    * @return The bytes for dangerEvent.
    */
-  com.google.protobuf.ByteString
-      getDangerEventBytes();
+  com.google.protobuf.ByteString getDangerEventBytes();
 
   /**
    * <code>optional bool input_active = 24 [json_name = "inputActive"];</code>
+   *
    * @return Whether the inputActive field is set.
    */
   boolean hasInputActive();
+
   /**
    * <code>optional bool input_active = 24 [json_name = "inputActive"];</code>
+   *
    * @return The inputActive.
    */
   boolean getInputActive();
 
   /**
    * <code>optional bool active_drag = 25 [json_name = "activeDrag"];</code>
+   *
    * @return Whether the activeDrag field is set.
    */
   boolean hasActiveDrag();
+
   /**
    * <code>optional bool active_drag = 25 [json_name = "activeDrag"];</code>
+   *
    * @return The activeDrag.
    */
   boolean getActiveDrag();
 
   /**
    * <code>optional uint32 pressed_key_count = 26 [json_name = "pressedKeyCount"];</code>
+   *
    * @return Whether the pressedKeyCount field is set.
    */
   boolean hasPressedKeyCount();
+
   /**
    * <code>optional uint32 pressed_key_count = 26 [json_name = "pressedKeyCount"];</code>
+   *
    * @return The pressedKeyCount.
    */
   int getPressedKeyCount();
 
   /**
    * <code>optional uint32 pressed_button_count = 27 [json_name = "pressedButtonCount"];</code>
+   *
    * @return Whether the pressedButtonCount field is set.
    */
   boolean hasPressedButtonCount();
+
   /**
    * <code>optional uint32 pressed_button_count = 27 [json_name = "pressedButtonCount"];</code>
+   *
    * @return The pressedButtonCount.
    */
   int getPressedButtonCount();
 
   /**
+   *
+   *
    * <pre>
    * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
    * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
    * </pre>
    *
    * <code>optional uint32 active_upload_count = 28 [json_name = "activeUploadCount"];</code>
+   *
    * @return Whether the activeUploadCount field is set.
    */
   boolean hasActiveUploadCount();
+
   /**
+   *
+   *
    * <pre>
    * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
    * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
    * </pre>
    *
    * <code>optional uint32 active_upload_count = 28 [json_name = "activeUploadCount"];</code>
+   *
    * @return The activeUploadCount.
    */
   int getActiveUploadCount();
 
   /**
    * <code>optional uint32 active_download_count = 29 [json_name = "activeDownloadCount"];</code>
+   *
    * @return Whether the activeDownloadCount field is set.
    */
   boolean hasActiveDownloadCount();
+
   /**
    * <code>optional uint32 active_download_count = 29 [json_name = "activeDownloadCount"];</code>
+   *
    * @return The activeDownloadCount.
    */
   int getActiveDownloadCount();
 
   /**
-   * <code>optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];</code>
+   * <code>
+   * optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];
+   * </code>
+   *
    * @return Whether the activeFormSubmissionCount field is set.
    */
   boolean hasActiveFormSubmissionCount();
+
   /**
-   * <code>optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];</code>
+   * <code>
+   * optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];
+   * </code>
+   *
    * @return The activeFormSubmissionCount.
    */
   int getActiveFormSubmissionCount();
 
   /**
+   *
+   *
    * <pre>
    * Credential-free active exit observation. The Network Helper performs the request through the
    * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
@@ -306,10 +391,14 @@ public interface ReportSessionResourcesRequestOrBuilder extends
    * </pre>
    *
    * <code>optional bool proxy_probe_succeeded = 31 [json_name = "proxyProbeSucceeded"];</code>
+   *
    * @return Whether the proxyProbeSucceeded field is set.
    */
   boolean hasProxyProbeSucceeded();
+
   /**
+   *
+   *
    * <pre>
    * Credential-free active exit observation. The Network Helper performs the request through the
    * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
@@ -317,96 +406,131 @@ public interface ReportSessionResourcesRequestOrBuilder extends
    * </pre>
    *
    * <code>optional bool proxy_probe_succeeded = 31 [json_name = "proxyProbeSucceeded"];</code>
+   *
    * @return The proxyProbeSucceeded.
    */
   boolean getProxyProbeSucceeded();
 
   /**
    * <code>optional uint32 proxy_probe_latency_ms = 32 [json_name = "proxyProbeLatencyMs"];</code>
+   *
    * @return Whether the proxyProbeLatencyMs field is set.
    */
   boolean hasProxyProbeLatencyMs();
+
   /**
    * <code>optional uint32 proxy_probe_latency_ms = 32 [json_name = "proxyProbeLatencyMs"];</code>
+   *
    * @return The proxyProbeLatencyMs.
    */
   int getProxyProbeLatencyMs();
 
   /**
    * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+   *
    * @return Whether the proxyObservedExitIp field is set.
    */
   boolean hasProxyObservedExitIp();
+
   /**
    * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+   *
    * @return The proxyObservedExitIp.
    */
   java.lang.String getProxyObservedExitIp();
+
   /**
    * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+   *
    * @return The bytes for proxyObservedExitIp.
    */
-  com.google.protobuf.ByteString
-      getProxyObservedExitIpBytes();
+  com.google.protobuf.ByteString getProxyObservedExitIpBytes();
 
   /**
    * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+   *
    * @return The proxyProbeErrorCode.
    */
   java.lang.String getProxyProbeErrorCode();
-  /**
-   * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
-   * @return The bytes for proxyProbeErrorCode.
-   */
-  com.google.protobuf.ByteString
-      getProxyProbeErrorCodeBytes();
 
   /**
+   * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+   *
+   * @return The bytes for proxyProbeErrorCode.
+   */
+  com.google.protobuf.ByteString getProxyProbeErrorCodeBytes();
+
+  /**
+   *
+   *
    * <pre>
    * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
    * form an additive capability group and must appear together. URLs and request bodies are never
    * transmitted; the Control Plane persists only bounded active counters.
    * </pre>
    *
-   * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];</code>
+   * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];
+   * </code>
+   *
    * @return Whether the activeSpaMutationCount field is set.
    */
   boolean hasActiveSpaMutationCount();
+
   /**
+   *
+   *
    * <pre>
    * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
    * form an additive capability group and must appear together. URLs and request bodies are never
    * transmitted; the Control Plane persists only bounded active counters.
    * </pre>
    *
-   * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];</code>
+   * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];
+   * </code>
+   *
    * @return The activeSpaMutationCount.
    */
   int getActiveSpaMutationCount();
 
   /**
-   * <code>optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];</code>
+   * <code>
+   * optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];
+   * </code>
+   *
    * @return Whether the activePaymentOrSecurityCount field is set.
    */
   boolean hasActivePaymentOrSecurityCount();
+
   /**
-   * <code>optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];</code>
+   * <code>
+   * optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];
+   * </code>
+   *
    * @return The activePaymentOrSecurityCount.
    */
   int getActivePaymentOrSecurityCount();
 
   /**
-   * <code>optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];</code>
+   * <code>
+   * optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];
+   * </code>
+   *
    * @return Whether the activeCriticalTransactionCount field is set.
    */
   boolean hasActiveCriticalTransactionCount();
+
   /**
-   * <code>optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];</code>
+   * <code>
+   * optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];
+   * </code>
+   *
    * @return The activeCriticalTransactionCount.
    */
   int getActiveCriticalTransactionCount();
 
   /**
+   *
+   *
    * <pre>
    * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
    * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
@@ -414,10 +538,14 @@ public interface ReportSessionResourcesRequestOrBuilder extends
    * </pre>
    *
    * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+   *
    * @return Whether the actualResourceClass field is set.
    */
   boolean hasActualResourceClass();
+
   /**
+   *
+   *
    * <pre>
    * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
    * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
@@ -425,10 +553,14 @@ public interface ReportSessionResourcesRequestOrBuilder extends
    * </pre>
    *
    * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+   *
    * @return The actualResourceClass.
    */
   java.lang.String getActualResourceClass();
+
   /**
+   *
+   *
    * <pre>
    * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
    * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
@@ -436,187 +568,279 @@ public interface ReportSessionResourcesRequestOrBuilder extends
    * </pre>
    *
    * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+   *
    * @return The bytes for actualResourceClass.
    */
-  com.google.protobuf.ByteString
-      getActualResourceClassBytes();
+  com.google.protobuf.ByteString getActualResourceClassBytes();
 
   /**
    * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
+   *
    * @return Whether the actualCpuMillis field is set.
    */
   boolean hasActualCpuMillis();
+
   /**
    * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
+   *
    * @return The actualCpuMillis.
    */
   int getActualCpuMillis();
 
   /**
-   * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
+   * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];
+   * </code>
+   *
    * @return Whether the actualMemoryRequestMib field is set.
    */
   boolean hasActualMemoryRequestMib();
+
   /**
-   * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
+   * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];
+   * </code>
+   *
    * @return The actualMemoryRequestMib.
    */
   int getActualMemoryRequestMib();
 
   /**
    * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
+   *
    * @return Whether the actualMemoryLimitMib field is set.
    */
   boolean hasActualMemoryLimitMib();
+
   /**
    * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
+   *
    * @return The actualMemoryLimitMib.
    */
   int getActualMemoryLimitMib();
 
   /**
    * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
+   *
    * @return Whether the actualPidLimit field is set.
    */
   boolean hasActualPidLimit();
+
   /**
    * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
+   *
    * @return The actualPidLimit.
    */
   int getActualPidLimit();
 
   /**
    * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
+   *
    * @return Whether the actualTabBudget field is set.
    */
   boolean hasActualTabBudget();
+
   /**
    * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
+   *
    * @return The actualTabBudget.
    */
   int getActualTabBudget();
 
   /**
-   * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return Whether the actualStateCollectorBudgetPercent field is set.
    */
   boolean hasActualStateCollectorBudgetPercent();
+
   /**
-   * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return The actualStateCollectorBudgetPercent.
    */
   int getActualStateCollectorBudgetPercent();
 
   /**
-   * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return Whether the actualRemoteDesktopBitrateKbps field is set.
    */
   boolean hasActualRemoteDesktopBitrateKbps();
+
   /**
-   * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return The actualRemoteDesktopBitrateKbps.
    */
   int getActualRemoteDesktopBitrateKbps();
 
   /**
-   * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
+   * <code>
+   * optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];
+   * </code>
+   *
    * @return Whether the actualExtensionCpuWeight field is set.
    */
   boolean hasActualExtensionCpuWeight();
+
   /**
-   * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
+   * <code>
+   * optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];
+   * </code>
+   *
    * @return The actualExtensionCpuWeight.
    */
   int getActualExtensionCpuWeight();
 
   /**
-   * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
+   * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];
+   * </code>
+   *
    * @return Whether the actualMediaEncoderSlots field is set.
    */
   boolean hasActualMediaEncoderSlots();
+
   /**
-   * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
+   * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];
+   * </code>
+   *
    * @return The actualMediaEncoderSlots.
    */
   int getActualMediaEncoderSlots();
 
   /**
-   * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
+   * <code>
+   * optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];
+   * </code>
+   *
    * @return Whether the actualFreezeBackgroundTabs field is set.
    */
   boolean hasActualFreezeBackgroundTabs();
+
   /**
-   * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
+   * <code>
+   * optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];
+   * </code>
+   *
    * @return The actualFreezeBackgroundTabs.
    */
   boolean getActualFreezeBackgroundTabs();
 
   /**
    * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
+   *
    * @return Whether the actualBlockNewTabs field is set.
    */
   boolean hasActualBlockNewTabs();
+
   /**
    * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
+   *
    * @return The actualBlockNewTabs.
    */
   boolean getActualBlockNewTabs();
 
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];
+   * </code>
+   *
    * @return Whether the actualExtensionBackgroundPolicy field is set.
    */
   boolean hasActualExtensionBackgroundPolicy();
+
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];
+   * </code>
+   *
    * @return The actualExtensionBackgroundPolicy.
    */
   io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getActualExtensionBackgroundPolicy();
-  /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
-   */
-  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getActualExtensionBackgroundPolicyOrBuilder();
 
   /**
-   * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder
+      getActualExtensionBackgroundPolicyOrBuilder();
+
+  /**
+   * <code>
+   * optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];
+   * </code>
+   *
    * @return Whether the actualSuccessTraceSamplePercent field is set.
    */
   boolean hasActualSuccessTraceSamplePercent();
+
   /**
-   * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
+   * <code>
+   * optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];
+   * </code>
+   *
    * @return The actualSuccessTraceSamplePercent.
    */
   int getActualSuccessTraceSamplePercent();
 
   /**
-   * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
+   * <code>
+   * optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];
+   * </code>
+   *
    * @return Whether the actualObserverFrameRateFps field is set.
    */
   boolean hasActualObserverFrameRateFps();
+
   /**
-   * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
+   * <code>
+   * optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];
+   * </code>
+   *
    * @return The actualObserverFrameRateFps.
    */
   int getActualObserverFrameRateFps();
 
   /**
-   * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
+   * <code>
+   * optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];
+   * </code>
+   *
    * @return Whether the actualVideoRecordingEnabled field is set.
    */
   boolean hasActualVideoRecordingEnabled();
+
   /**
-   * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
+   * <code>
+   * optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];
+   * </code>
+   *
    * @return The actualVideoRecordingEnabled.
    */
   boolean getActualVideoRecordingEnabled();
 
   /**
-   * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];
+   * </code>
+   *
    * @return Whether the actualSuccessScreenshotSamplePercent field is set.
    */
   boolean hasActualSuccessScreenshotSamplePercent();
+
   /**
-   * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];
+   * </code>
+   *
    * @return The actualSuccessScreenshotSamplePercent.
    */
   int getActualSuccessScreenshotSamplePercent();

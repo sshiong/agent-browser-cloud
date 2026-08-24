@@ -62,6 +62,10 @@ OPERATIONS: dict[str, Operation] = {
     'readAgentClipboard': Operation('readAgentClipboard', 'GET', '/api/v1/sessions/{sessionId}/agent-browser/clipboard', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'AgentClipboard'),
     'writeAgentClipboard': Operation('writeAgentClipboard', 'PUT', '/api/v1/sessions/{sessionId}/agent-browser/clipboard', ('sessionId',), (), ('X-Tenant-Id',), 'WriteAgentClipboardRequest', True, 'AgentClipboard'),
     'clearAgentClipboard': Operation('clearAgentClipboard', 'DELETE', '/api/v1/sessions/{sessionId}/agent-browser/clipboard', ('sessionId',), ('expectedVersion',), ('X-Tenant-Id',), '', False, 'AgentClipboard'),
+    'uploadAgentBrowserFile': Operation('uploadAgentBrowserFile', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/files/uploads', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'UploadAgentBrowserFileRequest', True, 'AgentBrowserFileUpload'),
+    'getAgentBrowserFileUpload': Operation('getAgentBrowserFileUpload', 'GET', '/api/v1/sessions/{sessionId}/agent-browser/files/uploads/{uploadId}', ('sessionId', 'uploadId'), (), ('X-Tenant-Id',), '', False, 'AgentBrowserFileUpload'),
+    'listAgentBrowserDownloads': Operation('listAgentBrowserDownloads', 'GET', '/api/v1/sessions/{sessionId}/agent-browser/files/downloads', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'AgentBrowserDownloadList'),
+    'waitForAgentBrowserDownload': Operation('waitForAgentBrowserDownload', 'GET', '/api/v1/sessions/{sessionId}/agent-browser/files/downloads/{downloadId}:wait', ('downloadId', 'sessionId'), ('timeoutMs',), ('X-Tenant-Id',), '', False, 'AgentBrowserDownload'),
     'getSessionIdentitySpec': Operation('getSessionIdentitySpec', 'GET', '/api/v1/sessions/{sessionId}/identity-spec', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'SessionIdentitySpec'),
     'rejectDirectSessionIdentityMutation': Operation('rejectDirectSessionIdentityMutation', 'PUT', '/api/v1/sessions/{sessionId}/identity-spec', ('sessionId',), (), ('X-Tenant-Id',), 'SessionIdentitySpecInput', True, ''),
     'createSessionIdentityChangeRequest': Operation('createSessionIdentityChangeRequest', 'POST', '/api/v1/sessions/{sessionId}/identity-change-requests', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CreateSessionIdentityChangeRequest', True, 'SessionIdentityChangeRequest'),
@@ -399,6 +403,18 @@ class BrowserCloudGeneratedClient:
 
     def clearAgentClipboard(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('clearAgentClipboard', path=path, query=query, body=body, headers=headers)
+
+    def uploadAgentBrowserFile(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('uploadAgentBrowserFile', path=path, query=query, body=body, headers=headers)
+
+    def getAgentBrowserFileUpload(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getAgentBrowserFileUpload', path=path, query=query, body=body, headers=headers)
+
+    def listAgentBrowserDownloads(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('listAgentBrowserDownloads', path=path, query=query, body=body, headers=headers)
+
+    def waitForAgentBrowserDownload(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('waitForAgentBrowserDownload', path=path, query=query, body=body, headers=headers)
 
     def getSessionIdentitySpec(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('getSessionIdentitySpec', path=path, query=query, body=body, headers=headers)

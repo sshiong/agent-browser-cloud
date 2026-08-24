@@ -4,85 +4,262 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface InteractiveTargetStateOrBuilder extends
+public interface InteractiveTargetStateOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.InteractiveTargetState)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string target_ref = 1 [json_name = "targetRef"];</code>
+   *
    * @return The targetRef.
    */
   java.lang.String getTargetRef();
+
   /**
    * <code>string target_ref = 1 [json_name = "targetRef"];</code>
+   *
    * @return The bytes for targetRef.
    */
-  com.google.protobuf.ByteString
-      getTargetRefBytes();
+  com.google.protobuf.ByteString getTargetRefBytes();
 
   /**
    * <code>string role = 2 [json_name = "role"];</code>
+   *
    * @return The role.
    */
   java.lang.String getRole();
+
   /**
    * <code>string role = 2 [json_name = "role"];</code>
+   *
    * @return The bytes for role.
    */
-  com.google.protobuf.ByteString
-      getRoleBytes();
+  com.google.protobuf.ByteString getRoleBytes();
 
   /**
    * <code>optional string name = 3 [json_name = "name"];</code>
+   *
    * @return Whether the name field is set.
    */
   boolean hasName();
+
   /**
    * <code>optional string name = 3 [json_name = "name"];</code>
+   *
    * @return The name.
    */
   java.lang.String getName();
+
   /**
    * <code>optional string name = 3 [json_name = "name"];</code>
+   *
    * @return The bytes for name.
    */
-  com.google.protobuf.ByteString
-      getNameBytes();
+  com.google.protobuf.ByteString getNameBytes();
 
   /**
    * <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code>
+   *
    * @return Whether the bounds field is set.
    */
   boolean hasBounds();
+
   /**
    * <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code>
+   *
    * @return The bounds.
    */
   io.browsercloud.proto.node.v1.TargetBounds getBounds();
-  /**
-   * <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code>
-   */
+
+  /** <code>optional .browsercloud.node.v1.TargetBounds bounds = 4 [json_name = "bounds"];</code> */
   io.browsercloud.proto.node.v1.TargetBoundsOrBuilder getBoundsOrBuilder();
 
   /**
    * <code>bool enabled = 5 [json_name = "enabled"];</code>
+   *
    * @return The enabled.
    */
   boolean getEnabled();
 
   /**
    * <code>bool visible = 6 [json_name = "visible"];</code>
+   *
    * @return The visible.
    */
   boolean getVisible();
 
   /**
+   *
+   *
    * <pre>
    * Password/OTP 等目标只暴露敏感标志，不暴露名称或值。
    * </pre>
    *
    * <code>bool sensitive = 7 [json_name = "sensitive"];</code>
+   *
    * @return The sensitive.
    */
   boolean getSensitive();
+
+  /**
+   *
+   *
+   * <pre>
+   * Stable across State/Target revisions for the same DOM/shadow/frame path. target_ref remains
+   * the version-fenced execution reference for N/N-1 callers.
+   * </pre>
+   *
+   * <code>string element_id = 8 [json_name = "elementId"];</code>
+   *
+   * @return The elementId.
+   */
+  java.lang.String getElementId();
+
+  /**
+   *
+   *
+   * <pre>
+   * Stable across State/Target revisions for the same DOM/shadow/frame path. target_ref remains
+   * the version-fenced execution reference for N/N-1 callers.
+   * </pre>
+   *
+   * <code>string element_id = 8 [json_name = "elementId"];</code>
+   *
+   * @return The bytes for elementId.
+   */
+  com.google.protobuf.ByteString getElementIdBytes();
+
+  /**
+   * <code>optional string value = 9 [json_name = "value"];</code>
+   *
+   * @return Whether the value field is set.
+   */
+  boolean hasValue();
+
+  /**
+   * <code>optional string value = 9 [json_name = "value"];</code>
+   *
+   * @return The value.
+   */
+  java.lang.String getValue();
+
+  /**
+   * <code>optional string value = 9 [json_name = "value"];</code>
+   *
+   * @return The bytes for value.
+   */
+  com.google.protobuf.ByteString getValueBytes();
+
+  /**
+   * <code>optional string control_type = 10 [json_name = "controlType"];</code>
+   *
+   * @return Whether the controlType field is set.
+   */
+  boolean hasControlType();
+
+  /**
+   * <code>optional string control_type = 10 [json_name = "controlType"];</code>
+   *
+   * @return The controlType.
+   */
+  java.lang.String getControlType();
+
+  /**
+   * <code>optional string control_type = 10 [json_name = "controlType"];</code>
+   *
+   * @return The bytes for controlType.
+   */
+  com.google.protobuf.ByteString getControlTypeBytes();
+
+  /**
+   * <code>bool focused = 11 [json_name = "focused"];</code>
+   *
+   * @return The focused.
+   */
+  boolean getFocused();
+
+  /**
+   * <code>optional bool checked = 12 [json_name = "checked"];</code>
+   *
+   * @return Whether the checked field is set.
+   */
+  boolean hasChecked();
+
+  /**
+   * <code>optional bool checked = 12 [json_name = "checked"];</code>
+   *
+   * @return The checked.
+   */
+  boolean getChecked();
+
+  /**
+   * <code>optional bool selected = 13 [json_name = "selected"];</code>
+   *
+   * @return Whether the selected field is set.
+   */
+  boolean hasSelected();
+
+  /**
+   * <code>optional bool selected = 13 [json_name = "selected"];</code>
+   *
+   * @return The selected.
+   */
+  boolean getSelected();
+
+  /**
+   * <code>bool interactive = 14 [json_name = "interactive"];</code>
+   *
+   * @return The interactive.
+   */
+  boolean getInteractive();
+
+  /**
+   * <code>string frame_id = 15 [json_name = "frameId"];</code>
+   *
+   * @return The frameId.
+   */
+  java.lang.String getFrameId();
+
+  /**
+   * <code>string frame_id = 15 [json_name = "frameId"];</code>
+   *
+   * @return The bytes for frameId.
+   */
+  com.google.protobuf.ByteString getFrameIdBytes();
+
+  /**
+   * <code>bool in_viewport = 16 [json_name = "inViewport"];</code>
+   *
+   * @return The inViewport.
+   */
+  boolean getInViewport();
+
+  /**
+   * <code>bool occluded = 17 [json_name = "occluded"];</code>
+   *
+   * @return The occluded.
+   */
+  boolean getOccluded();
+
+  /**
+   * <code>optional string visibility_reason = 18 [json_name = "visibilityReason"];</code>
+   *
+   * @return Whether the visibilityReason field is set.
+   */
+  boolean hasVisibilityReason();
+
+  /**
+   * <code>optional string visibility_reason = 18 [json_name = "visibilityReason"];</code>
+   *
+   * @return The visibilityReason.
+   */
+  java.lang.String getVisibilityReason();
+
+  /**
+   * <code>optional string visibility_reason = 18 [json_name = "visibilityReason"];</code>
+   *
+   * @return The bytes for visibilityReason.
+   */
+  com.google.protobuf.ByteString getVisibilityReasonBytes();
 }

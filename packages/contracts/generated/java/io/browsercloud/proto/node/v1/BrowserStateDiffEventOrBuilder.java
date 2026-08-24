@@ -4,223 +4,393 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface BrowserStateDiffEventOrBuilder extends
+public interface BrowserStateDiffEventOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.BrowserStateDiffEvent)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>uint64 base_state_version = 2 [json_name = "baseStateVersion"];</code>
+   *
    * @return The baseStateVersion.
    */
   long getBaseStateVersion();
 
   /**
    * <code>uint64 state_version = 3 [json_name = "stateVersion"];</code>
+   *
    * @return The stateVersion.
    */
   long getStateVersion();
 
   /**
    * <code>uint64 target_revision = 4 [json_name = "targetRevision"];</code>
+   *
    * @return The targetRevision.
    */
   long getTargetRevision();
 
   /**
    * <code>string url = 5 [json_name = "url"];</code>
+   *
    * @return The url.
    */
   java.lang.String getUrl();
+
   /**
    * <code>string url = 5 [json_name = "url"];</code>
+   *
    * @return The bytes for url.
    */
-  com.google.protobuf.ByteString
-      getUrlBytes();
+  com.google.protobuf.ByteString getUrlBytes();
 
   /**
    * <code>string title = 6 [json_name = "title"];</code>
+   *
    * @return The title.
    */
   java.lang.String getTitle();
+
   /**
    * <code>string title = 6 [json_name = "title"];</code>
+   *
    * @return The bytes for title.
    */
-  com.google.protobuf.ByteString
-      getTitleBytes();
+  com.google.protobuf.ByteString getTitleBytes();
 
   /**
    * <code>string state_quality = 7 [json_name = "stateQuality"];</code>
+   *
    * @return The stateQuality.
    */
   java.lang.String getStateQuality();
+
   /**
    * <code>string state_quality = 7 [json_name = "stateQuality"];</code>
+   *
    * @return The bytes for stateQuality.
    */
-  com.google.protobuf.ByteString
-      getStateQualityBytes();
+  com.google.protobuf.ByteString getStateQualityBytes();
 
   /**
    * <code>string content_hash = 8 [json_name = "contentHash"];</code>
+   *
    * @return The contentHash.
    */
   java.lang.String getContentHash();
-  /**
-   * <code>string content_hash = 8 [json_name = "contentHash"];</code>
-   * @return The bytes for contentHash.
-   */
-  com.google.protobuf.ByteString
-      getContentHashBytes();
 
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
+   * <code>string content_hash = 8 [json_name = "contentHash"];</code>
+   *
+   * @return The bytes for contentHash.
    */
-  java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState>
-      getUpsertedTargetsList();
+  com.google.protobuf.ByteString getContentHashBytes();
+
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
+   * <code>
+   * repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];
+   * </code>
+   */
+  java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState> getUpsertedTargetsList();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];
+   * </code>
    */
   io.browsercloud.proto.node.v1.InteractiveTargetState getUpsertedTargets(int index);
+
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
+   * <code>
+   * repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];
+   * </code>
    */
   int getUpsertedTargetsCount();
+
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
+   * <code>
+   * repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];
+   * </code>
    */
   java.util.List<? extends io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder>
       getUpsertedTargetsOrBuilderList();
+
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
+   * <code>
+   * repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];
+   * </code>
    */
   io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder getUpsertedTargetsOrBuilder(
       int index);
 
   /**
    * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+   *
    * @return A list containing the removedTargetRefs.
    */
-  java.util.List<java.lang.String>
-      getRemovedTargetRefsList();
+  java.util.List<java.lang.String> getRemovedTargetRefsList();
+
   /**
    * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+   *
    * @return The count of removedTargetRefs.
    */
   int getRemovedTargetRefsCount();
+
   /**
    * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+   *
    * @param index The index of the element to return.
    * @return The removedTargetRefs at the given index.
    */
   java.lang.String getRemovedTargetRefs(int index);
+
   /**
    * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+   *
    * @param index The index of the value to return.
    * @return The bytes of the removedTargetRefs at the given index.
    */
-  com.google.protobuf.ByteString
-      getRemovedTargetRefsBytes(int index);
+  com.google.protobuf.ByteString getRemovedTargetRefsBytes(int index);
 
   /**
    * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+   *
    * @return The documentReadyState.
    */
   java.lang.String getDocumentReadyState();
+
   /**
    * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+   *
    * @return The bytes for documentReadyState.
    */
-  com.google.protobuf.ByteString
-      getDocumentReadyStateBytes();
+  com.google.protobuf.ByteString getDocumentReadyStateBytes();
 
   /**
    * <code>uint64 network_quiet_millis = 12 [json_name = "networkQuietMillis"];</code>
+   *
    * @return The networkQuietMillis.
    */
   long getNetworkQuietMillis();
 
   /**
    * <code>bool network_evidence_fresh = 13 [json_name = "networkEvidenceFresh"];</code>
+   *
    * @return The networkEvidenceFresh.
    */
   boolean getNetworkEvidenceFresh();
 
   /**
+   *
+   *
    * <pre>
    * 空值表示旧版周期 Diff；REGION_RESYNC 表示受 root_ref 约束的原子区域替换。
    * </pre>
    *
    * <code>string snapshot_kind = 14 [json_name = "snapshotKind"];</code>
+   *
    * @return The snapshotKind.
    */
   java.lang.String getSnapshotKind();
+
   /**
+   *
+   *
    * <pre>
    * 空值表示旧版周期 Diff；REGION_RESYNC 表示受 root_ref 约束的原子区域替换。
    * </pre>
    *
    * <code>string snapshot_kind = 14 [json_name = "snapshotKind"];</code>
+   *
    * @return The bytes for snapshotKind.
    */
-  com.google.protobuf.ByteString
-      getSnapshotKindBytes();
+  com.google.protobuf.ByteString getSnapshotKindBytes();
 
   /**
    * <code>string requested_root_ref = 15 [json_name = "requestedRootRef"];</code>
+   *
    * @return The requestedRootRef.
    */
   java.lang.String getRequestedRootRef();
-  /**
-   * <code>string requested_root_ref = 15 [json_name = "requestedRootRef"];</code>
-   * @return The bytes for requestedRootRef.
-   */
-  com.google.protobuf.ByteString
-      getRequestedRootRefBytes();
 
   /**
+   * <code>string requested_root_ref = 15 [json_name = "requestedRootRef"];</code>
+   *
+   * @return The bytes for requestedRootRef.
+   */
+  com.google.protobuf.ByteString getRequestedRootRefBytes();
+
+  /**
+   *
+   *
    * <pre>
    * 仅 REGION_RESYNC 设置；用于关联 State Resync Admission 预留与实际结算。
    * N-1 Node 留空时，Control Plane 只接受可由 evt_cmd_* Event ID 安全恢复的请求 ID。
    * </pre>
    *
    * <code>string resync_request_id = 16 [json_name = "resyncRequestId"];</code>
+   *
    * @return The resyncRequestId.
    */
   java.lang.String getResyncRequestId();
+
   /**
+   *
+   *
    * <pre>
    * 仅 REGION_RESYNC 设置；用于关联 State Resync Admission 预留与实际结算。
    * N-1 Node 留空时，Control Plane 只接受可由 evt_cmd_* Event ID 安全恢复的请求 ID。
    * </pre>
    *
    * <code>string resync_request_id = 16 [json_name = "resyncRequestId"];</code>
+   *
    * @return The bytes for resyncRequestId.
    */
-  com.google.protobuf.ByteString
-      getResyncRequestIdBytes();
+  com.google.protobuf.ByteString getResyncRequestIdBytes();
 
   /**
    * <code>optional uint64 collection_cpu_millis = 17 [json_name = "collectionCpuMillis"];</code>
+   *
    * @return Whether the collectionCpuMillis field is set.
    */
   boolean hasCollectionCpuMillis();
+
   /**
    * <code>optional uint64 collection_cpu_millis = 17 [json_name = "collectionCpuMillis"];</code>
+   *
    * @return The collectionCpuMillis.
    */
   long getCollectionCpuMillis();
+
+  /** <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 18 [json_name = "tabs"];</code> */
+  java.util.List<io.browsercloud.proto.node.v1.BrowserTabState> getTabsList();
+
+  /** <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 18 [json_name = "tabs"];</code> */
+  io.browsercloud.proto.node.v1.BrowserTabState getTabs(int index);
+
+  /** <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 18 [json_name = "tabs"];</code> */
+  int getTabsCount();
+
+  /** <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 18 [json_name = "tabs"];</code> */
+  java.util.List<? extends io.browsercloud.proto.node.v1.BrowserTabStateOrBuilder>
+      getTabsOrBuilderList();
+
+  /** <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 18 [json_name = "tabs"];</code> */
+  io.browsercloud.proto.node.v1.BrowserTabStateOrBuilder getTabsOrBuilder(int index);
+
+  /**
+   * <code>string active_tab_id = 19 [json_name = "activeTabId"];</code>
+   *
+   * @return The activeTabId.
+   */
+  java.lang.String getActiveTabId();
+
+  /**
+   * <code>string active_tab_id = 19 [json_name = "activeTabId"];</code>
+   *
+   * @return The bytes for activeTabId.
+   */
+  com.google.protobuf.ByteString getActiveTabIdBytes();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 20 [json_name = "nativeDialogs"];
+   * </code>
+   */
+  java.util.List<io.browsercloud.proto.node.v1.BrowserNativeDialogState> getNativeDialogsList();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 20 [json_name = "nativeDialogs"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.BrowserNativeDialogState getNativeDialogs(int index);
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 20 [json_name = "nativeDialogs"];
+   * </code>
+   */
+  int getNativeDialogsCount();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 20 [json_name = "nativeDialogs"];
+   * </code>
+   */
+  java.util.List<? extends io.browsercloud.proto.node.v1.BrowserNativeDialogStateOrBuilder>
+      getNativeDialogsOrBuilderList();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 20 [json_name = "nativeDialogs"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.BrowserNativeDialogStateOrBuilder getNativeDialogsOrBuilder(
+      int index);
+
+  /**
+   * <code>bool native_dialog_evidence_fresh = 21 [json_name = "nativeDialogEvidenceFresh"];</code>
+   *
+   * @return The nativeDialogEvidenceFresh.
+   */
+  boolean getNativeDialogEvidenceFresh();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 22 [json_name = "downloads"];
+   * </code>
+   */
+  java.util.List<io.browsercloud.proto.node.v1.BrowserDownloadState> getDownloadsList();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 22 [json_name = "downloads"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.BrowserDownloadState getDownloads(int index);
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 22 [json_name = "downloads"];
+   * </code>
+   */
+  int getDownloadsCount();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 22 [json_name = "downloads"];
+   * </code>
+   */
+  java.util.List<? extends io.browsercloud.proto.node.v1.BrowserDownloadStateOrBuilder>
+      getDownloadsOrBuilderList();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 22 [json_name = "downloads"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.BrowserDownloadStateOrBuilder getDownloadsOrBuilder(int index);
+
+  /**
+   * <code>bool download_evidence_fresh = 23 [json_name = "downloadEvidenceFresh"];</code>
+   *
+   * @return The downloadEvidenceFresh.
+   */
+  boolean getDownloadEvidenceFresh();
 }

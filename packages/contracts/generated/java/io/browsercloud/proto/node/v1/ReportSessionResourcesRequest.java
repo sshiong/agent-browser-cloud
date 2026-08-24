@@ -4,18 +4,18 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-/**
- * Protobuf type {@code browsercloud.node.v1.ReportSessionResourcesRequest}
- */
-public final class ReportSessionResourcesRequest extends
-    com.google.protobuf.GeneratedMessageV3 implements
+/** Protobuf type {@code browsercloud.node.v1.ReportSessionResourcesRequest} */
+public final class ReportSessionResourcesRequest extends com.google.protobuf.GeneratedMessageV3
+    implements
     // @@protoc_insertion_point(message_implements:browsercloud.node.v1.ReportSessionResourcesRequest)
     ReportSessionResourcesRequestOrBuilder {
-private static final long serialVersionUID = 0L;
+  private static final long serialVersionUID = 0L;
+
   // Use ReportSessionResourcesRequest.newBuilder() to construct.
   private ReportSessionResourcesRequest(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
+
   private ReportSessionResourcesRequest() {
     nodeId_ = "";
     tenantId_ = "";
@@ -28,31 +28,35 @@ private static final long serialVersionUID = 0L;
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
+  protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
     return new ReportSessionResourcesRequest();
   }
 
-  public static final com.google.protobuf.Descriptors.Descriptor
-      getDescriptor() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ReportSessionResourcesRequest_descriptor;
+  public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_ReportSessionResourcesRequest_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ReportSessionResourcesRequest_fieldAccessorTable
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_ReportSessionResourcesRequest_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            io.browsercloud.proto.node.v1.ReportSessionResourcesRequest.class, io.browsercloud.proto.node.v1.ReportSessionResourcesRequest.Builder.class);
+            io.browsercloud.proto.node.v1.ReportSessionResourcesRequest.class,
+            io.browsercloud.proto.node.v1.ReportSessionResourcesRequest.Builder.class);
   }
 
   private int bitField0_;
   private int bitField1_;
   public static final int NODE_ID_FIELD_NUMBER = 1;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object nodeId_ = "";
+
   /**
    * <code>string node_id = 1 [json_name = "nodeId"];</code>
+   *
    * @return The nodeId.
    */
   @java.lang.Override
@@ -61,25 +65,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       nodeId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string node_id = 1 [json_name = "nodeId"];</code>
+   *
    * @return The bytes for nodeId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getNodeIdBytes() {
+  public com.google.protobuf.ByteString getNodeIdBytes() {
     java.lang.Object ref = nodeId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       nodeId_ = b;
       return b;
     } else {
@@ -88,10 +91,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int TENANT_ID_FIELD_NUMBER = 2;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object tenantId_ = "";
+
   /**
    * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+   *
    * @return The tenantId.
    */
   @java.lang.Override
@@ -100,25 +106,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       tenantId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+   *
    * @return The bytes for tenantId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getTenantIdBytes() {
+  public com.google.protobuf.ByteString getTenantIdBytes() {
     java.lang.Object ref = tenantId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       tenantId_ = b;
       return b;
     } else {
@@ -127,10 +132,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int SESSION_ID_FIELD_NUMBER = 3;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object sessionId_ = "";
+
   /**
    * <code>string session_id = 3 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   @java.lang.Override
@@ -139,25 +147,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       sessionId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string session_id = 3 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getSessionIdBytes() {
+  public com.google.protobuf.ByteString getSessionIdBytes() {
     java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       sessionId_ = b;
       return b;
     } else {
@@ -167,8 +174,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int CONTEXT_EPOCH_FIELD_NUMBER = 4;
   private long contextEpoch_ = 0L;
+
   /**
    * <code>int64 context_epoch = 4 [json_name = "contextEpoch"];</code>
+   *
    * @return The contextEpoch.
    */
   @java.lang.Override
@@ -178,8 +187,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int OBSERVED_AT_MS_FIELD_NUMBER = 5;
   private long observedAtMs_ = 0L;
+
   /**
    * <code>int64 observed_at_ms = 5 [json_name = "observedAtMs"];</code>
+   *
    * @return The observedAtMs.
    */
   @java.lang.Override
@@ -189,16 +200,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int CPU_PERCENT_FIELD_NUMBER = 10;
   private double cpuPercent_ = 0D;
+
   /**
    * <code>optional double cpu_percent = 10 [json_name = "cpuPercent"];</code>
+   *
    * @return Whether the cpuPercent field is set.
    */
   @java.lang.Override
   public boolean hasCpuPercent() {
     return ((bitField0_ & 0x00000001) != 0);
   }
+
   /**
    * <code>optional double cpu_percent = 10 [json_name = "cpuPercent"];</code>
+   *
    * @return The cpuPercent.
    */
   @java.lang.Override
@@ -208,16 +223,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int MEMORY_RSS_MIB_FIELD_NUMBER = 11;
   private long memoryRssMib_ = 0L;
+
   /**
    * <code>optional uint64 memory_rss_mib = 11 [json_name = "memoryRssMib"];</code>
+   *
    * @return Whether the memoryRssMib field is set.
    */
   @java.lang.Override
   public boolean hasMemoryRssMib() {
     return ((bitField0_ & 0x00000002) != 0);
   }
+
   /**
    * <code>optional uint64 memory_rss_mib = 11 [json_name = "memoryRssMib"];</code>
+   *
    * @return The memoryRssMib.
    */
   @java.lang.Override
@@ -227,16 +246,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int MEMORY_PSI_SOME_AVG10_FIELD_NUMBER = 12;
   private double memoryPsiSomeAvg10_ = 0D;
+
   /**
    * <code>optional double memory_psi_some_avg10 = 12 [json_name = "memoryPsiSomeAvg10"];</code>
+   *
    * @return Whether the memoryPsiSomeAvg10 field is set.
    */
   @java.lang.Override
   public boolean hasMemoryPsiSomeAvg10() {
     return ((bitField0_ & 0x00000004) != 0);
   }
+
   /**
    * <code>optional double memory_psi_some_avg10 = 12 [json_name = "memoryPsiSomeAvg10"];</code>
+   *
    * @return The memoryPsiSomeAvg10.
    */
   @java.lang.Override
@@ -246,16 +269,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int RENDERER_COUNT_FIELD_NUMBER = 13;
   private int rendererCount_ = 0;
+
   /**
    * <code>optional uint32 renderer_count = 13 [json_name = "rendererCount"];</code>
+   *
    * @return Whether the rendererCount field is set.
    */
   @java.lang.Override
   public boolean hasRendererCount() {
     return ((bitField0_ & 0x00000008) != 0);
   }
+
   /**
    * <code>optional uint32 renderer_count = 13 [json_name = "rendererCount"];</code>
+   *
    * @return The rendererCount.
    */
   @java.lang.Override
@@ -265,16 +292,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int TAB_COUNT_FIELD_NUMBER = 14;
   private int tabCount_ = 0;
+
   /**
    * <code>optional uint32 tab_count = 14 [json_name = "tabCount"];</code>
+   *
    * @return Whether the tabCount field is set.
    */
   @java.lang.Override
   public boolean hasTabCount() {
     return ((bitField0_ & 0x00000010) != 0);
   }
+
   /**
    * <code>optional uint32 tab_count = 14 [json_name = "tabCount"];</code>
+   *
    * @return The tabCount.
    */
   @java.lang.Override
@@ -284,16 +315,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int MAIN_THREAD_BLOCKED_MS_FIELD_NUMBER = 15;
   private int mainThreadBlockedMs_ = 0;
+
   /**
    * <code>optional uint32 main_thread_blocked_ms = 15 [json_name = "mainThreadBlockedMs"];</code>
+   *
    * @return Whether the mainThreadBlockedMs field is set.
    */
   @java.lang.Override
   public boolean hasMainThreadBlockedMs() {
     return ((bitField0_ & 0x00000020) != 0);
   }
+
   /**
    * <code>optional uint32 main_thread_blocked_ms = 15 [json_name = "mainThreadBlockedMs"];</code>
+   *
    * @return The mainThreadBlockedMs.
    */
   @java.lang.Override
@@ -303,16 +338,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int AGENT_ACTION_LATENCY_MS_FIELD_NUMBER = 16;
   private int agentActionLatencyMs_ = 0;
+
   /**
    * <code>optional uint32 agent_action_latency_ms = 16 [json_name = "agentActionLatencyMs"];</code>
+   *
    * @return Whether the agentActionLatencyMs field is set.
    */
   @java.lang.Override
   public boolean hasAgentActionLatencyMs() {
     return ((bitField0_ & 0x00000040) != 0);
   }
+
   /**
    * <code>optional uint32 agent_action_latency_ms = 16 [json_name = "agentActionLatencyMs"];</code>
+   *
    * @return The agentActionLatencyMs.
    */
   @java.lang.Override
@@ -322,16 +361,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int STATE_DIFF_QUEUE_DEPTH_FIELD_NUMBER = 17;
   private int stateDiffQueueDepth_ = 0;
+
   /**
    * <code>optional uint32 state_diff_queue_depth = 17 [json_name = "stateDiffQueueDepth"];</code>
+   *
    * @return Whether the stateDiffQueueDepth field is set.
    */
   @java.lang.Override
   public boolean hasStateDiffQueueDepth() {
     return ((bitField0_ & 0x00000080) != 0);
   }
+
   /**
    * <code>optional uint32 state_diff_queue_depth = 17 [json_name = "stateDiffQueueDepth"];</code>
+   *
    * @return The stateDiffQueueDepth.
    */
   @java.lang.Override
@@ -341,16 +384,22 @@ private static final long serialVersionUID = 0L;
 
   public static final int PROFILE_IO_BYTES_PER_SECOND_FIELD_NUMBER = 18;
   private long profileIoBytesPerSecond_ = 0L;
+
   /**
-   * <code>optional uint64 profile_io_bytes_per_second = 18 [json_name = "profileIoBytesPerSecond"];</code>
+   * <code>optional uint64 profile_io_bytes_per_second = 18 [json_name = "profileIoBytesPerSecond"];
+   * </code>
+   *
    * @return Whether the profileIoBytesPerSecond field is set.
    */
   @java.lang.Override
   public boolean hasProfileIoBytesPerSecond() {
     return ((bitField0_ & 0x00000100) != 0);
   }
+
   /**
-   * <code>optional uint64 profile_io_bytes_per_second = 18 [json_name = "profileIoBytesPerSecond"];</code>
+   * <code>optional uint64 profile_io_bytes_per_second = 18 [json_name = "profileIoBytesPerSecond"];
+   * </code>
+   *
    * @return The profileIoBytesPerSecond.
    */
   @java.lang.Override
@@ -360,16 +409,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int EXTENSION_CPU_PERCENT_FIELD_NUMBER = 19;
   private double extensionCpuPercent_ = 0D;
+
   /**
    * <code>optional double extension_cpu_percent = 19 [json_name = "extensionCpuPercent"];</code>
+   *
    * @return Whether the extensionCpuPercent field is set.
    */
   @java.lang.Override
   public boolean hasExtensionCpuPercent() {
     return ((bitField0_ & 0x00000200) != 0);
   }
+
   /**
    * <code>optional double extension_cpu_percent = 19 [json_name = "extensionCpuPercent"];</code>
+   *
    * @return The extensionCpuPercent.
    */
   @java.lang.Override
@@ -379,16 +432,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int EXTENSION_MEMORY_MIB_FIELD_NUMBER = 20;
   private long extensionMemoryMib_ = 0L;
+
   /**
    * <code>optional uint64 extension_memory_mib = 20 [json_name = "extensionMemoryMib"];</code>
+   *
    * @return Whether the extensionMemoryMib field is set.
    */
   @java.lang.Override
   public boolean hasExtensionMemoryMib() {
     return ((bitField0_ & 0x00000400) != 0);
   }
+
   /**
    * <code>optional uint64 extension_memory_mib = 20 [json_name = "extensionMemoryMib"];</code>
+   *
    * @return The extensionMemoryMib.
    */
   @java.lang.Override
@@ -398,16 +455,22 @@ private static final long serialVersionUID = 0L;
 
   public static final int REMOTE_DESKTOP_FRAME_AGE_MS_FIELD_NUMBER = 21;
   private int remoteDesktopFrameAgeMs_ = 0;
+
   /**
-   * <code>optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];</code>
+   * <code>optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];
+   * </code>
+   *
    * @return Whether the remoteDesktopFrameAgeMs field is set.
    */
   @java.lang.Override
   public boolean hasRemoteDesktopFrameAgeMs() {
     return ((bitField0_ & 0x00000800) != 0);
   }
+
   /**
-   * <code>optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];</code>
+   * <code>optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];
+   * </code>
+   *
    * @return The remoteDesktopFrameAgeMs.
    */
   @java.lang.Override
@@ -417,16 +480,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int MEDIA_ENCODER_PERCENT_FIELD_NUMBER = 22;
   private double mediaEncoderPercent_ = 0D;
+
   /**
    * <code>optional double media_encoder_percent = 22 [json_name = "mediaEncoderPercent"];</code>
+   *
    * @return Whether the mediaEncoderPercent field is set.
    */
   @java.lang.Override
   public boolean hasMediaEncoderPercent() {
     return ((bitField0_ & 0x00001000) != 0);
   }
+
   /**
    * <code>optional double media_encoder_percent = 22 [json_name = "mediaEncoderPercent"];</code>
+   *
    * @return The mediaEncoderPercent.
    */
   @java.lang.Override
@@ -435,10 +502,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int DANGER_EVENT_FIELD_NUMBER = 23;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object dangerEvent_ = "";
+
   /**
    * <code>string danger_event = 23 [json_name = "dangerEvent"];</code>
+   *
    * @return The dangerEvent.
    */
   @java.lang.Override
@@ -447,25 +517,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       dangerEvent_ = s;
       return s;
     }
   }
+
   /**
    * <code>string danger_event = 23 [json_name = "dangerEvent"];</code>
+   *
    * @return The bytes for dangerEvent.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getDangerEventBytes() {
+  public com.google.protobuf.ByteString getDangerEventBytes() {
     java.lang.Object ref = dangerEvent_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       dangerEvent_ = b;
       return b;
     } else {
@@ -475,16 +544,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int INPUT_ACTIVE_FIELD_NUMBER = 24;
   private boolean inputActive_ = false;
+
   /**
    * <code>optional bool input_active = 24 [json_name = "inputActive"];</code>
+   *
    * @return Whether the inputActive field is set.
    */
   @java.lang.Override
   public boolean hasInputActive() {
     return ((bitField0_ & 0x00002000) != 0);
   }
+
   /**
    * <code>optional bool input_active = 24 [json_name = "inputActive"];</code>
+   *
    * @return The inputActive.
    */
   @java.lang.Override
@@ -494,16 +567,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTIVE_DRAG_FIELD_NUMBER = 25;
   private boolean activeDrag_ = false;
+
   /**
    * <code>optional bool active_drag = 25 [json_name = "activeDrag"];</code>
+   *
    * @return Whether the activeDrag field is set.
    */
   @java.lang.Override
   public boolean hasActiveDrag() {
     return ((bitField0_ & 0x00004000) != 0);
   }
+
   /**
    * <code>optional bool active_drag = 25 [json_name = "activeDrag"];</code>
+   *
    * @return The activeDrag.
    */
   @java.lang.Override
@@ -513,16 +590,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int PRESSED_KEY_COUNT_FIELD_NUMBER = 26;
   private int pressedKeyCount_ = 0;
+
   /**
    * <code>optional uint32 pressed_key_count = 26 [json_name = "pressedKeyCount"];</code>
+   *
    * @return Whether the pressedKeyCount field is set.
    */
   @java.lang.Override
   public boolean hasPressedKeyCount() {
     return ((bitField0_ & 0x00008000) != 0);
   }
+
   /**
    * <code>optional uint32 pressed_key_count = 26 [json_name = "pressedKeyCount"];</code>
+   *
    * @return The pressedKeyCount.
    */
   @java.lang.Override
@@ -532,16 +613,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int PRESSED_BUTTON_COUNT_FIELD_NUMBER = 27;
   private int pressedButtonCount_ = 0;
+
   /**
    * <code>optional uint32 pressed_button_count = 27 [json_name = "pressedButtonCount"];</code>
+   *
    * @return Whether the pressedButtonCount field is set.
    */
   @java.lang.Override
   public boolean hasPressedButtonCount() {
     return ((bitField0_ & 0x00010000) != 0);
   }
+
   /**
    * <code>optional uint32 pressed_button_count = 27 [json_name = "pressedButtonCount"];</code>
+   *
    * @return The pressedButtonCount.
    */
   @java.lang.Override
@@ -551,26 +636,34 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTIVE_UPLOAD_COUNT_FIELD_NUMBER = 28;
   private int activeUploadCount_ = 0;
+
   /**
+   *
+   *
    * <pre>
    * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
    * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
    * </pre>
    *
    * <code>optional uint32 active_upload_count = 28 [json_name = "activeUploadCount"];</code>
+   *
    * @return Whether the activeUploadCount field is set.
    */
   @java.lang.Override
   public boolean hasActiveUploadCount() {
     return ((bitField0_ & 0x00020000) != 0);
   }
+
   /**
+   *
+   *
    * <pre>
    * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
    * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
    * </pre>
    *
    * <code>optional uint32 active_upload_count = 28 [json_name = "activeUploadCount"];</code>
+   *
    * @return The activeUploadCount.
    */
   @java.lang.Override
@@ -580,16 +673,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTIVE_DOWNLOAD_COUNT_FIELD_NUMBER = 29;
   private int activeDownloadCount_ = 0;
+
   /**
    * <code>optional uint32 active_download_count = 29 [json_name = "activeDownloadCount"];</code>
+   *
    * @return Whether the activeDownloadCount field is set.
    */
   @java.lang.Override
   public boolean hasActiveDownloadCount() {
     return ((bitField0_ & 0x00040000) != 0);
   }
+
   /**
    * <code>optional uint32 active_download_count = 29 [json_name = "activeDownloadCount"];</code>
+   *
    * @return The activeDownloadCount.
    */
   @java.lang.Override
@@ -599,16 +696,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTIVE_FORM_SUBMISSION_COUNT_FIELD_NUMBER = 30;
   private int activeFormSubmissionCount_ = 0;
+
   /**
-   * <code>optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];</code>
+   * <code>
+   * optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];
+   * </code>
+   *
    * @return Whether the activeFormSubmissionCount field is set.
    */
   @java.lang.Override
   public boolean hasActiveFormSubmissionCount() {
     return ((bitField0_ & 0x00080000) != 0);
   }
+
   /**
-   * <code>optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];</code>
+   * <code>
+   * optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];
+   * </code>
+   *
    * @return The activeFormSubmissionCount.
    */
   @java.lang.Override
@@ -618,7 +723,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int PROXY_PROBE_SUCCEEDED_FIELD_NUMBER = 31;
   private boolean proxyProbeSucceeded_ = false;
+
   /**
+   *
+   *
    * <pre>
    * Credential-free active exit observation. The Network Helper performs the request through the
    * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
@@ -626,13 +734,17 @@ private static final long serialVersionUID = 0L;
    * </pre>
    *
    * <code>optional bool proxy_probe_succeeded = 31 [json_name = "proxyProbeSucceeded"];</code>
+   *
    * @return Whether the proxyProbeSucceeded field is set.
    */
   @java.lang.Override
   public boolean hasProxyProbeSucceeded() {
     return ((bitField0_ & 0x00100000) != 0);
   }
+
   /**
+   *
+   *
    * <pre>
    * Credential-free active exit observation. The Network Helper performs the request through the
    * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
@@ -640,6 +752,7 @@ private static final long serialVersionUID = 0L;
    * </pre>
    *
    * <code>optional bool proxy_probe_succeeded = 31 [json_name = "proxyProbeSucceeded"];</code>
+   *
    * @return The proxyProbeSucceeded.
    */
   @java.lang.Override
@@ -649,16 +762,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int PROXY_PROBE_LATENCY_MS_FIELD_NUMBER = 32;
   private int proxyProbeLatencyMs_ = 0;
+
   /**
    * <code>optional uint32 proxy_probe_latency_ms = 32 [json_name = "proxyProbeLatencyMs"];</code>
+   *
    * @return Whether the proxyProbeLatencyMs field is set.
    */
   @java.lang.Override
   public boolean hasProxyProbeLatencyMs() {
     return ((bitField0_ & 0x00200000) != 0);
   }
+
   /**
    * <code>optional uint32 proxy_probe_latency_ms = 32 [json_name = "proxyProbeLatencyMs"];</code>
+   *
    * @return The proxyProbeLatencyMs.
    */
   @java.lang.Override
@@ -667,18 +784,23 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int PROXY_OBSERVED_EXIT_IP_FIELD_NUMBER = 33;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object proxyObservedExitIp_ = "";
+
   /**
    * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+   *
    * @return Whether the proxyObservedExitIp field is set.
    */
   @java.lang.Override
   public boolean hasProxyObservedExitIp() {
     return ((bitField0_ & 0x00400000) != 0);
   }
+
   /**
    * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+   *
    * @return The proxyObservedExitIp.
    */
   @java.lang.Override
@@ -687,25 +809,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       proxyObservedExitIp_ = s;
       return s;
     }
   }
+
   /**
    * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+   *
    * @return The bytes for proxyObservedExitIp.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getProxyObservedExitIpBytes() {
+  public com.google.protobuf.ByteString getProxyObservedExitIpBytes() {
     java.lang.Object ref = proxyObservedExitIp_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       proxyObservedExitIp_ = b;
       return b;
     } else {
@@ -714,10 +835,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int PROXY_PROBE_ERROR_CODE_FIELD_NUMBER = 34;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object proxyProbeErrorCode_ = "";
+
   /**
    * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+   *
    * @return The proxyProbeErrorCode.
    */
   @java.lang.Override
@@ -726,25 +850,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       proxyProbeErrorCode_ = s;
       return s;
     }
   }
+
   /**
    * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+   *
    * @return The bytes for proxyProbeErrorCode.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getProxyProbeErrorCodeBytes() {
+  public com.google.protobuf.ByteString getProxyProbeErrorCodeBytes() {
     java.lang.Object ref = proxyProbeErrorCode_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       proxyProbeErrorCode_ = b;
       return b;
     } else {
@@ -754,28 +877,38 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTIVE_SPA_MUTATION_COUNT_FIELD_NUMBER = 35;
   private int activeSpaMutationCount_ = 0;
+
   /**
+   *
+   *
    * <pre>
    * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
    * form an additive capability group and must appear together. URLs and request bodies are never
    * transmitted; the Control Plane persists only bounded active counters.
    * </pre>
    *
-   * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];</code>
+   * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];
+   * </code>
+   *
    * @return Whether the activeSpaMutationCount field is set.
    */
   @java.lang.Override
   public boolean hasActiveSpaMutationCount() {
     return ((bitField0_ & 0x00800000) != 0);
   }
+
   /**
+   *
+   *
    * <pre>
    * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
    * form an additive capability group and must appear together. URLs and request bodies are never
    * transmitted; the Control Plane persists only bounded active counters.
    * </pre>
    *
-   * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];</code>
+   * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];
+   * </code>
+   *
    * @return The activeSpaMutationCount.
    */
   @java.lang.Override
@@ -785,16 +918,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTIVE_PAYMENT_OR_SECURITY_COUNT_FIELD_NUMBER = 36;
   private int activePaymentOrSecurityCount_ = 0;
+
   /**
-   * <code>optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];</code>
+   * <code>
+   * optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];
+   * </code>
+   *
    * @return Whether the activePaymentOrSecurityCount field is set.
    */
   @java.lang.Override
   public boolean hasActivePaymentOrSecurityCount() {
     return ((bitField0_ & 0x01000000) != 0);
   }
+
   /**
-   * <code>optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];</code>
+   * <code>
+   * optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];
+   * </code>
+   *
    * @return The activePaymentOrSecurityCount.
    */
   @java.lang.Override
@@ -804,16 +945,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTIVE_CRITICAL_TRANSACTION_COUNT_FIELD_NUMBER = 37;
   private int activeCriticalTransactionCount_ = 0;
+
   /**
-   * <code>optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];</code>
+   * <code>
+   * optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];
+   * </code>
+   *
    * @return Whether the activeCriticalTransactionCount field is set.
    */
   @java.lang.Override
   public boolean hasActiveCriticalTransactionCount() {
     return ((bitField0_ & 0x02000000) != 0);
   }
+
   /**
-   * <code>optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];</code>
+   * <code>
+   * optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];
+   * </code>
+   *
    * @return The activeCriticalTransactionCount.
    */
   @java.lang.Override
@@ -822,9 +971,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int ACTUAL_RESOURCE_CLASS_FIELD_NUMBER = 40;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object actualResourceClass_ = "";
+
   /**
+   *
+   *
    * <pre>
    * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
    * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
@@ -832,13 +985,17 @@ private static final long serialVersionUID = 0L;
    * </pre>
    *
    * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+   *
    * @return Whether the actualResourceClass field is set.
    */
   @java.lang.Override
   public boolean hasActualResourceClass() {
     return ((bitField0_ & 0x04000000) != 0);
   }
+
   /**
+   *
+   *
    * <pre>
    * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
    * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
@@ -846,6 +1003,7 @@ private static final long serialVersionUID = 0L;
    * </pre>
    *
    * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+   *
    * @return The actualResourceClass.
    */
   @java.lang.Override
@@ -854,14 +1012,16 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       actualResourceClass_ = s;
       return s;
     }
   }
+
   /**
+   *
+   *
    * <pre>
    * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
    * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
@@ -869,16 +1029,15 @@ private static final long serialVersionUID = 0L;
    * </pre>
    *
    * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+   *
    * @return The bytes for actualResourceClass.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getActualResourceClassBytes() {
+  public com.google.protobuf.ByteString getActualResourceClassBytes() {
     java.lang.Object ref = actualResourceClass_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       actualResourceClass_ = b;
       return b;
     } else {
@@ -888,16 +1047,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTUAL_CPU_MILLIS_FIELD_NUMBER = 41;
   private int actualCpuMillis_ = 0;
+
   /**
    * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
+   *
    * @return Whether the actualCpuMillis field is set.
    */
   @java.lang.Override
   public boolean hasActualCpuMillis() {
     return ((bitField0_ & 0x08000000) != 0);
   }
+
   /**
    * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
+   *
    * @return The actualCpuMillis.
    */
   @java.lang.Override
@@ -907,16 +1070,22 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTUAL_MEMORY_REQUEST_MIB_FIELD_NUMBER = 42;
   private int actualMemoryRequestMib_ = 0;
+
   /**
-   * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
+   * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];
+   * </code>
+   *
    * @return Whether the actualMemoryRequestMib field is set.
    */
   @java.lang.Override
   public boolean hasActualMemoryRequestMib() {
     return ((bitField0_ & 0x10000000) != 0);
   }
+
   /**
-   * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
+   * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];
+   * </code>
+   *
    * @return The actualMemoryRequestMib.
    */
   @java.lang.Override
@@ -926,16 +1095,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTUAL_MEMORY_LIMIT_MIB_FIELD_NUMBER = 43;
   private int actualMemoryLimitMib_ = 0;
+
   /**
    * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
+   *
    * @return Whether the actualMemoryLimitMib field is set.
    */
   @java.lang.Override
   public boolean hasActualMemoryLimitMib() {
     return ((bitField0_ & 0x20000000) != 0);
   }
+
   /**
    * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
+   *
    * @return The actualMemoryLimitMib.
    */
   @java.lang.Override
@@ -945,16 +1118,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTUAL_PID_LIMIT_FIELD_NUMBER = 44;
   private int actualPidLimit_ = 0;
+
   /**
    * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
+   *
    * @return Whether the actualPidLimit field is set.
    */
   @java.lang.Override
   public boolean hasActualPidLimit() {
     return ((bitField0_ & 0x40000000) != 0);
   }
+
   /**
    * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
+   *
    * @return The actualPidLimit.
    */
   @java.lang.Override
@@ -964,16 +1141,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTUAL_TAB_BUDGET_FIELD_NUMBER = 45;
   private int actualTabBudget_ = 0;
+
   /**
    * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
+   *
    * @return Whether the actualTabBudget field is set.
    */
   @java.lang.Override
   public boolean hasActualTabBudget() {
     return ((bitField0_ & 0x80000000) != 0);
   }
+
   /**
    * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
+   *
    * @return The actualTabBudget.
    */
   @java.lang.Override
@@ -983,16 +1164,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTUAL_STATE_COLLECTOR_BUDGET_PERCENT_FIELD_NUMBER = 46;
   private int actualStateCollectorBudgetPercent_ = 0;
+
   /**
-   * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return Whether the actualStateCollectorBudgetPercent field is set.
    */
   @java.lang.Override
   public boolean hasActualStateCollectorBudgetPercent() {
     return ((bitField1_ & 0x00000001) != 0);
   }
+
   /**
-   * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return The actualStateCollectorBudgetPercent.
    */
   @java.lang.Override
@@ -1002,16 +1191,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTUAL_REMOTE_DESKTOP_BITRATE_KBPS_FIELD_NUMBER = 47;
   private int actualRemoteDesktopBitrateKbps_ = 0;
+
   /**
-   * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return Whether the actualRemoteDesktopBitrateKbps field is set.
    */
   @java.lang.Override
   public boolean hasActualRemoteDesktopBitrateKbps() {
     return ((bitField1_ & 0x00000002) != 0);
   }
+
   /**
-   * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return The actualRemoteDesktopBitrateKbps.
    */
   @java.lang.Override
@@ -1021,16 +1218,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTUAL_EXTENSION_CPU_WEIGHT_FIELD_NUMBER = 48;
   private int actualExtensionCpuWeight_ = 0;
+
   /**
-   * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
+   * <code>
+   * optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];
+   * </code>
+   *
    * @return Whether the actualExtensionCpuWeight field is set.
    */
   @java.lang.Override
   public boolean hasActualExtensionCpuWeight() {
     return ((bitField1_ & 0x00000004) != 0);
   }
+
   /**
-   * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
+   * <code>
+   * optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];
+   * </code>
+   *
    * @return The actualExtensionCpuWeight.
    */
   @java.lang.Override
@@ -1040,16 +1245,22 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTUAL_MEDIA_ENCODER_SLOTS_FIELD_NUMBER = 49;
   private int actualMediaEncoderSlots_ = 0;
+
   /**
-   * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
+   * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];
+   * </code>
+   *
    * @return Whether the actualMediaEncoderSlots field is set.
    */
   @java.lang.Override
   public boolean hasActualMediaEncoderSlots() {
     return ((bitField1_ & 0x00000008) != 0);
   }
+
   /**
-   * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
+   * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];
+   * </code>
+   *
    * @return The actualMediaEncoderSlots.
    */
   @java.lang.Override
@@ -1059,16 +1270,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTUAL_FREEZE_BACKGROUND_TABS_FIELD_NUMBER = 50;
   private boolean actualFreezeBackgroundTabs_ = false;
+
   /**
-   * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
+   * <code>
+   * optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];
+   * </code>
+   *
    * @return Whether the actualFreezeBackgroundTabs field is set.
    */
   @java.lang.Override
   public boolean hasActualFreezeBackgroundTabs() {
     return ((bitField1_ & 0x00000010) != 0);
   }
+
   /**
-   * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
+   * <code>
+   * optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];
+   * </code>
+   *
    * @return The actualFreezeBackgroundTabs.
    */
   @java.lang.Override
@@ -1078,16 +1297,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTUAL_BLOCK_NEW_TABS_FIELD_NUMBER = 51;
   private boolean actualBlockNewTabs_ = false;
+
   /**
    * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
+   *
    * @return Whether the actualBlockNewTabs field is set.
    */
   @java.lang.Override
   public boolean hasActualBlockNewTabs() {
     return ((bitField1_ & 0x00000020) != 0);
   }
+
   /**
    * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
+   *
    * @return The actualBlockNewTabs.
    */
   @java.lang.Override
@@ -1097,42 +1320,67 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTUAL_EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER = 52;
   private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy actualExtensionBackgroundPolicy_;
+
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];
+   * </code>
+   *
    * @return Whether the actualExtensionBackgroundPolicy field is set.
    */
   @java.lang.Override
   public boolean hasActualExtensionBackgroundPolicy() {
     return ((bitField1_ & 0x00000040) != 0);
   }
+
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];
+   * </code>
+   *
    * @return The actualExtensionBackgroundPolicy.
    */
   @java.lang.Override
-  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getActualExtensionBackgroundPolicy() {
-    return actualExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : actualExtensionBackgroundPolicy_;
+  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy
+      getActualExtensionBackgroundPolicy() {
+    return actualExtensionBackgroundPolicy_ == null
+        ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()
+        : actualExtensionBackgroundPolicy_;
   }
+
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];
+   * </code>
    */
   @java.lang.Override
-  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getActualExtensionBackgroundPolicyOrBuilder() {
-    return actualExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : actualExtensionBackgroundPolicy_;
+  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder
+      getActualExtensionBackgroundPolicyOrBuilder() {
+    return actualExtensionBackgroundPolicy_ == null
+        ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()
+        : actualExtensionBackgroundPolicy_;
   }
 
   public static final int ACTUAL_SUCCESS_TRACE_SAMPLE_PERCENT_FIELD_NUMBER = 53;
   private int actualSuccessTraceSamplePercent_ = 0;
+
   /**
-   * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
+   * <code>
+   * optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];
+   * </code>
+   *
    * @return Whether the actualSuccessTraceSamplePercent field is set.
    */
   @java.lang.Override
   public boolean hasActualSuccessTraceSamplePercent() {
     return ((bitField1_ & 0x00000080) != 0);
   }
+
   /**
-   * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
+   * <code>
+   * optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];
+   * </code>
+   *
    * @return The actualSuccessTraceSamplePercent.
    */
   @java.lang.Override
@@ -1142,16 +1390,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTUAL_OBSERVER_FRAME_RATE_FPS_FIELD_NUMBER = 54;
   private int actualObserverFrameRateFps_ = 0;
+
   /**
-   * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
+   * <code>
+   * optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];
+   * </code>
+   *
    * @return Whether the actualObserverFrameRateFps field is set.
    */
   @java.lang.Override
   public boolean hasActualObserverFrameRateFps() {
     return ((bitField1_ & 0x00000100) != 0);
   }
+
   /**
-   * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
+   * <code>
+   * optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];
+   * </code>
+   *
    * @return The actualObserverFrameRateFps.
    */
   @java.lang.Override
@@ -1161,16 +1417,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTUAL_VIDEO_RECORDING_ENABLED_FIELD_NUMBER = 55;
   private boolean actualVideoRecordingEnabled_ = false;
+
   /**
-   * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
+   * <code>
+   * optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];
+   * </code>
+   *
    * @return Whether the actualVideoRecordingEnabled field is set.
    */
   @java.lang.Override
   public boolean hasActualVideoRecordingEnabled() {
     return ((bitField1_ & 0x00000200) != 0);
   }
+
   /**
-   * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
+   * <code>
+   * optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];
+   * </code>
+   *
    * @return The actualVideoRecordingEnabled.
    */
   @java.lang.Override
@@ -1180,16 +1444,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int ACTUAL_SUCCESS_SCREENSHOT_SAMPLE_PERCENT_FIELD_NUMBER = 56;
   private int actualSuccessScreenshotSamplePercent_ = 0;
+
   /**
-   * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];
+   * </code>
+   *
    * @return Whether the actualSuccessScreenshotSamplePercent field is set.
    */
   @java.lang.Override
   public boolean hasActualSuccessScreenshotSamplePercent() {
     return ((bitField1_ & 0x00000400) != 0);
   }
+
   /**
-   * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];
+   * </code>
+   *
    * @return The actualSuccessScreenshotSamplePercent.
    */
   @java.lang.Override
@@ -1198,6 +1470,7 @@ private static final long serialVersionUID = 0L;
   }
 
   private byte memoizedIsInitialized = -1;
+
   @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
@@ -1209,8 +1482,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @java.lang.Override
-  public void writeTo(com.google.protobuf.CodedOutputStream output)
-                      throws java.io.IOException {
+  public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(nodeId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 1, nodeId_);
     }
@@ -1380,103 +1652,80 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, sessionId_);
     }
     if (contextEpoch_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeInt64Size(4, contextEpoch_);
+      size += com.google.protobuf.CodedOutputStream.computeInt64Size(4, contextEpoch_);
     }
     if (observedAtMs_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeInt64Size(5, observedAtMs_);
+      size += com.google.protobuf.CodedOutputStream.computeInt64Size(5, observedAtMs_);
     }
     if (((bitField0_ & 0x00000001) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(10, cpuPercent_);
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(10, cpuPercent_);
     }
     if (((bitField0_ & 0x00000002) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(11, memoryRssMib_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(11, memoryRssMib_);
     }
     if (((bitField0_ & 0x00000004) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(12, memoryPsiSomeAvg10_);
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(12, memoryPsiSomeAvg10_);
     }
     if (((bitField0_ & 0x00000008) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(13, rendererCount_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(13, rendererCount_);
     }
     if (((bitField0_ & 0x00000010) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(14, tabCount_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(14, tabCount_);
     }
     if (((bitField0_ & 0x00000020) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(15, mainThreadBlockedMs_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(15, mainThreadBlockedMs_);
     }
     if (((bitField0_ & 0x00000040) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(16, agentActionLatencyMs_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(16, agentActionLatencyMs_);
     }
     if (((bitField0_ & 0x00000080) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(17, stateDiffQueueDepth_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(17, stateDiffQueueDepth_);
     }
     if (((bitField0_ & 0x00000100) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(18, profileIoBytesPerSecond_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(18, profileIoBytesPerSecond_);
     }
     if (((bitField0_ & 0x00000200) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(19, extensionCpuPercent_);
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(19, extensionCpuPercent_);
     }
     if (((bitField0_ & 0x00000400) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(20, extensionMemoryMib_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(20, extensionMemoryMib_);
     }
     if (((bitField0_ & 0x00000800) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(21, remoteDesktopFrameAgeMs_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(21, remoteDesktopFrameAgeMs_);
     }
     if (((bitField0_ & 0x00001000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(22, mediaEncoderPercent_);
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(22, mediaEncoderPercent_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(dangerEvent_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(23, dangerEvent_);
     }
     if (((bitField0_ & 0x00002000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(24, inputActive_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(24, inputActive_);
     }
     if (((bitField0_ & 0x00004000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(25, activeDrag_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(25, activeDrag_);
     }
     if (((bitField0_ & 0x00008000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(26, pressedKeyCount_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(26, pressedKeyCount_);
     }
     if (((bitField0_ & 0x00010000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(27, pressedButtonCount_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(27, pressedButtonCount_);
     }
     if (((bitField0_ & 0x00020000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(28, activeUploadCount_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(28, activeUploadCount_);
     }
     if (((bitField0_ & 0x00040000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(29, activeDownloadCount_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(29, activeDownloadCount_);
     }
     if (((bitField0_ & 0x00080000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(30, activeFormSubmissionCount_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(30, activeFormSubmissionCount_);
     }
     if (((bitField0_ & 0x00100000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(31, proxyProbeSucceeded_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(31, proxyProbeSucceeded_);
     }
     if (((bitField0_ & 0x00200000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(32, proxyProbeLatencyMs_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(32, proxyProbeLatencyMs_);
     }
     if (((bitField0_ & 0x00400000) != 0)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(33, proxyObservedExitIp_);
@@ -1485,83 +1734,82 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(34, proxyProbeErrorCode_);
     }
     if (((bitField0_ & 0x00800000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(35, activeSpaMutationCount_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(35, activeSpaMutationCount_);
     }
     if (((bitField0_ & 0x01000000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(36, activePaymentOrSecurityCount_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(
+              36, activePaymentOrSecurityCount_);
     }
     if (((bitField0_ & 0x02000000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(37, activeCriticalTransactionCount_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(
+              37, activeCriticalTransactionCount_);
     }
     if (((bitField0_ & 0x04000000) != 0)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(40, actualResourceClass_);
     }
     if (((bitField0_ & 0x08000000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(41, actualCpuMillis_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(41, actualCpuMillis_);
     }
     if (((bitField0_ & 0x10000000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(42, actualMemoryRequestMib_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(42, actualMemoryRequestMib_);
     }
     if (((bitField0_ & 0x20000000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(43, actualMemoryLimitMib_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(43, actualMemoryLimitMib_);
     }
     if (((bitField0_ & 0x40000000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(44, actualPidLimit_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(44, actualPidLimit_);
     }
     if (((bitField0_ & 0x80000000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(45, actualTabBudget_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(45, actualTabBudget_);
     }
     if (((bitField1_ & 0x00000001) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(46, actualStateCollectorBudgetPercent_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(
+              46, actualStateCollectorBudgetPercent_);
     }
     if (((bitField1_ & 0x00000002) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(47, actualRemoteDesktopBitrateKbps_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(
+              47, actualRemoteDesktopBitrateKbps_);
     }
     if (((bitField1_ & 0x00000004) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(48, actualExtensionCpuWeight_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(48, actualExtensionCpuWeight_);
     }
     if (((bitField1_ & 0x00000008) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(49, actualMediaEncoderSlots_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(49, actualMediaEncoderSlots_);
     }
     if (((bitField1_ & 0x00000010) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(50, actualFreezeBackgroundTabs_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeBoolSize(50, actualFreezeBackgroundTabs_);
     }
     if (((bitField1_ & 0x00000020) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(51, actualBlockNewTabs_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(51, actualBlockNewTabs_);
     }
     if (((bitField1_ & 0x00000040) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(52, getActualExtensionBackgroundPolicy());
+      size +=
+          com.google.protobuf.CodedOutputStream.computeMessageSize(
+              52, getActualExtensionBackgroundPolicy());
     }
     if (((bitField1_ & 0x00000080) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(53, actualSuccessTraceSamplePercent_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(
+              53, actualSuccessTraceSamplePercent_);
     }
     if (((bitField1_ & 0x00000100) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(54, actualObserverFrameRateFps_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(54, actualObserverFrameRateFps_);
     }
     if (((bitField1_ & 0x00000200) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(55, actualVideoRecordingEnabled_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeBoolSize(55, actualVideoRecordingEnabled_);
     }
     if (((bitField1_ & 0x00000400) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(56, actualSuccessScreenshotSamplePercent_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(
+              56, actualSuccessScreenshotSamplePercent_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -1571,242 +1819,206 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public boolean equals(final java.lang.Object obj) {
     if (obj == this) {
-     return true;
+      return true;
     }
     if (!(obj instanceof io.browsercloud.proto.node.v1.ReportSessionResourcesRequest)) {
       return super.equals(obj);
     }
-    io.browsercloud.proto.node.v1.ReportSessionResourcesRequest other = (io.browsercloud.proto.node.v1.ReportSessionResourcesRequest) obj;
+    io.browsercloud.proto.node.v1.ReportSessionResourcesRequest other =
+        (io.browsercloud.proto.node.v1.ReportSessionResourcesRequest) obj;
 
-    if (!getNodeId()
-        .equals(other.getNodeId())) return false;
-    if (!getTenantId()
-        .equals(other.getTenantId())) return false;
-    if (!getSessionId()
-        .equals(other.getSessionId())) return false;
-    if (getContextEpoch()
-        != other.getContextEpoch()) return false;
-    if (getObservedAtMs()
-        != other.getObservedAtMs()) return false;
+    if (!getNodeId().equals(other.getNodeId())) return false;
+    if (!getTenantId().equals(other.getTenantId())) return false;
+    if (!getSessionId().equals(other.getSessionId())) return false;
+    if (getContextEpoch() != other.getContextEpoch()) return false;
+    if (getObservedAtMs() != other.getObservedAtMs()) return false;
     if (hasCpuPercent() != other.hasCpuPercent()) return false;
     if (hasCpuPercent()) {
       if (java.lang.Double.doubleToLongBits(getCpuPercent())
-          != java.lang.Double.doubleToLongBits(
-              other.getCpuPercent())) return false;
+          != java.lang.Double.doubleToLongBits(other.getCpuPercent())) return false;
     }
     if (hasMemoryRssMib() != other.hasMemoryRssMib()) return false;
     if (hasMemoryRssMib()) {
-      if (getMemoryRssMib()
-          != other.getMemoryRssMib()) return false;
+      if (getMemoryRssMib() != other.getMemoryRssMib()) return false;
     }
     if (hasMemoryPsiSomeAvg10() != other.hasMemoryPsiSomeAvg10()) return false;
     if (hasMemoryPsiSomeAvg10()) {
       if (java.lang.Double.doubleToLongBits(getMemoryPsiSomeAvg10())
-          != java.lang.Double.doubleToLongBits(
-              other.getMemoryPsiSomeAvg10())) return false;
+          != java.lang.Double.doubleToLongBits(other.getMemoryPsiSomeAvg10())) return false;
     }
     if (hasRendererCount() != other.hasRendererCount()) return false;
     if (hasRendererCount()) {
-      if (getRendererCount()
-          != other.getRendererCount()) return false;
+      if (getRendererCount() != other.getRendererCount()) return false;
     }
     if (hasTabCount() != other.hasTabCount()) return false;
     if (hasTabCount()) {
-      if (getTabCount()
-          != other.getTabCount()) return false;
+      if (getTabCount() != other.getTabCount()) return false;
     }
     if (hasMainThreadBlockedMs() != other.hasMainThreadBlockedMs()) return false;
     if (hasMainThreadBlockedMs()) {
-      if (getMainThreadBlockedMs()
-          != other.getMainThreadBlockedMs()) return false;
+      if (getMainThreadBlockedMs() != other.getMainThreadBlockedMs()) return false;
     }
     if (hasAgentActionLatencyMs() != other.hasAgentActionLatencyMs()) return false;
     if (hasAgentActionLatencyMs()) {
-      if (getAgentActionLatencyMs()
-          != other.getAgentActionLatencyMs()) return false;
+      if (getAgentActionLatencyMs() != other.getAgentActionLatencyMs()) return false;
     }
     if (hasStateDiffQueueDepth() != other.hasStateDiffQueueDepth()) return false;
     if (hasStateDiffQueueDepth()) {
-      if (getStateDiffQueueDepth()
-          != other.getStateDiffQueueDepth()) return false;
+      if (getStateDiffQueueDepth() != other.getStateDiffQueueDepth()) return false;
     }
     if (hasProfileIoBytesPerSecond() != other.hasProfileIoBytesPerSecond()) return false;
     if (hasProfileIoBytesPerSecond()) {
-      if (getProfileIoBytesPerSecond()
-          != other.getProfileIoBytesPerSecond()) return false;
+      if (getProfileIoBytesPerSecond() != other.getProfileIoBytesPerSecond()) return false;
     }
     if (hasExtensionCpuPercent() != other.hasExtensionCpuPercent()) return false;
     if (hasExtensionCpuPercent()) {
       if (java.lang.Double.doubleToLongBits(getExtensionCpuPercent())
-          != java.lang.Double.doubleToLongBits(
-              other.getExtensionCpuPercent())) return false;
+          != java.lang.Double.doubleToLongBits(other.getExtensionCpuPercent())) return false;
     }
     if (hasExtensionMemoryMib() != other.hasExtensionMemoryMib()) return false;
     if (hasExtensionMemoryMib()) {
-      if (getExtensionMemoryMib()
-          != other.getExtensionMemoryMib()) return false;
+      if (getExtensionMemoryMib() != other.getExtensionMemoryMib()) return false;
     }
     if (hasRemoteDesktopFrameAgeMs() != other.hasRemoteDesktopFrameAgeMs()) return false;
     if (hasRemoteDesktopFrameAgeMs()) {
-      if (getRemoteDesktopFrameAgeMs()
-          != other.getRemoteDesktopFrameAgeMs()) return false;
+      if (getRemoteDesktopFrameAgeMs() != other.getRemoteDesktopFrameAgeMs()) return false;
     }
     if (hasMediaEncoderPercent() != other.hasMediaEncoderPercent()) return false;
     if (hasMediaEncoderPercent()) {
       if (java.lang.Double.doubleToLongBits(getMediaEncoderPercent())
-          != java.lang.Double.doubleToLongBits(
-              other.getMediaEncoderPercent())) return false;
+          != java.lang.Double.doubleToLongBits(other.getMediaEncoderPercent())) return false;
     }
-    if (!getDangerEvent()
-        .equals(other.getDangerEvent())) return false;
+    if (!getDangerEvent().equals(other.getDangerEvent())) return false;
     if (hasInputActive() != other.hasInputActive()) return false;
     if (hasInputActive()) {
-      if (getInputActive()
-          != other.getInputActive()) return false;
+      if (getInputActive() != other.getInputActive()) return false;
     }
     if (hasActiveDrag() != other.hasActiveDrag()) return false;
     if (hasActiveDrag()) {
-      if (getActiveDrag()
-          != other.getActiveDrag()) return false;
+      if (getActiveDrag() != other.getActiveDrag()) return false;
     }
     if (hasPressedKeyCount() != other.hasPressedKeyCount()) return false;
     if (hasPressedKeyCount()) {
-      if (getPressedKeyCount()
-          != other.getPressedKeyCount()) return false;
+      if (getPressedKeyCount() != other.getPressedKeyCount()) return false;
     }
     if (hasPressedButtonCount() != other.hasPressedButtonCount()) return false;
     if (hasPressedButtonCount()) {
-      if (getPressedButtonCount()
-          != other.getPressedButtonCount()) return false;
+      if (getPressedButtonCount() != other.getPressedButtonCount()) return false;
     }
     if (hasActiveUploadCount() != other.hasActiveUploadCount()) return false;
     if (hasActiveUploadCount()) {
-      if (getActiveUploadCount()
-          != other.getActiveUploadCount()) return false;
+      if (getActiveUploadCount() != other.getActiveUploadCount()) return false;
     }
     if (hasActiveDownloadCount() != other.hasActiveDownloadCount()) return false;
     if (hasActiveDownloadCount()) {
-      if (getActiveDownloadCount()
-          != other.getActiveDownloadCount()) return false;
+      if (getActiveDownloadCount() != other.getActiveDownloadCount()) return false;
     }
     if (hasActiveFormSubmissionCount() != other.hasActiveFormSubmissionCount()) return false;
     if (hasActiveFormSubmissionCount()) {
-      if (getActiveFormSubmissionCount()
-          != other.getActiveFormSubmissionCount()) return false;
+      if (getActiveFormSubmissionCount() != other.getActiveFormSubmissionCount()) return false;
     }
     if (hasProxyProbeSucceeded() != other.hasProxyProbeSucceeded()) return false;
     if (hasProxyProbeSucceeded()) {
-      if (getProxyProbeSucceeded()
-          != other.getProxyProbeSucceeded()) return false;
+      if (getProxyProbeSucceeded() != other.getProxyProbeSucceeded()) return false;
     }
     if (hasProxyProbeLatencyMs() != other.hasProxyProbeLatencyMs()) return false;
     if (hasProxyProbeLatencyMs()) {
-      if (getProxyProbeLatencyMs()
-          != other.getProxyProbeLatencyMs()) return false;
+      if (getProxyProbeLatencyMs() != other.getProxyProbeLatencyMs()) return false;
     }
     if (hasProxyObservedExitIp() != other.hasProxyObservedExitIp()) return false;
     if (hasProxyObservedExitIp()) {
-      if (!getProxyObservedExitIp()
-          .equals(other.getProxyObservedExitIp())) return false;
+      if (!getProxyObservedExitIp().equals(other.getProxyObservedExitIp())) return false;
     }
-    if (!getProxyProbeErrorCode()
-        .equals(other.getProxyProbeErrorCode())) return false;
+    if (!getProxyProbeErrorCode().equals(other.getProxyProbeErrorCode())) return false;
     if (hasActiveSpaMutationCount() != other.hasActiveSpaMutationCount()) return false;
     if (hasActiveSpaMutationCount()) {
-      if (getActiveSpaMutationCount()
-          != other.getActiveSpaMutationCount()) return false;
+      if (getActiveSpaMutationCount() != other.getActiveSpaMutationCount()) return false;
     }
     if (hasActivePaymentOrSecurityCount() != other.hasActivePaymentOrSecurityCount()) return false;
     if (hasActivePaymentOrSecurityCount()) {
-      if (getActivePaymentOrSecurityCount()
-          != other.getActivePaymentOrSecurityCount()) return false;
+      if (getActivePaymentOrSecurityCount() != other.getActivePaymentOrSecurityCount())
+        return false;
     }
-    if (hasActiveCriticalTransactionCount() != other.hasActiveCriticalTransactionCount()) return false;
+    if (hasActiveCriticalTransactionCount() != other.hasActiveCriticalTransactionCount())
+      return false;
     if (hasActiveCriticalTransactionCount()) {
-      if (getActiveCriticalTransactionCount()
-          != other.getActiveCriticalTransactionCount()) return false;
+      if (getActiveCriticalTransactionCount() != other.getActiveCriticalTransactionCount())
+        return false;
     }
     if (hasActualResourceClass() != other.hasActualResourceClass()) return false;
     if (hasActualResourceClass()) {
-      if (!getActualResourceClass()
-          .equals(other.getActualResourceClass())) return false;
+      if (!getActualResourceClass().equals(other.getActualResourceClass())) return false;
     }
     if (hasActualCpuMillis() != other.hasActualCpuMillis()) return false;
     if (hasActualCpuMillis()) {
-      if (getActualCpuMillis()
-          != other.getActualCpuMillis()) return false;
+      if (getActualCpuMillis() != other.getActualCpuMillis()) return false;
     }
     if (hasActualMemoryRequestMib() != other.hasActualMemoryRequestMib()) return false;
     if (hasActualMemoryRequestMib()) {
-      if (getActualMemoryRequestMib()
-          != other.getActualMemoryRequestMib()) return false;
+      if (getActualMemoryRequestMib() != other.getActualMemoryRequestMib()) return false;
     }
     if (hasActualMemoryLimitMib() != other.hasActualMemoryLimitMib()) return false;
     if (hasActualMemoryLimitMib()) {
-      if (getActualMemoryLimitMib()
-          != other.getActualMemoryLimitMib()) return false;
+      if (getActualMemoryLimitMib() != other.getActualMemoryLimitMib()) return false;
     }
     if (hasActualPidLimit() != other.hasActualPidLimit()) return false;
     if (hasActualPidLimit()) {
-      if (getActualPidLimit()
-          != other.getActualPidLimit()) return false;
+      if (getActualPidLimit() != other.getActualPidLimit()) return false;
     }
     if (hasActualTabBudget() != other.hasActualTabBudget()) return false;
     if (hasActualTabBudget()) {
-      if (getActualTabBudget()
-          != other.getActualTabBudget()) return false;
+      if (getActualTabBudget() != other.getActualTabBudget()) return false;
     }
-    if (hasActualStateCollectorBudgetPercent() != other.hasActualStateCollectorBudgetPercent()) return false;
+    if (hasActualStateCollectorBudgetPercent() != other.hasActualStateCollectorBudgetPercent())
+      return false;
     if (hasActualStateCollectorBudgetPercent()) {
-      if (getActualStateCollectorBudgetPercent()
-          != other.getActualStateCollectorBudgetPercent()) return false;
+      if (getActualStateCollectorBudgetPercent() != other.getActualStateCollectorBudgetPercent())
+        return false;
     }
-    if (hasActualRemoteDesktopBitrateKbps() != other.hasActualRemoteDesktopBitrateKbps()) return false;
+    if (hasActualRemoteDesktopBitrateKbps() != other.hasActualRemoteDesktopBitrateKbps())
+      return false;
     if (hasActualRemoteDesktopBitrateKbps()) {
-      if (getActualRemoteDesktopBitrateKbps()
-          != other.getActualRemoteDesktopBitrateKbps()) return false;
+      if (getActualRemoteDesktopBitrateKbps() != other.getActualRemoteDesktopBitrateKbps())
+        return false;
     }
     if (hasActualExtensionCpuWeight() != other.hasActualExtensionCpuWeight()) return false;
     if (hasActualExtensionCpuWeight()) {
-      if (getActualExtensionCpuWeight()
-          != other.getActualExtensionCpuWeight()) return false;
+      if (getActualExtensionCpuWeight() != other.getActualExtensionCpuWeight()) return false;
     }
     if (hasActualMediaEncoderSlots() != other.hasActualMediaEncoderSlots()) return false;
     if (hasActualMediaEncoderSlots()) {
-      if (getActualMediaEncoderSlots()
-          != other.getActualMediaEncoderSlots()) return false;
+      if (getActualMediaEncoderSlots() != other.getActualMediaEncoderSlots()) return false;
     }
     if (hasActualFreezeBackgroundTabs() != other.hasActualFreezeBackgroundTabs()) return false;
     if (hasActualFreezeBackgroundTabs()) {
-      if (getActualFreezeBackgroundTabs()
-          != other.getActualFreezeBackgroundTabs()) return false;
+      if (getActualFreezeBackgroundTabs() != other.getActualFreezeBackgroundTabs()) return false;
     }
     if (hasActualBlockNewTabs() != other.hasActualBlockNewTabs()) return false;
     if (hasActualBlockNewTabs()) {
-      if (getActualBlockNewTabs()
-          != other.getActualBlockNewTabs()) return false;
+      if (getActualBlockNewTabs() != other.getActualBlockNewTabs()) return false;
     }
-    if (hasActualExtensionBackgroundPolicy() != other.hasActualExtensionBackgroundPolicy()) return false;
+    if (hasActualExtensionBackgroundPolicy() != other.hasActualExtensionBackgroundPolicy())
+      return false;
     if (hasActualExtensionBackgroundPolicy()) {
-      if (!getActualExtensionBackgroundPolicy()
-          .equals(other.getActualExtensionBackgroundPolicy())) return false;
+      if (!getActualExtensionBackgroundPolicy().equals(other.getActualExtensionBackgroundPolicy()))
+        return false;
     }
-    if (hasActualSuccessTraceSamplePercent() != other.hasActualSuccessTraceSamplePercent()) return false;
+    if (hasActualSuccessTraceSamplePercent() != other.hasActualSuccessTraceSamplePercent())
+      return false;
     if (hasActualSuccessTraceSamplePercent()) {
-      if (getActualSuccessTraceSamplePercent()
-          != other.getActualSuccessTraceSamplePercent()) return false;
+      if (getActualSuccessTraceSamplePercent() != other.getActualSuccessTraceSamplePercent())
+        return false;
     }
     if (hasActualObserverFrameRateFps() != other.hasActualObserverFrameRateFps()) return false;
     if (hasActualObserverFrameRateFps()) {
-      if (getActualObserverFrameRateFps()
-          != other.getActualObserverFrameRateFps()) return false;
+      if (getActualObserverFrameRateFps() != other.getActualObserverFrameRateFps()) return false;
     }
     if (hasActualVideoRecordingEnabled() != other.hasActualVideoRecordingEnabled()) return false;
     if (hasActualVideoRecordingEnabled()) {
-      if (getActualVideoRecordingEnabled()
-          != other.getActualVideoRecordingEnabled()) return false;
+      if (getActualVideoRecordingEnabled() != other.getActualVideoRecordingEnabled()) return false;
     }
-    if (hasActualSuccessScreenshotSamplePercent() != other.hasActualSuccessScreenshotSamplePercent()) return false;
+    if (hasActualSuccessScreenshotSamplePercent()
+        != other.hasActualSuccessScreenshotSamplePercent()) return false;
     if (hasActualSuccessScreenshotSamplePercent()) {
       if (getActualSuccessScreenshotSamplePercent()
           != other.getActualSuccessScreenshotSamplePercent()) return false;
@@ -1829,25 +2041,26 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + SESSION_ID_FIELD_NUMBER;
     hash = (53 * hash) + getSessionId().hashCode();
     hash = (37 * hash) + CONTEXT_EPOCH_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        getContextEpoch());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getContextEpoch());
     hash = (37 * hash) + OBSERVED_AT_MS_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        getObservedAtMs());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getObservedAtMs());
     if (hasCpuPercent()) {
       hash = (37 * hash) + CPU_PERCENT_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-          java.lang.Double.doubleToLongBits(getCpuPercent()));
+      hash =
+          (53 * hash)
+              + com.google.protobuf.Internal.hashLong(
+                  java.lang.Double.doubleToLongBits(getCpuPercent()));
     }
     if (hasMemoryRssMib()) {
       hash = (37 * hash) + MEMORY_RSS_MIB_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-          getMemoryRssMib());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getMemoryRssMib());
     }
     if (hasMemoryPsiSomeAvg10()) {
       hash = (37 * hash) + MEMORY_PSI_SOME_AVG10_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-          java.lang.Double.doubleToLongBits(getMemoryPsiSomeAvg10()));
+      hash =
+          (53 * hash)
+              + com.google.protobuf.Internal.hashLong(
+                  java.lang.Double.doubleToLongBits(getMemoryPsiSomeAvg10()));
     }
     if (hasRendererCount()) {
       hash = (37 * hash) + RENDERER_COUNT_FIELD_NUMBER;
@@ -1871,18 +2084,18 @@ private static final long serialVersionUID = 0L;
     }
     if (hasProfileIoBytesPerSecond()) {
       hash = (37 * hash) + PROFILE_IO_BYTES_PER_SECOND_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-          getProfileIoBytesPerSecond());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getProfileIoBytesPerSecond());
     }
     if (hasExtensionCpuPercent()) {
       hash = (37 * hash) + EXTENSION_CPU_PERCENT_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-          java.lang.Double.doubleToLongBits(getExtensionCpuPercent()));
+      hash =
+          (53 * hash)
+              + com.google.protobuf.Internal.hashLong(
+                  java.lang.Double.doubleToLongBits(getExtensionCpuPercent()));
     }
     if (hasExtensionMemoryMib()) {
       hash = (37 * hash) + EXTENSION_MEMORY_MIB_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-          getExtensionMemoryMib());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getExtensionMemoryMib());
     }
     if (hasRemoteDesktopFrameAgeMs()) {
       hash = (37 * hash) + REMOTE_DESKTOP_FRAME_AGE_MS_FIELD_NUMBER;
@@ -1890,20 +2103,20 @@ private static final long serialVersionUID = 0L;
     }
     if (hasMediaEncoderPercent()) {
       hash = (37 * hash) + MEDIA_ENCODER_PERCENT_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-          java.lang.Double.doubleToLongBits(getMediaEncoderPercent()));
+      hash =
+          (53 * hash)
+              + com.google.protobuf.Internal.hashLong(
+                  java.lang.Double.doubleToLongBits(getMediaEncoderPercent()));
     }
     hash = (37 * hash) + DANGER_EVENT_FIELD_NUMBER;
     hash = (53 * hash) + getDangerEvent().hashCode();
     if (hasInputActive()) {
       hash = (37 * hash) + INPUT_ACTIVE_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-          getInputActive());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getInputActive());
     }
     if (hasActiveDrag()) {
       hash = (37 * hash) + ACTIVE_DRAG_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-          getActiveDrag());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getActiveDrag());
     }
     if (hasPressedKeyCount()) {
       hash = (37 * hash) + PRESSED_KEY_COUNT_FIELD_NUMBER;
@@ -1927,8 +2140,7 @@ private static final long serialVersionUID = 0L;
     }
     if (hasProxyProbeSucceeded()) {
       hash = (37 * hash) + PROXY_PROBE_SUCCEEDED_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-          getProxyProbeSucceeded());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getProxyProbeSucceeded());
     }
     if (hasProxyProbeLatencyMs()) {
       hash = (37 * hash) + PROXY_PROBE_LATENCY_MS_FIELD_NUMBER;
@@ -1994,13 +2206,12 @@ private static final long serialVersionUID = 0L;
     }
     if (hasActualFreezeBackgroundTabs()) {
       hash = (37 * hash) + ACTUAL_FREEZE_BACKGROUND_TABS_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-          getActualFreezeBackgroundTabs());
+      hash =
+          (53 * hash) + com.google.protobuf.Internal.hashBoolean(getActualFreezeBackgroundTabs());
     }
     if (hasActualBlockNewTabs()) {
       hash = (37 * hash) + ACTUAL_BLOCK_NEW_TABS_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-          getActualBlockNewTabs());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getActualBlockNewTabs());
     }
     if (hasActualExtensionBackgroundPolicy()) {
       hash = (37 * hash) + ACTUAL_EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER;
@@ -2016,8 +2227,8 @@ private static final long serialVersionUID = 0L;
     }
     if (hasActualVideoRecordingEnabled()) {
       hash = (37 * hash) + ACTUAL_VIDEO_RECORDING_ENABLED_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-          getActualVideoRecordingEnabled());
+      hash =
+          (53 * hash) + com.google.protobuf.Internal.hashBoolean(getActualVideoRecordingEnabled());
     }
     if (hasActualSuccessScreenshotSamplePercent()) {
       hash = (37 * hash) + ACTUAL_SUCCESS_SCREENSHOT_SAMPLE_PERCENT_FIELD_NUMBER;
@@ -2029,115 +2240,120 @@ private static final long serialVersionUID = 0L;
   }
 
   public static io.browsercloud.proto.node.v1.ReportSessionResourcesRequest parseFrom(
-      java.nio.ByteBuffer data)
-      throws com.google.protobuf.InvalidProtocolBufferException {
+      java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.ReportSessionResourcesRequest parseFrom(
-      java.nio.ByteBuffer data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.ReportSessionResourcesRequest parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.ReportSessionResourcesRequest parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.ReportSessionResourcesRequest parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.ReportSessionResourcesRequest parseFrom(
-      byte[] data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.ReportSessionResourcesRequest parseFrom(java.io.InputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
-  }
+
   public static io.browsercloud.proto.node.v1.ReportSessionResourcesRequest parseFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.ReportSessionResourcesRequest parseDelimitedFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.ReportSessionResourcesRequest parseFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   public static io.browsercloud.proto.node.v1.ReportSessionResourcesRequest parseDelimitedFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
   }
+
+  public static io.browsercloud.proto.node.v1.ReportSessionResourcesRequest parseDelimitedFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
+        PARSER, input, extensionRegistry);
+  }
+
   public static io.browsercloud.proto.node.v1.ReportSessionResourcesRequest parseFrom(
-      com.google.protobuf.CodedInputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
+      com.google.protobuf.CodedInputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
+
   public static io.browsercloud.proto.node.v1.ReportSessionResourcesRequest parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   @java.lang.Override
-  public Builder newBuilderForType() { return newBuilder(); }
+  public Builder newBuilderForType() {
+    return newBuilder();
+  }
+
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(io.browsercloud.proto.node.v1.ReportSessionResourcesRequest prototype) {
+
+  public static Builder newBuilder(
+      io.browsercloud.proto.node.v1.ReportSessionResourcesRequest prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-  }
-  @java.lang.Override
-  public Builder toBuilder() {
-    return this == DEFAULT_INSTANCE
-        ? new Builder() : new Builder().mergeFrom(this);
   }
 
   @java.lang.Override
-  protected Builder newBuilderForType(
-      com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+  public Builder toBuilder() {
+    return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
+  }
+
+  @java.lang.Override
+  protected Builder newBuilderForType(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
     Builder builder = new Builder(parent);
     return builder;
   }
-  /**
-   * Protobuf type {@code browsercloud.node.v1.ReportSessionResourcesRequest}
-   */
-  public static final class Builder extends
-      com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+
+  /** Protobuf type {@code browsercloud.node.v1.ReportSessionResourcesRequest} */
+  public static final class Builder extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
+      implements
       // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.ReportSessionResourcesRequest)
       io.browsercloud.proto.node.v1.ReportSessionResourcesRequestOrBuilder {
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ReportSessionResourcesRequest_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_ReportSessionResourcesRequest_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ReportSessionResourcesRequest_fieldAccessorTable
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_ReportSessionResourcesRequest_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              io.browsercloud.proto.node.v1.ReportSessionResourcesRequest.class, io.browsercloud.proto.node.v1.ReportSessionResourcesRequest.Builder.class);
+              io.browsercloud.proto.node.v1.ReportSessionResourcesRequest.class,
+              io.browsercloud.proto.node.v1.ReportSessionResourcesRequest.Builder.class);
     }
 
     // Construct using io.browsercloud.proto.node.v1.ReportSessionResourcesRequest.newBuilder()
@@ -2145,17 +2361,17 @@ private static final long serialVersionUID = 0L;
       maybeForceBuilderInitialization();
     }
 
-    private Builder(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+    private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
       maybeForceBuilderInitialization();
     }
+
     private void maybeForceBuilderInitialization() {
-      if (com.google.protobuf.GeneratedMessageV3
-              .alwaysUseFieldBuilders) {
+      if (com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders) {
         getActualExtensionBackgroundPolicyFieldBuilder();
       }
     }
+
     @java.lang.Override
     public Builder clear() {
       super.clear();
@@ -2219,9 +2435,9 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Descriptors.Descriptor
-        getDescriptorForType() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ReportSessionResourcesRequest_descriptor;
+    public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_ReportSessionResourcesRequest_descriptor;
     }
 
     @java.lang.Override
@@ -2240,9 +2456,14 @@ private static final long serialVersionUID = 0L;
 
     @java.lang.Override
     public io.browsercloud.proto.node.v1.ReportSessionResourcesRequest buildPartial() {
-      io.browsercloud.proto.node.v1.ReportSessionResourcesRequest result = new io.browsercloud.proto.node.v1.ReportSessionResourcesRequest(this);
-      if (bitField0_ != 0) { buildPartial0(result); }
-      if (bitField1_ != 0) { buildPartial1(result); }
+      io.browsercloud.proto.node.v1.ReportSessionResourcesRequest result =
+          new io.browsercloud.proto.node.v1.ReportSessionResourcesRequest(this);
+      if (bitField0_ != 0) {
+        buildPartial0(result);
+      }
+      if (bitField1_ != 0) {
+        buildPartial1(result);
+      }
       onBuilt();
       return result;
     }
@@ -2431,9 +2652,10 @@ private static final long serialVersionUID = 0L;
         to_bitField1_ |= 0x00000020;
       }
       if (((from_bitField1_ & 0x00002000) != 0)) {
-        result.actualExtensionBackgroundPolicy_ = actualExtensionBackgroundPolicyBuilder_ == null
-            ? actualExtensionBackgroundPolicy_
-            : actualExtensionBackgroundPolicyBuilder_.build();
+        result.actualExtensionBackgroundPolicy_ =
+            actualExtensionBackgroundPolicyBuilder_ == null
+                ? actualExtensionBackgroundPolicy_
+                : actualExtensionBackgroundPolicyBuilder_.build();
         to_bitField1_ |= 0x00000040;
       }
       if (((from_bitField1_ & 0x00004000) != 0)) {
@@ -2460,38 +2682,39 @@ private static final long serialVersionUID = 0L;
     public Builder clone() {
       return super.clone();
     }
+
     @java.lang.Override
     public Builder setField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.setField(field, value);
     }
+
     @java.lang.Override
-    public Builder clearField(
-        com.google.protobuf.Descriptors.FieldDescriptor field) {
+    public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
       return super.clearField(field);
     }
+
     @java.lang.Override
-    public Builder clearOneof(
-        com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+    public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
       return super.clearOneof(oneof);
     }
+
     @java.lang.Override
     public Builder setRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        int index, java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, int index, java.lang.Object value) {
       return super.setRepeatedField(field, index, value);
     }
+
     @java.lang.Override
     public Builder addRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.addRepeatedField(field, value);
     }
+
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof io.browsercloud.proto.node.v1.ReportSessionResourcesRequest) {
-        return mergeFrom((io.browsercloud.proto.node.v1.ReportSessionResourcesRequest)other);
+        return mergeFrom((io.browsercloud.proto.node.v1.ReportSessionResourcesRequest) other);
       } else {
         super.mergeFrom(other);
         return this;
@@ -2499,7 +2722,8 @@ private static final long serialVersionUID = 0L;
     }
 
     public Builder mergeFrom(io.browsercloud.proto.node.v1.ReportSessionResourcesRequest other) {
-      if (other == io.browsercloud.proto.node.v1.ReportSessionResourcesRequest.getDefaultInstance()) return this;
+      if (other == io.browsercloud.proto.node.v1.ReportSessionResourcesRequest.getDefaultInstance())
+        return this;
       if (!other.getNodeId().isEmpty()) {
         nodeId_ = other.nodeId_;
         bitField0_ |= 0x00000001;
@@ -2690,264 +2914,315 @@ private static final long serialVersionUID = 0L;
             case 0:
               done = true;
               break;
-            case 10: {
-              nodeId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000001;
-              break;
-            } // case 10
-            case 18: {
-              tenantId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000002;
-              break;
-            } // case 18
-            case 26: {
-              sessionId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000004;
-              break;
-            } // case 26
-            case 32: {
-              contextEpoch_ = input.readInt64();
-              bitField0_ |= 0x00000008;
-              break;
-            } // case 32
-            case 40: {
-              observedAtMs_ = input.readInt64();
-              bitField0_ |= 0x00000010;
-              break;
-            } // case 40
-            case 81: {
-              cpuPercent_ = input.readDouble();
-              bitField0_ |= 0x00000020;
-              break;
-            } // case 81
-            case 88: {
-              memoryRssMib_ = input.readUInt64();
-              bitField0_ |= 0x00000040;
-              break;
-            } // case 88
-            case 97: {
-              memoryPsiSomeAvg10_ = input.readDouble();
-              bitField0_ |= 0x00000080;
-              break;
-            } // case 97
-            case 104: {
-              rendererCount_ = input.readUInt32();
-              bitField0_ |= 0x00000100;
-              break;
-            } // case 104
-            case 112: {
-              tabCount_ = input.readUInt32();
-              bitField0_ |= 0x00000200;
-              break;
-            } // case 112
-            case 120: {
-              mainThreadBlockedMs_ = input.readUInt32();
-              bitField0_ |= 0x00000400;
-              break;
-            } // case 120
-            case 128: {
-              agentActionLatencyMs_ = input.readUInt32();
-              bitField0_ |= 0x00000800;
-              break;
-            } // case 128
-            case 136: {
-              stateDiffQueueDepth_ = input.readUInt32();
-              bitField0_ |= 0x00001000;
-              break;
-            } // case 136
-            case 144: {
-              profileIoBytesPerSecond_ = input.readUInt64();
-              bitField0_ |= 0x00002000;
-              break;
-            } // case 144
-            case 153: {
-              extensionCpuPercent_ = input.readDouble();
-              bitField0_ |= 0x00004000;
-              break;
-            } // case 153
-            case 160: {
-              extensionMemoryMib_ = input.readUInt64();
-              bitField0_ |= 0x00008000;
-              break;
-            } // case 160
-            case 168: {
-              remoteDesktopFrameAgeMs_ = input.readUInt32();
-              bitField0_ |= 0x00010000;
-              break;
-            } // case 168
-            case 177: {
-              mediaEncoderPercent_ = input.readDouble();
-              bitField0_ |= 0x00020000;
-              break;
-            } // case 177
-            case 186: {
-              dangerEvent_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00040000;
-              break;
-            } // case 186
-            case 192: {
-              inputActive_ = input.readBool();
-              bitField0_ |= 0x00080000;
-              break;
-            } // case 192
-            case 200: {
-              activeDrag_ = input.readBool();
-              bitField0_ |= 0x00100000;
-              break;
-            } // case 200
-            case 208: {
-              pressedKeyCount_ = input.readUInt32();
-              bitField0_ |= 0x00200000;
-              break;
-            } // case 208
-            case 216: {
-              pressedButtonCount_ = input.readUInt32();
-              bitField0_ |= 0x00400000;
-              break;
-            } // case 216
-            case 224: {
-              activeUploadCount_ = input.readUInt32();
-              bitField0_ |= 0x00800000;
-              break;
-            } // case 224
-            case 232: {
-              activeDownloadCount_ = input.readUInt32();
-              bitField0_ |= 0x01000000;
-              break;
-            } // case 232
-            case 240: {
-              activeFormSubmissionCount_ = input.readUInt32();
-              bitField0_ |= 0x02000000;
-              break;
-            } // case 240
-            case 248: {
-              proxyProbeSucceeded_ = input.readBool();
-              bitField0_ |= 0x04000000;
-              break;
-            } // case 248
-            case 256: {
-              proxyProbeLatencyMs_ = input.readUInt32();
-              bitField0_ |= 0x08000000;
-              break;
-            } // case 256
-            case 266: {
-              proxyObservedExitIp_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x10000000;
-              break;
-            } // case 266
-            case 274: {
-              proxyProbeErrorCode_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x20000000;
-              break;
-            } // case 274
-            case 280: {
-              activeSpaMutationCount_ = input.readUInt32();
-              bitField0_ |= 0x40000000;
-              break;
-            } // case 280
-            case 288: {
-              activePaymentOrSecurityCount_ = input.readUInt32();
-              bitField0_ |= 0x80000000;
-              break;
-            } // case 288
-            case 296: {
-              activeCriticalTransactionCount_ = input.readUInt32();
-              bitField1_ |= 0x00000001;
-              break;
-            } // case 296
-            case 322: {
-              actualResourceClass_ = input.readStringRequireUtf8();
-              bitField1_ |= 0x00000002;
-              break;
-            } // case 322
-            case 328: {
-              actualCpuMillis_ = input.readUInt32();
-              bitField1_ |= 0x00000004;
-              break;
-            } // case 328
-            case 336: {
-              actualMemoryRequestMib_ = input.readUInt32();
-              bitField1_ |= 0x00000008;
-              break;
-            } // case 336
-            case 344: {
-              actualMemoryLimitMib_ = input.readUInt32();
-              bitField1_ |= 0x00000010;
-              break;
-            } // case 344
-            case 352: {
-              actualPidLimit_ = input.readUInt32();
-              bitField1_ |= 0x00000020;
-              break;
-            } // case 352
-            case 360: {
-              actualTabBudget_ = input.readUInt32();
-              bitField1_ |= 0x00000040;
-              break;
-            } // case 360
-            case 368: {
-              actualStateCollectorBudgetPercent_ = input.readUInt32();
-              bitField1_ |= 0x00000080;
-              break;
-            } // case 368
-            case 376: {
-              actualRemoteDesktopBitrateKbps_ = input.readUInt32();
-              bitField1_ |= 0x00000100;
-              break;
-            } // case 376
-            case 384: {
-              actualExtensionCpuWeight_ = input.readUInt32();
-              bitField1_ |= 0x00000200;
-              break;
-            } // case 384
-            case 392: {
-              actualMediaEncoderSlots_ = input.readUInt32();
-              bitField1_ |= 0x00000400;
-              break;
-            } // case 392
-            case 400: {
-              actualFreezeBackgroundTabs_ = input.readBool();
-              bitField1_ |= 0x00000800;
-              break;
-            } // case 400
-            case 408: {
-              actualBlockNewTabs_ = input.readBool();
-              bitField1_ |= 0x00001000;
-              break;
-            } // case 408
-            case 418: {
-              input.readMessage(
-                  getActualExtensionBackgroundPolicyFieldBuilder().getBuilder(),
-                  extensionRegistry);
-              bitField1_ |= 0x00002000;
-              break;
-            } // case 418
-            case 424: {
-              actualSuccessTraceSamplePercent_ = input.readUInt32();
-              bitField1_ |= 0x00004000;
-              break;
-            } // case 424
-            case 432: {
-              actualObserverFrameRateFps_ = input.readUInt32();
-              bitField1_ |= 0x00008000;
-              break;
-            } // case 432
-            case 440: {
-              actualVideoRecordingEnabled_ = input.readBool();
-              bitField1_ |= 0x00010000;
-              break;
-            } // case 440
-            case 448: {
-              actualSuccessScreenshotSamplePercent_ = input.readUInt32();
-              bitField1_ |= 0x00020000;
-              break;
-            } // case 448
-            default: {
-              if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                done = true; // was an endgroup tag
-              }
-              break;
-            } // default:
+            case 10:
+              {
+                nodeId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000001;
+                break;
+              } // case 10
+            case 18:
+              {
+                tenantId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000002;
+                break;
+              } // case 18
+            case 26:
+              {
+                sessionId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000004;
+                break;
+              } // case 26
+            case 32:
+              {
+                contextEpoch_ = input.readInt64();
+                bitField0_ |= 0x00000008;
+                break;
+              } // case 32
+            case 40:
+              {
+                observedAtMs_ = input.readInt64();
+                bitField0_ |= 0x00000010;
+                break;
+              } // case 40
+            case 81:
+              {
+                cpuPercent_ = input.readDouble();
+                bitField0_ |= 0x00000020;
+                break;
+              } // case 81
+            case 88:
+              {
+                memoryRssMib_ = input.readUInt64();
+                bitField0_ |= 0x00000040;
+                break;
+              } // case 88
+            case 97:
+              {
+                memoryPsiSomeAvg10_ = input.readDouble();
+                bitField0_ |= 0x00000080;
+                break;
+              } // case 97
+            case 104:
+              {
+                rendererCount_ = input.readUInt32();
+                bitField0_ |= 0x00000100;
+                break;
+              } // case 104
+            case 112:
+              {
+                tabCount_ = input.readUInt32();
+                bitField0_ |= 0x00000200;
+                break;
+              } // case 112
+            case 120:
+              {
+                mainThreadBlockedMs_ = input.readUInt32();
+                bitField0_ |= 0x00000400;
+                break;
+              } // case 120
+            case 128:
+              {
+                agentActionLatencyMs_ = input.readUInt32();
+                bitField0_ |= 0x00000800;
+                break;
+              } // case 128
+            case 136:
+              {
+                stateDiffQueueDepth_ = input.readUInt32();
+                bitField0_ |= 0x00001000;
+                break;
+              } // case 136
+            case 144:
+              {
+                profileIoBytesPerSecond_ = input.readUInt64();
+                bitField0_ |= 0x00002000;
+                break;
+              } // case 144
+            case 153:
+              {
+                extensionCpuPercent_ = input.readDouble();
+                bitField0_ |= 0x00004000;
+                break;
+              } // case 153
+            case 160:
+              {
+                extensionMemoryMib_ = input.readUInt64();
+                bitField0_ |= 0x00008000;
+                break;
+              } // case 160
+            case 168:
+              {
+                remoteDesktopFrameAgeMs_ = input.readUInt32();
+                bitField0_ |= 0x00010000;
+                break;
+              } // case 168
+            case 177:
+              {
+                mediaEncoderPercent_ = input.readDouble();
+                bitField0_ |= 0x00020000;
+                break;
+              } // case 177
+            case 186:
+              {
+                dangerEvent_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00040000;
+                break;
+              } // case 186
+            case 192:
+              {
+                inputActive_ = input.readBool();
+                bitField0_ |= 0x00080000;
+                break;
+              } // case 192
+            case 200:
+              {
+                activeDrag_ = input.readBool();
+                bitField0_ |= 0x00100000;
+                break;
+              } // case 200
+            case 208:
+              {
+                pressedKeyCount_ = input.readUInt32();
+                bitField0_ |= 0x00200000;
+                break;
+              } // case 208
+            case 216:
+              {
+                pressedButtonCount_ = input.readUInt32();
+                bitField0_ |= 0x00400000;
+                break;
+              } // case 216
+            case 224:
+              {
+                activeUploadCount_ = input.readUInt32();
+                bitField0_ |= 0x00800000;
+                break;
+              } // case 224
+            case 232:
+              {
+                activeDownloadCount_ = input.readUInt32();
+                bitField0_ |= 0x01000000;
+                break;
+              } // case 232
+            case 240:
+              {
+                activeFormSubmissionCount_ = input.readUInt32();
+                bitField0_ |= 0x02000000;
+                break;
+              } // case 240
+            case 248:
+              {
+                proxyProbeSucceeded_ = input.readBool();
+                bitField0_ |= 0x04000000;
+                break;
+              } // case 248
+            case 256:
+              {
+                proxyProbeLatencyMs_ = input.readUInt32();
+                bitField0_ |= 0x08000000;
+                break;
+              } // case 256
+            case 266:
+              {
+                proxyObservedExitIp_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x10000000;
+                break;
+              } // case 266
+            case 274:
+              {
+                proxyProbeErrorCode_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x20000000;
+                break;
+              } // case 274
+            case 280:
+              {
+                activeSpaMutationCount_ = input.readUInt32();
+                bitField0_ |= 0x40000000;
+                break;
+              } // case 280
+            case 288:
+              {
+                activePaymentOrSecurityCount_ = input.readUInt32();
+                bitField0_ |= 0x80000000;
+                break;
+              } // case 288
+            case 296:
+              {
+                activeCriticalTransactionCount_ = input.readUInt32();
+                bitField1_ |= 0x00000001;
+                break;
+              } // case 296
+            case 322:
+              {
+                actualResourceClass_ = input.readStringRequireUtf8();
+                bitField1_ |= 0x00000002;
+                break;
+              } // case 322
+            case 328:
+              {
+                actualCpuMillis_ = input.readUInt32();
+                bitField1_ |= 0x00000004;
+                break;
+              } // case 328
+            case 336:
+              {
+                actualMemoryRequestMib_ = input.readUInt32();
+                bitField1_ |= 0x00000008;
+                break;
+              } // case 336
+            case 344:
+              {
+                actualMemoryLimitMib_ = input.readUInt32();
+                bitField1_ |= 0x00000010;
+                break;
+              } // case 344
+            case 352:
+              {
+                actualPidLimit_ = input.readUInt32();
+                bitField1_ |= 0x00000020;
+                break;
+              } // case 352
+            case 360:
+              {
+                actualTabBudget_ = input.readUInt32();
+                bitField1_ |= 0x00000040;
+                break;
+              } // case 360
+            case 368:
+              {
+                actualStateCollectorBudgetPercent_ = input.readUInt32();
+                bitField1_ |= 0x00000080;
+                break;
+              } // case 368
+            case 376:
+              {
+                actualRemoteDesktopBitrateKbps_ = input.readUInt32();
+                bitField1_ |= 0x00000100;
+                break;
+              } // case 376
+            case 384:
+              {
+                actualExtensionCpuWeight_ = input.readUInt32();
+                bitField1_ |= 0x00000200;
+                break;
+              } // case 384
+            case 392:
+              {
+                actualMediaEncoderSlots_ = input.readUInt32();
+                bitField1_ |= 0x00000400;
+                break;
+              } // case 392
+            case 400:
+              {
+                actualFreezeBackgroundTabs_ = input.readBool();
+                bitField1_ |= 0x00000800;
+                break;
+              } // case 400
+            case 408:
+              {
+                actualBlockNewTabs_ = input.readBool();
+                bitField1_ |= 0x00001000;
+                break;
+              } // case 408
+            case 418:
+              {
+                input.readMessage(
+                    getActualExtensionBackgroundPolicyFieldBuilder().getBuilder(),
+                    extensionRegistry);
+                bitField1_ |= 0x00002000;
+                break;
+              } // case 418
+            case 424:
+              {
+                actualSuccessTraceSamplePercent_ = input.readUInt32();
+                bitField1_ |= 0x00004000;
+                break;
+              } // case 424
+            case 432:
+              {
+                actualObserverFrameRateFps_ = input.readUInt32();
+                bitField1_ |= 0x00008000;
+                break;
+              } // case 432
+            case 440:
+              {
+                actualVideoRecordingEnabled_ = input.readBool();
+                bitField1_ |= 0x00010000;
+                break;
+              } // case 440
+            case 448:
+              {
+                actualSuccessScreenshotSamplePercent_ = input.readUInt32();
+                bitField1_ |= 0x00020000;
+                break;
+              } // case 448
+            default:
+              {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
           } // switch (tag)
         } // while (!done)
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -2957,19 +3232,21 @@ private static final long serialVersionUID = 0L;
       } // finally
       return this;
     }
+
     private int bitField0_;
     private int bitField1_;
 
     private java.lang.Object nodeId_ = "";
+
     /**
      * <code>string node_id = 1 [json_name = "nodeId"];</code>
+     *
      * @return The nodeId.
      */
     public java.lang.String getNodeId() {
       java.lang.Object ref = nodeId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         nodeId_ = s;
         return s;
@@ -2977,38 +3254,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string node_id = 1 [json_name = "nodeId"];</code>
+     *
      * @return The bytes for nodeId.
      */
-    public com.google.protobuf.ByteString
-        getNodeIdBytes() {
+    public com.google.protobuf.ByteString getNodeIdBytes() {
       java.lang.Object ref = nodeId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         nodeId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string node_id = 1 [json_name = "nodeId"];</code>
+     *
      * @param value The nodeId to set.
      * @return This builder for chaining.
      */
-    public Builder setNodeId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setNodeId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       nodeId_ = value;
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
+
     /**
      * <code>string node_id = 1 [json_name = "nodeId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNodeId() {
@@ -3017,14 +3299,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string node_id = 1 [json_name = "nodeId"];</code>
+     *
      * @param value The bytes for nodeId to set.
      * @return This builder for chaining.
      */
-    public Builder setNodeIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setNodeIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       nodeId_ = value;
       bitField0_ |= 0x00000001;
@@ -3033,15 +3318,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object tenantId_ = "";
+
     /**
      * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+     *
      * @return The tenantId.
      */
     public java.lang.String getTenantId() {
       java.lang.Object ref = tenantId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         tenantId_ = s;
         return s;
@@ -3049,38 +3335,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+     *
      * @return The bytes for tenantId.
      */
-    public com.google.protobuf.ByteString
-        getTenantIdBytes() {
+    public com.google.protobuf.ByteString getTenantIdBytes() {
       java.lang.Object ref = tenantId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         tenantId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+     *
      * @param value The tenantId to set.
      * @return This builder for chaining.
      */
-    public Builder setTenantId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setTenantId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       tenantId_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
+
     /**
      * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearTenantId() {
@@ -3089,14 +3380,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+     *
      * @param value The bytes for tenantId to set.
      * @return This builder for chaining.
      */
-    public Builder setTenantIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setTenantIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       tenantId_ = value;
       bitField0_ |= 0x00000002;
@@ -3105,15 +3399,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object sessionId_ = "";
+
     /**
      * <code>string session_id = 3 [json_name = "sessionId"];</code>
+     *
      * @return The sessionId.
      */
     public java.lang.String getSessionId() {
       java.lang.Object ref = sessionId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         sessionId_ = s;
         return s;
@@ -3121,38 +3416,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string session_id = 3 [json_name = "sessionId"];</code>
+     *
      * @return The bytes for sessionId.
      */
-    public com.google.protobuf.ByteString
-        getSessionIdBytes() {
+    public com.google.protobuf.ByteString getSessionIdBytes() {
       java.lang.Object ref = sessionId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         sessionId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string session_id = 3 [json_name = "sessionId"];</code>
+     *
      * @param value The sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setSessionId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSessionId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       sessionId_ = value;
       bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
+
     /**
      * <code>string session_id = 3 [json_name = "sessionId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSessionId() {
@@ -3161,14 +3461,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string session_id = 3 [json_name = "sessionId"];</code>
+     *
      * @param value The bytes for sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setSessionIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSessionIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       sessionId_ = value;
       bitField0_ |= 0x00000004;
@@ -3176,17 +3479,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long contextEpoch_ ;
+    private long contextEpoch_;
+
     /**
      * <code>int64 context_epoch = 4 [json_name = "contextEpoch"];</code>
+     *
      * @return The contextEpoch.
      */
     @java.lang.Override
     public long getContextEpoch() {
       return contextEpoch_;
     }
+
     /**
      * <code>int64 context_epoch = 4 [json_name = "contextEpoch"];</code>
+     *
      * @param value The contextEpoch to set.
      * @return This builder for chaining.
      */
@@ -3197,8 +3504,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>int64 context_epoch = 4 [json_name = "contextEpoch"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearContextEpoch() {
@@ -3208,17 +3517,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long observedAtMs_ ;
+    private long observedAtMs_;
+
     /**
      * <code>int64 observed_at_ms = 5 [json_name = "observedAtMs"];</code>
+     *
      * @return The observedAtMs.
      */
     @java.lang.Override
     public long getObservedAtMs() {
       return observedAtMs_;
     }
+
     /**
      * <code>int64 observed_at_ms = 5 [json_name = "observedAtMs"];</code>
+     *
      * @param value The observedAtMs to set.
      * @return This builder for chaining.
      */
@@ -3229,8 +3542,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>int64 observed_at_ms = 5 [json_name = "observedAtMs"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearObservedAtMs() {
@@ -3240,25 +3555,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private double cpuPercent_ ;
+    private double cpuPercent_;
+
     /**
      * <code>optional double cpu_percent = 10 [json_name = "cpuPercent"];</code>
+     *
      * @return Whether the cpuPercent field is set.
      */
     @java.lang.Override
     public boolean hasCpuPercent() {
       return ((bitField0_ & 0x00000020) != 0);
     }
+
     /**
      * <code>optional double cpu_percent = 10 [json_name = "cpuPercent"];</code>
+     *
      * @return The cpuPercent.
      */
     @java.lang.Override
     public double getCpuPercent() {
       return cpuPercent_;
     }
+
     /**
      * <code>optional double cpu_percent = 10 [json_name = "cpuPercent"];</code>
+     *
      * @param value The cpuPercent to set.
      * @return This builder for chaining.
      */
@@ -3269,8 +3590,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional double cpu_percent = 10 [json_name = "cpuPercent"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearCpuPercent() {
@@ -3280,25 +3603,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long memoryRssMib_ ;
+    private long memoryRssMib_;
+
     /**
      * <code>optional uint64 memory_rss_mib = 11 [json_name = "memoryRssMib"];</code>
+     *
      * @return Whether the memoryRssMib field is set.
      */
     @java.lang.Override
     public boolean hasMemoryRssMib() {
       return ((bitField0_ & 0x00000040) != 0);
     }
+
     /**
      * <code>optional uint64 memory_rss_mib = 11 [json_name = "memoryRssMib"];</code>
+     *
      * @return The memoryRssMib.
      */
     @java.lang.Override
     public long getMemoryRssMib() {
       return memoryRssMib_;
     }
+
     /**
      * <code>optional uint64 memory_rss_mib = 11 [json_name = "memoryRssMib"];</code>
+     *
      * @param value The memoryRssMib to set.
      * @return This builder for chaining.
      */
@@ -3309,8 +3638,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional uint64 memory_rss_mib = 11 [json_name = "memoryRssMib"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearMemoryRssMib() {
@@ -3320,25 +3651,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private double memoryPsiSomeAvg10_ ;
+    private double memoryPsiSomeAvg10_;
+
     /**
      * <code>optional double memory_psi_some_avg10 = 12 [json_name = "memoryPsiSomeAvg10"];</code>
+     *
      * @return Whether the memoryPsiSomeAvg10 field is set.
      */
     @java.lang.Override
     public boolean hasMemoryPsiSomeAvg10() {
       return ((bitField0_ & 0x00000080) != 0);
     }
+
     /**
      * <code>optional double memory_psi_some_avg10 = 12 [json_name = "memoryPsiSomeAvg10"];</code>
+     *
      * @return The memoryPsiSomeAvg10.
      */
     @java.lang.Override
     public double getMemoryPsiSomeAvg10() {
       return memoryPsiSomeAvg10_;
     }
+
     /**
      * <code>optional double memory_psi_some_avg10 = 12 [json_name = "memoryPsiSomeAvg10"];</code>
+     *
      * @param value The memoryPsiSomeAvg10 to set.
      * @return This builder for chaining.
      */
@@ -3349,8 +3686,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional double memory_psi_some_avg10 = 12 [json_name = "memoryPsiSomeAvg10"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearMemoryPsiSomeAvg10() {
@@ -3360,25 +3699,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int rendererCount_ ;
+    private int rendererCount_;
+
     /**
      * <code>optional uint32 renderer_count = 13 [json_name = "rendererCount"];</code>
+     *
      * @return Whether the rendererCount field is set.
      */
     @java.lang.Override
     public boolean hasRendererCount() {
       return ((bitField0_ & 0x00000100) != 0);
     }
+
     /**
      * <code>optional uint32 renderer_count = 13 [json_name = "rendererCount"];</code>
+     *
      * @return The rendererCount.
      */
     @java.lang.Override
     public int getRendererCount() {
       return rendererCount_;
     }
+
     /**
      * <code>optional uint32 renderer_count = 13 [json_name = "rendererCount"];</code>
+     *
      * @param value The rendererCount to set.
      * @return This builder for chaining.
      */
@@ -3389,8 +3734,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional uint32 renderer_count = 13 [json_name = "rendererCount"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearRendererCount() {
@@ -3400,25 +3747,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int tabCount_ ;
+    private int tabCount_;
+
     /**
      * <code>optional uint32 tab_count = 14 [json_name = "tabCount"];</code>
+     *
      * @return Whether the tabCount field is set.
      */
     @java.lang.Override
     public boolean hasTabCount() {
       return ((bitField0_ & 0x00000200) != 0);
     }
+
     /**
      * <code>optional uint32 tab_count = 14 [json_name = "tabCount"];</code>
+     *
      * @return The tabCount.
      */
     @java.lang.Override
     public int getTabCount() {
       return tabCount_;
     }
+
     /**
      * <code>optional uint32 tab_count = 14 [json_name = "tabCount"];</code>
+     *
      * @param value The tabCount to set.
      * @return This builder for chaining.
      */
@@ -3429,8 +3782,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional uint32 tab_count = 14 [json_name = "tabCount"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearTabCount() {
@@ -3440,25 +3795,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int mainThreadBlockedMs_ ;
+    private int mainThreadBlockedMs_;
+
     /**
      * <code>optional uint32 main_thread_blocked_ms = 15 [json_name = "mainThreadBlockedMs"];</code>
+     *
      * @return Whether the mainThreadBlockedMs field is set.
      */
     @java.lang.Override
     public boolean hasMainThreadBlockedMs() {
       return ((bitField0_ & 0x00000400) != 0);
     }
+
     /**
      * <code>optional uint32 main_thread_blocked_ms = 15 [json_name = "mainThreadBlockedMs"];</code>
+     *
      * @return The mainThreadBlockedMs.
      */
     @java.lang.Override
     public int getMainThreadBlockedMs() {
       return mainThreadBlockedMs_;
     }
+
     /**
      * <code>optional uint32 main_thread_blocked_ms = 15 [json_name = "mainThreadBlockedMs"];</code>
+     *
      * @param value The mainThreadBlockedMs to set.
      * @return This builder for chaining.
      */
@@ -3469,8 +3830,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional uint32 main_thread_blocked_ms = 15 [json_name = "mainThreadBlockedMs"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearMainThreadBlockedMs() {
@@ -3480,25 +3843,34 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int agentActionLatencyMs_ ;
+    private int agentActionLatencyMs_;
+
     /**
-     * <code>optional uint32 agent_action_latency_ms = 16 [json_name = "agentActionLatencyMs"];</code>
+     * <code>optional uint32 agent_action_latency_ms = 16 [json_name = "agentActionLatencyMs"];
+     * </code>
+     *
      * @return Whether the agentActionLatencyMs field is set.
      */
     @java.lang.Override
     public boolean hasAgentActionLatencyMs() {
       return ((bitField0_ & 0x00000800) != 0);
     }
+
     /**
-     * <code>optional uint32 agent_action_latency_ms = 16 [json_name = "agentActionLatencyMs"];</code>
+     * <code>optional uint32 agent_action_latency_ms = 16 [json_name = "agentActionLatencyMs"];
+     * </code>
+     *
      * @return The agentActionLatencyMs.
      */
     @java.lang.Override
     public int getAgentActionLatencyMs() {
       return agentActionLatencyMs_;
     }
+
     /**
-     * <code>optional uint32 agent_action_latency_ms = 16 [json_name = "agentActionLatencyMs"];</code>
+     * <code>optional uint32 agent_action_latency_ms = 16 [json_name = "agentActionLatencyMs"];
+     * </code>
+     *
      * @param value The agentActionLatencyMs to set.
      * @return This builder for chaining.
      */
@@ -3509,8 +3881,11 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 agent_action_latency_ms = 16 [json_name = "agentActionLatencyMs"];</code>
+     * <code>optional uint32 agent_action_latency_ms = 16 [json_name = "agentActionLatencyMs"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearAgentActionLatencyMs() {
@@ -3520,25 +3895,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int stateDiffQueueDepth_ ;
+    private int stateDiffQueueDepth_;
+
     /**
      * <code>optional uint32 state_diff_queue_depth = 17 [json_name = "stateDiffQueueDepth"];</code>
+     *
      * @return Whether the stateDiffQueueDepth field is set.
      */
     @java.lang.Override
     public boolean hasStateDiffQueueDepth() {
       return ((bitField0_ & 0x00001000) != 0);
     }
+
     /**
      * <code>optional uint32 state_diff_queue_depth = 17 [json_name = "stateDiffQueueDepth"];</code>
+     *
      * @return The stateDiffQueueDepth.
      */
     @java.lang.Override
     public int getStateDiffQueueDepth() {
       return stateDiffQueueDepth_;
     }
+
     /**
      * <code>optional uint32 state_diff_queue_depth = 17 [json_name = "stateDiffQueueDepth"];</code>
+     *
      * @param value The stateDiffQueueDepth to set.
      * @return This builder for chaining.
      */
@@ -3549,8 +3930,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional uint32 state_diff_queue_depth = 17 [json_name = "stateDiffQueueDepth"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearStateDiffQueueDepth() {
@@ -3560,25 +3943,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long profileIoBytesPerSecond_ ;
+    private long profileIoBytesPerSecond_;
+
     /**
-     * <code>optional uint64 profile_io_bytes_per_second = 18 [json_name = "profileIoBytesPerSecond"];</code>
+     * <code>
+     * optional uint64 profile_io_bytes_per_second = 18 [json_name = "profileIoBytesPerSecond"];
+     * </code>
+     *
      * @return Whether the profileIoBytesPerSecond field is set.
      */
     @java.lang.Override
     public boolean hasProfileIoBytesPerSecond() {
       return ((bitField0_ & 0x00002000) != 0);
     }
+
     /**
-     * <code>optional uint64 profile_io_bytes_per_second = 18 [json_name = "profileIoBytesPerSecond"];</code>
+     * <code>
+     * optional uint64 profile_io_bytes_per_second = 18 [json_name = "profileIoBytesPerSecond"];
+     * </code>
+     *
      * @return The profileIoBytesPerSecond.
      */
     @java.lang.Override
     public long getProfileIoBytesPerSecond() {
       return profileIoBytesPerSecond_;
     }
+
     /**
-     * <code>optional uint64 profile_io_bytes_per_second = 18 [json_name = "profileIoBytesPerSecond"];</code>
+     * <code>
+     * optional uint64 profile_io_bytes_per_second = 18 [json_name = "profileIoBytesPerSecond"];
+     * </code>
+     *
      * @param value The profileIoBytesPerSecond to set.
      * @return This builder for chaining.
      */
@@ -3589,8 +3984,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint64 profile_io_bytes_per_second = 18 [json_name = "profileIoBytesPerSecond"];</code>
+     * <code>
+     * optional uint64 profile_io_bytes_per_second = 18 [json_name = "profileIoBytesPerSecond"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearProfileIoBytesPerSecond() {
@@ -3600,25 +3999,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private double extensionCpuPercent_ ;
+    private double extensionCpuPercent_;
+
     /**
      * <code>optional double extension_cpu_percent = 19 [json_name = "extensionCpuPercent"];</code>
+     *
      * @return Whether the extensionCpuPercent field is set.
      */
     @java.lang.Override
     public boolean hasExtensionCpuPercent() {
       return ((bitField0_ & 0x00004000) != 0);
     }
+
     /**
      * <code>optional double extension_cpu_percent = 19 [json_name = "extensionCpuPercent"];</code>
+     *
      * @return The extensionCpuPercent.
      */
     @java.lang.Override
     public double getExtensionCpuPercent() {
       return extensionCpuPercent_;
     }
+
     /**
      * <code>optional double extension_cpu_percent = 19 [json_name = "extensionCpuPercent"];</code>
+     *
      * @param value The extensionCpuPercent to set.
      * @return This builder for chaining.
      */
@@ -3629,8 +4034,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional double extension_cpu_percent = 19 [json_name = "extensionCpuPercent"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearExtensionCpuPercent() {
@@ -3640,25 +4047,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long extensionMemoryMib_ ;
+    private long extensionMemoryMib_;
+
     /**
      * <code>optional uint64 extension_memory_mib = 20 [json_name = "extensionMemoryMib"];</code>
+     *
      * @return Whether the extensionMemoryMib field is set.
      */
     @java.lang.Override
     public boolean hasExtensionMemoryMib() {
       return ((bitField0_ & 0x00008000) != 0);
     }
+
     /**
      * <code>optional uint64 extension_memory_mib = 20 [json_name = "extensionMemoryMib"];</code>
+     *
      * @return The extensionMemoryMib.
      */
     @java.lang.Override
     public long getExtensionMemoryMib() {
       return extensionMemoryMib_;
     }
+
     /**
      * <code>optional uint64 extension_memory_mib = 20 [json_name = "extensionMemoryMib"];</code>
+     *
      * @param value The extensionMemoryMib to set.
      * @return This builder for chaining.
      */
@@ -3669,8 +4082,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional uint64 extension_memory_mib = 20 [json_name = "extensionMemoryMib"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearExtensionMemoryMib() {
@@ -3680,25 +4095,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int remoteDesktopFrameAgeMs_ ;
+    private int remoteDesktopFrameAgeMs_;
+
     /**
-     * <code>optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];</code>
+     * <code>
+     * optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];
+     * </code>
+     *
      * @return Whether the remoteDesktopFrameAgeMs field is set.
      */
     @java.lang.Override
     public boolean hasRemoteDesktopFrameAgeMs() {
       return ((bitField0_ & 0x00010000) != 0);
     }
+
     /**
-     * <code>optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];</code>
+     * <code>
+     * optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];
+     * </code>
+     *
      * @return The remoteDesktopFrameAgeMs.
      */
     @java.lang.Override
     public int getRemoteDesktopFrameAgeMs() {
       return remoteDesktopFrameAgeMs_;
     }
+
     /**
-     * <code>optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];</code>
+     * <code>
+     * optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];
+     * </code>
+     *
      * @param value The remoteDesktopFrameAgeMs to set.
      * @return This builder for chaining.
      */
@@ -3709,8 +4136,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];</code>
+     * <code>
+     * optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearRemoteDesktopFrameAgeMs() {
@@ -3720,25 +4151,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private double mediaEncoderPercent_ ;
+    private double mediaEncoderPercent_;
+
     /**
      * <code>optional double media_encoder_percent = 22 [json_name = "mediaEncoderPercent"];</code>
+     *
      * @return Whether the mediaEncoderPercent field is set.
      */
     @java.lang.Override
     public boolean hasMediaEncoderPercent() {
       return ((bitField0_ & 0x00020000) != 0);
     }
+
     /**
      * <code>optional double media_encoder_percent = 22 [json_name = "mediaEncoderPercent"];</code>
+     *
      * @return The mediaEncoderPercent.
      */
     @java.lang.Override
     public double getMediaEncoderPercent() {
       return mediaEncoderPercent_;
     }
+
     /**
      * <code>optional double media_encoder_percent = 22 [json_name = "mediaEncoderPercent"];</code>
+     *
      * @param value The mediaEncoderPercent to set.
      * @return This builder for chaining.
      */
@@ -3749,8 +4186,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional double media_encoder_percent = 22 [json_name = "mediaEncoderPercent"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearMediaEncoderPercent() {
@@ -3761,15 +4200,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object dangerEvent_ = "";
+
     /**
      * <code>string danger_event = 23 [json_name = "dangerEvent"];</code>
+     *
      * @return The dangerEvent.
      */
     public java.lang.String getDangerEvent() {
       java.lang.Object ref = dangerEvent_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         dangerEvent_ = s;
         return s;
@@ -3777,38 +4217,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string danger_event = 23 [json_name = "dangerEvent"];</code>
+     *
      * @return The bytes for dangerEvent.
      */
-    public com.google.protobuf.ByteString
-        getDangerEventBytes() {
+    public com.google.protobuf.ByteString getDangerEventBytes() {
       java.lang.Object ref = dangerEvent_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         dangerEvent_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string danger_event = 23 [json_name = "dangerEvent"];</code>
+     *
      * @param value The dangerEvent to set.
      * @return This builder for chaining.
      */
-    public Builder setDangerEvent(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setDangerEvent(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       dangerEvent_ = value;
       bitField0_ |= 0x00040000;
       onChanged();
       return this;
     }
+
     /**
      * <code>string danger_event = 23 [json_name = "dangerEvent"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearDangerEvent() {
@@ -3817,14 +4262,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string danger_event = 23 [json_name = "dangerEvent"];</code>
+     *
      * @param value The bytes for dangerEvent to set.
      * @return This builder for chaining.
      */
-    public Builder setDangerEventBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setDangerEventBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       dangerEvent_ = value;
       bitField0_ |= 0x00040000;
@@ -3832,25 +4280,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean inputActive_ ;
+    private boolean inputActive_;
+
     /**
      * <code>optional bool input_active = 24 [json_name = "inputActive"];</code>
+     *
      * @return Whether the inputActive field is set.
      */
     @java.lang.Override
     public boolean hasInputActive() {
       return ((bitField0_ & 0x00080000) != 0);
     }
+
     /**
      * <code>optional bool input_active = 24 [json_name = "inputActive"];</code>
+     *
      * @return The inputActive.
      */
     @java.lang.Override
     public boolean getInputActive() {
       return inputActive_;
     }
+
     /**
      * <code>optional bool input_active = 24 [json_name = "inputActive"];</code>
+     *
      * @param value The inputActive to set.
      * @return This builder for chaining.
      */
@@ -3861,8 +4315,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional bool input_active = 24 [json_name = "inputActive"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearInputActive() {
@@ -3872,25 +4328,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean activeDrag_ ;
+    private boolean activeDrag_;
+
     /**
      * <code>optional bool active_drag = 25 [json_name = "activeDrag"];</code>
+     *
      * @return Whether the activeDrag field is set.
      */
     @java.lang.Override
     public boolean hasActiveDrag() {
       return ((bitField0_ & 0x00100000) != 0);
     }
+
     /**
      * <code>optional bool active_drag = 25 [json_name = "activeDrag"];</code>
+     *
      * @return The activeDrag.
      */
     @java.lang.Override
     public boolean getActiveDrag() {
       return activeDrag_;
     }
+
     /**
      * <code>optional bool active_drag = 25 [json_name = "activeDrag"];</code>
+     *
      * @param value The activeDrag to set.
      * @return This builder for chaining.
      */
@@ -3901,8 +4363,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional bool active_drag = 25 [json_name = "activeDrag"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActiveDrag() {
@@ -3912,25 +4376,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int pressedKeyCount_ ;
+    private int pressedKeyCount_;
+
     /**
      * <code>optional uint32 pressed_key_count = 26 [json_name = "pressedKeyCount"];</code>
+     *
      * @return Whether the pressedKeyCount field is set.
      */
     @java.lang.Override
     public boolean hasPressedKeyCount() {
       return ((bitField0_ & 0x00200000) != 0);
     }
+
     /**
      * <code>optional uint32 pressed_key_count = 26 [json_name = "pressedKeyCount"];</code>
+     *
      * @return The pressedKeyCount.
      */
     @java.lang.Override
     public int getPressedKeyCount() {
       return pressedKeyCount_;
     }
+
     /**
      * <code>optional uint32 pressed_key_count = 26 [json_name = "pressedKeyCount"];</code>
+     *
      * @param value The pressedKeyCount to set.
      * @return This builder for chaining.
      */
@@ -3941,8 +4411,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional uint32 pressed_key_count = 26 [json_name = "pressedKeyCount"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearPressedKeyCount() {
@@ -3952,25 +4424,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int pressedButtonCount_ ;
+    private int pressedButtonCount_;
+
     /**
      * <code>optional uint32 pressed_button_count = 27 [json_name = "pressedButtonCount"];</code>
+     *
      * @return Whether the pressedButtonCount field is set.
      */
     @java.lang.Override
     public boolean hasPressedButtonCount() {
       return ((bitField0_ & 0x00400000) != 0);
     }
+
     /**
      * <code>optional uint32 pressed_button_count = 27 [json_name = "pressedButtonCount"];</code>
+     *
      * @return The pressedButtonCount.
      */
     @java.lang.Override
     public int getPressedButtonCount() {
       return pressedButtonCount_;
     }
+
     /**
      * <code>optional uint32 pressed_button_count = 27 [json_name = "pressedButtonCount"];</code>
+     *
      * @param value The pressedButtonCount to set.
      * @return This builder for chaining.
      */
@@ -3981,8 +4459,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional uint32 pressed_button_count = 27 [json_name = "pressedButtonCount"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearPressedButtonCount() {
@@ -3992,40 +4472,52 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int activeUploadCount_ ;
+    private int activeUploadCount_;
+
     /**
+     *
+     *
      * <pre>
      * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
      * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
      * </pre>
      *
      * <code>optional uint32 active_upload_count = 28 [json_name = "activeUploadCount"];</code>
+     *
      * @return Whether the activeUploadCount field is set.
      */
     @java.lang.Override
     public boolean hasActiveUploadCount() {
       return ((bitField0_ & 0x00800000) != 0);
     }
+
     /**
+     *
+     *
      * <pre>
      * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
      * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
      * </pre>
      *
      * <code>optional uint32 active_upload_count = 28 [json_name = "activeUploadCount"];</code>
+     *
      * @return The activeUploadCount.
      */
     @java.lang.Override
     public int getActiveUploadCount() {
       return activeUploadCount_;
     }
+
     /**
+     *
+     *
      * <pre>
      * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
      * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
      * </pre>
      *
      * <code>optional uint32 active_upload_count = 28 [json_name = "activeUploadCount"];</code>
+     *
      * @param value The activeUploadCount to set.
      * @return This builder for chaining.
      */
@@ -4036,13 +4528,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
      * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
      * </pre>
      *
      * <code>optional uint32 active_upload_count = 28 [json_name = "activeUploadCount"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActiveUploadCount() {
@@ -4052,25 +4548,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int activeDownloadCount_ ;
+    private int activeDownloadCount_;
+
     /**
      * <code>optional uint32 active_download_count = 29 [json_name = "activeDownloadCount"];</code>
+     *
      * @return Whether the activeDownloadCount field is set.
      */
     @java.lang.Override
     public boolean hasActiveDownloadCount() {
       return ((bitField0_ & 0x01000000) != 0);
     }
+
     /**
      * <code>optional uint32 active_download_count = 29 [json_name = "activeDownloadCount"];</code>
+     *
      * @return The activeDownloadCount.
      */
     @java.lang.Override
     public int getActiveDownloadCount() {
       return activeDownloadCount_;
     }
+
     /**
      * <code>optional uint32 active_download_count = 29 [json_name = "activeDownloadCount"];</code>
+     *
      * @param value The activeDownloadCount to set.
      * @return This builder for chaining.
      */
@@ -4081,8 +4583,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional uint32 active_download_count = 29 [json_name = "activeDownloadCount"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActiveDownloadCount() {
@@ -4092,25 +4596,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int activeFormSubmissionCount_ ;
+    private int activeFormSubmissionCount_;
+
     /**
-     * <code>optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];</code>
+     * <code>
+     * optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];
+     * </code>
+     *
      * @return Whether the activeFormSubmissionCount field is set.
      */
     @java.lang.Override
     public boolean hasActiveFormSubmissionCount() {
       return ((bitField0_ & 0x02000000) != 0);
     }
+
     /**
-     * <code>optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];</code>
+     * <code>
+     * optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];
+     * </code>
+     *
      * @return The activeFormSubmissionCount.
      */
     @java.lang.Override
     public int getActiveFormSubmissionCount() {
       return activeFormSubmissionCount_;
     }
+
     /**
-     * <code>optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];</code>
+     * <code>
+     * optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];
+     * </code>
+     *
      * @param value The activeFormSubmissionCount to set.
      * @return This builder for chaining.
      */
@@ -4121,8 +4637,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];</code>
+     * <code>
+     * optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActiveFormSubmissionCount() {
@@ -4132,8 +4652,11 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean proxyProbeSucceeded_ ;
+    private boolean proxyProbeSucceeded_;
+
     /**
+     *
+     *
      * <pre>
      * Credential-free active exit observation. The Network Helper performs the request through the
      * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
@@ -4141,13 +4664,17 @@ private static final long serialVersionUID = 0L;
      * </pre>
      *
      * <code>optional bool proxy_probe_succeeded = 31 [json_name = "proxyProbeSucceeded"];</code>
+     *
      * @return Whether the proxyProbeSucceeded field is set.
      */
     @java.lang.Override
     public boolean hasProxyProbeSucceeded() {
       return ((bitField0_ & 0x04000000) != 0);
     }
+
     /**
+     *
+     *
      * <pre>
      * Credential-free active exit observation. The Network Helper performs the request through the
      * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
@@ -4155,13 +4682,17 @@ private static final long serialVersionUID = 0L;
      * </pre>
      *
      * <code>optional bool proxy_probe_succeeded = 31 [json_name = "proxyProbeSucceeded"];</code>
+     *
      * @return The proxyProbeSucceeded.
      */
     @java.lang.Override
     public boolean getProxyProbeSucceeded() {
       return proxyProbeSucceeded_;
     }
+
     /**
+     *
+     *
      * <pre>
      * Credential-free active exit observation. The Network Helper performs the request through the
      * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
@@ -4169,6 +4700,7 @@ private static final long serialVersionUID = 0L;
      * </pre>
      *
      * <code>optional bool proxy_probe_succeeded = 31 [json_name = "proxyProbeSucceeded"];</code>
+     *
      * @param value The proxyProbeSucceeded to set.
      * @return This builder for chaining.
      */
@@ -4179,7 +4711,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * Credential-free active exit observation. The Network Helper performs the request through the
      * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
@@ -4187,6 +4722,7 @@ private static final long serialVersionUID = 0L;
      * </pre>
      *
      * <code>optional bool proxy_probe_succeeded = 31 [json_name = "proxyProbeSucceeded"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearProxyProbeSucceeded() {
@@ -4196,25 +4732,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int proxyProbeLatencyMs_ ;
+    private int proxyProbeLatencyMs_;
+
     /**
      * <code>optional uint32 proxy_probe_latency_ms = 32 [json_name = "proxyProbeLatencyMs"];</code>
+     *
      * @return Whether the proxyProbeLatencyMs field is set.
      */
     @java.lang.Override
     public boolean hasProxyProbeLatencyMs() {
       return ((bitField0_ & 0x08000000) != 0);
     }
+
     /**
      * <code>optional uint32 proxy_probe_latency_ms = 32 [json_name = "proxyProbeLatencyMs"];</code>
+     *
      * @return The proxyProbeLatencyMs.
      */
     @java.lang.Override
     public int getProxyProbeLatencyMs() {
       return proxyProbeLatencyMs_;
     }
+
     /**
      * <code>optional uint32 proxy_probe_latency_ms = 32 [json_name = "proxyProbeLatencyMs"];</code>
+     *
      * @param value The proxyProbeLatencyMs to set.
      * @return This builder for chaining.
      */
@@ -4225,8 +4767,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional uint32 proxy_probe_latency_ms = 32 [json_name = "proxyProbeLatencyMs"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearProxyProbeLatencyMs() {
@@ -4237,22 +4781,25 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object proxyObservedExitIp_ = "";
+
     /**
      * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+     *
      * @return Whether the proxyObservedExitIp field is set.
      */
     public boolean hasProxyObservedExitIp() {
       return ((bitField0_ & 0x10000000) != 0);
     }
+
     /**
      * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+     *
      * @return The proxyObservedExitIp.
      */
     public java.lang.String getProxyObservedExitIp() {
       java.lang.Object ref = proxyObservedExitIp_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         proxyObservedExitIp_ = s;
         return s;
@@ -4260,38 +4807,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+     *
      * @return The bytes for proxyObservedExitIp.
      */
-    public com.google.protobuf.ByteString
-        getProxyObservedExitIpBytes() {
+    public com.google.protobuf.ByteString getProxyObservedExitIpBytes() {
       java.lang.Object ref = proxyObservedExitIp_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         proxyObservedExitIp_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+     *
      * @param value The proxyObservedExitIp to set.
      * @return This builder for chaining.
      */
-    public Builder setProxyObservedExitIp(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProxyObservedExitIp(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       proxyObservedExitIp_ = value;
       bitField0_ |= 0x10000000;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearProxyObservedExitIp() {
@@ -4300,14 +4852,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+     *
      * @param value The bytes for proxyObservedExitIp to set.
      * @return This builder for chaining.
      */
-    public Builder setProxyObservedExitIpBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProxyObservedExitIpBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       proxyObservedExitIp_ = value;
       bitField0_ |= 0x10000000;
@@ -4316,15 +4871,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object proxyProbeErrorCode_ = "";
+
     /**
      * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+     *
      * @return The proxyProbeErrorCode.
      */
     public java.lang.String getProxyProbeErrorCode() {
       java.lang.Object ref = proxyProbeErrorCode_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         proxyProbeErrorCode_ = s;
         return s;
@@ -4332,38 +4888,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+     *
      * @return The bytes for proxyProbeErrorCode.
      */
-    public com.google.protobuf.ByteString
-        getProxyProbeErrorCodeBytes() {
+    public com.google.protobuf.ByteString getProxyProbeErrorCodeBytes() {
       java.lang.Object ref = proxyProbeErrorCode_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         proxyProbeErrorCode_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+     *
      * @param value The proxyProbeErrorCode to set.
      * @return This builder for chaining.
      */
-    public Builder setProxyProbeErrorCode(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProxyProbeErrorCode(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       proxyProbeErrorCode_ = value;
       bitField0_ |= 0x20000000;
       onChanged();
       return this;
     }
+
     /**
      * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearProxyProbeErrorCode() {
@@ -4372,14 +4933,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+     *
      * @param value The bytes for proxyProbeErrorCode to set.
      * @return This builder for chaining.
      */
-    public Builder setProxyProbeErrorCodeBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProxyProbeErrorCodeBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       proxyProbeErrorCode_ = value;
       bitField0_ |= 0x20000000;
@@ -4387,43 +4951,58 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int activeSpaMutationCount_ ;
+    private int activeSpaMutationCount_;
+
     /**
+     *
+     *
      * <pre>
      * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
      * form an additive capability group and must appear together. URLs and request bodies are never
      * transmitted; the Control Plane persists only bounded active counters.
      * </pre>
      *
-     * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];</code>
+     * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];
+     * </code>
+     *
      * @return Whether the activeSpaMutationCount field is set.
      */
     @java.lang.Override
     public boolean hasActiveSpaMutationCount() {
       return ((bitField0_ & 0x40000000) != 0);
     }
+
     /**
+     *
+     *
      * <pre>
      * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
      * form an additive capability group and must appear together. URLs and request bodies are never
      * transmitted; the Control Plane persists only bounded active counters.
      * </pre>
      *
-     * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];</code>
+     * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];
+     * </code>
+     *
      * @return The activeSpaMutationCount.
      */
     @java.lang.Override
     public int getActiveSpaMutationCount() {
       return activeSpaMutationCount_;
     }
+
     /**
+     *
+     *
      * <pre>
      * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
      * form an additive capability group and must appear together. URLs and request bodies are never
      * transmitted; the Control Plane persists only bounded active counters.
      * </pre>
      *
-     * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];</code>
+     * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];
+     * </code>
+     *
      * @param value The activeSpaMutationCount to set.
      * @return This builder for chaining.
      */
@@ -4434,14 +5013,19 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
      * form an additive capability group and must appear together. URLs and request bodies are never
      * transmitted; the Control Plane persists only bounded active counters.
      * </pre>
      *
-     * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];</code>
+     * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActiveSpaMutationCount() {
@@ -4451,25 +5035,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int activePaymentOrSecurityCount_ ;
+    private int activePaymentOrSecurityCount_;
+
     /**
-     * <code>optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];</code>
+     * <code>
+     * optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];
+     * </code>
+     *
      * @return Whether the activePaymentOrSecurityCount field is set.
      */
     @java.lang.Override
     public boolean hasActivePaymentOrSecurityCount() {
       return ((bitField0_ & 0x80000000) != 0);
     }
+
     /**
-     * <code>optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];</code>
+     * <code>
+     * optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];
+     * </code>
+     *
      * @return The activePaymentOrSecurityCount.
      */
     @java.lang.Override
     public int getActivePaymentOrSecurityCount() {
       return activePaymentOrSecurityCount_;
     }
+
     /**
-     * <code>optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];</code>
+     * <code>
+     * optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];
+     * </code>
+     *
      * @param value The activePaymentOrSecurityCount to set.
      * @return This builder for chaining.
      */
@@ -4480,8 +5076,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];</code>
+     * <code>
+     * optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActivePaymentOrSecurityCount() {
@@ -4491,25 +5091,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int activeCriticalTransactionCount_ ;
+    private int activeCriticalTransactionCount_;
+
     /**
-     * <code>optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];</code>
+     * <code>
+     * optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];
+     * </code>
+     *
      * @return Whether the activeCriticalTransactionCount field is set.
      */
     @java.lang.Override
     public boolean hasActiveCriticalTransactionCount() {
       return ((bitField1_ & 0x00000001) != 0);
     }
+
     /**
-     * <code>optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];</code>
+     * <code>
+     * optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];
+     * </code>
+     *
      * @return The activeCriticalTransactionCount.
      */
     @java.lang.Override
     public int getActiveCriticalTransactionCount() {
       return activeCriticalTransactionCount_;
     }
+
     /**
-     * <code>optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];</code>
+     * <code>
+     * optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];
+     * </code>
+     *
      * @param value The activeCriticalTransactionCount to set.
      * @return This builder for chaining.
      */
@@ -4520,8 +5132,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];</code>
+     * <code>
+     * optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActiveCriticalTransactionCount() {
@@ -4532,7 +5148,10 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object actualResourceClass_ = "";
+
     /**
+     *
+     *
      * <pre>
      * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
      * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
@@ -4540,12 +5159,16 @@ private static final long serialVersionUID = 0L;
      * </pre>
      *
      * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+     *
      * @return Whether the actualResourceClass field is set.
      */
     public boolean hasActualResourceClass() {
       return ((bitField1_ & 0x00000002) != 0);
     }
+
     /**
+     *
+     *
      * <pre>
      * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
      * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
@@ -4553,13 +5176,13 @@ private static final long serialVersionUID = 0L;
      * </pre>
      *
      * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+     *
      * @return The actualResourceClass.
      */
     public java.lang.String getActualResourceClass() {
       java.lang.Object ref = actualResourceClass_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         actualResourceClass_ = s;
         return s;
@@ -4567,7 +5190,10 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
+     *
+     *
      * <pre>
      * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
      * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
@@ -4575,22 +5201,24 @@ private static final long serialVersionUID = 0L;
      * </pre>
      *
      * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+     *
      * @return The bytes for actualResourceClass.
      */
-    public com.google.protobuf.ByteString
-        getActualResourceClassBytes() {
+    public com.google.protobuf.ByteString getActualResourceClassBytes() {
       java.lang.Object ref = actualResourceClass_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         actualResourceClass_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
+     *
+     *
      * <pre>
      * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
      * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
@@ -4598,18 +5226,23 @@ private static final long serialVersionUID = 0L;
      * </pre>
      *
      * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+     *
      * @param value The actualResourceClass to set.
      * @return This builder for chaining.
      */
-    public Builder setActualResourceClass(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setActualResourceClass(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       actualResourceClass_ = value;
       bitField1_ |= 0x00000002;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
      * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
@@ -4617,6 +5250,7 @@ private static final long serialVersionUID = 0L;
      * </pre>
      *
      * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActualResourceClass() {
@@ -4625,7 +5259,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
      * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
@@ -4633,12 +5270,14 @@ private static final long serialVersionUID = 0L;
      * </pre>
      *
      * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+     *
      * @param value The bytes for actualResourceClass to set.
      * @return This builder for chaining.
      */
-    public Builder setActualResourceClassBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setActualResourceClassBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       actualResourceClass_ = value;
       bitField1_ |= 0x00000002;
@@ -4646,25 +5285,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int actualCpuMillis_ ;
+    private int actualCpuMillis_;
+
     /**
      * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
+     *
      * @return Whether the actualCpuMillis field is set.
      */
     @java.lang.Override
     public boolean hasActualCpuMillis() {
       return ((bitField1_ & 0x00000004) != 0);
     }
+
     /**
      * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
+     *
      * @return The actualCpuMillis.
      */
     @java.lang.Override
     public int getActualCpuMillis() {
       return actualCpuMillis_;
     }
+
     /**
      * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
+     *
      * @param value The actualCpuMillis to set.
      * @return This builder for chaining.
      */
@@ -4675,8 +5320,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActualCpuMillis() {
@@ -4686,25 +5333,34 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int actualMemoryRequestMib_ ;
+    private int actualMemoryRequestMib_;
+
     /**
-     * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
+     * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];
+     * </code>
+     *
      * @return Whether the actualMemoryRequestMib field is set.
      */
     @java.lang.Override
     public boolean hasActualMemoryRequestMib() {
       return ((bitField1_ & 0x00000008) != 0);
     }
+
     /**
-     * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
+     * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];
+     * </code>
+     *
      * @return The actualMemoryRequestMib.
      */
     @java.lang.Override
     public int getActualMemoryRequestMib() {
       return actualMemoryRequestMib_;
     }
+
     /**
-     * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
+     * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];
+     * </code>
+     *
      * @param value The actualMemoryRequestMib to set.
      * @return This builder for chaining.
      */
@@ -4715,8 +5371,11 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
+     * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActualMemoryRequestMib() {
@@ -4726,25 +5385,34 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int actualMemoryLimitMib_ ;
+    private int actualMemoryLimitMib_;
+
     /**
-     * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
+     * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];
+     * </code>
+     *
      * @return Whether the actualMemoryLimitMib field is set.
      */
     @java.lang.Override
     public boolean hasActualMemoryLimitMib() {
       return ((bitField1_ & 0x00000010) != 0);
     }
+
     /**
-     * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
+     * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];
+     * </code>
+     *
      * @return The actualMemoryLimitMib.
      */
     @java.lang.Override
     public int getActualMemoryLimitMib() {
       return actualMemoryLimitMib_;
     }
+
     /**
-     * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
+     * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];
+     * </code>
+     *
      * @param value The actualMemoryLimitMib to set.
      * @return This builder for chaining.
      */
@@ -4755,8 +5423,11 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
+     * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActualMemoryLimitMib() {
@@ -4766,25 +5437,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int actualPidLimit_ ;
+    private int actualPidLimit_;
+
     /**
      * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
+     *
      * @return Whether the actualPidLimit field is set.
      */
     @java.lang.Override
     public boolean hasActualPidLimit() {
       return ((bitField1_ & 0x00000020) != 0);
     }
+
     /**
      * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
+     *
      * @return The actualPidLimit.
      */
     @java.lang.Override
     public int getActualPidLimit() {
       return actualPidLimit_;
     }
+
     /**
      * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
+     *
      * @param value The actualPidLimit to set.
      * @return This builder for chaining.
      */
@@ -4795,8 +5472,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActualPidLimit() {
@@ -4806,25 +5485,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int actualTabBudget_ ;
+    private int actualTabBudget_;
+
     /**
      * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
+     *
      * @return Whether the actualTabBudget field is set.
      */
     @java.lang.Override
     public boolean hasActualTabBudget() {
       return ((bitField1_ & 0x00000040) != 0);
     }
+
     /**
      * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
+     *
      * @return The actualTabBudget.
      */
     @java.lang.Override
     public int getActualTabBudget() {
       return actualTabBudget_;
     }
+
     /**
      * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
+     *
      * @param value The actualTabBudget to set.
      * @return This builder for chaining.
      */
@@ -4835,8 +5520,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActualTabBudget() {
@@ -4846,25 +5533,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int actualStateCollectorBudgetPercent_ ;
+    private int actualStateCollectorBudgetPercent_;
+
     /**
-     * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
+     * <code>
+     * optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];
+     * </code>
+     *
      * @return Whether the actualStateCollectorBudgetPercent field is set.
      */
     @java.lang.Override
     public boolean hasActualStateCollectorBudgetPercent() {
       return ((bitField1_ & 0x00000080) != 0);
     }
+
     /**
-     * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
+     * <code>
+     * optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];
+     * </code>
+     *
      * @return The actualStateCollectorBudgetPercent.
      */
     @java.lang.Override
     public int getActualStateCollectorBudgetPercent() {
       return actualStateCollectorBudgetPercent_;
     }
+
     /**
-     * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
+     * <code>
+     * optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];
+     * </code>
+     *
      * @param value The actualStateCollectorBudgetPercent to set.
      * @return This builder for chaining.
      */
@@ -4875,8 +5574,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
+     * <code>
+     * optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActualStateCollectorBudgetPercent() {
@@ -4886,25 +5589,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int actualRemoteDesktopBitrateKbps_ ;
+    private int actualRemoteDesktopBitrateKbps_;
+
     /**
-     * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
+     * <code>
+     * optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];
+     * </code>
+     *
      * @return Whether the actualRemoteDesktopBitrateKbps field is set.
      */
     @java.lang.Override
     public boolean hasActualRemoteDesktopBitrateKbps() {
       return ((bitField1_ & 0x00000100) != 0);
     }
+
     /**
-     * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
+     * <code>
+     * optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];
+     * </code>
+     *
      * @return The actualRemoteDesktopBitrateKbps.
      */
     @java.lang.Override
     public int getActualRemoteDesktopBitrateKbps() {
       return actualRemoteDesktopBitrateKbps_;
     }
+
     /**
-     * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
+     * <code>
+     * optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];
+     * </code>
+     *
      * @param value The actualRemoteDesktopBitrateKbps to set.
      * @return This builder for chaining.
      */
@@ -4915,8 +5630,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
+     * <code>
+     * optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActualRemoteDesktopBitrateKbps() {
@@ -4926,25 +5645,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int actualExtensionCpuWeight_ ;
+    private int actualExtensionCpuWeight_;
+
     /**
-     * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
+     * <code>
+     * optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];
+     * </code>
+     *
      * @return Whether the actualExtensionCpuWeight field is set.
      */
     @java.lang.Override
     public boolean hasActualExtensionCpuWeight() {
       return ((bitField1_ & 0x00000200) != 0);
     }
+
     /**
-     * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
+     * <code>
+     * optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];
+     * </code>
+     *
      * @return The actualExtensionCpuWeight.
      */
     @java.lang.Override
     public int getActualExtensionCpuWeight() {
       return actualExtensionCpuWeight_;
     }
+
     /**
-     * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
+     * <code>
+     * optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];
+     * </code>
+     *
      * @param value The actualExtensionCpuWeight to set.
      * @return This builder for chaining.
      */
@@ -4955,8 +5686,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
+     * <code>
+     * optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActualExtensionCpuWeight() {
@@ -4966,25 +5701,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int actualMediaEncoderSlots_ ;
+    private int actualMediaEncoderSlots_;
+
     /**
-     * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
+     * <code>
+     * optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];
+     * </code>
+     *
      * @return Whether the actualMediaEncoderSlots field is set.
      */
     @java.lang.Override
     public boolean hasActualMediaEncoderSlots() {
       return ((bitField1_ & 0x00000400) != 0);
     }
+
     /**
-     * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
+     * <code>
+     * optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];
+     * </code>
+     *
      * @return The actualMediaEncoderSlots.
      */
     @java.lang.Override
     public int getActualMediaEncoderSlots() {
       return actualMediaEncoderSlots_;
     }
+
     /**
-     * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
+     * <code>
+     * optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];
+     * </code>
+     *
      * @param value The actualMediaEncoderSlots to set.
      * @return This builder for chaining.
      */
@@ -4995,8 +5742,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
+     * <code>
+     * optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActualMediaEncoderSlots() {
@@ -5006,25 +5757,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean actualFreezeBackgroundTabs_ ;
+    private boolean actualFreezeBackgroundTabs_;
+
     /**
-     * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
+     * <code>
+     * optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];
+     * </code>
+     *
      * @return Whether the actualFreezeBackgroundTabs field is set.
      */
     @java.lang.Override
     public boolean hasActualFreezeBackgroundTabs() {
       return ((bitField1_ & 0x00000800) != 0);
     }
+
     /**
-     * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
+     * <code>
+     * optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];
+     * </code>
+     *
      * @return The actualFreezeBackgroundTabs.
      */
     @java.lang.Override
     public boolean getActualFreezeBackgroundTabs() {
       return actualFreezeBackgroundTabs_;
     }
+
     /**
-     * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
+     * <code>
+     * optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];
+     * </code>
+     *
      * @param value The actualFreezeBackgroundTabs to set.
      * @return This builder for chaining.
      */
@@ -5035,8 +5798,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
+     * <code>
+     * optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActualFreezeBackgroundTabs() {
@@ -5046,25 +5813,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean actualBlockNewTabs_ ;
+    private boolean actualBlockNewTabs_;
+
     /**
      * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
+     *
      * @return Whether the actualBlockNewTabs field is set.
      */
     @java.lang.Override
     public boolean hasActualBlockNewTabs() {
       return ((bitField1_ & 0x00001000) != 0);
     }
+
     /**
      * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
+     *
      * @return The actualBlockNewTabs.
      */
     @java.lang.Override
     public boolean getActualBlockNewTabs() {
       return actualBlockNewTabs_;
     }
+
     /**
      * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
+     *
      * @param value The actualBlockNewTabs to set.
      * @return This builder for chaining.
      */
@@ -5075,8 +5848,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActualBlockNewTabs() {
@@ -5086,31 +5861,50 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy actualExtensionBackgroundPolicy_;
+    private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy
+        actualExtensionBackgroundPolicy_;
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder> actualExtensionBackgroundPolicyBuilder_;
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
+        actualExtensionBackgroundPolicyBuilder_;
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];
+     * </code>
+     *
      * @return Whether the actualExtensionBackgroundPolicy field is set.
      */
     public boolean hasActualExtensionBackgroundPolicy() {
       return ((bitField1_ & 0x00002000) != 0);
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];
+     * </code>
+     *
      * @return The actualExtensionBackgroundPolicy.
      */
-    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getActualExtensionBackgroundPolicy() {
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy
+        getActualExtensionBackgroundPolicy() {
       if (actualExtensionBackgroundPolicyBuilder_ == null) {
-        return actualExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : actualExtensionBackgroundPolicy_;
+        return actualExtensionBackgroundPolicy_ == null
+            ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()
+            : actualExtensionBackgroundPolicy_;
       } else {
         return actualExtensionBackgroundPolicyBuilder_.getMessage();
       }
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];
+     * </code>
      */
-    public Builder setActualExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+    public Builder setActualExtensionBackgroundPolicy(
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
       if (actualExtensionBackgroundPolicyBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
@@ -5123,8 +5917,11 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];
+     * </code>
      */
     public Builder setActualExtensionBackgroundPolicy(
         io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder builderForValue) {
@@ -5137,14 +5934,19 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];
+     * </code>
      */
-    public Builder mergeActualExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+    public Builder mergeActualExtensionBackgroundPolicy(
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
       if (actualExtensionBackgroundPolicyBuilder_ == null) {
-        if (((bitField1_ & 0x00002000) != 0) &&
-          actualExtensionBackgroundPolicy_ != null &&
-          actualExtensionBackgroundPolicy_ != io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()) {
+        if (((bitField1_ & 0x00002000) != 0)
+            && actualExtensionBackgroundPolicy_ != null
+            && actualExtensionBackgroundPolicy_
+                != io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()) {
           getActualExtensionBackgroundPolicyBuilder().mergeFrom(value);
         } else {
           actualExtensionBackgroundPolicy_ = value;
@@ -5158,8 +5960,11 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];
+     * </code>
      */
     public Builder clearActualExtensionBackgroundPolicy() {
       bitField1_ = (bitField1_ & ~0x00002000);
@@ -5171,61 +5976,88 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];
+     * </code>
      */
-    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder getActualExtensionBackgroundPolicyBuilder() {
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder
+        getActualExtensionBackgroundPolicyBuilder() {
       bitField1_ |= 0x00002000;
       onChanged();
       return getActualExtensionBackgroundPolicyFieldBuilder().getBuilder();
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];
+     * </code>
      */
-    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getActualExtensionBackgroundPolicyOrBuilder() {
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder
+        getActualExtensionBackgroundPolicyOrBuilder() {
       if (actualExtensionBackgroundPolicyBuilder_ != null) {
         return actualExtensionBackgroundPolicyBuilder_.getMessageOrBuilder();
       } else {
-        return actualExtensionBackgroundPolicy_ == null ?
-            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : actualExtensionBackgroundPolicy_;
+        return actualExtensionBackgroundPolicy_ == null
+            ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()
+            : actualExtensionBackgroundPolicy_;
       }
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];
+     * </code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
         getActualExtensionBackgroundPolicyFieldBuilder() {
       if (actualExtensionBackgroundPolicyBuilder_ == null) {
-        actualExtensionBackgroundPolicyBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>(
-                getActualExtensionBackgroundPolicy(),
-                getParentForChildren(),
-                isClean());
+        actualExtensionBackgroundPolicyBuilder_ =
+            new com.google.protobuf.SingleFieldBuilderV3<
+                io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy,
+                io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder,
+                io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>(
+                getActualExtensionBackgroundPolicy(), getParentForChildren(), isClean());
         actualExtensionBackgroundPolicy_ = null;
       }
       return actualExtensionBackgroundPolicyBuilder_;
     }
 
-    private int actualSuccessTraceSamplePercent_ ;
+    private int actualSuccessTraceSamplePercent_;
+
     /**
-     * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
+     * <code>
+     * optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];
+     * </code>
+     *
      * @return Whether the actualSuccessTraceSamplePercent field is set.
      */
     @java.lang.Override
     public boolean hasActualSuccessTraceSamplePercent() {
       return ((bitField1_ & 0x00004000) != 0);
     }
+
     /**
-     * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
+     * <code>
+     * optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];
+     * </code>
+     *
      * @return The actualSuccessTraceSamplePercent.
      */
     @java.lang.Override
     public int getActualSuccessTraceSamplePercent() {
       return actualSuccessTraceSamplePercent_;
     }
+
     /**
-     * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
+     * <code>
+     * optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];
+     * </code>
+     *
      * @param value The actualSuccessTraceSamplePercent to set.
      * @return This builder for chaining.
      */
@@ -5236,8 +6068,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
+     * <code>
+     * optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActualSuccessTraceSamplePercent() {
@@ -5247,25 +6083,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int actualObserverFrameRateFps_ ;
+    private int actualObserverFrameRateFps_;
+
     /**
-     * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
+     * <code>
+     * optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];
+     * </code>
+     *
      * @return Whether the actualObserverFrameRateFps field is set.
      */
     @java.lang.Override
     public boolean hasActualObserverFrameRateFps() {
       return ((bitField1_ & 0x00008000) != 0);
     }
+
     /**
-     * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
+     * <code>
+     * optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];
+     * </code>
+     *
      * @return The actualObserverFrameRateFps.
      */
     @java.lang.Override
     public int getActualObserverFrameRateFps() {
       return actualObserverFrameRateFps_;
     }
+
     /**
-     * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
+     * <code>
+     * optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];
+     * </code>
+     *
      * @param value The actualObserverFrameRateFps to set.
      * @return This builder for chaining.
      */
@@ -5276,8 +6124,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
+     * <code>
+     * optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActualObserverFrameRateFps() {
@@ -5287,25 +6139,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean actualVideoRecordingEnabled_ ;
+    private boolean actualVideoRecordingEnabled_;
+
     /**
-     * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
+     * <code>
+     * optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];
+     * </code>
+     *
      * @return Whether the actualVideoRecordingEnabled field is set.
      */
     @java.lang.Override
     public boolean hasActualVideoRecordingEnabled() {
       return ((bitField1_ & 0x00010000) != 0);
     }
+
     /**
-     * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
+     * <code>
+     * optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];
+     * </code>
+     *
      * @return The actualVideoRecordingEnabled.
      */
     @java.lang.Override
     public boolean getActualVideoRecordingEnabled() {
       return actualVideoRecordingEnabled_;
     }
+
     /**
-     * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
+     * <code>
+     * optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];
+     * </code>
+     *
      * @param value The actualVideoRecordingEnabled to set.
      * @return This builder for chaining.
      */
@@ -5316,8 +6180,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
+     * <code>
+     * optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActualVideoRecordingEnabled() {
@@ -5327,25 +6195,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int actualSuccessScreenshotSamplePercent_ ;
+    private int actualSuccessScreenshotSamplePercent_;
+
     /**
-     * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
+     * <code>
+     * optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];
+     * </code>
+     *
      * @return Whether the actualSuccessScreenshotSamplePercent field is set.
      */
     @java.lang.Override
     public boolean hasActualSuccessScreenshotSamplePercent() {
       return ((bitField1_ & 0x00020000) != 0);
     }
+
     /**
-     * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
+     * <code>
+     * optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];
+     * </code>
+     *
      * @return The actualSuccessScreenshotSamplePercent.
      */
     @java.lang.Override
     public int getActualSuccessScreenshotSamplePercent() {
       return actualSuccessScreenshotSamplePercent_;
     }
+
     /**
-     * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
+     * <code>
+     * optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];
+     * </code>
+     *
      * @param value The actualSuccessScreenshotSamplePercent to set.
      * @return This builder for chaining.
      */
@@ -5356,8 +6236,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
+     * <code>
+     * optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActualSuccessScreenshotSamplePercent() {
@@ -5366,9 +6250,9 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     @java.lang.Override
-    public final Builder setUnknownFields(
-        final com.google.protobuf.UnknownFieldSet unknownFields) {
+    public final Builder setUnknownFields(final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.setUnknownFields(unknownFields);
     }
 
@@ -5378,12 +6262,12 @@ private static final long serialVersionUID = 0L;
       return super.mergeUnknownFields(unknownFields);
     }
 
-
     // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.ReportSessionResourcesRequest)
   }
 
   // @@protoc_insertion_point(class_scope:browsercloud.node.v1.ReportSessionResourcesRequest)
   private static final io.browsercloud.proto.node.v1.ReportSessionResourcesRequest DEFAULT_INSTANCE;
+
   static {
     DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.ReportSessionResourcesRequest();
   }
@@ -5392,27 +6276,27 @@ private static final long serialVersionUID = 0L;
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<ReportSessionResourcesRequest>
-      PARSER = new com.google.protobuf.AbstractParser<ReportSessionResourcesRequest>() {
-    @java.lang.Override
-    public ReportSessionResourcesRequest parsePartialFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      Builder builder = newBuilder();
-      try {
-        builder.mergeFrom(input, extensionRegistry);
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(builder.buildPartial());
-      } catch (com.google.protobuf.UninitializedMessageException e) {
-        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(e)
-            .setUnfinishedMessage(builder.buildPartial());
-      }
-      return builder.buildPartial();
-    }
-  };
+  private static final com.google.protobuf.Parser<ReportSessionResourcesRequest> PARSER =
+      new com.google.protobuf.AbstractParser<ReportSessionResourcesRequest>() {
+        @java.lang.Override
+        public ReportSessionResourcesRequest parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          Builder builder = newBuilder();
+          try {
+            builder.mergeFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            throw e.setUnfinishedMessage(builder.buildPartial());
+          } catch (com.google.protobuf.UninitializedMessageException e) {
+            throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+          } catch (java.io.IOException e) {
+            throw new com.google.protobuf.InvalidProtocolBufferException(e)
+                .setUnfinishedMessage(builder.buildPartial());
+          }
+          return builder.buildPartial();
+        }
+      };
 
   public static com.google.protobuf.Parser<ReportSessionResourcesRequest> parser() {
     return PARSER;
@@ -5427,5 +6311,4 @@ private static final long serialVersionUID = 0L;
   public io.browsercloud.proto.node.v1.ReportSessionResourcesRequest getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
-
 }

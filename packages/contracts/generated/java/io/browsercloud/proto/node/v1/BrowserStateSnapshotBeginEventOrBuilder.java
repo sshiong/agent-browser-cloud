@@ -4,99 +4,119 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface BrowserStateSnapshotBeginEventOrBuilder extends
+public interface BrowserStateSnapshotBeginEventOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.BrowserStateSnapshotBeginEvent)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>string snapshot_id = 2 [json_name = "snapshotId"];</code>
+   *
    * @return The snapshotId.
    */
   java.lang.String getSnapshotId();
+
   /**
    * <code>string snapshot_id = 2 [json_name = "snapshotId"];</code>
+   *
    * @return The bytes for snapshotId.
    */
-  com.google.protobuf.ByteString
-      getSnapshotIdBytes();
+  com.google.protobuf.ByteString getSnapshotIdBytes();
 
   /**
    * <code>uint64 state_version = 3 [json_name = "stateVersion"];</code>
+   *
    * @return The stateVersion.
    */
   long getStateVersion();
 
   /**
    * <code>uint64 target_revision = 4 [json_name = "targetRevision"];</code>
+   *
    * @return The targetRevision.
    */
   long getTargetRevision();
 
   /**
    * <code>uint32 total_chunks = 5 [json_name = "totalChunks"];</code>
+   *
    * @return The totalChunks.
    */
   int getTotalChunks();
 
   /**
    * <code>uint64 total_bytes = 6 [json_name = "totalBytes"];</code>
+   *
    * @return The totalBytes.
    */
   long getTotalBytes();
 
   /**
    * <code>string payload_sha256 = 7 [json_name = "payloadSha256"];</code>
+   *
    * @return The payloadSha256.
    */
   java.lang.String getPayloadSha256();
+
   /**
    * <code>string payload_sha256 = 7 [json_name = "payloadSha256"];</code>
+   *
    * @return The bytes for payloadSha256.
    */
-  com.google.protobuf.ByteString
-      getPayloadSha256Bytes();
+  com.google.protobuf.ByteString getPayloadSha256Bytes();
 
   /**
    * <code>string snapshot_kind = 8 [json_name = "snapshotKind"];</code>
+   *
    * @return The snapshotKind.
    */
   java.lang.String getSnapshotKind();
-  /**
-   * <code>string snapshot_kind = 8 [json_name = "snapshotKind"];</code>
-   * @return The bytes for snapshotKind.
-   */
-  com.google.protobuf.ByteString
-      getSnapshotKindBytes();
 
   /**
+   * <code>string snapshot_kind = 8 [json_name = "snapshotKind"];</code>
+   *
+   * @return The bytes for snapshotKind.
+   */
+  com.google.protobuf.ByteString getSnapshotKindBytes();
+
+  /**
+   *
+   *
    * <pre>
    * Browser Runtime cgroup 在本次采集期间的累计 CPU 时间增量；无委派 cgroup 的
    * N-1/本地 Node 留空，Control Plane 保留准入时的保守预留。
    * </pre>
    *
    * <code>optional uint64 collection_cpu_millis = 9 [json_name = "collectionCpuMillis"];</code>
+   *
    * @return Whether the collectionCpuMillis field is set.
    */
   boolean hasCollectionCpuMillis();
+
   /**
+   *
+   *
    * <pre>
    * Browser Runtime cgroup 在本次采集期间的累计 CPU 时间增量；无委派 cgroup 的
    * N-1/本地 Node 留空，Control Plane 保留准入时的保守预留。
    * </pre>
    *
    * <code>optional uint64 collection_cpu_millis = 9 [json_name = "collectionCpuMillis"];</code>
+   *
    * @return The collectionCpuMillis.
    */
   long getCollectionCpuMillis();

@@ -18,6 +18,10 @@ service NodeControlService {
   // streams bytes without durable business persistence; the Node delegates validation and
   // checkpoint/object-store commit to the isolated Storage Helper.
   rpc UploadProfileImport(stream UploadProfileImportRequest) returns (UploadProfileImportResponse);
+  // mTLS-authenticated bounded ingress to the owning Session Node. Bytes are staged outside the
+  // browser profile; a separate journaled AgentFileUpload command consumes them exactly once.
+  rpc StageAgentBrowserFile(stream StageAgentBrowserFileRequest)
+      returns (StageAgentBrowserFileResponse);
   // Purpose-bound evidence access. The Browser Node delegates signing to the isolated
   // Storage Helper and never returns Object Storage credentials.
   rpc PresignEvidenceDownload(PresignEvidenceDownloadRequest)
@@ -108,6 +112,28 @@ message UploadProfileImportResponse {
   uint64 checkpoint_file_count = 8;
   string archive_sha256 = 9;
   uint64 archive_size_bytes = 10;
+}
+
+message StageAgentBrowserFileRequest {
+  string upload_id = 1;
+  string tenant_id = 2;
+  string session_id = 3;
+  int64 coordinator_term = 4;
+  int64 context_epoch = 5;
+  string filename = 6;
+  string mime_type = 7;
+  string content_sha256 = 8;
+  uint64 content_bytes = 9;
+  uint64 offset = 10;
+  bytes data = 11;
+}
+
+message StageAgentBrowserFileResponse {
+  string upload_id = 1;
+  string node_id = 2;
+  string session_id = 3;
+  string content_sha256 = 4;
+  uint64 content_bytes = 5;
 }
 
 message PresignEvidenceDownloadRequest {
@@ -628,6 +654,20 @@ message BrowserNativeDialogState {
   bool has_browser_handler = 6;
 }
 
+// URL-free, filesystem-path-free Chromium download lifecycle. Size/progress remain optional when
+// the server omits Content-Length. Control Plane persists terminal entries across Runtime restarts.
+message BrowserDownloadState {
+  string download_id = 1;
+  string filename = 2;
+  string mime_type = 3;
+  optional uint64 total_bytes = 4;
+  uint64 received_bytes = 5;
+  optional uint32 progress_basis_points = 6;
+  string status = 7;
+  int64 started_at_ms = 8;
+  int64 updated_at_ms = 9;
+}
+
 message BrowserStateEvent {
   string session_id = 1;
   uint64 state_version = 2;
@@ -655,6 +695,10 @@ message BrowserStateEvent {
   // False means N-1 or an observer gap. Control Plane preserves the last projection but rejects
   // dialog actions until a continuous event stream or a safe Runtime probe restores freshness.
   bool native_dialog_evidence_fresh = 18;
+  repeated BrowserDownloadState downloads = 19;
+  // False means the Browser-level event observer has a gap. No missing entry may be interpreted
+  // as completed until a new Runtime establishes a continuous source.
+  bool download_evidence_fresh = 20;
 }
 
 // 显式 FULL Resync 的有界流式传输。Begin 声明不可变清单，Chunk 只承载状态
@@ -793,6 +837,27 @@ message AgentActionFailedEvent {
   string error_code = 5;
 }
 
+// Journaled consumption of a previously streamed, Session-bound staging file. No arbitrary path
+// crosses the Control Plane/Node contract.
+message AgentFileUploadCommand {
+  string session_id = 1;
+  string upload_id = 2;
+  string target_ref = 3;
+  uint64 target_revision = 4;
+  uint64 base_state_version = 5;
+  string base_content_hash = 6;
+  string filename = 7;
+  string mime_type = 8;
+  string content_sha256 = 9;
+  uint64 content_bytes = 10;
+}
+
+message AgentFileUploadFailedEvent {
+  string session_id = 1;
+  string upload_id = 2;
+  string error_code = 3;
+}
+
 // User-authorized single-use click bound to a current Challenge Event and visual target anchor.
 // The Browser Node never accepts text, coordinates without a target_ref, multiple actions, or an
 // automatic retry budget through this command.
@@ -928,6 +993,8 @@ message BrowserStateDiffEvent {
   string active_tab_id = 19;
   repeated BrowserNativeDialogState native_dialogs = 20;
   bool native_dialog_evidence_fresh = 21;
+  repeated BrowserDownloadState downloads = 22;
+  bool download_evidence_fresh = 23;
 }
 
 message DiffTruncatedEvent {

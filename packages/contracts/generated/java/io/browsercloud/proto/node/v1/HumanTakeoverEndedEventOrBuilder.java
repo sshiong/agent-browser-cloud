@@ -4,66 +4,79 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface HumanTakeoverEndedEventOrBuilder extends
+public interface HumanTakeoverEndedEventOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.HumanTakeoverEndedEvent)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>string user_id = 2 [json_name = "userId"];</code>
+   *
    * @return The userId.
    */
   java.lang.String getUserId();
+
   /**
    * <code>string user_id = 2 [json_name = "userId"];</code>
+   *
    * @return The bytes for userId.
    */
-  com.google.protobuf.ByteString
-      getUserIdBytes();
+  com.google.protobuf.ByteString getUserIdBytes();
 
   /**
    * <code>.browsercloud.node.v1.BrowserStateEvent state = 3 [json_name = "state"];</code>
+   *
    * @return Whether the state field is set.
    */
   boolean hasState();
+
   /**
    * <code>.browsercloud.node.v1.BrowserStateEvent state = 3 [json_name = "state"];</code>
+   *
    * @return The state.
    */
   io.browsercloud.proto.node.v1.BrowserStateEvent getState();
-  /**
-   * <code>.browsercloud.node.v1.BrowserStateEvent state = 3 [json_name = "state"];</code>
-   */
+
+  /** <code>.browsercloud.node.v1.BrowserStateEvent state = 3 [json_name = "state"];</code> */
   io.browsercloud.proto.node.v1.BrowserStateEventOrBuilder getStateOrBuilder();
 
   /**
+   *
+   *
    * <pre>
    * USER_RELEASE 表示显式结束；GATEWAY_DISCONNECT 表示远程桌面数据面断线。
    * </pre>
    *
    * <code>string reason = 4 [json_name = "reason"];</code>
+   *
    * @return The reason.
    */
   java.lang.String getReason();
+
   /**
+   *
+   *
    * <pre>
    * USER_RELEASE 表示显式结束；GATEWAY_DISCONNECT 表示远程桌面数据面断线。
    * </pre>
    *
    * <code>string reason = 4 [json_name = "reason"];</code>
+   *
    * @return The bytes for reason.
    */
-  com.google.protobuf.ByteString
-      getReasonBytes();
+  com.google.protobuf.ByteString getReasonBytes();
 }

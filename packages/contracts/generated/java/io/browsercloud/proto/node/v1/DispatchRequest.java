@@ -4,69 +4,77 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-/**
- * Protobuf type {@code browsercloud.node.v1.DispatchRequest}
- */
-public final class DispatchRequest extends
-    com.google.protobuf.GeneratedMessageV3 implements
+/** Protobuf type {@code browsercloud.node.v1.DispatchRequest} */
+public final class DispatchRequest extends com.google.protobuf.GeneratedMessageV3
+    implements
     // @@protoc_insertion_point(message_implements:browsercloud.node.v1.DispatchRequest)
     DispatchRequestOrBuilder {
-private static final long serialVersionUID = 0L;
+  private static final long serialVersionUID = 0L;
+
   // Use DispatchRequest.newBuilder() to construct.
   private DispatchRequest(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
-  private DispatchRequest() {
-  }
+
+  private DispatchRequest() {}
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
+  protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
     return new DispatchRequest();
   }
 
-  public static final com.google.protobuf.Descriptors.Descriptor
-      getDescriptor() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_DispatchRequest_descriptor;
+  public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_DispatchRequest_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_DispatchRequest_fieldAccessorTable
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_DispatchRequest_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            io.browsercloud.proto.node.v1.DispatchRequest.class, io.browsercloud.proto.node.v1.DispatchRequest.Builder.class);
+            io.browsercloud.proto.node.v1.DispatchRequest.class,
+            io.browsercloud.proto.node.v1.DispatchRequest.Builder.class);
   }
 
   private int bitField0_;
   public static final int COMMAND_FIELD_NUMBER = 1;
   private io.browsercloud.proto.node.v1.CommandEnvelope command_;
+
   /**
    * <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code>
+   *
    * @return Whether the command field is set.
    */
   @java.lang.Override
   public boolean hasCommand() {
     return ((bitField0_ & 0x00000001) != 0);
   }
+
   /**
    * <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code>
+   *
    * @return The command.
    */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.CommandEnvelope getCommand() {
-    return command_ == null ? io.browsercloud.proto.node.v1.CommandEnvelope.getDefaultInstance() : command_;
+    return command_ == null
+        ? io.browsercloud.proto.node.v1.CommandEnvelope.getDefaultInstance()
+        : command_;
   }
-  /**
-   * <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code>
-   */
+
+  /** <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code> */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.CommandEnvelopeOrBuilder getCommandOrBuilder() {
-    return command_ == null ? io.browsercloud.proto.node.v1.CommandEnvelope.getDefaultInstance() : command_;
+    return command_ == null
+        ? io.browsercloud.proto.node.v1.CommandEnvelope.getDefaultInstance()
+        : command_;
   }
 
   private byte memoizedIsInitialized = -1;
+
   @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
@@ -78,8 +86,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @java.lang.Override
-  public void writeTo(com.google.protobuf.CodedOutputStream output)
-                      throws java.io.IOException {
+  public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
     if (((bitField0_ & 0x00000001) != 0)) {
       output.writeMessage(1, getCommand());
     }
@@ -93,8 +100,7 @@ private static final long serialVersionUID = 0L;
 
     size = 0;
     if (((bitField0_ & 0x00000001) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(1, getCommand());
+      size += com.google.protobuf.CodedOutputStream.computeMessageSize(1, getCommand());
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -104,17 +110,17 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public boolean equals(final java.lang.Object obj) {
     if (obj == this) {
-     return true;
+      return true;
     }
     if (!(obj instanceof io.browsercloud.proto.node.v1.DispatchRequest)) {
       return super.equals(obj);
     }
-    io.browsercloud.proto.node.v1.DispatchRequest other = (io.browsercloud.proto.node.v1.DispatchRequest) obj;
+    io.browsercloud.proto.node.v1.DispatchRequest other =
+        (io.browsercloud.proto.node.v1.DispatchRequest) obj;
 
     if (hasCommand() != other.hasCommand()) return false;
     if (hasCommand()) {
-      if (!getCommand()
-          .equals(other.getCommand())) return false;
+      if (!getCommand().equals(other.getCommand())) return false;
     }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
@@ -136,116 +142,120 @@ private static final long serialVersionUID = 0L;
     return hash;
   }
 
-  public static io.browsercloud.proto.node.v1.DispatchRequest parseFrom(
-      java.nio.ByteBuffer data)
+  public static io.browsercloud.proto.node.v1.DispatchRequest parseFrom(java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.DispatchRequest parseFrom(
-      java.nio.ByteBuffer data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.DispatchRequest parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.DispatchRequest parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.DispatchRequest parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.DispatchRequest parseFrom(
-      byte[] data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.DispatchRequest parseFrom(java.io.InputStream input)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
-  }
-  public static io.browsercloud.proto.node.v1.DispatchRequest parseFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.DispatchRequest parseDelimitedFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.DispatchRequest parseFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   public static io.browsercloud.proto.node.v1.DispatchRequest parseDelimitedFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
   }
+
+  public static io.browsercloud.proto.node.v1.DispatchRequest parseDelimitedFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
+        PARSER, input, extensionRegistry);
+  }
+
   public static io.browsercloud.proto.node.v1.DispatchRequest parseFrom(
-      com.google.protobuf.CodedInputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
+      com.google.protobuf.CodedInputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
+
   public static io.browsercloud.proto.node.v1.DispatchRequest parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   @java.lang.Override
-  public Builder newBuilderForType() { return newBuilder(); }
+  public Builder newBuilderForType() {
+    return newBuilder();
+  }
+
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
+
   public static Builder newBuilder(io.browsercloud.proto.node.v1.DispatchRequest prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
+
   @java.lang.Override
   public Builder toBuilder() {
-    return this == DEFAULT_INSTANCE
-        ? new Builder() : new Builder().mergeFrom(this);
+    return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
   }
 
   @java.lang.Override
-  protected Builder newBuilderForType(
-      com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+  protected Builder newBuilderForType(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
     Builder builder = new Builder(parent);
     return builder;
   }
-  /**
-   * Protobuf type {@code browsercloud.node.v1.DispatchRequest}
-   */
-  public static final class Builder extends
-      com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+
+  /** Protobuf type {@code browsercloud.node.v1.DispatchRequest} */
+  public static final class Builder extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
+      implements
       // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.DispatchRequest)
       io.browsercloud.proto.node.v1.DispatchRequestOrBuilder {
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_DispatchRequest_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_DispatchRequest_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_DispatchRequest_fieldAccessorTable
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_DispatchRequest_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              io.browsercloud.proto.node.v1.DispatchRequest.class, io.browsercloud.proto.node.v1.DispatchRequest.Builder.class);
+              io.browsercloud.proto.node.v1.DispatchRequest.class,
+              io.browsercloud.proto.node.v1.DispatchRequest.Builder.class);
     }
 
     // Construct using io.browsercloud.proto.node.v1.DispatchRequest.newBuilder()
@@ -253,17 +263,17 @@ private static final long serialVersionUID = 0L;
       maybeForceBuilderInitialization();
     }
 
-    private Builder(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+    private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
       maybeForceBuilderInitialization();
     }
+
     private void maybeForceBuilderInitialization() {
-      if (com.google.protobuf.GeneratedMessageV3
-              .alwaysUseFieldBuilders) {
+      if (com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders) {
         getCommandFieldBuilder();
       }
     }
+
     @java.lang.Override
     public Builder clear() {
       super.clear();
@@ -277,9 +287,9 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Descriptors.Descriptor
-        getDescriptorForType() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_DispatchRequest_descriptor;
+    public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_DispatchRequest_descriptor;
     }
 
     @java.lang.Override
@@ -298,8 +308,11 @@ private static final long serialVersionUID = 0L;
 
     @java.lang.Override
     public io.browsercloud.proto.node.v1.DispatchRequest buildPartial() {
-      io.browsercloud.proto.node.v1.DispatchRequest result = new io.browsercloud.proto.node.v1.DispatchRequest(this);
-      if (bitField0_ != 0) { buildPartial0(result); }
+      io.browsercloud.proto.node.v1.DispatchRequest result =
+          new io.browsercloud.proto.node.v1.DispatchRequest(this);
+      if (bitField0_ != 0) {
+        buildPartial0(result);
+      }
       onBuilt();
       return result;
     }
@@ -308,9 +321,7 @@ private static final long serialVersionUID = 0L;
       int from_bitField0_ = bitField0_;
       int to_bitField0_ = 0;
       if (((from_bitField0_ & 0x00000001) != 0)) {
-        result.command_ = commandBuilder_ == null
-            ? command_
-            : commandBuilder_.build();
+        result.command_ = commandBuilder_ == null ? command_ : commandBuilder_.build();
         to_bitField0_ |= 0x00000001;
       }
       result.bitField0_ |= to_bitField0_;
@@ -320,38 +331,39 @@ private static final long serialVersionUID = 0L;
     public Builder clone() {
       return super.clone();
     }
+
     @java.lang.Override
     public Builder setField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.setField(field, value);
     }
+
     @java.lang.Override
-    public Builder clearField(
-        com.google.protobuf.Descriptors.FieldDescriptor field) {
+    public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
       return super.clearField(field);
     }
+
     @java.lang.Override
-    public Builder clearOneof(
-        com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+    public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
       return super.clearOneof(oneof);
     }
+
     @java.lang.Override
     public Builder setRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        int index, java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, int index, java.lang.Object value) {
       return super.setRepeatedField(field, index, value);
     }
+
     @java.lang.Override
     public Builder addRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.addRepeatedField(field, value);
     }
+
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof io.browsercloud.proto.node.v1.DispatchRequest) {
-        return mergeFrom((io.browsercloud.proto.node.v1.DispatchRequest)other);
+        return mergeFrom((io.browsercloud.proto.node.v1.DispatchRequest) other);
       } else {
         super.mergeFrom(other);
         return this;
@@ -389,19 +401,19 @@ private static final long serialVersionUID = 0L;
             case 0:
               done = true;
               break;
-            case 10: {
-              input.readMessage(
-                  getCommandFieldBuilder().getBuilder(),
-                  extensionRegistry);
-              bitField0_ |= 0x00000001;
-              break;
-            } // case 10
-            default: {
-              if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                done = true; // was an endgroup tag
-              }
-              break;
-            } // default:
+            case 10:
+              {
+                input.readMessage(getCommandFieldBuilder().getBuilder(), extensionRegistry);
+                bitField0_ |= 0x00000001;
+                break;
+              } // case 10
+            default:
+              {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
           } // switch (tag)
         } // while (!done)
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -411,32 +423,41 @@ private static final long serialVersionUID = 0L;
       } // finally
       return this;
     }
+
     private int bitField0_;
 
     private io.browsercloud.proto.node.v1.CommandEnvelope command_;
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.CommandEnvelope, io.browsercloud.proto.node.v1.CommandEnvelope.Builder, io.browsercloud.proto.node.v1.CommandEnvelopeOrBuilder> commandBuilder_;
+            io.browsercloud.proto.node.v1.CommandEnvelope,
+            io.browsercloud.proto.node.v1.CommandEnvelope.Builder,
+            io.browsercloud.proto.node.v1.CommandEnvelopeOrBuilder>
+        commandBuilder_;
+
     /**
      * <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code>
+     *
      * @return Whether the command field is set.
      */
     public boolean hasCommand() {
       return ((bitField0_ & 0x00000001) != 0);
     }
+
     /**
      * <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code>
+     *
      * @return The command.
      */
     public io.browsercloud.proto.node.v1.CommandEnvelope getCommand() {
       if (commandBuilder_ == null) {
-        return command_ == null ? io.browsercloud.proto.node.v1.CommandEnvelope.getDefaultInstance() : command_;
+        return command_ == null
+            ? io.browsercloud.proto.node.v1.CommandEnvelope.getDefaultInstance()
+            : command_;
       } else {
         return commandBuilder_.getMessage();
       }
     }
-    /**
-     * <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code> */
     public Builder setCommand(io.browsercloud.proto.node.v1.CommandEnvelope value) {
       if (commandBuilder_ == null) {
         if (value == null) {
@@ -450,9 +471,8 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
-    /**
-     * <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code> */
     public Builder setCommand(
         io.browsercloud.proto.node.v1.CommandEnvelope.Builder builderForValue) {
       if (commandBuilder_ == null) {
@@ -464,14 +484,13 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
-    /**
-     * <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code> */
     public Builder mergeCommand(io.browsercloud.proto.node.v1.CommandEnvelope value) {
       if (commandBuilder_ == null) {
-        if (((bitField0_ & 0x00000001) != 0) &&
-          command_ != null &&
-          command_ != io.browsercloud.proto.node.v1.CommandEnvelope.getDefaultInstance()) {
+        if (((bitField0_ & 0x00000001) != 0)
+            && command_ != null
+            && command_ != io.browsercloud.proto.node.v1.CommandEnvelope.getDefaultInstance()) {
           getCommandBuilder().mergeFrom(value);
         } else {
           command_ = value;
@@ -485,9 +504,8 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
-    /**
-     * <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code> */
     public Builder clearCommand() {
       bitField0_ = (bitField0_ & ~0x00000001);
       command_ = null;
@@ -498,44 +516,45 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
-    /**
-     * <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code> */
     public io.browsercloud.proto.node.v1.CommandEnvelope.Builder getCommandBuilder() {
       bitField0_ |= 0x00000001;
       onChanged();
       return getCommandFieldBuilder().getBuilder();
     }
-    /**
-     * <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code> */
     public io.browsercloud.proto.node.v1.CommandEnvelopeOrBuilder getCommandOrBuilder() {
       if (commandBuilder_ != null) {
         return commandBuilder_.getMessageOrBuilder();
       } else {
-        return command_ == null ?
-            io.browsercloud.proto.node.v1.CommandEnvelope.getDefaultInstance() : command_;
+        return command_ == null
+            ? io.browsercloud.proto.node.v1.CommandEnvelope.getDefaultInstance()
+            : command_;
       }
     }
-    /**
-     * <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code> */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.CommandEnvelope, io.browsercloud.proto.node.v1.CommandEnvelope.Builder, io.browsercloud.proto.node.v1.CommandEnvelopeOrBuilder>
+            io.browsercloud.proto.node.v1.CommandEnvelope,
+            io.browsercloud.proto.node.v1.CommandEnvelope.Builder,
+            io.browsercloud.proto.node.v1.CommandEnvelopeOrBuilder>
         getCommandFieldBuilder() {
       if (commandBuilder_ == null) {
-        commandBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            io.browsercloud.proto.node.v1.CommandEnvelope, io.browsercloud.proto.node.v1.CommandEnvelope.Builder, io.browsercloud.proto.node.v1.CommandEnvelopeOrBuilder>(
-                getCommand(),
-                getParentForChildren(),
-                isClean());
+        commandBuilder_ =
+            new com.google.protobuf.SingleFieldBuilderV3<
+                io.browsercloud.proto.node.v1.CommandEnvelope,
+                io.browsercloud.proto.node.v1.CommandEnvelope.Builder,
+                io.browsercloud.proto.node.v1.CommandEnvelopeOrBuilder>(
+                getCommand(), getParentForChildren(), isClean());
         command_ = null;
       }
       return commandBuilder_;
     }
+
     @java.lang.Override
-    public final Builder setUnknownFields(
-        final com.google.protobuf.UnknownFieldSet unknownFields) {
+    public final Builder setUnknownFields(final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.setUnknownFields(unknownFields);
     }
 
@@ -545,12 +564,12 @@ private static final long serialVersionUID = 0L;
       return super.mergeUnknownFields(unknownFields);
     }
 
-
     // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.DispatchRequest)
   }
 
   // @@protoc_insertion_point(class_scope:browsercloud.node.v1.DispatchRequest)
   private static final io.browsercloud.proto.node.v1.DispatchRequest DEFAULT_INSTANCE;
+
   static {
     DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.DispatchRequest();
   }
@@ -559,27 +578,27 @@ private static final long serialVersionUID = 0L;
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<DispatchRequest>
-      PARSER = new com.google.protobuf.AbstractParser<DispatchRequest>() {
-    @java.lang.Override
-    public DispatchRequest parsePartialFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      Builder builder = newBuilder();
-      try {
-        builder.mergeFrom(input, extensionRegistry);
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(builder.buildPartial());
-      } catch (com.google.protobuf.UninitializedMessageException e) {
-        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(e)
-            .setUnfinishedMessage(builder.buildPartial());
-      }
-      return builder.buildPartial();
-    }
-  };
+  private static final com.google.protobuf.Parser<DispatchRequest> PARSER =
+      new com.google.protobuf.AbstractParser<DispatchRequest>() {
+        @java.lang.Override
+        public DispatchRequest parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          Builder builder = newBuilder();
+          try {
+            builder.mergeFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            throw e.setUnfinishedMessage(builder.buildPartial());
+          } catch (com.google.protobuf.UninitializedMessageException e) {
+            throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+          } catch (java.io.IOException e) {
+            throw new com.google.protobuf.InvalidProtocolBufferException(e)
+                .setUnfinishedMessage(builder.buildPartial());
+          }
+          return builder.buildPartial();
+        }
+      };
 
   public static com.google.protobuf.Parser<DispatchRequest> parser() {
     return PARSER;
@@ -594,5 +613,4 @@ private static final long serialVersionUID = 0L;
   public io.browsercloud.proto.node.v1.DispatchRequest getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
-
 }

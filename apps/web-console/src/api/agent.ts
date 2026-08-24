@@ -13,6 +13,10 @@ import type {
   AgentBrowserInspectRequest,
   AgentBrowserSnapshot,
   AgentBrowserTargetList,
+  AgentBrowserFileUpload,
+  AgentBrowserFileUploadRequest,
+  AgentBrowserDownload,
+  AgentBrowserDownloadList,
   CreateAgentTaskRequest,
   ExecuteAgentBrowserActionsRequest,
 } from '@/types/agent';
@@ -30,7 +34,9 @@ async function request<T>(
     ...options,
     cache: options?.cache ?? (options?.method ? undefined : 'no-store'),
     headers: {
-      'Content-Type': 'application/json',
+      ...(options?.body instanceof FormData
+        ? {}
+        : { 'Content-Type': 'application/json' }),
       ...identityHeaders(tenantId, actorId),
       ...options?.headers,
     },
@@ -43,6 +49,75 @@ async function request<T>(
     throw new SessionApiError(response.status, body);
   }
   return response.json();
+}
+
+export function uploadAgentBrowserFile(
+  sessionId: string,
+  data: AgentBrowserFileUploadRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+) {
+  const form = new FormData();
+  form.set('targetRef', data.targetRef);
+  form.set('targetRevision', String(data.targetRevision));
+  form.set('baseStateVersion', String(data.baseStateVersion));
+  form.set('baseContentHash', data.baseContentHash);
+  form.set('filename', data.filename);
+  form.set('mimeType', data.mimeType || 'application/octet-stream');
+  form.set('contentSha256', data.contentSha256);
+  form.set('file', data.file, data.filename);
+  return request<AgentBrowserFileUpload>(
+    `/sessions/${encodeURIComponent(sessionId)}/agent-browser/files/uploads`,
+    {
+      method: 'POST',
+      body: form,
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+    tenantId,
+    actorId
+  );
+}
+
+export function getAgentBrowserFileUpload(
+  sessionId: string,
+  uploadId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+) {
+  return request<AgentBrowserFileUpload>(
+    `/sessions/${encodeURIComponent(sessionId)}/agent-browser/files/uploads/${encodeURIComponent(uploadId)}`,
+    { signal },
+    tenantId
+  );
+}
+
+export function listAgentBrowserDownloads(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+) {
+  return request<AgentBrowserDownloadList>(
+    `/sessions/${encodeURIComponent(sessionId)}/agent-browser/files/downloads`,
+    { signal },
+    tenantId
+  );
+}
+
+export function waitForAgentBrowserDownload(
+  sessionId: string,
+  downloadId: string,
+  timeoutMs = 30_000,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+) {
+  return request<AgentBrowserDownload>(
+    `/sessions/${encodeURIComponent(sessionId)}/agent-browser/files/downloads/${encodeURIComponent(downloadId)}:wait?timeoutMs=${timeoutMs}`,
+    { signal },
+    tenantId
+  );
 }
 
 export function listAgentTasks(

@@ -3,6 +3,9 @@ package io.browsercloud.api;
 import io.browsercloud.application.AgentApplicationService.AgentTaskNotFoundException;
 import io.browsercloud.application.AgentApplicationService.InvalidAgentTaskException;
 import io.browsercloud.application.AgentBrowserActionApplicationService.AgentBrowserActionRejectedException;
+import io.browsercloud.application.AgentBrowserFileUploadStore.FileUploadNotFoundException;
+import io.browsercloud.application.AgentBrowserFileUploadStore.FileUploadRejectedException;
+import io.browsercloud.application.AgentBrowserFilesApplicationService.AgentBrowserFilesException;
 import io.browsercloud.application.AgentBrowserPerceptionService.PerceptionException;
 import io.browsercloud.application.AgentClipboardApplicationService.AgentClipboardRejectedException;
 import io.browsercloud.application.AgentExecutionService.AgentExecutionRejectedException;
@@ -171,6 +174,58 @@ public class GlobalExceptionHandler {
         "AGENT_BROWSER_PERCEPTION_REJECTED",
         "Structured browser perception is unavailable for this request",
         Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(AgentBrowserFilesException.class)
+  ResponseEntity<ApiError> agentBrowserFilesRejected(
+      AgentBrowserFilesException exception, HttpServletRequest request) {
+    var status =
+        switch (exception.getMessage()) {
+          case "DOWNLOAD_NOT_FOUND", "AGENT_FILE_UPLOAD_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+          case "DOWNLOAD_WAIT_TIMEOUT" -> HttpStatus.REQUEST_TIMEOUT;
+          case "DOWNLOAD_WAIT_CAPACITY_EXCEEDED" -> HttpStatus.TOO_MANY_REQUESTS;
+          case "AGENT_FILE_SIZE_INVALID" -> HttpStatus.PAYLOAD_TOO_LARGE;
+          case "AGENT_FILE_METADATA_INVALID",
+                  "AGENT_FILE_SHA256_INVALID",
+                  "AGENT_FILE_TARGET_INVALID",
+                  "AGENT_FILE_IDEMPOTENCY_KEY_INVALID" ->
+              HttpStatus.UNPROCESSABLE_ENTITY;
+          case "AGENT_FILE_NODE_FAILED",
+                  "AGENT_FILE_NODE_TIMEOUT",
+                  "AGENT_FILE_STAGE_INTERRUPTED",
+                  "AGENT_FILE_STREAM_FAILED",
+                  "DOWNLOAD_WAIT_INTERRUPTED" ->
+              HttpStatus.SERVICE_UNAVAILABLE;
+          default -> HttpStatus.CONFLICT;
+        };
+    return response(
+        status,
+        "AGENT_BROWSER_FILES_REJECTED",
+        "The browser file lifecycle is unavailable for this request",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(FileUploadRejectedException.class)
+  ResponseEntity<ApiError> agentBrowserFileUploadRejected(
+      FileUploadRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "AGENT_BROWSER_FILE_UPLOAD_REJECTED",
+        "The file upload no longer matches authoritative Session state",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(FileUploadNotFoundException.class)
+  ResponseEntity<ApiError> agentBrowserFileUploadNotFound(
+      FileUploadNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "AGENT_BROWSER_FILE_UPLOAD_NOT_FOUND",
+        "The file upload was not found",
+        Map.of(),
         request);
   }
 

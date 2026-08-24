@@ -100,6 +100,10 @@ pages = {
 active_page_id = "page-1"
 native_dialog = None
 native_dialog_sequence = 0
+uploaded_file = None
+download_event_version = 0
+browser_connections = []
+browser_connections_lock = threading.Lock()
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -150,7 +154,9 @@ class Handler(BaseHTTPRequestHandler):
         global focused_control, control_pressed, select_all
         global active_page_id
         global native_dialog, native_dialog_sequence
+        global uploaded_file, download_event_version
         reported_native_dialog_sequence = 0
+        self.websocket_write_lock = threading.Lock()
         key = self.headers.get("Sec-WebSocket-Key", "")
         accept = base64.b64encode(
             hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()
@@ -160,6 +166,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Connection", "Upgrade")
         self.send_header("Sec-WebSocket-Accept", accept)
         self.end_headers()
+        if self.path == "/devtools/browser/fake":
+            with browser_connections_lock:
+                browser_connections.append(self)
         while True:
             request = self.read_websocket_text()
             if request is None:
@@ -185,6 +194,18 @@ class Handler(BaseHTTPRequestHandler):
                         }
                 else:
                     expression = command.get("params", {}).get("expression", "")
+                    if "const expected =" in expression and "return found;" in expression:
+                        response = {
+                            "id": command["id"],
+                            "result": {
+                                "result": {
+                                    "type": "object",
+                                    "objectId": "agent-file-input-object",
+                                }
+                            },
+                        }
+                        self.write_websocket_text(json.dumps(response))
+                        continue
                     if expression == "void 0" and command.get("sessionId"):
                         with pages_lock:
                             dialog = None if native_dialog is None else native_dialog.copy()
@@ -321,6 +342,16 @@ class Handler(BaseHTTPRequestHandler):
                             "sensitive": False,
                             "checked": checkbox_checked,
                             "focused": focused_control == "checkbox",
+                        }, {
+                            "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(4)",
+                            "role": "button",
+                            "name": "Upload integration file",
+                            "controlType": "file",
+                            "enabled": True,
+                            "visible": False,
+                            "sensitive": False,
+                            "inViewport": False,
+                            "visibilityReason": "DISPLAY_NONE",
                         }, {
                             "path": "html:nth-of-type(1)>body:nth-of-type(1)>button:nth-of-type(2)",
                             "role": "button",
@@ -470,6 +501,52 @@ class Handler(BaseHTTPRequestHandler):
                         "id": command["id"],
                         "result": {"nodeIds": [102]},
                     }
+            elif method == "DOM.describeNode":
+                if command.get("params", {}).get("objectId") != "agent-file-input-object":
+                    response = {
+                        "id": command["id"],
+                        "error": {"code": -32602, "message": "unknown file input object"},
+                    }
+                else:
+                    response = {
+                        "id": command["id"],
+                        "result": {"node": {"backendNodeId": 777}},
+                    }
+            elif method == "DOM.setFileInputFiles":
+                params = command.get("params", {})
+                files = params.get("files", [])
+                valid = (
+                    params.get("backendNodeId") == 777
+                    and len(files) == 1
+                    and Path(files[0]).is_file()
+                    and "--" in Path(files[0]).name
+                )
+                if valid:
+                    with pages_lock:
+                        uploaded_file = {
+                            "filename": Path(files[0]).name.split("--", 1)[1],
+                            "bytes": Path(files[0]).stat().st_size,
+                        }
+                        download_event_version += 1
+                        pending_download = uploaded_file.copy()
+                        pending_download_version = download_event_version
+                    with browser_connections_lock:
+                        connections = list(browser_connections)
+                    for connection in connections:
+                        try:
+                            connection.emit_download(
+                                pending_download, pending_download_version
+                            )
+                        except (BrokenPipeError, ConnectionError, OSError):
+                            with browser_connections_lock:
+                                if connection in browser_connections:
+                                    browser_connections.remove(connection)
+                    response = {"id": command["id"], "result": {}}
+                else:
+                    response = {
+                        "id": command["id"],
+                        "error": {"code": -32602, "message": "invalid staged file"},
+                    }
             elif method == "Page.captureScreenshot":
                 if command.get("params", {}).get("format") != "jpeg":
                     response = {
@@ -595,6 +672,45 @@ class Handler(BaseHTTPRequestHandler):
                     },
                 }))
 
+    def emit_download(self, pending_download, version):
+        request_id = f"agent-file-download-{version}"
+        guid = f"agent-file-guid-{version}"
+        url = "https://example.test/downloads/processed-file"
+        self.write_websocket_text(json.dumps({
+            "method": "Network.responseReceived",
+            "sessionId": "fake-page-session",
+            "params": {
+                "requestId": request_id,
+                "response": {
+                    "url": url,
+                    "mimeType": "text/plain",
+                    "headers": {"Content-Disposition": "attachment"},
+                },
+            },
+        }))
+        self.write_websocket_text(json.dumps({
+            "method": "Browser.downloadWillBegin",
+            "params": {
+                "guid": guid,
+                "url": url,
+                "suggestedFilename": pending_download["filename"],
+            },
+        }))
+        self.write_websocket_text(json.dumps({
+            "method": "Browser.downloadProgress",
+            "params": {
+                "guid": guid,
+                "state": "completed",
+                "receivedBytes": pending_download["bytes"],
+                "totalBytes": pending_download["bytes"],
+            },
+        }))
+        self.write_websocket_text(json.dumps({
+            "method": "Network.loadingFinished",
+            "sessionId": "fake-page-session",
+            "params": {"requestId": request_id},
+        }))
+
     def read_exact(self, length):
         result = b""
         while len(result) < length:
@@ -630,8 +746,9 @@ class Handler(BaseHTTPRequestHandler):
             header = bytes([0x81, 126]) + struct.pack("!H", len(payload))
         else:
             header = bytes([0x81, 127]) + struct.pack("!Q", len(payload))
-        self.wfile.write(header + payload)
-        self.wfile.flush()
+        with self.websocket_write_lock:
+            self.wfile.write(header + payload)
+            self.wfile.flush()
 
     def log_message(self, _format, *_args):
         return

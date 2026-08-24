@@ -4423,6 +4423,117 @@ curl -fsS \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Roles: TENANT_VIEWER' | python3 -c \
   'import json,sys; state=json.load(sys.stdin)["state"]; textbox=next(item for item in state["targets"] if item["role"] == "textbox" and not item["sensitive"]); assert textbox["value"] == "dialog-prompt-integration"'
+printf 'integration-file-content\n' >"$temp_dir/agent-upload.txt"
+agent_file_hash="$(shasum -a 256 "$temp_dir/agent-upload.txt" | awk '{print $1}')"
+agent_file_status=""
+agent_file_upload_state=""
+agent_file_upload=""
+agent_file_upload_id=""
+for agent_file_attempt in $(seq 1 3); do
+  agent_file_snapshot="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: TENANT_VIEWER')"
+  read -r agent_file_target agent_file_revision agent_file_state_version agent_file_state_hash <<EOF
+$(printf '%s' "$agent_file_snapshot" | python3 -c \
+  'import json,sys; snapshot=json.load(sys.stdin); state=snapshot["state"]; target=next(item for item in state["targets"] if item.get("controlType") == "file"); print(target["targetRef"], state["targetRevision"], state["stateVersion"], state["stateHash"])')
+EOF
+  agent_file_status="$(curl -sS -o "$temp_dir/agent-file-upload-response.json" -w '%{http_code}' -X POST \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/files/uploads" \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Actor-Id: integration-agent' \
+    -H 'X-Roles: TENANT_OPERATOR' \
+    -H "Idempotency-Key: smoke-agent-browser-file-upload-00${agent_file_attempt}" \
+    -F "targetRef=${agent_file_target}" \
+    -F "targetRevision=${agent_file_revision}" \
+    -F "baseStateVersion=${agent_file_state_version}" \
+    -F "baseContentHash=${agent_file_state_hash}" \
+    -F 'filename=integration-upload.txt' \
+    -F 'mimeType=text/plain' \
+    -F "contentSha256=${agent_file_hash}" \
+    -F "file=@${temp_dir}/agent-upload.txt;type=text/plain;filename=integration-upload.txt")"
+  if [[ "$agent_file_status" != "202" ]]; then
+    agent_file_reason="$(python3 - "$temp_dir/agent-file-upload-response.json" <<'PY'
+import json
+import sys
+try:
+    print(json.load(open(sys.argv[1]))["details"].get("reason", ""))
+except (OSError, KeyError, json.JSONDecodeError):
+    print("")
+PY
+)"
+    if [[ "$agent_file_status" != "409" || "$agent_file_reason" != "STATE_STALE" ]]; then
+      cat "$temp_dir/agent-file-upload-response.json" >&2
+      exit 1
+    fi
+    sleep 0.25
+    continue
+  fi
+  agent_file_upload="$(<"$temp_dir/agent-file-upload-response.json")"
+  agent_file_upload_id="$(printf '%s' "$agent_file_upload" | python3 -c \
+    'import json,sys; upload=json.load(sys.stdin); assert upload["state"] in ("EXECUTING", "COMMITTED"); assert upload["filename"] == "integration-upload.txt"; assert upload["mimeType"] == "text/plain"; assert "path" not in upload; print(upload["uploadId"])')"
+  for _ in $(seq 1 80); do
+    agent_file_upload="$(curl -fsS \
+      "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/files/uploads/${agent_file_upload_id}" \
+      -H 'X-Tenant-Id: tenant-integration' \
+      -H 'X-Roles: TENANT_VIEWER')"
+    agent_file_upload_state="$(printf '%s' "$agent_file_upload" | python3 -c \
+      'import json,sys; print(json.load(sys.stdin)["state"])')"
+    if [[ "$agent_file_upload_state" = "COMMITTED" || "$agent_file_upload_state" = "FAILED" ]]; then
+      break
+    fi
+    sleep 0.25
+  done
+  if [[ "$agent_file_upload_state" = "COMMITTED" ]]; then break; fi
+  agent_file_reason="$(printf '%s' "$agent_file_upload" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin).get("errorCode") or "")')"
+  if [[ "$agent_file_upload_state" != "FAILED" || "$agent_file_reason" != "STATE_STALE" ]]; then
+    break
+  fi
+  sleep 0.25
+done
+if [[ "$agent_file_upload_state" != "COMMITTED" ]]; then
+  printf '%s\n' "agent_file_upload_terminal=${agent_file_upload}" >&2
+  PGPASSWORD=browsercloud psql \
+    -h localhost -p "$postgres_port" -U browsercloud -d browsercloud \
+    -c "SELECT upload_id, operation_id, operation_epoch, state, state_version_after, error_code, updated_at FROM agent_browser_file_uploads WHERE upload_id = '${agent_file_upload_id}'" \
+    >&2
+fi
+test "$agent_file_upload_state" = "COMMITTED"
+printf '%s' "$agent_file_upload" | python3 -c \
+  'import json,sys; upload=json.load(sys.stdin); assert upload["stateVersionAfter"] > 0; assert upload["errorCode"] is None; assert "path" not in upload; assert "file" not in upload'
+agent_file_other_tenant_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/files/uploads/${agent_file_upload_id}" \
+  -H 'X-Tenant-Id: tenant-other' \
+  -H 'X-Roles: TENANT_VIEWER')"
+test "$agent_file_other_tenant_status" = "404"
+agent_downloads=""
+agent_download_id=""
+for _ in $(seq 1 80); do
+  agent_downloads="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/files/downloads" \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: TENANT_VIEWER')"
+  agent_download_id="$(printf '%s' "$agent_downloads" | python3 -c \
+    'import json,sys; value=json.load(sys.stdin); matches=[item for item in value["downloads"] if item["filename"] == "integration-upload.txt" and item["status"] == "COMPLETED"]; print(matches[0]["downloadId"] if value["evidenceFresh"] and matches else "")')"
+  if [[ -n "$agent_download_id" ]]; then break; fi
+  sleep 0.25
+done
+test -n "$agent_download_id"
+printf '%s' "$agent_downloads" | python3 -c \
+  'import json,sys; value=json.load(sys.stdin); item=next(item for item in value["downloads"] if item["filename"] == "integration-upload.txt"); assert value["evidenceFresh"] and not value["dataStale"]; assert item["mimeType"] == "text/plain"; assert item["size"] == 25; assert item["receivedBytes"] == 25; assert item["progress"] == 1.0; assert "url" not in item and "path" not in item'
+curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/files/downloads/${agent_download_id}:wait?timeoutMs=5000" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER' | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["status"] == "COMPLETED"; assert item["progress"] == 1.0'
+agent_file_sensitive_columns="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from information_schema.columns where table_name='agent_browser_file_uploads' and column_name ~ '(path|(^|_)data$|content$)'")"
+test "$agent_file_sensitive_columns" = "0"
+agent_file_audit_leak="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from audit_events where resource_id='${agent_file_upload_id}' and (details ? 'path' or details ? 'content' or details::text like '%integration-file-content%')")"
+test "$agent_file_audit_leak" = "0"
+printf 'agent_browser_files=true\n'
 curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${tab_session}:terminate" \
   -H 'X-Tenant-Id: tenant-integration' >/dev/null

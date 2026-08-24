@@ -4,31 +4,36 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface CaptureObserverScreenshotCommandOrBuilder extends
+public interface CaptureObserverScreenshotCommandOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.CaptureObserverScreenshotCommand)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>string capture_id = 2 [json_name = "captureId"];</code>
+   *
    * @return The captureId.
    */
   java.lang.String getCaptureId();
+
   /**
    * <code>string capture_id = 2 [json_name = "captureId"];</code>
+   *
    * @return The bytes for captureId.
    */
-  com.google.protobuf.ByteString
-      getCaptureIdBytes();
+  com.google.protobuf.ByteString getCaptureIdBytes();
 }

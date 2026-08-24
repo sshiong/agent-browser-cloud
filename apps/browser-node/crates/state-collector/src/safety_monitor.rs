@@ -1,8 +1,9 @@
 use futures_util::{SinkExt, StreamExt};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use tokio::time::{timeout, Duration};
@@ -12,6 +13,21 @@ const MAX_NETWORK_QUIET_MILLIS: u64 = 300_000;
 const TRANSACTION_SETTLE_WINDOW: Duration = Duration::from_secs(10);
 const MAX_POLICY_RULES: usize = 32;
 const MAX_POLICY_VALUE_BYTES: usize = 512;
+const MAX_DOWNLOAD_HISTORY: usize = 32;
+
+/// Bounded, URL-free Browser download lifecycle projected from Chromium Browser events.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BrowserDownload {
+    pub download_id: String,
+    pub filename: String,
+    pub mime_type: String,
+    pub total_bytes: Option<u64>,
+    pub received_bytes: u64,
+    pub progress_basis_points: Option<u32>,
+    pub status: String,
+    pub started_at_ms: u64,
+    pub updated_at_ms: u64,
+}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BrowserTransactionPolicy {
@@ -112,6 +128,9 @@ pub struct BrowserSafetyObservation {
     pub active_critical_transaction_count: u32,
     pub active_network_request_count: u32,
     pub last_network_activity: Option<Instant>,
+    /// Completed entries remain bounded in-memory so Control Plane can persist them. No URL or
+    /// local filesystem path crosses the Node boundary.
+    pub downloads: Vec<BrowserDownload>,
 }
 
 impl BrowserSafetyObservation {
@@ -150,10 +169,16 @@ struct RequestActivity {
     critical_transaction: bool,
 }
 
+#[derive(Debug, Clone, Default)]
+struct DownloadResponseMetadata {
+    mime_type: String,
+}
+
 #[derive(Debug, Default)]
 struct ActivityTracker {
     requests: HashMap<(String, String), RequestActivity>,
-    browser_downloads: HashSet<String>,
+    browser_downloads: HashMap<String, BrowserDownload>,
+    download_response_metadata: HashMap<String, DownloadResponseMetadata>,
     download_events_enabled: bool,
     network_sessions: HashSet<String>,
     fresh_allowed: bool,
@@ -186,7 +211,12 @@ impl ActivityTracker {
                 .try_into()
                 .unwrap_or(u32::MAX),
             active_download_count: network_download_count
-                .max(self.browser_downloads.len())
+                .max(
+                    self.browser_downloads
+                        .values()
+                        .filter(|download| download.status == "IN_PROGRESS")
+                        .count(),
+                )
                 .try_into()
                 .unwrap_or(u32::MAX),
             active_form_submission_count: self
@@ -219,6 +249,17 @@ impl ActivityTracker {
             ),
             active_network_request_count: self.requests.len().try_into().unwrap_or(u32::MAX),
             last_network_activity: self.last_network_activity,
+            downloads: {
+                let mut values = self.browser_downloads.values().cloned().collect::<Vec<_>>();
+                values.sort_by(|left, right| {
+                    right
+                        .started_at_ms
+                        .cmp(&left.started_at_ms)
+                        .then_with(|| left.download_id.cmp(&right.download_id))
+                });
+                values.truncate(MAX_DOWNLOAD_HISTORY);
+                values
+            },
         }
     }
 
@@ -273,6 +314,58 @@ impl ActivityTracker {
             }
         }
     }
+
+    fn trim_download_history(&mut self) {
+        if self.browser_downloads.len() <= MAX_DOWNLOAD_HISTORY {
+            return;
+        }
+        let mut completed = self
+            .browser_downloads
+            .iter()
+            .filter(|(_, value)| value.status != "IN_PROGRESS")
+            .map(|(guid, value)| (guid.clone(), value.updated_at_ms))
+            .collect::<Vec<_>>();
+        completed.sort_by_key(|(_, updated_at_ms)| *updated_at_ms);
+        for (guid, _) in completed
+            .into_iter()
+            .take(self.browser_downloads.len() - MAX_DOWNLOAD_HISTORY)
+        {
+            self.browser_downloads.remove(&guid);
+        }
+    }
+}
+
+fn unix_time_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .try_into()
+        .unwrap_or(u64::MAX)
+}
+
+fn download_id(session_id: &str, guid: &str) -> String {
+    let digest = format!(
+        "{:x}",
+        Sha256::digest(format!("{session_id}\n{guid}").as_bytes())
+    );
+    format!("dld_{}", &digest[..20])
+}
+
+fn bounded_filename(value: &str) -> String {
+    let candidate = value
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or_default()
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(255)
+        .collect::<String>();
+    if candidate.is_empty() {
+        "download".to_owned()
+    } else {
+        candidate
+    }
 }
 
 fn active_or_settling_count(active: usize, settle_until: Option<Instant>) -> u32 {
@@ -295,6 +388,7 @@ pub(crate) fn spawn(
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         let mut established_once = false;
+        let mut retained_downloads = HashMap::new();
         loop {
             let websocket_url = match browser_websocket(&endpoint).await {
                 Ok(websocket_url) => websocket_url,
@@ -311,6 +405,7 @@ pub(crate) fn spawn(
             let mut tracker = ActivityTracker {
                 fresh_allowed: !established_once,
                 last_network_activity: Some(Instant::now()),
+                browser_downloads: retained_downloads,
                 ..ActivityTracker::default()
             };
             let result = observe_browser(
@@ -322,12 +417,26 @@ pub(crate) fn spawn(
             )
             .await;
             established_once |= tracker.was_fresh;
-            publish(
-                &observations,
-                &session_id,
-                BrowserSafetyObservation::default(),
-            )
-            .await;
+            let now = unix_time_millis();
+            for download in tracker.browser_downloads.values_mut() {
+                if download.status == "IN_PROGRESS" {
+                    download.status = "INTERRUPTED".to_owned();
+                    download.updated_at_ms = now;
+                }
+            }
+            retained_downloads = tracker.browser_downloads;
+            let mut stale = BrowserSafetyObservation {
+                downloads: retained_downloads.values().cloned().collect(),
+                ..BrowserSafetyObservation::default()
+            };
+            stale.downloads.sort_by(|left, right| {
+                right
+                    .started_at_ms
+                    .cmp(&left.started_at_ms)
+                    .then_with(|| left.download_id.cmp(&right.download_id))
+            });
+            stale.downloads.truncate(MAX_DOWNLOAD_HISTORY);
+            publish(&observations, &session_id, stale).await;
             match result {
                 Ok(()) => {
                     tracing::warn!(session_id, "Browser safety observer CDP connection closed");
@@ -596,6 +705,25 @@ async fn observe_browser(
                         .entry((cdp_session.to_owned(), request_id.to_owned()))
                         .or_default()
                         .download = true;
+                    if let Some(url) = event
+                        .pointer("/params/response/url")
+                        .and_then(serde_json::Value::as_str)
+                        .filter(|value| !value.is_empty())
+                    {
+                        let mime_type = event
+                            .pointer("/params/response/mimeType")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("application/octet-stream")
+                            .chars()
+                            .take(255)
+                            .collect::<String>();
+                        if tracker.download_response_metadata.len() >= 256 {
+                            tracker.download_response_metadata.clear();
+                        }
+                        tracker
+                            .download_response_metadata
+                            .insert(url.to_owned(), DownloadResponseMetadata { mime_type });
+                    }
                 }
             }
             "Network.loadingFinished" | "Network.loadingFailed" => {
@@ -610,23 +738,86 @@ async fn observe_browser(
                 if let Some(guid) = event
                     .pointer("/params/guid")
                     .and_then(serde_json::Value::as_str)
+                    .filter(|value| !value.is_empty())
                 {
-                    tracker.browser_downloads.insert(guid.to_owned());
+                    let url = event
+                        .pointer("/params/url")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default();
+                    let mime_type = tracker
+                        .download_response_metadata
+                        .remove(url)
+                        .map(|value| value.mime_type)
+                        .filter(|value| !value.is_empty())
+                        .unwrap_or_else(|| "application/octet-stream".to_owned());
+                    let now = unix_time_millis();
+                    tracker.browser_downloads.insert(
+                        guid.to_owned(),
+                        BrowserDownload {
+                            download_id: download_id(session_id, guid),
+                            filename: bounded_filename(
+                                event
+                                    .pointer("/params/suggestedFilename")
+                                    .and_then(serde_json::Value::as_str)
+                                    .unwrap_or("download"),
+                            ),
+                            mime_type,
+                            total_bytes: None,
+                            received_bytes: 0,
+                            progress_basis_points: None,
+                            status: "IN_PROGRESS".to_owned(),
+                            started_at_ms: now,
+                            updated_at_ms: now,
+                        },
+                    );
+                    tracker.trim_download_history();
                 }
             }
             "Browser.downloadProgress" => {
-                if matches!(
-                    event
-                        .pointer("/params/state")
-                        .and_then(serde_json::Value::as_str),
-                    Some("completed" | "canceled")
-                ) {
-                    if let Some(guid) = event
-                        .pointer("/params/guid")
-                        .and_then(serde_json::Value::as_str)
-                    {
-                        tracker.browser_downloads.remove(guid);
+                if let Some(guid) = event
+                    .pointer("/params/guid")
+                    .and_then(serde_json::Value::as_str)
+                {
+                    if let Some(download) = tracker.browser_downloads.get_mut(guid) {
+                        let received = event
+                            .pointer("/params/receivedBytes")
+                            .and_then(serde_json::Value::as_f64)
+                            .filter(|value| value.is_finite() && *value >= 0.0)
+                            .map(|value| value.min(u64::MAX as f64) as u64)
+                            .unwrap_or(download.received_bytes);
+                        let total = event
+                            .pointer("/params/totalBytes")
+                            .and_then(serde_json::Value::as_f64)
+                            .filter(|value| value.is_finite() && *value >= 0.0)
+                            .map(|value| value.min(u64::MAX as f64) as u64)
+                            .filter(|value| *value > 0);
+                        download.received_bytes = received;
+                        download.total_bytes = total.or(download.total_bytes);
+                        download.progress_basis_points = download.total_bytes.map(|total| {
+                            received
+                                .saturating_mul(10_000)
+                                .checked_div(total)
+                                .unwrap_or(0)
+                                .min(10_000) as u32
+                        });
+                        download.status = match event
+                            .pointer("/params/state")
+                            .and_then(serde_json::Value::as_str)
+                        {
+                            Some("completed") => "COMPLETED",
+                            Some("canceled") => "CANCELED",
+                            _ => "IN_PROGRESS",
+                        }
+                        .to_owned();
+                        if download.status == "COMPLETED" {
+                            download.progress_basis_points = Some(10_000);
+                            if download.total_bytes.is_none() {
+                                download.total_bytes = Some(download.received_bytes);
+                            }
+                        }
+                        download.updated_at_ms = unix_time_millis();
                     }
+                    tracker.trim_download_history();
                 }
             }
             _ => {}
@@ -1011,14 +1202,36 @@ mod tests {
             socket
                 .send(Message::Text(
                     serde_json::json!({
-                        "method": "Browser.downloadWillBegin",
-                        "params": {"guid": "download-1"}
+                        "sessionId": "page-session-1",
+                        "method": "Network.responseReceived",
+                        "params": {
+                            "requestId": "download-response-1",
+                            "response": {
+                                "url": "https://example.test/files/report.csv?secret=never-project",
+                                "mimeType": "text/csv",
+                                "headers": {"Content-Disposition": "attachment"}
+                            }
+                        }
                     })
                     .to_string(),
                 ))
                 .await
                 .unwrap();
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            socket
+                .send(Message::Text(
+                    serde_json::json!({
+                        "method": "Browser.downloadWillBegin",
+                        "params": {
+                            "guid": "download-1",
+                            "url": "https://example.test/files/report.csv?secret=never-project",
+                            "suggestedFilename": "report.csv"
+                        }
+                    })
+                    .to_string(),
+                ))
+                .await
+                .unwrap();
+            tokio::time::sleep(Duration::from_millis(500)).await;
             socket
                 .send(Message::Text(
                     serde_json::json!({
@@ -1034,13 +1247,29 @@ mod tests {
                 .send(Message::Text(
                     serde_json::json!({
                         "method": "Browser.downloadProgress",
-                        "params": {"guid": "download-1", "state": "completed"}
+                        "params": {
+                            "guid": "download-1",
+                            "state": "completed",
+                            "receivedBytes": 12,
+                            "totalBytes": 12
+                        }
                     })
                     .to_string(),
                 ))
                 .await
                 .unwrap();
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            socket
+                .send(Message::Text(
+                    serde_json::json!({
+                        "sessionId": "page-session-1",
+                        "method": "Network.loadingFinished",
+                        "params": {"requestId": "download-response-1"}
+                    })
+                    .to_string(),
+                ))
+                .await
+                .unwrap();
+            tokio::time::sleep(Duration::from_millis(500)).await;
         });
 
         let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -1118,6 +1347,20 @@ mod tests {
             completed.is_some(),
             "completed browser operations remained active"
         );
+        let completed = completed.unwrap();
+        assert!(completed.fresh);
+        assert_eq!(completed.downloads.len(), 1);
+        let download = &completed.downloads[0];
+        assert!(download.download_id.starts_with("dld_"));
+        assert_eq!(download.filename, "report.csv");
+        assert_eq!(download.mime_type, "text/csv");
+        assert_eq!(download.total_bytes, Some(12));
+        assert_eq!(download.received_bytes, 12);
+        assert_eq!(download.progress_basis_points, Some(10_000));
+        assert_eq!(download.status, "COMPLETED");
+        let serialized = serde_json::to_string(download).unwrap();
+        assert!(!serialized.contains("example.test"));
+        assert!(!serialized.contains("secret"));
 
         monitor.abort();
         websocket_task.await.unwrap();

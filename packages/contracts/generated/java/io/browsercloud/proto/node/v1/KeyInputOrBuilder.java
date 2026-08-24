@@ -4,19 +4,22 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface KeyInputOrBuilder extends
+public interface KeyInputOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.KeyInput)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string key = 1 [json_name = "key"];</code>
+   *
    * @return The key.
    */
   java.lang.String getKey();
+
   /**
    * <code>string key = 1 [json_name = "key"];</code>
+   *
    * @return The bytes for key.
    */
-  com.google.protobuf.ByteString
-      getKeyBytes();
+  com.google.protobuf.ByteString getKeyBytes();
 }

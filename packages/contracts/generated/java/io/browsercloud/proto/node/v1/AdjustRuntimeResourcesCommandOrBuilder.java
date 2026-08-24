@@ -4,334 +4,456 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface AdjustRuntimeResourcesCommandOrBuilder extends
+public interface AdjustRuntimeResourcesCommandOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.AdjustRuntimeResourcesCommand)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>string resource_class = 2 [json_name = "resourceClass"];</code>
+   *
    * @return The resourceClass.
    */
   java.lang.String getResourceClass();
+
   /**
    * <code>string resource_class = 2 [json_name = "resourceClass"];</code>
+   *
    * @return The bytes for resourceClass.
    */
-  com.google.protobuf.ByteString
-      getResourceClassBytes();
+  com.google.protobuf.ByteString getResourceClassBytes();
 
   /**
    * <code>uint32 cpu_millis = 3 [json_name = "cpuMillis"];</code>
+   *
    * @return The cpuMillis.
    */
   int getCpuMillis();
 
   /**
    * <code>uint32 memory_request_mib = 4 [json_name = "memoryRequestMib"];</code>
+   *
    * @return The memoryRequestMib.
    */
   int getMemoryRequestMib();
 
   /**
    * <code>uint32 memory_limit_mib = 5 [json_name = "memoryLimitMib"];</code>
+   *
    * @return The memoryLimitMib.
    */
   int getMemoryLimitMib();
 
   /**
    * <code>uint32 pid_limit = 6 [json_name = "pidLimit"];</code>
+   *
    * @return The pidLimit.
    */
   int getPidLimit();
 
   /**
    * <code>uint32 tab_budget = 7 [json_name = "tabBudget"];</code>
+   *
    * @return The tabBudget.
    */
   int getTabBudget();
 
   /**
    * <code>string reason = 8 [json_name = "reason"];</code>
+   *
    * @return The reason.
    */
   java.lang.String getReason();
+
   /**
    * <code>string reason = 8 [json_name = "reason"];</code>
+   *
    * @return The bytes for reason.
    */
-  com.google.protobuf.ByteString
-      getReasonBytes();
+  com.google.protobuf.ByteString getReasonBytes();
 
   /**
    * <code>bool desktop_required = 9 [json_name = "desktopRequired"];</code>
+   *
    * @return The desktopRequired.
    */
   boolean getDesktopRequired();
 
   /**
    * <code>bool gpu_required = 10 [json_name = "gpuRequired"];</code>
+   *
    * @return The gpuRequired.
    */
   boolean getGpuRequired();
 
   /**
    * <code>bool native_os_required = 11 [json_name = "nativeOsRequired"];</code>
+   *
    * @return The nativeOsRequired.
    */
   boolean getNativeOsRequired();
 
   /**
    * <code>bool isolation_required = 12 [json_name = "isolationRequired"];</code>
+   *
    * @return The isolationRequired.
    */
   boolean getIsolationRequired();
 
   /**
+   *
+   *
    * <pre>
    * optional 保证 N/N-1 滚动升级：缺失时保持当前非 Cgroup 配置。
    * </pre>
    *
-   * <code>optional uint32 state_collector_budget_percent = 13 [json_name = "stateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 state_collector_budget_percent = 13 [json_name = "stateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return Whether the stateCollectorBudgetPercent field is set.
    */
   boolean hasStateCollectorBudgetPercent();
+
   /**
+   *
+   *
    * <pre>
    * optional 保证 N/N-1 滚动升级：缺失时保持当前非 Cgroup 配置。
    * </pre>
    *
-   * <code>optional uint32 state_collector_budget_percent = 13 [json_name = "stateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 state_collector_budget_percent = 13 [json_name = "stateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return The stateCollectorBudgetPercent.
    */
   int getStateCollectorBudgetPercent();
 
   /**
-   * <code>optional uint32 remote_desktop_bitrate_kbps = 14 [json_name = "remoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 remote_desktop_bitrate_kbps = 14 [json_name = "remoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return Whether the remoteDesktopBitrateKbps field is set.
    */
   boolean hasRemoteDesktopBitrateKbps();
+
   /**
-   * <code>optional uint32 remote_desktop_bitrate_kbps = 14 [json_name = "remoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 remote_desktop_bitrate_kbps = 14 [json_name = "remoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return The remoteDesktopBitrateKbps.
    */
   int getRemoteDesktopBitrateKbps();
 
   /**
+   *
+   *
    * <pre>
    * 只调整 Extension 子 cgroup 权重，不改变运行中的扩展集合。
    * </pre>
    *
    * <code>optional uint32 extension_cpu_weight = 15 [json_name = "extensionCpuWeight"];</code>
+   *
    * @return Whether the extensionCpuWeight field is set.
    */
   boolean hasExtensionCpuWeight();
+
   /**
+   *
+   *
    * <pre>
    * 只调整 Extension 子 cgroup 权重，不改变运行中的扩展集合。
    * </pre>
    *
    * <code>optional uint32 extension_cpu_weight = 15 [json_name = "extensionCpuWeight"];</code>
+   *
    * @return The extensionCpuWeight.
    */
   int getExtensionCpuWeight();
 
   /**
+   *
+   *
    * <pre>
    * 只调整 Media Encoder 子 cgroup 的当前 Slot，不改变 Placement 预留上限。
    * </pre>
    *
    * <code>optional uint32 media_encoder_slots = 16 [json_name = "mediaEncoderSlots"];</code>
+   *
    * @return Whether the mediaEncoderSlots field is set.
    */
   boolean hasMediaEncoderSlots();
+
   /**
+   *
+   *
    * <pre>
    * 只调整 Media Encoder 子 cgroup 的当前 Slot，不改变 Placement 预留上限。
    * </pre>
    *
    * <code>optional uint32 media_encoder_slots = 16 [json_name = "mediaEncoderSlots"];</code>
+   *
    * @return The mediaEncoderSlots.
    */
   int getMediaEncoderSlots();
 
   /**
+   *
+   *
    * <pre>
    * 资源达到上限时冻结后台 Page Target；Node 必须通过 CDP 执行成功后才 ACK。
    * </pre>
    *
    * <code>optional bool freeze_background_tabs = 17 [json_name = "freezeBackgroundTabs"];</code>
+   *
    * @return Whether the freezeBackgroundTabs field is set.
    */
   boolean hasFreezeBackgroundTabs();
+
   /**
+   *
+   *
    * <pre>
    * 资源达到上限时冻结后台 Page Target；Node 必须通过 CDP 执行成功后才 ACK。
    * </pre>
    *
    * <code>optional bool freeze_background_tabs = 17 [json_name = "freezeBackgroundTabs"];</code>
+   *
    * @return The freezeBackgroundTabs.
    */
   boolean getFreezeBackgroundTabs();
 
   /**
+   *
+   *
    * <pre>
    * 以命令执行时的 Page Target 为允许集合，持续关闭之后新建的 Page Target。
    * </pre>
    *
    * <code>optional bool block_new_tabs = 18 [json_name = "blockNewTabs"];</code>
+   *
    * @return Whether the blockNewTabs field is set.
    */
   boolean hasBlockNewTabs();
+
   /**
+   *
+   *
    * <pre>
    * 以命令执行时的 Page Target 为允许集合，持续关闭之后新建的 Page Target。
    * </pre>
    *
    * <code>optional bool block_new_tabs = 18 [json_name = "blockNewTabs"];</code>
+   *
    * @return The blockNewTabs.
    */
   boolean getBlockNewTabs();
 
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];
+   * </code>
+   *
    * @return Whether the extensionBackgroundPolicy field is set.
    */
   boolean hasExtensionBackgroundPolicy();
+
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];
+   * </code>
+   *
    * @return The extensionBackgroundPolicy.
    */
   io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getExtensionBackgroundPolicy();
-  /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
-   */
-  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getExtensionBackgroundPolicyOrBuilder();
 
   /**
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder
+      getExtensionBackgroundPolicyOrBuilder();
+
+  /**
+   *
+   *
    * <pre>
    * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
    * </pre>
    *
    * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   *
    * @return A list containing the extensionIds.
    */
-  java.util.List<java.lang.String>
-      getExtensionIdsList();
+  java.util.List<java.lang.String> getExtensionIdsList();
+
   /**
+   *
+   *
    * <pre>
    * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
    * </pre>
    *
    * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   *
    * @return The count of extensionIds.
    */
   int getExtensionIdsCount();
+
   /**
+   *
+   *
    * <pre>
    * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
    * </pre>
    *
    * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   *
    * @param index The index of the element to return.
    * @return The extensionIds at the given index.
    */
   java.lang.String getExtensionIds(int index);
+
   /**
+   *
+   *
    * <pre>
    * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
    * </pre>
    *
    * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   *
    * @param index The index of the value to return.
    * @return The bytes of the extensionIds at the given index.
    */
-  com.google.protobuf.ByteString
-      getExtensionIdsBytes(int index);
+  com.google.protobuf.ByteString getExtensionIdsBytes(int index);
 
   /**
+   *
+   *
    * <pre>
    * 1..100；缺失时保持当前值，以支持 N/N-1 滚动升级。
    * </pre>
    *
-   * <code>optional uint32 success_trace_sample_percent = 21 [json_name = "successTraceSamplePercent"];</code>
+   * <code>
+   * optional uint32 success_trace_sample_percent = 21 [json_name = "successTraceSamplePercent"];
+   * </code>
+   *
    * @return Whether the successTraceSamplePercent field is set.
    */
   boolean hasSuccessTraceSamplePercent();
+
   /**
+   *
+   *
    * <pre>
    * 1..100；缺失时保持当前值，以支持 N/N-1 滚动升级。
    * </pre>
    *
-   * <code>optional uint32 success_trace_sample_percent = 21 [json_name = "successTraceSamplePercent"];</code>
+   * <code>
+   * optional uint32 success_trace_sample_percent = 21 [json_name = "successTraceSamplePercent"];
+   * </code>
+   *
    * @return The successTraceSamplePercent.
    */
   int getSuccessTraceSamplePercent();
 
   /**
+   *
+   *
    * <pre>
    * 0 表示无桌面；有桌面时 1..60。缺失时保持当前值。
    * </pre>
    *
    * <code>optional uint32 observer_frame_rate_fps = 22 [json_name = "observerFrameRateFps"];</code>
+   *
    * @return Whether the observerFrameRateFps field is set.
    */
   boolean hasObserverFrameRateFps();
+
   /**
+   *
+   *
    * <pre>
    * 0 表示无桌面；有桌面时 1..60。缺失时保持当前值。
    * </pre>
    *
    * <code>optional uint32 observer_frame_rate_fps = 22 [json_name = "observerFrameRateFps"];</code>
+   *
    * @return The observerFrameRateFps.
    */
   int getObserverFrameRateFps();
 
   /**
+   *
+   *
    * <pre>
    * Node 必须等待真实 CDP start/stop 与 Storage Helper 提交完成后才 ACK。
    * </pre>
    *
    * <code>optional bool video_recording_enabled = 23 [json_name = "videoRecordingEnabled"];</code>
+   *
    * @return Whether the videoRecordingEnabled field is set.
    */
   boolean hasVideoRecordingEnabled();
+
   /**
+   *
+   *
    * <pre>
    * Node 必须等待真实 CDP start/stop 与 Storage Helper 提交完成后才 ACK。
    * </pre>
    *
    * <code>optional bool video_recording_enabled = 23 [json_name = "videoRecordingEnabled"];</code>
+   *
    * @return The videoRecordingEnabled.
    */
   boolean getVideoRecordingEnabled();
 
   /**
+   *
+   *
    * <pre>
    * 1..100；仅控制成功动作截图，失败证据保持强制捕获。
    * </pre>
    *
-   * <code>optional uint32 success_screenshot_sample_percent = 24 [json_name = "successScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 success_screenshot_sample_percent = 24 [json_name = "successScreenshotSamplePercent"];
+   * </code>
+   *
    * @return Whether the successScreenshotSamplePercent field is set.
    */
   boolean hasSuccessScreenshotSamplePercent();
+
   /**
+   *
+   *
    * <pre>
    * 1..100；仅控制成功动作截图，失败证据保持强制捕获。
    * </pre>
    *
-   * <code>optional uint32 success_screenshot_sample_percent = 24 [json_name = "successScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 success_screenshot_sample_percent = 24 [json_name = "successScreenshotSamplePercent"];
+   * </code>
+   *
    * @return The successScreenshotSamplePercent.
    */
   int getSuccessScreenshotSamplePercent();

@@ -5,6 +5,8 @@
 package io.browsercloud.proto.node.v1;
 
 /**
+ *
+ *
  * <pre>
  * Browser Node 通过各 Extension background/service-worker Target 的 Debugger
  * pause/resume 执行，避免直接卸载扩展或修改扩展集合。
@@ -12,78 +14,88 @@ package io.browsercloud.proto.node.v1;
  *
  * Protobuf type {@code browsercloud.node.v1.ExtensionBackgroundPolicy}
  */
-public final class ExtensionBackgroundPolicy extends
-    com.google.protobuf.GeneratedMessageV3 implements
+public final class ExtensionBackgroundPolicy extends com.google.protobuf.GeneratedMessageV3
+    implements
     // @@protoc_insertion_point(message_implements:browsercloud.node.v1.ExtensionBackgroundPolicy)
     ExtensionBackgroundPolicyOrBuilder {
-private static final long serialVersionUID = 0L;
+  private static final long serialVersionUID = 0L;
+
   // Use ExtensionBackgroundPolicy.newBuilder() to construct.
   private ExtensionBackgroundPolicy(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
+
   private ExtensionBackgroundPolicy() {
-    pausedExtensionIds_ =
-        com.google.protobuf.LazyStringArrayList.emptyList();
+    pausedExtensionIds_ = com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
+  protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
     return new ExtensionBackgroundPolicy();
   }
 
-  public static final com.google.protobuf.Descriptors.Descriptor
-      getDescriptor() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ExtensionBackgroundPolicy_descriptor;
+  public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_ExtensionBackgroundPolicy_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ExtensionBackgroundPolicy_fieldAccessorTable
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_ExtensionBackgroundPolicy_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.class, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder.class);
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.class,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder.class);
   }
 
   public static final int PAUSED_EXTENSION_IDS_FIELD_NUMBER = 1;
+
   @SuppressWarnings("serial")
   private com.google.protobuf.LazyStringArrayList pausedExtensionIds_ =
       com.google.protobuf.LazyStringArrayList.emptyList();
+
   /**
    * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+   *
    * @return A list containing the pausedExtensionIds.
    */
-  public com.google.protobuf.ProtocolStringList
-      getPausedExtensionIdsList() {
+  public com.google.protobuf.ProtocolStringList getPausedExtensionIdsList() {
     return pausedExtensionIds_;
   }
+
   /**
    * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+   *
    * @return The count of pausedExtensionIds.
    */
   public int getPausedExtensionIdsCount() {
     return pausedExtensionIds_.size();
   }
+
   /**
    * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+   *
    * @param index The index of the element to return.
    * @return The pausedExtensionIds at the given index.
    */
   public java.lang.String getPausedExtensionIds(int index) {
     return pausedExtensionIds_.get(index);
   }
+
   /**
    * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+   *
    * @param index The index of the value to return.
    * @return The bytes of the pausedExtensionIds at the given index.
    */
-  public com.google.protobuf.ByteString
-      getPausedExtensionIdsBytes(int index) {
+  public com.google.protobuf.ByteString getPausedExtensionIdsBytes(int index) {
     return pausedExtensionIds_.getByteString(index);
   }
 
   private byte memoizedIsInitialized = -1;
+
   @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
@@ -95,8 +107,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @java.lang.Override
-  public void writeTo(com.google.protobuf.CodedOutputStream output)
-                      throws java.io.IOException {
+  public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
     for (int i = 0; i < pausedExtensionIds_.size(); i++) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 1, pausedExtensionIds_.getRaw(i));
     }
@@ -125,15 +136,15 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public boolean equals(final java.lang.Object obj) {
     if (obj == this) {
-     return true;
+      return true;
     }
     if (!(obj instanceof io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy)) {
       return super.equals(obj);
     }
-    io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy other = (io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy) obj;
+    io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy other =
+        (io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy) obj;
 
-    if (!getPausedExtensionIdsList()
-        .equals(other.getPausedExtensionIdsList())) return false;
+    if (!getPausedExtensionIdsList().equals(other.getPausedExtensionIdsList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -155,98 +166,105 @@ private static final long serialVersionUID = 0L;
   }
 
   public static io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy parseFrom(
-      java.nio.ByteBuffer data)
-      throws com.google.protobuf.InvalidProtocolBufferException {
+      java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy parseFrom(
-      java.nio.ByteBuffer data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy parseFrom(
-      byte[] data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy parseFrom(java.io.InputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
-  }
+
   public static io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy parseFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy parseDelimitedFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy parseFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   public static io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy parseDelimitedFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
   }
+
+  public static io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy parseDelimitedFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
+        PARSER, input, extensionRegistry);
+  }
+
   public static io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy parseFrom(
-      com.google.protobuf.CodedInputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
+      com.google.protobuf.CodedInputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
+
   public static io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   @java.lang.Override
-  public Builder newBuilderForType() { return newBuilder(); }
+  public Builder newBuilderForType() {
+    return newBuilder();
+  }
+
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy prototype) {
+
+  public static Builder newBuilder(
+      io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-  }
-  @java.lang.Override
-  public Builder toBuilder() {
-    return this == DEFAULT_INSTANCE
-        ? new Builder() : new Builder().mergeFrom(this);
   }
 
   @java.lang.Override
-  protected Builder newBuilderForType(
-      com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+  public Builder toBuilder() {
+    return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
+  }
+
+  @java.lang.Override
+  protected Builder newBuilderForType(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
     Builder builder = new Builder(parent);
     return builder;
   }
+
   /**
+   *
+   *
    * <pre>
    * Browser Node 通过各 Extension background/service-worker Target 的 Debugger
    * pause/resume 执行，避免直接卸载扩展或修改扩展集合。
@@ -254,46 +272,44 @@ private static final long serialVersionUID = 0L;
    *
    * Protobuf type {@code browsercloud.node.v1.ExtensionBackgroundPolicy}
    */
-  public static final class Builder extends
-      com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+  public static final class Builder extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
+      implements
       // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.ExtensionBackgroundPolicy)
       io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder {
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ExtensionBackgroundPolicy_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_ExtensionBackgroundPolicy_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ExtensionBackgroundPolicy_fieldAccessorTable
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_ExtensionBackgroundPolicy_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.class, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder.class);
+              io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.class,
+              io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder.class);
     }
 
     // Construct using io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.newBuilder()
-    private Builder() {
+    private Builder() {}
 
-    }
-
-    private Builder(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+    private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
-
     }
+
     @java.lang.Override
     public Builder clear() {
       super.clear();
       bitField0_ = 0;
-      pausedExtensionIds_ =
-          com.google.protobuf.LazyStringArrayList.emptyList();
+      pausedExtensionIds_ = com.google.protobuf.LazyStringArrayList.emptyList();
       return this;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Descriptors.Descriptor
-        getDescriptorForType() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ExtensionBackgroundPolicy_descriptor;
+    public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_ExtensionBackgroundPolicy_descriptor;
     }
 
     @java.lang.Override
@@ -312,8 +328,11 @@ private static final long serialVersionUID = 0L;
 
     @java.lang.Override
     public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy buildPartial() {
-      io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy result = new io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy(this);
-      if (bitField0_ != 0) { buildPartial0(result); }
+      io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy result =
+          new io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy(this);
+      if (bitField0_ != 0) {
+        buildPartial0(result);
+      }
       onBuilt();
       return result;
     }
@@ -330,38 +349,39 @@ private static final long serialVersionUID = 0L;
     public Builder clone() {
       return super.clone();
     }
+
     @java.lang.Override
     public Builder setField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.setField(field, value);
     }
+
     @java.lang.Override
-    public Builder clearField(
-        com.google.protobuf.Descriptors.FieldDescriptor field) {
+    public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
       return super.clearField(field);
     }
+
     @java.lang.Override
-    public Builder clearOneof(
-        com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+    public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
       return super.clearOneof(oneof);
     }
+
     @java.lang.Override
     public Builder setRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        int index, java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, int index, java.lang.Object value) {
       return super.setRepeatedField(field, index, value);
     }
+
     @java.lang.Override
     public Builder addRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.addRepeatedField(field, value);
     }
+
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy) {
-        return mergeFrom((io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy)other);
+        return mergeFrom((io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy) other);
       } else {
         super.mergeFrom(other);
         return this;
@@ -369,7 +389,8 @@ private static final long serialVersionUID = 0L;
     }
 
     public Builder mergeFrom(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy other) {
-      if (other == io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()) return this;
+      if (other == io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance())
+        return this;
       if (!other.pausedExtensionIds_.isEmpty()) {
         if (pausedExtensionIds_.isEmpty()) {
           pausedExtensionIds_ = other.pausedExtensionIds_;
@@ -406,18 +427,20 @@ private static final long serialVersionUID = 0L;
             case 0:
               done = true;
               break;
-            case 10: {
-              java.lang.String s = input.readStringRequireUtf8();
-              ensurePausedExtensionIdsIsMutable();
-              pausedExtensionIds_.add(s);
-              break;
-            } // case 10
-            default: {
-              if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                done = true; // was an endgroup tag
-              }
-              break;
-            } // default:
+            case 10:
+              {
+                java.lang.String s = input.readStringRequireUtf8();
+                ensurePausedExtensionIdsIsMutable();
+                pausedExtensionIds_.add(s);
+                break;
+              } // case 10
+            default:
+              {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
           } // switch (tag)
         } // while (!done)
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -427,111 +450,130 @@ private static final long serialVersionUID = 0L;
       } // finally
       return this;
     }
+
     private int bitField0_;
 
     private com.google.protobuf.LazyStringArrayList pausedExtensionIds_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
+
     private void ensurePausedExtensionIdsIsMutable() {
       if (!pausedExtensionIds_.isModifiable()) {
         pausedExtensionIds_ = new com.google.protobuf.LazyStringArrayList(pausedExtensionIds_);
       }
       bitField0_ |= 0x00000001;
     }
+
     /**
      * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+     *
      * @return A list containing the pausedExtensionIds.
      */
-    public com.google.protobuf.ProtocolStringList
-        getPausedExtensionIdsList() {
+    public com.google.protobuf.ProtocolStringList getPausedExtensionIdsList() {
       pausedExtensionIds_.makeImmutable();
       return pausedExtensionIds_;
     }
+
     /**
      * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+     *
      * @return The count of pausedExtensionIds.
      */
     public int getPausedExtensionIdsCount() {
       return pausedExtensionIds_.size();
     }
+
     /**
      * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+     *
      * @param index The index of the element to return.
      * @return The pausedExtensionIds at the given index.
      */
     public java.lang.String getPausedExtensionIds(int index) {
       return pausedExtensionIds_.get(index);
     }
+
     /**
      * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+     *
      * @param index The index of the value to return.
      * @return The bytes of the pausedExtensionIds at the given index.
      */
-    public com.google.protobuf.ByteString
-        getPausedExtensionIdsBytes(int index) {
+    public com.google.protobuf.ByteString getPausedExtensionIdsBytes(int index) {
       return pausedExtensionIds_.getByteString(index);
     }
+
     /**
      * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+     *
      * @param index The index to set the value at.
      * @param value The pausedExtensionIds to set.
      * @return This builder for chaining.
      */
-    public Builder setPausedExtensionIds(
-        int index, java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setPausedExtensionIds(int index, java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       ensurePausedExtensionIdsIsMutable();
       pausedExtensionIds_.set(index, value);
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
+
     /**
      * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+     *
      * @param value The pausedExtensionIds to add.
      * @return This builder for chaining.
      */
-    public Builder addPausedExtensionIds(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder addPausedExtensionIds(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       ensurePausedExtensionIdsIsMutable();
       pausedExtensionIds_.add(value);
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
+
     /**
      * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+     *
      * @param values The pausedExtensionIds to add.
      * @return This builder for chaining.
      */
-    public Builder addAllPausedExtensionIds(
-        java.lang.Iterable<java.lang.String> values) {
+    public Builder addAllPausedExtensionIds(java.lang.Iterable<java.lang.String> values) {
       ensurePausedExtensionIdsIsMutable();
-      com.google.protobuf.AbstractMessageLite.Builder.addAll(
-          values, pausedExtensionIds_);
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(values, pausedExtensionIds_);
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
+
     /**
      * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearPausedExtensionIds() {
-      pausedExtensionIds_ =
-        com.google.protobuf.LazyStringArrayList.emptyList();
-      bitField0_ = (bitField0_ & ~0x00000001);;
+      pausedExtensionIds_ = com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000001);
+      ;
       onChanged();
       return this;
     }
+
     /**
      * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+     *
      * @param value The bytes of the pausedExtensionIds to add.
      * @return This builder for chaining.
      */
-    public Builder addPausedExtensionIdsBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder addPausedExtensionIdsBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       ensurePausedExtensionIdsIsMutable();
       pausedExtensionIds_.add(value);
@@ -539,9 +581,9 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     @java.lang.Override
-    public final Builder setUnknownFields(
-        final com.google.protobuf.UnknownFieldSet unknownFields) {
+    public final Builder setUnknownFields(final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.setUnknownFields(unknownFields);
     }
 
@@ -551,12 +593,12 @@ private static final long serialVersionUID = 0L;
       return super.mergeUnknownFields(unknownFields);
     }
 
-
     // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.ExtensionBackgroundPolicy)
   }
 
   // @@protoc_insertion_point(class_scope:browsercloud.node.v1.ExtensionBackgroundPolicy)
   private static final io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy DEFAULT_INSTANCE;
+
   static {
     DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy();
   }
@@ -565,27 +607,27 @@ private static final long serialVersionUID = 0L;
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<ExtensionBackgroundPolicy>
-      PARSER = new com.google.protobuf.AbstractParser<ExtensionBackgroundPolicy>() {
-    @java.lang.Override
-    public ExtensionBackgroundPolicy parsePartialFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      Builder builder = newBuilder();
-      try {
-        builder.mergeFrom(input, extensionRegistry);
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(builder.buildPartial());
-      } catch (com.google.protobuf.UninitializedMessageException e) {
-        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(e)
-            .setUnfinishedMessage(builder.buildPartial());
-      }
-      return builder.buildPartial();
-    }
-  };
+  private static final com.google.protobuf.Parser<ExtensionBackgroundPolicy> PARSER =
+      new com.google.protobuf.AbstractParser<ExtensionBackgroundPolicy>() {
+        @java.lang.Override
+        public ExtensionBackgroundPolicy parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          Builder builder = newBuilder();
+          try {
+            builder.mergeFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            throw e.setUnfinishedMessage(builder.buildPartial());
+          } catch (com.google.protobuf.UninitializedMessageException e) {
+            throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+          } catch (java.io.IOException e) {
+            throw new com.google.protobuf.InvalidProtocolBufferException(e)
+                .setUnfinishedMessage(builder.buildPartial());
+          }
+          return builder.buildPartial();
+        }
+      };
 
   public static com.google.protobuf.Parser<ExtensionBackgroundPolicy> parser() {
     return PARSER;
@@ -600,5 +642,4 @@ private static final long serialVersionUID = 0L;
   public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
-
 }

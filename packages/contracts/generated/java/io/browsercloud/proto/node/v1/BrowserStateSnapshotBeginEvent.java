@@ -5,6 +5,8 @@
 package io.browsercloud.proto.node.v1;
 
 /**
+ *
+ *
  * <pre>
  * 显式 FULL Resync 的有界流式传输。Begin 声明不可变清单，Chunk 只承载状态
  * protobuf 字节，Commit 允许 Control Plane 在校验全部分块和整流 SHA-256 后原子发布。
@@ -13,15 +15,18 @@ package io.browsercloud.proto.node.v1;
  *
  * Protobuf type {@code browsercloud.node.v1.BrowserStateSnapshotBeginEvent}
  */
-public final class BrowserStateSnapshotBeginEvent extends
-    com.google.protobuf.GeneratedMessageV3 implements
+public final class BrowserStateSnapshotBeginEvent extends com.google.protobuf.GeneratedMessageV3
+    implements
     // @@protoc_insertion_point(message_implements:browsercloud.node.v1.BrowserStateSnapshotBeginEvent)
     BrowserStateSnapshotBeginEventOrBuilder {
-private static final long serialVersionUID = 0L;
+  private static final long serialVersionUID = 0L;
+
   // Use BrowserStateSnapshotBeginEvent.newBuilder() to construct.
-  private BrowserStateSnapshotBeginEvent(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  private BrowserStateSnapshotBeginEvent(
+      com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
+
   private BrowserStateSnapshotBeginEvent() {
     sessionId_ = "";
     snapshotId_ = "";
@@ -31,30 +36,34 @@ private static final long serialVersionUID = 0L;
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
+  protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
     return new BrowserStateSnapshotBeginEvent();
   }
 
-  public static final com.google.protobuf.Descriptors.Descriptor
-      getDescriptor() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateSnapshotBeginEvent_descriptor;
+  public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_BrowserStateSnapshotBeginEvent_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateSnapshotBeginEvent_fieldAccessorTable
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_BrowserStateSnapshotBeginEvent_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent.class, io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent.Builder.class);
+            io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent.class,
+            io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent.Builder.class);
   }
 
   private int bitField0_;
   public static final int SESSION_ID_FIELD_NUMBER = 1;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object sessionId_ = "";
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   @java.lang.Override
@@ -63,25 +72,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       sessionId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getSessionIdBytes() {
+  public com.google.protobuf.ByteString getSessionIdBytes() {
     java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       sessionId_ = b;
       return b;
     } else {
@@ -90,10 +98,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int SNAPSHOT_ID_FIELD_NUMBER = 2;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object snapshotId_ = "";
+
   /**
    * <code>string snapshot_id = 2 [json_name = "snapshotId"];</code>
+   *
    * @return The snapshotId.
    */
   @java.lang.Override
@@ -102,25 +113,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       snapshotId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string snapshot_id = 2 [json_name = "snapshotId"];</code>
+   *
    * @return The bytes for snapshotId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getSnapshotIdBytes() {
+  public com.google.protobuf.ByteString getSnapshotIdBytes() {
     java.lang.Object ref = snapshotId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       snapshotId_ = b;
       return b;
     } else {
@@ -130,8 +140,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int STATE_VERSION_FIELD_NUMBER = 3;
   private long stateVersion_ = 0L;
+
   /**
    * <code>uint64 state_version = 3 [json_name = "stateVersion"];</code>
+   *
    * @return The stateVersion.
    */
   @java.lang.Override
@@ -141,8 +153,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int TARGET_REVISION_FIELD_NUMBER = 4;
   private long targetRevision_ = 0L;
+
   /**
    * <code>uint64 target_revision = 4 [json_name = "targetRevision"];</code>
+   *
    * @return The targetRevision.
    */
   @java.lang.Override
@@ -152,8 +166,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int TOTAL_CHUNKS_FIELD_NUMBER = 5;
   private int totalChunks_ = 0;
+
   /**
    * <code>uint32 total_chunks = 5 [json_name = "totalChunks"];</code>
+   *
    * @return The totalChunks.
    */
   @java.lang.Override
@@ -163,8 +179,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int TOTAL_BYTES_FIELD_NUMBER = 6;
   private long totalBytes_ = 0L;
+
   /**
    * <code>uint64 total_bytes = 6 [json_name = "totalBytes"];</code>
+   *
    * @return The totalBytes.
    */
   @java.lang.Override
@@ -173,10 +191,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int PAYLOAD_SHA256_FIELD_NUMBER = 7;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object payloadSha256_ = "";
+
   /**
    * <code>string payload_sha256 = 7 [json_name = "payloadSha256"];</code>
+   *
    * @return The payloadSha256.
    */
   @java.lang.Override
@@ -185,25 +206,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       payloadSha256_ = s;
       return s;
     }
   }
+
   /**
    * <code>string payload_sha256 = 7 [json_name = "payloadSha256"];</code>
+   *
    * @return The bytes for payloadSha256.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getPayloadSha256Bytes() {
+  public com.google.protobuf.ByteString getPayloadSha256Bytes() {
     java.lang.Object ref = payloadSha256_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       payloadSha256_ = b;
       return b;
     } else {
@@ -212,10 +232,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int SNAPSHOT_KIND_FIELD_NUMBER = 8;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object snapshotKind_ = "";
+
   /**
    * <code>string snapshot_kind = 8 [json_name = "snapshotKind"];</code>
+   *
    * @return The snapshotKind.
    */
   @java.lang.Override
@@ -224,25 +247,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       snapshotKind_ = s;
       return s;
     }
   }
+
   /**
    * <code>string snapshot_kind = 8 [json_name = "snapshotKind"];</code>
+   *
    * @return The bytes for snapshotKind.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getSnapshotKindBytes() {
+  public com.google.protobuf.ByteString getSnapshotKindBytes() {
     java.lang.Object ref = snapshotKind_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       snapshotKind_ = b;
       return b;
     } else {
@@ -252,26 +274,34 @@ private static final long serialVersionUID = 0L;
 
   public static final int COLLECTION_CPU_MILLIS_FIELD_NUMBER = 9;
   private long collectionCpuMillis_ = 0L;
+
   /**
+   *
+   *
    * <pre>
    * Browser Runtime cgroup 在本次采集期间的累计 CPU 时间增量；无委派 cgroup 的
    * N-1/本地 Node 留空，Control Plane 保留准入时的保守预留。
    * </pre>
    *
    * <code>optional uint64 collection_cpu_millis = 9 [json_name = "collectionCpuMillis"];</code>
+   *
    * @return Whether the collectionCpuMillis field is set.
    */
   @java.lang.Override
   public boolean hasCollectionCpuMillis() {
     return ((bitField0_ & 0x00000001) != 0);
   }
+
   /**
+   *
+   *
    * <pre>
    * Browser Runtime cgroup 在本次采集期间的累计 CPU 时间增量；无委派 cgroup 的
    * N-1/本地 Node 留空，Control Plane 保留准入时的保守预留。
    * </pre>
    *
    * <code>optional uint64 collection_cpu_millis = 9 [json_name = "collectionCpuMillis"];</code>
+   *
    * @return The collectionCpuMillis.
    */
   @java.lang.Override
@@ -280,6 +310,7 @@ private static final long serialVersionUID = 0L;
   }
 
   private byte memoizedIsInitialized = -1;
+
   @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
@@ -291,8 +322,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @java.lang.Override
-  public void writeTo(com.google.protobuf.CodedOutputStream output)
-                      throws java.io.IOException {
+  public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(sessionId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 1, sessionId_);
     }
@@ -336,20 +366,16 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, snapshotId_);
     }
     if (stateVersion_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(3, stateVersion_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(3, stateVersion_);
     }
     if (targetRevision_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(4, targetRevision_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(4, targetRevision_);
     }
     if (totalChunks_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(5, totalChunks_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(5, totalChunks_);
     }
     if (totalBytes_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(6, totalBytes_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(6, totalBytes_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(payloadSha256_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, payloadSha256_);
@@ -358,8 +384,7 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(8, snapshotKind_);
     }
     if (((bitField0_ & 0x00000001) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(9, collectionCpuMillis_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(9, collectionCpuMillis_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -369,33 +394,25 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public boolean equals(final java.lang.Object obj) {
     if (obj == this) {
-     return true;
+      return true;
     }
     if (!(obj instanceof io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent)) {
       return super.equals(obj);
     }
-    io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent other = (io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent) obj;
+    io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent other =
+        (io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent) obj;
 
-    if (!getSessionId()
-        .equals(other.getSessionId())) return false;
-    if (!getSnapshotId()
-        .equals(other.getSnapshotId())) return false;
-    if (getStateVersion()
-        != other.getStateVersion()) return false;
-    if (getTargetRevision()
-        != other.getTargetRevision()) return false;
-    if (getTotalChunks()
-        != other.getTotalChunks()) return false;
-    if (getTotalBytes()
-        != other.getTotalBytes()) return false;
-    if (!getPayloadSha256()
-        .equals(other.getPayloadSha256())) return false;
-    if (!getSnapshotKind()
-        .equals(other.getSnapshotKind())) return false;
+    if (!getSessionId().equals(other.getSessionId())) return false;
+    if (!getSnapshotId().equals(other.getSnapshotId())) return false;
+    if (getStateVersion() != other.getStateVersion()) return false;
+    if (getTargetRevision() != other.getTargetRevision()) return false;
+    if (getTotalChunks() != other.getTotalChunks()) return false;
+    if (getTotalBytes() != other.getTotalBytes()) return false;
+    if (!getPayloadSha256().equals(other.getPayloadSha256())) return false;
+    if (!getSnapshotKind().equals(other.getSnapshotKind())) return false;
     if (hasCollectionCpuMillis() != other.hasCollectionCpuMillis()) return false;
     if (hasCollectionCpuMillis()) {
-      if (getCollectionCpuMillis()
-          != other.getCollectionCpuMillis()) return false;
+      if (getCollectionCpuMillis() != other.getCollectionCpuMillis()) return false;
     }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
@@ -413,24 +430,20 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + SNAPSHOT_ID_FIELD_NUMBER;
     hash = (53 * hash) + getSnapshotId().hashCode();
     hash = (37 * hash) + STATE_VERSION_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        getStateVersion());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getStateVersion());
     hash = (37 * hash) + TARGET_REVISION_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        getTargetRevision());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getTargetRevision());
     hash = (37 * hash) + TOTAL_CHUNKS_FIELD_NUMBER;
     hash = (53 * hash) + getTotalChunks();
     hash = (37 * hash) + TOTAL_BYTES_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        getTotalBytes());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getTotalBytes());
     hash = (37 * hash) + PAYLOAD_SHA256_FIELD_NUMBER;
     hash = (53 * hash) + getPayloadSha256().hashCode();
     hash = (37 * hash) + SNAPSHOT_KIND_FIELD_NUMBER;
     hash = (53 * hash) + getSnapshotKind().hashCode();
     if (hasCollectionCpuMillis()) {
       hash = (37 * hash) + COLLECTION_CPU_MILLIS_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-          getCollectionCpuMillis());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getCollectionCpuMillis());
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -438,98 +451,105 @@ private static final long serialVersionUID = 0L;
   }
 
   public static io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent parseFrom(
-      java.nio.ByteBuffer data)
-      throws com.google.protobuf.InvalidProtocolBufferException {
+      java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent parseFrom(
-      java.nio.ByteBuffer data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent parseFrom(
-      byte[] data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent parseFrom(java.io.InputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
-  }
+
   public static io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent parseFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent parseDelimitedFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent parseFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   public static io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent parseDelimitedFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
   }
+
+  public static io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent parseDelimitedFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
+        PARSER, input, extensionRegistry);
+  }
+
   public static io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent parseFrom(
-      com.google.protobuf.CodedInputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
+      com.google.protobuf.CodedInputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
+
   public static io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   @java.lang.Override
-  public Builder newBuilderForType() { return newBuilder(); }
+  public Builder newBuilderForType() {
+    return newBuilder();
+  }
+
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent prototype) {
+
+  public static Builder newBuilder(
+      io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-  }
-  @java.lang.Override
-  public Builder toBuilder() {
-    return this == DEFAULT_INSTANCE
-        ? new Builder() : new Builder().mergeFrom(this);
   }
 
   @java.lang.Override
-  protected Builder newBuilderForType(
-      com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+  public Builder toBuilder() {
+    return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
+  }
+
+  @java.lang.Override
+  protected Builder newBuilderForType(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
     Builder builder = new Builder(parent);
     return builder;
   }
+
   /**
+   *
+   *
    * <pre>
    * 显式 FULL Resync 的有界流式传输。Begin 声明不可变清单，Chunk 只承载状态
    * protobuf 字节，Commit 允许 Control Plane 在校验全部分块和整流 SHA-256 后原子发布。
@@ -538,33 +558,32 @@ private static final long serialVersionUID = 0L;
    *
    * Protobuf type {@code browsercloud.node.v1.BrowserStateSnapshotBeginEvent}
    */
-  public static final class Builder extends
-      com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+  public static final class Builder extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
+      implements
       // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.BrowserStateSnapshotBeginEvent)
       io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEventOrBuilder {
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateSnapshotBeginEvent_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_BrowserStateSnapshotBeginEvent_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateSnapshotBeginEvent_fieldAccessorTable
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_BrowserStateSnapshotBeginEvent_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent.class, io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent.Builder.class);
+              io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent.class,
+              io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent.Builder.class);
     }
 
     // Construct using io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent.newBuilder()
-    private Builder() {
+    private Builder() {}
 
-    }
-
-    private Builder(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+    private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
-
     }
+
     @java.lang.Override
     public Builder clear() {
       super.clear();
@@ -582,13 +601,14 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Descriptors.Descriptor
-        getDescriptorForType() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateSnapshotBeginEvent_descriptor;
+    public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_BrowserStateSnapshotBeginEvent_descriptor;
     }
 
     @java.lang.Override
-    public io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent getDefaultInstanceForType() {
+    public io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent
+        getDefaultInstanceForType() {
       return io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent.getDefaultInstance();
     }
 
@@ -603,13 +623,17 @@ private static final long serialVersionUID = 0L;
 
     @java.lang.Override
     public io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent buildPartial() {
-      io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent result = new io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent(this);
-      if (bitField0_ != 0) { buildPartial0(result); }
+      io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent result =
+          new io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent(this);
+      if (bitField0_ != 0) {
+        buildPartial0(result);
+      }
       onBuilt();
       return result;
     }
 
-    private void buildPartial0(io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent result) {
+    private void buildPartial0(
+        io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent result) {
       int from_bitField0_ = bitField0_;
       if (((from_bitField0_ & 0x00000001) != 0)) {
         result.sessionId_ = sessionId_;
@@ -647,38 +671,39 @@ private static final long serialVersionUID = 0L;
     public Builder clone() {
       return super.clone();
     }
+
     @java.lang.Override
     public Builder setField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.setField(field, value);
     }
+
     @java.lang.Override
-    public Builder clearField(
-        com.google.protobuf.Descriptors.FieldDescriptor field) {
+    public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
       return super.clearField(field);
     }
+
     @java.lang.Override
-    public Builder clearOneof(
-        com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+    public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
       return super.clearOneof(oneof);
     }
+
     @java.lang.Override
     public Builder setRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        int index, java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, int index, java.lang.Object value) {
       return super.setRepeatedField(field, index, value);
     }
+
     @java.lang.Override
     public Builder addRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.addRepeatedField(field, value);
     }
+
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent) {
-        return mergeFrom((io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent)other);
+        return mergeFrom((io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent) other);
       } else {
         super.mergeFrom(other);
         return this;
@@ -686,7 +711,9 @@ private static final long serialVersionUID = 0L;
     }
 
     public Builder mergeFrom(io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent other) {
-      if (other == io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent.getDefaultInstance()) return this;
+      if (other
+          == io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent.getDefaultInstance())
+        return this;
       if (!other.getSessionId().isEmpty()) {
         sessionId_ = other.sessionId_;
         bitField0_ |= 0x00000001;
@@ -748,57 +775,67 @@ private static final long serialVersionUID = 0L;
             case 0:
               done = true;
               break;
-            case 10: {
-              sessionId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000001;
-              break;
-            } // case 10
-            case 18: {
-              snapshotId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000002;
-              break;
-            } // case 18
-            case 24: {
-              stateVersion_ = input.readUInt64();
-              bitField0_ |= 0x00000004;
-              break;
-            } // case 24
-            case 32: {
-              targetRevision_ = input.readUInt64();
-              bitField0_ |= 0x00000008;
-              break;
-            } // case 32
-            case 40: {
-              totalChunks_ = input.readUInt32();
-              bitField0_ |= 0x00000010;
-              break;
-            } // case 40
-            case 48: {
-              totalBytes_ = input.readUInt64();
-              bitField0_ |= 0x00000020;
-              break;
-            } // case 48
-            case 58: {
-              payloadSha256_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000040;
-              break;
-            } // case 58
-            case 66: {
-              snapshotKind_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000080;
-              break;
-            } // case 66
-            case 72: {
-              collectionCpuMillis_ = input.readUInt64();
-              bitField0_ |= 0x00000100;
-              break;
-            } // case 72
-            default: {
-              if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                done = true; // was an endgroup tag
-              }
-              break;
-            } // default:
+            case 10:
+              {
+                sessionId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000001;
+                break;
+              } // case 10
+            case 18:
+              {
+                snapshotId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000002;
+                break;
+              } // case 18
+            case 24:
+              {
+                stateVersion_ = input.readUInt64();
+                bitField0_ |= 0x00000004;
+                break;
+              } // case 24
+            case 32:
+              {
+                targetRevision_ = input.readUInt64();
+                bitField0_ |= 0x00000008;
+                break;
+              } // case 32
+            case 40:
+              {
+                totalChunks_ = input.readUInt32();
+                bitField0_ |= 0x00000010;
+                break;
+              } // case 40
+            case 48:
+              {
+                totalBytes_ = input.readUInt64();
+                bitField0_ |= 0x00000020;
+                break;
+              } // case 48
+            case 58:
+              {
+                payloadSha256_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000040;
+                break;
+              } // case 58
+            case 66:
+              {
+                snapshotKind_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000080;
+                break;
+              } // case 66
+            case 72:
+              {
+                collectionCpuMillis_ = input.readUInt64();
+                bitField0_ |= 0x00000100;
+                break;
+              } // case 72
+            default:
+              {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
           } // switch (tag)
         } // while (!done)
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -808,18 +845,20 @@ private static final long serialVersionUID = 0L;
       } // finally
       return this;
     }
+
     private int bitField0_;
 
     private java.lang.Object sessionId_ = "";
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return The sessionId.
      */
     public java.lang.String getSessionId() {
       java.lang.Object ref = sessionId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         sessionId_ = s;
         return s;
@@ -827,38 +866,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return The bytes for sessionId.
      */
-    public com.google.protobuf.ByteString
-        getSessionIdBytes() {
+    public com.google.protobuf.ByteString getSessionIdBytes() {
       java.lang.Object ref = sessionId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         sessionId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @param value The sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setSessionId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSessionId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       sessionId_ = value;
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSessionId() {
@@ -867,14 +911,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @param value The bytes for sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setSessionIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSessionIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       sessionId_ = value;
       bitField0_ |= 0x00000001;
@@ -883,15 +930,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object snapshotId_ = "";
+
     /**
      * <code>string snapshot_id = 2 [json_name = "snapshotId"];</code>
+     *
      * @return The snapshotId.
      */
     public java.lang.String getSnapshotId() {
       java.lang.Object ref = snapshotId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         snapshotId_ = s;
         return s;
@@ -899,38 +947,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string snapshot_id = 2 [json_name = "snapshotId"];</code>
+     *
      * @return The bytes for snapshotId.
      */
-    public com.google.protobuf.ByteString
-        getSnapshotIdBytes() {
+    public com.google.protobuf.ByteString getSnapshotIdBytes() {
       java.lang.Object ref = snapshotId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         snapshotId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string snapshot_id = 2 [json_name = "snapshotId"];</code>
+     *
      * @param value The snapshotId to set.
      * @return This builder for chaining.
      */
-    public Builder setSnapshotId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSnapshotId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       snapshotId_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
+
     /**
      * <code>string snapshot_id = 2 [json_name = "snapshotId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSnapshotId() {
@@ -939,14 +992,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string snapshot_id = 2 [json_name = "snapshotId"];</code>
+     *
      * @param value The bytes for snapshotId to set.
      * @return This builder for chaining.
      */
-    public Builder setSnapshotIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSnapshotIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       snapshotId_ = value;
       bitField0_ |= 0x00000002;
@@ -954,17 +1010,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long stateVersion_ ;
+    private long stateVersion_;
+
     /**
      * <code>uint64 state_version = 3 [json_name = "stateVersion"];</code>
+     *
      * @return The stateVersion.
      */
     @java.lang.Override
     public long getStateVersion() {
       return stateVersion_;
     }
+
     /**
      * <code>uint64 state_version = 3 [json_name = "stateVersion"];</code>
+     *
      * @param value The stateVersion to set.
      * @return This builder for chaining.
      */
@@ -975,8 +1035,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint64 state_version = 3 [json_name = "stateVersion"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearStateVersion() {
@@ -986,17 +1048,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long targetRevision_ ;
+    private long targetRevision_;
+
     /**
      * <code>uint64 target_revision = 4 [json_name = "targetRevision"];</code>
+     *
      * @return The targetRevision.
      */
     @java.lang.Override
     public long getTargetRevision() {
       return targetRevision_;
     }
+
     /**
      * <code>uint64 target_revision = 4 [json_name = "targetRevision"];</code>
+     *
      * @param value The targetRevision to set.
      * @return This builder for chaining.
      */
@@ -1007,8 +1073,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint64 target_revision = 4 [json_name = "targetRevision"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearTargetRevision() {
@@ -1018,17 +1086,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int totalChunks_ ;
+    private int totalChunks_;
+
     /**
      * <code>uint32 total_chunks = 5 [json_name = "totalChunks"];</code>
+     *
      * @return The totalChunks.
      */
     @java.lang.Override
     public int getTotalChunks() {
       return totalChunks_;
     }
+
     /**
      * <code>uint32 total_chunks = 5 [json_name = "totalChunks"];</code>
+     *
      * @param value The totalChunks to set.
      * @return This builder for chaining.
      */
@@ -1039,8 +1111,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 total_chunks = 5 [json_name = "totalChunks"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearTotalChunks() {
@@ -1050,17 +1124,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long totalBytes_ ;
+    private long totalBytes_;
+
     /**
      * <code>uint64 total_bytes = 6 [json_name = "totalBytes"];</code>
+     *
      * @return The totalBytes.
      */
     @java.lang.Override
     public long getTotalBytes() {
       return totalBytes_;
     }
+
     /**
      * <code>uint64 total_bytes = 6 [json_name = "totalBytes"];</code>
+     *
      * @param value The totalBytes to set.
      * @return This builder for chaining.
      */
@@ -1071,8 +1149,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint64 total_bytes = 6 [json_name = "totalBytes"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearTotalBytes() {
@@ -1083,15 +1163,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object payloadSha256_ = "";
+
     /**
      * <code>string payload_sha256 = 7 [json_name = "payloadSha256"];</code>
+     *
      * @return The payloadSha256.
      */
     public java.lang.String getPayloadSha256() {
       java.lang.Object ref = payloadSha256_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         payloadSha256_ = s;
         return s;
@@ -1099,38 +1180,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string payload_sha256 = 7 [json_name = "payloadSha256"];</code>
+     *
      * @return The bytes for payloadSha256.
      */
-    public com.google.protobuf.ByteString
-        getPayloadSha256Bytes() {
+    public com.google.protobuf.ByteString getPayloadSha256Bytes() {
       java.lang.Object ref = payloadSha256_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         payloadSha256_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string payload_sha256 = 7 [json_name = "payloadSha256"];</code>
+     *
      * @param value The payloadSha256 to set.
      * @return This builder for chaining.
      */
-    public Builder setPayloadSha256(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setPayloadSha256(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       payloadSha256_ = value;
       bitField0_ |= 0x00000040;
       onChanged();
       return this;
     }
+
     /**
      * <code>string payload_sha256 = 7 [json_name = "payloadSha256"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearPayloadSha256() {
@@ -1139,14 +1225,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string payload_sha256 = 7 [json_name = "payloadSha256"];</code>
+     *
      * @param value The bytes for payloadSha256 to set.
      * @return This builder for chaining.
      */
-    public Builder setPayloadSha256Bytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setPayloadSha256Bytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       payloadSha256_ = value;
       bitField0_ |= 0x00000040;
@@ -1155,15 +1244,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object snapshotKind_ = "";
+
     /**
      * <code>string snapshot_kind = 8 [json_name = "snapshotKind"];</code>
+     *
      * @return The snapshotKind.
      */
     public java.lang.String getSnapshotKind() {
       java.lang.Object ref = snapshotKind_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         snapshotKind_ = s;
         return s;
@@ -1171,38 +1261,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string snapshot_kind = 8 [json_name = "snapshotKind"];</code>
+     *
      * @return The bytes for snapshotKind.
      */
-    public com.google.protobuf.ByteString
-        getSnapshotKindBytes() {
+    public com.google.protobuf.ByteString getSnapshotKindBytes() {
       java.lang.Object ref = snapshotKind_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         snapshotKind_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string snapshot_kind = 8 [json_name = "snapshotKind"];</code>
+     *
      * @param value The snapshotKind to set.
      * @return This builder for chaining.
      */
-    public Builder setSnapshotKind(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSnapshotKind(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       snapshotKind_ = value;
       bitField0_ |= 0x00000080;
       onChanged();
       return this;
     }
+
     /**
      * <code>string snapshot_kind = 8 [json_name = "snapshotKind"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSnapshotKind() {
@@ -1211,14 +1306,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string snapshot_kind = 8 [json_name = "snapshotKind"];</code>
+     *
      * @param value The bytes for snapshotKind to set.
      * @return This builder for chaining.
      */
-    public Builder setSnapshotKindBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSnapshotKindBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       snapshotKind_ = value;
       bitField0_ |= 0x00000080;
@@ -1226,40 +1324,52 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long collectionCpuMillis_ ;
+    private long collectionCpuMillis_;
+
     /**
+     *
+     *
      * <pre>
      * Browser Runtime cgroup 在本次采集期间的累计 CPU 时间增量；无委派 cgroup 的
      * N-1/本地 Node 留空，Control Plane 保留准入时的保守预留。
      * </pre>
      *
      * <code>optional uint64 collection_cpu_millis = 9 [json_name = "collectionCpuMillis"];</code>
+     *
      * @return Whether the collectionCpuMillis field is set.
      */
     @java.lang.Override
     public boolean hasCollectionCpuMillis() {
       return ((bitField0_ & 0x00000100) != 0);
     }
+
     /**
+     *
+     *
      * <pre>
      * Browser Runtime cgroup 在本次采集期间的累计 CPU 时间增量；无委派 cgroup 的
      * N-1/本地 Node 留空，Control Plane 保留准入时的保守预留。
      * </pre>
      *
      * <code>optional uint64 collection_cpu_millis = 9 [json_name = "collectionCpuMillis"];</code>
+     *
      * @return The collectionCpuMillis.
      */
     @java.lang.Override
     public long getCollectionCpuMillis() {
       return collectionCpuMillis_;
     }
+
     /**
+     *
+     *
      * <pre>
      * Browser Runtime cgroup 在本次采集期间的累计 CPU 时间增量；无委派 cgroup 的
      * N-1/本地 Node 留空，Control Plane 保留准入时的保守预留。
      * </pre>
      *
      * <code>optional uint64 collection_cpu_millis = 9 [json_name = "collectionCpuMillis"];</code>
+     *
      * @param value The collectionCpuMillis to set.
      * @return This builder for chaining.
      */
@@ -1270,13 +1380,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * Browser Runtime cgroup 在本次采集期间的累计 CPU 时间增量；无委派 cgroup 的
      * N-1/本地 Node 留空，Control Plane 保留准入时的保守预留。
      * </pre>
      *
      * <code>optional uint64 collection_cpu_millis = 9 [json_name = "collectionCpuMillis"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearCollectionCpuMillis() {
@@ -1285,9 +1399,9 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     @java.lang.Override
-    public final Builder setUnknownFields(
-        final com.google.protobuf.UnknownFieldSet unknownFields) {
+    public final Builder setUnknownFields(final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.setUnknownFields(unknownFields);
     }
 
@@ -1297,12 +1411,13 @@ private static final long serialVersionUID = 0L;
       return super.mergeUnknownFields(unknownFields);
     }
 
-
     // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.BrowserStateSnapshotBeginEvent)
   }
 
   // @@protoc_insertion_point(class_scope:browsercloud.node.v1.BrowserStateSnapshotBeginEvent)
-  private static final io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent DEFAULT_INSTANCE;
+  private static final io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent
+      DEFAULT_INSTANCE;
+
   static {
     DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent();
   }
@@ -1311,27 +1426,27 @@ private static final long serialVersionUID = 0L;
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<BrowserStateSnapshotBeginEvent>
-      PARSER = new com.google.protobuf.AbstractParser<BrowserStateSnapshotBeginEvent>() {
-    @java.lang.Override
-    public BrowserStateSnapshotBeginEvent parsePartialFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      Builder builder = newBuilder();
-      try {
-        builder.mergeFrom(input, extensionRegistry);
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(builder.buildPartial());
-      } catch (com.google.protobuf.UninitializedMessageException e) {
-        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(e)
-            .setUnfinishedMessage(builder.buildPartial());
-      }
-      return builder.buildPartial();
-    }
-  };
+  private static final com.google.protobuf.Parser<BrowserStateSnapshotBeginEvent> PARSER =
+      new com.google.protobuf.AbstractParser<BrowserStateSnapshotBeginEvent>() {
+        @java.lang.Override
+        public BrowserStateSnapshotBeginEvent parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          Builder builder = newBuilder();
+          try {
+            builder.mergeFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            throw e.setUnfinishedMessage(builder.buildPartial());
+          } catch (com.google.protobuf.UninitializedMessageException e) {
+            throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+          } catch (java.io.IOException e) {
+            throw new com.google.protobuf.InvalidProtocolBufferException(e)
+                .setUnfinishedMessage(builder.buildPartial());
+          }
+          return builder.buildPartial();
+        }
+      };
 
   public static com.google.protobuf.Parser<BrowserStateSnapshotBeginEvent> parser() {
     return PARSER;
@@ -1346,5 +1461,4 @@ private static final long serialVersionUID = 0L;
   public io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
-
 }

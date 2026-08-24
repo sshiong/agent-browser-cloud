@@ -4,73 +4,85 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface BusinessRecoveryActionCommandOrBuilder extends
+public interface BusinessRecoveryActionCommandOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.BusinessRecoveryActionCommand)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>string action_id = 2 [json_name = "actionId"];</code>
+   *
    * @return The actionId.
    */
   java.lang.String getActionId();
+
   /**
    * <code>string action_id = 2 [json_name = "actionId"];</code>
+   *
    * @return The bytes for actionId.
    */
-  com.google.protobuf.ByteString
-      getActionIdBytes();
+  com.google.protobuf.ByteString getActionIdBytes();
 
   /**
    * <code>string action = 3 [json_name = "action"];</code>
+   *
    * @return The action.
    */
   java.lang.String getAction();
+
   /**
    * <code>string action = 3 [json_name = "action"];</code>
+   *
    * @return The bytes for action.
    */
-  com.google.protobuf.ByteString
-      getActionBytes();
+  com.google.protobuf.ByteString getActionBytes();
 
   /**
    * <code>string target_url = 4 [json_name = "targetUrl"];</code>
+   *
    * @return The targetUrl.
    */
   java.lang.String getTargetUrl();
+
   /**
    * <code>string target_url = 4 [json_name = "targetUrl"];</code>
+   *
    * @return The bytes for targetUrl.
    */
-  com.google.protobuf.ByteString
-      getTargetUrlBytes();
+  com.google.protobuf.ByteString getTargetUrlBytes();
 
   /**
    * <code>uint64 base_state_version = 5 [json_name = "baseStateVersion"];</code>
+   *
    * @return The baseStateVersion.
    */
   long getBaseStateVersion();
 
   /**
    * <code>string extension_id = 6 [json_name = "extensionId"];</code>
+   *
    * @return The extensionId.
    */
   java.lang.String getExtensionId();
+
   /**
    * <code>string extension_id = 6 [json_name = "extensionId"];</code>
+   *
    * @return The bytes for extensionId.
    */
-  com.google.protobuf.ByteString
-      getExtensionIdBytes();
+  com.google.protobuf.ByteString getExtensionIdBytes();
 }

@@ -5,50 +5,58 @@
 package io.browsercloud.proto.node.v1;
 
 /**
+ *
+ *
  * <pre>
  * 单个有序输入命令。每个 CommandEnvelope 只承载一个动作，便于幂等重放。
  * </pre>
  *
  * Protobuf type {@code browsercloud.node.v1.ExecuteInputCommand}
  */
-public final class ExecuteInputCommand extends
-    com.google.protobuf.GeneratedMessageV3 implements
+public final class ExecuteInputCommand extends com.google.protobuf.GeneratedMessageV3
+    implements
     // @@protoc_insertion_point(message_implements:browsercloud.node.v1.ExecuteInputCommand)
     ExecuteInputCommandOrBuilder {
-private static final long serialVersionUID = 0L;
+  private static final long serialVersionUID = 0L;
+
   // Use ExecuteInputCommand.newBuilder() to construct.
   private ExecuteInputCommand(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
+
   private ExecuteInputCommand() {
     sessionId_ = "";
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
+  protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
     return new ExecuteInputCommand();
   }
 
-  public static final com.google.protobuf.Descriptors.Descriptor
-      getDescriptor() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ExecuteInputCommand_descriptor;
+  public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_ExecuteInputCommand_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ExecuteInputCommand_fieldAccessorTable
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_ExecuteInputCommand_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            io.browsercloud.proto.node.v1.ExecuteInputCommand.class, io.browsercloud.proto.node.v1.ExecuteInputCommand.Builder.class);
+            io.browsercloud.proto.node.v1.ExecuteInputCommand.class,
+            io.browsercloud.proto.node.v1.ExecuteInputCommand.Builder.class);
   }
 
   private int actionCase_ = 0;
+
   @SuppressWarnings("serial")
   private java.lang.Object action_;
+
   public enum ActionCase
-      implements com.google.protobuf.Internal.EnumLite,
+      implements
+          com.google.protobuf.Internal.EnumLite,
           com.google.protobuf.AbstractMessage.InternalOneOfEnum {
     MOUSE_MOVE(10),
     MOUSE_DOWN(11),
@@ -57,9 +65,11 @@ private static final long serialVersionUID = 0L;
     KEY_UP(14),
     ACTION_NOT_SET(0);
     private final int value;
+
     private ActionCase(int value) {
       this.value = value;
     }
+
     /**
      * @param value The number of the enum to look for.
      * @return The enum associated with the given number.
@@ -72,31 +82,40 @@ private static final long serialVersionUID = 0L;
 
     public static ActionCase forNumber(int value) {
       switch (value) {
-        case 10: return MOUSE_MOVE;
-        case 11: return MOUSE_DOWN;
-        case 12: return MOUSE_UP;
-        case 13: return KEY_DOWN;
-        case 14: return KEY_UP;
-        case 0: return ACTION_NOT_SET;
-        default: return null;
+        case 10:
+          return MOUSE_MOVE;
+        case 11:
+          return MOUSE_DOWN;
+        case 12:
+          return MOUSE_UP;
+        case 13:
+          return KEY_DOWN;
+        case 14:
+          return KEY_UP;
+        case 0:
+          return ACTION_NOT_SET;
+        default:
+          return null;
       }
     }
+
     public int getNumber() {
       return this.value;
     }
   };
 
-  public ActionCase
-  getActionCase() {
-    return ActionCase.forNumber(
-        actionCase_);
+  public ActionCase getActionCase() {
+    return ActionCase.forNumber(actionCase_);
   }
 
   public static final int SESSION_ID_FIELD_NUMBER = 1;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object sessionId_ = "";
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   @java.lang.Override
@@ -105,25 +124,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       sessionId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getSessionIdBytes() {
+  public com.google.protobuf.ByteString getSessionIdBytes() {
     java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       sessionId_ = b;
       return b;
     } else {
@@ -133,8 +151,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int SEQUENCE_FIELD_NUMBER = 2;
   private long sequence_ = 0L;
+
   /**
    * <code>uint64 sequence = 2 [json_name = "sequence"];</code>
+   *
    * @return The sequence.
    */
   @java.lang.Override
@@ -143,161 +163,181 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int MOUSE_MOVE_FIELD_NUMBER = 10;
+
   /**
    * <code>.browsercloud.node.v1.MouseMoveInput mouse_move = 10 [json_name = "mouseMove"];</code>
+   *
    * @return Whether the mouseMove field is set.
    */
   @java.lang.Override
   public boolean hasMouseMove() {
     return actionCase_ == 10;
   }
+
   /**
    * <code>.browsercloud.node.v1.MouseMoveInput mouse_move = 10 [json_name = "mouseMove"];</code>
+   *
    * @return The mouseMove.
    */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.MouseMoveInput getMouseMove() {
     if (actionCase_ == 10) {
-       return (io.browsercloud.proto.node.v1.MouseMoveInput) action_;
+      return (io.browsercloud.proto.node.v1.MouseMoveInput) action_;
     }
     return io.browsercloud.proto.node.v1.MouseMoveInput.getDefaultInstance();
   }
+
   /**
    * <code>.browsercloud.node.v1.MouseMoveInput mouse_move = 10 [json_name = "mouseMove"];</code>
    */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.MouseMoveInputOrBuilder getMouseMoveOrBuilder() {
     if (actionCase_ == 10) {
-       return (io.browsercloud.proto.node.v1.MouseMoveInput) action_;
+      return (io.browsercloud.proto.node.v1.MouseMoveInput) action_;
     }
     return io.browsercloud.proto.node.v1.MouseMoveInput.getDefaultInstance();
   }
 
   public static final int MOUSE_DOWN_FIELD_NUMBER = 11;
+
   /**
    * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];</code>
+   *
    * @return Whether the mouseDown field is set.
    */
   @java.lang.Override
   public boolean hasMouseDown() {
     return actionCase_ == 11;
   }
+
   /**
    * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];</code>
+   *
    * @return The mouseDown.
    */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.MouseButtonInput getMouseDown() {
     if (actionCase_ == 11) {
-       return (io.browsercloud.proto.node.v1.MouseButtonInput) action_;
+      return (io.browsercloud.proto.node.v1.MouseButtonInput) action_;
     }
     return io.browsercloud.proto.node.v1.MouseButtonInput.getDefaultInstance();
   }
+
   /**
    * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];</code>
    */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder getMouseDownOrBuilder() {
     if (actionCase_ == 11) {
-       return (io.browsercloud.proto.node.v1.MouseButtonInput) action_;
+      return (io.browsercloud.proto.node.v1.MouseButtonInput) action_;
     }
     return io.browsercloud.proto.node.v1.MouseButtonInput.getDefaultInstance();
   }
 
   public static final int MOUSE_UP_FIELD_NUMBER = 12;
+
   /**
    * <code>.browsercloud.node.v1.MouseButtonInput mouse_up = 12 [json_name = "mouseUp"];</code>
+   *
    * @return Whether the mouseUp field is set.
    */
   @java.lang.Override
   public boolean hasMouseUp() {
     return actionCase_ == 12;
   }
+
   /**
    * <code>.browsercloud.node.v1.MouseButtonInput mouse_up = 12 [json_name = "mouseUp"];</code>
+   *
    * @return The mouseUp.
    */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.MouseButtonInput getMouseUp() {
     if (actionCase_ == 12) {
-       return (io.browsercloud.proto.node.v1.MouseButtonInput) action_;
+      return (io.browsercloud.proto.node.v1.MouseButtonInput) action_;
     }
     return io.browsercloud.proto.node.v1.MouseButtonInput.getDefaultInstance();
   }
-  /**
-   * <code>.browsercloud.node.v1.MouseButtonInput mouse_up = 12 [json_name = "mouseUp"];</code>
-   */
+
+  /** <code>.browsercloud.node.v1.MouseButtonInput mouse_up = 12 [json_name = "mouseUp"];</code> */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder getMouseUpOrBuilder() {
     if (actionCase_ == 12) {
-       return (io.browsercloud.proto.node.v1.MouseButtonInput) action_;
+      return (io.browsercloud.proto.node.v1.MouseButtonInput) action_;
     }
     return io.browsercloud.proto.node.v1.MouseButtonInput.getDefaultInstance();
   }
 
   public static final int KEY_DOWN_FIELD_NUMBER = 13;
+
   /**
    * <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code>
+   *
    * @return Whether the keyDown field is set.
    */
   @java.lang.Override
   public boolean hasKeyDown() {
     return actionCase_ == 13;
   }
+
   /**
    * <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code>
+   *
    * @return The keyDown.
    */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.KeyInput getKeyDown() {
     if (actionCase_ == 13) {
-       return (io.browsercloud.proto.node.v1.KeyInput) action_;
+      return (io.browsercloud.proto.node.v1.KeyInput) action_;
     }
     return io.browsercloud.proto.node.v1.KeyInput.getDefaultInstance();
   }
-  /**
-   * <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code>
-   */
+
+  /** <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code> */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.KeyInputOrBuilder getKeyDownOrBuilder() {
     if (actionCase_ == 13) {
-       return (io.browsercloud.proto.node.v1.KeyInput) action_;
+      return (io.browsercloud.proto.node.v1.KeyInput) action_;
     }
     return io.browsercloud.proto.node.v1.KeyInput.getDefaultInstance();
   }
 
   public static final int KEY_UP_FIELD_NUMBER = 14;
+
   /**
    * <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code>
+   *
    * @return Whether the keyUp field is set.
    */
   @java.lang.Override
   public boolean hasKeyUp() {
     return actionCase_ == 14;
   }
+
   /**
    * <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code>
+   *
    * @return The keyUp.
    */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.KeyInput getKeyUp() {
     if (actionCase_ == 14) {
-       return (io.browsercloud.proto.node.v1.KeyInput) action_;
+      return (io.browsercloud.proto.node.v1.KeyInput) action_;
     }
     return io.browsercloud.proto.node.v1.KeyInput.getDefaultInstance();
   }
-  /**
-   * <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code>
-   */
+
+  /** <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code> */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.KeyInputOrBuilder getKeyUpOrBuilder() {
     if (actionCase_ == 14) {
-       return (io.browsercloud.proto.node.v1.KeyInput) action_;
+      return (io.browsercloud.proto.node.v1.KeyInput) action_;
     }
     return io.browsercloud.proto.node.v1.KeyInput.getDefaultInstance();
   }
 
   private byte memoizedIsInitialized = -1;
+
   @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
@@ -309,8 +349,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @java.lang.Override
-  public void writeTo(com.google.protobuf.CodedOutputStream output)
-                      throws java.io.IOException {
+  public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(sessionId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 1, sessionId_);
     }
@@ -345,28 +384,32 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, sessionId_);
     }
     if (sequence_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(2, sequence_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(2, sequence_);
     }
     if (actionCase_ == 10) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(10, (io.browsercloud.proto.node.v1.MouseMoveInput) action_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeMessageSize(
+              10, (io.browsercloud.proto.node.v1.MouseMoveInput) action_);
     }
     if (actionCase_ == 11) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(11, (io.browsercloud.proto.node.v1.MouseButtonInput) action_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeMessageSize(
+              11, (io.browsercloud.proto.node.v1.MouseButtonInput) action_);
     }
     if (actionCase_ == 12) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(12, (io.browsercloud.proto.node.v1.MouseButtonInput) action_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeMessageSize(
+              12, (io.browsercloud.proto.node.v1.MouseButtonInput) action_);
     }
     if (actionCase_ == 13) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(13, (io.browsercloud.proto.node.v1.KeyInput) action_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeMessageSize(
+              13, (io.browsercloud.proto.node.v1.KeyInput) action_);
     }
     if (actionCase_ == 14) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(14, (io.browsercloud.proto.node.v1.KeyInput) action_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeMessageSize(
+              14, (io.browsercloud.proto.node.v1.KeyInput) action_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -376,38 +419,32 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public boolean equals(final java.lang.Object obj) {
     if (obj == this) {
-     return true;
+      return true;
     }
     if (!(obj instanceof io.browsercloud.proto.node.v1.ExecuteInputCommand)) {
       return super.equals(obj);
     }
-    io.browsercloud.proto.node.v1.ExecuteInputCommand other = (io.browsercloud.proto.node.v1.ExecuteInputCommand) obj;
+    io.browsercloud.proto.node.v1.ExecuteInputCommand other =
+        (io.browsercloud.proto.node.v1.ExecuteInputCommand) obj;
 
-    if (!getSessionId()
-        .equals(other.getSessionId())) return false;
-    if (getSequence()
-        != other.getSequence()) return false;
+    if (!getSessionId().equals(other.getSessionId())) return false;
+    if (getSequence() != other.getSequence()) return false;
     if (!getActionCase().equals(other.getActionCase())) return false;
     switch (actionCase_) {
       case 10:
-        if (!getMouseMove()
-            .equals(other.getMouseMove())) return false;
+        if (!getMouseMove().equals(other.getMouseMove())) return false;
         break;
       case 11:
-        if (!getMouseDown()
-            .equals(other.getMouseDown())) return false;
+        if (!getMouseDown().equals(other.getMouseDown())) return false;
         break;
       case 12:
-        if (!getMouseUp()
-            .equals(other.getMouseUp())) return false;
+        if (!getMouseUp().equals(other.getMouseUp())) return false;
         break;
       case 13:
-        if (!getKeyDown()
-            .equals(other.getKeyDown())) return false;
+        if (!getKeyDown().equals(other.getKeyDown())) return false;
         break;
       case 14:
-        if (!getKeyUp()
-            .equals(other.getKeyUp())) return false;
+        if (!getKeyUp().equals(other.getKeyUp())) return false;
         break;
       case 0:
       default:
@@ -426,8 +463,7 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + SESSION_ID_FIELD_NUMBER;
     hash = (53 * hash) + getSessionId().hashCode();
     hash = (37 * hash) + SEQUENCE_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        getSequence());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getSequence());
     switch (actionCase_) {
       case 10:
         hash = (37 * hash) + MOUSE_MOVE_FIELD_NUMBER;
@@ -458,131 +494,136 @@ private static final long serialVersionUID = 0L;
   }
 
   public static io.browsercloud.proto.node.v1.ExecuteInputCommand parseFrom(
-      java.nio.ByteBuffer data)
-      throws com.google.protobuf.InvalidProtocolBufferException {
+      java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.ExecuteInputCommand parseFrom(
-      java.nio.ByteBuffer data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.ExecuteInputCommand parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.ExecuteInputCommand parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.ExecuteInputCommand parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.ExecuteInputCommand parseFrom(
-      byte[] data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.ExecuteInputCommand parseFrom(java.io.InputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
-  }
+
   public static io.browsercloud.proto.node.v1.ExecuteInputCommand parseFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.ExecuteInputCommand parseDelimitedFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.ExecuteInputCommand parseFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   public static io.browsercloud.proto.node.v1.ExecuteInputCommand parseDelimitedFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
   }
+
+  public static io.browsercloud.proto.node.v1.ExecuteInputCommand parseDelimitedFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
+        PARSER, input, extensionRegistry);
+  }
+
   public static io.browsercloud.proto.node.v1.ExecuteInputCommand parseFrom(
-      com.google.protobuf.CodedInputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
+      com.google.protobuf.CodedInputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
+
   public static io.browsercloud.proto.node.v1.ExecuteInputCommand parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   @java.lang.Override
-  public Builder newBuilderForType() { return newBuilder(); }
+  public Builder newBuilderForType() {
+    return newBuilder();
+  }
+
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
+
   public static Builder newBuilder(io.browsercloud.proto.node.v1.ExecuteInputCommand prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
+
   @java.lang.Override
   public Builder toBuilder() {
-    return this == DEFAULT_INSTANCE
-        ? new Builder() : new Builder().mergeFrom(this);
+    return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
   }
 
   @java.lang.Override
-  protected Builder newBuilderForType(
-      com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+  protected Builder newBuilderForType(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
     Builder builder = new Builder(parent);
     return builder;
   }
+
   /**
+   *
+   *
    * <pre>
    * 单个有序输入命令。每个 CommandEnvelope 只承载一个动作，便于幂等重放。
    * </pre>
    *
    * Protobuf type {@code browsercloud.node.v1.ExecuteInputCommand}
    */
-  public static final class Builder extends
-      com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+  public static final class Builder extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
+      implements
       // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.ExecuteInputCommand)
       io.browsercloud.proto.node.v1.ExecuteInputCommandOrBuilder {
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ExecuteInputCommand_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_ExecuteInputCommand_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ExecuteInputCommand_fieldAccessorTable
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_ExecuteInputCommand_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              io.browsercloud.proto.node.v1.ExecuteInputCommand.class, io.browsercloud.proto.node.v1.ExecuteInputCommand.Builder.class);
+              io.browsercloud.proto.node.v1.ExecuteInputCommand.class,
+              io.browsercloud.proto.node.v1.ExecuteInputCommand.Builder.class);
     }
 
     // Construct using io.browsercloud.proto.node.v1.ExecuteInputCommand.newBuilder()
-    private Builder() {
+    private Builder() {}
 
-    }
-
-    private Builder(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+    private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
-
     }
+
     @java.lang.Override
     public Builder clear() {
       super.clear();
@@ -610,9 +651,9 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Descriptors.Descriptor
-        getDescriptorForType() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ExecuteInputCommand_descriptor;
+    public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_ExecuteInputCommand_descriptor;
     }
 
     @java.lang.Override
@@ -631,8 +672,11 @@ private static final long serialVersionUID = 0L;
 
     @java.lang.Override
     public io.browsercloud.proto.node.v1.ExecuteInputCommand buildPartial() {
-      io.browsercloud.proto.node.v1.ExecuteInputCommand result = new io.browsercloud.proto.node.v1.ExecuteInputCommand(this);
-      if (bitField0_ != 0) { buildPartial0(result); }
+      io.browsercloud.proto.node.v1.ExecuteInputCommand result =
+          new io.browsercloud.proto.node.v1.ExecuteInputCommand(this);
+      if (bitField0_ != 0) {
+        buildPartial0(result);
+      }
       buildPartialOneofs(result);
       onBuilt();
       return result;
@@ -651,24 +695,19 @@ private static final long serialVersionUID = 0L;
     private void buildPartialOneofs(io.browsercloud.proto.node.v1.ExecuteInputCommand result) {
       result.actionCase_ = actionCase_;
       result.action_ = this.action_;
-      if (actionCase_ == 10 &&
-          mouseMoveBuilder_ != null) {
+      if (actionCase_ == 10 && mouseMoveBuilder_ != null) {
         result.action_ = mouseMoveBuilder_.build();
       }
-      if (actionCase_ == 11 &&
-          mouseDownBuilder_ != null) {
+      if (actionCase_ == 11 && mouseDownBuilder_ != null) {
         result.action_ = mouseDownBuilder_.build();
       }
-      if (actionCase_ == 12 &&
-          mouseUpBuilder_ != null) {
+      if (actionCase_ == 12 && mouseUpBuilder_ != null) {
         result.action_ = mouseUpBuilder_.build();
       }
-      if (actionCase_ == 13 &&
-          keyDownBuilder_ != null) {
+      if (actionCase_ == 13 && keyDownBuilder_ != null) {
         result.action_ = keyDownBuilder_.build();
       }
-      if (actionCase_ == 14 &&
-          keyUpBuilder_ != null) {
+      if (actionCase_ == 14 && keyUpBuilder_ != null) {
         result.action_ = keyUpBuilder_.build();
       }
     }
@@ -677,38 +716,39 @@ private static final long serialVersionUID = 0L;
     public Builder clone() {
       return super.clone();
     }
+
     @java.lang.Override
     public Builder setField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.setField(field, value);
     }
+
     @java.lang.Override
-    public Builder clearField(
-        com.google.protobuf.Descriptors.FieldDescriptor field) {
+    public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
       return super.clearField(field);
     }
+
     @java.lang.Override
-    public Builder clearOneof(
-        com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+    public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
       return super.clearOneof(oneof);
     }
+
     @java.lang.Override
     public Builder setRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        int index, java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, int index, java.lang.Object value) {
       return super.setRepeatedField(field, index, value);
     }
+
     @java.lang.Override
     public Builder addRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.addRepeatedField(field, value);
     }
+
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof io.browsercloud.proto.node.v1.ExecuteInputCommand) {
-        return mergeFrom((io.browsercloud.proto.node.v1.ExecuteInputCommand)other);
+        return mergeFrom((io.browsercloud.proto.node.v1.ExecuteInputCommand) other);
       } else {
         super.mergeFrom(other);
         return this;
@@ -716,7 +756,8 @@ private static final long serialVersionUID = 0L;
     }
 
     public Builder mergeFrom(io.browsercloud.proto.node.v1.ExecuteInputCommand other) {
-      if (other == io.browsercloud.proto.node.v1.ExecuteInputCommand.getDefaultInstance()) return this;
+      if (other == io.browsercloud.proto.node.v1.ExecuteInputCommand.getDefaultInstance())
+        return this;
       if (!other.getSessionId().isEmpty()) {
         sessionId_ = other.sessionId_;
         bitField0_ |= 0x00000001;
@@ -726,29 +767,35 @@ private static final long serialVersionUID = 0L;
         setSequence(other.getSequence());
       }
       switch (other.getActionCase()) {
-        case MOUSE_MOVE: {
-          mergeMouseMove(other.getMouseMove());
-          break;
-        }
-        case MOUSE_DOWN: {
-          mergeMouseDown(other.getMouseDown());
-          break;
-        }
-        case MOUSE_UP: {
-          mergeMouseUp(other.getMouseUp());
-          break;
-        }
-        case KEY_DOWN: {
-          mergeKeyDown(other.getKeyDown());
-          break;
-        }
-        case KEY_UP: {
-          mergeKeyUp(other.getKeyUp());
-          break;
-        }
-        case ACTION_NOT_SET: {
-          break;
-        }
+        case MOUSE_MOVE:
+          {
+            mergeMouseMove(other.getMouseMove());
+            break;
+          }
+        case MOUSE_DOWN:
+          {
+            mergeMouseDown(other.getMouseDown());
+            break;
+          }
+        case MOUSE_UP:
+          {
+            mergeMouseUp(other.getMouseUp());
+            break;
+          }
+        case KEY_DOWN:
+          {
+            mergeKeyDown(other.getKeyDown());
+            break;
+          }
+        case KEY_UP:
+          {
+            mergeKeyUp(other.getKeyUp());
+            break;
+          }
+        case ACTION_NOT_SET:
+          {
+            break;
+          }
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -776,57 +823,55 @@ private static final long serialVersionUID = 0L;
             case 0:
               done = true;
               break;
-            case 10: {
-              sessionId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000001;
-              break;
-            } // case 10
-            case 16: {
-              sequence_ = input.readUInt64();
-              bitField0_ |= 0x00000002;
-              break;
-            } // case 16
-            case 82: {
-              input.readMessage(
-                  getMouseMoveFieldBuilder().getBuilder(),
-                  extensionRegistry);
-              actionCase_ = 10;
-              break;
-            } // case 82
-            case 90: {
-              input.readMessage(
-                  getMouseDownFieldBuilder().getBuilder(),
-                  extensionRegistry);
-              actionCase_ = 11;
-              break;
-            } // case 90
-            case 98: {
-              input.readMessage(
-                  getMouseUpFieldBuilder().getBuilder(),
-                  extensionRegistry);
-              actionCase_ = 12;
-              break;
-            } // case 98
-            case 106: {
-              input.readMessage(
-                  getKeyDownFieldBuilder().getBuilder(),
-                  extensionRegistry);
-              actionCase_ = 13;
-              break;
-            } // case 106
-            case 114: {
-              input.readMessage(
-                  getKeyUpFieldBuilder().getBuilder(),
-                  extensionRegistry);
-              actionCase_ = 14;
-              break;
-            } // case 114
-            default: {
-              if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                done = true; // was an endgroup tag
-              }
-              break;
-            } // default:
+            case 10:
+              {
+                sessionId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000001;
+                break;
+              } // case 10
+            case 16:
+              {
+                sequence_ = input.readUInt64();
+                bitField0_ |= 0x00000002;
+                break;
+              } // case 16
+            case 82:
+              {
+                input.readMessage(getMouseMoveFieldBuilder().getBuilder(), extensionRegistry);
+                actionCase_ = 10;
+                break;
+              } // case 82
+            case 90:
+              {
+                input.readMessage(getMouseDownFieldBuilder().getBuilder(), extensionRegistry);
+                actionCase_ = 11;
+                break;
+              } // case 90
+            case 98:
+              {
+                input.readMessage(getMouseUpFieldBuilder().getBuilder(), extensionRegistry);
+                actionCase_ = 12;
+                break;
+              } // case 98
+            case 106:
+              {
+                input.readMessage(getKeyDownFieldBuilder().getBuilder(), extensionRegistry);
+                actionCase_ = 13;
+                break;
+              } // case 106
+            case 114:
+              {
+                input.readMessage(getKeyUpFieldBuilder().getBuilder(), extensionRegistry);
+                actionCase_ = 14;
+                break;
+              } // case 114
+            default:
+              {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
           } // switch (tag)
         } // while (!done)
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -836,12 +881,12 @@ private static final long serialVersionUID = 0L;
       } // finally
       return this;
     }
+
     private int actionCase_ = 0;
     private java.lang.Object action_;
-    public ActionCase
-        getActionCase() {
-      return ActionCase.forNumber(
-          actionCase_);
+
+    public ActionCase getActionCase() {
+      return ActionCase.forNumber(actionCase_);
     }
 
     public Builder clearAction() {
@@ -854,15 +899,16 @@ private static final long serialVersionUID = 0L;
     private int bitField0_;
 
     private java.lang.Object sessionId_ = "";
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return The sessionId.
      */
     public java.lang.String getSessionId() {
       java.lang.Object ref = sessionId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         sessionId_ = s;
         return s;
@@ -870,38 +916,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return The bytes for sessionId.
      */
-    public com.google.protobuf.ByteString
-        getSessionIdBytes() {
+    public com.google.protobuf.ByteString getSessionIdBytes() {
       java.lang.Object ref = sessionId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         sessionId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @param value The sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setSessionId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSessionId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       sessionId_ = value;
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSessionId() {
@@ -910,14 +961,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @param value The bytes for sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setSessionIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSessionIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       sessionId_ = value;
       bitField0_ |= 0x00000001;
@@ -925,17 +979,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long sequence_ ;
+    private long sequence_;
+
     /**
      * <code>uint64 sequence = 2 [json_name = "sequence"];</code>
+     *
      * @return The sequence.
      */
     @java.lang.Override
     public long getSequence() {
       return sequence_;
     }
+
     /**
      * <code>uint64 sequence = 2 [json_name = "sequence"];</code>
+     *
      * @param value The sequence to set.
      * @return This builder for chaining.
      */
@@ -946,8 +1004,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint64 sequence = 2 [json_name = "sequence"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSequence() {
@@ -958,17 +1018,24 @@ private static final long serialVersionUID = 0L;
     }
 
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.MouseMoveInput, io.browsercloud.proto.node.v1.MouseMoveInput.Builder, io.browsercloud.proto.node.v1.MouseMoveInputOrBuilder> mouseMoveBuilder_;
+            io.browsercloud.proto.node.v1.MouseMoveInput,
+            io.browsercloud.proto.node.v1.MouseMoveInput.Builder,
+            io.browsercloud.proto.node.v1.MouseMoveInputOrBuilder>
+        mouseMoveBuilder_;
+
     /**
      * <code>.browsercloud.node.v1.MouseMoveInput mouse_move = 10 [json_name = "mouseMove"];</code>
+     *
      * @return Whether the mouseMove field is set.
      */
     @java.lang.Override
     public boolean hasMouseMove() {
       return actionCase_ == 10;
     }
+
     /**
      * <code>.browsercloud.node.v1.MouseMoveInput mouse_move = 10 [json_name = "mouseMove"];</code>
+     *
      * @return The mouseMove.
      */
     @java.lang.Override
@@ -985,6 +1052,7 @@ private static final long serialVersionUID = 0L;
         return io.browsercloud.proto.node.v1.MouseMoveInput.getDefaultInstance();
       }
     }
+
     /**
      * <code>.browsercloud.node.v1.MouseMoveInput mouse_move = 10 [json_name = "mouseMove"];</code>
      */
@@ -1001,6 +1069,7 @@ private static final long serialVersionUID = 0L;
       actionCase_ = 10;
       return this;
     }
+
     /**
      * <code>.browsercloud.node.v1.MouseMoveInput mouse_move = 10 [json_name = "mouseMove"];</code>
      */
@@ -1015,15 +1084,19 @@ private static final long serialVersionUID = 0L;
       actionCase_ = 10;
       return this;
     }
+
     /**
      * <code>.browsercloud.node.v1.MouseMoveInput mouse_move = 10 [json_name = "mouseMove"];</code>
      */
     public Builder mergeMouseMove(io.browsercloud.proto.node.v1.MouseMoveInput value) {
       if (mouseMoveBuilder_ == null) {
-        if (actionCase_ == 10 &&
-            action_ != io.browsercloud.proto.node.v1.MouseMoveInput.getDefaultInstance()) {
-          action_ = io.browsercloud.proto.node.v1.MouseMoveInput.newBuilder((io.browsercloud.proto.node.v1.MouseMoveInput) action_)
-              .mergeFrom(value).buildPartial();
+        if (actionCase_ == 10
+            && action_ != io.browsercloud.proto.node.v1.MouseMoveInput.getDefaultInstance()) {
+          action_ =
+              io.browsercloud.proto.node.v1.MouseMoveInput.newBuilder(
+                      (io.browsercloud.proto.node.v1.MouseMoveInput) action_)
+                  .mergeFrom(value)
+                  .buildPartial();
         } else {
           action_ = value;
         }
@@ -1038,6 +1111,7 @@ private static final long serialVersionUID = 0L;
       actionCase_ = 10;
       return this;
     }
+
     /**
      * <code>.browsercloud.node.v1.MouseMoveInput mouse_move = 10 [json_name = "mouseMove"];</code>
      */
@@ -1057,12 +1131,14 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+
     /**
      * <code>.browsercloud.node.v1.MouseMoveInput mouse_move = 10 [json_name = "mouseMove"];</code>
      */
     public io.browsercloud.proto.node.v1.MouseMoveInput.Builder getMouseMoveBuilder() {
       return getMouseMoveFieldBuilder().getBuilder();
     }
+
     /**
      * <code>.browsercloud.node.v1.MouseMoveInput mouse_move = 10 [json_name = "mouseMove"];</code>
      */
@@ -1077,18 +1153,24 @@ private static final long serialVersionUID = 0L;
         return io.browsercloud.proto.node.v1.MouseMoveInput.getDefaultInstance();
       }
     }
+
     /**
      * <code>.browsercloud.node.v1.MouseMoveInput mouse_move = 10 [json_name = "mouseMove"];</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.MouseMoveInput, io.browsercloud.proto.node.v1.MouseMoveInput.Builder, io.browsercloud.proto.node.v1.MouseMoveInputOrBuilder>
+            io.browsercloud.proto.node.v1.MouseMoveInput,
+            io.browsercloud.proto.node.v1.MouseMoveInput.Builder,
+            io.browsercloud.proto.node.v1.MouseMoveInputOrBuilder>
         getMouseMoveFieldBuilder() {
       if (mouseMoveBuilder_ == null) {
         if (!(actionCase_ == 10)) {
           action_ = io.browsercloud.proto.node.v1.MouseMoveInput.getDefaultInstance();
         }
-        mouseMoveBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            io.browsercloud.proto.node.v1.MouseMoveInput, io.browsercloud.proto.node.v1.MouseMoveInput.Builder, io.browsercloud.proto.node.v1.MouseMoveInputOrBuilder>(
+        mouseMoveBuilder_ =
+            new com.google.protobuf.SingleFieldBuilderV3<
+                io.browsercloud.proto.node.v1.MouseMoveInput,
+                io.browsercloud.proto.node.v1.MouseMoveInput.Builder,
+                io.browsercloud.proto.node.v1.MouseMoveInputOrBuilder>(
                 (io.browsercloud.proto.node.v1.MouseMoveInput) action_,
                 getParentForChildren(),
                 isClean());
@@ -1100,17 +1182,26 @@ private static final long serialVersionUID = 0L;
     }
 
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.MouseButtonInput, io.browsercloud.proto.node.v1.MouseButtonInput.Builder, io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder> mouseDownBuilder_;
+            io.browsercloud.proto.node.v1.MouseButtonInput,
+            io.browsercloud.proto.node.v1.MouseButtonInput.Builder,
+            io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder>
+        mouseDownBuilder_;
+
     /**
-     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];</code>
+     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];
+     * </code>
+     *
      * @return Whether the mouseDown field is set.
      */
     @java.lang.Override
     public boolean hasMouseDown() {
       return actionCase_ == 11;
     }
+
     /**
-     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];</code>
+     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];
+     * </code>
+     *
      * @return The mouseDown.
      */
     @java.lang.Override
@@ -1127,8 +1218,10 @@ private static final long serialVersionUID = 0L;
         return io.browsercloud.proto.node.v1.MouseButtonInput.getDefaultInstance();
       }
     }
+
     /**
-     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];</code>
+     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];
+     * </code>
      */
     public Builder setMouseDown(io.browsercloud.proto.node.v1.MouseButtonInput value) {
       if (mouseDownBuilder_ == null) {
@@ -1143,8 +1236,10 @@ private static final long serialVersionUID = 0L;
       actionCase_ = 11;
       return this;
     }
+
     /**
-     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];</code>
+     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];
+     * </code>
      */
     public Builder setMouseDown(
         io.browsercloud.proto.node.v1.MouseButtonInput.Builder builderForValue) {
@@ -1157,15 +1252,20 @@ private static final long serialVersionUID = 0L;
       actionCase_ = 11;
       return this;
     }
+
     /**
-     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];</code>
+     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];
+     * </code>
      */
     public Builder mergeMouseDown(io.browsercloud.proto.node.v1.MouseButtonInput value) {
       if (mouseDownBuilder_ == null) {
-        if (actionCase_ == 11 &&
-            action_ != io.browsercloud.proto.node.v1.MouseButtonInput.getDefaultInstance()) {
-          action_ = io.browsercloud.proto.node.v1.MouseButtonInput.newBuilder((io.browsercloud.proto.node.v1.MouseButtonInput) action_)
-              .mergeFrom(value).buildPartial();
+        if (actionCase_ == 11
+            && action_ != io.browsercloud.proto.node.v1.MouseButtonInput.getDefaultInstance()) {
+          action_ =
+              io.browsercloud.proto.node.v1.MouseButtonInput.newBuilder(
+                      (io.browsercloud.proto.node.v1.MouseButtonInput) action_)
+                  .mergeFrom(value)
+                  .buildPartial();
         } else {
           action_ = value;
         }
@@ -1180,8 +1280,10 @@ private static final long serialVersionUID = 0L;
       actionCase_ = 11;
       return this;
     }
+
     /**
-     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];</code>
+     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];
+     * </code>
      */
     public Builder clearMouseDown() {
       if (mouseDownBuilder_ == null) {
@@ -1199,14 +1301,18 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+
     /**
-     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];</code>
+     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];
+     * </code>
      */
     public io.browsercloud.proto.node.v1.MouseButtonInput.Builder getMouseDownBuilder() {
       return getMouseDownFieldBuilder().getBuilder();
     }
+
     /**
-     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];</code>
+     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];
+     * </code>
      */
     @java.lang.Override
     public io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder getMouseDownOrBuilder() {
@@ -1219,18 +1325,25 @@ private static final long serialVersionUID = 0L;
         return io.browsercloud.proto.node.v1.MouseButtonInput.getDefaultInstance();
       }
     }
+
     /**
-     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];</code>
+     * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];
+     * </code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.MouseButtonInput, io.browsercloud.proto.node.v1.MouseButtonInput.Builder, io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder>
+            io.browsercloud.proto.node.v1.MouseButtonInput,
+            io.browsercloud.proto.node.v1.MouseButtonInput.Builder,
+            io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder>
         getMouseDownFieldBuilder() {
       if (mouseDownBuilder_ == null) {
         if (!(actionCase_ == 11)) {
           action_ = io.browsercloud.proto.node.v1.MouseButtonInput.getDefaultInstance();
         }
-        mouseDownBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            io.browsercloud.proto.node.v1.MouseButtonInput, io.browsercloud.proto.node.v1.MouseButtonInput.Builder, io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder>(
+        mouseDownBuilder_ =
+            new com.google.protobuf.SingleFieldBuilderV3<
+                io.browsercloud.proto.node.v1.MouseButtonInput,
+                io.browsercloud.proto.node.v1.MouseButtonInput.Builder,
+                io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder>(
                 (io.browsercloud.proto.node.v1.MouseButtonInput) action_,
                 getParentForChildren(),
                 isClean());
@@ -1242,17 +1355,24 @@ private static final long serialVersionUID = 0L;
     }
 
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.MouseButtonInput, io.browsercloud.proto.node.v1.MouseButtonInput.Builder, io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder> mouseUpBuilder_;
+            io.browsercloud.proto.node.v1.MouseButtonInput,
+            io.browsercloud.proto.node.v1.MouseButtonInput.Builder,
+            io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder>
+        mouseUpBuilder_;
+
     /**
      * <code>.browsercloud.node.v1.MouseButtonInput mouse_up = 12 [json_name = "mouseUp"];</code>
+     *
      * @return Whether the mouseUp field is set.
      */
     @java.lang.Override
     public boolean hasMouseUp() {
       return actionCase_ == 12;
     }
+
     /**
      * <code>.browsercloud.node.v1.MouseButtonInput mouse_up = 12 [json_name = "mouseUp"];</code>
+     *
      * @return The mouseUp.
      */
     @java.lang.Override
@@ -1269,6 +1389,7 @@ private static final long serialVersionUID = 0L;
         return io.browsercloud.proto.node.v1.MouseButtonInput.getDefaultInstance();
       }
     }
+
     /**
      * <code>.browsercloud.node.v1.MouseButtonInput mouse_up = 12 [json_name = "mouseUp"];</code>
      */
@@ -1285,6 +1406,7 @@ private static final long serialVersionUID = 0L;
       actionCase_ = 12;
       return this;
     }
+
     /**
      * <code>.browsercloud.node.v1.MouseButtonInput mouse_up = 12 [json_name = "mouseUp"];</code>
      */
@@ -1299,15 +1421,19 @@ private static final long serialVersionUID = 0L;
       actionCase_ = 12;
       return this;
     }
+
     /**
      * <code>.browsercloud.node.v1.MouseButtonInput mouse_up = 12 [json_name = "mouseUp"];</code>
      */
     public Builder mergeMouseUp(io.browsercloud.proto.node.v1.MouseButtonInput value) {
       if (mouseUpBuilder_ == null) {
-        if (actionCase_ == 12 &&
-            action_ != io.browsercloud.proto.node.v1.MouseButtonInput.getDefaultInstance()) {
-          action_ = io.browsercloud.proto.node.v1.MouseButtonInput.newBuilder((io.browsercloud.proto.node.v1.MouseButtonInput) action_)
-              .mergeFrom(value).buildPartial();
+        if (actionCase_ == 12
+            && action_ != io.browsercloud.proto.node.v1.MouseButtonInput.getDefaultInstance()) {
+          action_ =
+              io.browsercloud.proto.node.v1.MouseButtonInput.newBuilder(
+                      (io.browsercloud.proto.node.v1.MouseButtonInput) action_)
+                  .mergeFrom(value)
+                  .buildPartial();
         } else {
           action_ = value;
         }
@@ -1322,6 +1448,7 @@ private static final long serialVersionUID = 0L;
       actionCase_ = 12;
       return this;
     }
+
     /**
      * <code>.browsercloud.node.v1.MouseButtonInput mouse_up = 12 [json_name = "mouseUp"];</code>
      */
@@ -1341,12 +1468,14 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+
     /**
      * <code>.browsercloud.node.v1.MouseButtonInput mouse_up = 12 [json_name = "mouseUp"];</code>
      */
     public io.browsercloud.proto.node.v1.MouseButtonInput.Builder getMouseUpBuilder() {
       return getMouseUpFieldBuilder().getBuilder();
     }
+
     /**
      * <code>.browsercloud.node.v1.MouseButtonInput mouse_up = 12 [json_name = "mouseUp"];</code>
      */
@@ -1361,18 +1490,24 @@ private static final long serialVersionUID = 0L;
         return io.browsercloud.proto.node.v1.MouseButtonInput.getDefaultInstance();
       }
     }
+
     /**
      * <code>.browsercloud.node.v1.MouseButtonInput mouse_up = 12 [json_name = "mouseUp"];</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.MouseButtonInput, io.browsercloud.proto.node.v1.MouseButtonInput.Builder, io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder>
+            io.browsercloud.proto.node.v1.MouseButtonInput,
+            io.browsercloud.proto.node.v1.MouseButtonInput.Builder,
+            io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder>
         getMouseUpFieldBuilder() {
       if (mouseUpBuilder_ == null) {
         if (!(actionCase_ == 12)) {
           action_ = io.browsercloud.proto.node.v1.MouseButtonInput.getDefaultInstance();
         }
-        mouseUpBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            io.browsercloud.proto.node.v1.MouseButtonInput, io.browsercloud.proto.node.v1.MouseButtonInput.Builder, io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder>(
+        mouseUpBuilder_ =
+            new com.google.protobuf.SingleFieldBuilderV3<
+                io.browsercloud.proto.node.v1.MouseButtonInput,
+                io.browsercloud.proto.node.v1.MouseButtonInput.Builder,
+                io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder>(
                 (io.browsercloud.proto.node.v1.MouseButtonInput) action_,
                 getParentForChildren(),
                 isClean());
@@ -1384,17 +1519,24 @@ private static final long serialVersionUID = 0L;
     }
 
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.KeyInput, io.browsercloud.proto.node.v1.KeyInput.Builder, io.browsercloud.proto.node.v1.KeyInputOrBuilder> keyDownBuilder_;
+            io.browsercloud.proto.node.v1.KeyInput,
+            io.browsercloud.proto.node.v1.KeyInput.Builder,
+            io.browsercloud.proto.node.v1.KeyInputOrBuilder>
+        keyDownBuilder_;
+
     /**
      * <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code>
+     *
      * @return Whether the keyDown field is set.
      */
     @java.lang.Override
     public boolean hasKeyDown() {
       return actionCase_ == 13;
     }
+
     /**
      * <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code>
+     *
      * @return The keyDown.
      */
     @java.lang.Override
@@ -1411,9 +1553,8 @@ private static final long serialVersionUID = 0L;
         return io.browsercloud.proto.node.v1.KeyInput.getDefaultInstance();
       }
     }
-    /**
-     * <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code> */
     public Builder setKeyDown(io.browsercloud.proto.node.v1.KeyInput value) {
       if (keyDownBuilder_ == null) {
         if (value == null) {
@@ -1427,11 +1568,9 @@ private static final long serialVersionUID = 0L;
       actionCase_ = 13;
       return this;
     }
-    /**
-     * <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code>
-     */
-    public Builder setKeyDown(
-        io.browsercloud.proto.node.v1.KeyInput.Builder builderForValue) {
+
+    /** <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code> */
+    public Builder setKeyDown(io.browsercloud.proto.node.v1.KeyInput.Builder builderForValue) {
       if (keyDownBuilder_ == null) {
         action_ = builderForValue.build();
         onChanged();
@@ -1441,15 +1580,17 @@ private static final long serialVersionUID = 0L;
       actionCase_ = 13;
       return this;
     }
-    /**
-     * <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code> */
     public Builder mergeKeyDown(io.browsercloud.proto.node.v1.KeyInput value) {
       if (keyDownBuilder_ == null) {
-        if (actionCase_ == 13 &&
-            action_ != io.browsercloud.proto.node.v1.KeyInput.getDefaultInstance()) {
-          action_ = io.browsercloud.proto.node.v1.KeyInput.newBuilder((io.browsercloud.proto.node.v1.KeyInput) action_)
-              .mergeFrom(value).buildPartial();
+        if (actionCase_ == 13
+            && action_ != io.browsercloud.proto.node.v1.KeyInput.getDefaultInstance()) {
+          action_ =
+              io.browsercloud.proto.node.v1.KeyInput.newBuilder(
+                      (io.browsercloud.proto.node.v1.KeyInput) action_)
+                  .mergeFrom(value)
+                  .buildPartial();
         } else {
           action_ = value;
         }
@@ -1464,9 +1605,8 @@ private static final long serialVersionUID = 0L;
       actionCase_ = 13;
       return this;
     }
-    /**
-     * <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code> */
     public Builder clearKeyDown() {
       if (keyDownBuilder_ == null) {
         if (actionCase_ == 13) {
@@ -1483,15 +1623,13 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
-    /**
-     * <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code> */
     public io.browsercloud.proto.node.v1.KeyInput.Builder getKeyDownBuilder() {
       return getKeyDownFieldBuilder().getBuilder();
     }
-    /**
-     * <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code> */
     @java.lang.Override
     public io.browsercloud.proto.node.v1.KeyInputOrBuilder getKeyDownOrBuilder() {
       if ((actionCase_ == 13) && (keyDownBuilder_ != null)) {
@@ -1503,18 +1641,22 @@ private static final long serialVersionUID = 0L;
         return io.browsercloud.proto.node.v1.KeyInput.getDefaultInstance();
       }
     }
-    /**
-     * <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code> */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.KeyInput, io.browsercloud.proto.node.v1.KeyInput.Builder, io.browsercloud.proto.node.v1.KeyInputOrBuilder>
+            io.browsercloud.proto.node.v1.KeyInput,
+            io.browsercloud.proto.node.v1.KeyInput.Builder,
+            io.browsercloud.proto.node.v1.KeyInputOrBuilder>
         getKeyDownFieldBuilder() {
       if (keyDownBuilder_ == null) {
         if (!(actionCase_ == 13)) {
           action_ = io.browsercloud.proto.node.v1.KeyInput.getDefaultInstance();
         }
-        keyDownBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            io.browsercloud.proto.node.v1.KeyInput, io.browsercloud.proto.node.v1.KeyInput.Builder, io.browsercloud.proto.node.v1.KeyInputOrBuilder>(
+        keyDownBuilder_ =
+            new com.google.protobuf.SingleFieldBuilderV3<
+                io.browsercloud.proto.node.v1.KeyInput,
+                io.browsercloud.proto.node.v1.KeyInput.Builder,
+                io.browsercloud.proto.node.v1.KeyInputOrBuilder>(
                 (io.browsercloud.proto.node.v1.KeyInput) action_,
                 getParentForChildren(),
                 isClean());
@@ -1526,17 +1668,24 @@ private static final long serialVersionUID = 0L;
     }
 
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.KeyInput, io.browsercloud.proto.node.v1.KeyInput.Builder, io.browsercloud.proto.node.v1.KeyInputOrBuilder> keyUpBuilder_;
+            io.browsercloud.proto.node.v1.KeyInput,
+            io.browsercloud.proto.node.v1.KeyInput.Builder,
+            io.browsercloud.proto.node.v1.KeyInputOrBuilder>
+        keyUpBuilder_;
+
     /**
      * <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code>
+     *
      * @return Whether the keyUp field is set.
      */
     @java.lang.Override
     public boolean hasKeyUp() {
       return actionCase_ == 14;
     }
+
     /**
      * <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code>
+     *
      * @return The keyUp.
      */
     @java.lang.Override
@@ -1553,9 +1702,8 @@ private static final long serialVersionUID = 0L;
         return io.browsercloud.proto.node.v1.KeyInput.getDefaultInstance();
       }
     }
-    /**
-     * <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code> */
     public Builder setKeyUp(io.browsercloud.proto.node.v1.KeyInput value) {
       if (keyUpBuilder_ == null) {
         if (value == null) {
@@ -1569,11 +1717,9 @@ private static final long serialVersionUID = 0L;
       actionCase_ = 14;
       return this;
     }
-    /**
-     * <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code>
-     */
-    public Builder setKeyUp(
-        io.browsercloud.proto.node.v1.KeyInput.Builder builderForValue) {
+
+    /** <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code> */
+    public Builder setKeyUp(io.browsercloud.proto.node.v1.KeyInput.Builder builderForValue) {
       if (keyUpBuilder_ == null) {
         action_ = builderForValue.build();
         onChanged();
@@ -1583,15 +1729,17 @@ private static final long serialVersionUID = 0L;
       actionCase_ = 14;
       return this;
     }
-    /**
-     * <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code> */
     public Builder mergeKeyUp(io.browsercloud.proto.node.v1.KeyInput value) {
       if (keyUpBuilder_ == null) {
-        if (actionCase_ == 14 &&
-            action_ != io.browsercloud.proto.node.v1.KeyInput.getDefaultInstance()) {
-          action_ = io.browsercloud.proto.node.v1.KeyInput.newBuilder((io.browsercloud.proto.node.v1.KeyInput) action_)
-              .mergeFrom(value).buildPartial();
+        if (actionCase_ == 14
+            && action_ != io.browsercloud.proto.node.v1.KeyInput.getDefaultInstance()) {
+          action_ =
+              io.browsercloud.proto.node.v1.KeyInput.newBuilder(
+                      (io.browsercloud.proto.node.v1.KeyInput) action_)
+                  .mergeFrom(value)
+                  .buildPartial();
         } else {
           action_ = value;
         }
@@ -1606,9 +1754,8 @@ private static final long serialVersionUID = 0L;
       actionCase_ = 14;
       return this;
     }
-    /**
-     * <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code> */
     public Builder clearKeyUp() {
       if (keyUpBuilder_ == null) {
         if (actionCase_ == 14) {
@@ -1625,15 +1772,13 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
-    /**
-     * <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code> */
     public io.browsercloud.proto.node.v1.KeyInput.Builder getKeyUpBuilder() {
       return getKeyUpFieldBuilder().getBuilder();
     }
-    /**
-     * <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code> */
     @java.lang.Override
     public io.browsercloud.proto.node.v1.KeyInputOrBuilder getKeyUpOrBuilder() {
       if ((actionCase_ == 14) && (keyUpBuilder_ != null)) {
@@ -1645,18 +1790,22 @@ private static final long serialVersionUID = 0L;
         return io.browsercloud.proto.node.v1.KeyInput.getDefaultInstance();
       }
     }
-    /**
-     * <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code>
-     */
+
+    /** <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code> */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.KeyInput, io.browsercloud.proto.node.v1.KeyInput.Builder, io.browsercloud.proto.node.v1.KeyInputOrBuilder>
+            io.browsercloud.proto.node.v1.KeyInput,
+            io.browsercloud.proto.node.v1.KeyInput.Builder,
+            io.browsercloud.proto.node.v1.KeyInputOrBuilder>
         getKeyUpFieldBuilder() {
       if (keyUpBuilder_ == null) {
         if (!(actionCase_ == 14)) {
           action_ = io.browsercloud.proto.node.v1.KeyInput.getDefaultInstance();
         }
-        keyUpBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            io.browsercloud.proto.node.v1.KeyInput, io.browsercloud.proto.node.v1.KeyInput.Builder, io.browsercloud.proto.node.v1.KeyInputOrBuilder>(
+        keyUpBuilder_ =
+            new com.google.protobuf.SingleFieldBuilderV3<
+                io.browsercloud.proto.node.v1.KeyInput,
+                io.browsercloud.proto.node.v1.KeyInput.Builder,
+                io.browsercloud.proto.node.v1.KeyInputOrBuilder>(
                 (io.browsercloud.proto.node.v1.KeyInput) action_,
                 getParentForChildren(),
                 isClean());
@@ -1666,9 +1815,9 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return keyUpBuilder_;
     }
+
     @java.lang.Override
-    public final Builder setUnknownFields(
-        final com.google.protobuf.UnknownFieldSet unknownFields) {
+    public final Builder setUnknownFields(final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.setUnknownFields(unknownFields);
     }
 
@@ -1678,12 +1827,12 @@ private static final long serialVersionUID = 0L;
       return super.mergeUnknownFields(unknownFields);
     }
 
-
     // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.ExecuteInputCommand)
   }
 
   // @@protoc_insertion_point(class_scope:browsercloud.node.v1.ExecuteInputCommand)
   private static final io.browsercloud.proto.node.v1.ExecuteInputCommand DEFAULT_INSTANCE;
+
   static {
     DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.ExecuteInputCommand();
   }
@@ -1692,27 +1841,27 @@ private static final long serialVersionUID = 0L;
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<ExecuteInputCommand>
-      PARSER = new com.google.protobuf.AbstractParser<ExecuteInputCommand>() {
-    @java.lang.Override
-    public ExecuteInputCommand parsePartialFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      Builder builder = newBuilder();
-      try {
-        builder.mergeFrom(input, extensionRegistry);
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(builder.buildPartial());
-      } catch (com.google.protobuf.UninitializedMessageException e) {
-        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(e)
-            .setUnfinishedMessage(builder.buildPartial());
-      }
-      return builder.buildPartial();
-    }
-  };
+  private static final com.google.protobuf.Parser<ExecuteInputCommand> PARSER =
+      new com.google.protobuf.AbstractParser<ExecuteInputCommand>() {
+        @java.lang.Override
+        public ExecuteInputCommand parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          Builder builder = newBuilder();
+          try {
+            builder.mergeFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            throw e.setUnfinishedMessage(builder.buildPartial());
+          } catch (com.google.protobuf.UninitializedMessageException e) {
+            throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+          } catch (java.io.IOException e) {
+            throw new com.google.protobuf.InvalidProtocolBufferException(e)
+                .setUnfinishedMessage(builder.buildPartial());
+          }
+          return builder.buildPartial();
+        }
+      };
 
   public static com.google.protobuf.Parser<ExecuteInputCommand> parser() {
     return PARSER;
@@ -1727,5 +1876,4 @@ private static final long serialVersionUID = 0L;
   public io.browsercloud.proto.node.v1.ExecuteInputCommand getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
-
 }

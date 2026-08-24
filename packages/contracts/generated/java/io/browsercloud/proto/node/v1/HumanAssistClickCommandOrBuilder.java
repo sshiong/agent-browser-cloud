@@ -4,121 +4,141 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface HumanAssistClickCommandOrBuilder extends
+public interface HumanAssistClickCommandOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.HumanAssistClickCommand)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>string challenge_event_id = 2 [json_name = "challengeEventId"];</code>
+   *
    * @return The challengeEventId.
    */
   java.lang.String getChallengeEventId();
+
   /**
    * <code>string challenge_event_id = 2 [json_name = "challengeEventId"];</code>
+   *
    * @return The bytes for challengeEventId.
    */
-  com.google.protobuf.ByteString
-      getChallengeEventIdBytes();
+  com.google.protobuf.ByteString getChallengeEventIdBytes();
 
   /**
    * <code>string intent_id = 3 [json_name = "intentId"];</code>
+   *
    * @return The intentId.
    */
   java.lang.String getIntentId();
+
   /**
    * <code>string intent_id = 3 [json_name = "intentId"];</code>
+   *
    * @return The bytes for intentId.
    */
-  com.google.protobuf.ByteString
-      getIntentIdBytes();
+  com.google.protobuf.ByteString getIntentIdBytes();
 
   /**
    * <code>string target_ref = 4 [json_name = "targetRef"];</code>
+   *
    * @return The targetRef.
    */
   java.lang.String getTargetRef();
+
   /**
    * <code>string target_ref = 4 [json_name = "targetRef"];</code>
+   *
    * @return The bytes for targetRef.
    */
-  com.google.protobuf.ByteString
-      getTargetRefBytes();
+  com.google.protobuf.ByteString getTargetRefBytes();
 
   /**
    * <code>uint64 target_revision = 5 [json_name = "targetRevision"];</code>
+   *
    * @return The targetRevision.
    */
   long getTargetRevision();
 
   /**
    * <code>uint64 base_state_version = 6 [json_name = "baseStateVersion"];</code>
+   *
    * @return The baseStateVersion.
    */
   long getBaseStateVersion();
 
   /**
    * <code>string base_content_hash = 7 [json_name = "baseContentHash"];</code>
+   *
    * @return The baseContentHash.
    */
   java.lang.String getBaseContentHash();
+
   /**
    * <code>string base_content_hash = 7 [json_name = "baseContentHash"];</code>
+   *
    * @return The bytes for baseContentHash.
    */
-  com.google.protobuf.ByteString
-      getBaseContentHashBytes();
+  com.google.protobuf.ByteString getBaseContentHashBytes();
 
   /**
    * <code>uint32 allowed_action_count = 8 [json_name = "allowedActionCount"];</code>
+   *
    * @return The allowedActionCount.
    */
   int getAllowedActionCount();
 
   /**
    * <code>double expected_x = 9 [json_name = "expectedX"];</code>
+   *
    * @return The expectedX.
    */
   double getExpectedX();
 
   /**
    * <code>double expected_y = 10 [json_name = "expectedY"];</code>
+   *
    * @return The expectedY.
    */
   double getExpectedY();
 
   /**
    * <code>double expected_width = 11 [json_name = "expectedWidth"];</code>
+   *
    * @return The expectedWidth.
    */
   double getExpectedWidth();
 
   /**
    * <code>double expected_height = 12 [json_name = "expectedHeight"];</code>
+   *
    * @return The expectedHeight.
    */
   double getExpectedHeight();
 
   /**
    * <code>string visual_anchor_hash = 13 [json_name = "visualAnchorHash"];</code>
+   *
    * @return The visualAnchorHash.
    */
   java.lang.String getVisualAnchorHash();
+
   /**
    * <code>string visual_anchor_hash = 13 [json_name = "visualAnchorHash"];</code>
+   *
    * @return The bytes for visualAnchorHash.
    */
-  com.google.protobuf.ByteString
-      getVisualAnchorHashBytes();
+  com.google.protobuf.ByteString getVisualAnchorHashBytes();
 }

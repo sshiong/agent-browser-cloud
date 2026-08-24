@@ -67,7 +67,9 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
             diff.requestedRootRef(),
             java.util.List.of(),
             diff.nativeDialogEvidenceFresh() ? diff.nativeDialogs() : previous.nativeDialogs(),
-            diff.nativeDialogEvidenceFresh());
+            diff.nativeDialogEvidenceFresh(),
+            mergeDownloads(previous.downloads(), diff.downloads(), diff.downloadEvidenceFresh()),
+            diff.downloadEvidenceFresh());
     entity.setStateVersion(diff.stateVersion());
     entity.setStateJson(write(updated));
     entity.setUpdatedAt(Instant.now());
@@ -104,6 +106,8 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
                       previous.requestedRootRef(),
                       java.util.List.of(),
                       previous.nativeDialogs(),
+                      false,
+                      previous.downloads(),
                       false);
               entity.setStateVersion(invalid.stateVersion());
               entity.setStateJson(write(invalid));
@@ -140,6 +144,8 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
                       previous.requestedRootRef(),
                       java.util.List.of(),
                       previous.nativeDialogs(),
+                      false,
+                      previous.downloads(),
                       false);
               entity.setStateJson(write(resyncing));
               entity.setUpdatedAt(Instant.now());
@@ -181,7 +187,35 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
               state.requestedRootRef(),
               state.actionOutcomes(),
               previous.nativeDialogs(),
-              false);
+              false,
+              mergeDownloads(
+                  previous.downloads(), state.downloads(), state.downloadEvidenceFresh()),
+              state.downloadEvidenceFresh());
+    } else if (existing.getSessionId() != null && existing.getTenantId().equals(tenantId)) {
+      var previous = read(existing.getStateJson());
+      persistedState =
+          new NodeEvent.StateUpdated(
+              state.sessionId(),
+              state.stateVersion(),
+              state.targetRevision(),
+              state.url(),
+              state.title(),
+              state.tabs(),
+              state.activeTabId(),
+              state.stateHash(),
+              state.stateQuality(),
+              state.targets(),
+              state.documentReadyState(),
+              state.networkQuietMillis(),
+              state.networkEvidenceFresh(),
+              state.snapshotKind(),
+              state.requestedRootRef(),
+              state.actionOutcomes(),
+              state.nativeDialogs(),
+              state.nativeDialogEvidenceFresh(),
+              mergeDownloads(
+                  previous.downloads(), state.downloads(), state.downloadEvidenceFresh()),
+              state.downloadEvidenceFresh());
     }
     existing.setSessionId(state.sessionId());
     existing.setTenantId(tenantId);
@@ -216,5 +250,42 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("Failed to deserialize Browser State", exception);
     }
+  }
+
+  private static java.util.List<NodeEvent.BrowserDownload> mergeDownloads(
+      java.util.List<NodeEvent.BrowserDownload> previous,
+      java.util.List<NodeEvent.BrowserDownload> incoming,
+      boolean incomingFresh) {
+    if (!incomingFresh) return java.util.List.copyOf(previous);
+    var now = Instant.now();
+    var merged = new LinkedHashMap<String, NodeEvent.BrowserDownload>();
+    previous.forEach(
+        download -> {
+          var retained = download;
+          if (download.status().equals("IN_PROGRESS")
+              && incoming.stream()
+                  .noneMatch(candidate -> candidate.downloadId().equals(download.downloadId()))) {
+            retained =
+                new NodeEvent.BrowserDownload(
+                    download.downloadId(),
+                    download.filename(),
+                    download.mimeType(),
+                    download.totalBytes(),
+                    download.receivedBytes(),
+                    download.progressBasisPoints(),
+                    "INTERRUPTED",
+                    download.startedAt(),
+                    now);
+          }
+          merged.put(retained.downloadId(), retained);
+        });
+    incoming.forEach(download -> merged.put(download.downloadId(), download));
+    return merged.values().stream()
+        .sorted(
+            java.util.Comparator.comparing(NodeEvent.BrowserDownload::startedAt)
+                .reversed()
+                .thenComparing(NodeEvent.BrowserDownload::downloadId))
+        .limit(100)
+        .toList();
   }
 }

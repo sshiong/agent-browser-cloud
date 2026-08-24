@@ -4,185 +4,199 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface ReportCapacityRequestOrBuilder extends
+public interface ReportCapacityRequestOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.ReportCapacityRequest)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string node_id = 1 [json_name = "nodeId"];</code>
+   *
    * @return The nodeId.
    */
   java.lang.String getNodeId();
+
   /**
    * <code>string node_id = 1 [json_name = "nodeId"];</code>
+   *
    * @return The bytes for nodeId.
    */
-  com.google.protobuf.ByteString
-      getNodeIdBytes();
+  com.google.protobuf.ByteString getNodeIdBytes();
 
   /**
    * <code>string region = 2 [json_name = "region"];</code>
+   *
    * @return The region.
    */
   java.lang.String getRegion();
+
   /**
    * <code>string region = 2 [json_name = "region"];</code>
+   *
    * @return The bytes for region.
    */
-  com.google.protobuf.ByteString
-      getRegionBytes();
+  com.google.protobuf.ByteString getRegionBytes();
 
   /**
    * <code>string grpc_target = 3 [json_name = "grpcTarget"];</code>
+   *
    * @return The grpcTarget.
    */
   java.lang.String getGrpcTarget();
+
   /**
    * <code>string grpc_target = 3 [json_name = "grpcTarget"];</code>
+   *
    * @return The bytes for grpcTarget.
    */
-  com.google.protobuf.ByteString
-      getGrpcTargetBytes();
+  com.google.protobuf.ByteString getGrpcTargetBytes();
 
   /**
    * <code>uint32 certified_cpu_millis = 4 [json_name = "certifiedCpuMillis"];</code>
+   *
    * @return The certifiedCpuMillis.
    */
   int getCertifiedCpuMillis();
 
   /**
    * <code>uint32 certified_memory_mib = 5 [json_name = "certifiedMemoryMib"];</code>
+   *
    * @return The certifiedMemoryMib.
    */
   int getCertifiedMemoryMib();
 
   /**
    * <code>uint32 certified_pid_count = 6 [json_name = "certifiedPidCount"];</code>
+   *
    * @return The certifiedPidCount.
    */
   int getCertifiedPidCount();
 
   /**
    * <code>uint32 certified_gpu_slots = 7 [json_name = "certifiedGpuSlots"];</code>
+   *
    * @return The certifiedGpuSlots.
    */
   int getCertifiedGpuSlots();
 
   /**
    * <code>uint32 safety_margin_percent = 8 [json_name = "safetyMarginPercent"];</code>
+   *
    * @return The safetyMarginPercent.
    */
   int getSafetyMarginPercent();
 
   /**
    * <code>uint32 max_sessions = 9 [json_name = "maxSessions"];</code>
+   *
    * @return The maxSessions.
    */
   int getMaxSessions();
 
   /**
    * <code>bool supports_desktop = 10 [json_name = "supportsDesktop"];</code>
+   *
    * @return The supportsDesktop.
    */
   boolean getSupportsDesktop();
 
   /**
    * <code>bool supports_gpu = 11 [json_name = "supportsGpu"];</code>
+   *
    * @return The supportsGpu.
    */
   boolean getSupportsGpu();
 
   /**
    * <code>bool supports_native_os = 12 [json_name = "supportsNativeOs"];</code>
+   *
    * @return The supportsNativeOs.
    */
   boolean getSupportsNativeOs();
 
   /**
    * <code>bool isolation_capable = 13 [json_name = "isolationCapable"];</code>
+   *
    * @return The isolationCapable.
    */
   boolean getIsolationCapable();
 
-  /**
-   * <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code>
-   */
+  /** <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code> */
   int getLabelsCount();
-  /**
-   * <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code>
-   */
-  boolean containsLabels(
-      java.lang.String key);
-  /**
-   * Use {@link #getLabelsMap()} instead.
-   */
+
+  /** <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code> */
+  boolean containsLabels(java.lang.String key);
+
+  /** Use {@link #getLabelsMap()} instead. */
   @java.lang.Deprecated
-  java.util.Map<java.lang.String, java.lang.String>
-  getLabels();
-  /**
-   * <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code>
-   */
-  java.util.Map<java.lang.String, java.lang.String>
-  getLabelsMap();
-  /**
-   * <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code>
-   */
+  java.util.Map<java.lang.String, java.lang.String> getLabels();
+
+  /** <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code> */
+  java.util.Map<java.lang.String, java.lang.String> getLabelsMap();
+
+  /** <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code> */
   /* nullable */
-java.lang.String getLabelsOrDefault(
+  java.lang.String getLabelsOrDefault(
       java.lang.String key,
       /* nullable */
-java.lang.String defaultValue);
-  /**
-   * <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code>
-   */
-  java.lang.String getLabelsOrThrow(
-      java.lang.String key);
+      java.lang.String defaultValue);
+
+  /** <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code> */
+  java.lang.String getLabelsOrThrow(java.lang.String key);
 
   /**
    * <code>uint32 certified_media_slots = 15 [json_name = "certifiedMediaSlots"];</code>
+   *
    * @return The certifiedMediaSlots.
    */
   int getCertifiedMediaSlots();
 
   /**
    * <code>bool supports_media = 16 [json_name = "supportsMedia"];</code>
+   *
    * @return The supportsMedia.
    */
   boolean getSupportsMedia();
 
   /**
    * <code>double memory_psi_some_avg10 = 20 [json_name = "memoryPsiSomeAvg10"];</code>
+   *
    * @return The memoryPsiSomeAvg10.
    */
   double getMemoryPsiSomeAvg10();
 
   /**
    * <code>double memory_psi_full_avg10 = 21 [json_name = "memoryPsiFullAvg10"];</code>
+   *
    * @return The memoryPsiFullAvg10.
    */
   double getMemoryPsiFullAvg10();
 
   /**
    * <code>double cpu_psi_some_avg10 = 22 [json_name = "cpuPsiSomeAvg10"];</code>
+   *
    * @return The cpuPsiSomeAvg10.
    */
   double getCpuPsiSomeAvg10();
 
   /**
    * <code>double io_psi_full_avg10 = 23 [json_name = "ioPsiFullAvg10"];</code>
+   *
    * @return The ioPsiFullAvg10.
    */
   double getIoPsiFullAvg10();
 
   /**
    * <code>string pressure_reason = 24 [json_name = "pressureReason"];</code>
+   *
    * @return The pressureReason.
    */
   java.lang.String getPressureReason();
+
   /**
    * <code>string pressure_reason = 24 [json_name = "pressureReason"];</code>
+   *
    * @return The bytes for pressureReason.
    */
-  com.google.protobuf.ByteString
-      getPressureReasonBytes();
+  com.google.protobuf.ByteString getPressureReasonBytes();
 }

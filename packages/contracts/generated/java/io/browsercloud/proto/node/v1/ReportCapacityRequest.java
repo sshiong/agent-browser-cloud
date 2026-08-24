@@ -4,18 +4,18 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-/**
- * Protobuf type {@code browsercloud.node.v1.ReportCapacityRequest}
- */
-public final class ReportCapacityRequest extends
-    com.google.protobuf.GeneratedMessageV3 implements
+/** Protobuf type {@code browsercloud.node.v1.ReportCapacityRequest} */
+public final class ReportCapacityRequest extends com.google.protobuf.GeneratedMessageV3
+    implements
     // @@protoc_insertion_point(message_implements:browsercloud.node.v1.ReportCapacityRequest)
     ReportCapacityRequestOrBuilder {
-private static final long serialVersionUID = 0L;
+  private static final long serialVersionUID = 0L;
+
   // Use ReportCapacityRequest.newBuilder() to construct.
   private ReportCapacityRequest(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
+
   private ReportCapacityRequest() {
     nodeId_ = "";
     region_ = "";
@@ -25,14 +25,13 @@ private static final long serialVersionUID = 0L;
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
+  protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
     return new ReportCapacityRequest();
   }
 
-  public static final com.google.protobuf.Descriptors.Descriptor
-      getDescriptor() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ReportCapacityRequest_descriptor;
+  public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_ReportCapacityRequest_descriptor;
   }
 
   @SuppressWarnings({"rawtypes"})
@@ -43,23 +42,28 @@ private static final long serialVersionUID = 0L;
       case 14:
         return internalGetLabels();
       default:
-        throw new RuntimeException(
-            "Invalid map field number: " + number);
+        throw new RuntimeException("Invalid map field number: " + number);
     }
   }
+
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ReportCapacityRequest_fieldAccessorTable
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_ReportCapacityRequest_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            io.browsercloud.proto.node.v1.ReportCapacityRequest.class, io.browsercloud.proto.node.v1.ReportCapacityRequest.Builder.class);
+            io.browsercloud.proto.node.v1.ReportCapacityRequest.class,
+            io.browsercloud.proto.node.v1.ReportCapacityRequest.Builder.class);
   }
 
   public static final int NODE_ID_FIELD_NUMBER = 1;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object nodeId_ = "";
+
   /**
    * <code>string node_id = 1 [json_name = "nodeId"];</code>
+   *
    * @return The nodeId.
    */
   @java.lang.Override
@@ -68,25 +72,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       nodeId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string node_id = 1 [json_name = "nodeId"];</code>
+   *
    * @return The bytes for nodeId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getNodeIdBytes() {
+  public com.google.protobuf.ByteString getNodeIdBytes() {
     java.lang.Object ref = nodeId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       nodeId_ = b;
       return b;
     } else {
@@ -95,10 +98,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int REGION_FIELD_NUMBER = 2;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object region_ = "";
+
   /**
    * <code>string region = 2 [json_name = "region"];</code>
+   *
    * @return The region.
    */
   @java.lang.Override
@@ -107,25 +113,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       region_ = s;
       return s;
     }
   }
+
   /**
    * <code>string region = 2 [json_name = "region"];</code>
+   *
    * @return The bytes for region.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getRegionBytes() {
+  public com.google.protobuf.ByteString getRegionBytes() {
     java.lang.Object ref = region_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       region_ = b;
       return b;
     } else {
@@ -134,10 +139,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int GRPC_TARGET_FIELD_NUMBER = 3;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object grpcTarget_ = "";
+
   /**
    * <code>string grpc_target = 3 [json_name = "grpcTarget"];</code>
+   *
    * @return The grpcTarget.
    */
   @java.lang.Override
@@ -146,25 +154,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       grpcTarget_ = s;
       return s;
     }
   }
+
   /**
    * <code>string grpc_target = 3 [json_name = "grpcTarget"];</code>
+   *
    * @return The bytes for grpcTarget.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getGrpcTargetBytes() {
+  public com.google.protobuf.ByteString getGrpcTargetBytes() {
     java.lang.Object ref = grpcTarget_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       grpcTarget_ = b;
       return b;
     } else {
@@ -174,8 +181,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int CERTIFIED_CPU_MILLIS_FIELD_NUMBER = 4;
   private int certifiedCpuMillis_ = 0;
+
   /**
    * <code>uint32 certified_cpu_millis = 4 [json_name = "certifiedCpuMillis"];</code>
+   *
    * @return The certifiedCpuMillis.
    */
   @java.lang.Override
@@ -185,8 +194,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int CERTIFIED_MEMORY_MIB_FIELD_NUMBER = 5;
   private int certifiedMemoryMib_ = 0;
+
   /**
    * <code>uint32 certified_memory_mib = 5 [json_name = "certifiedMemoryMib"];</code>
+   *
    * @return The certifiedMemoryMib.
    */
   @java.lang.Override
@@ -196,8 +207,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int CERTIFIED_PID_COUNT_FIELD_NUMBER = 6;
   private int certifiedPidCount_ = 0;
+
   /**
    * <code>uint32 certified_pid_count = 6 [json_name = "certifiedPidCount"];</code>
+   *
    * @return The certifiedPidCount.
    */
   @java.lang.Override
@@ -207,8 +220,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int CERTIFIED_GPU_SLOTS_FIELD_NUMBER = 7;
   private int certifiedGpuSlots_ = 0;
+
   /**
    * <code>uint32 certified_gpu_slots = 7 [json_name = "certifiedGpuSlots"];</code>
+   *
    * @return The certifiedGpuSlots.
    */
   @java.lang.Override
@@ -218,8 +233,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int SAFETY_MARGIN_PERCENT_FIELD_NUMBER = 8;
   private int safetyMarginPercent_ = 0;
+
   /**
    * <code>uint32 safety_margin_percent = 8 [json_name = "safetyMarginPercent"];</code>
+   *
    * @return The safetyMarginPercent.
    */
   @java.lang.Override
@@ -229,8 +246,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int MAX_SESSIONS_FIELD_NUMBER = 9;
   private int maxSessions_ = 0;
+
   /**
    * <code>uint32 max_sessions = 9 [json_name = "maxSessions"];</code>
+   *
    * @return The maxSessions.
    */
   @java.lang.Override
@@ -240,8 +259,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int SUPPORTS_DESKTOP_FIELD_NUMBER = 10;
   private boolean supportsDesktop_ = false;
+
   /**
    * <code>bool supports_desktop = 10 [json_name = "supportsDesktop"];</code>
+   *
    * @return The supportsDesktop.
    */
   @java.lang.Override
@@ -251,8 +272,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int SUPPORTS_GPU_FIELD_NUMBER = 11;
   private boolean supportsGpu_ = false;
+
   /**
    * <code>bool supports_gpu = 11 [json_name = "supportsGpu"];</code>
+   *
    * @return The supportsGpu.
    */
   @java.lang.Override
@@ -262,8 +285,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int SUPPORTS_NATIVE_OS_FIELD_NUMBER = 12;
   private boolean supportsNativeOs_ = false;
+
   /**
    * <code>bool supports_native_os = 12 [json_name = "supportsNativeOs"];</code>
+   *
    * @return The supportsNativeOs.
    */
   @java.lang.Override
@@ -273,8 +298,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int ISOLATION_CAPABLE_FIELD_NUMBER = 13;
   private boolean isolationCapable_ = false;
+
   /**
    * <code>bool isolation_capable = 13 [json_name = "isolationCapable"];</code>
+   *
    * @return The isolationCapable.
    */
   @java.lang.Override
@@ -283,78 +310,74 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int LABELS_FIELD_NUMBER = 14;
+
   private static final class LabelsDefaultEntryHolder {
-    static final com.google.protobuf.MapEntry<
-        java.lang.String, java.lang.String> defaultEntry =
-            com.google.protobuf.MapEntry
-            .<java.lang.String, java.lang.String>newDefaultInstance(
-                io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ReportCapacityRequest_LabelsEntry_descriptor,
-                com.google.protobuf.WireFormat.FieldType.STRING,
-                "",
-                com.google.protobuf.WireFormat.FieldType.STRING,
-                "");
+    static final com.google.protobuf.MapEntry<java.lang.String, java.lang.String> defaultEntry =
+        com.google.protobuf.MapEntry.<java.lang.String, java.lang.String>newDefaultInstance(
+            io.browsercloud.proto.node.v1.NodeCommand
+                .internal_static_browsercloud_node_v1_ReportCapacityRequest_LabelsEntry_descriptor,
+            com.google.protobuf.WireFormat.FieldType.STRING,
+            "",
+            com.google.protobuf.WireFormat.FieldType.STRING,
+            "");
   }
+
   @SuppressWarnings("serial")
-  private com.google.protobuf.MapField<
-      java.lang.String, java.lang.String> labels_;
-  private com.google.protobuf.MapField<java.lang.String, java.lang.String>
-  internalGetLabels() {
+  private com.google.protobuf.MapField<java.lang.String, java.lang.String> labels_;
+
+  private com.google.protobuf.MapField<java.lang.String, java.lang.String> internalGetLabels() {
     if (labels_ == null) {
-      return com.google.protobuf.MapField.emptyMapField(
-          LabelsDefaultEntryHolder.defaultEntry);
+      return com.google.protobuf.MapField.emptyMapField(LabelsDefaultEntryHolder.defaultEntry);
     }
     return labels_;
   }
+
   public int getLabelsCount() {
     return internalGetLabels().getMap().size();
   }
-  /**
-   * <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code>
-   */
+
+  /** <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code> */
   @java.lang.Override
-  public boolean containsLabels(
-      java.lang.String key) {
-    if (key == null) { throw new NullPointerException("map key"); }
+  public boolean containsLabels(java.lang.String key) {
+    if (key == null) {
+      throw new NullPointerException("map key");
+    }
     return internalGetLabels().getMap().containsKey(key);
   }
-  /**
-   * Use {@link #getLabelsMap()} instead.
-   */
+
+  /** Use {@link #getLabelsMap()} instead. */
   @java.lang.Override
   @java.lang.Deprecated
   public java.util.Map<java.lang.String, java.lang.String> getLabels() {
     return getLabelsMap();
   }
-  /**
-   * <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code>
-   */
+
+  /** <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code> */
   @java.lang.Override
   public java.util.Map<java.lang.String, java.lang.String> getLabelsMap() {
     return internalGetLabels().getMap();
   }
-  /**
-   * <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code>
-   */
+
+  /** <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code> */
   @java.lang.Override
-  public /* nullable */
-java.lang.String getLabelsOrDefault(
+  public /* nullable */ java.lang.String getLabelsOrDefault(
       java.lang.String key,
       /* nullable */
-java.lang.String defaultValue) {
-    if (key == null) { throw new NullPointerException("map key"); }
-    java.util.Map<java.lang.String, java.lang.String> map =
-        internalGetLabels().getMap();
+      java.lang.String defaultValue) {
+    if (key == null) {
+      throw new NullPointerException("map key");
+    }
+    java.util.Map<java.lang.String, java.lang.String> map = internalGetLabels().getMap();
     return map.containsKey(key) ? map.get(key) : defaultValue;
   }
-  /**
-   * <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code>
-   */
+
+  /** <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code> */
   @java.lang.Override
-  public java.lang.String getLabelsOrThrow(
-      java.lang.String key) {
-    if (key == null) { throw new NullPointerException("map key"); }
-    java.util.Map<java.lang.String, java.lang.String> map =
-        internalGetLabels().getMap();
+  public java.lang.String getLabelsOrThrow(java.lang.String key) {
+    if (key == null) {
+      throw new NullPointerException("map key");
+    }
+    java.util.Map<java.lang.String, java.lang.String> map = internalGetLabels().getMap();
     if (!map.containsKey(key)) {
       throw new java.lang.IllegalArgumentException();
     }
@@ -363,8 +386,10 @@ java.lang.String defaultValue) {
 
   public static final int CERTIFIED_MEDIA_SLOTS_FIELD_NUMBER = 15;
   private int certifiedMediaSlots_ = 0;
+
   /**
    * <code>uint32 certified_media_slots = 15 [json_name = "certifiedMediaSlots"];</code>
+   *
    * @return The certifiedMediaSlots.
    */
   @java.lang.Override
@@ -374,8 +399,10 @@ java.lang.String defaultValue) {
 
   public static final int SUPPORTS_MEDIA_FIELD_NUMBER = 16;
   private boolean supportsMedia_ = false;
+
   /**
    * <code>bool supports_media = 16 [json_name = "supportsMedia"];</code>
+   *
    * @return The supportsMedia.
    */
   @java.lang.Override
@@ -385,8 +412,10 @@ java.lang.String defaultValue) {
 
   public static final int MEMORY_PSI_SOME_AVG10_FIELD_NUMBER = 20;
   private double memoryPsiSomeAvg10_ = 0D;
+
   /**
    * <code>double memory_psi_some_avg10 = 20 [json_name = "memoryPsiSomeAvg10"];</code>
+   *
    * @return The memoryPsiSomeAvg10.
    */
   @java.lang.Override
@@ -396,8 +425,10 @@ java.lang.String defaultValue) {
 
   public static final int MEMORY_PSI_FULL_AVG10_FIELD_NUMBER = 21;
   private double memoryPsiFullAvg10_ = 0D;
+
   /**
    * <code>double memory_psi_full_avg10 = 21 [json_name = "memoryPsiFullAvg10"];</code>
+   *
    * @return The memoryPsiFullAvg10.
    */
   @java.lang.Override
@@ -407,8 +438,10 @@ java.lang.String defaultValue) {
 
   public static final int CPU_PSI_SOME_AVG10_FIELD_NUMBER = 22;
   private double cpuPsiSomeAvg10_ = 0D;
+
   /**
    * <code>double cpu_psi_some_avg10 = 22 [json_name = "cpuPsiSomeAvg10"];</code>
+   *
    * @return The cpuPsiSomeAvg10.
    */
   @java.lang.Override
@@ -418,8 +451,10 @@ java.lang.String defaultValue) {
 
   public static final int IO_PSI_FULL_AVG10_FIELD_NUMBER = 23;
   private double ioPsiFullAvg10_ = 0D;
+
   /**
    * <code>double io_psi_full_avg10 = 23 [json_name = "ioPsiFullAvg10"];</code>
+   *
    * @return The ioPsiFullAvg10.
    */
   @java.lang.Override
@@ -428,10 +463,13 @@ java.lang.String defaultValue) {
   }
 
   public static final int PRESSURE_REASON_FIELD_NUMBER = 24;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object pressureReason_ = "";
+
   /**
    * <code>string pressure_reason = 24 [json_name = "pressureReason"];</code>
+   *
    * @return The pressureReason.
    */
   @java.lang.Override
@@ -440,25 +478,24 @@ java.lang.String defaultValue) {
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       pressureReason_ = s;
       return s;
     }
   }
+
   /**
    * <code>string pressure_reason = 24 [json_name = "pressureReason"];</code>
+   *
    * @return The bytes for pressureReason.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getPressureReasonBytes() {
+  public com.google.protobuf.ByteString getPressureReasonBytes() {
     java.lang.Object ref = pressureReason_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       pressureReason_ = b;
       return b;
     } else {
@@ -467,6 +504,7 @@ java.lang.String defaultValue) {
   }
 
   private byte memoizedIsInitialized = -1;
+
   @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
@@ -478,8 +516,7 @@ java.lang.String defaultValue) {
   }
 
   @java.lang.Override
-  public void writeTo(com.google.protobuf.CodedOutputStream output)
-                      throws java.io.IOException {
+  public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(nodeId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 1, nodeId_);
     }
@@ -519,12 +556,8 @@ java.lang.String defaultValue) {
     if (isolationCapable_ != false) {
       output.writeBool(13, isolationCapable_);
     }
-    com.google.protobuf.GeneratedMessageV3
-      .serializeStringMapTo(
-        output,
-        internalGetLabels(),
-        LabelsDefaultEntryHolder.defaultEntry,
-        14);
+    com.google.protobuf.GeneratedMessageV3.serializeStringMapTo(
+        output, internalGetLabels(), LabelsDefaultEntryHolder.defaultEntry, 14);
     if (certifiedMediaSlots_ != 0) {
       output.writeUInt32(15, certifiedMediaSlots_);
     }
@@ -565,78 +598,62 @@ java.lang.String defaultValue) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, grpcTarget_);
     }
     if (certifiedCpuMillis_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(4, certifiedCpuMillis_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(4, certifiedCpuMillis_);
     }
     if (certifiedMemoryMib_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(5, certifiedMemoryMib_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(5, certifiedMemoryMib_);
     }
     if (certifiedPidCount_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(6, certifiedPidCount_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(6, certifiedPidCount_);
     }
     if (certifiedGpuSlots_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(7, certifiedGpuSlots_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(7, certifiedGpuSlots_);
     }
     if (safetyMarginPercent_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(8, safetyMarginPercent_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(8, safetyMarginPercent_);
     }
     if (maxSessions_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(9, maxSessions_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(9, maxSessions_);
     }
     if (supportsDesktop_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(10, supportsDesktop_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(10, supportsDesktop_);
     }
     if (supportsGpu_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(11, supportsGpu_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(11, supportsGpu_);
     }
     if (supportsNativeOs_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(12, supportsNativeOs_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(12, supportsNativeOs_);
     }
     if (isolationCapable_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(13, isolationCapable_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(13, isolationCapable_);
     }
-    for (java.util.Map.Entry<java.lang.String, java.lang.String> entry
-         : internalGetLabels().getMap().entrySet()) {
-      com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
-      labels__ = LabelsDefaultEntryHolder.defaultEntry.newBuilderForType()
-          .setKey(entry.getKey())
-          .setValue(entry.getValue())
-          .build();
-      size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(14, labels__);
+    for (java.util.Map.Entry<java.lang.String, java.lang.String> entry :
+        internalGetLabels().getMap().entrySet()) {
+      com.google.protobuf.MapEntry<java.lang.String, java.lang.String> labels__ =
+          LabelsDefaultEntryHolder.defaultEntry
+              .newBuilderForType()
+              .setKey(entry.getKey())
+              .setValue(entry.getValue())
+              .build();
+      size += com.google.protobuf.CodedOutputStream.computeMessageSize(14, labels__);
     }
     if (certifiedMediaSlots_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(15, certifiedMediaSlots_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(15, certifiedMediaSlots_);
     }
     if (supportsMedia_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(16, supportsMedia_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(16, supportsMedia_);
     }
     if (java.lang.Double.doubleToRawLongBits(memoryPsiSomeAvg10_) != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(20, memoryPsiSomeAvg10_);
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(20, memoryPsiSomeAvg10_);
     }
     if (java.lang.Double.doubleToRawLongBits(memoryPsiFullAvg10_) != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(21, memoryPsiFullAvg10_);
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(21, memoryPsiFullAvg10_);
     }
     if (java.lang.Double.doubleToRawLongBits(cpuPsiSomeAvg10_) != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(22, cpuPsiSomeAvg10_);
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(22, cpuPsiSomeAvg10_);
     }
     if (java.lang.Double.doubleToRawLongBits(ioPsiFullAvg10_) != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(23, ioPsiFullAvg10_);
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(23, ioPsiFullAvg10_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(pressureReason_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(24, pressureReason_);
@@ -649,59 +666,39 @@ java.lang.String defaultValue) {
   @java.lang.Override
   public boolean equals(final java.lang.Object obj) {
     if (obj == this) {
-     return true;
+      return true;
     }
     if (!(obj instanceof io.browsercloud.proto.node.v1.ReportCapacityRequest)) {
       return super.equals(obj);
     }
-    io.browsercloud.proto.node.v1.ReportCapacityRequest other = (io.browsercloud.proto.node.v1.ReportCapacityRequest) obj;
+    io.browsercloud.proto.node.v1.ReportCapacityRequest other =
+        (io.browsercloud.proto.node.v1.ReportCapacityRequest) obj;
 
-    if (!getNodeId()
-        .equals(other.getNodeId())) return false;
-    if (!getRegion()
-        .equals(other.getRegion())) return false;
-    if (!getGrpcTarget()
-        .equals(other.getGrpcTarget())) return false;
-    if (getCertifiedCpuMillis()
-        != other.getCertifiedCpuMillis()) return false;
-    if (getCertifiedMemoryMib()
-        != other.getCertifiedMemoryMib()) return false;
-    if (getCertifiedPidCount()
-        != other.getCertifiedPidCount()) return false;
-    if (getCertifiedGpuSlots()
-        != other.getCertifiedGpuSlots()) return false;
-    if (getSafetyMarginPercent()
-        != other.getSafetyMarginPercent()) return false;
-    if (getMaxSessions()
-        != other.getMaxSessions()) return false;
-    if (getSupportsDesktop()
-        != other.getSupportsDesktop()) return false;
-    if (getSupportsGpu()
-        != other.getSupportsGpu()) return false;
-    if (getSupportsNativeOs()
-        != other.getSupportsNativeOs()) return false;
-    if (getIsolationCapable()
-        != other.getIsolationCapable()) return false;
-    if (!internalGetLabels().equals(
-        other.internalGetLabels())) return false;
-    if (getCertifiedMediaSlots()
-        != other.getCertifiedMediaSlots()) return false;
-    if (getSupportsMedia()
-        != other.getSupportsMedia()) return false;
+    if (!getNodeId().equals(other.getNodeId())) return false;
+    if (!getRegion().equals(other.getRegion())) return false;
+    if (!getGrpcTarget().equals(other.getGrpcTarget())) return false;
+    if (getCertifiedCpuMillis() != other.getCertifiedCpuMillis()) return false;
+    if (getCertifiedMemoryMib() != other.getCertifiedMemoryMib()) return false;
+    if (getCertifiedPidCount() != other.getCertifiedPidCount()) return false;
+    if (getCertifiedGpuSlots() != other.getCertifiedGpuSlots()) return false;
+    if (getSafetyMarginPercent() != other.getSafetyMarginPercent()) return false;
+    if (getMaxSessions() != other.getMaxSessions()) return false;
+    if (getSupportsDesktop() != other.getSupportsDesktop()) return false;
+    if (getSupportsGpu() != other.getSupportsGpu()) return false;
+    if (getSupportsNativeOs() != other.getSupportsNativeOs()) return false;
+    if (getIsolationCapable() != other.getIsolationCapable()) return false;
+    if (!internalGetLabels().equals(other.internalGetLabels())) return false;
+    if (getCertifiedMediaSlots() != other.getCertifiedMediaSlots()) return false;
+    if (getSupportsMedia() != other.getSupportsMedia()) return false;
     if (java.lang.Double.doubleToLongBits(getMemoryPsiSomeAvg10())
-        != java.lang.Double.doubleToLongBits(
-            other.getMemoryPsiSomeAvg10())) return false;
+        != java.lang.Double.doubleToLongBits(other.getMemoryPsiSomeAvg10())) return false;
     if (java.lang.Double.doubleToLongBits(getMemoryPsiFullAvg10())
-        != java.lang.Double.doubleToLongBits(
-            other.getMemoryPsiFullAvg10())) return false;
+        != java.lang.Double.doubleToLongBits(other.getMemoryPsiFullAvg10())) return false;
     if (java.lang.Double.doubleToLongBits(getCpuPsiSomeAvg10())
-        != java.lang.Double.doubleToLongBits(
-            other.getCpuPsiSomeAvg10())) return false;
+        != java.lang.Double.doubleToLongBits(other.getCpuPsiSomeAvg10())) return false;
     if (java.lang.Double.doubleToLongBits(getIoPsiFullAvg10())
-        != java.lang.Double.doubleToLongBits(
-            other.getIoPsiFullAvg10())) return false;
-    if (!getPressureReason()
-        .equals(other.getPressureReason())) return false;
+        != java.lang.Double.doubleToLongBits(other.getIoPsiFullAvg10())) return false;
+    if (!getPressureReason().equals(other.getPressureReason())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -732,17 +729,13 @@ java.lang.String defaultValue) {
     hash = (37 * hash) + MAX_SESSIONS_FIELD_NUMBER;
     hash = (53 * hash) + getMaxSessions();
     hash = (37 * hash) + SUPPORTS_DESKTOP_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getSupportsDesktop());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getSupportsDesktop());
     hash = (37 * hash) + SUPPORTS_GPU_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getSupportsGpu());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getSupportsGpu());
     hash = (37 * hash) + SUPPORTS_NATIVE_OS_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getSupportsNativeOs());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getSupportsNativeOs());
     hash = (37 * hash) + ISOLATION_CAPABLE_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getIsolationCapable());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getIsolationCapable());
     if (!internalGetLabels().getMap().isEmpty()) {
       hash = (37 * hash) + LABELS_FIELD_NUMBER;
       hash = (53 * hash) + internalGetLabels().hashCode();
@@ -750,20 +743,27 @@ java.lang.String defaultValue) {
     hash = (37 * hash) + CERTIFIED_MEDIA_SLOTS_FIELD_NUMBER;
     hash = (53 * hash) + getCertifiedMediaSlots();
     hash = (37 * hash) + SUPPORTS_MEDIA_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getSupportsMedia());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getSupportsMedia());
     hash = (37 * hash) + MEMORY_PSI_SOME_AVG10_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        java.lang.Double.doubleToLongBits(getMemoryPsiSomeAvg10()));
+    hash =
+        (53 * hash)
+            + com.google.protobuf.Internal.hashLong(
+                java.lang.Double.doubleToLongBits(getMemoryPsiSomeAvg10()));
     hash = (37 * hash) + MEMORY_PSI_FULL_AVG10_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        java.lang.Double.doubleToLongBits(getMemoryPsiFullAvg10()));
+    hash =
+        (53 * hash)
+            + com.google.protobuf.Internal.hashLong(
+                java.lang.Double.doubleToLongBits(getMemoryPsiFullAvg10()));
     hash = (37 * hash) + CPU_PSI_SOME_AVG10_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        java.lang.Double.doubleToLongBits(getCpuPsiSomeAvg10()));
+    hash =
+        (53 * hash)
+            + com.google.protobuf.Internal.hashLong(
+                java.lang.Double.doubleToLongBits(getCpuPsiSomeAvg10()));
     hash = (37 * hash) + IO_PSI_FULL_AVG10_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        java.lang.Double.doubleToLongBits(getIoPsiFullAvg10()));
+    hash =
+        (53 * hash)
+            + com.google.protobuf.Internal.hashLong(
+                java.lang.Double.doubleToLongBits(getIoPsiFullAvg10()));
     hash = (37 * hash) + PRESSURE_REASON_FIELD_NUMBER;
     hash = (53 * hash) + getPressureReason().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
@@ -772,107 +772,109 @@ java.lang.String defaultValue) {
   }
 
   public static io.browsercloud.proto.node.v1.ReportCapacityRequest parseFrom(
-      java.nio.ByteBuffer data)
-      throws com.google.protobuf.InvalidProtocolBufferException {
+      java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.ReportCapacityRequest parseFrom(
-      java.nio.ByteBuffer data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.ReportCapacityRequest parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.ReportCapacityRequest parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.ReportCapacityRequest parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.ReportCapacityRequest parseFrom(
-      byte[] data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.ReportCapacityRequest parseFrom(java.io.InputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
-  }
+
   public static io.browsercloud.proto.node.v1.ReportCapacityRequest parseFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.ReportCapacityRequest parseDelimitedFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.ReportCapacityRequest parseFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   public static io.browsercloud.proto.node.v1.ReportCapacityRequest parseDelimitedFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
   }
+
+  public static io.browsercloud.proto.node.v1.ReportCapacityRequest parseDelimitedFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
+        PARSER, input, extensionRegistry);
+  }
+
   public static io.browsercloud.proto.node.v1.ReportCapacityRequest parseFrom(
-      com.google.protobuf.CodedInputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
+      com.google.protobuf.CodedInputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
+
   public static io.browsercloud.proto.node.v1.ReportCapacityRequest parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   @java.lang.Override
-  public Builder newBuilderForType() { return newBuilder(); }
+  public Builder newBuilderForType() {
+    return newBuilder();
+  }
+
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
+
   public static Builder newBuilder(io.browsercloud.proto.node.v1.ReportCapacityRequest prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
+
   @java.lang.Override
   public Builder toBuilder() {
-    return this == DEFAULT_INSTANCE
-        ? new Builder() : new Builder().mergeFrom(this);
+    return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
   }
 
   @java.lang.Override
-  protected Builder newBuilderForType(
-      com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+  protected Builder newBuilderForType(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
     Builder builder = new Builder(parent);
     return builder;
   }
-  /**
-   * Protobuf type {@code browsercloud.node.v1.ReportCapacityRequest}
-   */
-  public static final class Builder extends
-      com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+
+  /** Protobuf type {@code browsercloud.node.v1.ReportCapacityRequest} */
+  public static final class Builder extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
+      implements
       // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.ReportCapacityRequest)
       io.browsercloud.proto.node.v1.ReportCapacityRequestOrBuilder {
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ReportCapacityRequest_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_ReportCapacityRequest_descriptor;
     }
 
     @SuppressWarnings({"rawtypes"})
@@ -882,10 +884,10 @@ java.lang.String defaultValue) {
         case 14:
           return internalGetLabels();
         default:
-          throw new RuntimeException(
-              "Invalid map field number: " + number);
+          throw new RuntimeException("Invalid map field number: " + number);
       }
     }
+
     @SuppressWarnings({"rawtypes"})
     protected com.google.protobuf.MapFieldReflectionAccessor internalGetMutableMapFieldReflection(
         int number) {
@@ -893,28 +895,27 @@ java.lang.String defaultValue) {
         case 14:
           return internalGetMutableLabels();
         default:
-          throw new RuntimeException(
-              "Invalid map field number: " + number);
+          throw new RuntimeException("Invalid map field number: " + number);
       }
     }
+
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ReportCapacityRequest_fieldAccessorTable
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_ReportCapacityRequest_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              io.browsercloud.proto.node.v1.ReportCapacityRequest.class, io.browsercloud.proto.node.v1.ReportCapacityRequest.Builder.class);
+              io.browsercloud.proto.node.v1.ReportCapacityRequest.class,
+              io.browsercloud.proto.node.v1.ReportCapacityRequest.Builder.class);
     }
 
     // Construct using io.browsercloud.proto.node.v1.ReportCapacityRequest.newBuilder()
-    private Builder() {
+    private Builder() {}
 
-    }
-
-    private Builder(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+    private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
-
     }
+
     @java.lang.Override
     public Builder clear() {
       super.clear();
@@ -944,9 +945,9 @@ java.lang.String defaultValue) {
     }
 
     @java.lang.Override
-    public com.google.protobuf.Descriptors.Descriptor
-        getDescriptorForType() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ReportCapacityRequest_descriptor;
+    public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_ReportCapacityRequest_descriptor;
     }
 
     @java.lang.Override
@@ -965,8 +966,11 @@ java.lang.String defaultValue) {
 
     @java.lang.Override
     public io.browsercloud.proto.node.v1.ReportCapacityRequest buildPartial() {
-      io.browsercloud.proto.node.v1.ReportCapacityRequest result = new io.browsercloud.proto.node.v1.ReportCapacityRequest(this);
-      if (bitField0_ != 0) { buildPartial0(result); }
+      io.browsercloud.proto.node.v1.ReportCapacityRequest result =
+          new io.browsercloud.proto.node.v1.ReportCapacityRequest(this);
+      if (bitField0_ != 0) {
+        buildPartial0(result);
+      }
       onBuilt();
       return result;
     }
@@ -1043,38 +1047,39 @@ java.lang.String defaultValue) {
     public Builder clone() {
       return super.clone();
     }
+
     @java.lang.Override
     public Builder setField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.setField(field, value);
     }
+
     @java.lang.Override
-    public Builder clearField(
-        com.google.protobuf.Descriptors.FieldDescriptor field) {
+    public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
       return super.clearField(field);
     }
+
     @java.lang.Override
-    public Builder clearOneof(
-        com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+    public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
       return super.clearOneof(oneof);
     }
+
     @java.lang.Override
     public Builder setRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        int index, java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, int index, java.lang.Object value) {
       return super.setRepeatedField(field, index, value);
     }
+
     @java.lang.Override
     public Builder addRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.addRepeatedField(field, value);
     }
+
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof io.browsercloud.proto.node.v1.ReportCapacityRequest) {
-        return mergeFrom((io.browsercloud.proto.node.v1.ReportCapacityRequest)other);
+        return mergeFrom((io.browsercloud.proto.node.v1.ReportCapacityRequest) other);
       } else {
         super.mergeFrom(other);
         return this;
@@ -1082,7 +1087,8 @@ java.lang.String defaultValue) {
     }
 
     public Builder mergeFrom(io.browsercloud.proto.node.v1.ReportCapacityRequest other) {
-      if (other == io.browsercloud.proto.node.v1.ReportCapacityRequest.getDefaultInstance()) return this;
+      if (other == io.browsercloud.proto.node.v1.ReportCapacityRequest.getDefaultInstance())
+        return this;
       if (!other.getNodeId().isEmpty()) {
         nodeId_ = other.nodeId_;
         bitField0_ |= 0x00000001;
@@ -1128,8 +1134,7 @@ java.lang.String defaultValue) {
       if (other.getIsolationCapable() != false) {
         setIsolationCapable(other.getIsolationCapable());
       }
-      internalGetMutableLabels().mergeFrom(
-          other.internalGetLabels());
+      internalGetMutableLabels().mergeFrom(other.internalGetLabels());
       bitField0_ |= 0x00002000;
       if (other.getCertifiedMediaSlots() != 0) {
         setCertifiedMediaSlots(other.getCertifiedMediaSlots());
@@ -1180,121 +1185,145 @@ java.lang.String defaultValue) {
             case 0:
               done = true;
               break;
-            case 10: {
-              nodeId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000001;
-              break;
-            } // case 10
-            case 18: {
-              region_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000002;
-              break;
-            } // case 18
-            case 26: {
-              grpcTarget_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000004;
-              break;
-            } // case 26
-            case 32: {
-              certifiedCpuMillis_ = input.readUInt32();
-              bitField0_ |= 0x00000008;
-              break;
-            } // case 32
-            case 40: {
-              certifiedMemoryMib_ = input.readUInt32();
-              bitField0_ |= 0x00000010;
-              break;
-            } // case 40
-            case 48: {
-              certifiedPidCount_ = input.readUInt32();
-              bitField0_ |= 0x00000020;
-              break;
-            } // case 48
-            case 56: {
-              certifiedGpuSlots_ = input.readUInt32();
-              bitField0_ |= 0x00000040;
-              break;
-            } // case 56
-            case 64: {
-              safetyMarginPercent_ = input.readUInt32();
-              bitField0_ |= 0x00000080;
-              break;
-            } // case 64
-            case 72: {
-              maxSessions_ = input.readUInt32();
-              bitField0_ |= 0x00000100;
-              break;
-            } // case 72
-            case 80: {
-              supportsDesktop_ = input.readBool();
-              bitField0_ |= 0x00000200;
-              break;
-            } // case 80
-            case 88: {
-              supportsGpu_ = input.readBool();
-              bitField0_ |= 0x00000400;
-              break;
-            } // case 88
-            case 96: {
-              supportsNativeOs_ = input.readBool();
-              bitField0_ |= 0x00000800;
-              break;
-            } // case 96
-            case 104: {
-              isolationCapable_ = input.readBool();
-              bitField0_ |= 0x00001000;
-              break;
-            } // case 104
-            case 114: {
-              com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
-              labels__ = input.readMessage(
-                  LabelsDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
-              internalGetMutableLabels().getMutableMap().put(
-                  labels__.getKey(), labels__.getValue());
-              bitField0_ |= 0x00002000;
-              break;
-            } // case 114
-            case 120: {
-              certifiedMediaSlots_ = input.readUInt32();
-              bitField0_ |= 0x00004000;
-              break;
-            } // case 120
-            case 128: {
-              supportsMedia_ = input.readBool();
-              bitField0_ |= 0x00008000;
-              break;
-            } // case 128
-            case 161: {
-              memoryPsiSomeAvg10_ = input.readDouble();
-              bitField0_ |= 0x00010000;
-              break;
-            } // case 161
-            case 169: {
-              memoryPsiFullAvg10_ = input.readDouble();
-              bitField0_ |= 0x00020000;
-              break;
-            } // case 169
-            case 177: {
-              cpuPsiSomeAvg10_ = input.readDouble();
-              bitField0_ |= 0x00040000;
-              break;
-            } // case 177
-            case 185: {
-              ioPsiFullAvg10_ = input.readDouble();
-              bitField0_ |= 0x00080000;
-              break;
-            } // case 185
-            case 194: {
-              pressureReason_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00100000;
-              break;
-            } // case 194
-            default: {
-              if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                done = true; // was an endgroup tag
-              }
-              break;
-            } // default:
+            case 10:
+              {
+                nodeId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000001;
+                break;
+              } // case 10
+            case 18:
+              {
+                region_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000002;
+                break;
+              } // case 18
+            case 26:
+              {
+                grpcTarget_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000004;
+                break;
+              } // case 26
+            case 32:
+              {
+                certifiedCpuMillis_ = input.readUInt32();
+                bitField0_ |= 0x00000008;
+                break;
+              } // case 32
+            case 40:
+              {
+                certifiedMemoryMib_ = input.readUInt32();
+                bitField0_ |= 0x00000010;
+                break;
+              } // case 40
+            case 48:
+              {
+                certifiedPidCount_ = input.readUInt32();
+                bitField0_ |= 0x00000020;
+                break;
+              } // case 48
+            case 56:
+              {
+                certifiedGpuSlots_ = input.readUInt32();
+                bitField0_ |= 0x00000040;
+                break;
+              } // case 56
+            case 64:
+              {
+                safetyMarginPercent_ = input.readUInt32();
+                bitField0_ |= 0x00000080;
+                break;
+              } // case 64
+            case 72:
+              {
+                maxSessions_ = input.readUInt32();
+                bitField0_ |= 0x00000100;
+                break;
+              } // case 72
+            case 80:
+              {
+                supportsDesktop_ = input.readBool();
+                bitField0_ |= 0x00000200;
+                break;
+              } // case 80
+            case 88:
+              {
+                supportsGpu_ = input.readBool();
+                bitField0_ |= 0x00000400;
+                break;
+              } // case 88
+            case 96:
+              {
+                supportsNativeOs_ = input.readBool();
+                bitField0_ |= 0x00000800;
+                break;
+              } // case 96
+            case 104:
+              {
+                isolationCapable_ = input.readBool();
+                bitField0_ |= 0x00001000;
+                break;
+              } // case 104
+            case 114:
+              {
+                com.google.protobuf.MapEntry<java.lang.String, java.lang.String> labels__ =
+                    input.readMessage(
+                        LabelsDefaultEntryHolder.defaultEntry.getParserForType(),
+                        extensionRegistry);
+                internalGetMutableLabels()
+                    .getMutableMap()
+                    .put(labels__.getKey(), labels__.getValue());
+                bitField0_ |= 0x00002000;
+                break;
+              } // case 114
+            case 120:
+              {
+                certifiedMediaSlots_ = input.readUInt32();
+                bitField0_ |= 0x00004000;
+                break;
+              } // case 120
+            case 128:
+              {
+                supportsMedia_ = input.readBool();
+                bitField0_ |= 0x00008000;
+                break;
+              } // case 128
+            case 161:
+              {
+                memoryPsiSomeAvg10_ = input.readDouble();
+                bitField0_ |= 0x00010000;
+                break;
+              } // case 161
+            case 169:
+              {
+                memoryPsiFullAvg10_ = input.readDouble();
+                bitField0_ |= 0x00020000;
+                break;
+              } // case 169
+            case 177:
+              {
+                cpuPsiSomeAvg10_ = input.readDouble();
+                bitField0_ |= 0x00040000;
+                break;
+              } // case 177
+            case 185:
+              {
+                ioPsiFullAvg10_ = input.readDouble();
+                bitField0_ |= 0x00080000;
+                break;
+              } // case 185
+            case 194:
+              {
+                pressureReason_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00100000;
+                break;
+              } // case 194
+            default:
+              {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
           } // switch (tag)
         } // while (!done)
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -1304,18 +1333,20 @@ java.lang.String defaultValue) {
       } // finally
       return this;
     }
+
     private int bitField0_;
 
     private java.lang.Object nodeId_ = "";
+
     /**
      * <code>string node_id = 1 [json_name = "nodeId"];</code>
+     *
      * @return The nodeId.
      */
     public java.lang.String getNodeId() {
       java.lang.Object ref = nodeId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         nodeId_ = s;
         return s;
@@ -1323,38 +1354,43 @@ java.lang.String defaultValue) {
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string node_id = 1 [json_name = "nodeId"];</code>
+     *
      * @return The bytes for nodeId.
      */
-    public com.google.protobuf.ByteString
-        getNodeIdBytes() {
+    public com.google.protobuf.ByteString getNodeIdBytes() {
       java.lang.Object ref = nodeId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         nodeId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string node_id = 1 [json_name = "nodeId"];</code>
+     *
      * @param value The nodeId to set.
      * @return This builder for chaining.
      */
-    public Builder setNodeId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setNodeId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       nodeId_ = value;
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
+
     /**
      * <code>string node_id = 1 [json_name = "nodeId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNodeId() {
@@ -1363,14 +1399,17 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>string node_id = 1 [json_name = "nodeId"];</code>
+     *
      * @param value The bytes for nodeId to set.
      * @return This builder for chaining.
      */
-    public Builder setNodeIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setNodeIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       nodeId_ = value;
       bitField0_ |= 0x00000001;
@@ -1379,15 +1418,16 @@ java.lang.String defaultValue) {
     }
 
     private java.lang.Object region_ = "";
+
     /**
      * <code>string region = 2 [json_name = "region"];</code>
+     *
      * @return The region.
      */
     public java.lang.String getRegion() {
       java.lang.Object ref = region_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         region_ = s;
         return s;
@@ -1395,38 +1435,43 @@ java.lang.String defaultValue) {
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string region = 2 [json_name = "region"];</code>
+     *
      * @return The bytes for region.
      */
-    public com.google.protobuf.ByteString
-        getRegionBytes() {
+    public com.google.protobuf.ByteString getRegionBytes() {
       java.lang.Object ref = region_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         region_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string region = 2 [json_name = "region"];</code>
+     *
      * @param value The region to set.
      * @return This builder for chaining.
      */
-    public Builder setRegion(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setRegion(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       region_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
+
     /**
      * <code>string region = 2 [json_name = "region"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearRegion() {
@@ -1435,14 +1480,17 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>string region = 2 [json_name = "region"];</code>
+     *
      * @param value The bytes for region to set.
      * @return This builder for chaining.
      */
-    public Builder setRegionBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setRegionBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       region_ = value;
       bitField0_ |= 0x00000002;
@@ -1451,15 +1499,16 @@ java.lang.String defaultValue) {
     }
 
     private java.lang.Object grpcTarget_ = "";
+
     /**
      * <code>string grpc_target = 3 [json_name = "grpcTarget"];</code>
+     *
      * @return The grpcTarget.
      */
     public java.lang.String getGrpcTarget() {
       java.lang.Object ref = grpcTarget_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         grpcTarget_ = s;
         return s;
@@ -1467,38 +1516,43 @@ java.lang.String defaultValue) {
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string grpc_target = 3 [json_name = "grpcTarget"];</code>
+     *
      * @return The bytes for grpcTarget.
      */
-    public com.google.protobuf.ByteString
-        getGrpcTargetBytes() {
+    public com.google.protobuf.ByteString getGrpcTargetBytes() {
       java.lang.Object ref = grpcTarget_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         grpcTarget_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string grpc_target = 3 [json_name = "grpcTarget"];</code>
+     *
      * @param value The grpcTarget to set.
      * @return This builder for chaining.
      */
-    public Builder setGrpcTarget(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setGrpcTarget(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       grpcTarget_ = value;
       bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
+
     /**
      * <code>string grpc_target = 3 [json_name = "grpcTarget"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearGrpcTarget() {
@@ -1507,14 +1561,17 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>string grpc_target = 3 [json_name = "grpcTarget"];</code>
+     *
      * @param value The bytes for grpcTarget to set.
      * @return This builder for chaining.
      */
-    public Builder setGrpcTargetBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setGrpcTargetBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       grpcTarget_ = value;
       bitField0_ |= 0x00000004;
@@ -1522,17 +1579,21 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private int certifiedCpuMillis_ ;
+    private int certifiedCpuMillis_;
+
     /**
      * <code>uint32 certified_cpu_millis = 4 [json_name = "certifiedCpuMillis"];</code>
+     *
      * @return The certifiedCpuMillis.
      */
     @java.lang.Override
     public int getCertifiedCpuMillis() {
       return certifiedCpuMillis_;
     }
+
     /**
      * <code>uint32 certified_cpu_millis = 4 [json_name = "certifiedCpuMillis"];</code>
+     *
      * @param value The certifiedCpuMillis to set.
      * @return This builder for chaining.
      */
@@ -1543,8 +1604,10 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 certified_cpu_millis = 4 [json_name = "certifiedCpuMillis"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearCertifiedCpuMillis() {
@@ -1554,17 +1617,21 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private int certifiedMemoryMib_ ;
+    private int certifiedMemoryMib_;
+
     /**
      * <code>uint32 certified_memory_mib = 5 [json_name = "certifiedMemoryMib"];</code>
+     *
      * @return The certifiedMemoryMib.
      */
     @java.lang.Override
     public int getCertifiedMemoryMib() {
       return certifiedMemoryMib_;
     }
+
     /**
      * <code>uint32 certified_memory_mib = 5 [json_name = "certifiedMemoryMib"];</code>
+     *
      * @param value The certifiedMemoryMib to set.
      * @return This builder for chaining.
      */
@@ -1575,8 +1642,10 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 certified_memory_mib = 5 [json_name = "certifiedMemoryMib"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearCertifiedMemoryMib() {
@@ -1586,17 +1655,21 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private int certifiedPidCount_ ;
+    private int certifiedPidCount_;
+
     /**
      * <code>uint32 certified_pid_count = 6 [json_name = "certifiedPidCount"];</code>
+     *
      * @return The certifiedPidCount.
      */
     @java.lang.Override
     public int getCertifiedPidCount() {
       return certifiedPidCount_;
     }
+
     /**
      * <code>uint32 certified_pid_count = 6 [json_name = "certifiedPidCount"];</code>
+     *
      * @param value The certifiedPidCount to set.
      * @return This builder for chaining.
      */
@@ -1607,8 +1680,10 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 certified_pid_count = 6 [json_name = "certifiedPidCount"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearCertifiedPidCount() {
@@ -1618,17 +1693,21 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private int certifiedGpuSlots_ ;
+    private int certifiedGpuSlots_;
+
     /**
      * <code>uint32 certified_gpu_slots = 7 [json_name = "certifiedGpuSlots"];</code>
+     *
      * @return The certifiedGpuSlots.
      */
     @java.lang.Override
     public int getCertifiedGpuSlots() {
       return certifiedGpuSlots_;
     }
+
     /**
      * <code>uint32 certified_gpu_slots = 7 [json_name = "certifiedGpuSlots"];</code>
+     *
      * @param value The certifiedGpuSlots to set.
      * @return This builder for chaining.
      */
@@ -1639,8 +1718,10 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 certified_gpu_slots = 7 [json_name = "certifiedGpuSlots"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearCertifiedGpuSlots() {
@@ -1650,17 +1731,21 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private int safetyMarginPercent_ ;
+    private int safetyMarginPercent_;
+
     /**
      * <code>uint32 safety_margin_percent = 8 [json_name = "safetyMarginPercent"];</code>
+     *
      * @return The safetyMarginPercent.
      */
     @java.lang.Override
     public int getSafetyMarginPercent() {
       return safetyMarginPercent_;
     }
+
     /**
      * <code>uint32 safety_margin_percent = 8 [json_name = "safetyMarginPercent"];</code>
+     *
      * @param value The safetyMarginPercent to set.
      * @return This builder for chaining.
      */
@@ -1671,8 +1756,10 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 safety_margin_percent = 8 [json_name = "safetyMarginPercent"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSafetyMarginPercent() {
@@ -1682,17 +1769,21 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private int maxSessions_ ;
+    private int maxSessions_;
+
     /**
      * <code>uint32 max_sessions = 9 [json_name = "maxSessions"];</code>
+     *
      * @return The maxSessions.
      */
     @java.lang.Override
     public int getMaxSessions() {
       return maxSessions_;
     }
+
     /**
      * <code>uint32 max_sessions = 9 [json_name = "maxSessions"];</code>
+     *
      * @param value The maxSessions to set.
      * @return This builder for chaining.
      */
@@ -1703,8 +1794,10 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 max_sessions = 9 [json_name = "maxSessions"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearMaxSessions() {
@@ -1714,17 +1807,21 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private boolean supportsDesktop_ ;
+    private boolean supportsDesktop_;
+
     /**
      * <code>bool supports_desktop = 10 [json_name = "supportsDesktop"];</code>
+     *
      * @return The supportsDesktop.
      */
     @java.lang.Override
     public boolean getSupportsDesktop() {
       return supportsDesktop_;
     }
+
     /**
      * <code>bool supports_desktop = 10 [json_name = "supportsDesktop"];</code>
+     *
      * @param value The supportsDesktop to set.
      * @return This builder for chaining.
      */
@@ -1735,8 +1832,10 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>bool supports_desktop = 10 [json_name = "supportsDesktop"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSupportsDesktop() {
@@ -1746,17 +1845,21 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private boolean supportsGpu_ ;
+    private boolean supportsGpu_;
+
     /**
      * <code>bool supports_gpu = 11 [json_name = "supportsGpu"];</code>
+     *
      * @return The supportsGpu.
      */
     @java.lang.Override
     public boolean getSupportsGpu() {
       return supportsGpu_;
     }
+
     /**
      * <code>bool supports_gpu = 11 [json_name = "supportsGpu"];</code>
+     *
      * @param value The supportsGpu to set.
      * @return This builder for chaining.
      */
@@ -1767,8 +1870,10 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>bool supports_gpu = 11 [json_name = "supportsGpu"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSupportsGpu() {
@@ -1778,17 +1883,21 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private boolean supportsNativeOs_ ;
+    private boolean supportsNativeOs_;
+
     /**
      * <code>bool supports_native_os = 12 [json_name = "supportsNativeOs"];</code>
+     *
      * @return The supportsNativeOs.
      */
     @java.lang.Override
     public boolean getSupportsNativeOs() {
       return supportsNativeOs_;
     }
+
     /**
      * <code>bool supports_native_os = 12 [json_name = "supportsNativeOs"];</code>
+     *
      * @param value The supportsNativeOs to set.
      * @return This builder for chaining.
      */
@@ -1799,8 +1908,10 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>bool supports_native_os = 12 [json_name = "supportsNativeOs"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSupportsNativeOs() {
@@ -1810,17 +1921,21 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private boolean isolationCapable_ ;
+    private boolean isolationCapable_;
+
     /**
      * <code>bool isolation_capable = 13 [json_name = "isolationCapable"];</code>
+     *
      * @return The isolationCapable.
      */
     @java.lang.Override
     public boolean getIsolationCapable() {
       return isolationCapable_;
     }
+
     /**
      * <code>bool isolation_capable = 13 [json_name = "isolationCapable"];</code>
+     *
      * @param value The isolationCapable to set.
      * @return This builder for chaining.
      */
@@ -1831,8 +1946,10 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>bool isolation_capable = 13 [json_name = "isolationCapable"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearIsolationCapable() {
@@ -1842,21 +1959,19 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private com.google.protobuf.MapField<
-        java.lang.String, java.lang.String> labels_;
-    private com.google.protobuf.MapField<java.lang.String, java.lang.String>
-        internalGetLabels() {
+    private com.google.protobuf.MapField<java.lang.String, java.lang.String> labels_;
+
+    private com.google.protobuf.MapField<java.lang.String, java.lang.String> internalGetLabels() {
       if (labels_ == null) {
-        return com.google.protobuf.MapField.emptyMapField(
-            LabelsDefaultEntryHolder.defaultEntry);
+        return com.google.protobuf.MapField.emptyMapField(LabelsDefaultEntryHolder.defaultEntry);
       }
       return labels_;
     }
+
     private com.google.protobuf.MapField<java.lang.String, java.lang.String>
         internalGetMutableLabels() {
       if (labels_ == null) {
-        labels_ = com.google.protobuf.MapField.newMapField(
-            LabelsDefaultEntryHolder.defaultEntry);
+        labels_ = com.google.protobuf.MapField.newMapField(LabelsDefaultEntryHolder.defaultEntry);
       }
       if (!labels_.isMutable()) {
         labels_ = labels_.copy();
@@ -1865,121 +1980,116 @@ java.lang.String defaultValue) {
       onChanged();
       return labels_;
     }
+
     public int getLabelsCount() {
       return internalGetLabels().getMap().size();
     }
-    /**
-     * <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code>
-     */
+
+    /** <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code> */
     @java.lang.Override
-    public boolean containsLabels(
-        java.lang.String key) {
-      if (key == null) { throw new NullPointerException("map key"); }
+    public boolean containsLabels(java.lang.String key) {
+      if (key == null) {
+        throw new NullPointerException("map key");
+      }
       return internalGetLabels().getMap().containsKey(key);
     }
-    /**
-     * Use {@link #getLabelsMap()} instead.
-     */
+
+    /** Use {@link #getLabelsMap()} instead. */
     @java.lang.Override
     @java.lang.Deprecated
     public java.util.Map<java.lang.String, java.lang.String> getLabels() {
       return getLabelsMap();
     }
-    /**
-     * <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code>
-     */
+
+    /** <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code> */
     @java.lang.Override
     public java.util.Map<java.lang.String, java.lang.String> getLabelsMap() {
       return internalGetLabels().getMap();
     }
-    /**
-     * <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code>
-     */
+
+    /** <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code> */
     @java.lang.Override
-    public /* nullable */
-java.lang.String getLabelsOrDefault(
+    public /* nullable */ java.lang.String getLabelsOrDefault(
         java.lang.String key,
         /* nullable */
-java.lang.String defaultValue) {
-      if (key == null) { throw new NullPointerException("map key"); }
-      java.util.Map<java.lang.String, java.lang.String> map =
-          internalGetLabels().getMap();
+        java.lang.String defaultValue) {
+      if (key == null) {
+        throw new NullPointerException("map key");
+      }
+      java.util.Map<java.lang.String, java.lang.String> map = internalGetLabels().getMap();
       return map.containsKey(key) ? map.get(key) : defaultValue;
     }
-    /**
-     * <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code>
-     */
+
+    /** <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code> */
     @java.lang.Override
-    public java.lang.String getLabelsOrThrow(
-        java.lang.String key) {
-      if (key == null) { throw new NullPointerException("map key"); }
-      java.util.Map<java.lang.String, java.lang.String> map =
-          internalGetLabels().getMap();
+    public java.lang.String getLabelsOrThrow(java.lang.String key) {
+      if (key == null) {
+        throw new NullPointerException("map key");
+      }
+      java.util.Map<java.lang.String, java.lang.String> map = internalGetLabels().getMap();
       if (!map.containsKey(key)) {
         throw new java.lang.IllegalArgumentException();
       }
       return map.get(key);
     }
+
     public Builder clearLabels() {
       bitField0_ = (bitField0_ & ~0x00002000);
-      internalGetMutableLabels().getMutableMap()
-          .clear();
+      internalGetMutableLabels().getMutableMap().clear();
       return this;
     }
-    /**
-     * <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code>
-     */
-    public Builder removeLabels(
-        java.lang.String key) {
-      if (key == null) { throw new NullPointerException("map key"); }
-      internalGetMutableLabels().getMutableMap()
-          .remove(key);
+
+    /** <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code> */
+    public Builder removeLabels(java.lang.String key) {
+      if (key == null) {
+        throw new NullPointerException("map key");
+      }
+      internalGetMutableLabels().getMutableMap().remove(key);
       return this;
     }
-    /**
-     * Use alternate mutation accessors instead.
-     */
+
+    /** Use alternate mutation accessors instead. */
     @java.lang.Deprecated
-    public java.util.Map<java.lang.String, java.lang.String>
-        getMutableLabels() {
+    public java.util.Map<java.lang.String, java.lang.String> getMutableLabels() {
       bitField0_ |= 0x00002000;
       return internalGetMutableLabels().getMutableMap();
     }
-    /**
-     * <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code>
-     */
-    public Builder putLabels(
-        java.lang.String key,
-        java.lang.String value) {
-      if (key == null) { throw new NullPointerException("map key"); }
-      if (value == null) { throw new NullPointerException("map value"); }
-      internalGetMutableLabels().getMutableMap()
-          .put(key, value);
-      bitField0_ |= 0x00002000;
-      return this;
-    }
-    /**
-     * <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code>
-     */
-    public Builder putAllLabels(
-        java.util.Map<java.lang.String, java.lang.String> values) {
-      internalGetMutableLabels().getMutableMap()
-          .putAll(values);
+
+    /** <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code> */
+    public Builder putLabels(java.lang.String key, java.lang.String value) {
+      if (key == null) {
+        throw new NullPointerException("map key");
+      }
+      if (value == null) {
+        throw new NullPointerException("map value");
+      }
+      internalGetMutableLabels().getMutableMap().put(key, value);
       bitField0_ |= 0x00002000;
       return this;
     }
 
-    private int certifiedMediaSlots_ ;
+    /** <code>map&lt;string, string&gt; labels = 14 [json_name = "labels"];</code> */
+    public Builder putAllLabels(java.util.Map<java.lang.String, java.lang.String> values) {
+      internalGetMutableLabels().getMutableMap().putAll(values);
+      bitField0_ |= 0x00002000;
+      return this;
+    }
+
+    private int certifiedMediaSlots_;
+
     /**
      * <code>uint32 certified_media_slots = 15 [json_name = "certifiedMediaSlots"];</code>
+     *
      * @return The certifiedMediaSlots.
      */
     @java.lang.Override
     public int getCertifiedMediaSlots() {
       return certifiedMediaSlots_;
     }
+
     /**
      * <code>uint32 certified_media_slots = 15 [json_name = "certifiedMediaSlots"];</code>
+     *
      * @param value The certifiedMediaSlots to set.
      * @return This builder for chaining.
      */
@@ -1990,8 +2100,10 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 certified_media_slots = 15 [json_name = "certifiedMediaSlots"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearCertifiedMediaSlots() {
@@ -2001,17 +2113,21 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private boolean supportsMedia_ ;
+    private boolean supportsMedia_;
+
     /**
      * <code>bool supports_media = 16 [json_name = "supportsMedia"];</code>
+     *
      * @return The supportsMedia.
      */
     @java.lang.Override
     public boolean getSupportsMedia() {
       return supportsMedia_;
     }
+
     /**
      * <code>bool supports_media = 16 [json_name = "supportsMedia"];</code>
+     *
      * @param value The supportsMedia to set.
      * @return This builder for chaining.
      */
@@ -2022,8 +2138,10 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>bool supports_media = 16 [json_name = "supportsMedia"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSupportsMedia() {
@@ -2033,17 +2151,21 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private double memoryPsiSomeAvg10_ ;
+    private double memoryPsiSomeAvg10_;
+
     /**
      * <code>double memory_psi_some_avg10 = 20 [json_name = "memoryPsiSomeAvg10"];</code>
+     *
      * @return The memoryPsiSomeAvg10.
      */
     @java.lang.Override
     public double getMemoryPsiSomeAvg10() {
       return memoryPsiSomeAvg10_;
     }
+
     /**
      * <code>double memory_psi_some_avg10 = 20 [json_name = "memoryPsiSomeAvg10"];</code>
+     *
      * @param value The memoryPsiSomeAvg10 to set.
      * @return This builder for chaining.
      */
@@ -2054,8 +2176,10 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>double memory_psi_some_avg10 = 20 [json_name = "memoryPsiSomeAvg10"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearMemoryPsiSomeAvg10() {
@@ -2065,17 +2189,21 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private double memoryPsiFullAvg10_ ;
+    private double memoryPsiFullAvg10_;
+
     /**
      * <code>double memory_psi_full_avg10 = 21 [json_name = "memoryPsiFullAvg10"];</code>
+     *
      * @return The memoryPsiFullAvg10.
      */
     @java.lang.Override
     public double getMemoryPsiFullAvg10() {
       return memoryPsiFullAvg10_;
     }
+
     /**
      * <code>double memory_psi_full_avg10 = 21 [json_name = "memoryPsiFullAvg10"];</code>
+     *
      * @param value The memoryPsiFullAvg10 to set.
      * @return This builder for chaining.
      */
@@ -2086,8 +2214,10 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>double memory_psi_full_avg10 = 21 [json_name = "memoryPsiFullAvg10"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearMemoryPsiFullAvg10() {
@@ -2097,17 +2227,21 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private double cpuPsiSomeAvg10_ ;
+    private double cpuPsiSomeAvg10_;
+
     /**
      * <code>double cpu_psi_some_avg10 = 22 [json_name = "cpuPsiSomeAvg10"];</code>
+     *
      * @return The cpuPsiSomeAvg10.
      */
     @java.lang.Override
     public double getCpuPsiSomeAvg10() {
       return cpuPsiSomeAvg10_;
     }
+
     /**
      * <code>double cpu_psi_some_avg10 = 22 [json_name = "cpuPsiSomeAvg10"];</code>
+     *
      * @param value The cpuPsiSomeAvg10 to set.
      * @return This builder for chaining.
      */
@@ -2118,8 +2252,10 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>double cpu_psi_some_avg10 = 22 [json_name = "cpuPsiSomeAvg10"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearCpuPsiSomeAvg10() {
@@ -2129,17 +2265,21 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private double ioPsiFullAvg10_ ;
+    private double ioPsiFullAvg10_;
+
     /**
      * <code>double io_psi_full_avg10 = 23 [json_name = "ioPsiFullAvg10"];</code>
+     *
      * @return The ioPsiFullAvg10.
      */
     @java.lang.Override
     public double getIoPsiFullAvg10() {
       return ioPsiFullAvg10_;
     }
+
     /**
      * <code>double io_psi_full_avg10 = 23 [json_name = "ioPsiFullAvg10"];</code>
+     *
      * @param value The ioPsiFullAvg10 to set.
      * @return This builder for chaining.
      */
@@ -2150,8 +2290,10 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>double io_psi_full_avg10 = 23 [json_name = "ioPsiFullAvg10"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearIoPsiFullAvg10() {
@@ -2162,15 +2304,16 @@ java.lang.String defaultValue) {
     }
 
     private java.lang.Object pressureReason_ = "";
+
     /**
      * <code>string pressure_reason = 24 [json_name = "pressureReason"];</code>
+     *
      * @return The pressureReason.
      */
     public java.lang.String getPressureReason() {
       java.lang.Object ref = pressureReason_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         pressureReason_ = s;
         return s;
@@ -2178,38 +2321,43 @@ java.lang.String defaultValue) {
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string pressure_reason = 24 [json_name = "pressureReason"];</code>
+     *
      * @return The bytes for pressureReason.
      */
-    public com.google.protobuf.ByteString
-        getPressureReasonBytes() {
+    public com.google.protobuf.ByteString getPressureReasonBytes() {
       java.lang.Object ref = pressureReason_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         pressureReason_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string pressure_reason = 24 [json_name = "pressureReason"];</code>
+     *
      * @param value The pressureReason to set.
      * @return This builder for chaining.
      */
-    public Builder setPressureReason(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setPressureReason(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       pressureReason_ = value;
       bitField0_ |= 0x00100000;
       onChanged();
       return this;
     }
+
     /**
      * <code>string pressure_reason = 24 [json_name = "pressureReason"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearPressureReason() {
@@ -2218,23 +2366,26 @@ java.lang.String defaultValue) {
       onChanged();
       return this;
     }
+
     /**
      * <code>string pressure_reason = 24 [json_name = "pressureReason"];</code>
+     *
      * @param value The bytes for pressureReason to set.
      * @return This builder for chaining.
      */
-    public Builder setPressureReasonBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setPressureReasonBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       pressureReason_ = value;
       bitField0_ |= 0x00100000;
       onChanged();
       return this;
     }
+
     @java.lang.Override
-    public final Builder setUnknownFields(
-        final com.google.protobuf.UnknownFieldSet unknownFields) {
+    public final Builder setUnknownFields(final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.setUnknownFields(unknownFields);
     }
 
@@ -2244,12 +2395,12 @@ java.lang.String defaultValue) {
       return super.mergeUnknownFields(unknownFields);
     }
 
-
     // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.ReportCapacityRequest)
   }
 
   // @@protoc_insertion_point(class_scope:browsercloud.node.v1.ReportCapacityRequest)
   private static final io.browsercloud.proto.node.v1.ReportCapacityRequest DEFAULT_INSTANCE;
+
   static {
     DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.ReportCapacityRequest();
   }
@@ -2258,27 +2409,27 @@ java.lang.String defaultValue) {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<ReportCapacityRequest>
-      PARSER = new com.google.protobuf.AbstractParser<ReportCapacityRequest>() {
-    @java.lang.Override
-    public ReportCapacityRequest parsePartialFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      Builder builder = newBuilder();
-      try {
-        builder.mergeFrom(input, extensionRegistry);
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(builder.buildPartial());
-      } catch (com.google.protobuf.UninitializedMessageException e) {
-        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(e)
-            .setUnfinishedMessage(builder.buildPartial());
-      }
-      return builder.buildPartial();
-    }
-  };
+  private static final com.google.protobuf.Parser<ReportCapacityRequest> PARSER =
+      new com.google.protobuf.AbstractParser<ReportCapacityRequest>() {
+        @java.lang.Override
+        public ReportCapacityRequest parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          Builder builder = newBuilder();
+          try {
+            builder.mergeFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            throw e.setUnfinishedMessage(builder.buildPartial());
+          } catch (com.google.protobuf.UninitializedMessageException e) {
+            throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+          } catch (java.io.IOException e) {
+            throw new com.google.protobuf.InvalidProtocolBufferException(e)
+                .setUnfinishedMessage(builder.buildPartial());
+          }
+          return builder.buildPartial();
+        }
+      };
 
   public static com.google.protobuf.Parser<ReportCapacityRequest> parser() {
     return PARSER;
@@ -2293,5 +2444,4 @@ java.lang.String defaultValue) {
   public io.browsercloud.proto.node.v1.ReportCapacityRequest getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
-
 }

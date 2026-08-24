@@ -4,18 +4,18 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-/**
- * Protobuf type {@code browsercloud.node.v1.BrowserStateEvent}
- */
-public final class BrowserStateEvent extends
-    com.google.protobuf.GeneratedMessageV3 implements
+/** Protobuf type {@code browsercloud.node.v1.BrowserStateEvent} */
+public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessageV3
+    implements
     // @@protoc_insertion_point(message_implements:browsercloud.node.v1.BrowserStateEvent)
     BrowserStateEventOrBuilder {
-private static final long serialVersionUID = 0L;
+  private static final long serialVersionUID = 0L;
+
   // Use BrowserStateEvent.newBuilder() to construct.
   private BrowserStateEvent(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
+
   private BrowserStateEvent() {
     sessionId_ = "";
     url_ = "";
@@ -26,33 +26,42 @@ private static final long serialVersionUID = 0L;
     snapshotKind_ = "";
     requestedRootRef_ = "";
     documentReadyState_ = "";
+    actionOutcomes_ = java.util.Collections.emptyList();
+    tabs_ = java.util.Collections.emptyList();
+    activeTabId_ = "";
+    nativeDialogs_ = java.util.Collections.emptyList();
+    downloads_ = java.util.Collections.emptyList();
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
+  protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
     return new BrowserStateEvent();
   }
 
-  public static final com.google.protobuf.Descriptors.Descriptor
-      getDescriptor() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateEvent_descriptor;
+  public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_BrowserStateEvent_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateEvent_fieldAccessorTable
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_BrowserStateEvent_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            io.browsercloud.proto.node.v1.BrowserStateEvent.class, io.browsercloud.proto.node.v1.BrowserStateEvent.Builder.class);
+            io.browsercloud.proto.node.v1.BrowserStateEvent.class,
+            io.browsercloud.proto.node.v1.BrowserStateEvent.Builder.class);
   }
 
   public static final int SESSION_ID_FIELD_NUMBER = 1;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object sessionId_ = "";
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   @java.lang.Override
@@ -61,25 +70,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       sessionId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getSessionIdBytes() {
+  public com.google.protobuf.ByteString getSessionIdBytes() {
     java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       sessionId_ = b;
       return b;
     } else {
@@ -89,8 +97,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int STATE_VERSION_FIELD_NUMBER = 2;
   private long stateVersion_ = 0L;
+
   /**
    * <code>uint64 state_version = 2 [json_name = "stateVersion"];</code>
+   *
    * @return The stateVersion.
    */
   @java.lang.Override
@@ -100,8 +110,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int TARGET_REVISION_FIELD_NUMBER = 3;
   private long targetRevision_ = 0L;
+
   /**
    * <code>uint64 target_revision = 3 [json_name = "targetRevision"];</code>
+   *
    * @return The targetRevision.
    */
   @java.lang.Override
@@ -110,10 +122,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int URL_FIELD_NUMBER = 4;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object url_ = "";
+
   /**
    * <code>string url = 4 [json_name = "url"];</code>
+   *
    * @return The url.
    */
   @java.lang.Override
@@ -122,25 +137,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       url_ = s;
       return s;
     }
   }
+
   /**
    * <code>string url = 4 [json_name = "url"];</code>
+   *
    * @return The bytes for url.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getUrlBytes() {
+  public com.google.protobuf.ByteString getUrlBytes() {
     java.lang.Object ref = url_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       url_ = b;
       return b;
     } else {
@@ -149,10 +163,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int TITLE_FIELD_NUMBER = 5;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object title_ = "";
+
   /**
    * <code>string title = 5 [json_name = "title"];</code>
+   *
    * @return The title.
    */
   @java.lang.Override
@@ -161,25 +178,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       title_ = s;
       return s;
     }
   }
+
   /**
    * <code>string title = 5 [json_name = "title"];</code>
+   *
    * @return The bytes for title.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getTitleBytes() {
+  public com.google.protobuf.ByteString getTitleBytes() {
     java.lang.Object ref = title_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       title_ = b;
       return b;
     } else {
@@ -188,10 +204,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int STATE_QUALITY_FIELD_NUMBER = 6;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object stateQuality_ = "";
+
   /**
    * <code>string state_quality = 6 [json_name = "stateQuality"];</code>
+   *
    * @return The stateQuality.
    */
   @java.lang.Override
@@ -200,25 +219,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       stateQuality_ = s;
       return s;
     }
   }
+
   /**
    * <code>string state_quality = 6 [json_name = "stateQuality"];</code>
+   *
    * @return The bytes for stateQuality.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getStateQualityBytes() {
+  public com.google.protobuf.ByteString getStateQualityBytes() {
     java.lang.Object ref = stateQuality_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       stateQuality_ = b;
       return b;
     } else {
@@ -227,10 +245,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int CONTENT_HASH_FIELD_NUMBER = 7;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object contentHash_ = "";
+
   /**
    * <code>string content_hash = 7 [json_name = "contentHash"];</code>
+   *
    * @return The contentHash.
    */
   @java.lang.Override
@@ -239,25 +260,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       contentHash_ = s;
       return s;
     }
   }
+
   /**
    * <code>string content_hash = 7 [json_name = "contentHash"];</code>
+   *
    * @return The bytes for contentHash.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getContentHashBytes() {
+  public com.google.protobuf.ByteString getContentHashBytes() {
     java.lang.Object ref = contentHash_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       contentHash_ = b;
       return b;
     } else {
@@ -266,39 +286,55 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int TARGETS_FIELD_NUMBER = 8;
+
   @SuppressWarnings("serial")
   private java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState> targets_;
+
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+   * <code>
+   * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+   * </code>
    */
   @java.lang.Override
   public java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState> getTargetsList() {
     return targets_;
   }
+
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+   * <code>
+   * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+   * </code>
    */
   @java.lang.Override
   public java.util.List<? extends io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder>
       getTargetsOrBuilderList() {
     return targets_;
   }
+
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+   * <code>
+   * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+   * </code>
    */
   @java.lang.Override
   public int getTargetsCount() {
     return targets_.size();
   }
+
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+   * <code>
+   * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+   * </code>
    */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.InteractiveTargetState getTargets(int index) {
     return targets_.get(index);
   }
+
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+   * <code>
+   * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+   * </code>
    */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder getTargetsOrBuilder(
@@ -307,14 +343,19 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int SNAPSHOT_KIND_FIELD_NUMBER = 9;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object snapshotKind_ = "";
+
   /**
+   *
+   *
    * <pre>
    * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
    * </pre>
    *
    * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
+   *
    * @return The snapshotKind.
    */
   @java.lang.Override
@@ -323,29 +364,30 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       snapshotKind_ = s;
       return s;
     }
   }
+
   /**
+   *
+   *
    * <pre>
    * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
    * </pre>
    *
    * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
+   *
    * @return The bytes for snapshotKind.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getSnapshotKindBytes() {
+  public com.google.protobuf.ByteString getSnapshotKindBytes() {
     java.lang.Object ref = snapshotKind_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       snapshotKind_ = b;
       return b;
     } else {
@@ -354,10 +396,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int REQUESTED_ROOT_REF_FIELD_NUMBER = 10;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object requestedRootRef_ = "";
+
   /**
    * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
+   *
    * @return The requestedRootRef.
    */
   @java.lang.Override
@@ -366,25 +411,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       requestedRootRef_ = s;
       return s;
     }
   }
+
   /**
    * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
+   *
    * @return The bytes for requestedRootRef.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getRequestedRootRefBytes() {
+  public com.google.protobuf.ByteString getRequestedRootRefBytes() {
     java.lang.Object ref = requestedRootRef_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       requestedRootRef_ = b;
       return b;
     } else {
@@ -393,14 +437,19 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int DOCUMENT_READY_STATE_FIELD_NUMBER = 11;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object documentReadyState_ = "";
+
   /**
+   *
+   *
    * <pre>
    * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
    * </pre>
    *
    * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+   *
    * @return The documentReadyState.
    */
   @java.lang.Override
@@ -409,29 +458,30 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       documentReadyState_ = s;
       return s;
     }
   }
+
   /**
+   *
+   *
    * <pre>
    * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
    * </pre>
    *
    * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+   *
    * @return The bytes for documentReadyState.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getDocumentReadyStateBytes() {
+  public com.google.protobuf.ByteString getDocumentReadyStateBytes() {
     java.lang.Object ref = documentReadyState_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       documentReadyState_ = b;
       return b;
     } else {
@@ -441,12 +491,16 @@ private static final long serialVersionUID = 0L;
 
   public static final int NETWORK_QUIET_MILLIS_FIELD_NUMBER = 12;
   private long networkQuietMillis_ = 0L;
+
   /**
+   *
+   *
    * <pre>
    * 自最近一次 CDP Network 活动结束后的安静时长；存在在途请求时为 0。
    * </pre>
    *
    * <code>uint64 network_quiet_millis = 12 [json_name = "networkQuietMillis"];</code>
+   *
    * @return The networkQuietMillis.
    */
   @java.lang.Override
@@ -456,12 +510,16 @@ private static final long serialVersionUID = 0L;
 
   public static final int NETWORK_EVIDENCE_FRESH_FIELD_NUMBER = 13;
   private boolean networkEvidenceFresh_ = false;
+
   /**
+   *
+   *
    * <pre>
    * 仅当本 Runtime 代持续 Network 观察从未断线时为 true。
    * </pre>
    *
    * <code>bool network_evidence_fresh = 13 [json_name = "networkEvidenceFresh"];</code>
+   *
    * @return The networkEvidenceFresh.
    */
   @java.lang.Override
@@ -469,7 +527,367 @@ private static final long serialVersionUID = 0L;
     return networkEvidenceFresh_;
   }
 
+  public static final int ACTION_OUTCOMES_FIELD_NUMBER = 14;
+
+  @SuppressWarnings("serial")
+  private java.util.List<io.browsercloud.proto.node.v1.AgentActionOutcome> actionOutcomes_;
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+   * </pre>
+   *
+   * <code>
+   * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+   * </code>
+   */
+  @java.lang.Override
+  public java.util.List<io.browsercloud.proto.node.v1.AgentActionOutcome> getActionOutcomesList() {
+    return actionOutcomes_;
+  }
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+   * </pre>
+   *
+   * <code>
+   * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+   * </code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends io.browsercloud.proto.node.v1.AgentActionOutcomeOrBuilder>
+      getActionOutcomesOrBuilderList() {
+    return actionOutcomes_;
+  }
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+   * </pre>
+   *
+   * <code>
+   * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+   * </code>
+   */
+  @java.lang.Override
+  public int getActionOutcomesCount() {
+    return actionOutcomes_.size();
+  }
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+   * </pre>
+   *
+   * <code>
+   * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+   * </code>
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.AgentActionOutcome getActionOutcomes(int index) {
+    return actionOutcomes_.get(index);
+  }
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+   * </pre>
+   *
+   * <code>
+   * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+   * </code>
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.AgentActionOutcomeOrBuilder getActionOutcomesOrBuilder(
+      int index) {
+    return actionOutcomes_.get(index);
+  }
+
+  public static final int TABS_FIELD_NUMBER = 15;
+
+  @SuppressWarnings("serial")
+  private java.util.List<io.browsercloud.proto.node.v1.BrowserTabState> tabs_;
+
+  /**
+   *
+   *
+   * <pre>
+   * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+   * </pre>
+   *
+   * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<io.browsercloud.proto.node.v1.BrowserTabState> getTabsList() {
+    return tabs_;
+  }
+
+  /**
+   *
+   *
+   * <pre>
+   * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+   * </pre>
+   *
+   * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends io.browsercloud.proto.node.v1.BrowserTabStateOrBuilder>
+      getTabsOrBuilderList() {
+    return tabs_;
+  }
+
+  /**
+   *
+   *
+   * <pre>
+   * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+   * </pre>
+   *
+   * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+   */
+  @java.lang.Override
+  public int getTabsCount() {
+    return tabs_.size();
+  }
+
+  /**
+   *
+   *
+   * <pre>
+   * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+   * </pre>
+   *
+   * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.BrowserTabState getTabs(int index) {
+    return tabs_.get(index);
+  }
+
+  /**
+   *
+   *
+   * <pre>
+   * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+   * </pre>
+   *
+   * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.BrowserTabStateOrBuilder getTabsOrBuilder(int index) {
+    return tabs_.get(index);
+  }
+
+  public static final int ACTIVE_TAB_ID_FIELD_NUMBER = 16;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object activeTabId_ = "";
+
+  /**
+   * <code>string active_tab_id = 16 [json_name = "activeTabId"];</code>
+   *
+   * @return The activeTabId.
+   */
+  @java.lang.Override
+  public java.lang.String getActiveTabId() {
+    java.lang.Object ref = activeTabId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      activeTabId_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string active_tab_id = 16 [json_name = "activeTabId"];</code>
+   *
+   * @return The bytes for activeTabId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getActiveTabIdBytes() {
+    java.lang.Object ref = activeTabId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      activeTabId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int NATIVE_DIALOGS_FIELD_NUMBER = 17;
+
+  @SuppressWarnings("serial")
+  private java.util.List<io.browsercloud.proto.node.v1.BrowserNativeDialogState> nativeDialogs_;
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+   * </code>
+   */
+  @java.lang.Override
+  public java.util.List<io.browsercloud.proto.node.v1.BrowserNativeDialogState>
+      getNativeDialogsList() {
+    return nativeDialogs_;
+  }
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+   * </code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends io.browsercloud.proto.node.v1.BrowserNativeDialogStateOrBuilder>
+      getNativeDialogsOrBuilderList() {
+    return nativeDialogs_;
+  }
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+   * </code>
+   */
+  @java.lang.Override
+  public int getNativeDialogsCount() {
+    return nativeDialogs_.size();
+  }
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+   * </code>
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.BrowserNativeDialogState getNativeDialogs(int index) {
+    return nativeDialogs_.get(index);
+  }
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+   * </code>
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.BrowserNativeDialogStateOrBuilder getNativeDialogsOrBuilder(
+      int index) {
+    return nativeDialogs_.get(index);
+  }
+
+  public static final int NATIVE_DIALOG_EVIDENCE_FRESH_FIELD_NUMBER = 18;
+  private boolean nativeDialogEvidenceFresh_ = false;
+
+  /**
+   *
+   *
+   * <pre>
+   * False means N-1 or an observer gap. Control Plane preserves the last projection but rejects
+   * dialog actions until a continuous event stream or a safe Runtime probe restores freshness.
+   * </pre>
+   *
+   * <code>bool native_dialog_evidence_fresh = 18 [json_name = "nativeDialogEvidenceFresh"];</code>
+   *
+   * @return The nativeDialogEvidenceFresh.
+   */
+  @java.lang.Override
+  public boolean getNativeDialogEvidenceFresh() {
+    return nativeDialogEvidenceFresh_;
+  }
+
+  public static final int DOWNLOADS_FIELD_NUMBER = 19;
+
+  @SuppressWarnings("serial")
+  private java.util.List<io.browsercloud.proto.node.v1.BrowserDownloadState> downloads_;
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+   * </code>
+   */
+  @java.lang.Override
+  public java.util.List<io.browsercloud.proto.node.v1.BrowserDownloadState> getDownloadsList() {
+    return downloads_;
+  }
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+   * </code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends io.browsercloud.proto.node.v1.BrowserDownloadStateOrBuilder>
+      getDownloadsOrBuilderList() {
+    return downloads_;
+  }
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+   * </code>
+   */
+  @java.lang.Override
+  public int getDownloadsCount() {
+    return downloads_.size();
+  }
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+   * </code>
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.BrowserDownloadState getDownloads(int index) {
+    return downloads_.get(index);
+  }
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+   * </code>
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.BrowserDownloadStateOrBuilder getDownloadsOrBuilder(
+      int index) {
+    return downloads_.get(index);
+  }
+
+  public static final int DOWNLOAD_EVIDENCE_FRESH_FIELD_NUMBER = 20;
+  private boolean downloadEvidenceFresh_ = false;
+
+  /**
+   *
+   *
+   * <pre>
+   * False means the Browser-level event observer has a gap. No missing entry may be interpreted
+   * as completed until a new Runtime establishes a continuous source.
+   * </pre>
+   *
+   * <code>bool download_evidence_fresh = 20 [json_name = "downloadEvidenceFresh"];</code>
+   *
+   * @return The downloadEvidenceFresh.
+   */
+  @java.lang.Override
+  public boolean getDownloadEvidenceFresh() {
+    return downloadEvidenceFresh_;
+  }
+
   private byte memoizedIsInitialized = -1;
+
   @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
@@ -481,8 +899,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @java.lang.Override
-  public void writeTo(com.google.protobuf.CodedOutputStream output)
-                      throws java.io.IOException {
+  public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(sessionId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 1, sessionId_);
     }
@@ -522,6 +939,27 @@ private static final long serialVersionUID = 0L;
     if (networkEvidenceFresh_ != false) {
       output.writeBool(13, networkEvidenceFresh_);
     }
+    for (int i = 0; i < actionOutcomes_.size(); i++) {
+      output.writeMessage(14, actionOutcomes_.get(i));
+    }
+    for (int i = 0; i < tabs_.size(); i++) {
+      output.writeMessage(15, tabs_.get(i));
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(activeTabId_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 16, activeTabId_);
+    }
+    for (int i = 0; i < nativeDialogs_.size(); i++) {
+      output.writeMessage(17, nativeDialogs_.get(i));
+    }
+    if (nativeDialogEvidenceFresh_ != false) {
+      output.writeBool(18, nativeDialogEvidenceFresh_);
+    }
+    for (int i = 0; i < downloads_.size(); i++) {
+      output.writeMessage(19, downloads_.get(i));
+    }
+    if (downloadEvidenceFresh_ != false) {
+      output.writeBool(20, downloadEvidenceFresh_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -535,12 +973,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, sessionId_);
     }
     if (stateVersion_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(2, stateVersion_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(2, stateVersion_);
     }
     if (targetRevision_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(3, targetRevision_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(3, targetRevision_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(url_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, url_);
@@ -555,8 +991,7 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, contentHash_);
     }
     for (int i = 0; i < targets_.size(); i++) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(8, targets_.get(i));
+      size += com.google.protobuf.CodedOutputStream.computeMessageSize(8, targets_.get(i));
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(snapshotKind_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, snapshotKind_);
@@ -568,12 +1003,31 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(11, documentReadyState_);
     }
     if (networkQuietMillis_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(12, networkQuietMillis_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(12, networkQuietMillis_);
     }
     if (networkEvidenceFresh_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(13, networkEvidenceFresh_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(13, networkEvidenceFresh_);
+    }
+    for (int i = 0; i < actionOutcomes_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream.computeMessageSize(14, actionOutcomes_.get(i));
+    }
+    for (int i = 0; i < tabs_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream.computeMessageSize(15, tabs_.get(i));
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(activeTabId_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(16, activeTabId_);
+    }
+    for (int i = 0; i < nativeDialogs_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream.computeMessageSize(17, nativeDialogs_.get(i));
+    }
+    if (nativeDialogEvidenceFresh_ != false) {
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(18, nativeDialogEvidenceFresh_);
+    }
+    for (int i = 0; i < downloads_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream.computeMessageSize(19, downloads_.get(i));
+    }
+    if (downloadEvidenceFresh_ != false) {
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(20, downloadEvidenceFresh_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -583,39 +1037,34 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public boolean equals(final java.lang.Object obj) {
     if (obj == this) {
-     return true;
+      return true;
     }
     if (!(obj instanceof io.browsercloud.proto.node.v1.BrowserStateEvent)) {
       return super.equals(obj);
     }
-    io.browsercloud.proto.node.v1.BrowserStateEvent other = (io.browsercloud.proto.node.v1.BrowserStateEvent) obj;
+    io.browsercloud.proto.node.v1.BrowserStateEvent other =
+        (io.browsercloud.proto.node.v1.BrowserStateEvent) obj;
 
-    if (!getSessionId()
-        .equals(other.getSessionId())) return false;
-    if (getStateVersion()
-        != other.getStateVersion()) return false;
-    if (getTargetRevision()
-        != other.getTargetRevision()) return false;
-    if (!getUrl()
-        .equals(other.getUrl())) return false;
-    if (!getTitle()
-        .equals(other.getTitle())) return false;
-    if (!getStateQuality()
-        .equals(other.getStateQuality())) return false;
-    if (!getContentHash()
-        .equals(other.getContentHash())) return false;
-    if (!getTargetsList()
-        .equals(other.getTargetsList())) return false;
-    if (!getSnapshotKind()
-        .equals(other.getSnapshotKind())) return false;
-    if (!getRequestedRootRef()
-        .equals(other.getRequestedRootRef())) return false;
-    if (!getDocumentReadyState()
-        .equals(other.getDocumentReadyState())) return false;
-    if (getNetworkQuietMillis()
-        != other.getNetworkQuietMillis()) return false;
-    if (getNetworkEvidenceFresh()
-        != other.getNetworkEvidenceFresh()) return false;
+    if (!getSessionId().equals(other.getSessionId())) return false;
+    if (getStateVersion() != other.getStateVersion()) return false;
+    if (getTargetRevision() != other.getTargetRevision()) return false;
+    if (!getUrl().equals(other.getUrl())) return false;
+    if (!getTitle().equals(other.getTitle())) return false;
+    if (!getStateQuality().equals(other.getStateQuality())) return false;
+    if (!getContentHash().equals(other.getContentHash())) return false;
+    if (!getTargetsList().equals(other.getTargetsList())) return false;
+    if (!getSnapshotKind().equals(other.getSnapshotKind())) return false;
+    if (!getRequestedRootRef().equals(other.getRequestedRootRef())) return false;
+    if (!getDocumentReadyState().equals(other.getDocumentReadyState())) return false;
+    if (getNetworkQuietMillis() != other.getNetworkQuietMillis()) return false;
+    if (getNetworkEvidenceFresh() != other.getNetworkEvidenceFresh()) return false;
+    if (!getActionOutcomesList().equals(other.getActionOutcomesList())) return false;
+    if (!getTabsList().equals(other.getTabsList())) return false;
+    if (!getActiveTabId().equals(other.getActiveTabId())) return false;
+    if (!getNativeDialogsList().equals(other.getNativeDialogsList())) return false;
+    if (getNativeDialogEvidenceFresh() != other.getNativeDialogEvidenceFresh()) return false;
+    if (!getDownloadsList().equals(other.getDownloadsList())) return false;
+    if (getDownloadEvidenceFresh() != other.getDownloadEvidenceFresh()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -630,11 +1079,9 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + SESSION_ID_FIELD_NUMBER;
     hash = (53 * hash) + getSessionId().hashCode();
     hash = (37 * hash) + STATE_VERSION_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        getStateVersion());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getStateVersion());
     hash = (37 * hash) + TARGET_REVISION_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        getTargetRevision());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getTargetRevision());
     hash = (37 * hash) + URL_FIELD_NUMBER;
     hash = (53 * hash) + getUrl().hashCode();
     hash = (37 * hash) + TITLE_FIELD_NUMBER;
@@ -654,138 +1101,159 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + DOCUMENT_READY_STATE_FIELD_NUMBER;
     hash = (53 * hash) + getDocumentReadyState().hashCode();
     hash = (37 * hash) + NETWORK_QUIET_MILLIS_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        getNetworkQuietMillis());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getNetworkQuietMillis());
     hash = (37 * hash) + NETWORK_EVIDENCE_FRESH_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getNetworkEvidenceFresh());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getNetworkEvidenceFresh());
+    if (getActionOutcomesCount() > 0) {
+      hash = (37 * hash) + ACTION_OUTCOMES_FIELD_NUMBER;
+      hash = (53 * hash) + getActionOutcomesList().hashCode();
+    }
+    if (getTabsCount() > 0) {
+      hash = (37 * hash) + TABS_FIELD_NUMBER;
+      hash = (53 * hash) + getTabsList().hashCode();
+    }
+    hash = (37 * hash) + ACTIVE_TAB_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getActiveTabId().hashCode();
+    if (getNativeDialogsCount() > 0) {
+      hash = (37 * hash) + NATIVE_DIALOGS_FIELD_NUMBER;
+      hash = (53 * hash) + getNativeDialogsList().hashCode();
+    }
+    hash = (37 * hash) + NATIVE_DIALOG_EVIDENCE_FRESH_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getNativeDialogEvidenceFresh());
+    if (getDownloadsCount() > 0) {
+      hash = (37 * hash) + DOWNLOADS_FIELD_NUMBER;
+      hash = (53 * hash) + getDownloadsList().hashCode();
+    }
+    hash = (37 * hash) + DOWNLOAD_EVIDENCE_FRESH_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getDownloadEvidenceFresh());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
   }
 
-  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
-      java.nio.ByteBuffer data)
+  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
-      java.nio.ByteBuffer data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
-      byte[] data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(java.io.InputStream input)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
-  }
-  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseDelimitedFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   public static io.browsercloud.proto.node.v1.BrowserStateEvent parseDelimitedFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
   }
+
+  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseDelimitedFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
+        PARSER, input, extensionRegistry);
+  }
+
   public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
-      com.google.protobuf.CodedInputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
+      com.google.protobuf.CodedInputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
+
   public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   @java.lang.Override
-  public Builder newBuilderForType() { return newBuilder(); }
+  public Builder newBuilderForType() {
+    return newBuilder();
+  }
+
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
+
   public static Builder newBuilder(io.browsercloud.proto.node.v1.BrowserStateEvent prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
+
   @java.lang.Override
   public Builder toBuilder() {
-    return this == DEFAULT_INSTANCE
-        ? new Builder() : new Builder().mergeFrom(this);
+    return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
   }
 
   @java.lang.Override
-  protected Builder newBuilderForType(
-      com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+  protected Builder newBuilderForType(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
     Builder builder = new Builder(parent);
     return builder;
   }
-  /**
-   * Protobuf type {@code browsercloud.node.v1.BrowserStateEvent}
-   */
-  public static final class Builder extends
-      com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+
+  /** Protobuf type {@code browsercloud.node.v1.BrowserStateEvent} */
+  public static final class Builder extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
+      implements
       // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.BrowserStateEvent)
       io.browsercloud.proto.node.v1.BrowserStateEventOrBuilder {
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateEvent_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_BrowserStateEvent_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateEvent_fieldAccessorTable
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_BrowserStateEvent_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              io.browsercloud.proto.node.v1.BrowserStateEvent.class, io.browsercloud.proto.node.v1.BrowserStateEvent.Builder.class);
+              io.browsercloud.proto.node.v1.BrowserStateEvent.class,
+              io.browsercloud.proto.node.v1.BrowserStateEvent.Builder.class);
     }
 
     // Construct using io.browsercloud.proto.node.v1.BrowserStateEvent.newBuilder()
-    private Builder() {
+    private Builder() {}
 
-    }
-
-    private Builder(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+    private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
-
     }
+
     @java.lang.Override
     public Builder clear() {
       super.clear();
@@ -809,13 +1277,44 @@ private static final long serialVersionUID = 0L;
       documentReadyState_ = "";
       networkQuietMillis_ = 0L;
       networkEvidenceFresh_ = false;
+      if (actionOutcomesBuilder_ == null) {
+        actionOutcomes_ = java.util.Collections.emptyList();
+      } else {
+        actionOutcomes_ = null;
+        actionOutcomesBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00002000);
+      if (tabsBuilder_ == null) {
+        tabs_ = java.util.Collections.emptyList();
+      } else {
+        tabs_ = null;
+        tabsBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00004000);
+      activeTabId_ = "";
+      if (nativeDialogsBuilder_ == null) {
+        nativeDialogs_ = java.util.Collections.emptyList();
+      } else {
+        nativeDialogs_ = null;
+        nativeDialogsBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00010000);
+      nativeDialogEvidenceFresh_ = false;
+      if (downloadsBuilder_ == null) {
+        downloads_ = java.util.Collections.emptyList();
+      } else {
+        downloads_ = null;
+        downloadsBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00040000);
+      downloadEvidenceFresh_ = false;
       return this;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Descriptors.Descriptor
-        getDescriptorForType() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateEvent_descriptor;
+    public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_BrowserStateEvent_descriptor;
     }
 
     @java.lang.Override
@@ -834,14 +1333,18 @@ private static final long serialVersionUID = 0L;
 
     @java.lang.Override
     public io.browsercloud.proto.node.v1.BrowserStateEvent buildPartial() {
-      io.browsercloud.proto.node.v1.BrowserStateEvent result = new io.browsercloud.proto.node.v1.BrowserStateEvent(this);
+      io.browsercloud.proto.node.v1.BrowserStateEvent result =
+          new io.browsercloud.proto.node.v1.BrowserStateEvent(this);
       buildPartialRepeatedFields(result);
-      if (bitField0_ != 0) { buildPartial0(result); }
+      if (bitField0_ != 0) {
+        buildPartial0(result);
+      }
       onBuilt();
       return result;
     }
 
-    private void buildPartialRepeatedFields(io.browsercloud.proto.node.v1.BrowserStateEvent result) {
+    private void buildPartialRepeatedFields(
+        io.browsercloud.proto.node.v1.BrowserStateEvent result) {
       if (targetsBuilder_ == null) {
         if (((bitField0_ & 0x00000080) != 0)) {
           targets_ = java.util.Collections.unmodifiableList(targets_);
@@ -850,6 +1353,42 @@ private static final long serialVersionUID = 0L;
         result.targets_ = targets_;
       } else {
         result.targets_ = targetsBuilder_.build();
+      }
+      if (actionOutcomesBuilder_ == null) {
+        if (((bitField0_ & 0x00002000) != 0)) {
+          actionOutcomes_ = java.util.Collections.unmodifiableList(actionOutcomes_);
+          bitField0_ = (bitField0_ & ~0x00002000);
+        }
+        result.actionOutcomes_ = actionOutcomes_;
+      } else {
+        result.actionOutcomes_ = actionOutcomesBuilder_.build();
+      }
+      if (tabsBuilder_ == null) {
+        if (((bitField0_ & 0x00004000) != 0)) {
+          tabs_ = java.util.Collections.unmodifiableList(tabs_);
+          bitField0_ = (bitField0_ & ~0x00004000);
+        }
+        result.tabs_ = tabs_;
+      } else {
+        result.tabs_ = tabsBuilder_.build();
+      }
+      if (nativeDialogsBuilder_ == null) {
+        if (((bitField0_ & 0x00010000) != 0)) {
+          nativeDialogs_ = java.util.Collections.unmodifiableList(nativeDialogs_);
+          bitField0_ = (bitField0_ & ~0x00010000);
+        }
+        result.nativeDialogs_ = nativeDialogs_;
+      } else {
+        result.nativeDialogs_ = nativeDialogsBuilder_.build();
+      }
+      if (downloadsBuilder_ == null) {
+        if (((bitField0_ & 0x00040000) != 0)) {
+          downloads_ = java.util.Collections.unmodifiableList(downloads_);
+          bitField0_ = (bitField0_ & ~0x00040000);
+        }
+        result.downloads_ = downloads_;
+      } else {
+        result.downloads_ = downloadsBuilder_.build();
       }
     }
 
@@ -891,44 +1430,54 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00001000) != 0)) {
         result.networkEvidenceFresh_ = networkEvidenceFresh_;
       }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.activeTabId_ = activeTabId_;
+      }
+      if (((from_bitField0_ & 0x00020000) != 0)) {
+        result.nativeDialogEvidenceFresh_ = nativeDialogEvidenceFresh_;
+      }
+      if (((from_bitField0_ & 0x00080000) != 0)) {
+        result.downloadEvidenceFresh_ = downloadEvidenceFresh_;
+      }
     }
 
     @java.lang.Override
     public Builder clone() {
       return super.clone();
     }
+
     @java.lang.Override
     public Builder setField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.setField(field, value);
     }
+
     @java.lang.Override
-    public Builder clearField(
-        com.google.protobuf.Descriptors.FieldDescriptor field) {
+    public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
       return super.clearField(field);
     }
+
     @java.lang.Override
-    public Builder clearOneof(
-        com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+    public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
       return super.clearOneof(oneof);
     }
+
     @java.lang.Override
     public Builder setRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        int index, java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, int index, java.lang.Object value) {
       return super.setRepeatedField(field, index, value);
     }
+
     @java.lang.Override
     public Builder addRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.addRepeatedField(field, value);
     }
+
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof io.browsercloud.proto.node.v1.BrowserStateEvent) {
-        return mergeFrom((io.browsercloud.proto.node.v1.BrowserStateEvent)other);
+        return mergeFrom((io.browsercloud.proto.node.v1.BrowserStateEvent) other);
       } else {
         super.mergeFrom(other);
         return this;
@@ -936,7 +1485,8 @@ private static final long serialVersionUID = 0L;
     }
 
     public Builder mergeFrom(io.browsercloud.proto.node.v1.BrowserStateEvent other) {
-      if (other == io.browsercloud.proto.node.v1.BrowserStateEvent.getDefaultInstance()) return this;
+      if (other == io.browsercloud.proto.node.v1.BrowserStateEvent.getDefaultInstance())
+        return this;
       if (!other.getSessionId().isEmpty()) {
         sessionId_ = other.sessionId_;
         bitField0_ |= 0x00000001;
@@ -987,8 +1537,9 @@ private static final long serialVersionUID = 0L;
             targets_ = other.targets_;
             bitField0_ = (bitField0_ & ~0x00000080);
             targetsBuilder_ =
-              com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
-                 getTargetsFieldBuilder() : null;
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders
+                    ? getTargetsFieldBuilder()
+                    : null;
           } else {
             targetsBuilder_.addAllMessages(other.targets_);
           }
@@ -1014,6 +1565,125 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getNetworkEvidenceFresh() != false) {
         setNetworkEvidenceFresh(other.getNetworkEvidenceFresh());
+      }
+      if (actionOutcomesBuilder_ == null) {
+        if (!other.actionOutcomes_.isEmpty()) {
+          if (actionOutcomes_.isEmpty()) {
+            actionOutcomes_ = other.actionOutcomes_;
+            bitField0_ = (bitField0_ & ~0x00002000);
+          } else {
+            ensureActionOutcomesIsMutable();
+            actionOutcomes_.addAll(other.actionOutcomes_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.actionOutcomes_.isEmpty()) {
+          if (actionOutcomesBuilder_.isEmpty()) {
+            actionOutcomesBuilder_.dispose();
+            actionOutcomesBuilder_ = null;
+            actionOutcomes_ = other.actionOutcomes_;
+            bitField0_ = (bitField0_ & ~0x00002000);
+            actionOutcomesBuilder_ =
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders
+                    ? getActionOutcomesFieldBuilder()
+                    : null;
+          } else {
+            actionOutcomesBuilder_.addAllMessages(other.actionOutcomes_);
+          }
+        }
+      }
+      if (tabsBuilder_ == null) {
+        if (!other.tabs_.isEmpty()) {
+          if (tabs_.isEmpty()) {
+            tabs_ = other.tabs_;
+            bitField0_ = (bitField0_ & ~0x00004000);
+          } else {
+            ensureTabsIsMutable();
+            tabs_.addAll(other.tabs_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.tabs_.isEmpty()) {
+          if (tabsBuilder_.isEmpty()) {
+            tabsBuilder_.dispose();
+            tabsBuilder_ = null;
+            tabs_ = other.tabs_;
+            bitField0_ = (bitField0_ & ~0x00004000);
+            tabsBuilder_ =
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders
+                    ? getTabsFieldBuilder()
+                    : null;
+          } else {
+            tabsBuilder_.addAllMessages(other.tabs_);
+          }
+        }
+      }
+      if (!other.getActiveTabId().isEmpty()) {
+        activeTabId_ = other.activeTabId_;
+        bitField0_ |= 0x00008000;
+        onChanged();
+      }
+      if (nativeDialogsBuilder_ == null) {
+        if (!other.nativeDialogs_.isEmpty()) {
+          if (nativeDialogs_.isEmpty()) {
+            nativeDialogs_ = other.nativeDialogs_;
+            bitField0_ = (bitField0_ & ~0x00010000);
+          } else {
+            ensureNativeDialogsIsMutable();
+            nativeDialogs_.addAll(other.nativeDialogs_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.nativeDialogs_.isEmpty()) {
+          if (nativeDialogsBuilder_.isEmpty()) {
+            nativeDialogsBuilder_.dispose();
+            nativeDialogsBuilder_ = null;
+            nativeDialogs_ = other.nativeDialogs_;
+            bitField0_ = (bitField0_ & ~0x00010000);
+            nativeDialogsBuilder_ =
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders
+                    ? getNativeDialogsFieldBuilder()
+                    : null;
+          } else {
+            nativeDialogsBuilder_.addAllMessages(other.nativeDialogs_);
+          }
+        }
+      }
+      if (other.getNativeDialogEvidenceFresh() != false) {
+        setNativeDialogEvidenceFresh(other.getNativeDialogEvidenceFresh());
+      }
+      if (downloadsBuilder_ == null) {
+        if (!other.downloads_.isEmpty()) {
+          if (downloads_.isEmpty()) {
+            downloads_ = other.downloads_;
+            bitField0_ = (bitField0_ & ~0x00040000);
+          } else {
+            ensureDownloadsIsMutable();
+            downloads_.addAll(other.downloads_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.downloads_.isEmpty()) {
+          if (downloadsBuilder_.isEmpty()) {
+            downloadsBuilder_.dispose();
+            downloadsBuilder_ = null;
+            downloads_ = other.downloads_;
+            bitField0_ = (bitField0_ & ~0x00040000);
+            downloadsBuilder_ =
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders
+                    ? getDownloadsFieldBuilder()
+                    : null;
+          } else {
+            downloadsBuilder_.addAllMessages(other.downloads_);
+          }
+        }
+      }
+      if (other.getDownloadEvidenceFresh() != false) {
+        setDownloadEvidenceFresh(other.getDownloadEvidenceFresh());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1041,85 +1711,172 @@ private static final long serialVersionUID = 0L;
             case 0:
               done = true;
               break;
-            case 10: {
-              sessionId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000001;
-              break;
-            } // case 10
-            case 16: {
-              stateVersion_ = input.readUInt64();
-              bitField0_ |= 0x00000002;
-              break;
-            } // case 16
-            case 24: {
-              targetRevision_ = input.readUInt64();
-              bitField0_ |= 0x00000004;
-              break;
-            } // case 24
-            case 34: {
-              url_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000008;
-              break;
-            } // case 34
-            case 42: {
-              title_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000010;
-              break;
-            } // case 42
-            case 50: {
-              stateQuality_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000020;
-              break;
-            } // case 50
-            case 58: {
-              contentHash_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000040;
-              break;
-            } // case 58
-            case 66: {
-              io.browsercloud.proto.node.v1.InteractiveTargetState m =
-                  input.readMessage(
-                      io.browsercloud.proto.node.v1.InteractiveTargetState.parser(),
-                      extensionRegistry);
-              if (targetsBuilder_ == null) {
-                ensureTargetsIsMutable();
-                targets_.add(m);
-              } else {
-                targetsBuilder_.addMessage(m);
-              }
-              break;
-            } // case 66
-            case 74: {
-              snapshotKind_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000100;
-              break;
-            } // case 74
-            case 82: {
-              requestedRootRef_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000200;
-              break;
-            } // case 82
-            case 90: {
-              documentReadyState_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000400;
-              break;
-            } // case 90
-            case 96: {
-              networkQuietMillis_ = input.readUInt64();
-              bitField0_ |= 0x00000800;
-              break;
-            } // case 96
-            case 104: {
-              networkEvidenceFresh_ = input.readBool();
-              bitField0_ |= 0x00001000;
-              break;
-            } // case 104
-            default: {
-              if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                done = true; // was an endgroup tag
-              }
-              break;
-            } // default:
+            case 10:
+              {
+                sessionId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000001;
+                break;
+              } // case 10
+            case 16:
+              {
+                stateVersion_ = input.readUInt64();
+                bitField0_ |= 0x00000002;
+                break;
+              } // case 16
+            case 24:
+              {
+                targetRevision_ = input.readUInt64();
+                bitField0_ |= 0x00000004;
+                break;
+              } // case 24
+            case 34:
+              {
+                url_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000008;
+                break;
+              } // case 34
+            case 42:
+              {
+                title_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000010;
+                break;
+              } // case 42
+            case 50:
+              {
+                stateQuality_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000020;
+                break;
+              } // case 50
+            case 58:
+              {
+                contentHash_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000040;
+                break;
+              } // case 58
+            case 66:
+              {
+                io.browsercloud.proto.node.v1.InteractiveTargetState m =
+                    input.readMessage(
+                        io.browsercloud.proto.node.v1.InteractiveTargetState.parser(),
+                        extensionRegistry);
+                if (targetsBuilder_ == null) {
+                  ensureTargetsIsMutable();
+                  targets_.add(m);
+                } else {
+                  targetsBuilder_.addMessage(m);
+                }
+                break;
+              } // case 66
+            case 74:
+              {
+                snapshotKind_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000100;
+                break;
+              } // case 74
+            case 82:
+              {
+                requestedRootRef_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000200;
+                break;
+              } // case 82
+            case 90:
+              {
+                documentReadyState_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000400;
+                break;
+              } // case 90
+            case 96:
+              {
+                networkQuietMillis_ = input.readUInt64();
+                bitField0_ |= 0x00000800;
+                break;
+              } // case 96
+            case 104:
+              {
+                networkEvidenceFresh_ = input.readBool();
+                bitField0_ |= 0x00001000;
+                break;
+              } // case 104
+            case 114:
+              {
+                io.browsercloud.proto.node.v1.AgentActionOutcome m =
+                    input.readMessage(
+                        io.browsercloud.proto.node.v1.AgentActionOutcome.parser(),
+                        extensionRegistry);
+                if (actionOutcomesBuilder_ == null) {
+                  ensureActionOutcomesIsMutable();
+                  actionOutcomes_.add(m);
+                } else {
+                  actionOutcomesBuilder_.addMessage(m);
+                }
+                break;
+              } // case 114
+            case 122:
+              {
+                io.browsercloud.proto.node.v1.BrowserTabState m =
+                    input.readMessage(
+                        io.browsercloud.proto.node.v1.BrowserTabState.parser(), extensionRegistry);
+                if (tabsBuilder_ == null) {
+                  ensureTabsIsMutable();
+                  tabs_.add(m);
+                } else {
+                  tabsBuilder_.addMessage(m);
+                }
+                break;
+              } // case 122
+            case 130:
+              {
+                activeTabId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00008000;
+                break;
+              } // case 130
+            case 138:
+              {
+                io.browsercloud.proto.node.v1.BrowserNativeDialogState m =
+                    input.readMessage(
+                        io.browsercloud.proto.node.v1.BrowserNativeDialogState.parser(),
+                        extensionRegistry);
+                if (nativeDialogsBuilder_ == null) {
+                  ensureNativeDialogsIsMutable();
+                  nativeDialogs_.add(m);
+                } else {
+                  nativeDialogsBuilder_.addMessage(m);
+                }
+                break;
+              } // case 138
+            case 144:
+              {
+                nativeDialogEvidenceFresh_ = input.readBool();
+                bitField0_ |= 0x00020000;
+                break;
+              } // case 144
+            case 154:
+              {
+                io.browsercloud.proto.node.v1.BrowserDownloadState m =
+                    input.readMessage(
+                        io.browsercloud.proto.node.v1.BrowserDownloadState.parser(),
+                        extensionRegistry);
+                if (downloadsBuilder_ == null) {
+                  ensureDownloadsIsMutable();
+                  downloads_.add(m);
+                } else {
+                  downloadsBuilder_.addMessage(m);
+                }
+                break;
+              } // case 154
+            case 160:
+              {
+                downloadEvidenceFresh_ = input.readBool();
+                bitField0_ |= 0x00080000;
+                break;
+              } // case 160
+            default:
+              {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
           } // switch (tag)
         } // while (!done)
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -1129,18 +1886,20 @@ private static final long serialVersionUID = 0L;
       } // finally
       return this;
     }
+
     private int bitField0_;
 
     private java.lang.Object sessionId_ = "";
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return The sessionId.
      */
     public java.lang.String getSessionId() {
       java.lang.Object ref = sessionId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         sessionId_ = s;
         return s;
@@ -1148,38 +1907,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return The bytes for sessionId.
      */
-    public com.google.protobuf.ByteString
-        getSessionIdBytes() {
+    public com.google.protobuf.ByteString getSessionIdBytes() {
       java.lang.Object ref = sessionId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         sessionId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @param value The sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setSessionId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSessionId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       sessionId_ = value;
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSessionId() {
@@ -1188,14 +1952,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @param value The bytes for sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setSessionIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSessionIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       sessionId_ = value;
       bitField0_ |= 0x00000001;
@@ -1203,17 +1970,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long stateVersion_ ;
+    private long stateVersion_;
+
     /**
      * <code>uint64 state_version = 2 [json_name = "stateVersion"];</code>
+     *
      * @return The stateVersion.
      */
     @java.lang.Override
     public long getStateVersion() {
       return stateVersion_;
     }
+
     /**
      * <code>uint64 state_version = 2 [json_name = "stateVersion"];</code>
+     *
      * @param value The stateVersion to set.
      * @return This builder for chaining.
      */
@@ -1224,8 +1995,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint64 state_version = 2 [json_name = "stateVersion"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearStateVersion() {
@@ -1235,17 +2008,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long targetRevision_ ;
+    private long targetRevision_;
+
     /**
      * <code>uint64 target_revision = 3 [json_name = "targetRevision"];</code>
+     *
      * @return The targetRevision.
      */
     @java.lang.Override
     public long getTargetRevision() {
       return targetRevision_;
     }
+
     /**
      * <code>uint64 target_revision = 3 [json_name = "targetRevision"];</code>
+     *
      * @param value The targetRevision to set.
      * @return This builder for chaining.
      */
@@ -1256,8 +2033,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint64 target_revision = 3 [json_name = "targetRevision"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearTargetRevision() {
@@ -1268,15 +2047,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object url_ = "";
+
     /**
      * <code>string url = 4 [json_name = "url"];</code>
+     *
      * @return The url.
      */
     public java.lang.String getUrl() {
       java.lang.Object ref = url_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         url_ = s;
         return s;
@@ -1284,38 +2064,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string url = 4 [json_name = "url"];</code>
+     *
      * @return The bytes for url.
      */
-    public com.google.protobuf.ByteString
-        getUrlBytes() {
+    public com.google.protobuf.ByteString getUrlBytes() {
       java.lang.Object ref = url_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         url_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string url = 4 [json_name = "url"];</code>
+     *
      * @param value The url to set.
      * @return This builder for chaining.
      */
-    public Builder setUrl(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setUrl(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       url_ = value;
       bitField0_ |= 0x00000008;
       onChanged();
       return this;
     }
+
     /**
      * <code>string url = 4 [json_name = "url"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearUrl() {
@@ -1324,14 +2109,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string url = 4 [json_name = "url"];</code>
+     *
      * @param value The bytes for url to set.
      * @return This builder for chaining.
      */
-    public Builder setUrlBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setUrlBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       url_ = value;
       bitField0_ |= 0x00000008;
@@ -1340,15 +2128,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object title_ = "";
+
     /**
      * <code>string title = 5 [json_name = "title"];</code>
+     *
      * @return The title.
      */
     public java.lang.String getTitle() {
       java.lang.Object ref = title_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         title_ = s;
         return s;
@@ -1356,38 +2145,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string title = 5 [json_name = "title"];</code>
+     *
      * @return The bytes for title.
      */
-    public com.google.protobuf.ByteString
-        getTitleBytes() {
+    public com.google.protobuf.ByteString getTitleBytes() {
       java.lang.Object ref = title_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         title_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string title = 5 [json_name = "title"];</code>
+     *
      * @param value The title to set.
      * @return This builder for chaining.
      */
-    public Builder setTitle(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setTitle(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       title_ = value;
       bitField0_ |= 0x00000010;
       onChanged();
       return this;
     }
+
     /**
      * <code>string title = 5 [json_name = "title"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearTitle() {
@@ -1396,14 +2190,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string title = 5 [json_name = "title"];</code>
+     *
      * @param value The bytes for title to set.
      * @return This builder for chaining.
      */
-    public Builder setTitleBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setTitleBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       title_ = value;
       bitField0_ |= 0x00000010;
@@ -1412,15 +2209,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object stateQuality_ = "";
+
     /**
      * <code>string state_quality = 6 [json_name = "stateQuality"];</code>
+     *
      * @return The stateQuality.
      */
     public java.lang.String getStateQuality() {
       java.lang.Object ref = stateQuality_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         stateQuality_ = s;
         return s;
@@ -1428,38 +2226,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string state_quality = 6 [json_name = "stateQuality"];</code>
+     *
      * @return The bytes for stateQuality.
      */
-    public com.google.protobuf.ByteString
-        getStateQualityBytes() {
+    public com.google.protobuf.ByteString getStateQualityBytes() {
       java.lang.Object ref = stateQuality_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         stateQuality_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string state_quality = 6 [json_name = "stateQuality"];</code>
+     *
      * @param value The stateQuality to set.
      * @return This builder for chaining.
      */
-    public Builder setStateQuality(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setStateQuality(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       stateQuality_ = value;
       bitField0_ |= 0x00000020;
       onChanged();
       return this;
     }
+
     /**
      * <code>string state_quality = 6 [json_name = "stateQuality"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearStateQuality() {
@@ -1468,14 +2271,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string state_quality = 6 [json_name = "stateQuality"];</code>
+     *
      * @param value The bytes for stateQuality to set.
      * @return This builder for chaining.
      */
-    public Builder setStateQualityBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setStateQualityBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       stateQuality_ = value;
       bitField0_ |= 0x00000020;
@@ -1484,15 +2290,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object contentHash_ = "";
+
     /**
      * <code>string content_hash = 7 [json_name = "contentHash"];</code>
+     *
      * @return The contentHash.
      */
     public java.lang.String getContentHash() {
       java.lang.Object ref = contentHash_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         contentHash_ = s;
         return s;
@@ -1500,38 +2307,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string content_hash = 7 [json_name = "contentHash"];</code>
+     *
      * @return The bytes for contentHash.
      */
-    public com.google.protobuf.ByteString
-        getContentHashBytes() {
+    public com.google.protobuf.ByteString getContentHashBytes() {
       java.lang.Object ref = contentHash_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         contentHash_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string content_hash = 7 [json_name = "contentHash"];</code>
+     *
      * @param value The contentHash to set.
      * @return This builder for chaining.
      */
-    public Builder setContentHash(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setContentHash(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       contentHash_ = value;
       bitField0_ |= 0x00000040;
       onChanged();
       return this;
     }
+
     /**
      * <code>string content_hash = 7 [json_name = "contentHash"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearContentHash() {
@@ -1540,14 +2352,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string content_hash = 7 [json_name = "contentHash"];</code>
+     *
      * @param value The bytes for contentHash to set.
      * @return This builder for chaining.
      */
-    public Builder setContentHashBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setContentHashBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       contentHash_ = value;
       bitField0_ |= 0x00000040;
@@ -1556,19 +2371,26 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState> targets_ =
-      java.util.Collections.emptyList();
+        java.util.Collections.emptyList();
+
     private void ensureTargetsIsMutable() {
       if (!((bitField0_ & 0x00000080) != 0)) {
-        targets_ = new java.util.ArrayList<io.browsercloud.proto.node.v1.InteractiveTargetState>(targets_);
+        targets_ =
+            new java.util.ArrayList<io.browsercloud.proto.node.v1.InteractiveTargetState>(targets_);
         bitField0_ |= 0x00000080;
-       }
+      }
     }
 
     private com.google.protobuf.RepeatedFieldBuilderV3<
-        io.browsercloud.proto.node.v1.InteractiveTargetState, io.browsercloud.proto.node.v1.InteractiveTargetState.Builder, io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder> targetsBuilder_;
+            io.browsercloud.proto.node.v1.InteractiveTargetState,
+            io.browsercloud.proto.node.v1.InteractiveTargetState.Builder,
+            io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder>
+        targetsBuilder_;
 
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState> getTargetsList() {
       if (targetsBuilder_ == null) {
@@ -1577,8 +2399,11 @@ private static final long serialVersionUID = 0L;
         return targetsBuilder_.getMessageList();
       }
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public int getTargetsCount() {
       if (targetsBuilder_ == null) {
@@ -1587,8 +2412,11 @@ private static final long serialVersionUID = 0L;
         return targetsBuilder_.getCount();
       }
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public io.browsercloud.proto.node.v1.InteractiveTargetState getTargets(int index) {
       if (targetsBuilder_ == null) {
@@ -1597,8 +2425,11 @@ private static final long serialVersionUID = 0L;
         return targetsBuilder_.getMessage(index);
       }
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public Builder setTargets(
         int index, io.browsercloud.proto.node.v1.InteractiveTargetState value) {
@@ -1614,8 +2445,11 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public Builder setTargets(
         int index, io.browsercloud.proto.node.v1.InteractiveTargetState.Builder builderForValue) {
@@ -1628,8 +2462,11 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public Builder addTargets(io.browsercloud.proto.node.v1.InteractiveTargetState value) {
       if (targetsBuilder_ == null) {
@@ -1644,8 +2481,11 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public Builder addTargets(
         int index, io.browsercloud.proto.node.v1.InteractiveTargetState value) {
@@ -1661,8 +2501,11 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public Builder addTargets(
         io.browsercloud.proto.node.v1.InteractiveTargetState.Builder builderForValue) {
@@ -1675,8 +2518,11 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public Builder addTargets(
         int index, io.browsercloud.proto.node.v1.InteractiveTargetState.Builder builderForValue) {
@@ -1689,23 +2535,28 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public Builder addAllTargets(
         java.lang.Iterable<? extends io.browsercloud.proto.node.v1.InteractiveTargetState> values) {
       if (targetsBuilder_ == null) {
         ensureTargetsIsMutable();
-        com.google.protobuf.AbstractMessageLite.Builder.addAll(
-            values, targets_);
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(values, targets_);
         onChanged();
       } else {
         targetsBuilder_.addAllMessages(values);
       }
       return this;
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public Builder clearTargets() {
       if (targetsBuilder_ == null) {
@@ -1717,8 +2568,11 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public Builder removeTargets(int index) {
       if (targetsBuilder_ == null) {
@@ -1730,85 +2584,111 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public io.browsercloud.proto.node.v1.InteractiveTargetState.Builder getTargetsBuilder(
         int index) {
       return getTargetsFieldBuilder().getBuilder(index);
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder getTargetsOrBuilder(
         int index) {
       if (targetsBuilder_ == null) {
-        return targets_.get(index);  } else {
+        return targets_.get(index);
+      } else {
         return targetsBuilder_.getMessageOrBuilder(index);
       }
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public java.util.List<? extends io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder>
-         getTargetsOrBuilderList() {
+        getTargetsOrBuilderList() {
       if (targetsBuilder_ != null) {
         return targetsBuilder_.getMessageOrBuilderList();
       } else {
         return java.util.Collections.unmodifiableList(targets_);
       }
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public io.browsercloud.proto.node.v1.InteractiveTargetState.Builder addTargetsBuilder() {
-      return getTargetsFieldBuilder().addBuilder(
-          io.browsercloud.proto.node.v1.InteractiveTargetState.getDefaultInstance());
+      return getTargetsFieldBuilder()
+          .addBuilder(io.browsercloud.proto.node.v1.InteractiveTargetState.getDefaultInstance());
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public io.browsercloud.proto.node.v1.InteractiveTargetState.Builder addTargetsBuilder(
         int index) {
-      return getTargetsFieldBuilder().addBuilder(
-          index, io.browsercloud.proto.node.v1.InteractiveTargetState.getDefaultInstance());
+      return getTargetsFieldBuilder()
+          .addBuilder(
+              index, io.browsercloud.proto.node.v1.InteractiveTargetState.getDefaultInstance());
     }
+
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>
+     * repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];
+     * </code>
      */
     public java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState.Builder>
-         getTargetsBuilderList() {
+        getTargetsBuilderList() {
       return getTargetsFieldBuilder().getBuilderList();
     }
+
     private com.google.protobuf.RepeatedFieldBuilderV3<
-        io.browsercloud.proto.node.v1.InteractiveTargetState, io.browsercloud.proto.node.v1.InteractiveTargetState.Builder, io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder>
+            io.browsercloud.proto.node.v1.InteractiveTargetState,
+            io.browsercloud.proto.node.v1.InteractiveTargetState.Builder,
+            io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder>
         getTargetsFieldBuilder() {
       if (targetsBuilder_ == null) {
-        targetsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-            io.browsercloud.proto.node.v1.InteractiveTargetState, io.browsercloud.proto.node.v1.InteractiveTargetState.Builder, io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder>(
-                targets_,
-                ((bitField0_ & 0x00000080) != 0),
-                getParentForChildren(),
-                isClean());
+        targetsBuilder_ =
+            new com.google.protobuf.RepeatedFieldBuilderV3<
+                io.browsercloud.proto.node.v1.InteractiveTargetState,
+                io.browsercloud.proto.node.v1.InteractiveTargetState.Builder,
+                io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder>(
+                targets_, ((bitField0_ & 0x00000080) != 0), getParentForChildren(), isClean());
         targets_ = null;
       }
       return targetsBuilder_;
     }
 
     private java.lang.Object snapshotKind_ = "";
+
     /**
+     *
+     *
      * <pre>
      * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
      * </pre>
      *
      * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
+     *
      * @return The snapshotKind.
      */
     public java.lang.String getSnapshotKind() {
       java.lang.Object ref = snapshotKind_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         snapshotKind_ = s;
         return s;
@@ -1816,50 +2696,61 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
+     *
+     *
      * <pre>
      * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
      * </pre>
      *
      * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
+     *
      * @return The bytes for snapshotKind.
      */
-    public com.google.protobuf.ByteString
-        getSnapshotKindBytes() {
+    public com.google.protobuf.ByteString getSnapshotKindBytes() {
       java.lang.Object ref = snapshotKind_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         snapshotKind_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
+     *
+     *
      * <pre>
      * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
      * </pre>
      *
      * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
+     *
      * @param value The snapshotKind to set.
      * @return This builder for chaining.
      */
-    public Builder setSnapshotKind(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSnapshotKind(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       snapshotKind_ = value;
       bitField0_ |= 0x00000100;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
      * </pre>
      *
      * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSnapshotKind() {
@@ -1868,18 +2759,23 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
      * </pre>
      *
      * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
+     *
      * @param value The bytes for snapshotKind to set.
      * @return This builder for chaining.
      */
-    public Builder setSnapshotKindBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSnapshotKindBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       snapshotKind_ = value;
       bitField0_ |= 0x00000100;
@@ -1888,15 +2784,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object requestedRootRef_ = "";
+
     /**
      * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
+     *
      * @return The requestedRootRef.
      */
     public java.lang.String getRequestedRootRef() {
       java.lang.Object ref = requestedRootRef_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         requestedRootRef_ = s;
         return s;
@@ -1904,38 +2801,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
+     *
      * @return The bytes for requestedRootRef.
      */
-    public com.google.protobuf.ByteString
-        getRequestedRootRefBytes() {
+    public com.google.protobuf.ByteString getRequestedRootRefBytes() {
       java.lang.Object ref = requestedRootRef_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         requestedRootRef_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
+     *
      * @param value The requestedRootRef to set.
      * @return This builder for chaining.
      */
-    public Builder setRequestedRootRef(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setRequestedRootRef(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       requestedRootRef_ = value;
       bitField0_ |= 0x00000200;
       onChanged();
       return this;
     }
+
     /**
      * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearRequestedRootRef() {
@@ -1944,14 +2846,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
+     *
      * @param value The bytes for requestedRootRef to set.
      * @return This builder for chaining.
      */
-    public Builder setRequestedRootRefBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setRequestedRootRefBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       requestedRootRef_ = value;
       bitField0_ |= 0x00000200;
@@ -1960,19 +2865,22 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object documentReadyState_ = "";
+
     /**
+     *
+     *
      * <pre>
      * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
      * </pre>
      *
      * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+     *
      * @return The documentReadyState.
      */
     public java.lang.String getDocumentReadyState() {
       java.lang.Object ref = documentReadyState_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         documentReadyState_ = s;
         return s;
@@ -1980,50 +2888,61 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
+     *
+     *
      * <pre>
      * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
      * </pre>
      *
      * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+     *
      * @return The bytes for documentReadyState.
      */
-    public com.google.protobuf.ByteString
-        getDocumentReadyStateBytes() {
+    public com.google.protobuf.ByteString getDocumentReadyStateBytes() {
       java.lang.Object ref = documentReadyState_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         documentReadyState_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
+     *
+     *
      * <pre>
      * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
      * </pre>
      *
      * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+     *
      * @param value The documentReadyState to set.
      * @return This builder for chaining.
      */
-    public Builder setDocumentReadyState(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setDocumentReadyState(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       documentReadyState_ = value;
       bitField0_ |= 0x00000400;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
      * </pre>
      *
      * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearDocumentReadyState() {
@@ -2032,18 +2951,23 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
      * </pre>
      *
      * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+     *
      * @param value The bytes for documentReadyState to set.
      * @return This builder for chaining.
      */
-    public Builder setDocumentReadyStateBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setDocumentReadyStateBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       documentReadyState_ = value;
       bitField0_ |= 0x00000400;
@@ -2051,25 +2975,33 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long networkQuietMillis_ ;
+    private long networkQuietMillis_;
+
     /**
+     *
+     *
      * <pre>
      * 自最近一次 CDP Network 活动结束后的安静时长；存在在途请求时为 0。
      * </pre>
      *
      * <code>uint64 network_quiet_millis = 12 [json_name = "networkQuietMillis"];</code>
+     *
      * @return The networkQuietMillis.
      */
     @java.lang.Override
     public long getNetworkQuietMillis() {
       return networkQuietMillis_;
     }
+
     /**
+     *
+     *
      * <pre>
      * 自最近一次 CDP Network 活动结束后的安静时长；存在在途请求时为 0。
      * </pre>
      *
      * <code>uint64 network_quiet_millis = 12 [json_name = "networkQuietMillis"];</code>
+     *
      * @param value The networkQuietMillis to set.
      * @return This builder for chaining.
      */
@@ -2080,12 +3012,16 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 自最近一次 CDP Network 活动结束后的安静时长；存在在途请求时为 0。
      * </pre>
      *
      * <code>uint64 network_quiet_millis = 12 [json_name = "networkQuietMillis"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNetworkQuietMillis() {
@@ -2095,25 +3031,33 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean networkEvidenceFresh_ ;
+    private boolean networkEvidenceFresh_;
+
     /**
+     *
+     *
      * <pre>
      * 仅当本 Runtime 代持续 Network 观察从未断线时为 true。
      * </pre>
      *
      * <code>bool network_evidence_fresh = 13 [json_name = "networkEvidenceFresh"];</code>
+     *
      * @return The networkEvidenceFresh.
      */
     @java.lang.Override
     public boolean getNetworkEvidenceFresh() {
       return networkEvidenceFresh_;
     }
+
     /**
+     *
+     *
      * <pre>
      * 仅当本 Runtime 代持续 Network 观察从未断线时为 true。
      * </pre>
      *
      * <code>bool network_evidence_fresh = 13 [json_name = "networkEvidenceFresh"];</code>
+     *
      * @param value The networkEvidenceFresh to set.
      * @return This builder for chaining.
      */
@@ -2124,12 +3068,16 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 仅当本 Runtime 代持续 Network 观察从未断线时为 true。
      * </pre>
      *
      * <code>bool network_evidence_fresh = 13 [json_name = "networkEvidenceFresh"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNetworkEvidenceFresh() {
@@ -2138,9 +3086,1602 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
+    private java.util.List<io.browsercloud.proto.node.v1.AgentActionOutcome> actionOutcomes_ =
+        java.util.Collections.emptyList();
+
+    private void ensureActionOutcomesIsMutable() {
+      if (!((bitField0_ & 0x00002000) != 0)) {
+        actionOutcomes_ =
+            new java.util.ArrayList<io.browsercloud.proto.node.v1.AgentActionOutcome>(
+                actionOutcomes_);
+        bitField0_ |= 0x00002000;
+      }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilderV3<
+            io.browsercloud.proto.node.v1.AgentActionOutcome,
+            io.browsercloud.proto.node.v1.AgentActionOutcome.Builder,
+            io.browsercloud.proto.node.v1.AgentActionOutcomeOrBuilder>
+        actionOutcomesBuilder_;
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public java.util.List<io.browsercloud.proto.node.v1.AgentActionOutcome>
+        getActionOutcomesList() {
+      if (actionOutcomesBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(actionOutcomes_);
+      } else {
+        return actionOutcomesBuilder_.getMessageList();
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public int getActionOutcomesCount() {
+      if (actionOutcomesBuilder_ == null) {
+        return actionOutcomes_.size();
+      } else {
+        return actionOutcomesBuilder_.getCount();
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.AgentActionOutcome getActionOutcomes(int index) {
+      if (actionOutcomesBuilder_ == null) {
+        return actionOutcomes_.get(index);
+      } else {
+        return actionOutcomesBuilder_.getMessage(index);
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public Builder setActionOutcomes(
+        int index, io.browsercloud.proto.node.v1.AgentActionOutcome value) {
+      if (actionOutcomesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureActionOutcomesIsMutable();
+        actionOutcomes_.set(index, value);
+        onChanged();
+      } else {
+        actionOutcomesBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public Builder setActionOutcomes(
+        int index, io.browsercloud.proto.node.v1.AgentActionOutcome.Builder builderForValue) {
+      if (actionOutcomesBuilder_ == null) {
+        ensureActionOutcomesIsMutable();
+        actionOutcomes_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        actionOutcomesBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public Builder addActionOutcomes(io.browsercloud.proto.node.v1.AgentActionOutcome value) {
+      if (actionOutcomesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureActionOutcomesIsMutable();
+        actionOutcomes_.add(value);
+        onChanged();
+      } else {
+        actionOutcomesBuilder_.addMessage(value);
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public Builder addActionOutcomes(
+        int index, io.browsercloud.proto.node.v1.AgentActionOutcome value) {
+      if (actionOutcomesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureActionOutcomesIsMutable();
+        actionOutcomes_.add(index, value);
+        onChanged();
+      } else {
+        actionOutcomesBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public Builder addActionOutcomes(
+        io.browsercloud.proto.node.v1.AgentActionOutcome.Builder builderForValue) {
+      if (actionOutcomesBuilder_ == null) {
+        ensureActionOutcomesIsMutable();
+        actionOutcomes_.add(builderForValue.build());
+        onChanged();
+      } else {
+        actionOutcomesBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public Builder addActionOutcomes(
+        int index, io.browsercloud.proto.node.v1.AgentActionOutcome.Builder builderForValue) {
+      if (actionOutcomesBuilder_ == null) {
+        ensureActionOutcomesIsMutable();
+        actionOutcomes_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        actionOutcomesBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public Builder addAllActionOutcomes(
+        java.lang.Iterable<? extends io.browsercloud.proto.node.v1.AgentActionOutcome> values) {
+      if (actionOutcomesBuilder_ == null) {
+        ensureActionOutcomesIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(values, actionOutcomes_);
+        onChanged();
+      } else {
+        actionOutcomesBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public Builder clearActionOutcomes() {
+      if (actionOutcomesBuilder_ == null) {
+        actionOutcomes_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00002000);
+        onChanged();
+      } else {
+        actionOutcomesBuilder_.clear();
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public Builder removeActionOutcomes(int index) {
+      if (actionOutcomesBuilder_ == null) {
+        ensureActionOutcomesIsMutable();
+        actionOutcomes_.remove(index);
+        onChanged();
+      } else {
+        actionOutcomesBuilder_.remove(index);
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.AgentActionOutcome.Builder getActionOutcomesBuilder(
+        int index) {
+      return getActionOutcomesFieldBuilder().getBuilder(index);
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.AgentActionOutcomeOrBuilder getActionOutcomesOrBuilder(
+        int index) {
+      if (actionOutcomesBuilder_ == null) {
+        return actionOutcomes_.get(index);
+      } else {
+        return actionOutcomesBuilder_.getMessageOrBuilder(index);
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public java.util.List<? extends io.browsercloud.proto.node.v1.AgentActionOutcomeOrBuilder>
+        getActionOutcomesOrBuilderList() {
+      if (actionOutcomesBuilder_ != null) {
+        return actionOutcomesBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(actionOutcomes_);
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.AgentActionOutcome.Builder addActionOutcomesBuilder() {
+      return getActionOutcomesFieldBuilder()
+          .addBuilder(io.browsercloud.proto.node.v1.AgentActionOutcome.getDefaultInstance());
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.AgentActionOutcome.Builder addActionOutcomesBuilder(
+        int index) {
+      return getActionOutcomesFieldBuilder()
+          .addBuilder(index, io.browsercloud.proto.node.v1.AgentActionOutcome.getDefaultInstance());
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+     * </pre>
+     *
+     * <code>
+     * repeated .browsercloud.node.v1.AgentActionOutcome action_outcomes = 14 [json_name = "actionOutcomes"];
+     * </code>
+     */
+    public java.util.List<io.browsercloud.proto.node.v1.AgentActionOutcome.Builder>
+        getActionOutcomesBuilderList() {
+      return getActionOutcomesFieldBuilder().getBuilderList();
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilderV3<
+            io.browsercloud.proto.node.v1.AgentActionOutcome,
+            io.browsercloud.proto.node.v1.AgentActionOutcome.Builder,
+            io.browsercloud.proto.node.v1.AgentActionOutcomeOrBuilder>
+        getActionOutcomesFieldBuilder() {
+      if (actionOutcomesBuilder_ == null) {
+        actionOutcomesBuilder_ =
+            new com.google.protobuf.RepeatedFieldBuilderV3<
+                io.browsercloud.proto.node.v1.AgentActionOutcome,
+                io.browsercloud.proto.node.v1.AgentActionOutcome.Builder,
+                io.browsercloud.proto.node.v1.AgentActionOutcomeOrBuilder>(
+                actionOutcomes_,
+                ((bitField0_ & 0x00002000) != 0),
+                getParentForChildren(),
+                isClean());
+        actionOutcomes_ = null;
+      }
+      return actionOutcomesBuilder_;
+    }
+
+    private java.util.List<io.browsercloud.proto.node.v1.BrowserTabState> tabs_ =
+        java.util.Collections.emptyList();
+
+    private void ensureTabsIsMutable() {
+      if (!((bitField0_ & 0x00004000) != 0)) {
+        tabs_ = new java.util.ArrayList<io.browsercloud.proto.node.v1.BrowserTabState>(tabs_);
+        bitField0_ |= 0x00004000;
+      }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilderV3<
+            io.browsercloud.proto.node.v1.BrowserTabState,
+            io.browsercloud.proto.node.v1.BrowserTabState.Builder,
+            io.browsercloud.proto.node.v1.BrowserTabStateOrBuilder>
+        tabsBuilder_;
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public java.util.List<io.browsercloud.proto.node.v1.BrowserTabState> getTabsList() {
+      if (tabsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(tabs_);
+      } else {
+        return tabsBuilder_.getMessageList();
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public int getTabsCount() {
+      if (tabsBuilder_ == null) {
+        return tabs_.size();
+      } else {
+        return tabsBuilder_.getCount();
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public io.browsercloud.proto.node.v1.BrowserTabState getTabs(int index) {
+      if (tabsBuilder_ == null) {
+        return tabs_.get(index);
+      } else {
+        return tabsBuilder_.getMessage(index);
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public Builder setTabs(int index, io.browsercloud.proto.node.v1.BrowserTabState value) {
+      if (tabsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureTabsIsMutable();
+        tabs_.set(index, value);
+        onChanged();
+      } else {
+        tabsBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public Builder setTabs(
+        int index, io.browsercloud.proto.node.v1.BrowserTabState.Builder builderForValue) {
+      if (tabsBuilder_ == null) {
+        ensureTabsIsMutable();
+        tabs_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        tabsBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public Builder addTabs(io.browsercloud.proto.node.v1.BrowserTabState value) {
+      if (tabsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureTabsIsMutable();
+        tabs_.add(value);
+        onChanged();
+      } else {
+        tabsBuilder_.addMessage(value);
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public Builder addTabs(int index, io.browsercloud.proto.node.v1.BrowserTabState value) {
+      if (tabsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureTabsIsMutable();
+        tabs_.add(index, value);
+        onChanged();
+      } else {
+        tabsBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public Builder addTabs(io.browsercloud.proto.node.v1.BrowserTabState.Builder builderForValue) {
+      if (tabsBuilder_ == null) {
+        ensureTabsIsMutable();
+        tabs_.add(builderForValue.build());
+        onChanged();
+      } else {
+        tabsBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public Builder addTabs(
+        int index, io.browsercloud.proto.node.v1.BrowserTabState.Builder builderForValue) {
+      if (tabsBuilder_ == null) {
+        ensureTabsIsMutable();
+        tabs_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        tabsBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public Builder addAllTabs(
+        java.lang.Iterable<? extends io.browsercloud.proto.node.v1.BrowserTabState> values) {
+      if (tabsBuilder_ == null) {
+        ensureTabsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(values, tabs_);
+        onChanged();
+      } else {
+        tabsBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public Builder clearTabs() {
+      if (tabsBuilder_ == null) {
+        tabs_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00004000);
+        onChanged();
+      } else {
+        tabsBuilder_.clear();
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public Builder removeTabs(int index) {
+      if (tabsBuilder_ == null) {
+        ensureTabsIsMutable();
+        tabs_.remove(index);
+        onChanged();
+      } else {
+        tabsBuilder_.remove(index);
+      }
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public io.browsercloud.proto.node.v1.BrowserTabState.Builder getTabsBuilder(int index) {
+      return getTabsFieldBuilder().getBuilder(index);
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public io.browsercloud.proto.node.v1.BrowserTabStateOrBuilder getTabsOrBuilder(int index) {
+      if (tabsBuilder_ == null) {
+        return tabs_.get(index);
+      } else {
+        return tabsBuilder_.getMessageOrBuilder(index);
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public java.util.List<? extends io.browsercloud.proto.node.v1.BrowserTabStateOrBuilder>
+        getTabsOrBuilderList() {
+      if (tabsBuilder_ != null) {
+        return tabsBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(tabs_);
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public io.browsercloud.proto.node.v1.BrowserTabState.Builder addTabsBuilder() {
+      return getTabsFieldBuilder()
+          .addBuilder(io.browsercloud.proto.node.v1.BrowserTabState.getDefaultInstance());
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public io.browsercloud.proto.node.v1.BrowserTabState.Builder addTabsBuilder(int index) {
+      return getTabsFieldBuilder()
+          .addBuilder(index, io.browsercloud.proto.node.v1.BrowserTabState.getDefaultInstance());
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+     * </pre>
+     *
+     * <code>repeated .browsercloud.node.v1.BrowserTabState tabs = 15 [json_name = "tabs"];</code>
+     */
+    public java.util.List<io.browsercloud.proto.node.v1.BrowserTabState.Builder>
+        getTabsBuilderList() {
+      return getTabsFieldBuilder().getBuilderList();
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilderV3<
+            io.browsercloud.proto.node.v1.BrowserTabState,
+            io.browsercloud.proto.node.v1.BrowserTabState.Builder,
+            io.browsercloud.proto.node.v1.BrowserTabStateOrBuilder>
+        getTabsFieldBuilder() {
+      if (tabsBuilder_ == null) {
+        tabsBuilder_ =
+            new com.google.protobuf.RepeatedFieldBuilderV3<
+                io.browsercloud.proto.node.v1.BrowserTabState,
+                io.browsercloud.proto.node.v1.BrowserTabState.Builder,
+                io.browsercloud.proto.node.v1.BrowserTabStateOrBuilder>(
+                tabs_, ((bitField0_ & 0x00004000) != 0), getParentForChildren(), isClean());
+        tabs_ = null;
+      }
+      return tabsBuilder_;
+    }
+
+    private java.lang.Object activeTabId_ = "";
+
+    /**
+     * <code>string active_tab_id = 16 [json_name = "activeTabId"];</code>
+     *
+     * @return The activeTabId.
+     */
+    public java.lang.String getActiveTabId() {
+      java.lang.Object ref = activeTabId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        activeTabId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string active_tab_id = 16 [json_name = "activeTabId"];</code>
+     *
+     * @return The bytes for activeTabId.
+     */
+    public com.google.protobuf.ByteString getActiveTabIdBytes() {
+      java.lang.Object ref = activeTabId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        activeTabId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string active_tab_id = 16 [json_name = "activeTabId"];</code>
+     *
+     * @param value The activeTabId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActiveTabId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      activeTabId_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string active_tab_id = 16 [json_name = "activeTabId"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearActiveTabId() {
+      activeTabId_ = getDefaultInstance().getActiveTabId();
+      bitField0_ = (bitField0_ & ~0x00008000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string active_tab_id = 16 [json_name = "activeTabId"];</code>
+     *
+     * @param value The bytes for activeTabId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActiveTabIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      activeTabId_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+
+    private java.util.List<io.browsercloud.proto.node.v1.BrowserNativeDialogState> nativeDialogs_ =
+        java.util.Collections.emptyList();
+
+    private void ensureNativeDialogsIsMutable() {
+      if (!((bitField0_ & 0x00010000) != 0)) {
+        nativeDialogs_ =
+            new java.util.ArrayList<io.browsercloud.proto.node.v1.BrowserNativeDialogState>(
+                nativeDialogs_);
+        bitField0_ |= 0x00010000;
+      }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilderV3<
+            io.browsercloud.proto.node.v1.BrowserNativeDialogState,
+            io.browsercloud.proto.node.v1.BrowserNativeDialogState.Builder,
+            io.browsercloud.proto.node.v1.BrowserNativeDialogStateOrBuilder>
+        nativeDialogsBuilder_;
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public java.util.List<io.browsercloud.proto.node.v1.BrowserNativeDialogState>
+        getNativeDialogsList() {
+      if (nativeDialogsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(nativeDialogs_);
+      } else {
+        return nativeDialogsBuilder_.getMessageList();
+      }
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public int getNativeDialogsCount() {
+      if (nativeDialogsBuilder_ == null) {
+        return nativeDialogs_.size();
+      } else {
+        return nativeDialogsBuilder_.getCount();
+      }
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.BrowserNativeDialogState getNativeDialogs(int index) {
+      if (nativeDialogsBuilder_ == null) {
+        return nativeDialogs_.get(index);
+      } else {
+        return nativeDialogsBuilder_.getMessage(index);
+      }
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public Builder setNativeDialogs(
+        int index, io.browsercloud.proto.node.v1.BrowserNativeDialogState value) {
+      if (nativeDialogsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureNativeDialogsIsMutable();
+        nativeDialogs_.set(index, value);
+        onChanged();
+      } else {
+        nativeDialogsBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public Builder setNativeDialogs(
+        int index, io.browsercloud.proto.node.v1.BrowserNativeDialogState.Builder builderForValue) {
+      if (nativeDialogsBuilder_ == null) {
+        ensureNativeDialogsIsMutable();
+        nativeDialogs_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        nativeDialogsBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public Builder addNativeDialogs(io.browsercloud.proto.node.v1.BrowserNativeDialogState value) {
+      if (nativeDialogsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureNativeDialogsIsMutable();
+        nativeDialogs_.add(value);
+        onChanged();
+      } else {
+        nativeDialogsBuilder_.addMessage(value);
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public Builder addNativeDialogs(
+        int index, io.browsercloud.proto.node.v1.BrowserNativeDialogState value) {
+      if (nativeDialogsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureNativeDialogsIsMutable();
+        nativeDialogs_.add(index, value);
+        onChanged();
+      } else {
+        nativeDialogsBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public Builder addNativeDialogs(
+        io.browsercloud.proto.node.v1.BrowserNativeDialogState.Builder builderForValue) {
+      if (nativeDialogsBuilder_ == null) {
+        ensureNativeDialogsIsMutable();
+        nativeDialogs_.add(builderForValue.build());
+        onChanged();
+      } else {
+        nativeDialogsBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public Builder addNativeDialogs(
+        int index, io.browsercloud.proto.node.v1.BrowserNativeDialogState.Builder builderForValue) {
+      if (nativeDialogsBuilder_ == null) {
+        ensureNativeDialogsIsMutable();
+        nativeDialogs_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        nativeDialogsBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public Builder addAllNativeDialogs(
+        java.lang.Iterable<? extends io.browsercloud.proto.node.v1.BrowserNativeDialogState>
+            values) {
+      if (nativeDialogsBuilder_ == null) {
+        ensureNativeDialogsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(values, nativeDialogs_);
+        onChanged();
+      } else {
+        nativeDialogsBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public Builder clearNativeDialogs() {
+      if (nativeDialogsBuilder_ == null) {
+        nativeDialogs_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00010000);
+        onChanged();
+      } else {
+        nativeDialogsBuilder_.clear();
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public Builder removeNativeDialogs(int index) {
+      if (nativeDialogsBuilder_ == null) {
+        ensureNativeDialogsIsMutable();
+        nativeDialogs_.remove(index);
+        onChanged();
+      } else {
+        nativeDialogsBuilder_.remove(index);
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.BrowserNativeDialogState.Builder getNativeDialogsBuilder(
+        int index) {
+      return getNativeDialogsFieldBuilder().getBuilder(index);
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.BrowserNativeDialogStateOrBuilder
+        getNativeDialogsOrBuilder(int index) {
+      if (nativeDialogsBuilder_ == null) {
+        return nativeDialogs_.get(index);
+      } else {
+        return nativeDialogsBuilder_.getMessageOrBuilder(index);
+      }
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public java.util.List<? extends io.browsercloud.proto.node.v1.BrowserNativeDialogStateOrBuilder>
+        getNativeDialogsOrBuilderList() {
+      if (nativeDialogsBuilder_ != null) {
+        return nativeDialogsBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(nativeDialogs_);
+      }
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.BrowserNativeDialogState.Builder
+        addNativeDialogsBuilder() {
+      return getNativeDialogsFieldBuilder()
+          .addBuilder(io.browsercloud.proto.node.v1.BrowserNativeDialogState.getDefaultInstance());
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.BrowserNativeDialogState.Builder addNativeDialogsBuilder(
+        int index) {
+      return getNativeDialogsFieldBuilder()
+          .addBuilder(
+              index, io.browsercloud.proto.node.v1.BrowserNativeDialogState.getDefaultInstance());
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserNativeDialogState native_dialogs = 17 [json_name = "nativeDialogs"];
+     * </code>
+     */
+    public java.util.List<io.browsercloud.proto.node.v1.BrowserNativeDialogState.Builder>
+        getNativeDialogsBuilderList() {
+      return getNativeDialogsFieldBuilder().getBuilderList();
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilderV3<
+            io.browsercloud.proto.node.v1.BrowserNativeDialogState,
+            io.browsercloud.proto.node.v1.BrowserNativeDialogState.Builder,
+            io.browsercloud.proto.node.v1.BrowserNativeDialogStateOrBuilder>
+        getNativeDialogsFieldBuilder() {
+      if (nativeDialogsBuilder_ == null) {
+        nativeDialogsBuilder_ =
+            new com.google.protobuf.RepeatedFieldBuilderV3<
+                io.browsercloud.proto.node.v1.BrowserNativeDialogState,
+                io.browsercloud.proto.node.v1.BrowserNativeDialogState.Builder,
+                io.browsercloud.proto.node.v1.BrowserNativeDialogStateOrBuilder>(
+                nativeDialogs_,
+                ((bitField0_ & 0x00010000) != 0),
+                getParentForChildren(),
+                isClean());
+        nativeDialogs_ = null;
+      }
+      return nativeDialogsBuilder_;
+    }
+
+    private boolean nativeDialogEvidenceFresh_;
+
+    /**
+     *
+     *
+     * <pre>
+     * False means N-1 or an observer gap. Control Plane preserves the last projection but rejects
+     * dialog actions until a continuous event stream or a safe Runtime probe restores freshness.
+     * </pre>
+     *
+     * <code>bool native_dialog_evidence_fresh = 18 [json_name = "nativeDialogEvidenceFresh"];
+     * </code>
+     *
+     * @return The nativeDialogEvidenceFresh.
+     */
     @java.lang.Override
-    public final Builder setUnknownFields(
-        final com.google.protobuf.UnknownFieldSet unknownFields) {
+    public boolean getNativeDialogEvidenceFresh() {
+      return nativeDialogEvidenceFresh_;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * False means N-1 or an observer gap. Control Plane preserves the last projection but rejects
+     * dialog actions until a continuous event stream or a safe Runtime probe restores freshness.
+     * </pre>
+     *
+     * <code>bool native_dialog_evidence_fresh = 18 [json_name = "nativeDialogEvidenceFresh"];
+     * </code>
+     *
+     * @param value The nativeDialogEvidenceFresh to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNativeDialogEvidenceFresh(boolean value) {
+
+      nativeDialogEvidenceFresh_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * False means N-1 or an observer gap. Control Plane preserves the last projection but rejects
+     * dialog actions until a continuous event stream or a safe Runtime probe restores freshness.
+     * </pre>
+     *
+     * <code>bool native_dialog_evidence_fresh = 18 [json_name = "nativeDialogEvidenceFresh"];
+     * </code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearNativeDialogEvidenceFresh() {
+      bitField0_ = (bitField0_ & ~0x00020000);
+      nativeDialogEvidenceFresh_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.util.List<io.browsercloud.proto.node.v1.BrowserDownloadState> downloads_ =
+        java.util.Collections.emptyList();
+
+    private void ensureDownloadsIsMutable() {
+      if (!((bitField0_ & 0x00040000) != 0)) {
+        downloads_ =
+            new java.util.ArrayList<io.browsercloud.proto.node.v1.BrowserDownloadState>(downloads_);
+        bitField0_ |= 0x00040000;
+      }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilderV3<
+            io.browsercloud.proto.node.v1.BrowserDownloadState,
+            io.browsercloud.proto.node.v1.BrowserDownloadState.Builder,
+            io.browsercloud.proto.node.v1.BrowserDownloadStateOrBuilder>
+        downloadsBuilder_;
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public java.util.List<io.browsercloud.proto.node.v1.BrowserDownloadState> getDownloadsList() {
+      if (downloadsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(downloads_);
+      } else {
+        return downloadsBuilder_.getMessageList();
+      }
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public int getDownloadsCount() {
+      if (downloadsBuilder_ == null) {
+        return downloads_.size();
+      } else {
+        return downloadsBuilder_.getCount();
+      }
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.BrowserDownloadState getDownloads(int index) {
+      if (downloadsBuilder_ == null) {
+        return downloads_.get(index);
+      } else {
+        return downloadsBuilder_.getMessage(index);
+      }
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public Builder setDownloads(
+        int index, io.browsercloud.proto.node.v1.BrowserDownloadState value) {
+      if (downloadsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureDownloadsIsMutable();
+        downloads_.set(index, value);
+        onChanged();
+      } else {
+        downloadsBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public Builder setDownloads(
+        int index, io.browsercloud.proto.node.v1.BrowserDownloadState.Builder builderForValue) {
+      if (downloadsBuilder_ == null) {
+        ensureDownloadsIsMutable();
+        downloads_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        downloadsBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public Builder addDownloads(io.browsercloud.proto.node.v1.BrowserDownloadState value) {
+      if (downloadsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureDownloadsIsMutable();
+        downloads_.add(value);
+        onChanged();
+      } else {
+        downloadsBuilder_.addMessage(value);
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public Builder addDownloads(
+        int index, io.browsercloud.proto.node.v1.BrowserDownloadState value) {
+      if (downloadsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureDownloadsIsMutable();
+        downloads_.add(index, value);
+        onChanged();
+      } else {
+        downloadsBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public Builder addDownloads(
+        io.browsercloud.proto.node.v1.BrowserDownloadState.Builder builderForValue) {
+      if (downloadsBuilder_ == null) {
+        ensureDownloadsIsMutable();
+        downloads_.add(builderForValue.build());
+        onChanged();
+      } else {
+        downloadsBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public Builder addDownloads(
+        int index, io.browsercloud.proto.node.v1.BrowserDownloadState.Builder builderForValue) {
+      if (downloadsBuilder_ == null) {
+        ensureDownloadsIsMutable();
+        downloads_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        downloadsBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public Builder addAllDownloads(
+        java.lang.Iterable<? extends io.browsercloud.proto.node.v1.BrowserDownloadState> values) {
+      if (downloadsBuilder_ == null) {
+        ensureDownloadsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(values, downloads_);
+        onChanged();
+      } else {
+        downloadsBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public Builder clearDownloads() {
+      if (downloadsBuilder_ == null) {
+        downloads_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00040000);
+        onChanged();
+      } else {
+        downloadsBuilder_.clear();
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public Builder removeDownloads(int index) {
+      if (downloadsBuilder_ == null) {
+        ensureDownloadsIsMutable();
+        downloads_.remove(index);
+        onChanged();
+      } else {
+        downloadsBuilder_.remove(index);
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.BrowserDownloadState.Builder getDownloadsBuilder(
+        int index) {
+      return getDownloadsFieldBuilder().getBuilder(index);
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.BrowserDownloadStateOrBuilder getDownloadsOrBuilder(
+        int index) {
+      if (downloadsBuilder_ == null) {
+        return downloads_.get(index);
+      } else {
+        return downloadsBuilder_.getMessageOrBuilder(index);
+      }
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public java.util.List<? extends io.browsercloud.proto.node.v1.BrowserDownloadStateOrBuilder>
+        getDownloadsOrBuilderList() {
+      if (downloadsBuilder_ != null) {
+        return downloadsBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(downloads_);
+      }
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.BrowserDownloadState.Builder addDownloadsBuilder() {
+      return getDownloadsFieldBuilder()
+          .addBuilder(io.browsercloud.proto.node.v1.BrowserDownloadState.getDefaultInstance());
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.BrowserDownloadState.Builder addDownloadsBuilder(
+        int index) {
+      return getDownloadsFieldBuilder()
+          .addBuilder(
+              index, io.browsercloud.proto.node.v1.BrowserDownloadState.getDefaultInstance());
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.BrowserDownloadState downloads = 19 [json_name = "downloads"];
+     * </code>
+     */
+    public java.util.List<io.browsercloud.proto.node.v1.BrowserDownloadState.Builder>
+        getDownloadsBuilderList() {
+      return getDownloadsFieldBuilder().getBuilderList();
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilderV3<
+            io.browsercloud.proto.node.v1.BrowserDownloadState,
+            io.browsercloud.proto.node.v1.BrowserDownloadState.Builder,
+            io.browsercloud.proto.node.v1.BrowserDownloadStateOrBuilder>
+        getDownloadsFieldBuilder() {
+      if (downloadsBuilder_ == null) {
+        downloadsBuilder_ =
+            new com.google.protobuf.RepeatedFieldBuilderV3<
+                io.browsercloud.proto.node.v1.BrowserDownloadState,
+                io.browsercloud.proto.node.v1.BrowserDownloadState.Builder,
+                io.browsercloud.proto.node.v1.BrowserDownloadStateOrBuilder>(
+                downloads_, ((bitField0_ & 0x00040000) != 0), getParentForChildren(), isClean());
+        downloads_ = null;
+      }
+      return downloadsBuilder_;
+    }
+
+    private boolean downloadEvidenceFresh_;
+
+    /**
+     *
+     *
+     * <pre>
+     * False means the Browser-level event observer has a gap. No missing entry may be interpreted
+     * as completed until a new Runtime establishes a continuous source.
+     * </pre>
+     *
+     * <code>bool download_evidence_fresh = 20 [json_name = "downloadEvidenceFresh"];</code>
+     *
+     * @return The downloadEvidenceFresh.
+     */
+    @java.lang.Override
+    public boolean getDownloadEvidenceFresh() {
+      return downloadEvidenceFresh_;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * False means the Browser-level event observer has a gap. No missing entry may be interpreted
+     * as completed until a new Runtime establishes a continuous source.
+     * </pre>
+     *
+     * <code>bool download_evidence_fresh = 20 [json_name = "downloadEvidenceFresh"];</code>
+     *
+     * @param value The downloadEvidenceFresh to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDownloadEvidenceFresh(boolean value) {
+
+      downloadEvidenceFresh_ = value;
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * False means the Browser-level event observer has a gap. No missing entry may be interpreted
+     * as completed until a new Runtime establishes a continuous source.
+     * </pre>
+     *
+     * <code>bool download_evidence_fresh = 20 [json_name = "downloadEvidenceFresh"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearDownloadEvidenceFresh() {
+      bitField0_ = (bitField0_ & ~0x00080000);
+      downloadEvidenceFresh_ = false;
+      onChanged();
+      return this;
+    }
+
+    @java.lang.Override
+    public final Builder setUnknownFields(final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.setUnknownFields(unknownFields);
     }
 
@@ -2150,12 +4691,12 @@ private static final long serialVersionUID = 0L;
       return super.mergeUnknownFields(unknownFields);
     }
 
-
     // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.BrowserStateEvent)
   }
 
   // @@protoc_insertion_point(class_scope:browsercloud.node.v1.BrowserStateEvent)
   private static final io.browsercloud.proto.node.v1.BrowserStateEvent DEFAULT_INSTANCE;
+
   static {
     DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.BrowserStateEvent();
   }
@@ -2164,27 +4705,27 @@ private static final long serialVersionUID = 0L;
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<BrowserStateEvent>
-      PARSER = new com.google.protobuf.AbstractParser<BrowserStateEvent>() {
-    @java.lang.Override
-    public BrowserStateEvent parsePartialFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      Builder builder = newBuilder();
-      try {
-        builder.mergeFrom(input, extensionRegistry);
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(builder.buildPartial());
-      } catch (com.google.protobuf.UninitializedMessageException e) {
-        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(e)
-            .setUnfinishedMessage(builder.buildPartial());
-      }
-      return builder.buildPartial();
-    }
-  };
+  private static final com.google.protobuf.Parser<BrowserStateEvent> PARSER =
+      new com.google.protobuf.AbstractParser<BrowserStateEvent>() {
+        @java.lang.Override
+        public BrowserStateEvent parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          Builder builder = newBuilder();
+          try {
+            builder.mergeFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            throw e.setUnfinishedMessage(builder.buildPartial());
+          } catch (com.google.protobuf.UninitializedMessageException e) {
+            throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+          } catch (java.io.IOException e) {
+            throw new com.google.protobuf.InvalidProtocolBufferException(e)
+                .setUnfinishedMessage(builder.buildPartial());
+          }
+          return builder.buildPartial();
+        }
+      };
 
   public static com.google.protobuf.Parser<BrowserStateEvent> parser() {
     return PARSER;
@@ -2199,5 +4740,4 @@ private static final long serialVersionUID = 0L;
   public io.browsercloud.proto.node.v1.BrowserStateEvent getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
-
 }

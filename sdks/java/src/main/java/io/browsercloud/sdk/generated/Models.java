@@ -233,6 +233,14 @@ public final class Models {
 
   public record BrowserState(String sessionId, Long contextEpoch, Long stateVersion, Long targetRevision, String url, String title, String stateHash, String stateQuality, String documentReadyState, Long networkQuietMillis, Boolean networkEvidenceFresh, List<InteractiveTarget> targets, List<AgentBrowserTab> tabs, String activeTabId, List<AgentBrowserNativeDialog> nativeDialogs, Boolean nativeDialogEvidenceFresh) {}
 
+  public record UploadAgentBrowserFileRequest(String targetRef, Long targetRevision, Long baseStateVersion, String baseContentHash, String filename, String mimeType, String contentSha256, String file) {}
+
+  public record AgentBrowserFileUpload(String uploadId, String operationId, String sessionId, String targetRef, String filename, String mimeType, String contentSha256, Long contentBytes, String state, Object errorCode, Object stateVersionAfter, String requestId, String createdAt, String updatedAt, Object completedAt) {}
+
+  public record AgentBrowserDownload(String downloadId, String filename, String mimeType, Object size, Long receivedBytes, Object progress, String status, String startedAt, String updatedAt) {}
+
+  public record AgentBrowserDownloadList(String stateCursor, Boolean evidenceFresh, Boolean dataStale, List<AgentBrowserDownload> downloads) {}
+
   public record AgentBrowserSnapshot(String stateCursor, BrowserState state, String visibleTextSummary, List<AgentBrowserTab> tabs, AgentBrowserTab activeTab, Object focusedElementId, List<String> formControlElementIds, List<String> dialogElementIds, List<AgentBrowserNativeDialog> nativeDialogs, Boolean nativeDialogEvidenceFresh, String pageLoadingState, String challengeState, Boolean visionRecommended) {}
 
   public record AgentBrowserTab(String tabId, String url, String title, Boolean active) {}

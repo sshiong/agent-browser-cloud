@@ -14,6 +14,9 @@ export type { ActorId } from './models/ActorId.js';
 export type { AgentActionRequest } from './models/AgentActionRequest.js';
 export type { AgentBatchActionInput } from './models/AgentBatchActionInput.js';
 export type { AgentBatchActionRequest } from './models/AgentBatchActionRequest.js';
+export type { AgentBrowserDownload } from './models/AgentBrowserDownload.js';
+export type { AgentBrowserDownloadList } from './models/AgentBrowserDownloadList.js';
+export type { AgentBrowserFileUpload } from './models/AgentBrowserFileUpload.js';
 export type { AgentBrowserFindRequest } from './models/AgentBrowserFindRequest.js';
 export type { AgentBrowserInspectRequest } from './models/AgentBrowserInspectRequest.js';
 export type { AgentBrowserNativeDialog } from './models/AgentBrowserNativeDialog.js';
@@ -287,6 +290,7 @@ export type { UpdateNotificationReadCursorRequest } from './models/UpdateNotific
 export type { UpdateRecoveryGameDayRemediationRequest } from './models/UpdateRecoveryGameDayRemediationRequest.js';
 export type { UpdateRecoveryGameDayStageRequest } from './models/UpdateRecoveryGameDayStageRequest.js';
 export type { UpdateUserPreferencesRequest } from './models/UpdateUserPreferencesRequest.js';
+export type { UploadAgentBrowserFileRequest } from './models/UploadAgentBrowserFileRequest.js';
 export type { UpsertExtensionProfileRequest } from './models/UpsertExtensionProfileRequest.js';
 export type { UpsertLicenseInventoryRequest } from './models/UpsertLicenseInventoryRequest.js';
 export type { UpsertMediaQuotaRequest } from './models/UpsertMediaQuotaRequest.js';

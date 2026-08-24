@@ -7,6 +7,9 @@ import {
   getAgentTask,
   listAgentTaskSummaries,
   listAgentTasks,
+  uploadAgentBrowserFile,
+  listAgentBrowserDownloads,
+  waitForAgentBrowserDownload,
 } from './agent';
 
 afterEach(() => vi.restoreAllMocks());
@@ -161,6 +164,81 @@ describe('agent API', () => {
         method: 'POST',
         headers: expect.objectContaining({ 'X-Actor-Id': 'user-local' }),
       })
+    );
+  });
+
+  it('streams Agent Browser files as multipart without overriding the boundary', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ uploadId: 'afu_1234567890abcdefghij' }), {
+        status: 202,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await uploadAgentBrowserFile(
+      'ses_1234567890abcdef',
+      {
+        targetRef: 'target:file',
+        targetRevision: 4,
+        baseStateVersion: 9,
+        baseContentHash: 'a'.repeat(64),
+        filename: 'evidence.txt',
+        mimeType: 'text/plain',
+        contentSha256: 'b'.repeat(64),
+        file: new Blob(['bounded'], { type: 'text/plain' }),
+      },
+      'idem-file-1',
+      'tenant-test',
+      'agent-worker'
+    );
+
+    const call = fetchMock.mock.calls[0];
+    expect(call).toBeDefined();
+    const [, init] = call!;
+    expect(init).toEqual(
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.any(FormData),
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+          'X-Actor-Id': 'agent-worker',
+          'Idempotency-Key': 'idem-file-1',
+        }),
+      })
+    );
+    expect(
+      (init?.headers as Record<string, string>)['Content-Type']
+    ).toBeUndefined();
+    expect((init?.body as FormData).get('targetRef')).toBe('target:file');
+    expect((init?.body as FormData).get('filename')).toBe('evidence.txt');
+  });
+
+  it('reads and waits on the shared authoritative download projection', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ downloads: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+    );
+
+    await listAgentBrowserDownloads('ses_1234567890abcdef', 'tenant-test');
+    await waitForAgentBrowserDownload(
+      'ses_1234567890abcdef',
+      'dld_1234567890abcdefabcd',
+      5_000,
+      'tenant-test'
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/sessions/ses_1234567890abcdef/agent-browser/files/downloads',
+      expect.any(Object)
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/sessions/ses_1234567890abcdef/agent-browser/files/downloads/dld_1234567890abcdefabcd:wait?timeoutMs=5000',
+      expect.any(Object)
     );
   });
 });

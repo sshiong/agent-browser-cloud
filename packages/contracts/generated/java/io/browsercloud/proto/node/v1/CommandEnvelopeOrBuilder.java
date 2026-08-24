@@ -4,118 +4,143 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface CommandEnvelopeOrBuilder extends
+public interface CommandEnvelopeOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.CommandEnvelope)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string message_id = 1 [json_name = "messageId"];</code>
+   *
    * @return The messageId.
    */
   java.lang.String getMessageId();
+
   /**
    * <code>string message_id = 1 [json_name = "messageId"];</code>
+   *
    * @return The bytes for messageId.
    */
-  com.google.protobuf.ByteString
-      getMessageIdBytes();
+  com.google.protobuf.ByteString getMessageIdBytes();
 
   /**
    * <code>string command_type = 2 [json_name = "commandType"];</code>
+   *
    * @return The commandType.
    */
   java.lang.String getCommandType();
+
   /**
    * <code>string command_type = 2 [json_name = "commandType"];</code>
+   *
    * @return The bytes for commandType.
    */
-  com.google.protobuf.ByteString
-      getCommandTypeBytes();
+  com.google.protobuf.ByteString getCommandTypeBytes();
 
   /**
    * <code>string tenant_id = 3 [json_name = "tenantId"];</code>
+   *
    * @return The tenantId.
    */
   java.lang.String getTenantId();
+
   /**
    * <code>string tenant_id = 3 [json_name = "tenantId"];</code>
+   *
    * @return The bytes for tenantId.
    */
-  com.google.protobuf.ByteString
-      getTenantIdBytes();
+  com.google.protobuf.ByteString getTenantIdBytes();
 
   /**
    * <code>string session_id = 4 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
-  /**
-   * <code>string session_id = 4 [json_name = "sessionId"];</code>
-   * @return The bytes for sessionId.
-   */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
 
   /**
+   * <code>string session_id = 4 [json_name = "sessionId"];</code>
+   *
+   * @return The bytes for sessionId.
+   */
+  com.google.protobuf.ByteString getSessionIdBytes();
+
+  /**
+   *
+   *
    * <pre>
    * 版本控制
    * </pre>
    *
    * <code>int64 coordinator_term = 10 [json_name = "coordinatorTerm"];</code>
+   *
    * @return The coordinatorTerm.
    */
   long getCoordinatorTerm();
 
   /**
    * <code>int64 context_epoch = 11 [json_name = "contextEpoch"];</code>
+   *
    * @return The contextEpoch.
    */
   long getContextEpoch();
 
   /**
    * <code>int64 operation_epoch = 12 [json_name = "operationEpoch"];</code>
+   *
    * @return The operationEpoch.
    */
   long getOperationEpoch();
 
   /**
+   *
+   *
    * <pre>
    * PostgreSQL authoritative route fencing. Zero is accepted only during N/N-1 rollout.
    * </pre>
    *
    * <code>int64 route_epoch = 13 [json_name = "routeEpoch"];</code>
+   *
    * @return The routeEpoch.
    */
   long getRouteEpoch();
 
   /**
    * <code>int32 coordinator_shard_id = 14 [json_name = "coordinatorShardId"];</code>
+   *
    * @return The coordinatorShardId.
    */
   int getCoordinatorShardId();
 
   /**
+   *
+   *
    * <pre>
    * 幂等
    * </pre>
    *
    * <code>string idempotency_key = 20 [json_name = "idempotencyKey"];</code>
+   *
    * @return The idempotencyKey.
    */
   java.lang.String getIdempotencyKey();
+
   /**
+   *
+   *
    * <pre>
    * 幂等
    * </pre>
    *
    * <code>string idempotency_key = 20 [json_name = "idempotencyKey"];</code>
+   *
    * @return The bytes for idempotencyKey.
    */
-  com.google.protobuf.ByteString
-      getIdempotencyKeyBytes();
+  com.google.protobuf.ByteString getIdempotencyKeyBytes();
 
   /**
    * <code>bytes payload = 21 [json_name = "payload"];</code>
+   *
    * @return The payload.
    */
   com.google.protobuf.ByteString getPayload();

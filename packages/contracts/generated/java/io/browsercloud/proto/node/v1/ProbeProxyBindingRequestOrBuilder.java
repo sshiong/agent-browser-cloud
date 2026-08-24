@@ -4,79 +4,92 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface ProbeProxyBindingRequestOrBuilder extends
+public interface ProbeProxyBindingRequestOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.ProbeProxyBindingRequest)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string probe_id = 1 [json_name = "probeId"];</code>
+   *
    * @return The probeId.
    */
   java.lang.String getProbeId();
+
   /**
    * <code>string probe_id = 1 [json_name = "probeId"];</code>
+   *
    * @return The bytes for probeId.
    */
-  com.google.protobuf.ByteString
-      getProbeIdBytes();
+  com.google.protobuf.ByteString getProbeIdBytes();
 
   /**
    * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+   *
    * @return The tenantId.
    */
   java.lang.String getTenantId();
+
   /**
    * <code>string tenant_id = 2 [json_name = "tenantId"];</code>
+   *
    * @return The bytes for tenantId.
    */
-  com.google.protobuf.ByteString
-      getTenantIdBytes();
+  com.google.protobuf.ByteString getTenantIdBytes();
 
   /**
    * <code>string binding_profile_id = 3 [json_name = "bindingProfileId"];</code>
+   *
    * @return The bindingProfileId.
    */
   java.lang.String getBindingProfileId();
+
   /**
    * <code>string binding_profile_id = 3 [json_name = "bindingProfileId"];</code>
+   *
    * @return The bytes for bindingProfileId.
    */
-  com.google.protobuf.ByteString
-      getBindingProfileIdBytes();
+  com.google.protobuf.ByteString getBindingProfileIdBytes();
 
   /**
    * <code>string provider_id = 4 [json_name = "providerId"];</code>
+   *
    * @return The providerId.
    */
   java.lang.String getProviderId();
+
   /**
    * <code>string provider_id = 4 [json_name = "providerId"];</code>
+   *
    * @return The bytes for providerId.
    */
-  com.google.protobuf.ByteString
-      getProviderIdBytes();
+  com.google.protobuf.ByteString getProviderIdBytes();
 
   /**
    * <code>string expected_exit_ip = 5 [json_name = "expectedExitIp"];</code>
+   *
    * @return The expectedExitIp.
    */
   java.lang.String getExpectedExitIp();
+
   /**
    * <code>string expected_exit_ip = 5 [json_name = "expectedExitIp"];</code>
+   *
    * @return The bytes for expectedExitIp.
    */
-  com.google.protobuf.ByteString
-      getExpectedExitIpBytes();
+  com.google.protobuf.ByteString getExpectedExitIpBytes();
 
   /**
    * <code>string credential_ref = 6 [json_name = "credentialRef"];</code>
+   *
    * @return The credentialRef.
    */
   java.lang.String getCredentialRef();
+
   /**
    * <code>string credential_ref = 6 [json_name = "credentialRef"];</code>
+   *
    * @return The bytes for credentialRef.
    */
-  com.google.protobuf.ByteString
-      getCredentialRefBytes();
+  com.google.protobuf.ByteString getCredentialRefBytes();
 }

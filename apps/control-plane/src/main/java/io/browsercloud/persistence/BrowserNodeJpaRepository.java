@@ -92,6 +92,20 @@ public interface BrowserNodeJpaRepository extends JpaRepository<BrowserNodeEntit
           """
           SELECT *
           FROM browser_nodes
+          WHERE node_id = :nodeId
+            AND lifecycle_state = 'READY'
+            AND last_heartbeat_at >= :freshAfter
+            AND labels->>'agentBrowserFiles' = 'cdp-file-v1'
+          """,
+      nativeQuery = true)
+  Optional<BrowserNodeEntity> findAgentBrowserFileNode(
+      @Param("nodeId") String nodeId, @Param("freshAfter") Instant freshAfter);
+
+  @Query(
+      value =
+          """
+          SELECT *
+          FROM browser_nodes
           WHERE lifecycle_state = 'READY'
             AND admission_state = 'OPEN'
             AND pressure_state = 'NORMAL'

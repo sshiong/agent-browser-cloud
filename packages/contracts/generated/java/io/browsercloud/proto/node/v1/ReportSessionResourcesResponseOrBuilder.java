@@ -4,49 +4,57 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface ReportSessionResourcesResponseOrBuilder extends
+public interface ReportSessionResourcesResponseOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.ReportSessionResourcesResponse)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>bool accepted = 2 [json_name = "accepted"];</code>
+   *
    * @return The accepted.
    */
   boolean getAccepted();
 
   /**
    * <code>string error_code = 3 [json_name = "errorCode"];</code>
+   *
    * @return The errorCode.
    */
   java.lang.String getErrorCode();
+
   /**
    * <code>string error_code = 3 [json_name = "errorCode"];</code>
+   *
    * @return The bytes for errorCode.
    */
-  com.google.protobuf.ByteString
-      getErrorCodeBytes();
+  com.google.protobuf.ByteString getErrorCodeBytes();
 
   /**
    * <code>string error_message = 4 [json_name = "errorMessage"];</code>
+   *
    * @return The errorMessage.
    */
   java.lang.String getErrorMessage();
+
   /**
    * <code>string error_message = 4 [json_name = "errorMessage"];</code>
+   *
    * @return The bytes for errorMessage.
    */
-  com.google.protobuf.ByteString
-      getErrorMessageBytes();
+  com.google.protobuf.ByteString getErrorMessageBytes();
 }

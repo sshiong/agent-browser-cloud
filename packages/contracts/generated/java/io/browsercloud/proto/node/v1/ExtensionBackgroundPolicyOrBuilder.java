@@ -4,32 +4,38 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface ExtensionBackgroundPolicyOrBuilder extends
+public interface ExtensionBackgroundPolicyOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.ExtensionBackgroundPolicy)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+   *
    * @return A list containing the pausedExtensionIds.
    */
-  java.util.List<java.lang.String>
-      getPausedExtensionIdsList();
+  java.util.List<java.lang.String> getPausedExtensionIdsList();
+
   /**
    * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+   *
    * @return The count of pausedExtensionIds.
    */
   int getPausedExtensionIdsCount();
+
   /**
    * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+   *
    * @param index The index of the element to return.
    * @return The pausedExtensionIds at the given index.
    */
   java.lang.String getPausedExtensionIds(int index);
+
   /**
    * <code>repeated string paused_extension_ids = 1 [json_name = "pausedExtensionIds"];</code>
+   *
    * @param index The index of the value to return.
    * @return The bytes of the pausedExtensionIds at the given index.
    */
-  com.google.protobuf.ByteString
-      getPausedExtensionIdsBytes(int index);
+  com.google.protobuf.ByteString getPausedExtensionIdsBytes(int index);
 }

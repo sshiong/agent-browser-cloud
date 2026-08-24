@@ -1,6 +1,6 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-08-23
+> 更新日期：2026-08-24
 > 基准分支：`main`
 > 编写时基准提交：`519f588 fix: scope rust 1.98 tonic status lint`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **226 Operations / 302 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **230 Operations / 306 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -172,6 +172,10 @@ Rust Browser Node
 - [已确认] V106—V108 分别增加有界 Human-like Motion Policy、创建时锁定且
   每次 Runtime 启动重放的 Session Identity Spec，以及与 VNC UserClipboard 完全隔离、
   PostgreSQL/AES-GCM 权威的 AgentClipboard。详细边界见 progress 149。
+- [已确认] Agent Browser 文件上传通过精确 Placement mTLS stream、V109 PostgreSQL 元数据
+  账本、持久 Operation/Outbox/Node Journal 与 CDP `DOM.setFileInputFiles` 完成，不打开 OS
+  chooser；文件字节和 Node 路径不进入公共 API、数据库或审计。下载从真实 Browser/Network
+  CDP 事件投影有界安全元数据、进度和 freshness，观察中断明确 `INTERRUPTED`，见 progress 154。
 - 自动模式普通操作和有界失败重试保持静默；只在 OTP/设备确认/高风险决定等真人信息缺失，
   或低风险 Challenge 自动预算确实耗尽时通知一次。操作员可发 OTP 由 Agent 代填或自愿进入
   VNC，系统不得把人工接管设为普通自动化的必经步骤。
@@ -184,6 +188,13 @@ Rust Browser Node
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- Agent Browser 文件切片本地 Rust 最终 Clippy/Workspace 测试、Control Plane/Web 117 项、
+  Worker/Provider、完整 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N−1 与最新完整
+  PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过；Integration 显式验证隐藏文件
+  输入、上传提交、跨租户拒绝、下载生命周期及数据库/审计无文件内容或 Node 路径，输出
+  `agent_browser_files=true`。OpenAPI 基线为 230 Operations / 306 Schemas；GitHub
+  `ci`/`desktop` 状态须在推送后补记，见 progress 154。
 
 - Agent Browser 原生 Dialog 切片本地 Control Plane 466 项、Rust Workspace、Web 115 项、
   Worker/Provider、完整 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N−1 与两轮完整
@@ -263,10 +274,10 @@ Rust Browser Node
   Operator、50k Coordinator Capacity、N−1 和完整 PostgreSQL/mTLS/Chromium Integration
   已通过；提交 `a14e5f1` 的 GitHub `ci` run `32363001442` 与 `desktop` run
   `32363001455` 也均通过；
-- 原生 Dialog 已由 progress 153 闭环；当前继续收口 File/局部 Screenshot/受治理 JS
+- 原生 Dialog 和 File 已分别由 progress 153、154 闭环；当前继续收口局部 Screenshot/受治理 JS
   Evaluate 和 Select/Press/Drag/Drop/Swipe/通用 Mouse/Keyboard/Touch Primitive，见
-  progress 149、151—153；稳定 Element ID 重绑定、扩展指针/表单动作、权威 Tab 与原生
-  Dialog 已通过完整本地 Gate。
+  progress 149、151—154；稳定 Element ID 重绑定、扩展指针/表单动作、权威 Tab、原生
+  Dialog 与文件链路已通过完整本地 Gate。
 
 ### Agent SAFE/AUTONOMOUS 与敏感输入自动化（已闭环）
 
@@ -318,7 +329,7 @@ Hold、对象存储 Helper 和 Evidence Grant 边界，不得把 PostgreSQL 删�
 3. 目标云 Secret 解引用/轮换/撤销、商业 Proxy Provider Adapter、高级 SLA/业务成功率路由、Challenge/黑名单与受约束探索。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
 5. Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM、到期对象删除 Worker；OCR 级敏感信息分类。
-6. Agent Browser File、局部 Screenshot、受治理 JS Evaluate、Select/Press/
+6. Agent Browser 局部 Screenshot、受治理 JS Evaluate、Select/Press/
    Drag/Drop/Swipe/通用 Mouse/Keyboard/Touch Action Primitive 和
    AgentClipboard/UserClipboard 显式受控 Bridge；现有底层能力不等于
    已完成粗粒度 Agent Gateway 契约。
@@ -403,8 +414,8 @@ make test-desktop
 
 ## 13. 下一步开发计划
 
-1. 按 progress 149、151—153 的保留边界继续收口 File/Screenshot/Evaluate 与高级 Action
-   Primitive；基础结构化感知/Batch/Identity/Clipboard/Tab/原生 Dialog 切片不得重做。
+1. 按 progress 149、151—154 的保留边界继续收口 Screenshot/Evaluate 与高级 Action
+   Primitive；基础结构化感知/Batch/Identity/Clipboard/Tab/原生 Dialog/File 切片不得重做。
 2. 随后开始 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与
    到期删除 Worker；实施前复核对象存储和 Retention/Legal Hold 当前边界。
 3. Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore、目标 Provider/Secret/Proxy 和 OCR/Replay 按第 12 节顺序推进。

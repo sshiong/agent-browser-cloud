@@ -4,55 +4,64 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface BrowserStateSnapshotCommitEventOrBuilder extends
+public interface BrowserStateSnapshotCommitEventOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.BrowserStateSnapshotCommitEvent)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>string snapshot_id = 2 [json_name = "snapshotId"];</code>
+   *
    * @return The snapshotId.
    */
   java.lang.String getSnapshotId();
+
   /**
    * <code>string snapshot_id = 2 [json_name = "snapshotId"];</code>
+   *
    * @return The bytes for snapshotId.
    */
-  com.google.protobuf.ByteString
-      getSnapshotIdBytes();
+  com.google.protobuf.ByteString getSnapshotIdBytes();
 
   /**
    * <code>uint32 total_chunks = 3 [json_name = "totalChunks"];</code>
+   *
    * @return The totalChunks.
    */
   int getTotalChunks();
 
   /**
    * <code>uint64 total_bytes = 4 [json_name = "totalBytes"];</code>
+   *
    * @return The totalBytes.
    */
   long getTotalBytes();
 
   /**
    * <code>string payload_sha256 = 5 [json_name = "payloadSha256"];</code>
+   *
    * @return The payloadSha256.
    */
   java.lang.String getPayloadSha256();
+
   /**
    * <code>string payload_sha256 = 5 [json_name = "payloadSha256"];</code>
+   *
    * @return The bytes for payloadSha256.
    */
-  com.google.protobuf.ByteString
-      getPayloadSha256Bytes();
+  com.google.protobuf.ByteString getPayloadSha256Bytes();
 }

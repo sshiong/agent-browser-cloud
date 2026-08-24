@@ -6,7 +6,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.google.protobuf.ByteString;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.proto.node.v1.AgentActionFailedEvent;
+import io.browsercloud.proto.node.v1.AgentFileUploadFailedEvent;
 import io.browsercloud.proto.node.v1.AgentNavigationFailedEvent;
+import io.browsercloud.proto.node.v1.BrowserDownloadState;
 import io.browsercloud.proto.node.v1.BrowserNativeDialogState;
 import io.browsercloud.proto.node.v1.BrowserStateDiffEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
@@ -682,6 +684,18 @@ class NodeEventMapperTest {
                     .setDefaultPrompt("")
                     .setHasBrowserHandler(false))
             .setNativeDialogEvidenceFresh(true)
+            .addDownloads(
+                BrowserDownloadState.newBuilder()
+                    .setDownloadId("dld_0123456789abcdef0123")
+                    .setFilename("report.csv")
+                    .setMimeType("text/csv")
+                    .setTotalBytes(12)
+                    .setReceivedBytes(12)
+                    .setProgressBasisPoints(10_000)
+                    .setStatus("COMPLETED")
+                    .setStartedAtMs(1_786_400_000_000L)
+                    .setUpdatedAtMs(1_786_400_001_000L))
+            .setDownloadEvidenceFresh(true)
             .addTargets(
                 InteractiveTargetState.newBuilder()
                     .setTargetRef("target:7:0")
@@ -715,6 +729,16 @@ class NodeEventMapperTest {
               assertThat(state.documentReadyState()).isEqualTo("complete");
               assertThat(state.networkQuietMillis()).isEqualTo(1_500);
               assertThat(state.networkEvidenceFresh()).isTrue();
+              assertThat(state.downloadEvidenceFresh()).isTrue();
+              assertThat(state.downloads())
+                  .singleElement()
+                  .satisfies(
+                      download -> {
+                        assertThat(download.filename()).isEqualTo("report.csv");
+                        assertThat(download.mimeType()).isEqualTo("text/csv");
+                        assertThat(download.status()).isEqualTo("COMPLETED");
+                        assertThat(download.totalBytes()).isEqualTo(12);
+                      });
               assertThat(state.activeTabId()).isEqualTo("tab-main");
               assertThat(state.tabs())
                   .singleElement()
@@ -860,6 +884,35 @@ class NodeEventMapperTest {
             failed -> {
               assertThat(failed.toolId()).isEqualTo("TYPE_TEXT");
               assertThat(failed.errorCode()).isEqualTo("ACTION_PRECONDITION_FAILED");
+            });
+  }
+
+  @Test
+  void shouldMapFencedAgentFileUploadFailureWithoutPathsOrBytes() {
+    var payload =
+        AgentFileUploadFailedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setUploadId("afu_1234567890abcdefghij")
+            .setErrorCode("FILE_INPUT_TARGET_INVALID")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_agent_file_failed")
+            .setEventType(NodeEventMapper.AGENT_FILE_UPLOAD_FAILED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setContextEpoch(3)
+            .setOperationEpoch(5)
+            .setSequence(3)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.AgentFileUploadFailed.class,
+            failed -> {
+              assertThat(failed.uploadId()).isEqualTo("afu_1234567890abcdefghij");
+              assertThat(failed.errorCode()).isEqualTo("FILE_INPUT_TARGET_INVALID");
             });
   }
 

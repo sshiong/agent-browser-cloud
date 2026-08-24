@@ -1295,6 +1295,54 @@ type BrowserState struct {
 	NativeDialogEvidenceFresh bool                       `json:"nativeDialogEvidenceFresh,omitempty"`
 }
 
+type UploadAgentBrowserFileRequest struct {
+	TargetRef        string `json:"targetRef,omitempty"`
+	TargetRevision   int64  `json:"targetRevision,omitempty"`
+	BaseStateVersion int64  `json:"baseStateVersion,omitempty"`
+	BaseContentHash  string `json:"baseContentHash,omitempty"`
+	Filename         string `json:"filename,omitempty"`
+	MimeType         string `json:"mimeType,omitempty"`
+	ContentSha256    string `json:"contentSha256,omitempty"`
+	File             string `json:"file,omitempty"`
+}
+
+type AgentBrowserFileUpload struct {
+	UploadId          string `json:"uploadId,omitempty"`
+	OperationId       string `json:"operationId,omitempty"`
+	SessionId         string `json:"sessionId,omitempty"`
+	TargetRef         string `json:"targetRef,omitempty"`
+	Filename          string `json:"filename,omitempty"`
+	MimeType          string `json:"mimeType,omitempty"`
+	ContentSha256     string `json:"contentSha256,omitempty"`
+	ContentBytes      int64  `json:"contentBytes,omitempty"`
+	State             string `json:"state,omitempty"`
+	ErrorCode         any    `json:"errorCode,omitempty"`
+	StateVersionAfter any    `json:"stateVersionAfter,omitempty"`
+	RequestId         string `json:"requestId,omitempty"`
+	CreatedAt         string `json:"createdAt,omitempty"`
+	UpdatedAt         string `json:"updatedAt,omitempty"`
+	CompletedAt       any    `json:"completedAt,omitempty"`
+}
+
+type AgentBrowserDownload struct {
+	DownloadId    string `json:"downloadId,omitempty"`
+	Filename      string `json:"filename,omitempty"`
+	MimeType      string `json:"mimeType,omitempty"`
+	Size          any    `json:"size,omitempty"`
+	ReceivedBytes int64  `json:"receivedBytes,omitempty"`
+	Progress      any    `json:"progress,omitempty"`
+	Status        string `json:"status,omitempty"`
+	StartedAt     string `json:"startedAt,omitempty"`
+	UpdatedAt     string `json:"updatedAt,omitempty"`
+}
+
+type AgentBrowserDownloadList struct {
+	StateCursor   string                 `json:"stateCursor,omitempty"`
+	EvidenceFresh bool                   `json:"evidenceFresh,omitempty"`
+	DataStale     bool                   `json:"dataStale,omitempty"`
+	Downloads     []AgentBrowserDownload `json:"downloads,omitempty"`
+}
+
 type AgentBrowserSnapshot struct {
 	StateCursor               string                     `json:"stateCursor,omitempty"`
 	State                     BrowserState               `json:"state,omitempty"`

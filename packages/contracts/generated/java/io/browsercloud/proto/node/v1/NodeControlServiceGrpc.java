@@ -3,6 +3,8 @@ package io.browsercloud.proto.node.v1;
 import static io.grpc.MethodDescriptor.generateFullMethodName;
 
 /**
+ *
+ *
  * <pre>
  * Browser Node 的最小控制面 RPC。Session API 通过 Outbox 异步投递命令；
  * Runtime 状态以 NodeEventService 成功提交的版本化事件为准。
@@ -19,237 +21,388 @@ public final class NodeControlServiceGrpc {
   public static final java.lang.String SERVICE_NAME = "browsercloud.node.v1.NodeControlService";
 
   // Static method descriptors that strictly reflect the proto.
-  private static volatile io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PingRequest,
-      io.browsercloud.proto.node.v1.PingResponse> getPingMethod;
+  private static volatile io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.PingRequest, io.browsercloud.proto.node.v1.PingResponse>
+      getPingMethod;
 
   @io.grpc.stub.annotations.RpcMethod(
       fullMethodName = SERVICE_NAME + '/' + "Ping",
       requestType = io.browsercloud.proto.node.v1.PingRequest.class,
       responseType = io.browsercloud.proto.node.v1.PingResponse.class,
       methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
-  public static io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PingRequest,
-      io.browsercloud.proto.node.v1.PingResponse> getPingMethod() {
-    io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PingRequest, io.browsercloud.proto.node.v1.PingResponse> getPingMethod;
+  public static io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.PingRequest, io.browsercloud.proto.node.v1.PingResponse>
+      getPingMethod() {
+    io.grpc.MethodDescriptor<
+            io.browsercloud.proto.node.v1.PingRequest, io.browsercloud.proto.node.v1.PingResponse>
+        getPingMethod;
     if ((getPingMethod = NodeControlServiceGrpc.getPingMethod) == null) {
       synchronized (NodeControlServiceGrpc.class) {
         if ((getPingMethod = NodeControlServiceGrpc.getPingMethod) == null) {
-          NodeControlServiceGrpc.getPingMethod = getPingMethod =
-              io.grpc.MethodDescriptor.<io.browsercloud.proto.node.v1.PingRequest, io.browsercloud.proto.node.v1.PingResponse>newBuilder()
-              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
-              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "Ping"))
-              .setSampledToLocalTracing(true)
-              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.PingRequest.getDefaultInstance()))
-              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.PingResponse.getDefaultInstance()))
-              .setSchemaDescriptor(new NodeControlServiceMethodDescriptorSupplier("Ping"))
-              .build();
+          NodeControlServiceGrpc.getPingMethod =
+              getPingMethod =
+                  io.grpc.MethodDescriptor
+                      .<io.browsercloud.proto.node.v1.PingRequest,
+                          io.browsercloud.proto.node.v1.PingResponse>
+                          newBuilder()
+                      .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+                      .setFullMethodName(generateFullMethodName(SERVICE_NAME, "Ping"))
+                      .setSampledToLocalTracing(true)
+                      .setRequestMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.PingRequest.getDefaultInstance()))
+                      .setResponseMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.PingResponse.getDefaultInstance()))
+                      .setSchemaDescriptor(new NodeControlServiceMethodDescriptorSupplier("Ping"))
+                      .build();
         }
       }
     }
     return getPingMethod;
   }
 
-  private static volatile io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.DispatchRequest,
-      io.browsercloud.proto.node.v1.DispatchResponse> getDispatchMethod;
+  private static volatile io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.DispatchRequest,
+          io.browsercloud.proto.node.v1.DispatchResponse>
+      getDispatchMethod;
 
   @io.grpc.stub.annotations.RpcMethod(
       fullMethodName = SERVICE_NAME + '/' + "Dispatch",
       requestType = io.browsercloud.proto.node.v1.DispatchRequest.class,
       responseType = io.browsercloud.proto.node.v1.DispatchResponse.class,
       methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
-  public static io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.DispatchRequest,
-      io.browsercloud.proto.node.v1.DispatchResponse> getDispatchMethod() {
-    io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.DispatchRequest, io.browsercloud.proto.node.v1.DispatchResponse> getDispatchMethod;
+  public static io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.DispatchRequest,
+          io.browsercloud.proto.node.v1.DispatchResponse>
+      getDispatchMethod() {
+    io.grpc.MethodDescriptor<
+            io.browsercloud.proto.node.v1.DispatchRequest,
+            io.browsercloud.proto.node.v1.DispatchResponse>
+        getDispatchMethod;
     if ((getDispatchMethod = NodeControlServiceGrpc.getDispatchMethod) == null) {
       synchronized (NodeControlServiceGrpc.class) {
         if ((getDispatchMethod = NodeControlServiceGrpc.getDispatchMethod) == null) {
-          NodeControlServiceGrpc.getDispatchMethod = getDispatchMethod =
-              io.grpc.MethodDescriptor.<io.browsercloud.proto.node.v1.DispatchRequest, io.browsercloud.proto.node.v1.DispatchResponse>newBuilder()
-              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
-              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "Dispatch"))
-              .setSampledToLocalTracing(true)
-              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.DispatchRequest.getDefaultInstance()))
-              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.DispatchResponse.getDefaultInstance()))
-              .setSchemaDescriptor(new NodeControlServiceMethodDescriptorSupplier("Dispatch"))
-              .build();
+          NodeControlServiceGrpc.getDispatchMethod =
+              getDispatchMethod =
+                  io.grpc.MethodDescriptor
+                      .<io.browsercloud.proto.node.v1.DispatchRequest,
+                          io.browsercloud.proto.node.v1.DispatchResponse>
+                          newBuilder()
+                      .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+                      .setFullMethodName(generateFullMethodName(SERVICE_NAME, "Dispatch"))
+                      .setSampledToLocalTracing(true)
+                      .setRequestMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.DispatchRequest.getDefaultInstance()))
+                      .setResponseMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.DispatchResponse.getDefaultInstance()))
+                      .setSchemaDescriptor(
+                          new NodeControlServiceMethodDescriptorSupplier("Dispatch"))
+                      .build();
         }
       }
     }
     return getDispatchMethod;
   }
 
-  private static volatile io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.ProbeProxyBindingRequest,
-      io.browsercloud.proto.node.v1.ProbeProxyBindingResponse> getProbeProxyBindingMethod;
+  private static volatile io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.ProbeProxyBindingRequest,
+          io.browsercloud.proto.node.v1.ProbeProxyBindingResponse>
+      getProbeProxyBindingMethod;
 
   @io.grpc.stub.annotations.RpcMethod(
       fullMethodName = SERVICE_NAME + '/' + "ProbeProxyBinding",
       requestType = io.browsercloud.proto.node.v1.ProbeProxyBindingRequest.class,
       responseType = io.browsercloud.proto.node.v1.ProbeProxyBindingResponse.class,
       methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
-  public static io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.ProbeProxyBindingRequest,
-      io.browsercloud.proto.node.v1.ProbeProxyBindingResponse> getProbeProxyBindingMethod() {
-    io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.ProbeProxyBindingRequest, io.browsercloud.proto.node.v1.ProbeProxyBindingResponse> getProbeProxyBindingMethod;
+  public static io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.ProbeProxyBindingRequest,
+          io.browsercloud.proto.node.v1.ProbeProxyBindingResponse>
+      getProbeProxyBindingMethod() {
+    io.grpc.MethodDescriptor<
+            io.browsercloud.proto.node.v1.ProbeProxyBindingRequest,
+            io.browsercloud.proto.node.v1.ProbeProxyBindingResponse>
+        getProbeProxyBindingMethod;
     if ((getProbeProxyBindingMethod = NodeControlServiceGrpc.getProbeProxyBindingMethod) == null) {
       synchronized (NodeControlServiceGrpc.class) {
-        if ((getProbeProxyBindingMethod = NodeControlServiceGrpc.getProbeProxyBindingMethod) == null) {
-          NodeControlServiceGrpc.getProbeProxyBindingMethod = getProbeProxyBindingMethod =
-              io.grpc.MethodDescriptor.<io.browsercloud.proto.node.v1.ProbeProxyBindingRequest, io.browsercloud.proto.node.v1.ProbeProxyBindingResponse>newBuilder()
-              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
-              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "ProbeProxyBinding"))
-              .setSampledToLocalTracing(true)
-              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.ProbeProxyBindingRequest.getDefaultInstance()))
-              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.ProbeProxyBindingResponse.getDefaultInstance()))
-              .setSchemaDescriptor(new NodeControlServiceMethodDescriptorSupplier("ProbeProxyBinding"))
-              .build();
+        if ((getProbeProxyBindingMethod = NodeControlServiceGrpc.getProbeProxyBindingMethod)
+            == null) {
+          NodeControlServiceGrpc.getProbeProxyBindingMethod =
+              getProbeProxyBindingMethod =
+                  io.grpc.MethodDescriptor
+                      .<io.browsercloud.proto.node.v1.ProbeProxyBindingRequest,
+                          io.browsercloud.proto.node.v1.ProbeProxyBindingResponse>
+                          newBuilder()
+                      .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+                      .setFullMethodName(generateFullMethodName(SERVICE_NAME, "ProbeProxyBinding"))
+                      .setSampledToLocalTracing(true)
+                      .setRequestMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.ProbeProxyBindingRequest
+                                  .getDefaultInstance()))
+                      .setResponseMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.ProbeProxyBindingResponse
+                                  .getDefaultInstance()))
+                      .setSchemaDescriptor(
+                          new NodeControlServiceMethodDescriptorSupplier("ProbeProxyBinding"))
+                      .build();
         }
       }
     }
     return getProbeProxyBindingMethod;
   }
 
-  private static volatile io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.UploadProfileImportRequest,
-      io.browsercloud.proto.node.v1.UploadProfileImportResponse> getUploadProfileImportMethod;
+  private static volatile io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.UploadProfileImportRequest,
+          io.browsercloud.proto.node.v1.UploadProfileImportResponse>
+      getUploadProfileImportMethod;
 
   @io.grpc.stub.annotations.RpcMethod(
       fullMethodName = SERVICE_NAME + '/' + "UploadProfileImport",
       requestType = io.browsercloud.proto.node.v1.UploadProfileImportRequest.class,
       responseType = io.browsercloud.proto.node.v1.UploadProfileImportResponse.class,
       methodType = io.grpc.MethodDescriptor.MethodType.CLIENT_STREAMING)
-  public static io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.UploadProfileImportRequest,
-      io.browsercloud.proto.node.v1.UploadProfileImportResponse> getUploadProfileImportMethod() {
-    io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.UploadProfileImportRequest, io.browsercloud.proto.node.v1.UploadProfileImportResponse> getUploadProfileImportMethod;
-    if ((getUploadProfileImportMethod = NodeControlServiceGrpc.getUploadProfileImportMethod) == null) {
+  public static io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.UploadProfileImportRequest,
+          io.browsercloud.proto.node.v1.UploadProfileImportResponse>
+      getUploadProfileImportMethod() {
+    io.grpc.MethodDescriptor<
+            io.browsercloud.proto.node.v1.UploadProfileImportRequest,
+            io.browsercloud.proto.node.v1.UploadProfileImportResponse>
+        getUploadProfileImportMethod;
+    if ((getUploadProfileImportMethod = NodeControlServiceGrpc.getUploadProfileImportMethod)
+        == null) {
       synchronized (NodeControlServiceGrpc.class) {
-        if ((getUploadProfileImportMethod = NodeControlServiceGrpc.getUploadProfileImportMethod) == null) {
-          NodeControlServiceGrpc.getUploadProfileImportMethod = getUploadProfileImportMethod =
-              io.grpc.MethodDescriptor.<io.browsercloud.proto.node.v1.UploadProfileImportRequest, io.browsercloud.proto.node.v1.UploadProfileImportResponse>newBuilder()
-              .setType(io.grpc.MethodDescriptor.MethodType.CLIENT_STREAMING)
-              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "UploadProfileImport"))
-              .setSampledToLocalTracing(true)
-              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.UploadProfileImportRequest.getDefaultInstance()))
-              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.UploadProfileImportResponse.getDefaultInstance()))
-              .setSchemaDescriptor(new NodeControlServiceMethodDescriptorSupplier("UploadProfileImport"))
-              .build();
+        if ((getUploadProfileImportMethod = NodeControlServiceGrpc.getUploadProfileImportMethod)
+            == null) {
+          NodeControlServiceGrpc.getUploadProfileImportMethod =
+              getUploadProfileImportMethod =
+                  io.grpc.MethodDescriptor
+                      .<io.browsercloud.proto.node.v1.UploadProfileImportRequest,
+                          io.browsercloud.proto.node.v1.UploadProfileImportResponse>
+                          newBuilder()
+                      .setType(io.grpc.MethodDescriptor.MethodType.CLIENT_STREAMING)
+                      .setFullMethodName(
+                          generateFullMethodName(SERVICE_NAME, "UploadProfileImport"))
+                      .setSampledToLocalTracing(true)
+                      .setRequestMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.UploadProfileImportRequest
+                                  .getDefaultInstance()))
+                      .setResponseMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.UploadProfileImportResponse
+                                  .getDefaultInstance()))
+                      .setSchemaDescriptor(
+                          new NodeControlServiceMethodDescriptorSupplier("UploadProfileImport"))
+                      .build();
         }
       }
     }
     return getUploadProfileImportMethod;
   }
 
-  private static volatile io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest,
-      io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse> getPresignEvidenceDownloadMethod;
+  private static volatile io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.StageAgentBrowserFileRequest,
+          io.browsercloud.proto.node.v1.StageAgentBrowserFileResponse>
+      getStageAgentBrowserFileMethod;
+
+  @io.grpc.stub.annotations.RpcMethod(
+      fullMethodName = SERVICE_NAME + '/' + "StageAgentBrowserFile",
+      requestType = io.browsercloud.proto.node.v1.StageAgentBrowserFileRequest.class,
+      responseType = io.browsercloud.proto.node.v1.StageAgentBrowserFileResponse.class,
+      methodType = io.grpc.MethodDescriptor.MethodType.CLIENT_STREAMING)
+  public static io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.StageAgentBrowserFileRequest,
+          io.browsercloud.proto.node.v1.StageAgentBrowserFileResponse>
+      getStageAgentBrowserFileMethod() {
+    io.grpc.MethodDescriptor<
+            io.browsercloud.proto.node.v1.StageAgentBrowserFileRequest,
+            io.browsercloud.proto.node.v1.StageAgentBrowserFileResponse>
+        getStageAgentBrowserFileMethod;
+    if ((getStageAgentBrowserFileMethod = NodeControlServiceGrpc.getStageAgentBrowserFileMethod)
+        == null) {
+      synchronized (NodeControlServiceGrpc.class) {
+        if ((getStageAgentBrowserFileMethod = NodeControlServiceGrpc.getStageAgentBrowserFileMethod)
+            == null) {
+          NodeControlServiceGrpc.getStageAgentBrowserFileMethod =
+              getStageAgentBrowserFileMethod =
+                  io.grpc.MethodDescriptor
+                      .<io.browsercloud.proto.node.v1.StageAgentBrowserFileRequest,
+                          io.browsercloud.proto.node.v1.StageAgentBrowserFileResponse>
+                          newBuilder()
+                      .setType(io.grpc.MethodDescriptor.MethodType.CLIENT_STREAMING)
+                      .setFullMethodName(
+                          generateFullMethodName(SERVICE_NAME, "StageAgentBrowserFile"))
+                      .setSampledToLocalTracing(true)
+                      .setRequestMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.StageAgentBrowserFileRequest
+                                  .getDefaultInstance()))
+                      .setResponseMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.StageAgentBrowserFileResponse
+                                  .getDefaultInstance()))
+                      .setSchemaDescriptor(
+                          new NodeControlServiceMethodDescriptorSupplier("StageAgentBrowserFile"))
+                      .build();
+        }
+      }
+    }
+    return getStageAgentBrowserFileMethod;
+  }
+
+  private static volatile io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest,
+          io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>
+      getPresignEvidenceDownloadMethod;
 
   @io.grpc.stub.annotations.RpcMethod(
       fullMethodName = SERVICE_NAME + '/' + "PresignEvidenceDownload",
       requestType = io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest.class,
       responseType = io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse.class,
       methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
-  public static io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest,
-      io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse> getPresignEvidenceDownloadMethod() {
-    io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest, io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse> getPresignEvidenceDownloadMethod;
-    if ((getPresignEvidenceDownloadMethod = NodeControlServiceGrpc.getPresignEvidenceDownloadMethod) == null) {
+  public static io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest,
+          io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>
+      getPresignEvidenceDownloadMethod() {
+    io.grpc.MethodDescriptor<
+            io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest,
+            io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>
+        getPresignEvidenceDownloadMethod;
+    if ((getPresignEvidenceDownloadMethod = NodeControlServiceGrpc.getPresignEvidenceDownloadMethod)
+        == null) {
       synchronized (NodeControlServiceGrpc.class) {
-        if ((getPresignEvidenceDownloadMethod = NodeControlServiceGrpc.getPresignEvidenceDownloadMethod) == null) {
-          NodeControlServiceGrpc.getPresignEvidenceDownloadMethod = getPresignEvidenceDownloadMethod =
-              io.grpc.MethodDescriptor.<io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest, io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>newBuilder()
-              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
-              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "PresignEvidenceDownload"))
-              .setSampledToLocalTracing(true)
-              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest.getDefaultInstance()))
-              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse.getDefaultInstance()))
-              .setSchemaDescriptor(new NodeControlServiceMethodDescriptorSupplier("PresignEvidenceDownload"))
-              .build();
+        if ((getPresignEvidenceDownloadMethod =
+                NodeControlServiceGrpc.getPresignEvidenceDownloadMethod)
+            == null) {
+          NodeControlServiceGrpc.getPresignEvidenceDownloadMethod =
+              getPresignEvidenceDownloadMethod =
+                  io.grpc.MethodDescriptor
+                      .<io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest,
+                          io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>
+                          newBuilder()
+                      .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+                      .setFullMethodName(
+                          generateFullMethodName(SERVICE_NAME, "PresignEvidenceDownload"))
+                      .setSampledToLocalTracing(true)
+                      .setRequestMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest
+                                  .getDefaultInstance()))
+                      .setResponseMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse
+                                  .getDefaultInstance()))
+                      .setSchemaDescriptor(
+                          new NodeControlServiceMethodDescriptorSupplier("PresignEvidenceDownload"))
+                      .build();
         }
       }
     }
     return getPresignEvidenceDownloadMethod;
   }
 
-  private static volatile io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest,
-      io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse> getPresignProfileExportDownloadMethod;
+  private static volatile io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest,
+          io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse>
+      getPresignProfileExportDownloadMethod;
 
   @io.grpc.stub.annotations.RpcMethod(
       fullMethodName = SERVICE_NAME + '/' + "PresignProfileExportDownload",
       requestType = io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.class,
       responseType = io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse.class,
       methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
-  public static io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest,
-      io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse> getPresignProfileExportDownloadMethod() {
-    io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest, io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse> getPresignProfileExportDownloadMethod;
-    if ((getPresignProfileExportDownloadMethod = NodeControlServiceGrpc.getPresignProfileExportDownloadMethod) == null) {
+  public static io.grpc.MethodDescriptor<
+          io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest,
+          io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse>
+      getPresignProfileExportDownloadMethod() {
+    io.grpc.MethodDescriptor<
+            io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest,
+            io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse>
+        getPresignProfileExportDownloadMethod;
+    if ((getPresignProfileExportDownloadMethod =
+            NodeControlServiceGrpc.getPresignProfileExportDownloadMethod)
+        == null) {
       synchronized (NodeControlServiceGrpc.class) {
-        if ((getPresignProfileExportDownloadMethod = NodeControlServiceGrpc.getPresignProfileExportDownloadMethod) == null) {
-          NodeControlServiceGrpc.getPresignProfileExportDownloadMethod = getPresignProfileExportDownloadMethod =
-              io.grpc.MethodDescriptor.<io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest, io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse>newBuilder()
-              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
-              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "PresignProfileExportDownload"))
-              .setSampledToLocalTracing(true)
-              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.getDefaultInstance()))
-              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse.getDefaultInstance()))
-              .setSchemaDescriptor(new NodeControlServiceMethodDescriptorSupplier("PresignProfileExportDownload"))
-              .build();
+        if ((getPresignProfileExportDownloadMethod =
+                NodeControlServiceGrpc.getPresignProfileExportDownloadMethod)
+            == null) {
+          NodeControlServiceGrpc.getPresignProfileExportDownloadMethod =
+              getPresignProfileExportDownloadMethod =
+                  io.grpc.MethodDescriptor
+                      .<io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest,
+                          io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse>
+                          newBuilder()
+                      .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+                      .setFullMethodName(
+                          generateFullMethodName(SERVICE_NAME, "PresignProfileExportDownload"))
+                      .setSampledToLocalTracing(true)
+                      .setRequestMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest
+                                  .getDefaultInstance()))
+                      .setResponseMarshaller(
+                          io.grpc.protobuf.ProtoUtils.marshaller(
+                              io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse
+                                  .getDefaultInstance()))
+                      .setSchemaDescriptor(
+                          new NodeControlServiceMethodDescriptorSupplier(
+                              "PresignProfileExportDownload"))
+                      .build();
         }
       }
     }
     return getPresignProfileExportDownloadMethod;
   }
 
-  /**
-   * Creates a new async stub that supports all call types for the service
-   */
+  /** Creates a new async stub that supports all call types for the service */
   public static NodeControlServiceStub newStub(io.grpc.Channel channel) {
     io.grpc.stub.AbstractStub.StubFactory<NodeControlServiceStub> factory =
-      new io.grpc.stub.AbstractStub.StubFactory<NodeControlServiceStub>() {
-        @java.lang.Override
-        public NodeControlServiceStub newStub(io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
-          return new NodeControlServiceStub(channel, callOptions);
-        }
-      };
+        new io.grpc.stub.AbstractStub.StubFactory<NodeControlServiceStub>() {
+          @java.lang.Override
+          public NodeControlServiceStub newStub(
+              io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
+            return new NodeControlServiceStub(channel, callOptions);
+          }
+        };
     return NodeControlServiceStub.newStub(factory, channel);
   }
 
   /**
    * Creates a new blocking-style stub that supports unary and streaming output calls on the service
    */
-  public static NodeControlServiceBlockingStub newBlockingStub(
-      io.grpc.Channel channel) {
+  public static NodeControlServiceBlockingStub newBlockingStub(io.grpc.Channel channel) {
     io.grpc.stub.AbstractStub.StubFactory<NodeControlServiceBlockingStub> factory =
-      new io.grpc.stub.AbstractStub.StubFactory<NodeControlServiceBlockingStub>() {
-        @java.lang.Override
-        public NodeControlServiceBlockingStub newStub(io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
-          return new NodeControlServiceBlockingStub(channel, callOptions);
-        }
-      };
+        new io.grpc.stub.AbstractStub.StubFactory<NodeControlServiceBlockingStub>() {
+          @java.lang.Override
+          public NodeControlServiceBlockingStub newStub(
+              io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
+            return new NodeControlServiceBlockingStub(channel, callOptions);
+          }
+        };
     return NodeControlServiceBlockingStub.newStub(factory, channel);
   }
 
-  /**
-   * Creates a new ListenableFuture-style stub that supports unary calls on the service
-   */
-  public static NodeControlServiceFutureStub newFutureStub(
-      io.grpc.Channel channel) {
+  /** Creates a new ListenableFuture-style stub that supports unary calls on the service */
+  public static NodeControlServiceFutureStub newFutureStub(io.grpc.Channel channel) {
     io.grpc.stub.AbstractStub.StubFactory<NodeControlServiceFutureStub> factory =
-      new io.grpc.stub.AbstractStub.StubFactory<NodeControlServiceFutureStub>() {
-        @java.lang.Override
-        public NodeControlServiceFutureStub newStub(io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
-          return new NodeControlServiceFutureStub(channel, callOptions);
-        }
-      };
+        new io.grpc.stub.AbstractStub.StubFactory<NodeControlServiceFutureStub>() {
+          @java.lang.Override
+          public NodeControlServiceFutureStub newStub(
+              io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
+            return new NodeControlServiceFutureStub(channel, callOptions);
+          }
+        };
     return NodeControlServiceFutureStub.newStub(factory, channel);
   }
 
   /**
+   *
+   *
    * <pre>
    * Browser Node 的最小控制面 RPC。Session API 通过 Outbox 异步投递命令；
    * Runtime 状态以 NodeEventService 成功提交的版本化事件为准。
@@ -257,84 +410,125 @@ public final class NodeControlServiceGrpc {
    */
   public interface AsyncService {
 
-    /**
-     */
-    default void ping(io.browsercloud.proto.node.v1.PingRequest request,
+    /** */
+    default void ping(
+        io.browsercloud.proto.node.v1.PingRequest request,
         io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PingResponse> responseObserver) {
       io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getPingMethod(), responseObserver);
     }
 
-    /**
-     */
-    default void dispatch(io.browsercloud.proto.node.v1.DispatchRequest request,
-        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.DispatchResponse> responseObserver) {
+    /** */
+    default void dispatch(
+        io.browsercloud.proto.node.v1.DispatchRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.DispatchResponse>
+            responseObserver) {
       io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getDispatchMethod(), responseObserver);
     }
 
     /**
+     *
+     *
      * <pre>
      * mTLS-authenticated cold probe for an enabled Binding that has no active Session allocation.
      * credential_ref remains opaque: only the isolated Network Helper may resolve it to a locally
      * configured Provider route, and neither request nor response contains credential material.
      * </pre>
      */
-    default void probeProxyBinding(io.browsercloud.proto.node.v1.ProbeProxyBindingRequest request,
-        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ProbeProxyBindingResponse> responseObserver) {
-      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getProbeProxyBindingMethod(), responseObserver);
+    default void probeProxyBinding(
+        io.browsercloud.proto.node.v1.ProbeProxyBindingRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ProbeProxyBindingResponse>
+            responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(
+          getProbeProxyBindingMethod(), responseObserver);
     }
 
     /**
+     *
+     *
      * <pre>
      * mTLS-authenticated, bounded Profile archive ingress. The Control Plane
      * streams bytes without durable business persistence; the Node delegates validation and
      * checkpoint/object-store commit to the isolated Storage Helper.
      * </pre>
      */
-    default io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.UploadProfileImportRequest> uploadProfileImport(
-        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.UploadProfileImportResponse> responseObserver) {
-      return io.grpc.stub.ServerCalls.asyncUnimplementedStreamingCall(getUploadProfileImportMethod(), responseObserver);
+    default io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.UploadProfileImportRequest>
+        uploadProfileImport(
+            io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.UploadProfileImportResponse>
+                responseObserver) {
+      return io.grpc.stub.ServerCalls.asyncUnimplementedStreamingCall(
+          getUploadProfileImportMethod(), responseObserver);
     }
 
     /**
+     *
+     *
+     * <pre>
+     * mTLS-authenticated bounded ingress to the owning Session Node. Bytes are staged outside the
+     * browser profile; a separate journaled AgentFileUpload command consumes them exactly once.
+     * </pre>
+     */
+    default io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.StageAgentBrowserFileRequest>
+        stageAgentBrowserFile(
+            io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.StageAgentBrowserFileResponse>
+                responseObserver) {
+      return io.grpc.stub.ServerCalls.asyncUnimplementedStreamingCall(
+          getStageAgentBrowserFileMethod(), responseObserver);
+    }
+
+    /**
+     *
+     *
      * <pre>
      * Purpose-bound evidence access. The Browser Node delegates signing to the isolated
      * Storage Helper and never returns Object Storage credentials.
      * </pre>
      */
-    default void presignEvidenceDownload(io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest request,
-        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse> responseObserver) {
-      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getPresignEvidenceDownloadMethod(), responseObserver);
+    default void presignEvidenceDownload(
+        io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>
+            responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(
+          getPresignEvidenceDownloadMethod(), responseObserver);
     }
 
     /**
+     *
+     *
      * <pre>
      * Purpose-bound Profile export. The Node delegates commit-marker and archive-integrity
      * verification plus short-lived signing to the isolated Storage Helper.
      * </pre>
      */
-    default void presignProfileExportDownload(io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest request,
-        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse> responseObserver) {
-      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getPresignProfileExportDownloadMethod(), responseObserver);
+    default void presignProfileExportDownload(
+        io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest request,
+        io.grpc.stub.StreamObserver<
+                io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse>
+            responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(
+          getPresignProfileExportDownloadMethod(), responseObserver);
     }
   }
 
   /**
    * Base class for the server implementation of the service NodeControlService.
+   *
    * <pre>
    * Browser Node 的最小控制面 RPC。Session API 通过 Outbox 异步投递命令；
    * Runtime 状态以 NodeEventService 成功提交的版本化事件为准。
    * </pre>
    */
-  public static abstract class NodeControlServiceImplBase
+  public abstract static class NodeControlServiceImplBase
       implements io.grpc.BindableService, AsyncService {
 
-    @java.lang.Override public final io.grpc.ServerServiceDefinition bindService() {
+    @java.lang.Override
+    public final io.grpc.ServerServiceDefinition bindService() {
       return NodeControlServiceGrpc.bindService(this);
     }
   }
 
   /**
    * A stub to allow clients to do asynchronous rpc calls to service NodeControlService.
+   *
    * <pre>
    * Browser Node 的最小控制面 RPC。Session API 通过 Outbox 异步投递命令；
    * Runtime 状态以 NodeEventService 成功提交的版本化事件为准。
@@ -342,8 +536,7 @@ public final class NodeControlServiceGrpc {
    */
   public static final class NodeControlServiceStub
       extends io.grpc.stub.AbstractAsyncStub<NodeControlServiceStub> {
-    private NodeControlServiceStub(
-        io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
+    private NodeControlServiceStub(io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
       super(channel, callOptions);
     }
 
@@ -353,75 +546,117 @@ public final class NodeControlServiceGrpc {
       return new NodeControlServiceStub(channel, callOptions);
     }
 
-    /**
-     */
-    public void ping(io.browsercloud.proto.node.v1.PingRequest request,
+    /** */
+    public void ping(
+        io.browsercloud.proto.node.v1.PingRequest request,
         io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PingResponse> responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
           getChannel().newCall(getPingMethod(), getCallOptions()), request, responseObserver);
     }
 
-    /**
-     */
-    public void dispatch(io.browsercloud.proto.node.v1.DispatchRequest request,
-        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.DispatchResponse> responseObserver) {
+    /** */
+    public void dispatch(
+        io.browsercloud.proto.node.v1.DispatchRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.DispatchResponse>
+            responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
           getChannel().newCall(getDispatchMethod(), getCallOptions()), request, responseObserver);
     }
 
     /**
+     *
+     *
      * <pre>
      * mTLS-authenticated cold probe for an enabled Binding that has no active Session allocation.
      * credential_ref remains opaque: only the isolated Network Helper may resolve it to a locally
      * configured Provider route, and neither request nor response contains credential material.
      * </pre>
      */
-    public void probeProxyBinding(io.browsercloud.proto.node.v1.ProbeProxyBindingRequest request,
-        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ProbeProxyBindingResponse> responseObserver) {
+    public void probeProxyBinding(
+        io.browsercloud.proto.node.v1.ProbeProxyBindingRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ProbeProxyBindingResponse>
+            responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
-          getChannel().newCall(getProbeProxyBindingMethod(), getCallOptions()), request, responseObserver);
+          getChannel().newCall(getProbeProxyBindingMethod(), getCallOptions()),
+          request,
+          responseObserver);
     }
 
     /**
+     *
+     *
      * <pre>
      * mTLS-authenticated, bounded Profile archive ingress. The Control Plane
      * streams bytes without durable business persistence; the Node delegates validation and
      * checkpoint/object-store commit to the isolated Storage Helper.
      * </pre>
      */
-    public io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.UploadProfileImportRequest> uploadProfileImport(
-        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.UploadProfileImportResponse> responseObserver) {
+    public io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.UploadProfileImportRequest>
+        uploadProfileImport(
+            io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.UploadProfileImportResponse>
+                responseObserver) {
       return io.grpc.stub.ClientCalls.asyncClientStreamingCall(
           getChannel().newCall(getUploadProfileImportMethod(), getCallOptions()), responseObserver);
     }
 
     /**
+     *
+     *
+     * <pre>
+     * mTLS-authenticated bounded ingress to the owning Session Node. Bytes are staged outside the
+     * browser profile; a separate journaled AgentFileUpload command consumes them exactly once.
+     * </pre>
+     */
+    public io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.StageAgentBrowserFileRequest>
+        stageAgentBrowserFile(
+            io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.StageAgentBrowserFileResponse>
+                responseObserver) {
+      return io.grpc.stub.ClientCalls.asyncClientStreamingCall(
+          getChannel().newCall(getStageAgentBrowserFileMethod(), getCallOptions()),
+          responseObserver);
+    }
+
+    /**
+     *
+     *
      * <pre>
      * Purpose-bound evidence access. The Browser Node delegates signing to the isolated
      * Storage Helper and never returns Object Storage credentials.
      * </pre>
      */
-    public void presignEvidenceDownload(io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest request,
-        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse> responseObserver) {
+    public void presignEvidenceDownload(
+        io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>
+            responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
-          getChannel().newCall(getPresignEvidenceDownloadMethod(), getCallOptions()), request, responseObserver);
+          getChannel().newCall(getPresignEvidenceDownloadMethod(), getCallOptions()),
+          request,
+          responseObserver);
     }
 
     /**
+     *
+     *
      * <pre>
      * Purpose-bound Profile export. The Node delegates commit-marker and archive-integrity
      * verification plus short-lived signing to the isolated Storage Helper.
      * </pre>
      */
-    public void presignProfileExportDownload(io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest request,
-        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse> responseObserver) {
+    public void presignProfileExportDownload(
+        io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest request,
+        io.grpc.stub.StreamObserver<
+                io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse>
+            responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
-          getChannel().newCall(getPresignProfileExportDownloadMethod(), getCallOptions()), request, responseObserver);
+          getChannel().newCall(getPresignProfileExportDownloadMethod(), getCallOptions()),
+          request,
+          responseObserver);
     }
   }
 
   /**
    * A stub to allow clients to do synchronous rpc calls to service NodeControlService.
+   *
    * <pre>
    * Browser Node 的最小控制面 RPC。Session API 通过 Outbox 异步投递命令；
    * Runtime 状态以 NodeEventService 成功提交的版本化事件为准。
@@ -440,50 +675,60 @@ public final class NodeControlServiceGrpc {
       return new NodeControlServiceBlockingStub(channel, callOptions);
     }
 
-    /**
-     */
-    public io.browsercloud.proto.node.v1.PingResponse ping(io.browsercloud.proto.node.v1.PingRequest request) {
+    /** */
+    public io.browsercloud.proto.node.v1.PingResponse ping(
+        io.browsercloud.proto.node.v1.PingRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getPingMethod(), getCallOptions(), request);
     }
 
-    /**
-     */
-    public io.browsercloud.proto.node.v1.DispatchResponse dispatch(io.browsercloud.proto.node.v1.DispatchRequest request) {
+    /** */
+    public io.browsercloud.proto.node.v1.DispatchResponse dispatch(
+        io.browsercloud.proto.node.v1.DispatchRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getDispatchMethod(), getCallOptions(), request);
     }
 
     /**
+     *
+     *
      * <pre>
      * mTLS-authenticated cold probe for an enabled Binding that has no active Session allocation.
      * credential_ref remains opaque: only the isolated Network Helper may resolve it to a locally
      * configured Provider route, and neither request nor response contains credential material.
      * </pre>
      */
-    public io.browsercloud.proto.node.v1.ProbeProxyBindingResponse probeProxyBinding(io.browsercloud.proto.node.v1.ProbeProxyBindingRequest request) {
+    public io.browsercloud.proto.node.v1.ProbeProxyBindingResponse probeProxyBinding(
+        io.browsercloud.proto.node.v1.ProbeProxyBindingRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getProbeProxyBindingMethod(), getCallOptions(), request);
     }
 
     /**
+     *
+     *
      * <pre>
      * Purpose-bound evidence access. The Browser Node delegates signing to the isolated
      * Storage Helper and never returns Object Storage credentials.
      * </pre>
      */
-    public io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse presignEvidenceDownload(io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest request) {
+    public io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse presignEvidenceDownload(
+        io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getPresignEvidenceDownloadMethod(), getCallOptions(), request);
     }
 
     /**
+     *
+     *
      * <pre>
      * Purpose-bound Profile export. The Node delegates commit-marker and archive-integrity
      * verification plus short-lived signing to the isolated Storage Helper.
      * </pre>
      */
-    public io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse presignProfileExportDownload(io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest request) {
+    public io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse
+        presignProfileExportDownload(
+            io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getPresignProfileExportDownloadMethod(), getCallOptions(), request);
     }
@@ -491,6 +736,7 @@ public final class NodeControlServiceGrpc {
 
   /**
    * A stub to allow clients to do ListenableFuture-style rpc calls to service NodeControlService.
+   *
    * <pre>
    * Browser Node 的最小控制面 RPC。Session API 通过 Outbox 异步投递命令；
    * Runtime 状态以 NodeEventService 成功提交的版本化事件为准。
@@ -498,8 +744,7 @@ public final class NodeControlServiceGrpc {
    */
   public static final class NodeControlServiceFutureStub
       extends io.grpc.stub.AbstractFutureStub<NodeControlServiceFutureStub> {
-    private NodeControlServiceFutureStub(
-        io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
+    private NodeControlServiceFutureStub(io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
       super(channel, callOptions);
     }
 
@@ -509,55 +754,66 @@ public final class NodeControlServiceGrpc {
       return new NodeControlServiceFutureStub(channel, callOptions);
     }
 
-    /**
-     */
-    public com.google.common.util.concurrent.ListenableFuture<io.browsercloud.proto.node.v1.PingResponse> ping(
-        io.browsercloud.proto.node.v1.PingRequest request) {
+    /** */
+    public com.google.common.util.concurrent.ListenableFuture<
+            io.browsercloud.proto.node.v1.PingResponse>
+        ping(io.browsercloud.proto.node.v1.PingRequest request) {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
           getChannel().newCall(getPingMethod(), getCallOptions()), request);
     }
 
-    /**
-     */
-    public com.google.common.util.concurrent.ListenableFuture<io.browsercloud.proto.node.v1.DispatchResponse> dispatch(
-        io.browsercloud.proto.node.v1.DispatchRequest request) {
+    /** */
+    public com.google.common.util.concurrent.ListenableFuture<
+            io.browsercloud.proto.node.v1.DispatchResponse>
+        dispatch(io.browsercloud.proto.node.v1.DispatchRequest request) {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
           getChannel().newCall(getDispatchMethod(), getCallOptions()), request);
     }
 
     /**
+     *
+     *
      * <pre>
      * mTLS-authenticated cold probe for an enabled Binding that has no active Session allocation.
      * credential_ref remains opaque: only the isolated Network Helper may resolve it to a locally
      * configured Provider route, and neither request nor response contains credential material.
      * </pre>
      */
-    public com.google.common.util.concurrent.ListenableFuture<io.browsercloud.proto.node.v1.ProbeProxyBindingResponse> probeProxyBinding(
-        io.browsercloud.proto.node.v1.ProbeProxyBindingRequest request) {
+    public com.google.common.util.concurrent.ListenableFuture<
+            io.browsercloud.proto.node.v1.ProbeProxyBindingResponse>
+        probeProxyBinding(io.browsercloud.proto.node.v1.ProbeProxyBindingRequest request) {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
           getChannel().newCall(getProbeProxyBindingMethod(), getCallOptions()), request);
     }
 
     /**
+     *
+     *
      * <pre>
      * Purpose-bound evidence access. The Browser Node delegates signing to the isolated
      * Storage Helper and never returns Object Storage credentials.
      * </pre>
      */
-    public com.google.common.util.concurrent.ListenableFuture<io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse> presignEvidenceDownload(
-        io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest request) {
+    public com.google.common.util.concurrent.ListenableFuture<
+            io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>
+        presignEvidenceDownload(
+            io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest request) {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
           getChannel().newCall(getPresignEvidenceDownloadMethod(), getCallOptions()), request);
     }
 
     /**
+     *
+     *
      * <pre>
      * Purpose-bound Profile export. The Node delegates commit-marker and archive-integrity
      * verification plus short-lived signing to the isolated Storage Helper.
      * </pre>
      */
-    public com.google.common.util.concurrent.ListenableFuture<io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse> presignProfileExportDownload(
-        io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest request) {
+    public com.google.common.util.concurrent.ListenableFuture<
+            io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse>
+        presignProfileExportDownload(
+            io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest request) {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
           getChannel().newCall(getPresignProfileExportDownloadMethod(), getCallOptions()), request);
     }
@@ -569,12 +825,13 @@ public final class NodeControlServiceGrpc {
   private static final int METHODID_PRESIGN_EVIDENCE_DOWNLOAD = 3;
   private static final int METHODID_PRESIGN_PROFILE_EXPORT_DOWNLOAD = 4;
   private static final int METHODID_UPLOAD_PROFILE_IMPORT = 5;
+  private static final int METHODID_STAGE_AGENT_BROWSER_FILE = 6;
 
-  private static final class MethodHandlers<Req, Resp> implements
-      io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
-      io.grpc.stub.ServerCalls.ServerStreamingMethod<Req, Resp>,
-      io.grpc.stub.ServerCalls.ClientStreamingMethod<Req, Resp>,
-      io.grpc.stub.ServerCalls.BidiStreamingMethod<Req, Resp> {
+  private static final class MethodHandlers<Req, Resp>
+      implements io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
+          io.grpc.stub.ServerCalls.ServerStreamingMethod<Req, Resp>,
+          io.grpc.stub.ServerCalls.ClientStreamingMethod<Req, Resp>,
+          io.grpc.stub.ServerCalls.BidiStreamingMethod<Req, Resp> {
     private final AsyncService serviceImpl;
     private final int methodId;
 
@@ -588,24 +845,36 @@ public final class NodeControlServiceGrpc {
     public void invoke(Req request, io.grpc.stub.StreamObserver<Resp> responseObserver) {
       switch (methodId) {
         case METHODID_PING:
-          serviceImpl.ping((io.browsercloud.proto.node.v1.PingRequest) request,
-              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PingResponse>) responseObserver);
+          serviceImpl.ping(
+              (io.browsercloud.proto.node.v1.PingRequest) request,
+              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PingResponse>)
+                  responseObserver);
           break;
         case METHODID_DISPATCH:
-          serviceImpl.dispatch((io.browsercloud.proto.node.v1.DispatchRequest) request,
-              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.DispatchResponse>) responseObserver);
+          serviceImpl.dispatch(
+              (io.browsercloud.proto.node.v1.DispatchRequest) request,
+              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.DispatchResponse>)
+                  responseObserver);
           break;
         case METHODID_PROBE_PROXY_BINDING:
-          serviceImpl.probeProxyBinding((io.browsercloud.proto.node.v1.ProbeProxyBindingRequest) request,
-              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ProbeProxyBindingResponse>) responseObserver);
+          serviceImpl.probeProxyBinding(
+              (io.browsercloud.proto.node.v1.ProbeProxyBindingRequest) request,
+              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ProbeProxyBindingResponse>)
+                  responseObserver);
           break;
         case METHODID_PRESIGN_EVIDENCE_DOWNLOAD:
-          serviceImpl.presignEvidenceDownload((io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest) request,
-              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>) responseObserver);
+          serviceImpl.presignEvidenceDownload(
+              (io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest) request,
+              (io.grpc.stub.StreamObserver<
+                      io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>)
+                  responseObserver);
           break;
         case METHODID_PRESIGN_PROFILE_EXPORT_DOWNLOAD:
-          serviceImpl.presignProfileExportDownload((io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest) request,
-              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse>) responseObserver);
+          serviceImpl.presignProfileExportDownload(
+              (io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest) request,
+              (io.grpc.stub.StreamObserver<
+                      io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse>)
+                  responseObserver);
           break;
         default:
           throw new AssertionError();
@@ -618,8 +887,17 @@ public final class NodeControlServiceGrpc {
         io.grpc.stub.StreamObserver<Resp> responseObserver) {
       switch (methodId) {
         case METHODID_UPLOAD_PROFILE_IMPORT:
-          return (io.grpc.stub.StreamObserver<Req>) serviceImpl.uploadProfileImport(
-              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.UploadProfileImportResponse>) responseObserver);
+          return (io.grpc.stub.StreamObserver<Req>)
+              serviceImpl.uploadProfileImport(
+                  (io.grpc.stub.StreamObserver<
+                          io.browsercloud.proto.node.v1.UploadProfileImportResponse>)
+                      responseObserver);
+        case METHODID_STAGE_AGENT_BROWSER_FILE:
+          return (io.grpc.stub.StreamObserver<Req>)
+              serviceImpl.stageAgentBrowserFile(
+                  (io.grpc.stub.StreamObserver<
+                          io.browsercloud.proto.node.v1.StageAgentBrowserFileResponse>)
+                      responseObserver);
         default:
           throw new AssertionError();
       }
@@ -629,52 +907,58 @@ public final class NodeControlServiceGrpc {
   public static final io.grpc.ServerServiceDefinition bindService(AsyncService service) {
     return io.grpc.ServerServiceDefinition.builder(getServiceDescriptor())
         .addMethod(
-          getPingMethod(),
-          io.grpc.stub.ServerCalls.asyncUnaryCall(
-            new MethodHandlers<
-              io.browsercloud.proto.node.v1.PingRequest,
-              io.browsercloud.proto.node.v1.PingResponse>(
-                service, METHODID_PING)))
+            getPingMethod(),
+            io.grpc.stub.ServerCalls.asyncUnaryCall(
+                new MethodHandlers<
+                    io.browsercloud.proto.node.v1.PingRequest,
+                    io.browsercloud.proto.node.v1.PingResponse>(service, METHODID_PING)))
         .addMethod(
-          getDispatchMethod(),
-          io.grpc.stub.ServerCalls.asyncUnaryCall(
-            new MethodHandlers<
-              io.browsercloud.proto.node.v1.DispatchRequest,
-              io.browsercloud.proto.node.v1.DispatchResponse>(
-                service, METHODID_DISPATCH)))
+            getDispatchMethod(),
+            io.grpc.stub.ServerCalls.asyncUnaryCall(
+                new MethodHandlers<
+                    io.browsercloud.proto.node.v1.DispatchRequest,
+                    io.browsercloud.proto.node.v1.DispatchResponse>(service, METHODID_DISPATCH)))
         .addMethod(
-          getProbeProxyBindingMethod(),
-          io.grpc.stub.ServerCalls.asyncUnaryCall(
-            new MethodHandlers<
-              io.browsercloud.proto.node.v1.ProbeProxyBindingRequest,
-              io.browsercloud.proto.node.v1.ProbeProxyBindingResponse>(
-                service, METHODID_PROBE_PROXY_BINDING)))
+            getProbeProxyBindingMethod(),
+            io.grpc.stub.ServerCalls.asyncUnaryCall(
+                new MethodHandlers<
+                    io.browsercloud.proto.node.v1.ProbeProxyBindingRequest,
+                    io.browsercloud.proto.node.v1.ProbeProxyBindingResponse>(
+                    service, METHODID_PROBE_PROXY_BINDING)))
         .addMethod(
-          getUploadProfileImportMethod(),
-          io.grpc.stub.ServerCalls.asyncClientStreamingCall(
-            new MethodHandlers<
-              io.browsercloud.proto.node.v1.UploadProfileImportRequest,
-              io.browsercloud.proto.node.v1.UploadProfileImportResponse>(
-                service, METHODID_UPLOAD_PROFILE_IMPORT)))
+            getUploadProfileImportMethod(),
+            io.grpc.stub.ServerCalls.asyncClientStreamingCall(
+                new MethodHandlers<
+                    io.browsercloud.proto.node.v1.UploadProfileImportRequest,
+                    io.browsercloud.proto.node.v1.UploadProfileImportResponse>(
+                    service, METHODID_UPLOAD_PROFILE_IMPORT)))
         .addMethod(
-          getPresignEvidenceDownloadMethod(),
-          io.grpc.stub.ServerCalls.asyncUnaryCall(
-            new MethodHandlers<
-              io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest,
-              io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>(
-                service, METHODID_PRESIGN_EVIDENCE_DOWNLOAD)))
+            getStageAgentBrowserFileMethod(),
+            io.grpc.stub.ServerCalls.asyncClientStreamingCall(
+                new MethodHandlers<
+                    io.browsercloud.proto.node.v1.StageAgentBrowserFileRequest,
+                    io.browsercloud.proto.node.v1.StageAgentBrowserFileResponse>(
+                    service, METHODID_STAGE_AGENT_BROWSER_FILE)))
         .addMethod(
-          getPresignProfileExportDownloadMethod(),
-          io.grpc.stub.ServerCalls.asyncUnaryCall(
-            new MethodHandlers<
-              io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest,
-              io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse>(
-                service, METHODID_PRESIGN_PROFILE_EXPORT_DOWNLOAD)))
+            getPresignEvidenceDownloadMethod(),
+            io.grpc.stub.ServerCalls.asyncUnaryCall(
+                new MethodHandlers<
+                    io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest,
+                    io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>(
+                    service, METHODID_PRESIGN_EVIDENCE_DOWNLOAD)))
+        .addMethod(
+            getPresignProfileExportDownloadMethod(),
+            io.grpc.stub.ServerCalls.asyncUnaryCall(
+                new MethodHandlers<
+                    io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest,
+                    io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse>(
+                    service, METHODID_PRESIGN_PROFILE_EXPORT_DOWNLOAD)))
         .build();
   }
 
-  private static abstract class NodeControlServiceBaseDescriptorSupplier
-      implements io.grpc.protobuf.ProtoFileDescriptorSupplier, io.grpc.protobuf.ProtoServiceDescriptorSupplier {
+  private abstract static class NodeControlServiceBaseDescriptorSupplier
+      implements io.grpc.protobuf.ProtoFileDescriptorSupplier,
+          io.grpc.protobuf.ProtoServiceDescriptorSupplier {
     NodeControlServiceBaseDescriptorSupplier() {}
 
     @java.lang.Override
@@ -716,15 +1000,18 @@ public final class NodeControlServiceGrpc {
       synchronized (NodeControlServiceGrpc.class) {
         result = serviceDescriptor;
         if (result == null) {
-          serviceDescriptor = result = io.grpc.ServiceDescriptor.newBuilder(SERVICE_NAME)
-              .setSchemaDescriptor(new NodeControlServiceFileDescriptorSupplier())
-              .addMethod(getPingMethod())
-              .addMethod(getDispatchMethod())
-              .addMethod(getProbeProxyBindingMethod())
-              .addMethod(getUploadProfileImportMethod())
-              .addMethod(getPresignEvidenceDownloadMethod())
-              .addMethod(getPresignProfileExportDownloadMethod())
-              .build();
+          serviceDescriptor =
+              result =
+                  io.grpc.ServiceDescriptor.newBuilder(SERVICE_NAME)
+                      .setSchemaDescriptor(new NodeControlServiceFileDescriptorSupplier())
+                      .addMethod(getPingMethod())
+                      .addMethod(getDispatchMethod())
+                      .addMethod(getProbeProxyBindingMethod())
+                      .addMethod(getUploadProfileImportMethod())
+                      .addMethod(getStageAgentBrowserFileMethod())
+                      .addMethod(getPresignEvidenceDownloadMethod())
+                      .addMethod(getPresignProfileExportDownloadMethod())
+                      .build();
         }
       }
     }

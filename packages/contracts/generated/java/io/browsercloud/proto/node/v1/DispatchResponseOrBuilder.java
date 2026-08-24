@@ -4,22 +4,30 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface DispatchResponseOrBuilder extends
+public interface DispatchResponseOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.DispatchResponse)
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>.browsercloud.node.v1.CommandAck acknowledgement = 1 [json_name = "acknowledgement"];</code>
+   * <code>.browsercloud.node.v1.CommandAck acknowledgement = 1 [json_name = "acknowledgement"];
+   * </code>
+   *
    * @return Whether the acknowledgement field is set.
    */
   boolean hasAcknowledgement();
+
   /**
-   * <code>.browsercloud.node.v1.CommandAck acknowledgement = 1 [json_name = "acknowledgement"];</code>
+   * <code>.browsercloud.node.v1.CommandAck acknowledgement = 1 [json_name = "acknowledgement"];
+   * </code>
+   *
    * @return The acknowledgement.
    */
   io.browsercloud.proto.node.v1.CommandAck getAcknowledgement();
+
   /**
-   * <code>.browsercloud.node.v1.CommandAck acknowledgement = 1 [json_name = "acknowledgement"];</code>
+   * <code>.browsercloud.node.v1.CommandAck acknowledgement = 1 [json_name = "acknowledgement"];
+   * </code>
    */
   io.browsercloud.proto.node.v1.CommandAckOrBuilder getAcknowledgementOrBuilder();
 }

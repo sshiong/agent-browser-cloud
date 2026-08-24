@@ -4,67 +4,78 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface AgentActionFailedEventOrBuilder extends
+public interface AgentActionFailedEventOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.AgentActionFailedEvent)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>string task_id = 2 [json_name = "taskId"];</code>
+   *
    * @return The taskId.
    */
   java.lang.String getTaskId();
+
   /**
    * <code>string task_id = 2 [json_name = "taskId"];</code>
+   *
    * @return The bytes for taskId.
    */
-  com.google.protobuf.ByteString
-      getTaskIdBytes();
+  com.google.protobuf.ByteString getTaskIdBytes();
 
   /**
    * <code>string step_id = 3 [json_name = "stepId"];</code>
+   *
    * @return The stepId.
    */
   java.lang.String getStepId();
+
   /**
    * <code>string step_id = 3 [json_name = "stepId"];</code>
+   *
    * @return The bytes for stepId.
    */
-  com.google.protobuf.ByteString
-      getStepIdBytes();
+  com.google.protobuf.ByteString getStepIdBytes();
 
   /**
    * <code>string tool_id = 4 [json_name = "toolId"];</code>
+   *
    * @return The toolId.
    */
   java.lang.String getToolId();
+
   /**
    * <code>string tool_id = 4 [json_name = "toolId"];</code>
+   *
    * @return The bytes for toolId.
    */
-  com.google.protobuf.ByteString
-      getToolIdBytes();
+  com.google.protobuf.ByteString getToolIdBytes();
 
   /**
    * <code>string error_code = 5 [json_name = "errorCode"];</code>
+   *
    * @return The errorCode.
    */
   java.lang.String getErrorCode();
+
   /**
    * <code>string error_code = 5 [json_name = "errorCode"];</code>
+   *
    * @return The bytes for errorCode.
    */
-  com.google.protobuf.ByteString
-      getErrorCodeBytes();
+  com.google.protobuf.ByteString getErrorCodeBytes();
 }

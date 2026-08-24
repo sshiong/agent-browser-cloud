@@ -76,6 +76,10 @@ var Operations = map[string]Operation{
 	"readAgentClipboard":                         {OperationID: "readAgentClipboard", Method: "GET", Path: "/api/v1/sessions/{sessionId}/agent-browser/clipboard", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentClipboard"},
 	"writeAgentClipboard":                        {OperationID: "writeAgentClipboard", Method: "PUT", Path: "/api/v1/sessions/{sessionId}/agent-browser/clipboard", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "WriteAgentClipboardRequest", RequestRequired: true, ResponseSchema: "AgentClipboard"},
 	"clearAgentClipboard":                        {OperationID: "clearAgentClipboard", Method: "DELETE", Path: "/api/v1/sessions/{sessionId}/agent-browser/clipboard", PathParameters: []string{"sessionId"}, QueryParameters: []string{"expectedVersion"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentClipboard"},
+	"uploadAgentBrowserFile":                     {OperationID: "uploadAgentBrowserFile", Method: "POST", Path: "/api/v1/sessions/{sessionId}/agent-browser/files/uploads", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "UploadAgentBrowserFileRequest", RequestRequired: true, ResponseSchema: "AgentBrowserFileUpload"},
+	"getAgentBrowserFileUpload":                  {OperationID: "getAgentBrowserFileUpload", Method: "GET", Path: "/api/v1/sessions/{sessionId}/agent-browser/files/uploads/{uploadId}", PathParameters: []string{"sessionId", "uploadId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentBrowserFileUpload"},
+	"listAgentBrowserDownloads":                  {OperationID: "listAgentBrowserDownloads", Method: "GET", Path: "/api/v1/sessions/{sessionId}/agent-browser/files/downloads", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentBrowserDownloadList"},
+	"waitForAgentBrowserDownload":                {OperationID: "waitForAgentBrowserDownload", Method: "GET", Path: "/api/v1/sessions/{sessionId}/agent-browser/files/downloads/{downloadId}:wait", PathParameters: []string{"downloadId", "sessionId"}, QueryParameters: []string{"timeoutMs"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentBrowserDownload"},
 	"getSessionIdentitySpec":                     {OperationID: "getSessionIdentitySpec", Method: "GET", Path: "/api/v1/sessions/{sessionId}/identity-spec", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "SessionIdentitySpec"},
 	"rejectDirectSessionIdentityMutation":        {OperationID: "rejectDirectSessionIdentityMutation", Method: "PUT", Path: "/api/v1/sessions/{sessionId}/identity-spec", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "SessionIdentitySpecInput", RequestRequired: true, ResponseSchema: ""},
 	"createSessionIdentityChangeRequest":         {OperationID: "createSessionIdentityChangeRequest", Method: "POST", Path: "/api/v1/sessions/{sessionId}/identity-change-requests", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "CreateSessionIdentityChangeRequest", RequestRequired: true, ResponseSchema: "SessionIdentityChangeRequest"},
@@ -458,6 +462,18 @@ func (c *Client) WriteAgentClipboard(ctx context.Context, request Request) (any,
 }
 func (c *Client) ClearAgentClipboard(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "clearAgentClipboard", request)
+}
+func (c *Client) UploadAgentBrowserFile(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "uploadAgentBrowserFile", request)
+}
+func (c *Client) GetAgentBrowserFileUpload(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "getAgentBrowserFileUpload", request)
+}
+func (c *Client) ListAgentBrowserDownloads(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "listAgentBrowserDownloads", request)
+}
+func (c *Client) WaitForAgentBrowserDownload(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "waitForAgentBrowserDownload", request)
 }
 func (c *Client) GetSessionIdentitySpec(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "getSessionIdentitySpec", request)

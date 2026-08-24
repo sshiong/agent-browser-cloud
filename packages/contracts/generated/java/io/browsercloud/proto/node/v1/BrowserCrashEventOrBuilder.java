@@ -4,48 +4,56 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface BrowserCrashEventOrBuilder extends
+public interface BrowserCrashEventOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.BrowserCrashEvent)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>string crash_type = 2 [json_name = "crashType"];</code>
+   *
    * @return The crashType.
    */
   java.lang.String getCrashType();
+
   /**
    * <code>string crash_type = 2 [json_name = "crashType"];</code>
+   *
    * @return The bytes for crashType.
    */
-  com.google.protobuf.ByteString
-      getCrashTypeBytes();
+  com.google.protobuf.ByteString getCrashTypeBytes();
 
   /**
    * <code>string reason = 3 [json_name = "reason"];</code>
+   *
    * @return The reason.
    */
   java.lang.String getReason();
+
   /**
    * <code>string reason = 3 [json_name = "reason"];</code>
+   *
    * @return The bytes for reason.
    */
-  com.google.protobuf.ByteString
-      getReasonBytes();
+  com.google.protobuf.ByteString getReasonBytes();
 
   /**
    * <code>int64 detected_at_ms = 4 [json_name = "detectedAtMs"];</code>
+   *
    * @return The detectedAtMs.
    */
   long getDetectedAtMs();

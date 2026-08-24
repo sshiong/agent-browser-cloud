@@ -22,7 +22,7 @@ class JpaBrowserStateRepositoryTest {
     when(jpa.findById("ses_test")).thenReturn(Optional.empty());
     when(jpa.save(any(BrowserStateEntity.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
-    var objectMapper = new ObjectMapper();
+    var objectMapper = new ObjectMapper().findAndRegisterModules();
     var repository = new JpaBrowserStateRepository(jpa, objectMapper);
     var outside = target("target:3:outside", "Outside");
     var oldInside = target("target:3:old", "Old inside");
@@ -185,6 +185,74 @@ class JpaBrowserStateRepositoryTest {
     assertThat(persisted.nativeDialogs()).containsExactly(dialog);
     assertThat(persisted.nativeDialogEvidenceFresh()).isFalse();
     assertThat(persisted.stateQuality()).isEqualTo("DEGRADED");
+  }
+
+  @Test
+  void shouldPreserveDownloadAcrossGapAndInterruptOnlyAfterFreshCompleteEvidence()
+      throws Exception {
+    var jpa = mock(BrowserStateJpaRepository.class);
+    var objectMapper = new ObjectMapper().findAndRegisterModules();
+    var started = java.time.Instant.parse("2026-08-24T01:00:00Z");
+    var download =
+        new NodeEvent.BrowserDownload(
+            "dld_0123456789abcdef0123",
+            "report.csv",
+            "text/csv",
+            100L,
+            40,
+            4_000,
+            "IN_PROGRESS",
+            started,
+            started.plusSeconds(1));
+    var previous = stateWithDownloads(7, "hash-7", List.of(download), true);
+    var entity = new BrowserStateEntity();
+    entity.setSessionId("ses_test");
+    entity.setTenantId("tenant-test");
+    entity.setContextEpoch(2);
+    entity.setStateVersion(7);
+    entity.setStateJson(objectMapper.writeValueAsString(previous));
+    when(jpa.findById("ses_test")).thenReturn(Optional.of(entity));
+    when(jpa.save(any(BrowserStateEntity.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+    var repository = new JpaBrowserStateRepository(jpa, objectMapper);
+
+    repository.save("tenant-test", 2, stateWithDownloads(8, "hash-8", List.of(), false));
+    var stale = objectMapper.readValue(entity.getStateJson(), NodeEvent.StateUpdated.class);
+    assertThat(stale.downloads()).containsExactly(download);
+    assertThat(stale.downloadEvidenceFresh()).isFalse();
+
+    repository.save("tenant-test", 2, stateWithDownloads(9, "hash-9", List.of(), true));
+    var fresh = objectMapper.readValue(entity.getStateJson(), NodeEvent.StateUpdated.class);
+    assertThat(fresh.downloadEvidenceFresh()).isTrue();
+    assertThat(fresh.downloads())
+        .singleElement()
+        .extracting(NodeEvent.BrowserDownload::status)
+        .isEqualTo("INTERRUPTED");
+  }
+
+  private static NodeEvent.StateUpdated stateWithDownloads(
+      long version, String hash, List<NodeEvent.BrowserDownload> downloads, boolean fresh) {
+    return new NodeEvent.StateUpdated(
+        "ses_test",
+        version,
+        3,
+        "https://example.test/app",
+        "App",
+        List.of(new NodeEvent.BrowserTab("tab-app", "https://example.test/app", "App", true)),
+        "tab-app",
+        hash,
+        "COMPLETE",
+        List.of(),
+        "complete",
+        1_000,
+        true,
+        "PERIODIC",
+        "",
+        List.of(),
+        List.of(),
+        true,
+        downloads,
+        fresh);
   }
 
   private static NodeEvent.InteractiveTarget target(String targetRef, String name) {

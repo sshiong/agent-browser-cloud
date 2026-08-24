@@ -5,6 +5,8 @@
 package io.browsercloud.proto.node.v1;
 
 /**
+ *
+ *
  * <pre>
  * Business Recovery 只允许 Control Plane 从版本化应用契约解析出的低风险动作。
  * target_url 对 RELOAD / REFRESH_SESSION / RESTART_EXTENSION 为空；
@@ -13,15 +15,17 @@ package io.browsercloud.proto.node.v1;
  *
  * Protobuf type {@code browsercloud.node.v1.BusinessRecoveryActionCommand}
  */
-public final class BusinessRecoveryActionCommand extends
-    com.google.protobuf.GeneratedMessageV3 implements
+public final class BusinessRecoveryActionCommand extends com.google.protobuf.GeneratedMessageV3
+    implements
     // @@protoc_insertion_point(message_implements:browsercloud.node.v1.BusinessRecoveryActionCommand)
     BusinessRecoveryActionCommandOrBuilder {
-private static final long serialVersionUID = 0L;
+  private static final long serialVersionUID = 0L;
+
   // Use BusinessRecoveryActionCommand.newBuilder() to construct.
   private BusinessRecoveryActionCommand(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
+
   private BusinessRecoveryActionCommand() {
     sessionId_ = "";
     actionId_ = "";
@@ -32,29 +36,33 @@ private static final long serialVersionUID = 0L;
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
+  protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
     return new BusinessRecoveryActionCommand();
   }
 
-  public static final com.google.protobuf.Descriptors.Descriptor
-      getDescriptor() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BusinessRecoveryActionCommand_descriptor;
+  public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_BusinessRecoveryActionCommand_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BusinessRecoveryActionCommand_fieldAccessorTable
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_BusinessRecoveryActionCommand_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand.class, io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand.Builder.class);
+            io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand.class,
+            io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand.Builder.class);
   }
 
   public static final int SESSION_ID_FIELD_NUMBER = 1;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object sessionId_ = "";
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   @java.lang.Override
@@ -63,25 +71,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       sessionId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getSessionIdBytes() {
+  public com.google.protobuf.ByteString getSessionIdBytes() {
     java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       sessionId_ = b;
       return b;
     } else {
@@ -90,10 +97,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int ACTION_ID_FIELD_NUMBER = 2;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object actionId_ = "";
+
   /**
    * <code>string action_id = 2 [json_name = "actionId"];</code>
+   *
    * @return The actionId.
    */
   @java.lang.Override
@@ -102,25 +112,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       actionId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string action_id = 2 [json_name = "actionId"];</code>
+   *
    * @return The bytes for actionId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getActionIdBytes() {
+  public com.google.protobuf.ByteString getActionIdBytes() {
     java.lang.Object ref = actionId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       actionId_ = b;
       return b;
     } else {
@@ -129,10 +138,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int ACTION_FIELD_NUMBER = 3;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object action_ = "";
+
   /**
    * <code>string action = 3 [json_name = "action"];</code>
+   *
    * @return The action.
    */
   @java.lang.Override
@@ -141,25 +153,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       action_ = s;
       return s;
     }
   }
+
   /**
    * <code>string action = 3 [json_name = "action"];</code>
+   *
    * @return The bytes for action.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getActionBytes() {
+  public com.google.protobuf.ByteString getActionBytes() {
     java.lang.Object ref = action_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       action_ = b;
       return b;
     } else {
@@ -168,10 +179,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int TARGET_URL_FIELD_NUMBER = 4;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object targetUrl_ = "";
+
   /**
    * <code>string target_url = 4 [json_name = "targetUrl"];</code>
+   *
    * @return The targetUrl.
    */
   @java.lang.Override
@@ -180,25 +194,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       targetUrl_ = s;
       return s;
     }
   }
+
   /**
    * <code>string target_url = 4 [json_name = "targetUrl"];</code>
+   *
    * @return The bytes for targetUrl.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getTargetUrlBytes() {
+  public com.google.protobuf.ByteString getTargetUrlBytes() {
     java.lang.Object ref = targetUrl_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       targetUrl_ = b;
       return b;
     } else {
@@ -208,8 +221,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int BASE_STATE_VERSION_FIELD_NUMBER = 5;
   private long baseStateVersion_ = 0L;
+
   /**
    * <code>uint64 base_state_version = 5 [json_name = "baseStateVersion"];</code>
+   *
    * @return The baseStateVersion.
    */
   @java.lang.Override
@@ -218,10 +233,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int EXTENSION_ID_FIELD_NUMBER = 6;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object extensionId_ = "";
+
   /**
    * <code>string extension_id = 6 [json_name = "extensionId"];</code>
+   *
    * @return The extensionId.
    */
   @java.lang.Override
@@ -230,25 +248,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       extensionId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string extension_id = 6 [json_name = "extensionId"];</code>
+   *
    * @return The bytes for extensionId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getExtensionIdBytes() {
+  public com.google.protobuf.ByteString getExtensionIdBytes() {
     java.lang.Object ref = extensionId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       extensionId_ = b;
       return b;
     } else {
@@ -257,6 +274,7 @@ private static final long serialVersionUID = 0L;
   }
 
   private byte memoizedIsInitialized = -1;
+
   @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
@@ -268,8 +286,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @java.lang.Override
-  public void writeTo(com.google.protobuf.CodedOutputStream output)
-                      throws java.io.IOException {
+  public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(sessionId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 1, sessionId_);
     }
@@ -310,8 +327,7 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, targetUrl_);
     }
     if (baseStateVersion_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(5, baseStateVersion_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(5, baseStateVersion_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(extensionId_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, extensionId_);
@@ -324,25 +340,20 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public boolean equals(final java.lang.Object obj) {
     if (obj == this) {
-     return true;
+      return true;
     }
     if (!(obj instanceof io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand)) {
       return super.equals(obj);
     }
-    io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand other = (io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand) obj;
+    io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand other =
+        (io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand) obj;
 
-    if (!getSessionId()
-        .equals(other.getSessionId())) return false;
-    if (!getActionId()
-        .equals(other.getActionId())) return false;
-    if (!getAction()
-        .equals(other.getAction())) return false;
-    if (!getTargetUrl()
-        .equals(other.getTargetUrl())) return false;
-    if (getBaseStateVersion()
-        != other.getBaseStateVersion()) return false;
-    if (!getExtensionId()
-        .equals(other.getExtensionId())) return false;
+    if (!getSessionId().equals(other.getSessionId())) return false;
+    if (!getActionId().equals(other.getActionId())) return false;
+    if (!getAction().equals(other.getAction())) return false;
+    if (!getTargetUrl().equals(other.getTargetUrl())) return false;
+    if (getBaseStateVersion() != other.getBaseStateVersion()) return false;
+    if (!getExtensionId().equals(other.getExtensionId())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -363,8 +374,7 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + TARGET_URL_FIELD_NUMBER;
     hash = (53 * hash) + getTargetUrl().hashCode();
     hash = (37 * hash) + BASE_STATE_VERSION_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        getBaseStateVersion());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getBaseStateVersion());
     hash = (37 * hash) + EXTENSION_ID_FIELD_NUMBER;
     hash = (53 * hash) + getExtensionId().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
@@ -373,98 +383,105 @@ private static final long serialVersionUID = 0L;
   }
 
   public static io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand parseFrom(
-      java.nio.ByteBuffer data)
-      throws com.google.protobuf.InvalidProtocolBufferException {
+      java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand parseFrom(
-      java.nio.ByteBuffer data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand parseFrom(
-      byte[] data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand parseFrom(java.io.InputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
-  }
+
   public static io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand parseFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand parseDelimitedFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand parseFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   public static io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand parseDelimitedFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
   }
+
+  public static io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand parseDelimitedFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
+        PARSER, input, extensionRegistry);
+  }
+
   public static io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand parseFrom(
-      com.google.protobuf.CodedInputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
+      com.google.protobuf.CodedInputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
+
   public static io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   @java.lang.Override
-  public Builder newBuilderForType() { return newBuilder(); }
+  public Builder newBuilderForType() {
+    return newBuilder();
+  }
+
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand prototype) {
+
+  public static Builder newBuilder(
+      io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-  }
-  @java.lang.Override
-  public Builder toBuilder() {
-    return this == DEFAULT_INSTANCE
-        ? new Builder() : new Builder().mergeFrom(this);
   }
 
   @java.lang.Override
-  protected Builder newBuilderForType(
-      com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+  public Builder toBuilder() {
+    return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
+  }
+
+  @java.lang.Override
+  protected Builder newBuilderForType(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
     Builder builder = new Builder(parent);
     return builder;
   }
+
   /**
+   *
+   *
    * <pre>
    * Business Recovery 只允许 Control Plane 从版本化应用契约解析出的低风险动作。
    * target_url 对 RELOAD / REFRESH_SESSION / RESTART_EXTENSION 为空；
@@ -473,33 +490,32 @@ private static final long serialVersionUID = 0L;
    *
    * Protobuf type {@code browsercloud.node.v1.BusinessRecoveryActionCommand}
    */
-  public static final class Builder extends
-      com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+  public static final class Builder extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
+      implements
       // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.BusinessRecoveryActionCommand)
       io.browsercloud.proto.node.v1.BusinessRecoveryActionCommandOrBuilder {
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BusinessRecoveryActionCommand_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_BusinessRecoveryActionCommand_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BusinessRecoveryActionCommand_fieldAccessorTable
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_BusinessRecoveryActionCommand_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand.class, io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand.Builder.class);
+              io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand.class,
+              io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand.Builder.class);
     }
 
     // Construct using io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand.newBuilder()
-    private Builder() {
+    private Builder() {}
 
-    }
-
-    private Builder(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+    private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
-
     }
+
     @java.lang.Override
     public Builder clear() {
       super.clear();
@@ -514,9 +530,9 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Descriptors.Descriptor
-        getDescriptorForType() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BusinessRecoveryActionCommand_descriptor;
+    public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_BusinessRecoveryActionCommand_descriptor;
     }
 
     @java.lang.Override
@@ -535,8 +551,11 @@ private static final long serialVersionUID = 0L;
 
     @java.lang.Override
     public io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand buildPartial() {
-      io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand result = new io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand(this);
-      if (bitField0_ != 0) { buildPartial0(result); }
+      io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand result =
+          new io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand(this);
+      if (bitField0_ != 0) {
+        buildPartial0(result);
+      }
       onBuilt();
       return result;
     }
@@ -567,38 +586,39 @@ private static final long serialVersionUID = 0L;
     public Builder clone() {
       return super.clone();
     }
+
     @java.lang.Override
     public Builder setField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.setField(field, value);
     }
+
     @java.lang.Override
-    public Builder clearField(
-        com.google.protobuf.Descriptors.FieldDescriptor field) {
+    public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
       return super.clearField(field);
     }
+
     @java.lang.Override
-    public Builder clearOneof(
-        com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+    public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
       return super.clearOneof(oneof);
     }
+
     @java.lang.Override
     public Builder setRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        int index, java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, int index, java.lang.Object value) {
       return super.setRepeatedField(field, index, value);
     }
+
     @java.lang.Override
     public Builder addRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.addRepeatedField(field, value);
     }
+
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand) {
-        return mergeFrom((io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand)other);
+        return mergeFrom((io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand) other);
       } else {
         super.mergeFrom(other);
         return this;
@@ -606,7 +626,8 @@ private static final long serialVersionUID = 0L;
     }
 
     public Builder mergeFrom(io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand other) {
-      if (other == io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand.getDefaultInstance()) return this;
+      if (other == io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand.getDefaultInstance())
+        return this;
       if (!other.getSessionId().isEmpty()) {
         sessionId_ = other.sessionId_;
         bitField0_ |= 0x00000001;
@@ -661,42 +682,49 @@ private static final long serialVersionUID = 0L;
             case 0:
               done = true;
               break;
-            case 10: {
-              sessionId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000001;
-              break;
-            } // case 10
-            case 18: {
-              actionId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000002;
-              break;
-            } // case 18
-            case 26: {
-              action_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000004;
-              break;
-            } // case 26
-            case 34: {
-              targetUrl_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000008;
-              break;
-            } // case 34
-            case 40: {
-              baseStateVersion_ = input.readUInt64();
-              bitField0_ |= 0x00000010;
-              break;
-            } // case 40
-            case 50: {
-              extensionId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000020;
-              break;
-            } // case 50
-            default: {
-              if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                done = true; // was an endgroup tag
-              }
-              break;
-            } // default:
+            case 10:
+              {
+                sessionId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000001;
+                break;
+              } // case 10
+            case 18:
+              {
+                actionId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000002;
+                break;
+              } // case 18
+            case 26:
+              {
+                action_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000004;
+                break;
+              } // case 26
+            case 34:
+              {
+                targetUrl_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000008;
+                break;
+              } // case 34
+            case 40:
+              {
+                baseStateVersion_ = input.readUInt64();
+                bitField0_ |= 0x00000010;
+                break;
+              } // case 40
+            case 50:
+              {
+                extensionId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000020;
+                break;
+              } // case 50
+            default:
+              {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
           } // switch (tag)
         } // while (!done)
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -706,18 +734,20 @@ private static final long serialVersionUID = 0L;
       } // finally
       return this;
     }
+
     private int bitField0_;
 
     private java.lang.Object sessionId_ = "";
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return The sessionId.
      */
     public java.lang.String getSessionId() {
       java.lang.Object ref = sessionId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         sessionId_ = s;
         return s;
@@ -725,38 +755,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return The bytes for sessionId.
      */
-    public com.google.protobuf.ByteString
-        getSessionIdBytes() {
+    public com.google.protobuf.ByteString getSessionIdBytes() {
       java.lang.Object ref = sessionId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         sessionId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @param value The sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setSessionId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSessionId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       sessionId_ = value;
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSessionId() {
@@ -765,14 +800,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @param value The bytes for sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setSessionIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSessionIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       sessionId_ = value;
       bitField0_ |= 0x00000001;
@@ -781,15 +819,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object actionId_ = "";
+
     /**
      * <code>string action_id = 2 [json_name = "actionId"];</code>
+     *
      * @return The actionId.
      */
     public java.lang.String getActionId() {
       java.lang.Object ref = actionId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         actionId_ = s;
         return s;
@@ -797,38 +836,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string action_id = 2 [json_name = "actionId"];</code>
+     *
      * @return The bytes for actionId.
      */
-    public com.google.protobuf.ByteString
-        getActionIdBytes() {
+    public com.google.protobuf.ByteString getActionIdBytes() {
       java.lang.Object ref = actionId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         actionId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string action_id = 2 [json_name = "actionId"];</code>
+     *
      * @param value The actionId to set.
      * @return This builder for chaining.
      */
-    public Builder setActionId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setActionId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       actionId_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
+
     /**
      * <code>string action_id = 2 [json_name = "actionId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearActionId() {
@@ -837,14 +881,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string action_id = 2 [json_name = "actionId"];</code>
+     *
      * @param value The bytes for actionId to set.
      * @return This builder for chaining.
      */
-    public Builder setActionIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setActionIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       actionId_ = value;
       bitField0_ |= 0x00000002;
@@ -853,15 +900,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object action_ = "";
+
     /**
      * <code>string action = 3 [json_name = "action"];</code>
+     *
      * @return The action.
      */
     public java.lang.String getAction() {
       java.lang.Object ref = action_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         action_ = s;
         return s;
@@ -869,38 +917,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string action = 3 [json_name = "action"];</code>
+     *
      * @return The bytes for action.
      */
-    public com.google.protobuf.ByteString
-        getActionBytes() {
+    public com.google.protobuf.ByteString getActionBytes() {
       java.lang.Object ref = action_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         action_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string action = 3 [json_name = "action"];</code>
+     *
      * @param value The action to set.
      * @return This builder for chaining.
      */
-    public Builder setAction(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setAction(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       action_ = value;
       bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
+
     /**
      * <code>string action = 3 [json_name = "action"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearAction() {
@@ -909,14 +962,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string action = 3 [json_name = "action"];</code>
+     *
      * @param value The bytes for action to set.
      * @return This builder for chaining.
      */
-    public Builder setActionBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setActionBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       action_ = value;
       bitField0_ |= 0x00000004;
@@ -925,15 +981,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object targetUrl_ = "";
+
     /**
      * <code>string target_url = 4 [json_name = "targetUrl"];</code>
+     *
      * @return The targetUrl.
      */
     public java.lang.String getTargetUrl() {
       java.lang.Object ref = targetUrl_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         targetUrl_ = s;
         return s;
@@ -941,38 +998,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string target_url = 4 [json_name = "targetUrl"];</code>
+     *
      * @return The bytes for targetUrl.
      */
-    public com.google.protobuf.ByteString
-        getTargetUrlBytes() {
+    public com.google.protobuf.ByteString getTargetUrlBytes() {
       java.lang.Object ref = targetUrl_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         targetUrl_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string target_url = 4 [json_name = "targetUrl"];</code>
+     *
      * @param value The targetUrl to set.
      * @return This builder for chaining.
      */
-    public Builder setTargetUrl(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setTargetUrl(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       targetUrl_ = value;
       bitField0_ |= 0x00000008;
       onChanged();
       return this;
     }
+
     /**
      * <code>string target_url = 4 [json_name = "targetUrl"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearTargetUrl() {
@@ -981,14 +1043,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string target_url = 4 [json_name = "targetUrl"];</code>
+     *
      * @param value The bytes for targetUrl to set.
      * @return This builder for chaining.
      */
-    public Builder setTargetUrlBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setTargetUrlBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       targetUrl_ = value;
       bitField0_ |= 0x00000008;
@@ -996,17 +1061,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long baseStateVersion_ ;
+    private long baseStateVersion_;
+
     /**
      * <code>uint64 base_state_version = 5 [json_name = "baseStateVersion"];</code>
+     *
      * @return The baseStateVersion.
      */
     @java.lang.Override
     public long getBaseStateVersion() {
       return baseStateVersion_;
     }
+
     /**
      * <code>uint64 base_state_version = 5 [json_name = "baseStateVersion"];</code>
+     *
      * @param value The baseStateVersion to set.
      * @return This builder for chaining.
      */
@@ -1017,8 +1086,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint64 base_state_version = 5 [json_name = "baseStateVersion"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearBaseStateVersion() {
@@ -1029,15 +1100,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object extensionId_ = "";
+
     /**
      * <code>string extension_id = 6 [json_name = "extensionId"];</code>
+     *
      * @return The extensionId.
      */
     public java.lang.String getExtensionId() {
       java.lang.Object ref = extensionId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         extensionId_ = s;
         return s;
@@ -1045,38 +1117,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string extension_id = 6 [json_name = "extensionId"];</code>
+     *
      * @return The bytes for extensionId.
      */
-    public com.google.protobuf.ByteString
-        getExtensionIdBytes() {
+    public com.google.protobuf.ByteString getExtensionIdBytes() {
       java.lang.Object ref = extensionId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         extensionId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string extension_id = 6 [json_name = "extensionId"];</code>
+     *
      * @param value The extensionId to set.
      * @return This builder for chaining.
      */
-    public Builder setExtensionId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setExtensionId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       extensionId_ = value;
       bitField0_ |= 0x00000020;
       onChanged();
       return this;
     }
+
     /**
      * <code>string extension_id = 6 [json_name = "extensionId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearExtensionId() {
@@ -1085,23 +1162,26 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string extension_id = 6 [json_name = "extensionId"];</code>
+     *
      * @param value The bytes for extensionId to set.
      * @return This builder for chaining.
      */
-    public Builder setExtensionIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setExtensionIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       extensionId_ = value;
       bitField0_ |= 0x00000020;
       onChanged();
       return this;
     }
+
     @java.lang.Override
-    public final Builder setUnknownFields(
-        final com.google.protobuf.UnknownFieldSet unknownFields) {
+    public final Builder setUnknownFields(final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.setUnknownFields(unknownFields);
     }
 
@@ -1111,12 +1191,12 @@ private static final long serialVersionUID = 0L;
       return super.mergeUnknownFields(unknownFields);
     }
 
-
     // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.BusinessRecoveryActionCommand)
   }
 
   // @@protoc_insertion_point(class_scope:browsercloud.node.v1.BusinessRecoveryActionCommand)
   private static final io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand DEFAULT_INSTANCE;
+
   static {
     DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand();
   }
@@ -1125,27 +1205,27 @@ private static final long serialVersionUID = 0L;
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<BusinessRecoveryActionCommand>
-      PARSER = new com.google.protobuf.AbstractParser<BusinessRecoveryActionCommand>() {
-    @java.lang.Override
-    public BusinessRecoveryActionCommand parsePartialFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      Builder builder = newBuilder();
-      try {
-        builder.mergeFrom(input, extensionRegistry);
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(builder.buildPartial());
-      } catch (com.google.protobuf.UninitializedMessageException e) {
-        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(e)
-            .setUnfinishedMessage(builder.buildPartial());
-      }
-      return builder.buildPartial();
-    }
-  };
+  private static final com.google.protobuf.Parser<BusinessRecoveryActionCommand> PARSER =
+      new com.google.protobuf.AbstractParser<BusinessRecoveryActionCommand>() {
+        @java.lang.Override
+        public BusinessRecoveryActionCommand parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          Builder builder = newBuilder();
+          try {
+            builder.mergeFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            throw e.setUnfinishedMessage(builder.buildPartial());
+          } catch (com.google.protobuf.UninitializedMessageException e) {
+            throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+          } catch (java.io.IOException e) {
+            throw new com.google.protobuf.InvalidProtocolBufferException(e)
+                .setUnfinishedMessage(builder.buildPartial());
+          }
+          return builder.buildPartial();
+        }
+      };
 
   public static com.google.protobuf.Parser<BusinessRecoveryActionCommand> parser() {
     return PARSER;
@@ -1160,5 +1240,4 @@ private static final long serialVersionUID = 0L;
   public io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
-
 }

@@ -5,21 +5,25 @@
 package io.browsercloud.proto.node.v1;
 
 /**
+ *
+ *
  * <pre>
  * 启动 Runtime 命令
  * </pre>
  *
  * Protobuf type {@code browsercloud.node.v1.StartRuntimeCommand}
  */
-public final class StartRuntimeCommand extends
-    com.google.protobuf.GeneratedMessageV3 implements
+public final class StartRuntimeCommand extends com.google.protobuf.GeneratedMessageV3
+    implements
     // @@protoc_insertion_point(message_implements:browsercloud.node.v1.StartRuntimeCommand)
     StartRuntimeCommandOrBuilder {
-private static final long serialVersionUID = 0L;
+  private static final long serialVersionUID = 0L;
+
   // Use StartRuntimeCommand.newBuilder() to construct.
   private StartRuntimeCommand(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
+
   private StartRuntimeCommand() {
     sessionId_ = "";
     runtimeBuildId_ = "";
@@ -28,46 +32,55 @@ private static final long serialVersionUID = 0L;
     proxyBindingId_ = "";
     resourceClass_ = "";
     profileCheckpointId_ = "";
-    extensionIds_ =
-        com.google.protobuf.LazyStringArrayList.emptyList();
+    extensionIds_ = com.google.protobuf.LazyStringArrayList.emptyList();
     proxyProviderId_ = "";
     proxyExpectedExitIp_ = "";
     proxyCredentialRef_ = "";
-    browserTransactionExpectedOrigins_ =
-        com.google.protobuf.LazyStringArrayList.emptyList();
-    paymentSecurityRoutePrefixes_ =
-        com.google.protobuf.LazyStringArrayList.emptyList();
-    criticalTransactionRoutePrefixes_ =
-        com.google.protobuf.LazyStringArrayList.emptyList();
+    browserTransactionExpectedOrigins_ = com.google.protobuf.LazyStringArrayList.emptyList();
+    paymentSecurityRoutePrefixes_ = com.google.protobuf.LazyStringArrayList.emptyList();
+    criticalTransactionRoutePrefixes_ = com.google.protobuf.LazyStringArrayList.emptyList();
     browserTransactionPolicyHash_ = "";
+    identityUserAgent_ = "";
+    identityTimezone_ = "";
+    identityLocale_ = "";
+    identityLanguages_ = com.google.protobuf.LazyStringArrayList.emptyList();
+    identityWebrtcPolicy_ = "";
+    identityDnsPolicy_ = "";
+    identityFingerprintProfile_ = "";
+    identityOperatingSystemProfile_ = "";
+    identitySpecHash_ = "";
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
+  protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
     return new StartRuntimeCommand();
   }
 
-  public static final com.google.protobuf.Descriptors.Descriptor
-      getDescriptor() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_StartRuntimeCommand_descriptor;
+  public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_StartRuntimeCommand_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_StartRuntimeCommand_fieldAccessorTable
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_StartRuntimeCommand_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            io.browsercloud.proto.node.v1.StartRuntimeCommand.class, io.browsercloud.proto.node.v1.StartRuntimeCommand.Builder.class);
+            io.browsercloud.proto.node.v1.StartRuntimeCommand.class,
+            io.browsercloud.proto.node.v1.StartRuntimeCommand.Builder.class);
   }
 
   private int bitField0_;
   public static final int SESSION_ID_FIELD_NUMBER = 1;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object sessionId_ = "";
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   @java.lang.Override
@@ -76,25 +89,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       sessionId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getSessionIdBytes() {
+  public com.google.protobuf.ByteString getSessionIdBytes() {
     java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       sessionId_ = b;
       return b;
     } else {
@@ -103,10 +115,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int RUNTIME_BUILD_ID_FIELD_NUMBER = 2;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object runtimeBuildId_ = "";
+
   /**
    * <code>string runtime_build_id = 2 [json_name = "runtimeBuildId"];</code>
+   *
    * @return The runtimeBuildId.
    */
   @java.lang.Override
@@ -115,25 +130,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       runtimeBuildId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string runtime_build_id = 2 [json_name = "runtimeBuildId"];</code>
+   *
    * @return The bytes for runtimeBuildId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getRuntimeBuildIdBytes() {
+  public com.google.protobuf.ByteString getRuntimeBuildIdBytes() {
     java.lang.Object ref = runtimeBuildId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       runtimeBuildId_ = b;
       return b;
     } else {
@@ -142,10 +156,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int PROFILE_ID_FIELD_NUMBER = 3;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object profileId_ = "";
+
   /**
    * <code>string profile_id = 3 [json_name = "profileId"];</code>
+   *
    * @return The profileId.
    */
   @java.lang.Override
@@ -154,25 +171,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       profileId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string profile_id = 3 [json_name = "profileId"];</code>
+   *
    * @return The bytes for profileId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getProfileIdBytes() {
+  public com.google.protobuf.ByteString getProfileIdBytes() {
     java.lang.Object ref = profileId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       profileId_ = b;
       return b;
     } else {
@@ -181,10 +197,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int DISPLAY_FIELD_NUMBER = 4;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object display_ = "";
+
   /**
    * <code>string display = 4 [json_name = "display"];</code>
+   *
    * @return The display.
    */
   @java.lang.Override
@@ -193,25 +212,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       display_ = s;
       return s;
     }
   }
+
   /**
    * <code>string display = 4 [json_name = "display"];</code>
+   *
    * @return The bytes for display.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getDisplayBytes() {
+  public com.google.protobuf.ByteString getDisplayBytes() {
     java.lang.Object ref = display_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       display_ = b;
       return b;
     } else {
@@ -221,8 +239,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int CDP_PORT_FIELD_NUMBER = 5;
   private int cdpPort_ = 0;
+
   /**
    * <code>int32 cdp_port = 5 [json_name = "cdpPort"];</code>
+   *
    * @return The cdpPort.
    */
   @java.lang.Override
@@ -231,10 +251,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int PROXY_BINDING_ID_FIELD_NUMBER = 6;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object proxyBindingId_ = "";
+
   /**
    * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
+   *
    * @return The proxyBindingId.
    */
   @java.lang.Override
@@ -243,25 +266,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       proxyBindingId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
+   *
    * @return The bytes for proxyBindingId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getProxyBindingIdBytes() {
+  public com.google.protobuf.ByteString getProxyBindingIdBytes() {
     java.lang.Object ref = proxyBindingId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       proxyBindingId_ = b;
       return b;
     } else {
@@ -270,10 +292,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int RESOURCE_CLASS_FIELD_NUMBER = 7;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object resourceClass_ = "";
+
   /**
    * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+   *
    * @return The resourceClass.
    */
   @java.lang.Override
@@ -282,25 +307,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       resourceClass_ = s;
       return s;
     }
   }
+
   /**
    * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+   *
    * @return The bytes for resourceClass.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getResourceClassBytes() {
+  public com.google.protobuf.ByteString getResourceClassBytes() {
     java.lang.Object ref = resourceClass_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       resourceClass_ = b;
       return b;
     } else {
@@ -310,8 +334,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int CPU_MILLIS_FIELD_NUMBER = 8;
   private int cpuMillis_ = 0;
+
   /**
    * <code>uint32 cpu_millis = 8 [json_name = "cpuMillis"];</code>
+   *
    * @return The cpuMillis.
    */
   @java.lang.Override
@@ -321,8 +347,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int MEMORY_REQUEST_MIB_FIELD_NUMBER = 9;
   private int memoryRequestMib_ = 0;
+
   /**
    * <code>uint32 memory_request_mib = 9 [json_name = "memoryRequestMib"];</code>
+   *
    * @return The memoryRequestMib.
    */
   @java.lang.Override
@@ -332,8 +360,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int MEMORY_LIMIT_MIB_FIELD_NUMBER = 10;
   private int memoryLimitMib_ = 0;
+
   /**
    * <code>uint32 memory_limit_mib = 10 [json_name = "memoryLimitMib"];</code>
+   *
    * @return The memoryLimitMib.
    */
   @java.lang.Override
@@ -343,8 +373,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int PID_LIMIT_FIELD_NUMBER = 11;
   private int pidLimit_ = 0;
+
   /**
    * <code>uint32 pid_limit = 11 [json_name = "pidLimit"];</code>
+   *
    * @return The pidLimit.
    */
   @java.lang.Override
@@ -354,8 +386,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int TAB_BUDGET_FIELD_NUMBER = 12;
   private int tabBudget_ = 0;
+
   /**
    * <code>uint32 tab_budget = 12 [json_name = "tabBudget"];</code>
+   *
    * @return The tabBudget.
    */
   @java.lang.Override
@@ -365,8 +399,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int DESKTOP_REQUIRED_FIELD_NUMBER = 13;
   private boolean desktopRequired_ = false;
+
   /**
    * <code>bool desktop_required = 13 [json_name = "desktopRequired"];</code>
+   *
    * @return The desktopRequired.
    */
   @java.lang.Override
@@ -376,8 +412,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int GPU_REQUIRED_FIELD_NUMBER = 14;
   private boolean gpuRequired_ = false;
+
   /**
    * <code>bool gpu_required = 14 [json_name = "gpuRequired"];</code>
+   *
    * @return The gpuRequired.
    */
   @java.lang.Override
@@ -387,8 +425,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int NATIVE_OS_REQUIRED_FIELD_NUMBER = 15;
   private boolean nativeOsRequired_ = false;
+
   /**
    * <code>bool native_os_required = 15 [json_name = "nativeOsRequired"];</code>
+   *
    * @return The nativeOsRequired.
    */
   @java.lang.Override
@@ -398,8 +438,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int ISOLATION_REQUIRED_FIELD_NUMBER = 16;
   private boolean isolationRequired_ = false;
+
   /**
    * <code>bool isolation_required = 16 [json_name = "isolationRequired"];</code>
+   *
    * @return The isolationRequired.
    */
   @java.lang.Override
@@ -408,10 +450,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int PROFILE_CHECKPOINT_ID_FIELD_NUMBER = 17;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object profileCheckpointId_ = "";
+
   /**
    * <code>string profile_checkpoint_id = 17 [json_name = "profileCheckpointId"];</code>
+   *
    * @return The profileCheckpointId.
    */
   @java.lang.Override
@@ -420,25 +465,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       profileCheckpointId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string profile_checkpoint_id = 17 [json_name = "profileCheckpointId"];</code>
+   *
    * @return The bytes for profileCheckpointId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getProfileCheckpointIdBytes() {
+  public com.google.protobuf.ByteString getProfileCheckpointIdBytes() {
     java.lang.Object ref = profileCheckpointId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       profileCheckpointId_ = b;
       return b;
     } else {
@@ -448,24 +492,36 @@ private static final long serialVersionUID = 0L;
 
   public static final int STATE_COLLECTOR_BUDGET_PERCENT_FIELD_NUMBER = 18;
   private int stateCollectorBudgetPercent_ = 0;
+
   /**
+   *
+   *
    * <pre>
    * N-1 Node 不识别时安全忽略；缺失表示使用 Node 安全默认值。
    * </pre>
    *
-   * <code>optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return Whether the stateCollectorBudgetPercent field is set.
    */
   @java.lang.Override
   public boolean hasStateCollectorBudgetPercent() {
     return ((bitField0_ & 0x00000001) != 0);
   }
+
   /**
+   *
+   *
    * <pre>
    * N-1 Node 不识别时安全忽略；缺失表示使用 Node 安全默认值。
    * </pre>
    *
-   * <code>optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return The stateCollectorBudgetPercent.
    */
   @java.lang.Override
@@ -475,16 +531,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int REMOTE_DESKTOP_BITRATE_KBPS_FIELD_NUMBER = 19;
   private int remoteDesktopBitrateKbps_ = 0;
+
   /**
-   * <code>optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return Whether the remoteDesktopBitrateKbps field is set.
    */
   @java.lang.Override
   public boolean hasRemoteDesktopBitrateKbps() {
     return ((bitField0_ & 0x00000002) != 0);
   }
+
   /**
-   * <code>optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return The remoteDesktopBitrateKbps.
    */
   @java.lang.Override
@@ -493,78 +557,101 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int EXTENSION_IDS_FIELD_NUMBER = 20;
+
   @SuppressWarnings("serial")
   private com.google.protobuf.LazyStringArrayList extensionIds_ =
       com.google.protobuf.LazyStringArrayList.emptyList();
+
   /**
+   *
+   *
    * <pre>
    * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
    * </pre>
    *
    * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   *
    * @return A list containing the extensionIds.
    */
-  public com.google.protobuf.ProtocolStringList
-      getExtensionIdsList() {
+  public com.google.protobuf.ProtocolStringList getExtensionIdsList() {
     return extensionIds_;
   }
+
   /**
+   *
+   *
    * <pre>
    * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
    * </pre>
    *
    * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   *
    * @return The count of extensionIds.
    */
   public int getExtensionIdsCount() {
     return extensionIds_.size();
   }
+
   /**
+   *
+   *
    * <pre>
    * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
    * </pre>
    *
    * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   *
    * @param index The index of the element to return.
    * @return The extensionIds at the given index.
    */
   public java.lang.String getExtensionIds(int index) {
     return extensionIds_.get(index);
   }
+
   /**
+   *
+   *
    * <pre>
    * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
    * </pre>
    *
    * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   *
    * @param index The index of the value to return.
    * @return The bytes of the extensionIds at the given index.
    */
-  public com.google.protobuf.ByteString
-      getExtensionIdsBytes(int index) {
+  public com.google.protobuf.ByteString getExtensionIdsBytes(int index) {
     return extensionIds_.getByteString(index);
   }
 
   public static final int EXTENSION_CPU_WEIGHT_FIELD_NUMBER = 21;
   private int extensionCpuWeight_ = 0;
+
   /**
+   *
+   *
    * <pre>
    * cgroup v2 cpu.weight，N-1 Node 会安全忽略。
    * </pre>
    *
    * <code>optional uint32 extension_cpu_weight = 21 [json_name = "extensionCpuWeight"];</code>
+   *
    * @return Whether the extensionCpuWeight field is set.
    */
   @java.lang.Override
   public boolean hasExtensionCpuWeight() {
     return ((bitField0_ & 0x00000004) != 0);
   }
+
   /**
+   *
+   *
    * <pre>
    * cgroup v2 cpu.weight，N-1 Node 会安全忽略。
    * </pre>
    *
    * <code>optional uint32 extension_cpu_weight = 21 [json_name = "extensionCpuWeight"];</code>
+   *
    * @return The extensionCpuWeight.
    */
   @java.lang.Override
@@ -574,24 +661,32 @@ private static final long serialVersionUID = 0L;
 
   public static final int MEDIA_ENCODER_SLOTS_FIELD_NUMBER = 22;
   private int mediaEncoderSlots_ = 0;
+
   /**
+   *
+   *
    * <pre>
    * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
    * </pre>
    *
    * <code>optional uint32 media_encoder_slots = 22 [json_name = "mediaEncoderSlots"];</code>
+   *
    * @return Whether the mediaEncoderSlots field is set.
    */
   @java.lang.Override
   public boolean hasMediaEncoderSlots() {
     return ((bitField0_ & 0x00000008) != 0);
   }
+
   /**
+   *
+   *
    * <pre>
    * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
    * </pre>
    *
    * <code>optional uint32 media_encoder_slots = 22 [json_name = "mediaEncoderSlots"];</code>
+   *
    * @return The mediaEncoderSlots.
    */
   @java.lang.Override
@@ -601,16 +696,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int FREEZE_BACKGROUND_TABS_FIELD_NUMBER = 23;
   private boolean freezeBackgroundTabs_ = false;
+
   /**
    * <code>optional bool freeze_background_tabs = 23 [json_name = "freezeBackgroundTabs"];</code>
+   *
    * @return Whether the freezeBackgroundTabs field is set.
    */
   @java.lang.Override
   public boolean hasFreezeBackgroundTabs() {
     return ((bitField0_ & 0x00000010) != 0);
   }
+
   /**
    * <code>optional bool freeze_background_tabs = 23 [json_name = "freezeBackgroundTabs"];</code>
+   *
    * @return The freezeBackgroundTabs.
    */
   @java.lang.Override
@@ -620,16 +719,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int BLOCK_NEW_TABS_FIELD_NUMBER = 24;
   private boolean blockNewTabs_ = false;
+
   /**
    * <code>optional bool block_new_tabs = 24 [json_name = "blockNewTabs"];</code>
+   *
    * @return Whether the blockNewTabs field is set.
    */
   @java.lang.Override
   public boolean hasBlockNewTabs() {
     return ((bitField0_ & 0x00000020) != 0);
   }
+
   /**
    * <code>optional bool block_new_tabs = 24 [json_name = "blockNewTabs"];</code>
+   *
    * @return The blockNewTabs.
    */
   @java.lang.Override
@@ -639,62 +742,96 @@ private static final long serialVersionUID = 0L;
 
   public static final int EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER = 25;
   private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy extensionBackgroundPolicy_;
+
   /**
+   *
+   *
    * <pre>
    * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
    * </pre>
    *
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];
+   * </code>
+   *
    * @return Whether the extensionBackgroundPolicy field is set.
    */
   @java.lang.Override
   public boolean hasExtensionBackgroundPolicy() {
     return ((bitField0_ & 0x00000040) != 0);
   }
+
   /**
+   *
+   *
    * <pre>
    * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
    * </pre>
    *
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];
+   * </code>
+   *
    * @return The extensionBackgroundPolicy.
    */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getExtensionBackgroundPolicy() {
-    return extensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : extensionBackgroundPolicy_;
+    return extensionBackgroundPolicy_ == null
+        ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()
+        : extensionBackgroundPolicy_;
   }
+
   /**
+   *
+   *
    * <pre>
    * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
    * </pre>
    *
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];
+   * </code>
    */
   @java.lang.Override
-  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getExtensionBackgroundPolicyOrBuilder() {
-    return extensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : extensionBackgroundPolicy_;
+  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder
+      getExtensionBackgroundPolicyOrBuilder() {
+    return extensionBackgroundPolicy_ == null
+        ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()
+        : extensionBackgroundPolicy_;
   }
 
   public static final int SUCCESS_TRACE_SAMPLE_PERCENT_FIELD_NUMBER = 26;
   private int successTraceSamplePercent_ = 0;
+
   /**
+   *
+   *
    * <pre>
    * 只作用于可丢弃的成功命令 Trace；失败、Crash、Audit、Operation 和 Billing 不采样。
    * </pre>
    *
-   * <code>optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];</code>
+   * <code>
+   * optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];
+   * </code>
+   *
    * @return Whether the successTraceSamplePercent field is set.
    */
   @java.lang.Override
   public boolean hasSuccessTraceSamplePercent() {
     return ((bitField0_ & 0x00000080) != 0);
   }
+
   /**
+   *
+   *
    * <pre>
    * 只作用于可丢弃的成功命令 Trace；失败、Crash、Audit、Operation 和 Billing 不采样。
    * </pre>
    *
-   * <code>optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];</code>
+   * <code>
+   * optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];
+   * </code>
+   *
    * @return The successTraceSamplePercent.
    */
   @java.lang.Override
@@ -704,24 +841,32 @@ private static final long serialVersionUID = 0L;
 
   public static final int OBSERVER_FRAME_RATE_FPS_FIELD_NUMBER = 27;
   private int observerFrameRateFps_ = 0;
+
   /**
+   *
+   *
    * <pre>
    * 受控 Observer/VNC Server → Client 转发上限；无桌面为 0，有桌面为 1..60。
    * </pre>
    *
    * <code>optional uint32 observer_frame_rate_fps = 27 [json_name = "observerFrameRateFps"];</code>
+   *
    * @return Whether the observerFrameRateFps field is set.
    */
   @java.lang.Override
   public boolean hasObserverFrameRateFps() {
     return ((bitField0_ & 0x00000100) != 0);
   }
+
   /**
+   *
+   *
    * <pre>
    * 受控 Observer/VNC Server → Client 转发上限；无桌面为 0，有桌面为 1..60。
    * </pre>
    *
    * <code>optional uint32 observer_frame_rate_fps = 27 [json_name = "observerFrameRateFps"];</code>
+   *
    * @return The observerFrameRateFps.
    */
   @java.lang.Override
@@ -731,24 +876,32 @@ private static final long serialVersionUID = 0L;
 
   public static final int VIDEO_RECORDING_ENABLED_FIELD_NUMBER = 28;
   private boolean videoRecordingEnabled_ = false;
+
   /**
+   *
+   *
    * <pre>
    * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
    * </pre>
    *
    * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];</code>
+   *
    * @return Whether the videoRecordingEnabled field is set.
    */
   @java.lang.Override
   public boolean hasVideoRecordingEnabled() {
     return ((bitField0_ & 0x00000200) != 0);
   }
+
   /**
+   *
+   *
    * <pre>
    * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
    * </pre>
    *
    * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];</code>
+   *
    * @return The videoRecordingEnabled.
    */
   @java.lang.Override
@@ -758,24 +911,36 @@ private static final long serialVersionUID = 0L;
 
   public static final int SUCCESS_SCREENSHOT_SAMPLE_PERCENT_FIELD_NUMBER = 29;
   private int successScreenshotSamplePercent_ = 0;
+
   /**
+   *
+   *
    * <pre>
    * 成功 Agent 动作的截图证据采样率；失败证据不受此字段影响并始终尝试捕获。
    * </pre>
    *
-   * <code>optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];
+   * </code>
+   *
    * @return Whether the successScreenshotSamplePercent field is set.
    */
   @java.lang.Override
   public boolean hasSuccessScreenshotSamplePercent() {
     return ((bitField0_ & 0x00000400) != 0);
   }
+
   /**
+   *
+   *
    * <pre>
    * 成功 Agent 动作的截图证据采样率；失败证据不受此字段影响并始终尝试捕获。
    * </pre>
    *
-   * <code>optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];
+   * </code>
+   *
    * @return The successScreenshotSamplePercent.
    */
   @java.lang.Override
@@ -785,13 +950,17 @@ private static final long serialVersionUID = 0L;
 
   public static final int MINIMUM_BROWSER_GENERATION_FIELD_NUMBER = 30;
   private long minimumBrowserGeneration_ = 0L;
+
   /**
+   *
+   *
    * <pre>
    * Control Plane 已提交的 Browser 世代下界；跨 Node 恢复必须从更大世代启动。
    * N-1 Node 不识别时安全忽略，但不得用于跨 Node 迁移目标。
    * </pre>
    *
    * <code>uint64 minimum_browser_generation = 30 [json_name = "minimumBrowserGeneration"];</code>
+   *
    * @return The minimumBrowserGeneration.
    */
   @java.lang.Override
@@ -800,28 +969,37 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int PROXY_PROVIDER_ID_FIELD_NUMBER = 31;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object proxyProviderId_ = "";
+
   /**
+   *
+   *
    * <pre>
    * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
    * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
    * </pre>
    *
    * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+   *
    * @return Whether the proxyProviderId field is set.
    */
   @java.lang.Override
   public boolean hasProxyProviderId() {
     return ((bitField0_ & 0x00000800) != 0);
   }
+
   /**
+   *
+   *
    * <pre>
    * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
    * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
    * </pre>
    *
    * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+   *
    * @return The proxyProviderId.
    */
   @java.lang.Override
@@ -830,30 +1008,31 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       proxyProviderId_ = s;
       return s;
     }
   }
+
   /**
+   *
+   *
    * <pre>
    * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
    * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
    * </pre>
    *
    * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+   *
    * @return The bytes for proxyProviderId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getProxyProviderIdBytes() {
+  public com.google.protobuf.ByteString getProxyProviderIdBytes() {
     java.lang.Object ref = proxyProviderId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       proxyProviderId_ = b;
       return b;
     } else {
@@ -862,18 +1041,23 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int PROXY_EXPECTED_EXIT_IP_FIELD_NUMBER = 32;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object proxyExpectedExitIp_ = "";
+
   /**
    * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+   *
    * @return Whether the proxyExpectedExitIp field is set.
    */
   @java.lang.Override
   public boolean hasProxyExpectedExitIp() {
     return ((bitField0_ & 0x00001000) != 0);
   }
+
   /**
    * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+   *
    * @return The proxyExpectedExitIp.
    */
   @java.lang.Override
@@ -882,25 +1066,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       proxyExpectedExitIp_ = s;
       return s;
     }
   }
+
   /**
    * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+   *
    * @return The bytes for proxyExpectedExitIp.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getProxyExpectedExitIpBytes() {
+  public com.google.protobuf.ByteString getProxyExpectedExitIpBytes() {
     java.lang.Object ref = proxyExpectedExitIp_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       proxyExpectedExitIp_ = b;
       return b;
     } else {
@@ -909,18 +1092,23 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int PROXY_CREDENTIAL_REF_FIELD_NUMBER = 33;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object proxyCredentialRef_ = "";
+
   /**
    * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+   *
    * @return Whether the proxyCredentialRef field is set.
    */
   @java.lang.Override
   public boolean hasProxyCredentialRef() {
     return ((bitField0_ & 0x00002000) != 0);
   }
+
   /**
    * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+   *
    * @return The proxyCredentialRef.
    */
   @java.lang.Override
@@ -929,25 +1117,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       proxyCredentialRef_ = s;
       return s;
     }
   }
+
   /**
    * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+   *
    * @return The bytes for proxyCredentialRef.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getProxyCredentialRefBytes() {
+  public com.google.protobuf.ByteString getProxyCredentialRefBytes() {
     java.lang.Object ref = proxyCredentialRef_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       proxyCredentialRef_ = b;
       return b;
     } else {
@@ -956,145 +1143,202 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int BROWSER_TRANSACTION_EXPECTED_ORIGINS_FIELD_NUMBER = 34;
+
   @SuppressWarnings("serial")
   private com.google.protobuf.LazyStringArrayList browserTransactionExpectedOrigins_ =
       com.google.protobuf.LazyStringArrayList.emptyList();
+
   /**
+   *
+   *
    * <pre>
    * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
    * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
    * observing CDP request metadata; full URLs and request content never leave the Node.
    * </pre>
    *
-   * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+   * <code>
+   * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+   * </code>
+   *
    * @return A list containing the browserTransactionExpectedOrigins.
    */
-  public com.google.protobuf.ProtocolStringList
-      getBrowserTransactionExpectedOriginsList() {
+  public com.google.protobuf.ProtocolStringList getBrowserTransactionExpectedOriginsList() {
     return browserTransactionExpectedOrigins_;
   }
+
   /**
+   *
+   *
    * <pre>
    * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
    * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
    * observing CDP request metadata; full URLs and request content never leave the Node.
    * </pre>
    *
-   * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+   * <code>
+   * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+   * </code>
+   *
    * @return The count of browserTransactionExpectedOrigins.
    */
   public int getBrowserTransactionExpectedOriginsCount() {
     return browserTransactionExpectedOrigins_.size();
   }
+
   /**
+   *
+   *
    * <pre>
    * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
    * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
    * observing CDP request metadata; full URLs and request content never leave the Node.
    * </pre>
    *
-   * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+   * <code>
+   * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+   * </code>
+   *
    * @param index The index of the element to return.
    * @return The browserTransactionExpectedOrigins at the given index.
    */
   public java.lang.String getBrowserTransactionExpectedOrigins(int index) {
     return browserTransactionExpectedOrigins_.get(index);
   }
+
   /**
+   *
+   *
    * <pre>
    * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
    * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
    * observing CDP request metadata; full URLs and request content never leave the Node.
    * </pre>
    *
-   * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+   * <code>
+   * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+   * </code>
+   *
    * @param index The index of the value to return.
    * @return The bytes of the browserTransactionExpectedOrigins at the given index.
    */
-  public com.google.protobuf.ByteString
-      getBrowserTransactionExpectedOriginsBytes(int index) {
+  public com.google.protobuf.ByteString getBrowserTransactionExpectedOriginsBytes(int index) {
     return browserTransactionExpectedOrigins_.getByteString(index);
   }
 
   public static final int PAYMENT_SECURITY_ROUTE_PREFIXES_FIELD_NUMBER = 35;
+
   @SuppressWarnings("serial")
   private com.google.protobuf.LazyStringArrayList paymentSecurityRoutePrefixes_ =
       com.google.protobuf.LazyStringArrayList.emptyList();
+
   /**
-   * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+   * <code>
+   * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+   * </code>
+   *
    * @return A list containing the paymentSecurityRoutePrefixes.
    */
-  public com.google.protobuf.ProtocolStringList
-      getPaymentSecurityRoutePrefixesList() {
+  public com.google.protobuf.ProtocolStringList getPaymentSecurityRoutePrefixesList() {
     return paymentSecurityRoutePrefixes_;
   }
+
   /**
-   * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+   * <code>
+   * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+   * </code>
+   *
    * @return The count of paymentSecurityRoutePrefixes.
    */
   public int getPaymentSecurityRoutePrefixesCount() {
     return paymentSecurityRoutePrefixes_.size();
   }
+
   /**
-   * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+   * <code>
+   * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+   * </code>
+   *
    * @param index The index of the element to return.
    * @return The paymentSecurityRoutePrefixes at the given index.
    */
   public java.lang.String getPaymentSecurityRoutePrefixes(int index) {
     return paymentSecurityRoutePrefixes_.get(index);
   }
+
   /**
-   * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+   * <code>
+   * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+   * </code>
+   *
    * @param index The index of the value to return.
    * @return The bytes of the paymentSecurityRoutePrefixes at the given index.
    */
-  public com.google.protobuf.ByteString
-      getPaymentSecurityRoutePrefixesBytes(int index) {
+  public com.google.protobuf.ByteString getPaymentSecurityRoutePrefixesBytes(int index) {
     return paymentSecurityRoutePrefixes_.getByteString(index);
   }
 
   public static final int CRITICAL_TRANSACTION_ROUTE_PREFIXES_FIELD_NUMBER = 36;
+
   @SuppressWarnings("serial")
   private com.google.protobuf.LazyStringArrayList criticalTransactionRoutePrefixes_ =
       com.google.protobuf.LazyStringArrayList.emptyList();
+
   /**
-   * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+   * <code>
+   * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+   * </code>
+   *
    * @return A list containing the criticalTransactionRoutePrefixes.
    */
-  public com.google.protobuf.ProtocolStringList
-      getCriticalTransactionRoutePrefixesList() {
+  public com.google.protobuf.ProtocolStringList getCriticalTransactionRoutePrefixesList() {
     return criticalTransactionRoutePrefixes_;
   }
+
   /**
-   * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+   * <code>
+   * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+   * </code>
+   *
    * @return The count of criticalTransactionRoutePrefixes.
    */
   public int getCriticalTransactionRoutePrefixesCount() {
     return criticalTransactionRoutePrefixes_.size();
   }
+
   /**
-   * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+   * <code>
+   * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+   * </code>
+   *
    * @param index The index of the element to return.
    * @return The criticalTransactionRoutePrefixes at the given index.
    */
   public java.lang.String getCriticalTransactionRoutePrefixes(int index) {
     return criticalTransactionRoutePrefixes_.get(index);
   }
+
   /**
-   * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+   * <code>
+   * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+   * </code>
+   *
    * @param index The index of the value to return.
    * @return The bytes of the criticalTransactionRoutePrefixes at the given index.
    */
-  public com.google.protobuf.ByteString
-      getCriticalTransactionRoutePrefixesBytes(int index) {
+  public com.google.protobuf.ByteString getCriticalTransactionRoutePrefixesBytes(int index) {
     return criticalTransactionRoutePrefixes_.getByteString(index);
   }
 
   public static final int BROWSER_TRANSACTION_POLICY_HASH_FIELD_NUMBER = 37;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object browserTransactionPolicyHash_ = "";
+
   /**
-   * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+   * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];
+   * </code>
+   *
    * @return The browserTransactionPolicyHash.
    */
   @java.lang.Override
@@ -1103,25 +1347,25 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       browserTransactionPolicyHash_ = s;
       return s;
     }
   }
+
   /**
-   * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+   * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];
+   * </code>
+   *
    * @return The bytes for browserTransactionPolicyHash.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getBrowserTransactionPolicyHashBytes() {
+  public com.google.protobuf.ByteString getBrowserTransactionPolicyHashBytes() {
     java.lang.Object ref = browserTransactionPolicyHash_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       browserTransactionPolicyHash_ = b;
       return b;
     } else {
@@ -1131,8 +1375,12 @@ private static final long serialVersionUID = 0L;
 
   public static final int BROWSER_TRANSACTION_POLICY_VERSION_FIELD_NUMBER = 38;
   private long browserTransactionPolicyVersion_ = 0L;
+
   /**
-   * <code>uint64 browser_transaction_policy_version = 38 [json_name = "browserTransactionPolicyVersion"];</code>
+   * <code>
+   * uint64 browser_transaction_policy_version = 38 [json_name = "browserTransactionPolicyVersion"];
+   * </code>
+   *
    * @return The browserTransactionPolicyVersion.
    */
   @java.lang.Override
@@ -1140,7 +1388,479 @@ private static final long serialVersionUID = 0L;
     return browserTransactionPolicyVersion_;
   }
 
+  public static final int IDENTITY_USER_AGENT_FIELD_NUMBER = 39;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object identityUserAgent_ = "";
+
+  /**
+   *
+   *
+   * <pre>
+   * Immutable Session identity projection. N-1 Nodes ignore these additive fields; upgraded
+   * Nodes validate the complete cross-field set before spawning Chromium.
+   * </pre>
+   *
+   * <code>string identity_user_agent = 39 [json_name = "identityUserAgent"];</code>
+   *
+   * @return The identityUserAgent.
+   */
+  @java.lang.Override
+  public java.lang.String getIdentityUserAgent() {
+    java.lang.Object ref = identityUserAgent_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      identityUserAgent_ = s;
+      return s;
+    }
+  }
+
+  /**
+   *
+   *
+   * <pre>
+   * Immutable Session identity projection. N-1 Nodes ignore these additive fields; upgraded
+   * Nodes validate the complete cross-field set before spawning Chromium.
+   * </pre>
+   *
+   * <code>string identity_user_agent = 39 [json_name = "identityUserAgent"];</code>
+   *
+   * @return The bytes for identityUserAgent.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getIdentityUserAgentBytes() {
+    java.lang.Object ref = identityUserAgent_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      identityUserAgent_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int IDENTITY_TIMEZONE_FIELD_NUMBER = 40;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object identityTimezone_ = "";
+
+  /**
+   * <code>string identity_timezone = 40 [json_name = "identityTimezone"];</code>
+   *
+   * @return The identityTimezone.
+   */
+  @java.lang.Override
+  public java.lang.String getIdentityTimezone() {
+    java.lang.Object ref = identityTimezone_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      identityTimezone_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string identity_timezone = 40 [json_name = "identityTimezone"];</code>
+   *
+   * @return The bytes for identityTimezone.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getIdentityTimezoneBytes() {
+    java.lang.Object ref = identityTimezone_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      identityTimezone_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int IDENTITY_LOCALE_FIELD_NUMBER = 41;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object identityLocale_ = "";
+
+  /**
+   * <code>string identity_locale = 41 [json_name = "identityLocale"];</code>
+   *
+   * @return The identityLocale.
+   */
+  @java.lang.Override
+  public java.lang.String getIdentityLocale() {
+    java.lang.Object ref = identityLocale_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      identityLocale_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string identity_locale = 41 [json_name = "identityLocale"];</code>
+   *
+   * @return The bytes for identityLocale.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getIdentityLocaleBytes() {
+    java.lang.Object ref = identityLocale_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      identityLocale_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int IDENTITY_LANGUAGES_FIELD_NUMBER = 42;
+
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList identityLanguages_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+
+  /**
+   * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+   *
+   * @return A list containing the identityLanguages.
+   */
+  public com.google.protobuf.ProtocolStringList getIdentityLanguagesList() {
+    return identityLanguages_;
+  }
+
+  /**
+   * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+   *
+   * @return The count of identityLanguages.
+   */
+  public int getIdentityLanguagesCount() {
+    return identityLanguages_.size();
+  }
+
+  /**
+   * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+   *
+   * @param index The index of the element to return.
+   * @return The identityLanguages at the given index.
+   */
+  public java.lang.String getIdentityLanguages(int index) {
+    return identityLanguages_.get(index);
+  }
+
+  /**
+   * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+   *
+   * @param index The index of the value to return.
+   * @return The bytes of the identityLanguages at the given index.
+   */
+  public com.google.protobuf.ByteString getIdentityLanguagesBytes(int index) {
+    return identityLanguages_.getByteString(index);
+  }
+
+  public static final int IDENTITY_WEBRTC_POLICY_FIELD_NUMBER = 43;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object identityWebrtcPolicy_ = "";
+
+  /**
+   * <code>string identity_webrtc_policy = 43 [json_name = "identityWebrtcPolicy"];</code>
+   *
+   * @return The identityWebrtcPolicy.
+   */
+  @java.lang.Override
+  public java.lang.String getIdentityWebrtcPolicy() {
+    java.lang.Object ref = identityWebrtcPolicy_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      identityWebrtcPolicy_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string identity_webrtc_policy = 43 [json_name = "identityWebrtcPolicy"];</code>
+   *
+   * @return The bytes for identityWebrtcPolicy.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getIdentityWebrtcPolicyBytes() {
+    java.lang.Object ref = identityWebrtcPolicy_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      identityWebrtcPolicy_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int IDENTITY_DNS_POLICY_FIELD_NUMBER = 44;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object identityDnsPolicy_ = "";
+
+  /**
+   * <code>string identity_dns_policy = 44 [json_name = "identityDnsPolicy"];</code>
+   *
+   * @return The identityDnsPolicy.
+   */
+  @java.lang.Override
+  public java.lang.String getIdentityDnsPolicy() {
+    java.lang.Object ref = identityDnsPolicy_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      identityDnsPolicy_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string identity_dns_policy = 44 [json_name = "identityDnsPolicy"];</code>
+   *
+   * @return The bytes for identityDnsPolicy.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getIdentityDnsPolicyBytes() {
+    java.lang.Object ref = identityDnsPolicy_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      identityDnsPolicy_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int IDENTITY_VIEWPORT_WIDTH_FIELD_NUMBER = 45;
+  private int identityViewportWidth_ = 0;
+
+  /**
+   * <code>uint32 identity_viewport_width = 45 [json_name = "identityViewportWidth"];</code>
+   *
+   * @return The identityViewportWidth.
+   */
+  @java.lang.Override
+  public int getIdentityViewportWidth() {
+    return identityViewportWidth_;
+  }
+
+  public static final int IDENTITY_VIEWPORT_HEIGHT_FIELD_NUMBER = 46;
+  private int identityViewportHeight_ = 0;
+
+  /**
+   * <code>uint32 identity_viewport_height = 46 [json_name = "identityViewportHeight"];</code>
+   *
+   * @return The identityViewportHeight.
+   */
+  @java.lang.Override
+  public int getIdentityViewportHeight() {
+    return identityViewportHeight_;
+  }
+
+  public static final int IDENTITY_SCREEN_WIDTH_FIELD_NUMBER = 47;
+  private int identityScreenWidth_ = 0;
+
+  /**
+   * <code>uint32 identity_screen_width = 47 [json_name = "identityScreenWidth"];</code>
+   *
+   * @return The identityScreenWidth.
+   */
+  @java.lang.Override
+  public int getIdentityScreenWidth() {
+    return identityScreenWidth_;
+  }
+
+  public static final int IDENTITY_SCREEN_HEIGHT_FIELD_NUMBER = 48;
+  private int identityScreenHeight_ = 0;
+
+  /**
+   * <code>uint32 identity_screen_height = 48 [json_name = "identityScreenHeight"];</code>
+   *
+   * @return The identityScreenHeight.
+   */
+  @java.lang.Override
+  public int getIdentityScreenHeight() {
+    return identityScreenHeight_;
+  }
+
+  public static final int IDENTITY_DEVICE_SCALE_FACTOR_FIELD_NUMBER = 49;
+  private double identityDeviceScaleFactor_ = 0D;
+
+  /**
+   * <code>double identity_device_scale_factor = 49 [json_name = "identityDeviceScaleFactor"];
+   * </code>
+   *
+   * @return The identityDeviceScaleFactor.
+   */
+  @java.lang.Override
+  public double getIdentityDeviceScaleFactor() {
+    return identityDeviceScaleFactor_;
+  }
+
+  public static final int IDENTITY_FINGERPRINT_PROFILE_FIELD_NUMBER = 50;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object identityFingerprintProfile_ = "";
+
+  /**
+   * <code>string identity_fingerprint_profile = 50 [json_name = "identityFingerprintProfile"];
+   * </code>
+   *
+   * @return The identityFingerprintProfile.
+   */
+  @java.lang.Override
+  public java.lang.String getIdentityFingerprintProfile() {
+    java.lang.Object ref = identityFingerprintProfile_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      identityFingerprintProfile_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string identity_fingerprint_profile = 50 [json_name = "identityFingerprintProfile"];
+   * </code>
+   *
+   * @return The bytes for identityFingerprintProfile.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getIdentityFingerprintProfileBytes() {
+    java.lang.Object ref = identityFingerprintProfile_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      identityFingerprintProfile_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int IDENTITY_OPERATING_SYSTEM_PROFILE_FIELD_NUMBER = 51;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object identityOperatingSystemProfile_ = "";
+
+  /**
+   * <code>
+   * string identity_operating_system_profile = 51 [json_name = "identityOperatingSystemProfile"];
+   * </code>
+   *
+   * @return The identityOperatingSystemProfile.
+   */
+  @java.lang.Override
+  public java.lang.String getIdentityOperatingSystemProfile() {
+    java.lang.Object ref = identityOperatingSystemProfile_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      identityOperatingSystemProfile_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>
+   * string identity_operating_system_profile = 51 [json_name = "identityOperatingSystemProfile"];
+   * </code>
+   *
+   * @return The bytes for identityOperatingSystemProfile.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getIdentityOperatingSystemProfileBytes() {
+    java.lang.Object ref = identityOperatingSystemProfile_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      identityOperatingSystemProfile_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int IDENTITY_SPEC_VERSION_FIELD_NUMBER = 52;
+  private long identitySpecVersion_ = 0L;
+
+  /**
+   * <code>uint64 identity_spec_version = 52 [json_name = "identitySpecVersion"];</code>
+   *
+   * @return The identitySpecVersion.
+   */
+  @java.lang.Override
+  public long getIdentitySpecVersion() {
+    return identitySpecVersion_;
+  }
+
+  public static final int IDENTITY_SPEC_HASH_FIELD_NUMBER = 53;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object identitySpecHash_ = "";
+
+  /**
+   * <code>string identity_spec_hash = 53 [json_name = "identitySpecHash"];</code>
+   *
+   * @return The identitySpecHash.
+   */
+  @java.lang.Override
+  public java.lang.String getIdentitySpecHash() {
+    java.lang.Object ref = identitySpecHash_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      identitySpecHash_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string identity_spec_hash = 53 [json_name = "identitySpecHash"];</code>
+   *
+   * @return The bytes for identitySpecHash.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getIdentitySpecHashBytes() {
+    java.lang.Object ref = identitySpecHash_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      identitySpecHash_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
+
   @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
@@ -1152,8 +1872,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @java.lang.Override
-  public void writeTo(com.google.protobuf.CodedOutputStream output)
-                      throws java.io.IOException {
+  public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(sessionId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 1, sessionId_);
     }
@@ -1254,19 +1973,68 @@ private static final long serialVersionUID = 0L;
       com.google.protobuf.GeneratedMessageV3.writeString(output, 33, proxyCredentialRef_);
     }
     for (int i = 0; i < browserTransactionExpectedOrigins_.size(); i++) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 34, browserTransactionExpectedOrigins_.getRaw(i));
+      com.google.protobuf.GeneratedMessageV3.writeString(
+          output, 34, browserTransactionExpectedOrigins_.getRaw(i));
     }
     for (int i = 0; i < paymentSecurityRoutePrefixes_.size(); i++) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 35, paymentSecurityRoutePrefixes_.getRaw(i));
+      com.google.protobuf.GeneratedMessageV3.writeString(
+          output, 35, paymentSecurityRoutePrefixes_.getRaw(i));
     }
     for (int i = 0; i < criticalTransactionRoutePrefixes_.size(); i++) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 36, criticalTransactionRoutePrefixes_.getRaw(i));
+      com.google.protobuf.GeneratedMessageV3.writeString(
+          output, 36, criticalTransactionRoutePrefixes_.getRaw(i));
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(browserTransactionPolicyHash_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 37, browserTransactionPolicyHash_);
     }
     if (browserTransactionPolicyVersion_ != 0L) {
       output.writeUInt64(38, browserTransactionPolicyVersion_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(identityUserAgent_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 39, identityUserAgent_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(identityTimezone_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 40, identityTimezone_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(identityLocale_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 41, identityLocale_);
+    }
+    for (int i = 0; i < identityLanguages_.size(); i++) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 42, identityLanguages_.getRaw(i));
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(identityWebrtcPolicy_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 43, identityWebrtcPolicy_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(identityDnsPolicy_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 44, identityDnsPolicy_);
+    }
+    if (identityViewportWidth_ != 0) {
+      output.writeUInt32(45, identityViewportWidth_);
+    }
+    if (identityViewportHeight_ != 0) {
+      output.writeUInt32(46, identityViewportHeight_);
+    }
+    if (identityScreenWidth_ != 0) {
+      output.writeUInt32(47, identityScreenWidth_);
+    }
+    if (identityScreenHeight_ != 0) {
+      output.writeUInt32(48, identityScreenHeight_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(identityDeviceScaleFactor_) != 0) {
+      output.writeDouble(49, identityDeviceScaleFactor_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(identityFingerprintProfile_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 50, identityFingerprintProfile_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(identityOperatingSystemProfile_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(
+          output, 51, identityOperatingSystemProfile_);
+    }
+    if (identitySpecVersion_ != 0L) {
+      output.writeUInt64(52, identitySpecVersion_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(identitySpecHash_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 53, identitySpecHash_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -1290,8 +2058,7 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, display_);
     }
     if (cdpPort_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(5, cdpPort_);
+      size += com.google.protobuf.CodedOutputStream.computeInt32Size(5, cdpPort_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(proxyBindingId_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, proxyBindingId_);
@@ -1300,51 +2067,42 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, resourceClass_);
     }
     if (cpuMillis_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(8, cpuMillis_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(8, cpuMillis_);
     }
     if (memoryRequestMib_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(9, memoryRequestMib_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(9, memoryRequestMib_);
     }
     if (memoryLimitMib_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(10, memoryLimitMib_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(10, memoryLimitMib_);
     }
     if (pidLimit_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(11, pidLimit_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(11, pidLimit_);
     }
     if (tabBudget_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(12, tabBudget_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(12, tabBudget_);
     }
     if (desktopRequired_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(13, desktopRequired_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(13, desktopRequired_);
     }
     if (gpuRequired_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(14, gpuRequired_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(14, gpuRequired_);
     }
     if (nativeOsRequired_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(15, nativeOsRequired_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(15, nativeOsRequired_);
     }
     if (isolationRequired_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(16, isolationRequired_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(16, isolationRequired_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(profileCheckpointId_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(17, profileCheckpointId_);
     }
     if (((bitField0_ & 0x00000001) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(18, stateCollectorBudgetPercent_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(18, stateCollectorBudgetPercent_);
     }
     if (((bitField0_ & 0x00000002) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(19, remoteDesktopBitrateKbps_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(19, remoteDesktopBitrateKbps_);
     }
     {
       int dataSize = 0;
@@ -1355,44 +2113,40 @@ private static final long serialVersionUID = 0L;
       size += 2 * getExtensionIdsList().size();
     }
     if (((bitField0_ & 0x00000004) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(21, extensionCpuWeight_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(21, extensionCpuWeight_);
     }
     if (((bitField0_ & 0x00000008) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(22, mediaEncoderSlots_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(22, mediaEncoderSlots_);
     }
     if (((bitField0_ & 0x00000010) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(23, freezeBackgroundTabs_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(23, freezeBackgroundTabs_);
     }
     if (((bitField0_ & 0x00000020) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(24, blockNewTabs_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(24, blockNewTabs_);
     }
     if (((bitField0_ & 0x00000040) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(25, getExtensionBackgroundPolicy());
+      size +=
+          com.google.protobuf.CodedOutputStream.computeMessageSize(
+              25, getExtensionBackgroundPolicy());
     }
     if (((bitField0_ & 0x00000080) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(26, successTraceSamplePercent_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(26, successTraceSamplePercent_);
     }
     if (((bitField0_ & 0x00000100) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(27, observerFrameRateFps_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(27, observerFrameRateFps_);
     }
     if (((bitField0_ & 0x00000200) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(28, videoRecordingEnabled_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(28, videoRecordingEnabled_);
     }
     if (((bitField0_ & 0x00000400) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(29, successScreenshotSamplePercent_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(
+              29, successScreenshotSamplePercent_);
     }
     if (minimumBrowserGeneration_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(30, minimumBrowserGeneration_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt64Size(30, minimumBrowserGeneration_);
     }
     if (((bitField0_ & 0x00000800) != 0)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(31, proxyProviderId_);
@@ -1428,11 +2182,68 @@ private static final long serialVersionUID = 0L;
       size += 2 * getCriticalTransactionRoutePrefixesList().size();
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(browserTransactionPolicyHash_)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(37, browserTransactionPolicyHash_);
+      size +=
+          com.google.protobuf.GeneratedMessageV3.computeStringSize(
+              37, browserTransactionPolicyHash_);
     }
     if (browserTransactionPolicyVersion_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(38, browserTransactionPolicyVersion_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt64Size(
+              38, browserTransactionPolicyVersion_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(identityUserAgent_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(39, identityUserAgent_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(identityTimezone_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(40, identityTimezone_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(identityLocale_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(41, identityLocale_);
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < identityLanguages_.size(); i++) {
+        dataSize += computeStringSizeNoTag(identityLanguages_.getRaw(i));
+      }
+      size += dataSize;
+      size += 2 * getIdentityLanguagesList().size();
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(identityWebrtcPolicy_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(43, identityWebrtcPolicy_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(identityDnsPolicy_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(44, identityDnsPolicy_);
+    }
+    if (identityViewportWidth_ != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(45, identityViewportWidth_);
+    }
+    if (identityViewportHeight_ != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(46, identityViewportHeight_);
+    }
+    if (identityScreenWidth_ != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(47, identityScreenWidth_);
+    }
+    if (identityScreenHeight_ != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(48, identityScreenHeight_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(identityDeviceScaleFactor_) != 0) {
+      size +=
+          com.google.protobuf.CodedOutputStream.computeDoubleSize(49, identityDeviceScaleFactor_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(identityFingerprintProfile_)) {
+      size +=
+          com.google.protobuf.GeneratedMessageV3.computeStringSize(50, identityFingerprintProfile_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(identityOperatingSystemProfile_)) {
+      size +=
+          com.google.protobuf.GeneratedMessageV3.computeStringSize(
+              51, identityOperatingSystemProfile_);
+    }
+    if (identitySpecVersion_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(52, identitySpecVersion_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(identitySpecHash_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(53, identitySpecHash_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -1442,131 +2253,120 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public boolean equals(final java.lang.Object obj) {
     if (obj == this) {
-     return true;
+      return true;
     }
     if (!(obj instanceof io.browsercloud.proto.node.v1.StartRuntimeCommand)) {
       return super.equals(obj);
     }
-    io.browsercloud.proto.node.v1.StartRuntimeCommand other = (io.browsercloud.proto.node.v1.StartRuntimeCommand) obj;
+    io.browsercloud.proto.node.v1.StartRuntimeCommand other =
+        (io.browsercloud.proto.node.v1.StartRuntimeCommand) obj;
 
-    if (!getSessionId()
-        .equals(other.getSessionId())) return false;
-    if (!getRuntimeBuildId()
-        .equals(other.getRuntimeBuildId())) return false;
-    if (!getProfileId()
-        .equals(other.getProfileId())) return false;
-    if (!getDisplay()
-        .equals(other.getDisplay())) return false;
-    if (getCdpPort()
-        != other.getCdpPort()) return false;
-    if (!getProxyBindingId()
-        .equals(other.getProxyBindingId())) return false;
-    if (!getResourceClass()
-        .equals(other.getResourceClass())) return false;
-    if (getCpuMillis()
-        != other.getCpuMillis()) return false;
-    if (getMemoryRequestMib()
-        != other.getMemoryRequestMib()) return false;
-    if (getMemoryLimitMib()
-        != other.getMemoryLimitMib()) return false;
-    if (getPidLimit()
-        != other.getPidLimit()) return false;
-    if (getTabBudget()
-        != other.getTabBudget()) return false;
-    if (getDesktopRequired()
-        != other.getDesktopRequired()) return false;
-    if (getGpuRequired()
-        != other.getGpuRequired()) return false;
-    if (getNativeOsRequired()
-        != other.getNativeOsRequired()) return false;
-    if (getIsolationRequired()
-        != other.getIsolationRequired()) return false;
-    if (!getProfileCheckpointId()
-        .equals(other.getProfileCheckpointId())) return false;
+    if (!getSessionId().equals(other.getSessionId())) return false;
+    if (!getRuntimeBuildId().equals(other.getRuntimeBuildId())) return false;
+    if (!getProfileId().equals(other.getProfileId())) return false;
+    if (!getDisplay().equals(other.getDisplay())) return false;
+    if (getCdpPort() != other.getCdpPort()) return false;
+    if (!getProxyBindingId().equals(other.getProxyBindingId())) return false;
+    if (!getResourceClass().equals(other.getResourceClass())) return false;
+    if (getCpuMillis() != other.getCpuMillis()) return false;
+    if (getMemoryRequestMib() != other.getMemoryRequestMib()) return false;
+    if (getMemoryLimitMib() != other.getMemoryLimitMib()) return false;
+    if (getPidLimit() != other.getPidLimit()) return false;
+    if (getTabBudget() != other.getTabBudget()) return false;
+    if (getDesktopRequired() != other.getDesktopRequired()) return false;
+    if (getGpuRequired() != other.getGpuRequired()) return false;
+    if (getNativeOsRequired() != other.getNativeOsRequired()) return false;
+    if (getIsolationRequired() != other.getIsolationRequired()) return false;
+    if (!getProfileCheckpointId().equals(other.getProfileCheckpointId())) return false;
     if (hasStateCollectorBudgetPercent() != other.hasStateCollectorBudgetPercent()) return false;
     if (hasStateCollectorBudgetPercent()) {
-      if (getStateCollectorBudgetPercent()
-          != other.getStateCollectorBudgetPercent()) return false;
+      if (getStateCollectorBudgetPercent() != other.getStateCollectorBudgetPercent()) return false;
     }
     if (hasRemoteDesktopBitrateKbps() != other.hasRemoteDesktopBitrateKbps()) return false;
     if (hasRemoteDesktopBitrateKbps()) {
-      if (getRemoteDesktopBitrateKbps()
-          != other.getRemoteDesktopBitrateKbps()) return false;
+      if (getRemoteDesktopBitrateKbps() != other.getRemoteDesktopBitrateKbps()) return false;
     }
-    if (!getExtensionIdsList()
-        .equals(other.getExtensionIdsList())) return false;
+    if (!getExtensionIdsList().equals(other.getExtensionIdsList())) return false;
     if (hasExtensionCpuWeight() != other.hasExtensionCpuWeight()) return false;
     if (hasExtensionCpuWeight()) {
-      if (getExtensionCpuWeight()
-          != other.getExtensionCpuWeight()) return false;
+      if (getExtensionCpuWeight() != other.getExtensionCpuWeight()) return false;
     }
     if (hasMediaEncoderSlots() != other.hasMediaEncoderSlots()) return false;
     if (hasMediaEncoderSlots()) {
-      if (getMediaEncoderSlots()
-          != other.getMediaEncoderSlots()) return false;
+      if (getMediaEncoderSlots() != other.getMediaEncoderSlots()) return false;
     }
     if (hasFreezeBackgroundTabs() != other.hasFreezeBackgroundTabs()) return false;
     if (hasFreezeBackgroundTabs()) {
-      if (getFreezeBackgroundTabs()
-          != other.getFreezeBackgroundTabs()) return false;
+      if (getFreezeBackgroundTabs() != other.getFreezeBackgroundTabs()) return false;
     }
     if (hasBlockNewTabs() != other.hasBlockNewTabs()) return false;
     if (hasBlockNewTabs()) {
-      if (getBlockNewTabs()
-          != other.getBlockNewTabs()) return false;
+      if (getBlockNewTabs() != other.getBlockNewTabs()) return false;
     }
     if (hasExtensionBackgroundPolicy() != other.hasExtensionBackgroundPolicy()) return false;
     if (hasExtensionBackgroundPolicy()) {
-      if (!getExtensionBackgroundPolicy()
-          .equals(other.getExtensionBackgroundPolicy())) return false;
+      if (!getExtensionBackgroundPolicy().equals(other.getExtensionBackgroundPolicy()))
+        return false;
     }
     if (hasSuccessTraceSamplePercent() != other.hasSuccessTraceSamplePercent()) return false;
     if (hasSuccessTraceSamplePercent()) {
-      if (getSuccessTraceSamplePercent()
-          != other.getSuccessTraceSamplePercent()) return false;
+      if (getSuccessTraceSamplePercent() != other.getSuccessTraceSamplePercent()) return false;
     }
     if (hasObserverFrameRateFps() != other.hasObserverFrameRateFps()) return false;
     if (hasObserverFrameRateFps()) {
-      if (getObserverFrameRateFps()
-          != other.getObserverFrameRateFps()) return false;
+      if (getObserverFrameRateFps() != other.getObserverFrameRateFps()) return false;
     }
     if (hasVideoRecordingEnabled() != other.hasVideoRecordingEnabled()) return false;
     if (hasVideoRecordingEnabled()) {
-      if (getVideoRecordingEnabled()
-          != other.getVideoRecordingEnabled()) return false;
+      if (getVideoRecordingEnabled() != other.getVideoRecordingEnabled()) return false;
     }
-    if (hasSuccessScreenshotSamplePercent() != other.hasSuccessScreenshotSamplePercent()) return false;
+    if (hasSuccessScreenshotSamplePercent() != other.hasSuccessScreenshotSamplePercent())
+      return false;
     if (hasSuccessScreenshotSamplePercent()) {
-      if (getSuccessScreenshotSamplePercent()
-          != other.getSuccessScreenshotSamplePercent()) return false;
+      if (getSuccessScreenshotSamplePercent() != other.getSuccessScreenshotSamplePercent())
+        return false;
     }
-    if (getMinimumBrowserGeneration()
-        != other.getMinimumBrowserGeneration()) return false;
+    if (getMinimumBrowserGeneration() != other.getMinimumBrowserGeneration()) return false;
     if (hasProxyProviderId() != other.hasProxyProviderId()) return false;
     if (hasProxyProviderId()) {
-      if (!getProxyProviderId()
-          .equals(other.getProxyProviderId())) return false;
+      if (!getProxyProviderId().equals(other.getProxyProviderId())) return false;
     }
     if (hasProxyExpectedExitIp() != other.hasProxyExpectedExitIp()) return false;
     if (hasProxyExpectedExitIp()) {
-      if (!getProxyExpectedExitIp()
-          .equals(other.getProxyExpectedExitIp())) return false;
+      if (!getProxyExpectedExitIp().equals(other.getProxyExpectedExitIp())) return false;
     }
     if (hasProxyCredentialRef() != other.hasProxyCredentialRef()) return false;
     if (hasProxyCredentialRef()) {
-      if (!getProxyCredentialRef()
-          .equals(other.getProxyCredentialRef())) return false;
+      if (!getProxyCredentialRef().equals(other.getProxyCredentialRef())) return false;
     }
     if (!getBrowserTransactionExpectedOriginsList()
         .equals(other.getBrowserTransactionExpectedOriginsList())) return false;
-    if (!getPaymentSecurityRoutePrefixesList()
-        .equals(other.getPaymentSecurityRoutePrefixesList())) return false;
+    if (!getPaymentSecurityRoutePrefixesList().equals(other.getPaymentSecurityRoutePrefixesList()))
+      return false;
     if (!getCriticalTransactionRoutePrefixesList()
         .equals(other.getCriticalTransactionRoutePrefixesList())) return false;
-    if (!getBrowserTransactionPolicyHash()
-        .equals(other.getBrowserTransactionPolicyHash())) return false;
-    if (getBrowserTransactionPolicyVersion()
-        != other.getBrowserTransactionPolicyVersion()) return false;
+    if (!getBrowserTransactionPolicyHash().equals(other.getBrowserTransactionPolicyHash()))
+      return false;
+    if (getBrowserTransactionPolicyVersion() != other.getBrowserTransactionPolicyVersion())
+      return false;
+    if (!getIdentityUserAgent().equals(other.getIdentityUserAgent())) return false;
+    if (!getIdentityTimezone().equals(other.getIdentityTimezone())) return false;
+    if (!getIdentityLocale().equals(other.getIdentityLocale())) return false;
+    if (!getIdentityLanguagesList().equals(other.getIdentityLanguagesList())) return false;
+    if (!getIdentityWebrtcPolicy().equals(other.getIdentityWebrtcPolicy())) return false;
+    if (!getIdentityDnsPolicy().equals(other.getIdentityDnsPolicy())) return false;
+    if (getIdentityViewportWidth() != other.getIdentityViewportWidth()) return false;
+    if (getIdentityViewportHeight() != other.getIdentityViewportHeight()) return false;
+    if (getIdentityScreenWidth() != other.getIdentityScreenWidth()) return false;
+    if (getIdentityScreenHeight() != other.getIdentityScreenHeight()) return false;
+    if (java.lang.Double.doubleToLongBits(getIdentityDeviceScaleFactor())
+        != java.lang.Double.doubleToLongBits(other.getIdentityDeviceScaleFactor())) return false;
+    if (!getIdentityFingerprintProfile().equals(other.getIdentityFingerprintProfile()))
+      return false;
+    if (!getIdentityOperatingSystemProfile().equals(other.getIdentityOperatingSystemProfile()))
+      return false;
+    if (getIdentitySpecVersion() != other.getIdentitySpecVersion()) return false;
+    if (!getIdentitySpecHash().equals(other.getIdentitySpecHash())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1603,17 +2403,13 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + TAB_BUDGET_FIELD_NUMBER;
     hash = (53 * hash) + getTabBudget();
     hash = (37 * hash) + DESKTOP_REQUIRED_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getDesktopRequired());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getDesktopRequired());
     hash = (37 * hash) + GPU_REQUIRED_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getGpuRequired());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getGpuRequired());
     hash = (37 * hash) + NATIVE_OS_REQUIRED_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getNativeOsRequired());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getNativeOsRequired());
     hash = (37 * hash) + ISOLATION_REQUIRED_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getIsolationRequired());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getIsolationRequired());
     hash = (37 * hash) + PROFILE_CHECKPOINT_ID_FIELD_NUMBER;
     hash = (53 * hash) + getProfileCheckpointId().hashCode();
     if (hasStateCollectorBudgetPercent()) {
@@ -1638,13 +2434,11 @@ private static final long serialVersionUID = 0L;
     }
     if (hasFreezeBackgroundTabs()) {
       hash = (37 * hash) + FREEZE_BACKGROUND_TABS_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-          getFreezeBackgroundTabs());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getFreezeBackgroundTabs());
     }
     if (hasBlockNewTabs()) {
       hash = (37 * hash) + BLOCK_NEW_TABS_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-          getBlockNewTabs());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getBlockNewTabs());
     }
     if (hasExtensionBackgroundPolicy()) {
       hash = (37 * hash) + EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER;
@@ -1660,16 +2454,14 @@ private static final long serialVersionUID = 0L;
     }
     if (hasVideoRecordingEnabled()) {
       hash = (37 * hash) + VIDEO_RECORDING_ENABLED_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-          getVideoRecordingEnabled());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getVideoRecordingEnabled());
     }
     if (hasSuccessScreenshotSamplePercent()) {
       hash = (37 * hash) + SUCCESS_SCREENSHOT_SAMPLE_PERCENT_FIELD_NUMBER;
       hash = (53 * hash) + getSuccessScreenshotSamplePercent();
     }
     hash = (37 * hash) + MINIMUM_BROWSER_GENERATION_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        getMinimumBrowserGeneration());
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getMinimumBrowserGeneration());
     if (hasProxyProviderId()) {
       hash = (37 * hash) + PROXY_PROVIDER_ID_FIELD_NUMBER;
       hash = (53 * hash) + getProxyProviderId().hashCode();
@@ -1697,127 +2489,170 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + BROWSER_TRANSACTION_POLICY_HASH_FIELD_NUMBER;
     hash = (53 * hash) + getBrowserTransactionPolicyHash().hashCode();
     hash = (37 * hash) + BROWSER_TRANSACTION_POLICY_VERSION_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        getBrowserTransactionPolicyVersion());
+    hash =
+        (53 * hash) + com.google.protobuf.Internal.hashLong(getBrowserTransactionPolicyVersion());
+    hash = (37 * hash) + IDENTITY_USER_AGENT_FIELD_NUMBER;
+    hash = (53 * hash) + getIdentityUserAgent().hashCode();
+    hash = (37 * hash) + IDENTITY_TIMEZONE_FIELD_NUMBER;
+    hash = (53 * hash) + getIdentityTimezone().hashCode();
+    hash = (37 * hash) + IDENTITY_LOCALE_FIELD_NUMBER;
+    hash = (53 * hash) + getIdentityLocale().hashCode();
+    if (getIdentityLanguagesCount() > 0) {
+      hash = (37 * hash) + IDENTITY_LANGUAGES_FIELD_NUMBER;
+      hash = (53 * hash) + getIdentityLanguagesList().hashCode();
+    }
+    hash = (37 * hash) + IDENTITY_WEBRTC_POLICY_FIELD_NUMBER;
+    hash = (53 * hash) + getIdentityWebrtcPolicy().hashCode();
+    hash = (37 * hash) + IDENTITY_DNS_POLICY_FIELD_NUMBER;
+    hash = (53 * hash) + getIdentityDnsPolicy().hashCode();
+    hash = (37 * hash) + IDENTITY_VIEWPORT_WIDTH_FIELD_NUMBER;
+    hash = (53 * hash) + getIdentityViewportWidth();
+    hash = (37 * hash) + IDENTITY_VIEWPORT_HEIGHT_FIELD_NUMBER;
+    hash = (53 * hash) + getIdentityViewportHeight();
+    hash = (37 * hash) + IDENTITY_SCREEN_WIDTH_FIELD_NUMBER;
+    hash = (53 * hash) + getIdentityScreenWidth();
+    hash = (37 * hash) + IDENTITY_SCREEN_HEIGHT_FIELD_NUMBER;
+    hash = (53 * hash) + getIdentityScreenHeight();
+    hash = (37 * hash) + IDENTITY_DEVICE_SCALE_FACTOR_FIELD_NUMBER;
+    hash =
+        (53 * hash)
+            + com.google.protobuf.Internal.hashLong(
+                java.lang.Double.doubleToLongBits(getIdentityDeviceScaleFactor()));
+    hash = (37 * hash) + IDENTITY_FINGERPRINT_PROFILE_FIELD_NUMBER;
+    hash = (53 * hash) + getIdentityFingerprintProfile().hashCode();
+    hash = (37 * hash) + IDENTITY_OPERATING_SYSTEM_PROFILE_FIELD_NUMBER;
+    hash = (53 * hash) + getIdentityOperatingSystemProfile().hashCode();
+    hash = (37 * hash) + IDENTITY_SPEC_VERSION_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getIdentitySpecVersion());
+    hash = (37 * hash) + IDENTITY_SPEC_HASH_FIELD_NUMBER;
+    hash = (53 * hash) + getIdentitySpecHash().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
   }
 
   public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
-      java.nio.ByteBuffer data)
-      throws com.google.protobuf.InvalidProtocolBufferException {
+      java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
-      java.nio.ByteBuffer data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
-      byte[] data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(java.io.InputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
-  }
+
   public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseDelimitedFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseDelimitedFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
   }
+
+  public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseDelimitedFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
+        PARSER, input, extensionRegistry);
+  }
+
   public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
-      com.google.protobuf.CodedInputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
+      com.google.protobuf.CodedInputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
+
   public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   @java.lang.Override
-  public Builder newBuilderForType() { return newBuilder(); }
+  public Builder newBuilderForType() {
+    return newBuilder();
+  }
+
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
+
   public static Builder newBuilder(io.browsercloud.proto.node.v1.StartRuntimeCommand prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
+
   @java.lang.Override
   public Builder toBuilder() {
-    return this == DEFAULT_INSTANCE
-        ? new Builder() : new Builder().mergeFrom(this);
+    return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
   }
 
   @java.lang.Override
-  protected Builder newBuilderForType(
-      com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+  protected Builder newBuilderForType(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
     Builder builder = new Builder(parent);
     return builder;
   }
+
   /**
+   *
+   *
    * <pre>
    * 启动 Runtime 命令
    * </pre>
    *
    * Protobuf type {@code browsercloud.node.v1.StartRuntimeCommand}
    */
-  public static final class Builder extends
-      com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+  public static final class Builder extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
+      implements
       // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.StartRuntimeCommand)
       io.browsercloud.proto.node.v1.StartRuntimeCommandOrBuilder {
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_StartRuntimeCommand_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_StartRuntimeCommand_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_StartRuntimeCommand_fieldAccessorTable
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_StartRuntimeCommand_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              io.browsercloud.proto.node.v1.StartRuntimeCommand.class, io.browsercloud.proto.node.v1.StartRuntimeCommand.Builder.class);
+              io.browsercloud.proto.node.v1.StartRuntimeCommand.class,
+              io.browsercloud.proto.node.v1.StartRuntimeCommand.Builder.class);
     }
 
     // Construct using io.browsercloud.proto.node.v1.StartRuntimeCommand.newBuilder()
@@ -1825,17 +2660,17 @@ private static final long serialVersionUID = 0L;
       maybeForceBuilderInitialization();
     }
 
-    private Builder(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+    private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
       maybeForceBuilderInitialization();
     }
+
     private void maybeForceBuilderInitialization() {
-      if (com.google.protobuf.GeneratedMessageV3
-              .alwaysUseFieldBuilders) {
+      if (com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders) {
         getExtensionBackgroundPolicyFieldBuilder();
       }
     }
+
     @java.lang.Override
     public Builder clear() {
       super.clear();
@@ -1860,8 +2695,7 @@ private static final long serialVersionUID = 0L;
       profileCheckpointId_ = "";
       stateCollectorBudgetPercent_ = 0;
       remoteDesktopBitrateKbps_ = 0;
-      extensionIds_ =
-          com.google.protobuf.LazyStringArrayList.emptyList();
+      extensionIds_ = com.google.protobuf.LazyStringArrayList.emptyList();
       extensionCpuWeight_ = 0;
       mediaEncoderSlots_ = 0;
       freezeBackgroundTabs_ = false;
@@ -1879,21 +2713,33 @@ private static final long serialVersionUID = 0L;
       proxyProviderId_ = "";
       proxyExpectedExitIp_ = "";
       proxyCredentialRef_ = "";
-      browserTransactionExpectedOrigins_ =
-          com.google.protobuf.LazyStringArrayList.emptyList();
-      paymentSecurityRoutePrefixes_ =
-          com.google.protobuf.LazyStringArrayList.emptyList();
-      criticalTransactionRoutePrefixes_ =
-          com.google.protobuf.LazyStringArrayList.emptyList();
+      browserTransactionExpectedOrigins_ = com.google.protobuf.LazyStringArrayList.emptyList();
+      paymentSecurityRoutePrefixes_ = com.google.protobuf.LazyStringArrayList.emptyList();
+      criticalTransactionRoutePrefixes_ = com.google.protobuf.LazyStringArrayList.emptyList();
       browserTransactionPolicyHash_ = "";
       browserTransactionPolicyVersion_ = 0L;
+      identityUserAgent_ = "";
+      identityTimezone_ = "";
+      identityLocale_ = "";
+      identityLanguages_ = com.google.protobuf.LazyStringArrayList.emptyList();
+      identityWebrtcPolicy_ = "";
+      identityDnsPolicy_ = "";
+      identityViewportWidth_ = 0;
+      identityViewportHeight_ = 0;
+      identityScreenWidth_ = 0;
+      identityScreenHeight_ = 0;
+      identityDeviceScaleFactor_ = 0D;
+      identityFingerprintProfile_ = "";
+      identityOperatingSystemProfile_ = "";
+      identitySpecVersion_ = 0L;
+      identitySpecHash_ = "";
       return this;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Descriptors.Descriptor
-        getDescriptorForType() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_StartRuntimeCommand_descriptor;
+    public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_StartRuntimeCommand_descriptor;
     }
 
     @java.lang.Override
@@ -1912,9 +2758,14 @@ private static final long serialVersionUID = 0L;
 
     @java.lang.Override
     public io.browsercloud.proto.node.v1.StartRuntimeCommand buildPartial() {
-      io.browsercloud.proto.node.v1.StartRuntimeCommand result = new io.browsercloud.proto.node.v1.StartRuntimeCommand(this);
-      if (bitField0_ != 0) { buildPartial0(result); }
-      if (bitField1_ != 0) { buildPartial1(result); }
+      io.browsercloud.proto.node.v1.StartRuntimeCommand result =
+          new io.browsercloud.proto.node.v1.StartRuntimeCommand(this);
+      if (bitField0_ != 0) {
+        buildPartial0(result);
+      }
+      if (bitField1_ != 0) {
+        buildPartial1(result);
+      }
       onBuilt();
       return result;
     }
@@ -2002,9 +2853,10 @@ private static final long serialVersionUID = 0L;
         to_bitField0_ |= 0x00000020;
       }
       if (((from_bitField0_ & 0x01000000) != 0)) {
-        result.extensionBackgroundPolicy_ = extensionBackgroundPolicyBuilder_ == null
-            ? extensionBackgroundPolicy_
-            : extensionBackgroundPolicyBuilder_.build();
+        result.extensionBackgroundPolicy_ =
+            extensionBackgroundPolicyBuilder_ == null
+                ? extensionBackgroundPolicy_
+                : extensionBackgroundPolicyBuilder_.build();
         to_bitField0_ |= 0x00000040;
       }
       if (((from_bitField0_ & 0x02000000) != 0)) {
@@ -2062,6 +2914,52 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField1_ & 0x00000020) != 0)) {
         result.browserTransactionPolicyVersion_ = browserTransactionPolicyVersion_;
       }
+      if (((from_bitField1_ & 0x00000040) != 0)) {
+        result.identityUserAgent_ = identityUserAgent_;
+      }
+      if (((from_bitField1_ & 0x00000080) != 0)) {
+        result.identityTimezone_ = identityTimezone_;
+      }
+      if (((from_bitField1_ & 0x00000100) != 0)) {
+        result.identityLocale_ = identityLocale_;
+      }
+      if (((from_bitField1_ & 0x00000200) != 0)) {
+        identityLanguages_.makeImmutable();
+        result.identityLanguages_ = identityLanguages_;
+      }
+      if (((from_bitField1_ & 0x00000400) != 0)) {
+        result.identityWebrtcPolicy_ = identityWebrtcPolicy_;
+      }
+      if (((from_bitField1_ & 0x00000800) != 0)) {
+        result.identityDnsPolicy_ = identityDnsPolicy_;
+      }
+      if (((from_bitField1_ & 0x00001000) != 0)) {
+        result.identityViewportWidth_ = identityViewportWidth_;
+      }
+      if (((from_bitField1_ & 0x00002000) != 0)) {
+        result.identityViewportHeight_ = identityViewportHeight_;
+      }
+      if (((from_bitField1_ & 0x00004000) != 0)) {
+        result.identityScreenWidth_ = identityScreenWidth_;
+      }
+      if (((from_bitField1_ & 0x00008000) != 0)) {
+        result.identityScreenHeight_ = identityScreenHeight_;
+      }
+      if (((from_bitField1_ & 0x00010000) != 0)) {
+        result.identityDeviceScaleFactor_ = identityDeviceScaleFactor_;
+      }
+      if (((from_bitField1_ & 0x00020000) != 0)) {
+        result.identityFingerprintProfile_ = identityFingerprintProfile_;
+      }
+      if (((from_bitField1_ & 0x00040000) != 0)) {
+        result.identityOperatingSystemProfile_ = identityOperatingSystemProfile_;
+      }
+      if (((from_bitField1_ & 0x00080000) != 0)) {
+        result.identitySpecVersion_ = identitySpecVersion_;
+      }
+      if (((from_bitField1_ & 0x00100000) != 0)) {
+        result.identitySpecHash_ = identitySpecHash_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -2069,38 +2967,39 @@ private static final long serialVersionUID = 0L;
     public Builder clone() {
       return super.clone();
     }
+
     @java.lang.Override
     public Builder setField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.setField(field, value);
     }
+
     @java.lang.Override
-    public Builder clearField(
-        com.google.protobuf.Descriptors.FieldDescriptor field) {
+    public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
       return super.clearField(field);
     }
+
     @java.lang.Override
-    public Builder clearOneof(
-        com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+    public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
       return super.clearOneof(oneof);
     }
+
     @java.lang.Override
     public Builder setRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        int index, java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, int index, java.lang.Object value) {
       return super.setRepeatedField(field, index, value);
     }
+
     @java.lang.Override
     public Builder addRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.addRepeatedField(field, value);
     }
+
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof io.browsercloud.proto.node.v1.StartRuntimeCommand) {
-        return mergeFrom((io.browsercloud.proto.node.v1.StartRuntimeCommand)other);
+        return mergeFrom((io.browsercloud.proto.node.v1.StartRuntimeCommand) other);
       } else {
         super.mergeFrom(other);
         return this;
@@ -2108,7 +3007,8 @@ private static final long serialVersionUID = 0L;
     }
 
     public Builder mergeFrom(io.browsercloud.proto.node.v1.StartRuntimeCommand other) {
-      if (other == io.browsercloud.proto.node.v1.StartRuntimeCommand.getDefaultInstance()) return this;
+      if (other == io.browsercloud.proto.node.v1.StartRuntimeCommand.getDefaultInstance())
+        return this;
       if (!other.getSessionId().isEmpty()) {
         sessionId_ = other.sessionId_;
         bitField0_ |= 0x00000001;
@@ -2273,6 +3173,74 @@ private static final long serialVersionUID = 0L;
       if (other.getBrowserTransactionPolicyVersion() != 0L) {
         setBrowserTransactionPolicyVersion(other.getBrowserTransactionPolicyVersion());
       }
+      if (!other.getIdentityUserAgent().isEmpty()) {
+        identityUserAgent_ = other.identityUserAgent_;
+        bitField1_ |= 0x00000040;
+        onChanged();
+      }
+      if (!other.getIdentityTimezone().isEmpty()) {
+        identityTimezone_ = other.identityTimezone_;
+        bitField1_ |= 0x00000080;
+        onChanged();
+      }
+      if (!other.getIdentityLocale().isEmpty()) {
+        identityLocale_ = other.identityLocale_;
+        bitField1_ |= 0x00000100;
+        onChanged();
+      }
+      if (!other.identityLanguages_.isEmpty()) {
+        if (identityLanguages_.isEmpty()) {
+          identityLanguages_ = other.identityLanguages_;
+          bitField1_ |= 0x00000200;
+        } else {
+          ensureIdentityLanguagesIsMutable();
+          identityLanguages_.addAll(other.identityLanguages_);
+        }
+        onChanged();
+      }
+      if (!other.getIdentityWebrtcPolicy().isEmpty()) {
+        identityWebrtcPolicy_ = other.identityWebrtcPolicy_;
+        bitField1_ |= 0x00000400;
+        onChanged();
+      }
+      if (!other.getIdentityDnsPolicy().isEmpty()) {
+        identityDnsPolicy_ = other.identityDnsPolicy_;
+        bitField1_ |= 0x00000800;
+        onChanged();
+      }
+      if (other.getIdentityViewportWidth() != 0) {
+        setIdentityViewportWidth(other.getIdentityViewportWidth());
+      }
+      if (other.getIdentityViewportHeight() != 0) {
+        setIdentityViewportHeight(other.getIdentityViewportHeight());
+      }
+      if (other.getIdentityScreenWidth() != 0) {
+        setIdentityScreenWidth(other.getIdentityScreenWidth());
+      }
+      if (other.getIdentityScreenHeight() != 0) {
+        setIdentityScreenHeight(other.getIdentityScreenHeight());
+      }
+      if (other.getIdentityDeviceScaleFactor() != 0D) {
+        setIdentityDeviceScaleFactor(other.getIdentityDeviceScaleFactor());
+      }
+      if (!other.getIdentityFingerprintProfile().isEmpty()) {
+        identityFingerprintProfile_ = other.identityFingerprintProfile_;
+        bitField1_ |= 0x00020000;
+        onChanged();
+      }
+      if (!other.getIdentityOperatingSystemProfile().isEmpty()) {
+        identityOperatingSystemProfile_ = other.identityOperatingSystemProfile_;
+        bitField1_ |= 0x00040000;
+        onChanged();
+      }
+      if (other.getIdentitySpecVersion() != 0L) {
+        setIdentitySpecVersion(other.getIdentitySpecVersion());
+      }
+      if (!other.getIdentitySpecHash().isEmpty()) {
+        identitySpecHash_ = other.identitySpecHash_;
+        bitField1_ |= 0x00100000;
+        onChanged();
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -2299,208 +3267,337 @@ private static final long serialVersionUID = 0L;
             case 0:
               done = true;
               break;
-            case 10: {
-              sessionId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000001;
-              break;
-            } // case 10
-            case 18: {
-              runtimeBuildId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000002;
-              break;
-            } // case 18
-            case 26: {
-              profileId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000004;
-              break;
-            } // case 26
-            case 34: {
-              display_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000008;
-              break;
-            } // case 34
-            case 40: {
-              cdpPort_ = input.readInt32();
-              bitField0_ |= 0x00000010;
-              break;
-            } // case 40
-            case 50: {
-              proxyBindingId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000020;
-              break;
-            } // case 50
-            case 58: {
-              resourceClass_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000040;
-              break;
-            } // case 58
-            case 64: {
-              cpuMillis_ = input.readUInt32();
-              bitField0_ |= 0x00000080;
-              break;
-            } // case 64
-            case 72: {
-              memoryRequestMib_ = input.readUInt32();
-              bitField0_ |= 0x00000100;
-              break;
-            } // case 72
-            case 80: {
-              memoryLimitMib_ = input.readUInt32();
-              bitField0_ |= 0x00000200;
-              break;
-            } // case 80
-            case 88: {
-              pidLimit_ = input.readUInt32();
-              bitField0_ |= 0x00000400;
-              break;
-            } // case 88
-            case 96: {
-              tabBudget_ = input.readUInt32();
-              bitField0_ |= 0x00000800;
-              break;
-            } // case 96
-            case 104: {
-              desktopRequired_ = input.readBool();
-              bitField0_ |= 0x00001000;
-              break;
-            } // case 104
-            case 112: {
-              gpuRequired_ = input.readBool();
-              bitField0_ |= 0x00002000;
-              break;
-            } // case 112
-            case 120: {
-              nativeOsRequired_ = input.readBool();
-              bitField0_ |= 0x00004000;
-              break;
-            } // case 120
-            case 128: {
-              isolationRequired_ = input.readBool();
-              bitField0_ |= 0x00008000;
-              break;
-            } // case 128
-            case 138: {
-              profileCheckpointId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00010000;
-              break;
-            } // case 138
-            case 144: {
-              stateCollectorBudgetPercent_ = input.readUInt32();
-              bitField0_ |= 0x00020000;
-              break;
-            } // case 144
-            case 152: {
-              remoteDesktopBitrateKbps_ = input.readUInt32();
-              bitField0_ |= 0x00040000;
-              break;
-            } // case 152
-            case 162: {
-              java.lang.String s = input.readStringRequireUtf8();
-              ensureExtensionIdsIsMutable();
-              extensionIds_.add(s);
-              break;
-            } // case 162
-            case 168: {
-              extensionCpuWeight_ = input.readUInt32();
-              bitField0_ |= 0x00100000;
-              break;
-            } // case 168
-            case 176: {
-              mediaEncoderSlots_ = input.readUInt32();
-              bitField0_ |= 0x00200000;
-              break;
-            } // case 176
-            case 184: {
-              freezeBackgroundTabs_ = input.readBool();
-              bitField0_ |= 0x00400000;
-              break;
-            } // case 184
-            case 192: {
-              blockNewTabs_ = input.readBool();
-              bitField0_ |= 0x00800000;
-              break;
-            } // case 192
-            case 202: {
-              input.readMessage(
-                  getExtensionBackgroundPolicyFieldBuilder().getBuilder(),
-                  extensionRegistry);
-              bitField0_ |= 0x01000000;
-              break;
-            } // case 202
-            case 208: {
-              successTraceSamplePercent_ = input.readUInt32();
-              bitField0_ |= 0x02000000;
-              break;
-            } // case 208
-            case 216: {
-              observerFrameRateFps_ = input.readUInt32();
-              bitField0_ |= 0x04000000;
-              break;
-            } // case 216
-            case 224: {
-              videoRecordingEnabled_ = input.readBool();
-              bitField0_ |= 0x08000000;
-              break;
-            } // case 224
-            case 232: {
-              successScreenshotSamplePercent_ = input.readUInt32();
-              bitField0_ |= 0x10000000;
-              break;
-            } // case 232
-            case 240: {
-              minimumBrowserGeneration_ = input.readUInt64();
-              bitField0_ |= 0x20000000;
-              break;
-            } // case 240
-            case 250: {
-              proxyProviderId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x40000000;
-              break;
-            } // case 250
-            case 258: {
-              proxyExpectedExitIp_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x80000000;
-              break;
-            } // case 258
-            case 266: {
-              proxyCredentialRef_ = input.readStringRequireUtf8();
-              bitField1_ |= 0x00000001;
-              break;
-            } // case 266
-            case 274: {
-              java.lang.String s = input.readStringRequireUtf8();
-              ensureBrowserTransactionExpectedOriginsIsMutable();
-              browserTransactionExpectedOrigins_.add(s);
-              break;
-            } // case 274
-            case 282: {
-              java.lang.String s = input.readStringRequireUtf8();
-              ensurePaymentSecurityRoutePrefixesIsMutable();
-              paymentSecurityRoutePrefixes_.add(s);
-              break;
-            } // case 282
-            case 290: {
-              java.lang.String s = input.readStringRequireUtf8();
-              ensureCriticalTransactionRoutePrefixesIsMutable();
-              criticalTransactionRoutePrefixes_.add(s);
-              break;
-            } // case 290
-            case 298: {
-              browserTransactionPolicyHash_ = input.readStringRequireUtf8();
-              bitField1_ |= 0x00000010;
-              break;
-            } // case 298
-            case 304: {
-              browserTransactionPolicyVersion_ = input.readUInt64();
-              bitField1_ |= 0x00000020;
-              break;
-            } // case 304
-            default: {
-              if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                done = true; // was an endgroup tag
-              }
-              break;
-            } // default:
+            case 10:
+              {
+                sessionId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000001;
+                break;
+              } // case 10
+            case 18:
+              {
+                runtimeBuildId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000002;
+                break;
+              } // case 18
+            case 26:
+              {
+                profileId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000004;
+                break;
+              } // case 26
+            case 34:
+              {
+                display_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000008;
+                break;
+              } // case 34
+            case 40:
+              {
+                cdpPort_ = input.readInt32();
+                bitField0_ |= 0x00000010;
+                break;
+              } // case 40
+            case 50:
+              {
+                proxyBindingId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000020;
+                break;
+              } // case 50
+            case 58:
+              {
+                resourceClass_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000040;
+                break;
+              } // case 58
+            case 64:
+              {
+                cpuMillis_ = input.readUInt32();
+                bitField0_ |= 0x00000080;
+                break;
+              } // case 64
+            case 72:
+              {
+                memoryRequestMib_ = input.readUInt32();
+                bitField0_ |= 0x00000100;
+                break;
+              } // case 72
+            case 80:
+              {
+                memoryLimitMib_ = input.readUInt32();
+                bitField0_ |= 0x00000200;
+                break;
+              } // case 80
+            case 88:
+              {
+                pidLimit_ = input.readUInt32();
+                bitField0_ |= 0x00000400;
+                break;
+              } // case 88
+            case 96:
+              {
+                tabBudget_ = input.readUInt32();
+                bitField0_ |= 0x00000800;
+                break;
+              } // case 96
+            case 104:
+              {
+                desktopRequired_ = input.readBool();
+                bitField0_ |= 0x00001000;
+                break;
+              } // case 104
+            case 112:
+              {
+                gpuRequired_ = input.readBool();
+                bitField0_ |= 0x00002000;
+                break;
+              } // case 112
+            case 120:
+              {
+                nativeOsRequired_ = input.readBool();
+                bitField0_ |= 0x00004000;
+                break;
+              } // case 120
+            case 128:
+              {
+                isolationRequired_ = input.readBool();
+                bitField0_ |= 0x00008000;
+                break;
+              } // case 128
+            case 138:
+              {
+                profileCheckpointId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00010000;
+                break;
+              } // case 138
+            case 144:
+              {
+                stateCollectorBudgetPercent_ = input.readUInt32();
+                bitField0_ |= 0x00020000;
+                break;
+              } // case 144
+            case 152:
+              {
+                remoteDesktopBitrateKbps_ = input.readUInt32();
+                bitField0_ |= 0x00040000;
+                break;
+              } // case 152
+            case 162:
+              {
+                java.lang.String s = input.readStringRequireUtf8();
+                ensureExtensionIdsIsMutable();
+                extensionIds_.add(s);
+                break;
+              } // case 162
+            case 168:
+              {
+                extensionCpuWeight_ = input.readUInt32();
+                bitField0_ |= 0x00100000;
+                break;
+              } // case 168
+            case 176:
+              {
+                mediaEncoderSlots_ = input.readUInt32();
+                bitField0_ |= 0x00200000;
+                break;
+              } // case 176
+            case 184:
+              {
+                freezeBackgroundTabs_ = input.readBool();
+                bitField0_ |= 0x00400000;
+                break;
+              } // case 184
+            case 192:
+              {
+                blockNewTabs_ = input.readBool();
+                bitField0_ |= 0x00800000;
+                break;
+              } // case 192
+            case 202:
+              {
+                input.readMessage(
+                    getExtensionBackgroundPolicyFieldBuilder().getBuilder(), extensionRegistry);
+                bitField0_ |= 0x01000000;
+                break;
+              } // case 202
+            case 208:
+              {
+                successTraceSamplePercent_ = input.readUInt32();
+                bitField0_ |= 0x02000000;
+                break;
+              } // case 208
+            case 216:
+              {
+                observerFrameRateFps_ = input.readUInt32();
+                bitField0_ |= 0x04000000;
+                break;
+              } // case 216
+            case 224:
+              {
+                videoRecordingEnabled_ = input.readBool();
+                bitField0_ |= 0x08000000;
+                break;
+              } // case 224
+            case 232:
+              {
+                successScreenshotSamplePercent_ = input.readUInt32();
+                bitField0_ |= 0x10000000;
+                break;
+              } // case 232
+            case 240:
+              {
+                minimumBrowserGeneration_ = input.readUInt64();
+                bitField0_ |= 0x20000000;
+                break;
+              } // case 240
+            case 250:
+              {
+                proxyProviderId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x40000000;
+                break;
+              } // case 250
+            case 258:
+              {
+                proxyExpectedExitIp_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x80000000;
+                break;
+              } // case 258
+            case 266:
+              {
+                proxyCredentialRef_ = input.readStringRequireUtf8();
+                bitField1_ |= 0x00000001;
+                break;
+              } // case 266
+            case 274:
+              {
+                java.lang.String s = input.readStringRequireUtf8();
+                ensureBrowserTransactionExpectedOriginsIsMutable();
+                browserTransactionExpectedOrigins_.add(s);
+                break;
+              } // case 274
+            case 282:
+              {
+                java.lang.String s = input.readStringRequireUtf8();
+                ensurePaymentSecurityRoutePrefixesIsMutable();
+                paymentSecurityRoutePrefixes_.add(s);
+                break;
+              } // case 282
+            case 290:
+              {
+                java.lang.String s = input.readStringRequireUtf8();
+                ensureCriticalTransactionRoutePrefixesIsMutable();
+                criticalTransactionRoutePrefixes_.add(s);
+                break;
+              } // case 290
+            case 298:
+              {
+                browserTransactionPolicyHash_ = input.readStringRequireUtf8();
+                bitField1_ |= 0x00000010;
+                break;
+              } // case 298
+            case 304:
+              {
+                browserTransactionPolicyVersion_ = input.readUInt64();
+                bitField1_ |= 0x00000020;
+                break;
+              } // case 304
+            case 314:
+              {
+                identityUserAgent_ = input.readStringRequireUtf8();
+                bitField1_ |= 0x00000040;
+                break;
+              } // case 314
+            case 322:
+              {
+                identityTimezone_ = input.readStringRequireUtf8();
+                bitField1_ |= 0x00000080;
+                break;
+              } // case 322
+            case 330:
+              {
+                identityLocale_ = input.readStringRequireUtf8();
+                bitField1_ |= 0x00000100;
+                break;
+              } // case 330
+            case 338:
+              {
+                java.lang.String s = input.readStringRequireUtf8();
+                ensureIdentityLanguagesIsMutable();
+                identityLanguages_.add(s);
+                break;
+              } // case 338
+            case 346:
+              {
+                identityWebrtcPolicy_ = input.readStringRequireUtf8();
+                bitField1_ |= 0x00000400;
+                break;
+              } // case 346
+            case 354:
+              {
+                identityDnsPolicy_ = input.readStringRequireUtf8();
+                bitField1_ |= 0x00000800;
+                break;
+              } // case 354
+            case 360:
+              {
+                identityViewportWidth_ = input.readUInt32();
+                bitField1_ |= 0x00001000;
+                break;
+              } // case 360
+            case 368:
+              {
+                identityViewportHeight_ = input.readUInt32();
+                bitField1_ |= 0x00002000;
+                break;
+              } // case 368
+            case 376:
+              {
+                identityScreenWidth_ = input.readUInt32();
+                bitField1_ |= 0x00004000;
+                break;
+              } // case 376
+            case 384:
+              {
+                identityScreenHeight_ = input.readUInt32();
+                bitField1_ |= 0x00008000;
+                break;
+              } // case 384
+            case 393:
+              {
+                identityDeviceScaleFactor_ = input.readDouble();
+                bitField1_ |= 0x00010000;
+                break;
+              } // case 393
+            case 402:
+              {
+                identityFingerprintProfile_ = input.readStringRequireUtf8();
+                bitField1_ |= 0x00020000;
+                break;
+              } // case 402
+            case 410:
+              {
+                identityOperatingSystemProfile_ = input.readStringRequireUtf8();
+                bitField1_ |= 0x00040000;
+                break;
+              } // case 410
+            case 416:
+              {
+                identitySpecVersion_ = input.readUInt64();
+                bitField1_ |= 0x00080000;
+                break;
+              } // case 416
+            case 426:
+              {
+                identitySpecHash_ = input.readStringRequireUtf8();
+                bitField1_ |= 0x00100000;
+                break;
+              } // case 426
+            default:
+              {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
           } // switch (tag)
         } // while (!done)
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -2510,19 +3607,21 @@ private static final long serialVersionUID = 0L;
       } // finally
       return this;
     }
+
     private int bitField0_;
     private int bitField1_;
 
     private java.lang.Object sessionId_ = "";
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return The sessionId.
      */
     public java.lang.String getSessionId() {
       java.lang.Object ref = sessionId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         sessionId_ = s;
         return s;
@@ -2530,38 +3629,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return The bytes for sessionId.
      */
-    public com.google.protobuf.ByteString
-        getSessionIdBytes() {
+    public com.google.protobuf.ByteString getSessionIdBytes() {
       java.lang.Object ref = sessionId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         sessionId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @param value The sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setSessionId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSessionId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       sessionId_ = value;
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSessionId() {
@@ -2570,14 +3674,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @param value The bytes for sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setSessionIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSessionIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       sessionId_ = value;
       bitField0_ |= 0x00000001;
@@ -2586,15 +3693,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object runtimeBuildId_ = "";
+
     /**
      * <code>string runtime_build_id = 2 [json_name = "runtimeBuildId"];</code>
+     *
      * @return The runtimeBuildId.
      */
     public java.lang.String getRuntimeBuildId() {
       java.lang.Object ref = runtimeBuildId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         runtimeBuildId_ = s;
         return s;
@@ -2602,38 +3710,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string runtime_build_id = 2 [json_name = "runtimeBuildId"];</code>
+     *
      * @return The bytes for runtimeBuildId.
      */
-    public com.google.protobuf.ByteString
-        getRuntimeBuildIdBytes() {
+    public com.google.protobuf.ByteString getRuntimeBuildIdBytes() {
       java.lang.Object ref = runtimeBuildId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         runtimeBuildId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string runtime_build_id = 2 [json_name = "runtimeBuildId"];</code>
+     *
      * @param value The runtimeBuildId to set.
      * @return This builder for chaining.
      */
-    public Builder setRuntimeBuildId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setRuntimeBuildId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       runtimeBuildId_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
+
     /**
      * <code>string runtime_build_id = 2 [json_name = "runtimeBuildId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearRuntimeBuildId() {
@@ -2642,14 +3755,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string runtime_build_id = 2 [json_name = "runtimeBuildId"];</code>
+     *
      * @param value The bytes for runtimeBuildId to set.
      * @return This builder for chaining.
      */
-    public Builder setRuntimeBuildIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setRuntimeBuildIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       runtimeBuildId_ = value;
       bitField0_ |= 0x00000002;
@@ -2658,15 +3774,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object profileId_ = "";
+
     /**
      * <code>string profile_id = 3 [json_name = "profileId"];</code>
+     *
      * @return The profileId.
      */
     public java.lang.String getProfileId() {
       java.lang.Object ref = profileId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         profileId_ = s;
         return s;
@@ -2674,38 +3791,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string profile_id = 3 [json_name = "profileId"];</code>
+     *
      * @return The bytes for profileId.
      */
-    public com.google.protobuf.ByteString
-        getProfileIdBytes() {
+    public com.google.protobuf.ByteString getProfileIdBytes() {
       java.lang.Object ref = profileId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         profileId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string profile_id = 3 [json_name = "profileId"];</code>
+     *
      * @param value The profileId to set.
      * @return This builder for chaining.
      */
-    public Builder setProfileId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProfileId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       profileId_ = value;
       bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
+
     /**
      * <code>string profile_id = 3 [json_name = "profileId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearProfileId() {
@@ -2714,14 +3836,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string profile_id = 3 [json_name = "profileId"];</code>
+     *
      * @param value The bytes for profileId to set.
      * @return This builder for chaining.
      */
-    public Builder setProfileIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProfileIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       profileId_ = value;
       bitField0_ |= 0x00000004;
@@ -2730,15 +3855,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object display_ = "";
+
     /**
      * <code>string display = 4 [json_name = "display"];</code>
+     *
      * @return The display.
      */
     public java.lang.String getDisplay() {
       java.lang.Object ref = display_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         display_ = s;
         return s;
@@ -2746,38 +3872,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string display = 4 [json_name = "display"];</code>
+     *
      * @return The bytes for display.
      */
-    public com.google.protobuf.ByteString
-        getDisplayBytes() {
+    public com.google.protobuf.ByteString getDisplayBytes() {
       java.lang.Object ref = display_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         display_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string display = 4 [json_name = "display"];</code>
+     *
      * @param value The display to set.
      * @return This builder for chaining.
      */
-    public Builder setDisplay(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setDisplay(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       display_ = value;
       bitField0_ |= 0x00000008;
       onChanged();
       return this;
     }
+
     /**
      * <code>string display = 4 [json_name = "display"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearDisplay() {
@@ -2786,14 +3917,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string display = 4 [json_name = "display"];</code>
+     *
      * @param value The bytes for display to set.
      * @return This builder for chaining.
      */
-    public Builder setDisplayBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setDisplayBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       display_ = value;
       bitField0_ |= 0x00000008;
@@ -2801,17 +3935,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int cdpPort_ ;
+    private int cdpPort_;
+
     /**
      * <code>int32 cdp_port = 5 [json_name = "cdpPort"];</code>
+     *
      * @return The cdpPort.
      */
     @java.lang.Override
     public int getCdpPort() {
       return cdpPort_;
     }
+
     /**
      * <code>int32 cdp_port = 5 [json_name = "cdpPort"];</code>
+     *
      * @param value The cdpPort to set.
      * @return This builder for chaining.
      */
@@ -2822,8 +3960,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>int32 cdp_port = 5 [json_name = "cdpPort"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearCdpPort() {
@@ -2834,15 +3974,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object proxyBindingId_ = "";
+
     /**
      * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
+     *
      * @return The proxyBindingId.
      */
     public java.lang.String getProxyBindingId() {
       java.lang.Object ref = proxyBindingId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         proxyBindingId_ = s;
         return s;
@@ -2850,38 +3991,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
+     *
      * @return The bytes for proxyBindingId.
      */
-    public com.google.protobuf.ByteString
-        getProxyBindingIdBytes() {
+    public com.google.protobuf.ByteString getProxyBindingIdBytes() {
       java.lang.Object ref = proxyBindingId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         proxyBindingId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
+     *
      * @param value The proxyBindingId to set.
      * @return This builder for chaining.
      */
-    public Builder setProxyBindingId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProxyBindingId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       proxyBindingId_ = value;
       bitField0_ |= 0x00000020;
       onChanged();
       return this;
     }
+
     /**
      * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearProxyBindingId() {
@@ -2890,14 +4036,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
+     *
      * @param value The bytes for proxyBindingId to set.
      * @return This builder for chaining.
      */
-    public Builder setProxyBindingIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProxyBindingIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       proxyBindingId_ = value;
       bitField0_ |= 0x00000020;
@@ -2906,15 +4055,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object resourceClass_ = "";
+
     /**
      * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+     *
      * @return The resourceClass.
      */
     public java.lang.String getResourceClass() {
       java.lang.Object ref = resourceClass_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         resourceClass_ = s;
         return s;
@@ -2922,38 +4072,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+     *
      * @return The bytes for resourceClass.
      */
-    public com.google.protobuf.ByteString
-        getResourceClassBytes() {
+    public com.google.protobuf.ByteString getResourceClassBytes() {
       java.lang.Object ref = resourceClass_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         resourceClass_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+     *
      * @param value The resourceClass to set.
      * @return This builder for chaining.
      */
-    public Builder setResourceClass(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setResourceClass(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       resourceClass_ = value;
       bitField0_ |= 0x00000040;
       onChanged();
       return this;
     }
+
     /**
      * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearResourceClass() {
@@ -2962,14 +4117,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+     *
      * @param value The bytes for resourceClass to set.
      * @return This builder for chaining.
      */
-    public Builder setResourceClassBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setResourceClassBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       resourceClass_ = value;
       bitField0_ |= 0x00000040;
@@ -2977,17 +4135,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int cpuMillis_ ;
+    private int cpuMillis_;
+
     /**
      * <code>uint32 cpu_millis = 8 [json_name = "cpuMillis"];</code>
+     *
      * @return The cpuMillis.
      */
     @java.lang.Override
     public int getCpuMillis() {
       return cpuMillis_;
     }
+
     /**
      * <code>uint32 cpu_millis = 8 [json_name = "cpuMillis"];</code>
+     *
      * @param value The cpuMillis to set.
      * @return This builder for chaining.
      */
@@ -2998,8 +4160,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 cpu_millis = 8 [json_name = "cpuMillis"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearCpuMillis() {
@@ -3009,17 +4173,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int memoryRequestMib_ ;
+    private int memoryRequestMib_;
+
     /**
      * <code>uint32 memory_request_mib = 9 [json_name = "memoryRequestMib"];</code>
+     *
      * @return The memoryRequestMib.
      */
     @java.lang.Override
     public int getMemoryRequestMib() {
       return memoryRequestMib_;
     }
+
     /**
      * <code>uint32 memory_request_mib = 9 [json_name = "memoryRequestMib"];</code>
+     *
      * @param value The memoryRequestMib to set.
      * @return This builder for chaining.
      */
@@ -3030,8 +4198,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 memory_request_mib = 9 [json_name = "memoryRequestMib"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearMemoryRequestMib() {
@@ -3041,17 +4211,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int memoryLimitMib_ ;
+    private int memoryLimitMib_;
+
     /**
      * <code>uint32 memory_limit_mib = 10 [json_name = "memoryLimitMib"];</code>
+     *
      * @return The memoryLimitMib.
      */
     @java.lang.Override
     public int getMemoryLimitMib() {
       return memoryLimitMib_;
     }
+
     /**
      * <code>uint32 memory_limit_mib = 10 [json_name = "memoryLimitMib"];</code>
+     *
      * @param value The memoryLimitMib to set.
      * @return This builder for chaining.
      */
@@ -3062,8 +4236,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 memory_limit_mib = 10 [json_name = "memoryLimitMib"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearMemoryLimitMib() {
@@ -3073,17 +4249,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int pidLimit_ ;
+    private int pidLimit_;
+
     /**
      * <code>uint32 pid_limit = 11 [json_name = "pidLimit"];</code>
+     *
      * @return The pidLimit.
      */
     @java.lang.Override
     public int getPidLimit() {
       return pidLimit_;
     }
+
     /**
      * <code>uint32 pid_limit = 11 [json_name = "pidLimit"];</code>
+     *
      * @param value The pidLimit to set.
      * @return This builder for chaining.
      */
@@ -3094,8 +4274,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 pid_limit = 11 [json_name = "pidLimit"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearPidLimit() {
@@ -3105,17 +4287,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int tabBudget_ ;
+    private int tabBudget_;
+
     /**
      * <code>uint32 tab_budget = 12 [json_name = "tabBudget"];</code>
+     *
      * @return The tabBudget.
      */
     @java.lang.Override
     public int getTabBudget() {
       return tabBudget_;
     }
+
     /**
      * <code>uint32 tab_budget = 12 [json_name = "tabBudget"];</code>
+     *
      * @param value The tabBudget to set.
      * @return This builder for chaining.
      */
@@ -3126,8 +4312,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 tab_budget = 12 [json_name = "tabBudget"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearTabBudget() {
@@ -3137,17 +4325,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean desktopRequired_ ;
+    private boolean desktopRequired_;
+
     /**
      * <code>bool desktop_required = 13 [json_name = "desktopRequired"];</code>
+     *
      * @return The desktopRequired.
      */
     @java.lang.Override
     public boolean getDesktopRequired() {
       return desktopRequired_;
     }
+
     /**
      * <code>bool desktop_required = 13 [json_name = "desktopRequired"];</code>
+     *
      * @param value The desktopRequired to set.
      * @return This builder for chaining.
      */
@@ -3158,8 +4350,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>bool desktop_required = 13 [json_name = "desktopRequired"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearDesktopRequired() {
@@ -3169,17 +4363,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean gpuRequired_ ;
+    private boolean gpuRequired_;
+
     /**
      * <code>bool gpu_required = 14 [json_name = "gpuRequired"];</code>
+     *
      * @return The gpuRequired.
      */
     @java.lang.Override
     public boolean getGpuRequired() {
       return gpuRequired_;
     }
+
     /**
      * <code>bool gpu_required = 14 [json_name = "gpuRequired"];</code>
+     *
      * @param value The gpuRequired to set.
      * @return This builder for chaining.
      */
@@ -3190,8 +4388,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>bool gpu_required = 14 [json_name = "gpuRequired"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearGpuRequired() {
@@ -3201,17 +4401,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean nativeOsRequired_ ;
+    private boolean nativeOsRequired_;
+
     /**
      * <code>bool native_os_required = 15 [json_name = "nativeOsRequired"];</code>
+     *
      * @return The nativeOsRequired.
      */
     @java.lang.Override
     public boolean getNativeOsRequired() {
       return nativeOsRequired_;
     }
+
     /**
      * <code>bool native_os_required = 15 [json_name = "nativeOsRequired"];</code>
+     *
      * @param value The nativeOsRequired to set.
      * @return This builder for chaining.
      */
@@ -3222,8 +4426,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>bool native_os_required = 15 [json_name = "nativeOsRequired"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNativeOsRequired() {
@@ -3233,17 +4439,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean isolationRequired_ ;
+    private boolean isolationRequired_;
+
     /**
      * <code>bool isolation_required = 16 [json_name = "isolationRequired"];</code>
+     *
      * @return The isolationRequired.
      */
     @java.lang.Override
     public boolean getIsolationRequired() {
       return isolationRequired_;
     }
+
     /**
      * <code>bool isolation_required = 16 [json_name = "isolationRequired"];</code>
+     *
      * @param value The isolationRequired to set.
      * @return This builder for chaining.
      */
@@ -3254,8 +4464,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>bool isolation_required = 16 [json_name = "isolationRequired"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearIsolationRequired() {
@@ -3266,15 +4478,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object profileCheckpointId_ = "";
+
     /**
      * <code>string profile_checkpoint_id = 17 [json_name = "profileCheckpointId"];</code>
+     *
      * @return The profileCheckpointId.
      */
     public java.lang.String getProfileCheckpointId() {
       java.lang.Object ref = profileCheckpointId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         profileCheckpointId_ = s;
         return s;
@@ -3282,38 +4495,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string profile_checkpoint_id = 17 [json_name = "profileCheckpointId"];</code>
+     *
      * @return The bytes for profileCheckpointId.
      */
-    public com.google.protobuf.ByteString
-        getProfileCheckpointIdBytes() {
+    public com.google.protobuf.ByteString getProfileCheckpointIdBytes() {
       java.lang.Object ref = profileCheckpointId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         profileCheckpointId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string profile_checkpoint_id = 17 [json_name = "profileCheckpointId"];</code>
+     *
      * @param value The profileCheckpointId to set.
      * @return This builder for chaining.
      */
-    public Builder setProfileCheckpointId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProfileCheckpointId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       profileCheckpointId_ = value;
       bitField0_ |= 0x00010000;
       onChanged();
       return this;
     }
+
     /**
      * <code>string profile_checkpoint_id = 17 [json_name = "profileCheckpointId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearProfileCheckpointId() {
@@ -3322,14 +4540,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string profile_checkpoint_id = 17 [json_name = "profileCheckpointId"];</code>
+     *
      * @param value The bytes for profileCheckpointId to set.
      * @return This builder for chaining.
      */
-    public Builder setProfileCheckpointIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProfileCheckpointIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       profileCheckpointId_ = value;
       bitField0_ |= 0x00010000;
@@ -3337,37 +4558,55 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int stateCollectorBudgetPercent_ ;
+    private int stateCollectorBudgetPercent_;
+
     /**
+     *
+     *
      * <pre>
      * N-1 Node 不识别时安全忽略；缺失表示使用 Node 安全默认值。
      * </pre>
      *
-     * <code>optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];</code>
+     * <code>
+     * optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];
+     * </code>
+     *
      * @return Whether the stateCollectorBudgetPercent field is set.
      */
     @java.lang.Override
     public boolean hasStateCollectorBudgetPercent() {
       return ((bitField0_ & 0x00020000) != 0);
     }
+
     /**
+     *
+     *
      * <pre>
      * N-1 Node 不识别时安全忽略；缺失表示使用 Node 安全默认值。
      * </pre>
      *
-     * <code>optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];</code>
+     * <code>
+     * optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];
+     * </code>
+     *
      * @return The stateCollectorBudgetPercent.
      */
     @java.lang.Override
     public int getStateCollectorBudgetPercent() {
       return stateCollectorBudgetPercent_;
     }
+
     /**
+     *
+     *
      * <pre>
      * N-1 Node 不识别时安全忽略；缺失表示使用 Node 安全默认值。
      * </pre>
      *
-     * <code>optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];</code>
+     * <code>
+     * optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];
+     * </code>
+     *
      * @param value The stateCollectorBudgetPercent to set.
      * @return This builder for chaining.
      */
@@ -3378,12 +4617,18 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * N-1 Node 不识别时安全忽略；缺失表示使用 Node 安全默认值。
      * </pre>
      *
-     * <code>optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];</code>
+     * <code>
+     * optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearStateCollectorBudgetPercent() {
@@ -3393,25 +4638,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int remoteDesktopBitrateKbps_ ;
+    private int remoteDesktopBitrateKbps_;
+
     /**
-     * <code>optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];</code>
+     * <code>
+     * optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];
+     * </code>
+     *
      * @return Whether the remoteDesktopBitrateKbps field is set.
      */
     @java.lang.Override
     public boolean hasRemoteDesktopBitrateKbps() {
       return ((bitField0_ & 0x00040000) != 0);
     }
+
     /**
-     * <code>optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];</code>
+     * <code>
+     * optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];
+     * </code>
+     *
      * @return The remoteDesktopBitrateKbps.
      */
     @java.lang.Override
     public int getRemoteDesktopBitrateKbps() {
       return remoteDesktopBitrateKbps_;
     }
+
     /**
-     * <code>optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];</code>
+     * <code>
+     * optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];
+     * </code>
+     *
      * @param value The remoteDesktopBitrateKbps to set.
      * @return This builder for chaining.
      */
@@ -3422,8 +4679,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];</code>
+     * <code>
+     * optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearRemoteDesktopBitrateKbps() {
@@ -3435,143 +4696,179 @@ private static final long serialVersionUID = 0L;
 
     private com.google.protobuf.LazyStringArrayList extensionIds_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
+
     private void ensureExtensionIdsIsMutable() {
       if (!extensionIds_.isModifiable()) {
         extensionIds_ = new com.google.protobuf.LazyStringArrayList(extensionIds_);
       }
       bitField0_ |= 0x00080000;
     }
+
     /**
+     *
+     *
      * <pre>
      * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
      * </pre>
      *
      * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     *
      * @return A list containing the extensionIds.
      */
-    public com.google.protobuf.ProtocolStringList
-        getExtensionIdsList() {
+    public com.google.protobuf.ProtocolStringList getExtensionIdsList() {
       extensionIds_.makeImmutable();
       return extensionIds_;
     }
+
     /**
+     *
+     *
      * <pre>
      * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
      * </pre>
      *
      * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     *
      * @return The count of extensionIds.
      */
     public int getExtensionIdsCount() {
       return extensionIds_.size();
     }
+
     /**
+     *
+     *
      * <pre>
      * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
      * </pre>
      *
      * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     *
      * @param index The index of the element to return.
      * @return The extensionIds at the given index.
      */
     public java.lang.String getExtensionIds(int index) {
       return extensionIds_.get(index);
     }
+
     /**
+     *
+     *
      * <pre>
      * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
      * </pre>
      *
      * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     *
      * @param index The index of the value to return.
      * @return The bytes of the extensionIds at the given index.
      */
-    public com.google.protobuf.ByteString
-        getExtensionIdsBytes(int index) {
+    public com.google.protobuf.ByteString getExtensionIdsBytes(int index) {
       return extensionIds_.getByteString(index);
     }
+
     /**
+     *
+     *
      * <pre>
      * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
      * </pre>
      *
      * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     *
      * @param index The index to set the value at.
      * @param value The extensionIds to set.
      * @return This builder for chaining.
      */
-    public Builder setExtensionIds(
-        int index, java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setExtensionIds(int index, java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       ensureExtensionIdsIsMutable();
       extensionIds_.set(index, value);
       bitField0_ |= 0x00080000;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
      * </pre>
      *
      * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     *
      * @param value The extensionIds to add.
      * @return This builder for chaining.
      */
-    public Builder addExtensionIds(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder addExtensionIds(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       ensureExtensionIdsIsMutable();
       extensionIds_.add(value);
       bitField0_ |= 0x00080000;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
      * </pre>
      *
      * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     *
      * @param values The extensionIds to add.
      * @return This builder for chaining.
      */
-    public Builder addAllExtensionIds(
-        java.lang.Iterable<java.lang.String> values) {
+    public Builder addAllExtensionIds(java.lang.Iterable<java.lang.String> values) {
       ensureExtensionIdsIsMutable();
-      com.google.protobuf.AbstractMessageLite.Builder.addAll(
-          values, extensionIds_);
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(values, extensionIds_);
       bitField0_ |= 0x00080000;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
      * </pre>
      *
      * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearExtensionIds() {
-      extensionIds_ =
-        com.google.protobuf.LazyStringArrayList.emptyList();
-      bitField0_ = (bitField0_ & ~0x00080000);;
+      extensionIds_ = com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00080000);
+      ;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
      * </pre>
      *
      * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     *
      * @param value The bytes of the extensionIds to add.
      * @return This builder for chaining.
      */
-    public Builder addExtensionIdsBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder addExtensionIdsBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       ensureExtensionIdsIsMutable();
       extensionIds_.add(value);
@@ -3580,37 +4877,49 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int extensionCpuWeight_ ;
+    private int extensionCpuWeight_;
+
     /**
+     *
+     *
      * <pre>
      * cgroup v2 cpu.weight，N-1 Node 会安全忽略。
      * </pre>
      *
      * <code>optional uint32 extension_cpu_weight = 21 [json_name = "extensionCpuWeight"];</code>
+     *
      * @return Whether the extensionCpuWeight field is set.
      */
     @java.lang.Override
     public boolean hasExtensionCpuWeight() {
       return ((bitField0_ & 0x00100000) != 0);
     }
+
     /**
+     *
+     *
      * <pre>
      * cgroup v2 cpu.weight，N-1 Node 会安全忽略。
      * </pre>
      *
      * <code>optional uint32 extension_cpu_weight = 21 [json_name = "extensionCpuWeight"];</code>
+     *
      * @return The extensionCpuWeight.
      */
     @java.lang.Override
     public int getExtensionCpuWeight() {
       return extensionCpuWeight_;
     }
+
     /**
+     *
+     *
      * <pre>
      * cgroup v2 cpu.weight，N-1 Node 会安全忽略。
      * </pre>
      *
      * <code>optional uint32 extension_cpu_weight = 21 [json_name = "extensionCpuWeight"];</code>
+     *
      * @param value The extensionCpuWeight to set.
      * @return This builder for chaining.
      */
@@ -3621,12 +4930,16 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * cgroup v2 cpu.weight，N-1 Node 会安全忽略。
      * </pre>
      *
      * <code>optional uint32 extension_cpu_weight = 21 [json_name = "extensionCpuWeight"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearExtensionCpuWeight() {
@@ -3636,37 +4949,49 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int mediaEncoderSlots_ ;
+    private int mediaEncoderSlots_;
+
     /**
+     *
+     *
      * <pre>
      * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
      * </pre>
      *
      * <code>optional uint32 media_encoder_slots = 22 [json_name = "mediaEncoderSlots"];</code>
+     *
      * @return Whether the mediaEncoderSlots field is set.
      */
     @java.lang.Override
     public boolean hasMediaEncoderSlots() {
       return ((bitField0_ & 0x00200000) != 0);
     }
+
     /**
+     *
+     *
      * <pre>
      * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
      * </pre>
      *
      * <code>optional uint32 media_encoder_slots = 22 [json_name = "mediaEncoderSlots"];</code>
+     *
      * @return The mediaEncoderSlots.
      */
     @java.lang.Override
     public int getMediaEncoderSlots() {
       return mediaEncoderSlots_;
     }
+
     /**
+     *
+     *
      * <pre>
      * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
      * </pre>
      *
      * <code>optional uint32 media_encoder_slots = 22 [json_name = "mediaEncoderSlots"];</code>
+     *
      * @param value The mediaEncoderSlots to set.
      * @return This builder for chaining.
      */
@@ -3677,12 +5002,16 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
      * </pre>
      *
      * <code>optional uint32 media_encoder_slots = 22 [json_name = "mediaEncoderSlots"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearMediaEncoderSlots() {
@@ -3692,25 +5021,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean freezeBackgroundTabs_ ;
+    private boolean freezeBackgroundTabs_;
+
     /**
      * <code>optional bool freeze_background_tabs = 23 [json_name = "freezeBackgroundTabs"];</code>
+     *
      * @return Whether the freezeBackgroundTabs field is set.
      */
     @java.lang.Override
     public boolean hasFreezeBackgroundTabs() {
       return ((bitField0_ & 0x00400000) != 0);
     }
+
     /**
      * <code>optional bool freeze_background_tabs = 23 [json_name = "freezeBackgroundTabs"];</code>
+     *
      * @return The freezeBackgroundTabs.
      */
     @java.lang.Override
     public boolean getFreezeBackgroundTabs() {
       return freezeBackgroundTabs_;
     }
+
     /**
      * <code>optional bool freeze_background_tabs = 23 [json_name = "freezeBackgroundTabs"];</code>
+     *
      * @param value The freezeBackgroundTabs to set.
      * @return This builder for chaining.
      */
@@ -3721,8 +5056,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional bool freeze_background_tabs = 23 [json_name = "freezeBackgroundTabs"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearFreezeBackgroundTabs() {
@@ -3732,25 +5069,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean blockNewTabs_ ;
+    private boolean blockNewTabs_;
+
     /**
      * <code>optional bool block_new_tabs = 24 [json_name = "blockNewTabs"];</code>
+     *
      * @return Whether the blockNewTabs field is set.
      */
     @java.lang.Override
     public boolean hasBlockNewTabs() {
       return ((bitField0_ & 0x00800000) != 0);
     }
+
     /**
      * <code>optional bool block_new_tabs = 24 [json_name = "blockNewTabs"];</code>
+     *
      * @return The blockNewTabs.
      */
     @java.lang.Override
     public boolean getBlockNewTabs() {
       return blockNewTabs_;
     }
+
     /**
      * <code>optional bool block_new_tabs = 24 [json_name = "blockNewTabs"];</code>
+     *
      * @param value The blockNewTabs to set.
      * @return This builder for chaining.
      */
@@ -3761,8 +5104,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional bool block_new_tabs = 24 [json_name = "blockNewTabs"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearBlockNewTabs() {
@@ -3774,41 +5119,64 @@ private static final long serialVersionUID = 0L;
 
     private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy extensionBackgroundPolicy_;
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder> extensionBackgroundPolicyBuilder_;
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
+        extensionBackgroundPolicyBuilder_;
+
     /**
+     *
+     *
      * <pre>
      * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
      * </pre>
      *
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];
+     * </code>
+     *
      * @return Whether the extensionBackgroundPolicy field is set.
      */
     public boolean hasExtensionBackgroundPolicy() {
       return ((bitField0_ & 0x01000000) != 0);
     }
+
     /**
+     *
+     *
      * <pre>
      * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
      * </pre>
      *
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];
+     * </code>
+     *
      * @return The extensionBackgroundPolicy.
      */
     public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getExtensionBackgroundPolicy() {
       if (extensionBackgroundPolicyBuilder_ == null) {
-        return extensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : extensionBackgroundPolicy_;
+        return extensionBackgroundPolicy_ == null
+            ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()
+            : extensionBackgroundPolicy_;
       } else {
         return extensionBackgroundPolicyBuilder_.getMessage();
       }
     }
+
     /**
+     *
+     *
      * <pre>
      * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
      * </pre>
      *
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];
+     * </code>
      */
-    public Builder setExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+    public Builder setExtensionBackgroundPolicy(
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
       if (extensionBackgroundPolicyBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
@@ -3821,12 +5189,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
      * </pre>
      *
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];
+     * </code>
      */
     public Builder setExtensionBackgroundPolicy(
         io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder builderForValue) {
@@ -3839,18 +5212,25 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
      * </pre>
      *
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];
+     * </code>
      */
-    public Builder mergeExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+    public Builder mergeExtensionBackgroundPolicy(
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
       if (extensionBackgroundPolicyBuilder_ == null) {
-        if (((bitField0_ & 0x01000000) != 0) &&
-          extensionBackgroundPolicy_ != null &&
-          extensionBackgroundPolicy_ != io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()) {
+        if (((bitField0_ & 0x01000000) != 0)
+            && extensionBackgroundPolicy_ != null
+            && extensionBackgroundPolicy_
+                != io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()) {
           getExtensionBackgroundPolicyBuilder().mergeFrom(value);
         } else {
           extensionBackgroundPolicy_ = value;
@@ -3864,12 +5244,17 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
      * </pre>
      *
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];
+     * </code>
      */
     public Builder clearExtensionBackgroundPolicy() {
       bitField0_ = (bitField0_ & ~0x01000000);
@@ -3881,85 +5266,124 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
      * </pre>
      *
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];
+     * </code>
      */
-    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder getExtensionBackgroundPolicyBuilder() {
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder
+        getExtensionBackgroundPolicyBuilder() {
       bitField0_ |= 0x01000000;
       onChanged();
       return getExtensionBackgroundPolicyFieldBuilder().getBuilder();
     }
+
     /**
+     *
+     *
      * <pre>
      * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
      * </pre>
      *
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];
+     * </code>
      */
-    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getExtensionBackgroundPolicyOrBuilder() {
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder
+        getExtensionBackgroundPolicyOrBuilder() {
       if (extensionBackgroundPolicyBuilder_ != null) {
         return extensionBackgroundPolicyBuilder_.getMessageOrBuilder();
       } else {
-        return extensionBackgroundPolicy_ == null ?
-            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : extensionBackgroundPolicy_;
+        return extensionBackgroundPolicy_ == null
+            ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()
+            : extensionBackgroundPolicy_;
       }
     }
+
     /**
+     *
+     *
      * <pre>
      * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
      * </pre>
      *
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];
+     * </code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
         getExtensionBackgroundPolicyFieldBuilder() {
       if (extensionBackgroundPolicyBuilder_ == null) {
-        extensionBackgroundPolicyBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>(
-                getExtensionBackgroundPolicy(),
-                getParentForChildren(),
-                isClean());
+        extensionBackgroundPolicyBuilder_ =
+            new com.google.protobuf.SingleFieldBuilderV3<
+                io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy,
+                io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder,
+                io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>(
+                getExtensionBackgroundPolicy(), getParentForChildren(), isClean());
         extensionBackgroundPolicy_ = null;
       }
       return extensionBackgroundPolicyBuilder_;
     }
 
-    private int successTraceSamplePercent_ ;
+    private int successTraceSamplePercent_;
+
     /**
+     *
+     *
      * <pre>
      * 只作用于可丢弃的成功命令 Trace；失败、Crash、Audit、Operation 和 Billing 不采样。
      * </pre>
      *
-     * <code>optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];</code>
+     * <code>
+     * optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];
+     * </code>
+     *
      * @return Whether the successTraceSamplePercent field is set.
      */
     @java.lang.Override
     public boolean hasSuccessTraceSamplePercent() {
       return ((bitField0_ & 0x02000000) != 0);
     }
+
     /**
+     *
+     *
      * <pre>
      * 只作用于可丢弃的成功命令 Trace；失败、Crash、Audit、Operation 和 Billing 不采样。
      * </pre>
      *
-     * <code>optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];</code>
+     * <code>
+     * optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];
+     * </code>
+     *
      * @return The successTraceSamplePercent.
      */
     @java.lang.Override
     public int getSuccessTraceSamplePercent() {
       return successTraceSamplePercent_;
     }
+
     /**
+     *
+     *
      * <pre>
      * 只作用于可丢弃的成功命令 Trace；失败、Crash、Audit、Operation 和 Billing 不采样。
      * </pre>
      *
-     * <code>optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];</code>
+     * <code>
+     * optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];
+     * </code>
+     *
      * @param value The successTraceSamplePercent to set.
      * @return This builder for chaining.
      */
@@ -3970,12 +5394,18 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 只作用于可丢弃的成功命令 Trace；失败、Crash、Audit、Operation 和 Billing 不采样。
      * </pre>
      *
-     * <code>optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];</code>
+     * <code>
+     * optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSuccessTraceSamplePercent() {
@@ -3985,37 +5415,52 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int observerFrameRateFps_ ;
+    private int observerFrameRateFps_;
+
     /**
+     *
+     *
      * <pre>
      * 受控 Observer/VNC Server → Client 转发上限；无桌面为 0，有桌面为 1..60。
      * </pre>
      *
-     * <code>optional uint32 observer_frame_rate_fps = 27 [json_name = "observerFrameRateFps"];</code>
+     * <code>optional uint32 observer_frame_rate_fps = 27 [json_name = "observerFrameRateFps"];
+     * </code>
+     *
      * @return Whether the observerFrameRateFps field is set.
      */
     @java.lang.Override
     public boolean hasObserverFrameRateFps() {
       return ((bitField0_ & 0x04000000) != 0);
     }
+
     /**
+     *
+     *
      * <pre>
      * 受控 Observer/VNC Server → Client 转发上限；无桌面为 0，有桌面为 1..60。
      * </pre>
      *
-     * <code>optional uint32 observer_frame_rate_fps = 27 [json_name = "observerFrameRateFps"];</code>
+     * <code>optional uint32 observer_frame_rate_fps = 27 [json_name = "observerFrameRateFps"];
+     * </code>
+     *
      * @return The observerFrameRateFps.
      */
     @java.lang.Override
     public int getObserverFrameRateFps() {
       return observerFrameRateFps_;
     }
+
     /**
+     *
+     *
      * <pre>
      * 受控 Observer/VNC Server → Client 转发上限；无桌面为 0，有桌面为 1..60。
      * </pre>
      *
-     * <code>optional uint32 observer_frame_rate_fps = 27 [json_name = "observerFrameRateFps"];</code>
+     * <code>optional uint32 observer_frame_rate_fps = 27 [json_name = "observerFrameRateFps"];
+     * </code>
+     *
      * @param value The observerFrameRateFps to set.
      * @return This builder for chaining.
      */
@@ -4026,12 +5471,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 受控 Observer/VNC Server → Client 转发上限；无桌面为 0，有桌面为 1..60。
      * </pre>
      *
-     * <code>optional uint32 observer_frame_rate_fps = 27 [json_name = "observerFrameRateFps"];</code>
+     * <code>optional uint32 observer_frame_rate_fps = 27 [json_name = "observerFrameRateFps"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearObserverFrameRateFps() {
@@ -4041,37 +5491,52 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean videoRecordingEnabled_ ;
+    private boolean videoRecordingEnabled_;
+
     /**
+     *
+     *
      * <pre>
      * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
      * </pre>
      *
-     * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];</code>
+     * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];
+     * </code>
+     *
      * @return Whether the videoRecordingEnabled field is set.
      */
     @java.lang.Override
     public boolean hasVideoRecordingEnabled() {
       return ((bitField0_ & 0x08000000) != 0);
     }
+
     /**
+     *
+     *
      * <pre>
      * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
      * </pre>
      *
-     * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];</code>
+     * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];
+     * </code>
+     *
      * @return The videoRecordingEnabled.
      */
     @java.lang.Override
     public boolean getVideoRecordingEnabled() {
       return videoRecordingEnabled_;
     }
+
     /**
+     *
+     *
      * <pre>
      * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
      * </pre>
      *
-     * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];</code>
+     * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];
+     * </code>
+     *
      * @param value The videoRecordingEnabled to set.
      * @return This builder for chaining.
      */
@@ -4082,12 +5547,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
      * </pre>
      *
-     * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];</code>
+     * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearVideoRecordingEnabled() {
@@ -4097,37 +5567,55 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int successScreenshotSamplePercent_ ;
+    private int successScreenshotSamplePercent_;
+
     /**
+     *
+     *
      * <pre>
      * 成功 Agent 动作的截图证据采样率；失败证据不受此字段影响并始终尝试捕获。
      * </pre>
      *
-     * <code>optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];</code>
+     * <code>
+     * optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];
+     * </code>
+     *
      * @return Whether the successScreenshotSamplePercent field is set.
      */
     @java.lang.Override
     public boolean hasSuccessScreenshotSamplePercent() {
       return ((bitField0_ & 0x10000000) != 0);
     }
+
     /**
+     *
+     *
      * <pre>
      * 成功 Agent 动作的截图证据采样率；失败证据不受此字段影响并始终尝试捕获。
      * </pre>
      *
-     * <code>optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];</code>
+     * <code>
+     * optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];
+     * </code>
+     *
      * @return The successScreenshotSamplePercent.
      */
     @java.lang.Override
     public int getSuccessScreenshotSamplePercent() {
       return successScreenshotSamplePercent_;
     }
+
     /**
+     *
+     *
      * <pre>
      * 成功 Agent 动作的截图证据采样率；失败证据不受此字段影响并始终尝试捕获。
      * </pre>
      *
-     * <code>optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];</code>
+     * <code>
+     * optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];
+     * </code>
+     *
      * @param value The successScreenshotSamplePercent to set.
      * @return This builder for chaining.
      */
@@ -4138,12 +5626,18 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 成功 Agent 动作的截图证据采样率；失败证据不受此字段影响并始终尝试捕获。
      * </pre>
      *
-     * <code>optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];</code>
+     * <code>
+     * optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSuccessScreenshotSamplePercent() {
@@ -4153,27 +5647,35 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long minimumBrowserGeneration_ ;
+    private long minimumBrowserGeneration_;
+
     /**
+     *
+     *
      * <pre>
      * Control Plane 已提交的 Browser 世代下界；跨 Node 恢复必须从更大世代启动。
      * N-1 Node 不识别时安全忽略，但不得用于跨 Node 迁移目标。
      * </pre>
      *
      * <code>uint64 minimum_browser_generation = 30 [json_name = "minimumBrowserGeneration"];</code>
+     *
      * @return The minimumBrowserGeneration.
      */
     @java.lang.Override
     public long getMinimumBrowserGeneration() {
       return minimumBrowserGeneration_;
     }
+
     /**
+     *
+     *
      * <pre>
      * Control Plane 已提交的 Browser 世代下界；跨 Node 恢复必须从更大世代启动。
      * N-1 Node 不识别时安全忽略，但不得用于跨 Node 迁移目标。
      * </pre>
      *
      * <code>uint64 minimum_browser_generation = 30 [json_name = "minimumBrowserGeneration"];</code>
+     *
      * @param value The minimumBrowserGeneration to set.
      * @return This builder for chaining.
      */
@@ -4184,13 +5686,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * Control Plane 已提交的 Browser 世代下界；跨 Node 恢复必须从更大世代启动。
      * N-1 Node 不识别时安全忽略，但不得用于跨 Node 迁移目标。
      * </pre>
      *
      * <code>uint64 minimum_browser_generation = 30 [json_name = "minimumBrowserGeneration"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearMinimumBrowserGeneration() {
@@ -4201,32 +5707,39 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object proxyProviderId_ = "";
+
     /**
+     *
+     *
      * <pre>
      * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
      * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
      * </pre>
      *
      * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+     *
      * @return Whether the proxyProviderId field is set.
      */
     public boolean hasProxyProviderId() {
       return ((bitField0_ & 0x40000000) != 0);
     }
+
     /**
+     *
+     *
      * <pre>
      * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
      * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
      * </pre>
      *
      * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+     *
      * @return The proxyProviderId.
      */
     public java.lang.String getProxyProviderId() {
       java.lang.Object ref = proxyProviderId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         proxyProviderId_ = s;
         return s;
@@ -4234,53 +5747,64 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
+     *
+     *
      * <pre>
      * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
      * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
      * </pre>
      *
      * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+     *
      * @return The bytes for proxyProviderId.
      */
-    public com.google.protobuf.ByteString
-        getProxyProviderIdBytes() {
+    public com.google.protobuf.ByteString getProxyProviderIdBytes() {
       java.lang.Object ref = proxyProviderId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         proxyProviderId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
+     *
+     *
      * <pre>
      * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
      * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
      * </pre>
      *
      * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+     *
      * @param value The proxyProviderId to set.
      * @return This builder for chaining.
      */
-    public Builder setProxyProviderId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProxyProviderId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       proxyProviderId_ = value;
       bitField0_ |= 0x40000000;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
      * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
      * </pre>
      *
      * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearProxyProviderId() {
@@ -4289,19 +5813,24 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
      * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
      * </pre>
      *
      * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+     *
      * @param value The bytes for proxyProviderId to set.
      * @return This builder for chaining.
      */
-    public Builder setProxyProviderIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProxyProviderIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       proxyProviderId_ = value;
       bitField0_ |= 0x40000000;
@@ -4310,22 +5839,25 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object proxyExpectedExitIp_ = "";
+
     /**
      * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+     *
      * @return Whether the proxyExpectedExitIp field is set.
      */
     public boolean hasProxyExpectedExitIp() {
       return ((bitField0_ & 0x80000000) != 0);
     }
+
     /**
      * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+     *
      * @return The proxyExpectedExitIp.
      */
     public java.lang.String getProxyExpectedExitIp() {
       java.lang.Object ref = proxyExpectedExitIp_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         proxyExpectedExitIp_ = s;
         return s;
@@ -4333,38 +5865,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+     *
      * @return The bytes for proxyExpectedExitIp.
      */
-    public com.google.protobuf.ByteString
-        getProxyExpectedExitIpBytes() {
+    public com.google.protobuf.ByteString getProxyExpectedExitIpBytes() {
       java.lang.Object ref = proxyExpectedExitIp_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         proxyExpectedExitIp_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+     *
      * @param value The proxyExpectedExitIp to set.
      * @return This builder for chaining.
      */
-    public Builder setProxyExpectedExitIp(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProxyExpectedExitIp(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       proxyExpectedExitIp_ = value;
       bitField0_ |= 0x80000000;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearProxyExpectedExitIp() {
@@ -4373,14 +5910,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+     *
      * @param value The bytes for proxyExpectedExitIp to set.
      * @return This builder for chaining.
      */
-    public Builder setProxyExpectedExitIpBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProxyExpectedExitIpBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       proxyExpectedExitIp_ = value;
       bitField0_ |= 0x80000000;
@@ -4389,22 +5929,25 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object proxyCredentialRef_ = "";
+
     /**
      * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+     *
      * @return Whether the proxyCredentialRef field is set.
      */
     public boolean hasProxyCredentialRef() {
       return ((bitField1_ & 0x00000001) != 0);
     }
+
     /**
      * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+     *
      * @return The proxyCredentialRef.
      */
     public java.lang.String getProxyCredentialRef() {
       java.lang.Object ref = proxyCredentialRef_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         proxyCredentialRef_ = s;
         return s;
@@ -4412,38 +5955,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+     *
      * @return The bytes for proxyCredentialRef.
      */
-    public com.google.protobuf.ByteString
-        getProxyCredentialRefBytes() {
+    public com.google.protobuf.ByteString getProxyCredentialRefBytes() {
       java.lang.Object ref = proxyCredentialRef_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         proxyCredentialRef_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+     *
      * @param value The proxyCredentialRef to set.
      * @return This builder for chaining.
      */
-    public Builder setProxyCredentialRef(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProxyCredentialRef(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       proxyCredentialRef_ = value;
       bitField1_ |= 0x00000001;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearProxyCredentialRef() {
@@ -4452,14 +6000,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+     *
      * @param value The bytes for proxyCredentialRef to set.
      * @return This builder for chaining.
      */
-    public Builder setProxyCredentialRefBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setProxyCredentialRefBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       proxyCredentialRef_ = value;
       bitField1_ |= 0x00000001;
@@ -4469,118 +6020,162 @@ private static final long serialVersionUID = 0L;
 
     private com.google.protobuf.LazyStringArrayList browserTransactionExpectedOrigins_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
+
     private void ensureBrowserTransactionExpectedOriginsIsMutable() {
       if (!browserTransactionExpectedOrigins_.isModifiable()) {
-        browserTransactionExpectedOrigins_ = new com.google.protobuf.LazyStringArrayList(browserTransactionExpectedOrigins_);
+        browserTransactionExpectedOrigins_ =
+            new com.google.protobuf.LazyStringArrayList(browserTransactionExpectedOrigins_);
       }
       bitField1_ |= 0x00000002;
     }
+
     /**
+     *
+     *
      * <pre>
      * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
      * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
      * observing CDP request metadata; full URLs and request content never leave the Node.
      * </pre>
      *
-     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * <code>
+     * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+     * </code>
+     *
      * @return A list containing the browserTransactionExpectedOrigins.
      */
-    public com.google.protobuf.ProtocolStringList
-        getBrowserTransactionExpectedOriginsList() {
+    public com.google.protobuf.ProtocolStringList getBrowserTransactionExpectedOriginsList() {
       browserTransactionExpectedOrigins_.makeImmutable();
       return browserTransactionExpectedOrigins_;
     }
+
     /**
+     *
+     *
      * <pre>
      * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
      * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
      * observing CDP request metadata; full URLs and request content never leave the Node.
      * </pre>
      *
-     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * <code>
+     * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+     * </code>
+     *
      * @return The count of browserTransactionExpectedOrigins.
      */
     public int getBrowserTransactionExpectedOriginsCount() {
       return browserTransactionExpectedOrigins_.size();
     }
+
     /**
+     *
+     *
      * <pre>
      * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
      * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
      * observing CDP request metadata; full URLs and request content never leave the Node.
      * </pre>
      *
-     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * <code>
+     * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+     * </code>
+     *
      * @param index The index of the element to return.
      * @return The browserTransactionExpectedOrigins at the given index.
      */
     public java.lang.String getBrowserTransactionExpectedOrigins(int index) {
       return browserTransactionExpectedOrigins_.get(index);
     }
+
     /**
+     *
+     *
      * <pre>
      * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
      * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
      * observing CDP request metadata; full URLs and request content never leave the Node.
      * </pre>
      *
-     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * <code>
+     * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+     * </code>
+     *
      * @param index The index of the value to return.
      * @return The bytes of the browserTransactionExpectedOrigins at the given index.
      */
-    public com.google.protobuf.ByteString
-        getBrowserTransactionExpectedOriginsBytes(int index) {
+    public com.google.protobuf.ByteString getBrowserTransactionExpectedOriginsBytes(int index) {
       return browserTransactionExpectedOrigins_.getByteString(index);
     }
+
     /**
+     *
+     *
      * <pre>
      * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
      * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
      * observing CDP request metadata; full URLs and request content never leave the Node.
      * </pre>
      *
-     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * <code>
+     * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+     * </code>
+     *
      * @param index The index to set the value at.
      * @param value The browserTransactionExpectedOrigins to set.
      * @return This builder for chaining.
      */
-    public Builder setBrowserTransactionExpectedOrigins(
-        int index, java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setBrowserTransactionExpectedOrigins(int index, java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       ensureBrowserTransactionExpectedOriginsIsMutable();
       browserTransactionExpectedOrigins_.set(index, value);
       bitField1_ |= 0x00000002;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
      * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
      * observing CDP request metadata; full URLs and request content never leave the Node.
      * </pre>
      *
-     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * <code>
+     * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+     * </code>
+     *
      * @param value The browserTransactionExpectedOrigins to add.
      * @return This builder for chaining.
      */
-    public Builder addBrowserTransactionExpectedOrigins(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder addBrowserTransactionExpectedOrigins(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       ensureBrowserTransactionExpectedOriginsIsMutable();
       browserTransactionExpectedOrigins_.add(value);
       bitField1_ |= 0x00000002;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
      * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
      * observing CDP request metadata; full URLs and request content never leave the Node.
      * </pre>
      *
-     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * <code>
+     * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+     * </code>
+     *
      * @param values The browserTransactionExpectedOrigins to add.
      * @return This builder for chaining.
      */
@@ -4593,37 +6188,50 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
      * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
      * observing CDP request metadata; full URLs and request content never leave the Node.
      * </pre>
      *
-     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * <code>
+     * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearBrowserTransactionExpectedOrigins() {
-      browserTransactionExpectedOrigins_ =
-        com.google.protobuf.LazyStringArrayList.emptyList();
-      bitField1_ = (bitField1_ & ~0x00000002);;
+      browserTransactionExpectedOrigins_ = com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField1_ = (bitField1_ & ~0x00000002);
+      ;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
      * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
      * observing CDP request metadata; full URLs and request content never leave the Node.
      * </pre>
      *
-     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * <code>
+     * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+     * </code>
+     *
      * @param value The bytes of the browserTransactionExpectedOrigins to add.
      * @return This builder for chaining.
      */
-    public Builder addBrowserTransactionExpectedOriginsBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder addBrowserTransactionExpectedOriginsBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       ensureBrowserTransactionExpectedOriginsIsMutable();
       browserTransactionExpectedOrigins_.add(value);
@@ -4634,107 +6242,144 @@ private static final long serialVersionUID = 0L;
 
     private com.google.protobuf.LazyStringArrayList paymentSecurityRoutePrefixes_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
+
     private void ensurePaymentSecurityRoutePrefixesIsMutable() {
       if (!paymentSecurityRoutePrefixes_.isModifiable()) {
-        paymentSecurityRoutePrefixes_ = new com.google.protobuf.LazyStringArrayList(paymentSecurityRoutePrefixes_);
+        paymentSecurityRoutePrefixes_ =
+            new com.google.protobuf.LazyStringArrayList(paymentSecurityRoutePrefixes_);
       }
       bitField1_ |= 0x00000004;
     }
+
     /**
-     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * <code>
+     * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+     * </code>
+     *
      * @return A list containing the paymentSecurityRoutePrefixes.
      */
-    public com.google.protobuf.ProtocolStringList
-        getPaymentSecurityRoutePrefixesList() {
+    public com.google.protobuf.ProtocolStringList getPaymentSecurityRoutePrefixesList() {
       paymentSecurityRoutePrefixes_.makeImmutable();
       return paymentSecurityRoutePrefixes_;
     }
+
     /**
-     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * <code>
+     * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+     * </code>
+     *
      * @return The count of paymentSecurityRoutePrefixes.
      */
     public int getPaymentSecurityRoutePrefixesCount() {
       return paymentSecurityRoutePrefixes_.size();
     }
+
     /**
-     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * <code>
+     * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+     * </code>
+     *
      * @param index The index of the element to return.
      * @return The paymentSecurityRoutePrefixes at the given index.
      */
     public java.lang.String getPaymentSecurityRoutePrefixes(int index) {
       return paymentSecurityRoutePrefixes_.get(index);
     }
+
     /**
-     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * <code>
+     * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+     * </code>
+     *
      * @param index The index of the value to return.
      * @return The bytes of the paymentSecurityRoutePrefixes at the given index.
      */
-    public com.google.protobuf.ByteString
-        getPaymentSecurityRoutePrefixesBytes(int index) {
+    public com.google.protobuf.ByteString getPaymentSecurityRoutePrefixesBytes(int index) {
       return paymentSecurityRoutePrefixes_.getByteString(index);
     }
+
     /**
-     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * <code>
+     * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+     * </code>
+     *
      * @param index The index to set the value at.
      * @param value The paymentSecurityRoutePrefixes to set.
      * @return This builder for chaining.
      */
-    public Builder setPaymentSecurityRoutePrefixes(
-        int index, java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setPaymentSecurityRoutePrefixes(int index, java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       ensurePaymentSecurityRoutePrefixesIsMutable();
       paymentSecurityRoutePrefixes_.set(index, value);
       bitField1_ |= 0x00000004;
       onChanged();
       return this;
     }
+
     /**
-     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * <code>
+     * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+     * </code>
+     *
      * @param value The paymentSecurityRoutePrefixes to add.
      * @return This builder for chaining.
      */
-    public Builder addPaymentSecurityRoutePrefixes(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder addPaymentSecurityRoutePrefixes(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       ensurePaymentSecurityRoutePrefixesIsMutable();
       paymentSecurityRoutePrefixes_.add(value);
       bitField1_ |= 0x00000004;
       onChanged();
       return this;
     }
+
     /**
-     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * <code>
+     * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+     * </code>
+     *
      * @param values The paymentSecurityRoutePrefixes to add.
      * @return This builder for chaining.
      */
-    public Builder addAllPaymentSecurityRoutePrefixes(
-        java.lang.Iterable<java.lang.String> values) {
+    public Builder addAllPaymentSecurityRoutePrefixes(java.lang.Iterable<java.lang.String> values) {
       ensurePaymentSecurityRoutePrefixesIsMutable();
-      com.google.protobuf.AbstractMessageLite.Builder.addAll(
-          values, paymentSecurityRoutePrefixes_);
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(values, paymentSecurityRoutePrefixes_);
       bitField1_ |= 0x00000004;
       onChanged();
       return this;
     }
+
     /**
-     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * <code>
+     * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearPaymentSecurityRoutePrefixes() {
-      paymentSecurityRoutePrefixes_ =
-        com.google.protobuf.LazyStringArrayList.emptyList();
-      bitField1_ = (bitField1_ & ~0x00000004);;
+      paymentSecurityRoutePrefixes_ = com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField1_ = (bitField1_ & ~0x00000004);
+      ;
       onChanged();
       return this;
     }
+
     /**
-     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * <code>
+     * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+     * </code>
+     *
      * @param value The bytes of the paymentSecurityRoutePrefixes to add.
      * @return This builder for chaining.
      */
-    public Builder addPaymentSecurityRoutePrefixesBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder addPaymentSecurityRoutePrefixesBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       ensurePaymentSecurityRoutePrefixesIsMutable();
       paymentSecurityRoutePrefixes_.add(value);
@@ -4745,76 +6390,106 @@ private static final long serialVersionUID = 0L;
 
     private com.google.protobuf.LazyStringArrayList criticalTransactionRoutePrefixes_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
+
     private void ensureCriticalTransactionRoutePrefixesIsMutable() {
       if (!criticalTransactionRoutePrefixes_.isModifiable()) {
-        criticalTransactionRoutePrefixes_ = new com.google.protobuf.LazyStringArrayList(criticalTransactionRoutePrefixes_);
+        criticalTransactionRoutePrefixes_ =
+            new com.google.protobuf.LazyStringArrayList(criticalTransactionRoutePrefixes_);
       }
       bitField1_ |= 0x00000008;
     }
+
     /**
-     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * <code>
+     * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+     * </code>
+     *
      * @return A list containing the criticalTransactionRoutePrefixes.
      */
-    public com.google.protobuf.ProtocolStringList
-        getCriticalTransactionRoutePrefixesList() {
+    public com.google.protobuf.ProtocolStringList getCriticalTransactionRoutePrefixesList() {
       criticalTransactionRoutePrefixes_.makeImmutable();
       return criticalTransactionRoutePrefixes_;
     }
+
     /**
-     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * <code>
+     * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+     * </code>
+     *
      * @return The count of criticalTransactionRoutePrefixes.
      */
     public int getCriticalTransactionRoutePrefixesCount() {
       return criticalTransactionRoutePrefixes_.size();
     }
+
     /**
-     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * <code>
+     * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+     * </code>
+     *
      * @param index The index of the element to return.
      * @return The criticalTransactionRoutePrefixes at the given index.
      */
     public java.lang.String getCriticalTransactionRoutePrefixes(int index) {
       return criticalTransactionRoutePrefixes_.get(index);
     }
+
     /**
-     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * <code>
+     * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+     * </code>
+     *
      * @param index The index of the value to return.
      * @return The bytes of the criticalTransactionRoutePrefixes at the given index.
      */
-    public com.google.protobuf.ByteString
-        getCriticalTransactionRoutePrefixesBytes(int index) {
+    public com.google.protobuf.ByteString getCriticalTransactionRoutePrefixesBytes(int index) {
       return criticalTransactionRoutePrefixes_.getByteString(index);
     }
+
     /**
-     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * <code>
+     * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+     * </code>
+     *
      * @param index The index to set the value at.
      * @param value The criticalTransactionRoutePrefixes to set.
      * @return This builder for chaining.
      */
-    public Builder setCriticalTransactionRoutePrefixes(
-        int index, java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setCriticalTransactionRoutePrefixes(int index, java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       ensureCriticalTransactionRoutePrefixesIsMutable();
       criticalTransactionRoutePrefixes_.set(index, value);
       bitField1_ |= 0x00000008;
       onChanged();
       return this;
     }
+
     /**
-     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * <code>
+     * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+     * </code>
+     *
      * @param value The criticalTransactionRoutePrefixes to add.
      * @return This builder for chaining.
      */
-    public Builder addCriticalTransactionRoutePrefixes(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder addCriticalTransactionRoutePrefixes(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       ensureCriticalTransactionRoutePrefixesIsMutable();
       criticalTransactionRoutePrefixes_.add(value);
       bitField1_ |= 0x00000008;
       onChanged();
       return this;
     }
+
     /**
-     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * <code>
+     * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+     * </code>
+     *
      * @param values The criticalTransactionRoutePrefixes to add.
      * @return This builder for chaining.
      */
@@ -4827,25 +6502,34 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * <code>
+     * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearCriticalTransactionRoutePrefixes() {
-      criticalTransactionRoutePrefixes_ =
-        com.google.protobuf.LazyStringArrayList.emptyList();
-      bitField1_ = (bitField1_ & ~0x00000008);;
+      criticalTransactionRoutePrefixes_ = com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField1_ = (bitField1_ & ~0x00000008);
+      ;
       onChanged();
       return this;
     }
+
     /**
-     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * <code>
+     * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+     * </code>
+     *
      * @param value The bytes of the criticalTransactionRoutePrefixes to add.
      * @return This builder for chaining.
      */
-    public Builder addCriticalTransactionRoutePrefixesBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder addCriticalTransactionRoutePrefixesBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       ensureCriticalTransactionRoutePrefixesIsMutable();
       criticalTransactionRoutePrefixes_.add(value);
@@ -4855,15 +6539,18 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object browserTransactionPolicyHash_ = "";
+
     /**
-     * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+     * <code>
+     * string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];
+     * </code>
+     *
      * @return The browserTransactionPolicyHash.
      */
     public java.lang.String getBrowserTransactionPolicyHash() {
       java.lang.Object ref = browserTransactionPolicyHash_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         browserTransactionPolicyHash_ = s;
         return s;
@@ -4871,38 +6558,49 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
-     * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+     * <code>
+     * string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];
+     * </code>
+     *
      * @return The bytes for browserTransactionPolicyHash.
      */
-    public com.google.protobuf.ByteString
-        getBrowserTransactionPolicyHashBytes() {
+    public com.google.protobuf.ByteString getBrowserTransactionPolicyHashBytes() {
       java.lang.Object ref = browserTransactionPolicyHash_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         browserTransactionPolicyHash_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
-     * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+     * <code>
+     * string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];
+     * </code>
+     *
      * @param value The browserTransactionPolicyHash to set.
      * @return This builder for chaining.
      */
-    public Builder setBrowserTransactionPolicyHash(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setBrowserTransactionPolicyHash(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       browserTransactionPolicyHash_ = value;
       bitField1_ |= 0x00000010;
       onChanged();
       return this;
     }
+
     /**
-     * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+     * <code>
+     * string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearBrowserTransactionPolicyHash() {
@@ -4911,14 +6609,19 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+     * <code>
+     * string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];
+     * </code>
+     *
      * @param value The bytes for browserTransactionPolicyHash to set.
      * @return This builder for chaining.
      */
-    public Builder setBrowserTransactionPolicyHashBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setBrowserTransactionPolicyHashBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       browserTransactionPolicyHash_ = value;
       bitField1_ |= 0x00000010;
@@ -4926,17 +6629,25 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private long browserTransactionPolicyVersion_ ;
+    private long browserTransactionPolicyVersion_;
+
     /**
-     * <code>uint64 browser_transaction_policy_version = 38 [json_name = "browserTransactionPolicyVersion"];</code>
+     * <code>
+     * uint64 browser_transaction_policy_version = 38 [json_name = "browserTransactionPolicyVersion"];
+     * </code>
+     *
      * @return The browserTransactionPolicyVersion.
      */
     @java.lang.Override
     public long getBrowserTransactionPolicyVersion() {
       return browserTransactionPolicyVersion_;
     }
+
     /**
-     * <code>uint64 browser_transaction_policy_version = 38 [json_name = "browserTransactionPolicyVersion"];</code>
+     * <code>
+     * uint64 browser_transaction_policy_version = 38 [json_name = "browserTransactionPolicyVersion"];
+     * </code>
+     *
      * @param value The browserTransactionPolicyVersion to set.
      * @return This builder for chaining.
      */
@@ -4947,8 +6658,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>uint64 browser_transaction_policy_version = 38 [json_name = "browserTransactionPolicyVersion"];</code>
+     * <code>
+     * uint64 browser_transaction_policy_version = 38 [json_name = "browserTransactionPolicyVersion"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearBrowserTransactionPolicyVersion() {
@@ -4957,9 +6672,1067 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
+    private java.lang.Object identityUserAgent_ = "";
+
+    /**
+     *
+     *
+     * <pre>
+     * Immutable Session identity projection. N-1 Nodes ignore these additive fields; upgraded
+     * Nodes validate the complete cross-field set before spawning Chromium.
+     * </pre>
+     *
+     * <code>string identity_user_agent = 39 [json_name = "identityUserAgent"];</code>
+     *
+     * @return The identityUserAgent.
+     */
+    public java.lang.String getIdentityUserAgent() {
+      java.lang.Object ref = identityUserAgent_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        identityUserAgent_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Immutable Session identity projection. N-1 Nodes ignore these additive fields; upgraded
+     * Nodes validate the complete cross-field set before spawning Chromium.
+     * </pre>
+     *
+     * <code>string identity_user_agent = 39 [json_name = "identityUserAgent"];</code>
+     *
+     * @return The bytes for identityUserAgent.
+     */
+    public com.google.protobuf.ByteString getIdentityUserAgentBytes() {
+      java.lang.Object ref = identityUserAgent_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        identityUserAgent_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Immutable Session identity projection. N-1 Nodes ignore these additive fields; upgraded
+     * Nodes validate the complete cross-field set before spawning Chromium.
+     * </pre>
+     *
+     * <code>string identity_user_agent = 39 [json_name = "identityUserAgent"];</code>
+     *
+     * @param value The identityUserAgent to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityUserAgent(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      identityUserAgent_ = value;
+      bitField1_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Immutable Session identity projection. N-1 Nodes ignore these additive fields; upgraded
+     * Nodes validate the complete cross-field set before spawning Chromium.
+     * </pre>
+     *
+     * <code>string identity_user_agent = 39 [json_name = "identityUserAgent"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearIdentityUserAgent() {
+      identityUserAgent_ = getDefaultInstance().getIdentityUserAgent();
+      bitField1_ = (bitField1_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Immutable Session identity projection. N-1 Nodes ignore these additive fields; upgraded
+     * Nodes validate the complete cross-field set before spawning Chromium.
+     * </pre>
+     *
+     * <code>string identity_user_agent = 39 [json_name = "identityUserAgent"];</code>
+     *
+     * @param value The bytes for identityUserAgent to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityUserAgentBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      identityUserAgent_ = value;
+      bitField1_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object identityTimezone_ = "";
+
+    /**
+     * <code>string identity_timezone = 40 [json_name = "identityTimezone"];</code>
+     *
+     * @return The identityTimezone.
+     */
+    public java.lang.String getIdentityTimezone() {
+      java.lang.Object ref = identityTimezone_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        identityTimezone_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string identity_timezone = 40 [json_name = "identityTimezone"];</code>
+     *
+     * @return The bytes for identityTimezone.
+     */
+    public com.google.protobuf.ByteString getIdentityTimezoneBytes() {
+      java.lang.Object ref = identityTimezone_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        identityTimezone_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string identity_timezone = 40 [json_name = "identityTimezone"];</code>
+     *
+     * @param value The identityTimezone to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityTimezone(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      identityTimezone_ = value;
+      bitField1_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string identity_timezone = 40 [json_name = "identityTimezone"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearIdentityTimezone() {
+      identityTimezone_ = getDefaultInstance().getIdentityTimezone();
+      bitField1_ = (bitField1_ & ~0x00000080);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string identity_timezone = 40 [json_name = "identityTimezone"];</code>
+     *
+     * @param value The bytes for identityTimezone to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityTimezoneBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      identityTimezone_ = value;
+      bitField1_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object identityLocale_ = "";
+
+    /**
+     * <code>string identity_locale = 41 [json_name = "identityLocale"];</code>
+     *
+     * @return The identityLocale.
+     */
+    public java.lang.String getIdentityLocale() {
+      java.lang.Object ref = identityLocale_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        identityLocale_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string identity_locale = 41 [json_name = "identityLocale"];</code>
+     *
+     * @return The bytes for identityLocale.
+     */
+    public com.google.protobuf.ByteString getIdentityLocaleBytes() {
+      java.lang.Object ref = identityLocale_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        identityLocale_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string identity_locale = 41 [json_name = "identityLocale"];</code>
+     *
+     * @param value The identityLocale to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityLocale(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      identityLocale_ = value;
+      bitField1_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string identity_locale = 41 [json_name = "identityLocale"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearIdentityLocale() {
+      identityLocale_ = getDefaultInstance().getIdentityLocale();
+      bitField1_ = (bitField1_ & ~0x00000100);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string identity_locale = 41 [json_name = "identityLocale"];</code>
+     *
+     * @param value The bytes for identityLocale to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityLocaleBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      identityLocale_ = value;
+      bitField1_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.LazyStringArrayList identityLanguages_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+
+    private void ensureIdentityLanguagesIsMutable() {
+      if (!identityLanguages_.isModifiable()) {
+        identityLanguages_ = new com.google.protobuf.LazyStringArrayList(identityLanguages_);
+      }
+      bitField1_ |= 0x00000200;
+    }
+
+    /**
+     * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+     *
+     * @return A list containing the identityLanguages.
+     */
+    public com.google.protobuf.ProtocolStringList getIdentityLanguagesList() {
+      identityLanguages_.makeImmutable();
+      return identityLanguages_;
+    }
+
+    /**
+     * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+     *
+     * @return The count of identityLanguages.
+     */
+    public int getIdentityLanguagesCount() {
+      return identityLanguages_.size();
+    }
+
+    /**
+     * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+     *
+     * @param index The index of the element to return.
+     * @return The identityLanguages at the given index.
+     */
+    public java.lang.String getIdentityLanguages(int index) {
+      return identityLanguages_.get(index);
+    }
+
+    /**
+     * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+     *
+     * @param index The index of the value to return.
+     * @return The bytes of the identityLanguages at the given index.
+     */
+    public com.google.protobuf.ByteString getIdentityLanguagesBytes(int index) {
+      return identityLanguages_.getByteString(index);
+    }
+
+    /**
+     * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+     *
+     * @param index The index to set the value at.
+     * @param value The identityLanguages to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityLanguages(int index, java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      ensureIdentityLanguagesIsMutable();
+      identityLanguages_.set(index, value);
+      bitField1_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+     *
+     * @param value The identityLanguages to add.
+     * @return This builder for chaining.
+     */
+    public Builder addIdentityLanguages(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      ensureIdentityLanguagesIsMutable();
+      identityLanguages_.add(value);
+      bitField1_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+     *
+     * @param values The identityLanguages to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllIdentityLanguages(java.lang.Iterable<java.lang.String> values) {
+      ensureIdentityLanguagesIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(values, identityLanguages_);
+      bitField1_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearIdentityLanguages() {
+      identityLanguages_ = com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField1_ = (bitField1_ & ~0x00000200);
+      ;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+     *
+     * @param value The bytes of the identityLanguages to add.
+     * @return This builder for chaining.
+     */
+    public Builder addIdentityLanguagesBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      ensureIdentityLanguagesIsMutable();
+      identityLanguages_.add(value);
+      bitField1_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object identityWebrtcPolicy_ = "";
+
+    /**
+     * <code>string identity_webrtc_policy = 43 [json_name = "identityWebrtcPolicy"];</code>
+     *
+     * @return The identityWebrtcPolicy.
+     */
+    public java.lang.String getIdentityWebrtcPolicy() {
+      java.lang.Object ref = identityWebrtcPolicy_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        identityWebrtcPolicy_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string identity_webrtc_policy = 43 [json_name = "identityWebrtcPolicy"];</code>
+     *
+     * @return The bytes for identityWebrtcPolicy.
+     */
+    public com.google.protobuf.ByteString getIdentityWebrtcPolicyBytes() {
+      java.lang.Object ref = identityWebrtcPolicy_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        identityWebrtcPolicy_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string identity_webrtc_policy = 43 [json_name = "identityWebrtcPolicy"];</code>
+     *
+     * @param value The identityWebrtcPolicy to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityWebrtcPolicy(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      identityWebrtcPolicy_ = value;
+      bitField1_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string identity_webrtc_policy = 43 [json_name = "identityWebrtcPolicy"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearIdentityWebrtcPolicy() {
+      identityWebrtcPolicy_ = getDefaultInstance().getIdentityWebrtcPolicy();
+      bitField1_ = (bitField1_ & ~0x00000400);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string identity_webrtc_policy = 43 [json_name = "identityWebrtcPolicy"];</code>
+     *
+     * @param value The bytes for identityWebrtcPolicy to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityWebrtcPolicyBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      identityWebrtcPolicy_ = value;
+      bitField1_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object identityDnsPolicy_ = "";
+
+    /**
+     * <code>string identity_dns_policy = 44 [json_name = "identityDnsPolicy"];</code>
+     *
+     * @return The identityDnsPolicy.
+     */
+    public java.lang.String getIdentityDnsPolicy() {
+      java.lang.Object ref = identityDnsPolicy_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        identityDnsPolicy_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string identity_dns_policy = 44 [json_name = "identityDnsPolicy"];</code>
+     *
+     * @return The bytes for identityDnsPolicy.
+     */
+    public com.google.protobuf.ByteString getIdentityDnsPolicyBytes() {
+      java.lang.Object ref = identityDnsPolicy_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        identityDnsPolicy_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string identity_dns_policy = 44 [json_name = "identityDnsPolicy"];</code>
+     *
+     * @param value The identityDnsPolicy to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityDnsPolicy(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      identityDnsPolicy_ = value;
+      bitField1_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string identity_dns_policy = 44 [json_name = "identityDnsPolicy"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearIdentityDnsPolicy() {
+      identityDnsPolicy_ = getDefaultInstance().getIdentityDnsPolicy();
+      bitField1_ = (bitField1_ & ~0x00000800);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string identity_dns_policy = 44 [json_name = "identityDnsPolicy"];</code>
+     *
+     * @param value The bytes for identityDnsPolicy to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityDnsPolicyBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      identityDnsPolicy_ = value;
+      bitField1_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+
+    private int identityViewportWidth_;
+
+    /**
+     * <code>uint32 identity_viewport_width = 45 [json_name = "identityViewportWidth"];</code>
+     *
+     * @return The identityViewportWidth.
+     */
     @java.lang.Override
-    public final Builder setUnknownFields(
-        final com.google.protobuf.UnknownFieldSet unknownFields) {
+    public int getIdentityViewportWidth() {
+      return identityViewportWidth_;
+    }
+
+    /**
+     * <code>uint32 identity_viewport_width = 45 [json_name = "identityViewportWidth"];</code>
+     *
+     * @param value The identityViewportWidth to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityViewportWidth(int value) {
+
+      identityViewportWidth_ = value;
+      bitField1_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>uint32 identity_viewport_width = 45 [json_name = "identityViewportWidth"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearIdentityViewportWidth() {
+      bitField1_ = (bitField1_ & ~0x00001000);
+      identityViewportWidth_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int identityViewportHeight_;
+
+    /**
+     * <code>uint32 identity_viewport_height = 46 [json_name = "identityViewportHeight"];</code>
+     *
+     * @return The identityViewportHeight.
+     */
+    @java.lang.Override
+    public int getIdentityViewportHeight() {
+      return identityViewportHeight_;
+    }
+
+    /**
+     * <code>uint32 identity_viewport_height = 46 [json_name = "identityViewportHeight"];</code>
+     *
+     * @param value The identityViewportHeight to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityViewportHeight(int value) {
+
+      identityViewportHeight_ = value;
+      bitField1_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>uint32 identity_viewport_height = 46 [json_name = "identityViewportHeight"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearIdentityViewportHeight() {
+      bitField1_ = (bitField1_ & ~0x00002000);
+      identityViewportHeight_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int identityScreenWidth_;
+
+    /**
+     * <code>uint32 identity_screen_width = 47 [json_name = "identityScreenWidth"];</code>
+     *
+     * @return The identityScreenWidth.
+     */
+    @java.lang.Override
+    public int getIdentityScreenWidth() {
+      return identityScreenWidth_;
+    }
+
+    /**
+     * <code>uint32 identity_screen_width = 47 [json_name = "identityScreenWidth"];</code>
+     *
+     * @param value The identityScreenWidth to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityScreenWidth(int value) {
+
+      identityScreenWidth_ = value;
+      bitField1_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>uint32 identity_screen_width = 47 [json_name = "identityScreenWidth"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearIdentityScreenWidth() {
+      bitField1_ = (bitField1_ & ~0x00004000);
+      identityScreenWidth_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int identityScreenHeight_;
+
+    /**
+     * <code>uint32 identity_screen_height = 48 [json_name = "identityScreenHeight"];</code>
+     *
+     * @return The identityScreenHeight.
+     */
+    @java.lang.Override
+    public int getIdentityScreenHeight() {
+      return identityScreenHeight_;
+    }
+
+    /**
+     * <code>uint32 identity_screen_height = 48 [json_name = "identityScreenHeight"];</code>
+     *
+     * @param value The identityScreenHeight to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityScreenHeight(int value) {
+
+      identityScreenHeight_ = value;
+      bitField1_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>uint32 identity_screen_height = 48 [json_name = "identityScreenHeight"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearIdentityScreenHeight() {
+      bitField1_ = (bitField1_ & ~0x00008000);
+      identityScreenHeight_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private double identityDeviceScaleFactor_;
+
+    /**
+     * <code>double identity_device_scale_factor = 49 [json_name = "identityDeviceScaleFactor"];
+     * </code>
+     *
+     * @return The identityDeviceScaleFactor.
+     */
+    @java.lang.Override
+    public double getIdentityDeviceScaleFactor() {
+      return identityDeviceScaleFactor_;
+    }
+
+    /**
+     * <code>double identity_device_scale_factor = 49 [json_name = "identityDeviceScaleFactor"];
+     * </code>
+     *
+     * @param value The identityDeviceScaleFactor to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityDeviceScaleFactor(double value) {
+
+      identityDeviceScaleFactor_ = value;
+      bitField1_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>double identity_device_scale_factor = 49 [json_name = "identityDeviceScaleFactor"];
+     * </code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearIdentityDeviceScaleFactor() {
+      bitField1_ = (bitField1_ & ~0x00010000);
+      identityDeviceScaleFactor_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object identityFingerprintProfile_ = "";
+
+    /**
+     * <code>string identity_fingerprint_profile = 50 [json_name = "identityFingerprintProfile"];
+     * </code>
+     *
+     * @return The identityFingerprintProfile.
+     */
+    public java.lang.String getIdentityFingerprintProfile() {
+      java.lang.Object ref = identityFingerprintProfile_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        identityFingerprintProfile_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string identity_fingerprint_profile = 50 [json_name = "identityFingerprintProfile"];
+     * </code>
+     *
+     * @return The bytes for identityFingerprintProfile.
+     */
+    public com.google.protobuf.ByteString getIdentityFingerprintProfileBytes() {
+      java.lang.Object ref = identityFingerprintProfile_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        identityFingerprintProfile_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string identity_fingerprint_profile = 50 [json_name = "identityFingerprintProfile"];
+     * </code>
+     *
+     * @param value The identityFingerprintProfile to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityFingerprintProfile(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      identityFingerprintProfile_ = value;
+      bitField1_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string identity_fingerprint_profile = 50 [json_name = "identityFingerprintProfile"];
+     * </code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearIdentityFingerprintProfile() {
+      identityFingerprintProfile_ = getDefaultInstance().getIdentityFingerprintProfile();
+      bitField1_ = (bitField1_ & ~0x00020000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string identity_fingerprint_profile = 50 [json_name = "identityFingerprintProfile"];
+     * </code>
+     *
+     * @param value The bytes for identityFingerprintProfile to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityFingerprintProfileBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      identityFingerprintProfile_ = value;
+      bitField1_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object identityOperatingSystemProfile_ = "";
+
+    /**
+     * <code>
+     * string identity_operating_system_profile = 51 [json_name = "identityOperatingSystemProfile"];
+     * </code>
+     *
+     * @return The identityOperatingSystemProfile.
+     */
+    public java.lang.String getIdentityOperatingSystemProfile() {
+      java.lang.Object ref = identityOperatingSystemProfile_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        identityOperatingSystemProfile_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>
+     * string identity_operating_system_profile = 51 [json_name = "identityOperatingSystemProfile"];
+     * </code>
+     *
+     * @return The bytes for identityOperatingSystemProfile.
+     */
+    public com.google.protobuf.ByteString getIdentityOperatingSystemProfileBytes() {
+      java.lang.Object ref = identityOperatingSystemProfile_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        identityOperatingSystemProfile_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>
+     * string identity_operating_system_profile = 51 [json_name = "identityOperatingSystemProfile"];
+     * </code>
+     *
+     * @param value The identityOperatingSystemProfile to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityOperatingSystemProfile(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      identityOperatingSystemProfile_ = value;
+      bitField1_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>
+     * string identity_operating_system_profile = 51 [json_name = "identityOperatingSystemProfile"];
+     * </code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearIdentityOperatingSystemProfile() {
+      identityOperatingSystemProfile_ = getDefaultInstance().getIdentityOperatingSystemProfile();
+      bitField1_ = (bitField1_ & ~0x00040000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>
+     * string identity_operating_system_profile = 51 [json_name = "identityOperatingSystemProfile"];
+     * </code>
+     *
+     * @param value The bytes for identityOperatingSystemProfile to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentityOperatingSystemProfileBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      identityOperatingSystemProfile_ = value;
+      bitField1_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+
+    private long identitySpecVersion_;
+
+    /**
+     * <code>uint64 identity_spec_version = 52 [json_name = "identitySpecVersion"];</code>
+     *
+     * @return The identitySpecVersion.
+     */
+    @java.lang.Override
+    public long getIdentitySpecVersion() {
+      return identitySpecVersion_;
+    }
+
+    /**
+     * <code>uint64 identity_spec_version = 52 [json_name = "identitySpecVersion"];</code>
+     *
+     * @param value The identitySpecVersion to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentitySpecVersion(long value) {
+
+      identitySpecVersion_ = value;
+      bitField1_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>uint64 identity_spec_version = 52 [json_name = "identitySpecVersion"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearIdentitySpecVersion() {
+      bitField1_ = (bitField1_ & ~0x00080000);
+      identitySpecVersion_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object identitySpecHash_ = "";
+
+    /**
+     * <code>string identity_spec_hash = 53 [json_name = "identitySpecHash"];</code>
+     *
+     * @return The identitySpecHash.
+     */
+    public java.lang.String getIdentitySpecHash() {
+      java.lang.Object ref = identitySpecHash_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        identitySpecHash_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string identity_spec_hash = 53 [json_name = "identitySpecHash"];</code>
+     *
+     * @return The bytes for identitySpecHash.
+     */
+    public com.google.protobuf.ByteString getIdentitySpecHashBytes() {
+      java.lang.Object ref = identitySpecHash_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        identitySpecHash_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string identity_spec_hash = 53 [json_name = "identitySpecHash"];</code>
+     *
+     * @param value The identitySpecHash to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentitySpecHash(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      identitySpecHash_ = value;
+      bitField1_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string identity_spec_hash = 53 [json_name = "identitySpecHash"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearIdentitySpecHash() {
+      identitySpecHash_ = getDefaultInstance().getIdentitySpecHash();
+      bitField1_ = (bitField1_ & ~0x00100000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string identity_spec_hash = 53 [json_name = "identitySpecHash"];</code>
+     *
+     * @param value The bytes for identitySpecHash to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdentitySpecHashBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      identitySpecHash_ = value;
+      bitField1_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+
+    @java.lang.Override
+    public final Builder setUnknownFields(final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.setUnknownFields(unknownFields);
     }
 
@@ -4969,12 +7742,12 @@ private static final long serialVersionUID = 0L;
       return super.mergeUnknownFields(unknownFields);
     }
 
-
     // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.StartRuntimeCommand)
   }
 
   // @@protoc_insertion_point(class_scope:browsercloud.node.v1.StartRuntimeCommand)
   private static final io.browsercloud.proto.node.v1.StartRuntimeCommand DEFAULT_INSTANCE;
+
   static {
     DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.StartRuntimeCommand();
   }
@@ -4983,27 +7756,27 @@ private static final long serialVersionUID = 0L;
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<StartRuntimeCommand>
-      PARSER = new com.google.protobuf.AbstractParser<StartRuntimeCommand>() {
-    @java.lang.Override
-    public StartRuntimeCommand parsePartialFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      Builder builder = newBuilder();
-      try {
-        builder.mergeFrom(input, extensionRegistry);
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(builder.buildPartial());
-      } catch (com.google.protobuf.UninitializedMessageException e) {
-        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(e)
-            .setUnfinishedMessage(builder.buildPartial());
-      }
-      return builder.buildPartial();
-    }
-  };
+  private static final com.google.protobuf.Parser<StartRuntimeCommand> PARSER =
+      new com.google.protobuf.AbstractParser<StartRuntimeCommand>() {
+        @java.lang.Override
+        public StartRuntimeCommand parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          Builder builder = newBuilder();
+          try {
+            builder.mergeFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            throw e.setUnfinishedMessage(builder.buildPartial());
+          } catch (com.google.protobuf.UninitializedMessageException e) {
+            throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+          } catch (java.io.IOException e) {
+            throw new com.google.protobuf.InvalidProtocolBufferException(e)
+                .setUnfinishedMessage(builder.buildPartial());
+          }
+          return builder.buildPartial();
+        }
+      };
 
   public static com.google.protobuf.Parser<StartRuntimeCommand> parser() {
     return PARSER;
@@ -5018,5 +7791,4 @@ private static final long serialVersionUID = 0L;
   public io.browsercloud.proto.node.v1.StartRuntimeCommand getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
-
 }

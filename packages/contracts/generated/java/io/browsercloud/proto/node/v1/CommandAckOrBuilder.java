@@ -4,55 +4,64 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface CommandAckOrBuilder extends
+public interface CommandAckOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.CommandAck)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string message_id = 1 [json_name = "messageId"];</code>
+   *
    * @return The messageId.
    */
   java.lang.String getMessageId();
+
   /**
    * <code>string message_id = 1 [json_name = "messageId"];</code>
+   *
    * @return The bytes for messageId.
    */
-  com.google.protobuf.ByteString
-      getMessageIdBytes();
+  com.google.protobuf.ByteString getMessageIdBytes();
 
   /**
    * <code>bool accepted = 2 [json_name = "accepted"];</code>
+   *
    * @return The accepted.
    */
   boolean getAccepted();
 
   /**
    * <code>bool duplicate = 3 [json_name = "duplicate"];</code>
+   *
    * @return The duplicate.
    */
   boolean getDuplicate();
 
   /**
    * <code>string error_code = 4 [json_name = "errorCode"];</code>
+   *
    * @return The errorCode.
    */
   java.lang.String getErrorCode();
+
   /**
    * <code>string error_code = 4 [json_name = "errorCode"];</code>
+   *
    * @return The bytes for errorCode.
    */
-  com.google.protobuf.ByteString
-      getErrorCodeBytes();
+  com.google.protobuf.ByteString getErrorCodeBytes();
 
   /**
    * <code>string error_message = 5 [json_name = "errorMessage"];</code>
+   *
    * @return The errorMessage.
    */
   java.lang.String getErrorMessage();
+
   /**
    * <code>string error_message = 5 [json_name = "errorMessage"];</code>
+   *
    * @return The bytes for errorMessage.
    */
-  com.google.protobuf.ByteString
-      getErrorMessageBytes();
+  com.google.protobuf.ByteString getErrorMessageBytes();
 }

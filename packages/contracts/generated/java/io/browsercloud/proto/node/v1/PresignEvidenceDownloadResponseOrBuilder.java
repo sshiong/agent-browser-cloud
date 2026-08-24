@@ -4,60 +4,70 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface PresignEvidenceDownloadResponseOrBuilder extends
+public interface PresignEvidenceDownloadResponseOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.PresignEvidenceDownloadResponse)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string grant_id = 1 [json_name = "grantId"];</code>
+   *
    * @return The grantId.
    */
   java.lang.String getGrantId();
+
   /**
    * <code>string grant_id = 1 [json_name = "grantId"];</code>
+   *
    * @return The bytes for grantId.
    */
-  com.google.protobuf.ByteString
-      getGrantIdBytes();
+  com.google.protobuf.ByteString getGrantIdBytes();
 
   /**
    * <code>string node_id = 2 [json_name = "nodeId"];</code>
+   *
    * @return The nodeId.
    */
   java.lang.String getNodeId();
+
   /**
    * <code>string node_id = 2 [json_name = "nodeId"];</code>
+   *
    * @return The bytes for nodeId.
    */
-  com.google.protobuf.ByteString
-      getNodeIdBytes();
+  com.google.protobuf.ByteString getNodeIdBytes();
 
   /**
    * <code>string evidence_id = 3 [json_name = "evidenceId"];</code>
+   *
    * @return The evidenceId.
    */
   java.lang.String getEvidenceId();
+
   /**
    * <code>string evidence_id = 3 [json_name = "evidenceId"];</code>
+   *
    * @return The bytes for evidenceId.
    */
-  com.google.protobuf.ByteString
-      getEvidenceIdBytes();
+  com.google.protobuf.ByteString getEvidenceIdBytes();
 
   /**
    * <code>string download_url = 4 [json_name = "downloadUrl"];</code>
+   *
    * @return The downloadUrl.
    */
   java.lang.String getDownloadUrl();
+
   /**
    * <code>string download_url = 4 [json_name = "downloadUrl"];</code>
+   *
    * @return The bytes for downloadUrl.
    */
-  com.google.protobuf.ByteString
-      getDownloadUrlBytes();
+  com.google.protobuf.ByteString getDownloadUrlBytes();
 
   /**
    * <code>int64 expires_at_ms = 5 [json_name = "expiresAtMs"];</code>
+   *
    * @return The expiresAtMs.
    */
   long getExpiresAtMs();

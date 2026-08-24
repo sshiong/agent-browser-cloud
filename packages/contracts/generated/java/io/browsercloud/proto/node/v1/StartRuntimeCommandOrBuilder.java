@@ -4,579 +4,988 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface StartRuntimeCommandOrBuilder extends
+public interface StartRuntimeCommandOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.StartRuntimeCommand)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   java.lang.String getSessionId();
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
-  com.google.protobuf.ByteString
-      getSessionIdBytes();
+  com.google.protobuf.ByteString getSessionIdBytes();
 
   /**
    * <code>string runtime_build_id = 2 [json_name = "runtimeBuildId"];</code>
+   *
    * @return The runtimeBuildId.
    */
   java.lang.String getRuntimeBuildId();
+
   /**
    * <code>string runtime_build_id = 2 [json_name = "runtimeBuildId"];</code>
+   *
    * @return The bytes for runtimeBuildId.
    */
-  com.google.protobuf.ByteString
-      getRuntimeBuildIdBytes();
+  com.google.protobuf.ByteString getRuntimeBuildIdBytes();
 
   /**
    * <code>string profile_id = 3 [json_name = "profileId"];</code>
+   *
    * @return The profileId.
    */
   java.lang.String getProfileId();
+
   /**
    * <code>string profile_id = 3 [json_name = "profileId"];</code>
+   *
    * @return The bytes for profileId.
    */
-  com.google.protobuf.ByteString
-      getProfileIdBytes();
+  com.google.protobuf.ByteString getProfileIdBytes();
 
   /**
    * <code>string display = 4 [json_name = "display"];</code>
+   *
    * @return The display.
    */
   java.lang.String getDisplay();
+
   /**
    * <code>string display = 4 [json_name = "display"];</code>
+   *
    * @return The bytes for display.
    */
-  com.google.protobuf.ByteString
-      getDisplayBytes();
+  com.google.protobuf.ByteString getDisplayBytes();
 
   /**
    * <code>int32 cdp_port = 5 [json_name = "cdpPort"];</code>
+   *
    * @return The cdpPort.
    */
   int getCdpPort();
 
   /**
    * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
+   *
    * @return The proxyBindingId.
    */
   java.lang.String getProxyBindingId();
+
   /**
    * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
+   *
    * @return The bytes for proxyBindingId.
    */
-  com.google.protobuf.ByteString
-      getProxyBindingIdBytes();
+  com.google.protobuf.ByteString getProxyBindingIdBytes();
 
   /**
    * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+   *
    * @return The resourceClass.
    */
   java.lang.String getResourceClass();
+
   /**
    * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+   *
    * @return The bytes for resourceClass.
    */
-  com.google.protobuf.ByteString
-      getResourceClassBytes();
+  com.google.protobuf.ByteString getResourceClassBytes();
 
   /**
    * <code>uint32 cpu_millis = 8 [json_name = "cpuMillis"];</code>
+   *
    * @return The cpuMillis.
    */
   int getCpuMillis();
 
   /**
    * <code>uint32 memory_request_mib = 9 [json_name = "memoryRequestMib"];</code>
+   *
    * @return The memoryRequestMib.
    */
   int getMemoryRequestMib();
 
   /**
    * <code>uint32 memory_limit_mib = 10 [json_name = "memoryLimitMib"];</code>
+   *
    * @return The memoryLimitMib.
    */
   int getMemoryLimitMib();
 
   /**
    * <code>uint32 pid_limit = 11 [json_name = "pidLimit"];</code>
+   *
    * @return The pidLimit.
    */
   int getPidLimit();
 
   /**
    * <code>uint32 tab_budget = 12 [json_name = "tabBudget"];</code>
+   *
    * @return The tabBudget.
    */
   int getTabBudget();
 
   /**
    * <code>bool desktop_required = 13 [json_name = "desktopRequired"];</code>
+   *
    * @return The desktopRequired.
    */
   boolean getDesktopRequired();
 
   /**
    * <code>bool gpu_required = 14 [json_name = "gpuRequired"];</code>
+   *
    * @return The gpuRequired.
    */
   boolean getGpuRequired();
 
   /**
    * <code>bool native_os_required = 15 [json_name = "nativeOsRequired"];</code>
+   *
    * @return The nativeOsRequired.
    */
   boolean getNativeOsRequired();
 
   /**
    * <code>bool isolation_required = 16 [json_name = "isolationRequired"];</code>
+   *
    * @return The isolationRequired.
    */
   boolean getIsolationRequired();
 
   /**
    * <code>string profile_checkpoint_id = 17 [json_name = "profileCheckpointId"];</code>
+   *
    * @return The profileCheckpointId.
    */
   java.lang.String getProfileCheckpointId();
-  /**
-   * <code>string profile_checkpoint_id = 17 [json_name = "profileCheckpointId"];</code>
-   * @return The bytes for profileCheckpointId.
-   */
-  com.google.protobuf.ByteString
-      getProfileCheckpointIdBytes();
 
   /**
+   * <code>string profile_checkpoint_id = 17 [json_name = "profileCheckpointId"];</code>
+   *
+   * @return The bytes for profileCheckpointId.
+   */
+  com.google.protobuf.ByteString getProfileCheckpointIdBytes();
+
+  /**
+   *
+   *
    * <pre>
    * N-1 Node 不识别时安全忽略；缺失表示使用 Node 安全默认值。
    * </pre>
    *
-   * <code>optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return Whether the stateCollectorBudgetPercent field is set.
    */
   boolean hasStateCollectorBudgetPercent();
+
   /**
+   *
+   *
    * <pre>
    * N-1 Node 不识别时安全忽略；缺失表示使用 Node 安全默认值。
    * </pre>
    *
-   * <code>optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return The stateCollectorBudgetPercent.
    */
   int getStateCollectorBudgetPercent();
 
   /**
-   * <code>optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return Whether the remoteDesktopBitrateKbps field is set.
    */
   boolean hasRemoteDesktopBitrateKbps();
+
   /**
-   * <code>optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return The remoteDesktopBitrateKbps.
    */
   int getRemoteDesktopBitrateKbps();
 
   /**
+   *
+   *
    * <pre>
    * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
    * </pre>
    *
    * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   *
    * @return A list containing the extensionIds.
    */
-  java.util.List<java.lang.String>
-      getExtensionIdsList();
+  java.util.List<java.lang.String> getExtensionIdsList();
+
   /**
+   *
+   *
    * <pre>
    * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
    * </pre>
    *
    * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   *
    * @return The count of extensionIds.
    */
   int getExtensionIdsCount();
+
   /**
+   *
+   *
    * <pre>
    * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
    * </pre>
    *
    * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   *
    * @param index The index of the element to return.
    * @return The extensionIds at the given index.
    */
   java.lang.String getExtensionIds(int index);
+
   /**
+   *
+   *
    * <pre>
    * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
    * </pre>
    *
    * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   *
    * @param index The index of the value to return.
    * @return The bytes of the extensionIds at the given index.
    */
-  com.google.protobuf.ByteString
-      getExtensionIdsBytes(int index);
+  com.google.protobuf.ByteString getExtensionIdsBytes(int index);
 
   /**
+   *
+   *
    * <pre>
    * cgroup v2 cpu.weight，N-1 Node 会安全忽略。
    * </pre>
    *
    * <code>optional uint32 extension_cpu_weight = 21 [json_name = "extensionCpuWeight"];</code>
+   *
    * @return Whether the extensionCpuWeight field is set.
    */
   boolean hasExtensionCpuWeight();
+
   /**
+   *
+   *
    * <pre>
    * cgroup v2 cpu.weight，N-1 Node 会安全忽略。
    * </pre>
    *
    * <code>optional uint32 extension_cpu_weight = 21 [json_name = "extensionCpuWeight"];</code>
+   *
    * @return The extensionCpuWeight.
    */
   int getExtensionCpuWeight();
 
   /**
+   *
+   *
    * <pre>
    * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
    * </pre>
    *
    * <code>optional uint32 media_encoder_slots = 22 [json_name = "mediaEncoderSlots"];</code>
+   *
    * @return Whether the mediaEncoderSlots field is set.
    */
   boolean hasMediaEncoderSlots();
+
   /**
+   *
+   *
    * <pre>
    * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
    * </pre>
    *
    * <code>optional uint32 media_encoder_slots = 22 [json_name = "mediaEncoderSlots"];</code>
+   *
    * @return The mediaEncoderSlots.
    */
   int getMediaEncoderSlots();
 
   /**
    * <code>optional bool freeze_background_tabs = 23 [json_name = "freezeBackgroundTabs"];</code>
+   *
    * @return Whether the freezeBackgroundTabs field is set.
    */
   boolean hasFreezeBackgroundTabs();
+
   /**
    * <code>optional bool freeze_background_tabs = 23 [json_name = "freezeBackgroundTabs"];</code>
+   *
    * @return The freezeBackgroundTabs.
    */
   boolean getFreezeBackgroundTabs();
 
   /**
    * <code>optional bool block_new_tabs = 24 [json_name = "blockNewTabs"];</code>
+   *
    * @return Whether the blockNewTabs field is set.
    */
   boolean hasBlockNewTabs();
+
   /**
    * <code>optional bool block_new_tabs = 24 [json_name = "blockNewTabs"];</code>
+   *
    * @return The blockNewTabs.
    */
   boolean getBlockNewTabs();
 
   /**
+   *
+   *
    * <pre>
    * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
    * </pre>
    *
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];
+   * </code>
+   *
    * @return Whether the extensionBackgroundPolicy field is set.
    */
   boolean hasExtensionBackgroundPolicy();
+
   /**
+   *
+   *
    * <pre>
    * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
    * </pre>
    *
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];
+   * </code>
+   *
    * @return The extensionBackgroundPolicy.
    */
   io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getExtensionBackgroundPolicy();
+
   /**
+   *
+   *
    * <pre>
    * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
    * </pre>
    *
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];
+   * </code>
    */
-  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getExtensionBackgroundPolicyOrBuilder();
+  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder
+      getExtensionBackgroundPolicyOrBuilder();
 
   /**
+   *
+   *
    * <pre>
    * 只作用于可丢弃的成功命令 Trace；失败、Crash、Audit、Operation 和 Billing 不采样。
    * </pre>
    *
-   * <code>optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];</code>
+   * <code>
+   * optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];
+   * </code>
+   *
    * @return Whether the successTraceSamplePercent field is set.
    */
   boolean hasSuccessTraceSamplePercent();
+
   /**
+   *
+   *
    * <pre>
    * 只作用于可丢弃的成功命令 Trace；失败、Crash、Audit、Operation 和 Billing 不采样。
    * </pre>
    *
-   * <code>optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];</code>
+   * <code>
+   * optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];
+   * </code>
+   *
    * @return The successTraceSamplePercent.
    */
   int getSuccessTraceSamplePercent();
 
   /**
+   *
+   *
    * <pre>
    * 受控 Observer/VNC Server → Client 转发上限；无桌面为 0，有桌面为 1..60。
    * </pre>
    *
    * <code>optional uint32 observer_frame_rate_fps = 27 [json_name = "observerFrameRateFps"];</code>
+   *
    * @return Whether the observerFrameRateFps field is set.
    */
   boolean hasObserverFrameRateFps();
+
   /**
+   *
+   *
    * <pre>
    * 受控 Observer/VNC Server → Client 转发上限；无桌面为 0，有桌面为 1..60。
    * </pre>
    *
    * <code>optional uint32 observer_frame_rate_fps = 27 [json_name = "observerFrameRateFps"];</code>
+   *
    * @return The observerFrameRateFps.
    */
   int getObserverFrameRateFps();
 
   /**
+   *
+   *
    * <pre>
    * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
    * </pre>
    *
    * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];</code>
+   *
    * @return Whether the videoRecordingEnabled field is set.
    */
   boolean hasVideoRecordingEnabled();
+
   /**
+   *
+   *
    * <pre>
    * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
    * </pre>
    *
    * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];</code>
+   *
    * @return The videoRecordingEnabled.
    */
   boolean getVideoRecordingEnabled();
 
   /**
+   *
+   *
    * <pre>
    * 成功 Agent 动作的截图证据采样率；失败证据不受此字段影响并始终尝试捕获。
    * </pre>
    *
-   * <code>optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];
+   * </code>
+   *
    * @return Whether the successScreenshotSamplePercent field is set.
    */
   boolean hasSuccessScreenshotSamplePercent();
+
   /**
+   *
+   *
    * <pre>
    * 成功 Agent 动作的截图证据采样率；失败证据不受此字段影响并始终尝试捕获。
    * </pre>
    *
-   * <code>optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];
+   * </code>
+   *
    * @return The successScreenshotSamplePercent.
    */
   int getSuccessScreenshotSamplePercent();
 
   /**
+   *
+   *
    * <pre>
    * Control Plane 已提交的 Browser 世代下界；跨 Node 恢复必须从更大世代启动。
    * N-1 Node 不识别时安全忽略，但不得用于跨 Node 迁移目标。
    * </pre>
    *
    * <code>uint64 minimum_browser_generation = 30 [json_name = "minimumBrowserGeneration"];</code>
+   *
    * @return The minimumBrowserGeneration.
    */
   long getMinimumBrowserGeneration();
 
   /**
+   *
+   *
    * <pre>
    * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
    * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
    * </pre>
    *
    * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+   *
    * @return Whether the proxyProviderId field is set.
    */
   boolean hasProxyProviderId();
+
   /**
+   *
+   *
    * <pre>
    * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
    * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
    * </pre>
    *
    * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+   *
    * @return The proxyProviderId.
    */
   java.lang.String getProxyProviderId();
+
   /**
+   *
+   *
    * <pre>
    * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
    * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
    * </pre>
    *
    * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+   *
    * @return The bytes for proxyProviderId.
    */
-  com.google.protobuf.ByteString
-      getProxyProviderIdBytes();
+  com.google.protobuf.ByteString getProxyProviderIdBytes();
 
   /**
    * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+   *
    * @return Whether the proxyExpectedExitIp field is set.
    */
   boolean hasProxyExpectedExitIp();
+
   /**
    * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+   *
    * @return The proxyExpectedExitIp.
    */
   java.lang.String getProxyExpectedExitIp();
+
   /**
    * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+   *
    * @return The bytes for proxyExpectedExitIp.
    */
-  com.google.protobuf.ByteString
-      getProxyExpectedExitIpBytes();
+  com.google.protobuf.ByteString getProxyExpectedExitIpBytes();
 
   /**
    * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+   *
    * @return Whether the proxyCredentialRef field is set.
    */
   boolean hasProxyCredentialRef();
+
   /**
    * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+   *
    * @return The proxyCredentialRef.
    */
   java.lang.String getProxyCredentialRef();
-  /**
-   * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
-   * @return The bytes for proxyCredentialRef.
-   */
-  com.google.protobuf.ByteString
-      getProxyCredentialRefBytes();
 
   /**
+   * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+   *
+   * @return The bytes for proxyCredentialRef.
+   */
+  com.google.protobuf.ByteString getProxyCredentialRefBytes();
+
+  /**
+   *
+   *
    * <pre>
    * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
    * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
    * observing CDP request metadata; full URLs and request content never leave the Node.
    * </pre>
    *
-   * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+   * <code>
+   * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+   * </code>
+   *
    * @return A list containing the browserTransactionExpectedOrigins.
    */
-  java.util.List<java.lang.String>
-      getBrowserTransactionExpectedOriginsList();
+  java.util.List<java.lang.String> getBrowserTransactionExpectedOriginsList();
+
   /**
+   *
+   *
    * <pre>
    * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
    * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
    * observing CDP request metadata; full URLs and request content never leave the Node.
    * </pre>
    *
-   * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+   * <code>
+   * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+   * </code>
+   *
    * @return The count of browserTransactionExpectedOrigins.
    */
   int getBrowserTransactionExpectedOriginsCount();
+
   /**
+   *
+   *
    * <pre>
    * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
    * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
    * observing CDP request metadata; full URLs and request content never leave the Node.
    * </pre>
    *
-   * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+   * <code>
+   * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+   * </code>
+   *
    * @param index The index of the element to return.
    * @return The browserTransactionExpectedOrigins at the given index.
    */
   java.lang.String getBrowserTransactionExpectedOrigins(int index);
+
   /**
+   *
+   *
    * <pre>
    * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
    * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
    * observing CDP request metadata; full URLs and request content never leave the Node.
    * </pre>
    *
-   * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+   * <code>
+   * repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];
+   * </code>
+   *
    * @param index The index of the value to return.
    * @return The bytes of the browserTransactionExpectedOrigins at the given index.
    */
-  com.google.protobuf.ByteString
-      getBrowserTransactionExpectedOriginsBytes(int index);
+  com.google.protobuf.ByteString getBrowserTransactionExpectedOriginsBytes(int index);
 
   /**
-   * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+   * <code>
+   * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+   * </code>
+   *
    * @return A list containing the paymentSecurityRoutePrefixes.
    */
-  java.util.List<java.lang.String>
-      getPaymentSecurityRoutePrefixesList();
+  java.util.List<java.lang.String> getPaymentSecurityRoutePrefixesList();
+
   /**
-   * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+   * <code>
+   * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+   * </code>
+   *
    * @return The count of paymentSecurityRoutePrefixes.
    */
   int getPaymentSecurityRoutePrefixesCount();
+
   /**
-   * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+   * <code>
+   * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+   * </code>
+   *
    * @param index The index of the element to return.
    * @return The paymentSecurityRoutePrefixes at the given index.
    */
   java.lang.String getPaymentSecurityRoutePrefixes(int index);
+
   /**
-   * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+   * <code>
+   * repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];
+   * </code>
+   *
    * @param index The index of the value to return.
    * @return The bytes of the paymentSecurityRoutePrefixes at the given index.
    */
-  com.google.protobuf.ByteString
-      getPaymentSecurityRoutePrefixesBytes(int index);
+  com.google.protobuf.ByteString getPaymentSecurityRoutePrefixesBytes(int index);
 
   /**
-   * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+   * <code>
+   * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+   * </code>
+   *
    * @return A list containing the criticalTransactionRoutePrefixes.
    */
-  java.util.List<java.lang.String>
-      getCriticalTransactionRoutePrefixesList();
+  java.util.List<java.lang.String> getCriticalTransactionRoutePrefixesList();
+
   /**
-   * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+   * <code>
+   * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+   * </code>
+   *
    * @return The count of criticalTransactionRoutePrefixes.
    */
   int getCriticalTransactionRoutePrefixesCount();
+
   /**
-   * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+   * <code>
+   * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+   * </code>
+   *
    * @param index The index of the element to return.
    * @return The criticalTransactionRoutePrefixes at the given index.
    */
   java.lang.String getCriticalTransactionRoutePrefixes(int index);
+
   /**
-   * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+   * <code>
+   * repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];
+   * </code>
+   *
    * @param index The index of the value to return.
    * @return The bytes of the criticalTransactionRoutePrefixes at the given index.
    */
-  com.google.protobuf.ByteString
-      getCriticalTransactionRoutePrefixesBytes(int index);
+  com.google.protobuf.ByteString getCriticalTransactionRoutePrefixesBytes(int index);
 
   /**
-   * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+   * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];
+   * </code>
+   *
    * @return The browserTransactionPolicyHash.
    */
   java.lang.String getBrowserTransactionPolicyHash();
-  /**
-   * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
-   * @return The bytes for browserTransactionPolicyHash.
-   */
-  com.google.protobuf.ByteString
-      getBrowserTransactionPolicyHashBytes();
 
   /**
-   * <code>uint64 browser_transaction_policy_version = 38 [json_name = "browserTransactionPolicyVersion"];</code>
+   * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];
+   * </code>
+   *
+   * @return The bytes for browserTransactionPolicyHash.
+   */
+  com.google.protobuf.ByteString getBrowserTransactionPolicyHashBytes();
+
+  /**
+   * <code>
+   * uint64 browser_transaction_policy_version = 38 [json_name = "browserTransactionPolicyVersion"];
+   * </code>
+   *
    * @return The browserTransactionPolicyVersion.
    */
   long getBrowserTransactionPolicyVersion();
+
+  /**
+   *
+   *
+   * <pre>
+   * Immutable Session identity projection. N-1 Nodes ignore these additive fields; upgraded
+   * Nodes validate the complete cross-field set before spawning Chromium.
+   * </pre>
+   *
+   * <code>string identity_user_agent = 39 [json_name = "identityUserAgent"];</code>
+   *
+   * @return The identityUserAgent.
+   */
+  java.lang.String getIdentityUserAgent();
+
+  /**
+   *
+   *
+   * <pre>
+   * Immutable Session identity projection. N-1 Nodes ignore these additive fields; upgraded
+   * Nodes validate the complete cross-field set before spawning Chromium.
+   * </pre>
+   *
+   * <code>string identity_user_agent = 39 [json_name = "identityUserAgent"];</code>
+   *
+   * @return The bytes for identityUserAgent.
+   */
+  com.google.protobuf.ByteString getIdentityUserAgentBytes();
+
+  /**
+   * <code>string identity_timezone = 40 [json_name = "identityTimezone"];</code>
+   *
+   * @return The identityTimezone.
+   */
+  java.lang.String getIdentityTimezone();
+
+  /**
+   * <code>string identity_timezone = 40 [json_name = "identityTimezone"];</code>
+   *
+   * @return The bytes for identityTimezone.
+   */
+  com.google.protobuf.ByteString getIdentityTimezoneBytes();
+
+  /**
+   * <code>string identity_locale = 41 [json_name = "identityLocale"];</code>
+   *
+   * @return The identityLocale.
+   */
+  java.lang.String getIdentityLocale();
+
+  /**
+   * <code>string identity_locale = 41 [json_name = "identityLocale"];</code>
+   *
+   * @return The bytes for identityLocale.
+   */
+  com.google.protobuf.ByteString getIdentityLocaleBytes();
+
+  /**
+   * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+   *
+   * @return A list containing the identityLanguages.
+   */
+  java.util.List<java.lang.String> getIdentityLanguagesList();
+
+  /**
+   * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+   *
+   * @return The count of identityLanguages.
+   */
+  int getIdentityLanguagesCount();
+
+  /**
+   * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+   *
+   * @param index The index of the element to return.
+   * @return The identityLanguages at the given index.
+   */
+  java.lang.String getIdentityLanguages(int index);
+
+  /**
+   * <code>repeated string identity_languages = 42 [json_name = "identityLanguages"];</code>
+   *
+   * @param index The index of the value to return.
+   * @return The bytes of the identityLanguages at the given index.
+   */
+  com.google.protobuf.ByteString getIdentityLanguagesBytes(int index);
+
+  /**
+   * <code>string identity_webrtc_policy = 43 [json_name = "identityWebrtcPolicy"];</code>
+   *
+   * @return The identityWebrtcPolicy.
+   */
+  java.lang.String getIdentityWebrtcPolicy();
+
+  /**
+   * <code>string identity_webrtc_policy = 43 [json_name = "identityWebrtcPolicy"];</code>
+   *
+   * @return The bytes for identityWebrtcPolicy.
+   */
+  com.google.protobuf.ByteString getIdentityWebrtcPolicyBytes();
+
+  /**
+   * <code>string identity_dns_policy = 44 [json_name = "identityDnsPolicy"];</code>
+   *
+   * @return The identityDnsPolicy.
+   */
+  java.lang.String getIdentityDnsPolicy();
+
+  /**
+   * <code>string identity_dns_policy = 44 [json_name = "identityDnsPolicy"];</code>
+   *
+   * @return The bytes for identityDnsPolicy.
+   */
+  com.google.protobuf.ByteString getIdentityDnsPolicyBytes();
+
+  /**
+   * <code>uint32 identity_viewport_width = 45 [json_name = "identityViewportWidth"];</code>
+   *
+   * @return The identityViewportWidth.
+   */
+  int getIdentityViewportWidth();
+
+  /**
+   * <code>uint32 identity_viewport_height = 46 [json_name = "identityViewportHeight"];</code>
+   *
+   * @return The identityViewportHeight.
+   */
+  int getIdentityViewportHeight();
+
+  /**
+   * <code>uint32 identity_screen_width = 47 [json_name = "identityScreenWidth"];</code>
+   *
+   * @return The identityScreenWidth.
+   */
+  int getIdentityScreenWidth();
+
+  /**
+   * <code>uint32 identity_screen_height = 48 [json_name = "identityScreenHeight"];</code>
+   *
+   * @return The identityScreenHeight.
+   */
+  int getIdentityScreenHeight();
+
+  /**
+   * <code>double identity_device_scale_factor = 49 [json_name = "identityDeviceScaleFactor"];
+   * </code>
+   *
+   * @return The identityDeviceScaleFactor.
+   */
+  double getIdentityDeviceScaleFactor();
+
+  /**
+   * <code>string identity_fingerprint_profile = 50 [json_name = "identityFingerprintProfile"];
+   * </code>
+   *
+   * @return The identityFingerprintProfile.
+   */
+  java.lang.String getIdentityFingerprintProfile();
+
+  /**
+   * <code>string identity_fingerprint_profile = 50 [json_name = "identityFingerprintProfile"];
+   * </code>
+   *
+   * @return The bytes for identityFingerprintProfile.
+   */
+  com.google.protobuf.ByteString getIdentityFingerprintProfileBytes();
+
+  /**
+   * <code>
+   * string identity_operating_system_profile = 51 [json_name = "identityOperatingSystemProfile"];
+   * </code>
+   *
+   * @return The identityOperatingSystemProfile.
+   */
+  java.lang.String getIdentityOperatingSystemProfile();
+
+  /**
+   * <code>
+   * string identity_operating_system_profile = 51 [json_name = "identityOperatingSystemProfile"];
+   * </code>
+   *
+   * @return The bytes for identityOperatingSystemProfile.
+   */
+  com.google.protobuf.ByteString getIdentityOperatingSystemProfileBytes();
+
+  /**
+   * <code>uint64 identity_spec_version = 52 [json_name = "identitySpecVersion"];</code>
+   *
+   * @return The identitySpecVersion.
+   */
+  long getIdentitySpecVersion();
+
+  /**
+   * <code>string identity_spec_hash = 53 [json_name = "identitySpecHash"];</code>
+   *
+   * @return The identitySpecHash.
+   */
+  java.lang.String getIdentitySpecHash();
+
+  /**
+   * <code>string identity_spec_hash = 53 [json_name = "identitySpecHash"];</code>
+   *
+   * @return The bytes for identitySpecHash.
+   */
+  com.google.protobuf.ByteString getIdentitySpecHashBytes();
 }

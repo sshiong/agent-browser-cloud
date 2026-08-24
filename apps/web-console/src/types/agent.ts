@@ -132,6 +132,54 @@ export interface AgentBrowserTargetList {
   truncated: boolean;
 }
 
+export interface AgentBrowserFileUploadRequest {
+  targetRef: string;
+  targetRevision: number;
+  baseStateVersion: number;
+  baseContentHash: string;
+  filename: string;
+  mimeType?: string;
+  contentSha256: string;
+  file: Blob;
+}
+
+export interface AgentBrowserFileUpload {
+  uploadId: string;
+  operationId: string;
+  sessionId: string;
+  targetRef: string;
+  filename: string;
+  mimeType: string;
+  contentSha256: string;
+  contentBytes: number;
+  state: 'STAGING' | 'EXECUTING' | 'COMMITTED' | 'FAILED';
+  errorCode?: string;
+  stateVersionAfter?: number;
+  requestId: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+export interface AgentBrowserDownload {
+  downloadId: string;
+  filename: string;
+  mimeType: string;
+  size?: number;
+  receivedBytes: number;
+  progress?: number;
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'CANCELED' | 'INTERRUPTED';
+  startedAt: string;
+  updatedAt: string;
+}
+
+export interface AgentBrowserDownloadList {
+  stateCursor: string;
+  evidenceFresh: boolean;
+  dataStale: boolean;
+  downloads: AgentBrowserDownload[];
+}
+
 export interface CreateAgentTaskRequest {
   goal: string;
   startUrl?: string;

@@ -1,5 +1,8 @@
 package io.browsercloud.infrastructure;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.exceptions.ActiveOperationExistsException;
 import io.browsercloud.coordinator.exceptions.StaleOperationException;
@@ -18,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 /** Operation Repository JPA 实现。 */
 @Repository
 public class JpaOperationRepository implements OperationRepository {
+
+  private static final ObjectMapper JSON = new ObjectMapper();
 
   private final ExclusiveOperationJpaRepository operationJpa;
 
@@ -172,9 +177,31 @@ public class JpaOperationRepository implements OperationRepository {
         entity.isPreemptible(),
         OperationPhase.valueOf(entity.getPhase()),
         OperationState.valueOf(entity.getState()),
-        Set.of(),
+        allowedCapabilities(entity),
         entity.getDeadline(),
         entity.getCreatedAt(),
         entity.getCompletedAt());
+  }
+
+  private static Set<String> allowedCapabilities(ExclusiveOperationEntity entity) {
+    try {
+      var values =
+          JSON.readValue(
+              entity.getAllowedCapabilities(), new TypeReference<java.util.List<String>>() {});
+      if (values.size() > 64
+          || values.stream()
+              .anyMatch(
+                  value ->
+                      value == null
+                          || value.isBlank()
+                          || value.length() > 128
+                          || value.chars().anyMatch(Character::isISOControl))) {
+        throw new IllegalStateException(
+            "Persisted Operation capabilities violate the bounded contract");
+      }
+      return Set.copyOf(values);
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("Persisted Operation capabilities are invalid", exception);
+    }
   }
 }

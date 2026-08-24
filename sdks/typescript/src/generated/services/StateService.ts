@@ -2,6 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { AgentBrowserDownload } from '../models/AgentBrowserDownload.js';
+import type { AgentBrowserDownloadList } from '../models/AgentBrowserDownloadList.js';
+import type { AgentBrowserFileUpload } from '../models/AgentBrowserFileUpload.js';
 import type { AgentBrowserFindRequest } from '../models/AgentBrowserFindRequest.js';
 import type { AgentBrowserInspectRequest } from '../models/AgentBrowserInspectRequest.js';
 import type { AgentBrowserSnapshot } from '../models/AgentBrowserSnapshot.js';
@@ -11,6 +14,7 @@ import type { BrowserState } from '../models/BrowserState.js';
 import type { ExecuteAgentBrowserActionsRequest } from '../models/ExecuteAgentBrowserActionsRequest.js';
 import type { StateResyncRequest } from '../models/StateResyncRequest.js';
 import type { StateResyncResponse } from '../models/StateResyncResponse.js';
+import type { UploadAgentBrowserFileRequest } from '../models/UploadAgentBrowserFileRequest.js';
 import type { CancelablePromise } from '../core/CancelablePromise.js';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest.js';
 export class StateService {
@@ -179,6 +183,150 @@ export class StateService {
             errors: {
                 409: `State or idempotency conflict.`,
                 422: `The bounded archive was received but failed semantic or integrity validation.`,
+            },
+        });
+    }
+    /**
+     * Stream one bounded file to the Session Node and set an exact file input through CDP
+     * File bytes travel only over the authenticated Control Plane to exact Browser Node stream. PostgreSQL stores tenant-scoped lifecycle metadata and the durable Operation; public responses and audit never contain bytes or Node-local paths. No OS file chooser is opened.
+     *
+     * @returns AgentBrowserFileUpload File is staged and its durable state-fenced Node command is executing.
+     * @throws ApiError
+     */
+    public uploadAgentBrowserFile({
+        sessionId,
+        idempotencyKey,
+        formData,
+        xTenantId,
+    }: {
+        sessionId: string,
+        idempotencyKey: string,
+        formData: UploadAgentBrowserFileRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentBrowserFileUpload> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/files/uploads',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'Idempotency-Key': idempotencyKey,
+            },
+            formData: formData,
+            mediaType: 'multipart/form-data',
+            errors: {
+                409: `State or idempotency conflict.`,
+                413: `The upload exceeds the configured bounded ingress limit.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
+                503: `A required capacity or dependency is temporarily unavailable.`,
+            },
+        });
+    }
+    /**
+     * Read the PostgreSQL-authoritative file upload lifecycle
+     * @returns AgentBrowserFileUpload Tenant-scoped upload metadata; bytes and local paths are absent.
+     * @throws ApiError
+     */
+    public getAgentBrowserFileUpload({
+        sessionId,
+        uploadId,
+        xTenantId,
+    }: {
+        sessionId: string,
+        uploadId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentBrowserFileUpload> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/files/uploads/{uploadId}',
+            path: {
+                'sessionId': sessionId,
+                'uploadId': uploadId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            errors: {
+                404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * List the PostgreSQL-authoritative Browser download lifecycle
+     * Download URLs and Node-local paths are never returned.
+     * @returns AgentBrowserDownloadList Current bounded download projection and evidence freshness.
+     * @throws ApiError
+     */
+    public listAgentBrowserDownloads({
+        sessionId,
+        xTenantId,
+    }: {
+        sessionId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentBrowserDownloadList> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/files/downloads',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            errors: {
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Wait for one download to reach a terminal authoritative state
+     * Bounded waiter rereads PostgreSQL only; it never polls the Browser.
+     * @returns AgentBrowserDownload Completed, canceled, or interrupted download state.
+     * @throws ApiError
+     */
+    public waitForAgentBrowserDownload({
+        sessionId,
+        downloadId,
+        xTenantId,
+        timeoutMs = 30000,
+    }: {
+        sessionId: string,
+        downloadId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+        timeoutMs?: number,
+    }): CancelablePromise<AgentBrowserDownload> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/files/downloads/{downloadId}:wait',
+            path: {
+                'sessionId': sessionId,
+                'downloadId': downloadId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            query: {
+                'timeoutMs': timeoutMs,
+            },
+            errors: {
+                404: `Resource not found.`,
+                408: `Download did not reach a terminal state before the bounded timeout.`,
+                409: `State or idempotency conflict.`,
+                429: `The bounded concurrent stream capacity has been reached.`,
             },
         });
     }

@@ -4,12 +4,14 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface MouseButtonInputOrBuilder extends
+public interface MouseButtonInputOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.MouseButtonInput)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>uint32 button = 1 [json_name = "button"];</code>
+   *
    * @return The button.
    */
   int getButton();

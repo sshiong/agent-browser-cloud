@@ -5,21 +5,25 @@
 package io.browsercloud.proto.node.v1;
 
 /**
+ *
+ *
  * <pre>
  * Node 完成 cgroup 调整后返回的权威确认；Control Plane 收到前不得更新当前分配。
  * </pre>
  *
  * Protobuf type {@code browsercloud.node.v1.RuntimeResourcesAdjustedEvent}
  */
-public final class RuntimeResourcesAdjustedEvent extends
-    com.google.protobuf.GeneratedMessageV3 implements
+public final class RuntimeResourcesAdjustedEvent extends com.google.protobuf.GeneratedMessageV3
+    implements
     // @@protoc_insertion_point(message_implements:browsercloud.node.v1.RuntimeResourcesAdjustedEvent)
     RuntimeResourcesAdjustedEventOrBuilder {
-private static final long serialVersionUID = 0L;
+  private static final long serialVersionUID = 0L;
+
   // Use RuntimeResourcesAdjustedEvent.newBuilder() to construct.
   private RuntimeResourcesAdjustedEvent(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
+
   private RuntimeResourcesAdjustedEvent() {
     sessionId_ = "";
     nodeId_ = "";
@@ -31,30 +35,34 @@ private static final long serialVersionUID = 0L;
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
+  protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
     return new RuntimeResourcesAdjustedEvent();
   }
 
-  public static final com.google.protobuf.Descriptors.Descriptor
-      getDescriptor() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_descriptor;
+  public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_fieldAccessorTable
+    return io.browsercloud.proto.node.v1.NodeCommand
+        .internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent.class, io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent.Builder.class);
+            io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent.class,
+            io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent.Builder.class);
   }
 
   private int bitField0_;
   public static final int SESSION_ID_FIELD_NUMBER = 1;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object sessionId_ = "";
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The sessionId.
    */
   @java.lang.Override
@@ -63,25 +71,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       sessionId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string session_id = 1 [json_name = "sessionId"];</code>
+   *
    * @return The bytes for sessionId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getSessionIdBytes() {
+  public com.google.protobuf.ByteString getSessionIdBytes() {
     java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       sessionId_ = b;
       return b;
     } else {
@@ -90,10 +97,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int NODE_ID_FIELD_NUMBER = 2;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object nodeId_ = "";
+
   /**
    * <code>string node_id = 2 [json_name = "nodeId"];</code>
+   *
    * @return The nodeId.
    */
   @java.lang.Override
@@ -102,25 +112,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       nodeId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string node_id = 2 [json_name = "nodeId"];</code>
+   *
    * @return The bytes for nodeId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getNodeIdBytes() {
+  public com.google.protobuf.ByteString getNodeIdBytes() {
     java.lang.Object ref = nodeId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       nodeId_ = b;
       return b;
     } else {
@@ -129,10 +138,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int OLD_RESOURCE_CLASS_FIELD_NUMBER = 3;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object oldResourceClass_ = "";
+
   /**
    * <code>string old_resource_class = 3 [json_name = "oldResourceClass"];</code>
+   *
    * @return The oldResourceClass.
    */
   @java.lang.Override
@@ -141,25 +153,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       oldResourceClass_ = s;
       return s;
     }
   }
+
   /**
    * <code>string old_resource_class = 3 [json_name = "oldResourceClass"];</code>
+   *
    * @return The bytes for oldResourceClass.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getOldResourceClassBytes() {
+  public com.google.protobuf.ByteString getOldResourceClassBytes() {
     java.lang.Object ref = oldResourceClass_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       oldResourceClass_ = b;
       return b;
     } else {
@@ -169,8 +180,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int OLD_CPU_MILLIS_FIELD_NUMBER = 4;
   private int oldCpuMillis_ = 0;
+
   /**
    * <code>uint32 old_cpu_millis = 4 [json_name = "oldCpuMillis"];</code>
+   *
    * @return The oldCpuMillis.
    */
   @java.lang.Override
@@ -180,8 +193,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int OLD_MEMORY_REQUEST_MIB_FIELD_NUMBER = 5;
   private int oldMemoryRequestMib_ = 0;
+
   /**
    * <code>uint32 old_memory_request_mib = 5 [json_name = "oldMemoryRequestMib"];</code>
+   *
    * @return The oldMemoryRequestMib.
    */
   @java.lang.Override
@@ -191,8 +206,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int OLD_MEMORY_LIMIT_MIB_FIELD_NUMBER = 6;
   private int oldMemoryLimitMib_ = 0;
+
   /**
    * <code>uint32 old_memory_limit_mib = 6 [json_name = "oldMemoryLimitMib"];</code>
+   *
    * @return The oldMemoryLimitMib.
    */
   @java.lang.Override
@@ -202,8 +219,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int OLD_PID_LIMIT_FIELD_NUMBER = 7;
   private int oldPidLimit_ = 0;
+
   /**
    * <code>uint32 old_pid_limit = 7 [json_name = "oldPidLimit"];</code>
+   *
    * @return The oldPidLimit.
    */
   @java.lang.Override
@@ -213,8 +232,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int OLD_TAB_BUDGET_FIELD_NUMBER = 8;
   private int oldTabBudget_ = 0;
+
   /**
    * <code>uint32 old_tab_budget = 8 [json_name = "oldTabBudget"];</code>
+   *
    * @return The oldTabBudget.
    */
   @java.lang.Override
@@ -223,10 +244,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int NEW_RESOURCE_CLASS_FIELD_NUMBER = 9;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object newResourceClass_ = "";
+
   /**
    * <code>string new_resource_class = 9 [json_name = "newResourceClass"];</code>
+   *
    * @return The newResourceClass.
    */
   @java.lang.Override
@@ -235,25 +259,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       newResourceClass_ = s;
       return s;
     }
   }
+
   /**
    * <code>string new_resource_class = 9 [json_name = "newResourceClass"];</code>
+   *
    * @return The bytes for newResourceClass.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getNewResourceClassBytes() {
+  public com.google.protobuf.ByteString getNewResourceClassBytes() {
     java.lang.Object ref = newResourceClass_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       newResourceClass_ = b;
       return b;
     } else {
@@ -263,8 +286,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int NEW_CPU_MILLIS_FIELD_NUMBER = 10;
   private int newCpuMillis_ = 0;
+
   /**
    * <code>uint32 new_cpu_millis = 10 [json_name = "newCpuMillis"];</code>
+   *
    * @return The newCpuMillis.
    */
   @java.lang.Override
@@ -274,8 +299,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int NEW_MEMORY_REQUEST_MIB_FIELD_NUMBER = 11;
   private int newMemoryRequestMib_ = 0;
+
   /**
    * <code>uint32 new_memory_request_mib = 11 [json_name = "newMemoryRequestMib"];</code>
+   *
    * @return The newMemoryRequestMib.
    */
   @java.lang.Override
@@ -285,8 +312,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int NEW_MEMORY_LIMIT_MIB_FIELD_NUMBER = 12;
   private int newMemoryLimitMib_ = 0;
+
   /**
    * <code>uint32 new_memory_limit_mib = 12 [json_name = "newMemoryLimitMib"];</code>
+   *
    * @return The newMemoryLimitMib.
    */
   @java.lang.Override
@@ -296,8 +325,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int NEW_PID_LIMIT_FIELD_NUMBER = 13;
   private int newPidLimit_ = 0;
+
   /**
    * <code>uint32 new_pid_limit = 13 [json_name = "newPidLimit"];</code>
+   *
    * @return The newPidLimit.
    */
   @java.lang.Override
@@ -307,8 +338,10 @@ private static final long serialVersionUID = 0L;
 
   public static final int NEW_TAB_BUDGET_FIELD_NUMBER = 14;
   private int newTabBudget_ = 0;
+
   /**
    * <code>uint32 new_tab_budget = 14 [json_name = "newTabBudget"];</code>
+   *
    * @return The newTabBudget.
    */
   @java.lang.Override
@@ -317,10 +350,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int REASON_FIELD_NUMBER = 15;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object reason_ = "";
+
   /**
    * <code>string reason = 15 [json_name = "reason"];</code>
+   *
    * @return The reason.
    */
   @java.lang.Override
@@ -329,25 +365,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       reason_ = s;
       return s;
     }
   }
+
   /**
    * <code>string reason = 15 [json_name = "reason"];</code>
+   *
    * @return The bytes for reason.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getReasonBytes() {
+  public com.google.protobuf.ByteString getReasonBytes() {
     java.lang.Object ref = reason_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       reason_ = b;
       return b;
     } else {
@@ -356,10 +391,13 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int OPERATION_ID_FIELD_NUMBER = 16;
+
   @SuppressWarnings("serial")
   private volatile java.lang.Object operationId_ = "";
+
   /**
    * <code>string operation_id = 16 [json_name = "operationId"];</code>
+   *
    * @return The operationId.
    */
   @java.lang.Override
@@ -368,25 +406,24 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       operationId_ = s;
       return s;
     }
   }
+
   /**
    * <code>string operation_id = 16 [json_name = "operationId"];</code>
+   *
    * @return The bytes for operationId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString
-      getOperationIdBytes() {
+  public com.google.protobuf.ByteString getOperationIdBytes() {
     java.lang.Object ref = operationId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
       operationId_ = b;
       return b;
     } else {
@@ -396,24 +433,36 @@ private static final long serialVersionUID = 0L;
 
   public static final int OLD_STATE_COLLECTOR_BUDGET_PERCENT_FIELD_NUMBER = 17;
   private int oldStateCollectorBudgetPercent_ = 0;
+
   /**
+   *
+   *
    * <pre>
    * N-1 Node 不会上报这些字段；Control Plane 此时只提交已确认的 Cgroup 调整。
    * </pre>
    *
-   * <code>optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return Whether the oldStateCollectorBudgetPercent field is set.
    */
   @java.lang.Override
   public boolean hasOldStateCollectorBudgetPercent() {
     return ((bitField0_ & 0x00000001) != 0);
   }
+
   /**
+   *
+   *
    * <pre>
    * N-1 Node 不会上报这些字段；Control Plane 此时只提交已确认的 Cgroup 调整。
    * </pre>
    *
-   * <code>optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return The oldStateCollectorBudgetPercent.
    */
   @java.lang.Override
@@ -423,16 +472,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int OLD_REMOTE_DESKTOP_BITRATE_KBPS_FIELD_NUMBER = 18;
   private int oldRemoteDesktopBitrateKbps_ = 0;
+
   /**
-   * <code>optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return Whether the oldRemoteDesktopBitrateKbps field is set.
    */
   @java.lang.Override
   public boolean hasOldRemoteDesktopBitrateKbps() {
     return ((bitField0_ & 0x00000002) != 0);
   }
+
   /**
-   * <code>optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return The oldRemoteDesktopBitrateKbps.
    */
   @java.lang.Override
@@ -442,16 +499,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int NEW_STATE_COLLECTOR_BUDGET_PERCENT_FIELD_NUMBER = 19;
   private int newStateCollectorBudgetPercent_ = 0;
+
   /**
-   * <code>optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return Whether the newStateCollectorBudgetPercent field is set.
    */
   @java.lang.Override
   public boolean hasNewStateCollectorBudgetPercent() {
     return ((bitField0_ & 0x00000004) != 0);
   }
+
   /**
-   * <code>optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];</code>
+   * <code>
+   * optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];
+   * </code>
+   *
    * @return The newStateCollectorBudgetPercent.
    */
   @java.lang.Override
@@ -461,16 +526,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int NEW_REMOTE_DESKTOP_BITRATE_KBPS_FIELD_NUMBER = 20;
   private int newRemoteDesktopBitrateKbps_ = 0;
+
   /**
-   * <code>optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return Whether the newRemoteDesktopBitrateKbps field is set.
    */
   @java.lang.Override
   public boolean hasNewRemoteDesktopBitrateKbps() {
     return ((bitField0_ & 0x00000008) != 0);
   }
+
   /**
-   * <code>optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];</code>
+   * <code>
+   * optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];
+   * </code>
+   *
    * @return The newRemoteDesktopBitrateKbps.
    */
   @java.lang.Override
@@ -480,16 +553,22 @@ private static final long serialVersionUID = 0L;
 
   public static final int OLD_EXTENSION_CPU_WEIGHT_FIELD_NUMBER = 21;
   private int oldExtensionCpuWeight_ = 0;
+
   /**
-   * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];</code>
+   * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];
+   * </code>
+   *
    * @return Whether the oldExtensionCpuWeight field is set.
    */
   @java.lang.Override
   public boolean hasOldExtensionCpuWeight() {
     return ((bitField0_ & 0x00000010) != 0);
   }
+
   /**
-   * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];</code>
+   * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];
+   * </code>
+   *
    * @return The oldExtensionCpuWeight.
    */
   @java.lang.Override
@@ -499,16 +578,22 @@ private static final long serialVersionUID = 0L;
 
   public static final int NEW_EXTENSION_CPU_WEIGHT_FIELD_NUMBER = 22;
   private int newExtensionCpuWeight_ = 0;
+
   /**
-   * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];</code>
+   * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];
+   * </code>
+   *
    * @return Whether the newExtensionCpuWeight field is set.
    */
   @java.lang.Override
   public boolean hasNewExtensionCpuWeight() {
     return ((bitField0_ & 0x00000020) != 0);
   }
+
   /**
-   * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];</code>
+   * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];
+   * </code>
+   *
    * @return The newExtensionCpuWeight.
    */
   @java.lang.Override
@@ -518,16 +603,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int OLD_MEDIA_ENCODER_SLOTS_FIELD_NUMBER = 23;
   private int oldMediaEncoderSlots_ = 0;
+
   /**
    * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];</code>
+   *
    * @return Whether the oldMediaEncoderSlots field is set.
    */
   @java.lang.Override
   public boolean hasOldMediaEncoderSlots() {
     return ((bitField0_ & 0x00000040) != 0);
   }
+
   /**
    * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];</code>
+   *
    * @return The oldMediaEncoderSlots.
    */
   @java.lang.Override
@@ -537,16 +626,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int NEW_MEDIA_ENCODER_SLOTS_FIELD_NUMBER = 24;
   private int newMediaEncoderSlots_ = 0;
+
   /**
    * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];</code>
+   *
    * @return Whether the newMediaEncoderSlots field is set.
    */
   @java.lang.Override
   public boolean hasNewMediaEncoderSlots() {
     return ((bitField0_ & 0x00000080) != 0);
   }
+
   /**
    * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];</code>
+   *
    * @return The newMediaEncoderSlots.
    */
   @java.lang.Override
@@ -556,16 +649,22 @@ private static final long serialVersionUID = 0L;
 
   public static final int OLD_FREEZE_BACKGROUND_TABS_FIELD_NUMBER = 25;
   private boolean oldFreezeBackgroundTabs_ = false;
+
   /**
-   * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];</code>
+   * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];
+   * </code>
+   *
    * @return Whether the oldFreezeBackgroundTabs field is set.
    */
   @java.lang.Override
   public boolean hasOldFreezeBackgroundTabs() {
     return ((bitField0_ & 0x00000100) != 0);
   }
+
   /**
-   * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];</code>
+   * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];
+   * </code>
+   *
    * @return The oldFreezeBackgroundTabs.
    */
   @java.lang.Override
@@ -575,16 +674,22 @@ private static final long serialVersionUID = 0L;
 
   public static final int NEW_FREEZE_BACKGROUND_TABS_FIELD_NUMBER = 26;
   private boolean newFreezeBackgroundTabs_ = false;
+
   /**
-   * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];</code>
+   * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];
+   * </code>
+   *
    * @return Whether the newFreezeBackgroundTabs field is set.
    */
   @java.lang.Override
   public boolean hasNewFreezeBackgroundTabs() {
     return ((bitField0_ & 0x00000200) != 0);
   }
+
   /**
-   * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];</code>
+   * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];
+   * </code>
+   *
    * @return The newFreezeBackgroundTabs.
    */
   @java.lang.Override
@@ -594,16 +699,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int OLD_BLOCK_NEW_TABS_FIELD_NUMBER = 27;
   private boolean oldBlockNewTabs_ = false;
+
   /**
    * <code>optional bool old_block_new_tabs = 27 [json_name = "oldBlockNewTabs"];</code>
+   *
    * @return Whether the oldBlockNewTabs field is set.
    */
   @java.lang.Override
   public boolean hasOldBlockNewTabs() {
     return ((bitField0_ & 0x00000400) != 0);
   }
+
   /**
    * <code>optional bool old_block_new_tabs = 27 [json_name = "oldBlockNewTabs"];</code>
+   *
    * @return The oldBlockNewTabs.
    */
   @java.lang.Override
@@ -613,16 +722,20 @@ private static final long serialVersionUID = 0L;
 
   public static final int NEW_BLOCK_NEW_TABS_FIELD_NUMBER = 28;
   private boolean newBlockNewTabs_ = false;
+
   /**
    * <code>optional bool new_block_new_tabs = 28 [json_name = "newBlockNewTabs"];</code>
+   *
    * @return Whether the newBlockNewTabs field is set.
    */
   @java.lang.Override
   public boolean hasNewBlockNewTabs() {
     return ((bitField0_ & 0x00000800) != 0);
   }
+
   /**
    * <code>optional bool new_block_new_tabs = 28 [json_name = "newBlockNewTabs"];</code>
+   *
    * @return The newBlockNewTabs.
    */
   @java.lang.Override
@@ -632,68 +745,108 @@ private static final long serialVersionUID = 0L;
 
   public static final int OLD_EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER = 29;
   private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy oldExtensionBackgroundPolicy_;
+
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];
+   * </code>
+   *
    * @return Whether the oldExtensionBackgroundPolicy field is set.
    */
   @java.lang.Override
   public boolean hasOldExtensionBackgroundPolicy() {
     return ((bitField0_ & 0x00001000) != 0);
   }
+
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];
+   * </code>
+   *
    * @return The oldExtensionBackgroundPolicy.
    */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getOldExtensionBackgroundPolicy() {
-    return oldExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : oldExtensionBackgroundPolicy_;
+    return oldExtensionBackgroundPolicy_ == null
+        ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()
+        : oldExtensionBackgroundPolicy_;
   }
+
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];
+   * </code>
    */
   @java.lang.Override
-  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getOldExtensionBackgroundPolicyOrBuilder() {
-    return oldExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : oldExtensionBackgroundPolicy_;
+  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder
+      getOldExtensionBackgroundPolicyOrBuilder() {
+    return oldExtensionBackgroundPolicy_ == null
+        ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()
+        : oldExtensionBackgroundPolicy_;
   }
 
   public static final int NEW_EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER = 30;
   private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy newExtensionBackgroundPolicy_;
+
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];
+   * </code>
+   *
    * @return Whether the newExtensionBackgroundPolicy field is set.
    */
   @java.lang.Override
   public boolean hasNewExtensionBackgroundPolicy() {
     return ((bitField0_ & 0x00002000) != 0);
   }
+
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];
+   * </code>
+   *
    * @return The newExtensionBackgroundPolicy.
    */
   @java.lang.Override
   public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getNewExtensionBackgroundPolicy() {
-    return newExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : newExtensionBackgroundPolicy_;
+    return newExtensionBackgroundPolicy_ == null
+        ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()
+        : newExtensionBackgroundPolicy_;
   }
+
   /**
-   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+   * <code>
+   * .browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];
+   * </code>
    */
   @java.lang.Override
-  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getNewExtensionBackgroundPolicyOrBuilder() {
-    return newExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : newExtensionBackgroundPolicy_;
+  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder
+      getNewExtensionBackgroundPolicyOrBuilder() {
+    return newExtensionBackgroundPolicy_ == null
+        ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()
+        : newExtensionBackgroundPolicy_;
   }
 
   public static final int OLD_SUCCESS_TRACE_SAMPLE_PERCENT_FIELD_NUMBER = 31;
   private int oldSuccessTraceSamplePercent_ = 0;
+
   /**
-   * <code>optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];</code>
+   * <code>
+   * optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];
+   * </code>
+   *
    * @return Whether the oldSuccessTraceSamplePercent field is set.
    */
   @java.lang.Override
   public boolean hasOldSuccessTraceSamplePercent() {
     return ((bitField0_ & 0x00004000) != 0);
   }
+
   /**
-   * <code>optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];</code>
+   * <code>
+   * optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];
+   * </code>
+   *
    * @return The oldSuccessTraceSamplePercent.
    */
   @java.lang.Override
@@ -703,16 +856,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int NEW_SUCCESS_TRACE_SAMPLE_PERCENT_FIELD_NUMBER = 32;
   private int newSuccessTraceSamplePercent_ = 0;
+
   /**
-   * <code>optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];</code>
+   * <code>
+   * optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];
+   * </code>
+   *
    * @return Whether the newSuccessTraceSamplePercent field is set.
    */
   @java.lang.Override
   public boolean hasNewSuccessTraceSamplePercent() {
     return ((bitField0_ & 0x00008000) != 0);
   }
+
   /**
-   * <code>optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];</code>
+   * <code>
+   * optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];
+   * </code>
+   *
    * @return The newSuccessTraceSamplePercent.
    */
   @java.lang.Override
@@ -722,16 +883,22 @@ private static final long serialVersionUID = 0L;
 
   public static final int OLD_OBSERVER_FRAME_RATE_FPS_FIELD_NUMBER = 33;
   private int oldObserverFrameRateFps_ = 0;
+
   /**
-   * <code>optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];</code>
+   * <code>optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];
+   * </code>
+   *
    * @return Whether the oldObserverFrameRateFps field is set.
    */
   @java.lang.Override
   public boolean hasOldObserverFrameRateFps() {
     return ((bitField0_ & 0x00010000) != 0);
   }
+
   /**
-   * <code>optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];</code>
+   * <code>optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];
+   * </code>
+   *
    * @return The oldObserverFrameRateFps.
    */
   @java.lang.Override
@@ -741,16 +908,22 @@ private static final long serialVersionUID = 0L;
 
   public static final int NEW_OBSERVER_FRAME_RATE_FPS_FIELD_NUMBER = 34;
   private int newObserverFrameRateFps_ = 0;
+
   /**
-   * <code>optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];</code>
+   * <code>optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];
+   * </code>
+   *
    * @return Whether the newObserverFrameRateFps field is set.
    */
   @java.lang.Override
   public boolean hasNewObserverFrameRateFps() {
     return ((bitField0_ & 0x00020000) != 0);
   }
+
   /**
-   * <code>optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];</code>
+   * <code>optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];
+   * </code>
+   *
    * @return The newObserverFrameRateFps.
    */
   @java.lang.Override
@@ -760,16 +933,22 @@ private static final long serialVersionUID = 0L;
 
   public static final int OLD_VIDEO_RECORDING_ENABLED_FIELD_NUMBER = 35;
   private boolean oldVideoRecordingEnabled_ = false;
+
   /**
-   * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];</code>
+   * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];
+   * </code>
+   *
    * @return Whether the oldVideoRecordingEnabled field is set.
    */
   @java.lang.Override
   public boolean hasOldVideoRecordingEnabled() {
     return ((bitField0_ & 0x00040000) != 0);
   }
+
   /**
-   * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];</code>
+   * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];
+   * </code>
+   *
    * @return The oldVideoRecordingEnabled.
    */
   @java.lang.Override
@@ -779,16 +958,22 @@ private static final long serialVersionUID = 0L;
 
   public static final int NEW_VIDEO_RECORDING_ENABLED_FIELD_NUMBER = 36;
   private boolean newVideoRecordingEnabled_ = false;
+
   /**
-   * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];</code>
+   * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];
+   * </code>
+   *
    * @return Whether the newVideoRecordingEnabled field is set.
    */
   @java.lang.Override
   public boolean hasNewVideoRecordingEnabled() {
     return ((bitField0_ & 0x00080000) != 0);
   }
+
   /**
-   * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];</code>
+   * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];
+   * </code>
+   *
    * @return The newVideoRecordingEnabled.
    */
   @java.lang.Override
@@ -798,16 +983,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int OLD_SUCCESS_SCREENSHOT_SAMPLE_PERCENT_FIELD_NUMBER = 37;
   private int oldSuccessScreenshotSamplePercent_ = 0;
+
   /**
-   * <code>optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];
+   * </code>
+   *
    * @return Whether the oldSuccessScreenshotSamplePercent field is set.
    */
   @java.lang.Override
   public boolean hasOldSuccessScreenshotSamplePercent() {
     return ((bitField0_ & 0x00100000) != 0);
   }
+
   /**
-   * <code>optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];
+   * </code>
+   *
    * @return The oldSuccessScreenshotSamplePercent.
    */
   @java.lang.Override
@@ -817,16 +1010,24 @@ private static final long serialVersionUID = 0L;
 
   public static final int NEW_SUCCESS_SCREENSHOT_SAMPLE_PERCENT_FIELD_NUMBER = 38;
   private int newSuccessScreenshotSamplePercent_ = 0;
+
   /**
-   * <code>optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];
+   * </code>
+   *
    * @return Whether the newSuccessScreenshotSamplePercent field is set.
    */
   @java.lang.Override
   public boolean hasNewSuccessScreenshotSamplePercent() {
     return ((bitField0_ & 0x00200000) != 0);
   }
+
   /**
-   * <code>optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];</code>
+   * <code>
+   * optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];
+   * </code>
+   *
    * @return The newSuccessScreenshotSamplePercent.
    */
   @java.lang.Override
@@ -835,6 +1036,7 @@ private static final long serialVersionUID = 0L;
   }
 
   private byte memoizedIsInitialized = -1;
+
   @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
@@ -846,8 +1048,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @java.lang.Override
-  public void writeTo(com.google.protobuf.CodedOutputStream output)
-                      throws java.io.IOException {
+  public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(sessionId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 1, sessionId_);
     }
@@ -981,47 +1182,37 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, oldResourceClass_);
     }
     if (oldCpuMillis_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(4, oldCpuMillis_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(4, oldCpuMillis_);
     }
     if (oldMemoryRequestMib_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(5, oldMemoryRequestMib_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(5, oldMemoryRequestMib_);
     }
     if (oldMemoryLimitMib_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(6, oldMemoryLimitMib_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(6, oldMemoryLimitMib_);
     }
     if (oldPidLimit_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(7, oldPidLimit_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(7, oldPidLimit_);
     }
     if (oldTabBudget_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(8, oldTabBudget_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(8, oldTabBudget_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(newResourceClass_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, newResourceClass_);
     }
     if (newCpuMillis_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(10, newCpuMillis_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(10, newCpuMillis_);
     }
     if (newMemoryRequestMib_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(11, newMemoryRequestMib_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(11, newMemoryRequestMib_);
     }
     if (newMemoryLimitMib_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(12, newMemoryLimitMib_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(12, newMemoryLimitMib_);
     }
     if (newPidLimit_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(13, newPidLimit_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(13, newPidLimit_);
     }
     if (newTabBudget_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(14, newTabBudget_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(14, newTabBudget_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(reason_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(15, reason_);
@@ -1030,92 +1221,88 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(16, operationId_);
     }
     if (((bitField0_ & 0x00000001) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(17, oldStateCollectorBudgetPercent_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(
+              17, oldStateCollectorBudgetPercent_);
     }
     if (((bitField0_ & 0x00000002) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(18, oldRemoteDesktopBitrateKbps_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(18, oldRemoteDesktopBitrateKbps_);
     }
     if (((bitField0_ & 0x00000004) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(19, newStateCollectorBudgetPercent_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(
+              19, newStateCollectorBudgetPercent_);
     }
     if (((bitField0_ & 0x00000008) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(20, newRemoteDesktopBitrateKbps_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(20, newRemoteDesktopBitrateKbps_);
     }
     if (((bitField0_ & 0x00000010) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(21, oldExtensionCpuWeight_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(21, oldExtensionCpuWeight_);
     }
     if (((bitField0_ & 0x00000020) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(22, newExtensionCpuWeight_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(22, newExtensionCpuWeight_);
     }
     if (((bitField0_ & 0x00000040) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(23, oldMediaEncoderSlots_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(23, oldMediaEncoderSlots_);
     }
     if (((bitField0_ & 0x00000080) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(24, newMediaEncoderSlots_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(24, newMediaEncoderSlots_);
     }
     if (((bitField0_ & 0x00000100) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(25, oldFreezeBackgroundTabs_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(25, oldFreezeBackgroundTabs_);
     }
     if (((bitField0_ & 0x00000200) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(26, newFreezeBackgroundTabs_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(26, newFreezeBackgroundTabs_);
     }
     if (((bitField0_ & 0x00000400) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(27, oldBlockNewTabs_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(27, oldBlockNewTabs_);
     }
     if (((bitField0_ & 0x00000800) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(28, newBlockNewTabs_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(28, newBlockNewTabs_);
     }
     if (((bitField0_ & 0x00001000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(29, getOldExtensionBackgroundPolicy());
+      size +=
+          com.google.protobuf.CodedOutputStream.computeMessageSize(
+              29, getOldExtensionBackgroundPolicy());
     }
     if (((bitField0_ & 0x00002000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(30, getNewExtensionBackgroundPolicy());
+      size +=
+          com.google.protobuf.CodedOutputStream.computeMessageSize(
+              30, getNewExtensionBackgroundPolicy());
     }
     if (((bitField0_ & 0x00004000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(31, oldSuccessTraceSamplePercent_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(
+              31, oldSuccessTraceSamplePercent_);
     }
     if (((bitField0_ & 0x00008000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(32, newSuccessTraceSamplePercent_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(
+              32, newSuccessTraceSamplePercent_);
     }
     if (((bitField0_ & 0x00010000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(33, oldObserverFrameRateFps_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(33, oldObserverFrameRateFps_);
     }
     if (((bitField0_ & 0x00020000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(34, newObserverFrameRateFps_);
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(34, newObserverFrameRateFps_);
     }
     if (((bitField0_ & 0x00040000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(35, oldVideoRecordingEnabled_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(35, oldVideoRecordingEnabled_);
     }
     if (((bitField0_ & 0x00080000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(36, newVideoRecordingEnabled_);
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(36, newVideoRecordingEnabled_);
     }
     if (((bitField0_ & 0x00100000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(37, oldSuccessScreenshotSamplePercent_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(
+              37, oldSuccessScreenshotSamplePercent_);
     }
     if (((bitField0_ & 0x00200000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(38, newSuccessScreenshotSamplePercent_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(
+              38, newSuccessScreenshotSamplePercent_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -1125,154 +1312,129 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public boolean equals(final java.lang.Object obj) {
     if (obj == this) {
-     return true;
+      return true;
     }
     if (!(obj instanceof io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent)) {
       return super.equals(obj);
     }
-    io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent other = (io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent) obj;
+    io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent other =
+        (io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent) obj;
 
-    if (!getSessionId()
-        .equals(other.getSessionId())) return false;
-    if (!getNodeId()
-        .equals(other.getNodeId())) return false;
-    if (!getOldResourceClass()
-        .equals(other.getOldResourceClass())) return false;
-    if (getOldCpuMillis()
-        != other.getOldCpuMillis()) return false;
-    if (getOldMemoryRequestMib()
-        != other.getOldMemoryRequestMib()) return false;
-    if (getOldMemoryLimitMib()
-        != other.getOldMemoryLimitMib()) return false;
-    if (getOldPidLimit()
-        != other.getOldPidLimit()) return false;
-    if (getOldTabBudget()
-        != other.getOldTabBudget()) return false;
-    if (!getNewResourceClass()
-        .equals(other.getNewResourceClass())) return false;
-    if (getNewCpuMillis()
-        != other.getNewCpuMillis()) return false;
-    if (getNewMemoryRequestMib()
-        != other.getNewMemoryRequestMib()) return false;
-    if (getNewMemoryLimitMib()
-        != other.getNewMemoryLimitMib()) return false;
-    if (getNewPidLimit()
-        != other.getNewPidLimit()) return false;
-    if (getNewTabBudget()
-        != other.getNewTabBudget()) return false;
-    if (!getReason()
-        .equals(other.getReason())) return false;
-    if (!getOperationId()
-        .equals(other.getOperationId())) return false;
-    if (hasOldStateCollectorBudgetPercent() != other.hasOldStateCollectorBudgetPercent()) return false;
+    if (!getSessionId().equals(other.getSessionId())) return false;
+    if (!getNodeId().equals(other.getNodeId())) return false;
+    if (!getOldResourceClass().equals(other.getOldResourceClass())) return false;
+    if (getOldCpuMillis() != other.getOldCpuMillis()) return false;
+    if (getOldMemoryRequestMib() != other.getOldMemoryRequestMib()) return false;
+    if (getOldMemoryLimitMib() != other.getOldMemoryLimitMib()) return false;
+    if (getOldPidLimit() != other.getOldPidLimit()) return false;
+    if (getOldTabBudget() != other.getOldTabBudget()) return false;
+    if (!getNewResourceClass().equals(other.getNewResourceClass())) return false;
+    if (getNewCpuMillis() != other.getNewCpuMillis()) return false;
+    if (getNewMemoryRequestMib() != other.getNewMemoryRequestMib()) return false;
+    if (getNewMemoryLimitMib() != other.getNewMemoryLimitMib()) return false;
+    if (getNewPidLimit() != other.getNewPidLimit()) return false;
+    if (getNewTabBudget() != other.getNewTabBudget()) return false;
+    if (!getReason().equals(other.getReason())) return false;
+    if (!getOperationId().equals(other.getOperationId())) return false;
+    if (hasOldStateCollectorBudgetPercent() != other.hasOldStateCollectorBudgetPercent())
+      return false;
     if (hasOldStateCollectorBudgetPercent()) {
-      if (getOldStateCollectorBudgetPercent()
-          != other.getOldStateCollectorBudgetPercent()) return false;
+      if (getOldStateCollectorBudgetPercent() != other.getOldStateCollectorBudgetPercent())
+        return false;
     }
     if (hasOldRemoteDesktopBitrateKbps() != other.hasOldRemoteDesktopBitrateKbps()) return false;
     if (hasOldRemoteDesktopBitrateKbps()) {
-      if (getOldRemoteDesktopBitrateKbps()
-          != other.getOldRemoteDesktopBitrateKbps()) return false;
+      if (getOldRemoteDesktopBitrateKbps() != other.getOldRemoteDesktopBitrateKbps()) return false;
     }
-    if (hasNewStateCollectorBudgetPercent() != other.hasNewStateCollectorBudgetPercent()) return false;
+    if (hasNewStateCollectorBudgetPercent() != other.hasNewStateCollectorBudgetPercent())
+      return false;
     if (hasNewStateCollectorBudgetPercent()) {
-      if (getNewStateCollectorBudgetPercent()
-          != other.getNewStateCollectorBudgetPercent()) return false;
+      if (getNewStateCollectorBudgetPercent() != other.getNewStateCollectorBudgetPercent())
+        return false;
     }
     if (hasNewRemoteDesktopBitrateKbps() != other.hasNewRemoteDesktopBitrateKbps()) return false;
     if (hasNewRemoteDesktopBitrateKbps()) {
-      if (getNewRemoteDesktopBitrateKbps()
-          != other.getNewRemoteDesktopBitrateKbps()) return false;
+      if (getNewRemoteDesktopBitrateKbps() != other.getNewRemoteDesktopBitrateKbps()) return false;
     }
     if (hasOldExtensionCpuWeight() != other.hasOldExtensionCpuWeight()) return false;
     if (hasOldExtensionCpuWeight()) {
-      if (getOldExtensionCpuWeight()
-          != other.getOldExtensionCpuWeight()) return false;
+      if (getOldExtensionCpuWeight() != other.getOldExtensionCpuWeight()) return false;
     }
     if (hasNewExtensionCpuWeight() != other.hasNewExtensionCpuWeight()) return false;
     if (hasNewExtensionCpuWeight()) {
-      if (getNewExtensionCpuWeight()
-          != other.getNewExtensionCpuWeight()) return false;
+      if (getNewExtensionCpuWeight() != other.getNewExtensionCpuWeight()) return false;
     }
     if (hasOldMediaEncoderSlots() != other.hasOldMediaEncoderSlots()) return false;
     if (hasOldMediaEncoderSlots()) {
-      if (getOldMediaEncoderSlots()
-          != other.getOldMediaEncoderSlots()) return false;
+      if (getOldMediaEncoderSlots() != other.getOldMediaEncoderSlots()) return false;
     }
     if (hasNewMediaEncoderSlots() != other.hasNewMediaEncoderSlots()) return false;
     if (hasNewMediaEncoderSlots()) {
-      if (getNewMediaEncoderSlots()
-          != other.getNewMediaEncoderSlots()) return false;
+      if (getNewMediaEncoderSlots() != other.getNewMediaEncoderSlots()) return false;
     }
     if (hasOldFreezeBackgroundTabs() != other.hasOldFreezeBackgroundTabs()) return false;
     if (hasOldFreezeBackgroundTabs()) {
-      if (getOldFreezeBackgroundTabs()
-          != other.getOldFreezeBackgroundTabs()) return false;
+      if (getOldFreezeBackgroundTabs() != other.getOldFreezeBackgroundTabs()) return false;
     }
     if (hasNewFreezeBackgroundTabs() != other.hasNewFreezeBackgroundTabs()) return false;
     if (hasNewFreezeBackgroundTabs()) {
-      if (getNewFreezeBackgroundTabs()
-          != other.getNewFreezeBackgroundTabs()) return false;
+      if (getNewFreezeBackgroundTabs() != other.getNewFreezeBackgroundTabs()) return false;
     }
     if (hasOldBlockNewTabs() != other.hasOldBlockNewTabs()) return false;
     if (hasOldBlockNewTabs()) {
-      if (getOldBlockNewTabs()
-          != other.getOldBlockNewTabs()) return false;
+      if (getOldBlockNewTabs() != other.getOldBlockNewTabs()) return false;
     }
     if (hasNewBlockNewTabs() != other.hasNewBlockNewTabs()) return false;
     if (hasNewBlockNewTabs()) {
-      if (getNewBlockNewTabs()
-          != other.getNewBlockNewTabs()) return false;
+      if (getNewBlockNewTabs() != other.getNewBlockNewTabs()) return false;
     }
     if (hasOldExtensionBackgroundPolicy() != other.hasOldExtensionBackgroundPolicy()) return false;
     if (hasOldExtensionBackgroundPolicy()) {
-      if (!getOldExtensionBackgroundPolicy()
-          .equals(other.getOldExtensionBackgroundPolicy())) return false;
+      if (!getOldExtensionBackgroundPolicy().equals(other.getOldExtensionBackgroundPolicy()))
+        return false;
     }
     if (hasNewExtensionBackgroundPolicy() != other.hasNewExtensionBackgroundPolicy()) return false;
     if (hasNewExtensionBackgroundPolicy()) {
-      if (!getNewExtensionBackgroundPolicy()
-          .equals(other.getNewExtensionBackgroundPolicy())) return false;
+      if (!getNewExtensionBackgroundPolicy().equals(other.getNewExtensionBackgroundPolicy()))
+        return false;
     }
     if (hasOldSuccessTraceSamplePercent() != other.hasOldSuccessTraceSamplePercent()) return false;
     if (hasOldSuccessTraceSamplePercent()) {
-      if (getOldSuccessTraceSamplePercent()
-          != other.getOldSuccessTraceSamplePercent()) return false;
+      if (getOldSuccessTraceSamplePercent() != other.getOldSuccessTraceSamplePercent())
+        return false;
     }
     if (hasNewSuccessTraceSamplePercent() != other.hasNewSuccessTraceSamplePercent()) return false;
     if (hasNewSuccessTraceSamplePercent()) {
-      if (getNewSuccessTraceSamplePercent()
-          != other.getNewSuccessTraceSamplePercent()) return false;
+      if (getNewSuccessTraceSamplePercent() != other.getNewSuccessTraceSamplePercent())
+        return false;
     }
     if (hasOldObserverFrameRateFps() != other.hasOldObserverFrameRateFps()) return false;
     if (hasOldObserverFrameRateFps()) {
-      if (getOldObserverFrameRateFps()
-          != other.getOldObserverFrameRateFps()) return false;
+      if (getOldObserverFrameRateFps() != other.getOldObserverFrameRateFps()) return false;
     }
     if (hasNewObserverFrameRateFps() != other.hasNewObserverFrameRateFps()) return false;
     if (hasNewObserverFrameRateFps()) {
-      if (getNewObserverFrameRateFps()
-          != other.getNewObserverFrameRateFps()) return false;
+      if (getNewObserverFrameRateFps() != other.getNewObserverFrameRateFps()) return false;
     }
     if (hasOldVideoRecordingEnabled() != other.hasOldVideoRecordingEnabled()) return false;
     if (hasOldVideoRecordingEnabled()) {
-      if (getOldVideoRecordingEnabled()
-          != other.getOldVideoRecordingEnabled()) return false;
+      if (getOldVideoRecordingEnabled() != other.getOldVideoRecordingEnabled()) return false;
     }
     if (hasNewVideoRecordingEnabled() != other.hasNewVideoRecordingEnabled()) return false;
     if (hasNewVideoRecordingEnabled()) {
-      if (getNewVideoRecordingEnabled()
-          != other.getNewVideoRecordingEnabled()) return false;
+      if (getNewVideoRecordingEnabled() != other.getNewVideoRecordingEnabled()) return false;
     }
-    if (hasOldSuccessScreenshotSamplePercent() != other.hasOldSuccessScreenshotSamplePercent()) return false;
+    if (hasOldSuccessScreenshotSamplePercent() != other.hasOldSuccessScreenshotSamplePercent())
+      return false;
     if (hasOldSuccessScreenshotSamplePercent()) {
-      if (getOldSuccessScreenshotSamplePercent()
-          != other.getOldSuccessScreenshotSamplePercent()) return false;
+      if (getOldSuccessScreenshotSamplePercent() != other.getOldSuccessScreenshotSamplePercent())
+        return false;
     }
-    if (hasNewSuccessScreenshotSamplePercent() != other.hasNewSuccessScreenshotSamplePercent()) return false;
+    if (hasNewSuccessScreenshotSamplePercent() != other.hasNewSuccessScreenshotSamplePercent())
+      return false;
     if (hasNewSuccessScreenshotSamplePercent()) {
-      if (getNewSuccessScreenshotSamplePercent()
-          != other.getNewSuccessScreenshotSamplePercent()) return false;
+      if (getNewSuccessScreenshotSamplePercent() != other.getNewSuccessScreenshotSamplePercent())
+        return false;
     }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
@@ -1351,23 +1513,19 @@ private static final long serialVersionUID = 0L;
     }
     if (hasOldFreezeBackgroundTabs()) {
       hash = (37 * hash) + OLD_FREEZE_BACKGROUND_TABS_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-          getOldFreezeBackgroundTabs());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getOldFreezeBackgroundTabs());
     }
     if (hasNewFreezeBackgroundTabs()) {
       hash = (37 * hash) + NEW_FREEZE_BACKGROUND_TABS_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-          getNewFreezeBackgroundTabs());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getNewFreezeBackgroundTabs());
     }
     if (hasOldBlockNewTabs()) {
       hash = (37 * hash) + OLD_BLOCK_NEW_TABS_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-          getOldBlockNewTabs());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getOldBlockNewTabs());
     }
     if (hasNewBlockNewTabs()) {
       hash = (37 * hash) + NEW_BLOCK_NEW_TABS_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-          getNewBlockNewTabs());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getNewBlockNewTabs());
     }
     if (hasOldExtensionBackgroundPolicy()) {
       hash = (37 * hash) + OLD_EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER;
@@ -1395,13 +1553,11 @@ private static final long serialVersionUID = 0L;
     }
     if (hasOldVideoRecordingEnabled()) {
       hash = (37 * hash) + OLD_VIDEO_RECORDING_ENABLED_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-          getOldVideoRecordingEnabled());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getOldVideoRecordingEnabled());
     }
     if (hasNewVideoRecordingEnabled()) {
       hash = (37 * hash) + NEW_VIDEO_RECORDING_ENABLED_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-          getNewVideoRecordingEnabled());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getNewVideoRecordingEnabled());
     }
     if (hasOldSuccessScreenshotSamplePercent()) {
       hash = (37 * hash) + OLD_SUCCESS_SCREENSHOT_SAMPLE_PERCENT_FIELD_NUMBER;
@@ -1417,119 +1573,128 @@ private static final long serialVersionUID = 0L;
   }
 
   public static io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent parseFrom(
-      java.nio.ByteBuffer data)
-      throws com.google.protobuf.InvalidProtocolBufferException {
+      java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent parseFrom(
-      java.nio.ByteBuffer data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
+
   public static io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
+
   public static io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent parseFrom(
-      byte[] data,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent parseFrom(java.io.InputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
-  }
+
   public static io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent parseFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent parseDelimitedFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent parseFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   public static io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent parseDelimitedFrom(
-      java.io.InputStream input,
-      com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      java.io.InputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
   }
+
+  public static io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent parseDelimitedFrom(
+      java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+      throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
+        PARSER, input, extensionRegistry);
+  }
+
   public static io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent parseFrom(
-      com.google.protobuf.CodedInputStream input)
-      throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input);
+      com.google.protobuf.CodedInputStream input) throws java.io.IOException {
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
+
   public static io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
-    return com.google.protobuf.GeneratedMessageV3
-        .parseWithIOException(PARSER, input, extensionRegistry);
+    return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
+        PARSER, input, extensionRegistry);
   }
 
   @java.lang.Override
-  public Builder newBuilderForType() { return newBuilder(); }
+  public Builder newBuilderForType() {
+    return newBuilder();
+  }
+
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent prototype) {
+
+  public static Builder newBuilder(
+      io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-  }
-  @java.lang.Override
-  public Builder toBuilder() {
-    return this == DEFAULT_INSTANCE
-        ? new Builder() : new Builder().mergeFrom(this);
   }
 
   @java.lang.Override
-  protected Builder newBuilderForType(
-      com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+  public Builder toBuilder() {
+    return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
+  }
+
+  @java.lang.Override
+  protected Builder newBuilderForType(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
     Builder builder = new Builder(parent);
     return builder;
   }
+
   /**
+   *
+   *
    * <pre>
    * Node 完成 cgroup 调整后返回的权威确认；Control Plane 收到前不得更新当前分配。
    * </pre>
    *
    * Protobuf type {@code browsercloud.node.v1.RuntimeResourcesAdjustedEvent}
    */
-  public static final class Builder extends
-      com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+  public static final class Builder extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
+      implements
       // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.RuntimeResourcesAdjustedEvent)
       io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEventOrBuilder {
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_fieldAccessorTable
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent.class, io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent.Builder.class);
+              io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent.class,
+              io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent.Builder.class);
     }
 
     // Construct using io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent.newBuilder()
@@ -1537,18 +1702,18 @@ private static final long serialVersionUID = 0L;
       maybeForceBuilderInitialization();
     }
 
-    private Builder(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+    private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
       maybeForceBuilderInitialization();
     }
+
     private void maybeForceBuilderInitialization() {
-      if (com.google.protobuf.GeneratedMessageV3
-              .alwaysUseFieldBuilders) {
+      if (com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders) {
         getOldExtensionBackgroundPolicyFieldBuilder();
         getNewExtensionBackgroundPolicyFieldBuilder();
       }
     }
+
     @java.lang.Override
     public Builder clear() {
       super.clear();
@@ -1604,9 +1769,9 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Descriptors.Descriptor
-        getDescriptorForType() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_descriptor;
+    public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+      return io.browsercloud.proto.node.v1.NodeCommand
+          .internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_descriptor;
     }
 
     @java.lang.Override
@@ -1625,9 +1790,14 @@ private static final long serialVersionUID = 0L;
 
     @java.lang.Override
     public io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent buildPartial() {
-      io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent result = new io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent(this);
-      if (bitField0_ != 0) { buildPartial0(result); }
-      if (bitField1_ != 0) { buildPartial1(result); }
+      io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent result =
+          new io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent(this);
+      if (bitField0_ != 0) {
+        buildPartial0(result);
+      }
+      if (bitField1_ != 0) {
+        buildPartial1(result);
+      }
       onBuilt();
       return result;
     }
@@ -1732,15 +1902,17 @@ private static final long serialVersionUID = 0L;
         to_bitField0_ |= 0x00000800;
       }
       if (((from_bitField0_ & 0x10000000) != 0)) {
-        result.oldExtensionBackgroundPolicy_ = oldExtensionBackgroundPolicyBuilder_ == null
-            ? oldExtensionBackgroundPolicy_
-            : oldExtensionBackgroundPolicyBuilder_.build();
+        result.oldExtensionBackgroundPolicy_ =
+            oldExtensionBackgroundPolicyBuilder_ == null
+                ? oldExtensionBackgroundPolicy_
+                : oldExtensionBackgroundPolicyBuilder_.build();
         to_bitField0_ |= 0x00001000;
       }
       if (((from_bitField0_ & 0x20000000) != 0)) {
-        result.newExtensionBackgroundPolicy_ = newExtensionBackgroundPolicyBuilder_ == null
-            ? newExtensionBackgroundPolicy_
-            : newExtensionBackgroundPolicyBuilder_.build();
+        result.newExtensionBackgroundPolicy_ =
+            newExtensionBackgroundPolicyBuilder_ == null
+                ? newExtensionBackgroundPolicy_
+                : newExtensionBackgroundPolicyBuilder_.build();
         to_bitField0_ |= 0x00002000;
       }
       if (((from_bitField0_ & 0x40000000) != 0)) {
@@ -1788,38 +1960,39 @@ private static final long serialVersionUID = 0L;
     public Builder clone() {
       return super.clone();
     }
+
     @java.lang.Override
     public Builder setField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.setField(field, value);
     }
+
     @java.lang.Override
-    public Builder clearField(
-        com.google.protobuf.Descriptors.FieldDescriptor field) {
+    public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
       return super.clearField(field);
     }
+
     @java.lang.Override
-    public Builder clearOneof(
-        com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+    public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
       return super.clearOneof(oneof);
     }
+
     @java.lang.Override
     public Builder setRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        int index, java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, int index, java.lang.Object value) {
       return super.setRepeatedField(field, index, value);
     }
+
     @java.lang.Override
     public Builder addRepeatedField(
-        com.google.protobuf.Descriptors.FieldDescriptor field,
-        java.lang.Object value) {
+        com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
       return super.addRepeatedField(field, value);
     }
+
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent) {
-        return mergeFrom((io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent)other);
+        return mergeFrom((io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent) other);
       } else {
         super.mergeFrom(other);
         return this;
@@ -1827,7 +2000,8 @@ private static final long serialVersionUID = 0L;
     }
 
     public Builder mergeFrom(io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent other) {
-      if (other == io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent.getDefaultInstance()) return this;
+      if (other == io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent.getDefaultInstance())
+        return this;
       if (!other.getSessionId().isEmpty()) {
         sessionId_ = other.sessionId_;
         bitField0_ |= 0x00000001;
@@ -1980,206 +2154,243 @@ private static final long serialVersionUID = 0L;
             case 0:
               done = true;
               break;
-            case 10: {
-              sessionId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000001;
-              break;
-            } // case 10
-            case 18: {
-              nodeId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000002;
-              break;
-            } // case 18
-            case 26: {
-              oldResourceClass_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000004;
-              break;
-            } // case 26
-            case 32: {
-              oldCpuMillis_ = input.readUInt32();
-              bitField0_ |= 0x00000008;
-              break;
-            } // case 32
-            case 40: {
-              oldMemoryRequestMib_ = input.readUInt32();
-              bitField0_ |= 0x00000010;
-              break;
-            } // case 40
-            case 48: {
-              oldMemoryLimitMib_ = input.readUInt32();
-              bitField0_ |= 0x00000020;
-              break;
-            } // case 48
-            case 56: {
-              oldPidLimit_ = input.readUInt32();
-              bitField0_ |= 0x00000040;
-              break;
-            } // case 56
-            case 64: {
-              oldTabBudget_ = input.readUInt32();
-              bitField0_ |= 0x00000080;
-              break;
-            } // case 64
-            case 74: {
-              newResourceClass_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000100;
-              break;
-            } // case 74
-            case 80: {
-              newCpuMillis_ = input.readUInt32();
-              bitField0_ |= 0x00000200;
-              break;
-            } // case 80
-            case 88: {
-              newMemoryRequestMib_ = input.readUInt32();
-              bitField0_ |= 0x00000400;
-              break;
-            } // case 88
-            case 96: {
-              newMemoryLimitMib_ = input.readUInt32();
-              bitField0_ |= 0x00000800;
-              break;
-            } // case 96
-            case 104: {
-              newPidLimit_ = input.readUInt32();
-              bitField0_ |= 0x00001000;
-              break;
-            } // case 104
-            case 112: {
-              newTabBudget_ = input.readUInt32();
-              bitField0_ |= 0x00002000;
-              break;
-            } // case 112
-            case 122: {
-              reason_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00004000;
-              break;
-            } // case 122
-            case 130: {
-              operationId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00008000;
-              break;
-            } // case 130
-            case 136: {
-              oldStateCollectorBudgetPercent_ = input.readUInt32();
-              bitField0_ |= 0x00010000;
-              break;
-            } // case 136
-            case 144: {
-              oldRemoteDesktopBitrateKbps_ = input.readUInt32();
-              bitField0_ |= 0x00020000;
-              break;
-            } // case 144
-            case 152: {
-              newStateCollectorBudgetPercent_ = input.readUInt32();
-              bitField0_ |= 0x00040000;
-              break;
-            } // case 152
-            case 160: {
-              newRemoteDesktopBitrateKbps_ = input.readUInt32();
-              bitField0_ |= 0x00080000;
-              break;
-            } // case 160
-            case 168: {
-              oldExtensionCpuWeight_ = input.readUInt32();
-              bitField0_ |= 0x00100000;
-              break;
-            } // case 168
-            case 176: {
-              newExtensionCpuWeight_ = input.readUInt32();
-              bitField0_ |= 0x00200000;
-              break;
-            } // case 176
-            case 184: {
-              oldMediaEncoderSlots_ = input.readUInt32();
-              bitField0_ |= 0x00400000;
-              break;
-            } // case 184
-            case 192: {
-              newMediaEncoderSlots_ = input.readUInt32();
-              bitField0_ |= 0x00800000;
-              break;
-            } // case 192
-            case 200: {
-              oldFreezeBackgroundTabs_ = input.readBool();
-              bitField0_ |= 0x01000000;
-              break;
-            } // case 200
-            case 208: {
-              newFreezeBackgroundTabs_ = input.readBool();
-              bitField0_ |= 0x02000000;
-              break;
-            } // case 208
-            case 216: {
-              oldBlockNewTabs_ = input.readBool();
-              bitField0_ |= 0x04000000;
-              break;
-            } // case 216
-            case 224: {
-              newBlockNewTabs_ = input.readBool();
-              bitField0_ |= 0x08000000;
-              break;
-            } // case 224
-            case 234: {
-              input.readMessage(
-                  getOldExtensionBackgroundPolicyFieldBuilder().getBuilder(),
-                  extensionRegistry);
-              bitField0_ |= 0x10000000;
-              break;
-            } // case 234
-            case 242: {
-              input.readMessage(
-                  getNewExtensionBackgroundPolicyFieldBuilder().getBuilder(),
-                  extensionRegistry);
-              bitField0_ |= 0x20000000;
-              break;
-            } // case 242
-            case 248: {
-              oldSuccessTraceSamplePercent_ = input.readUInt32();
-              bitField0_ |= 0x40000000;
-              break;
-            } // case 248
-            case 256: {
-              newSuccessTraceSamplePercent_ = input.readUInt32();
-              bitField0_ |= 0x80000000;
-              break;
-            } // case 256
-            case 264: {
-              oldObserverFrameRateFps_ = input.readUInt32();
-              bitField1_ |= 0x00000001;
-              break;
-            } // case 264
-            case 272: {
-              newObserverFrameRateFps_ = input.readUInt32();
-              bitField1_ |= 0x00000002;
-              break;
-            } // case 272
-            case 280: {
-              oldVideoRecordingEnabled_ = input.readBool();
-              bitField1_ |= 0x00000004;
-              break;
-            } // case 280
-            case 288: {
-              newVideoRecordingEnabled_ = input.readBool();
-              bitField1_ |= 0x00000008;
-              break;
-            } // case 288
-            case 296: {
-              oldSuccessScreenshotSamplePercent_ = input.readUInt32();
-              bitField1_ |= 0x00000010;
-              break;
-            } // case 296
-            case 304: {
-              newSuccessScreenshotSamplePercent_ = input.readUInt32();
-              bitField1_ |= 0x00000020;
-              break;
-            } // case 304
-            default: {
-              if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                done = true; // was an endgroup tag
-              }
-              break;
-            } // default:
+            case 10:
+              {
+                sessionId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000001;
+                break;
+              } // case 10
+            case 18:
+              {
+                nodeId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000002;
+                break;
+              } // case 18
+            case 26:
+              {
+                oldResourceClass_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000004;
+                break;
+              } // case 26
+            case 32:
+              {
+                oldCpuMillis_ = input.readUInt32();
+                bitField0_ |= 0x00000008;
+                break;
+              } // case 32
+            case 40:
+              {
+                oldMemoryRequestMib_ = input.readUInt32();
+                bitField0_ |= 0x00000010;
+                break;
+              } // case 40
+            case 48:
+              {
+                oldMemoryLimitMib_ = input.readUInt32();
+                bitField0_ |= 0x00000020;
+                break;
+              } // case 48
+            case 56:
+              {
+                oldPidLimit_ = input.readUInt32();
+                bitField0_ |= 0x00000040;
+                break;
+              } // case 56
+            case 64:
+              {
+                oldTabBudget_ = input.readUInt32();
+                bitField0_ |= 0x00000080;
+                break;
+              } // case 64
+            case 74:
+              {
+                newResourceClass_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000100;
+                break;
+              } // case 74
+            case 80:
+              {
+                newCpuMillis_ = input.readUInt32();
+                bitField0_ |= 0x00000200;
+                break;
+              } // case 80
+            case 88:
+              {
+                newMemoryRequestMib_ = input.readUInt32();
+                bitField0_ |= 0x00000400;
+                break;
+              } // case 88
+            case 96:
+              {
+                newMemoryLimitMib_ = input.readUInt32();
+                bitField0_ |= 0x00000800;
+                break;
+              } // case 96
+            case 104:
+              {
+                newPidLimit_ = input.readUInt32();
+                bitField0_ |= 0x00001000;
+                break;
+              } // case 104
+            case 112:
+              {
+                newTabBudget_ = input.readUInt32();
+                bitField0_ |= 0x00002000;
+                break;
+              } // case 112
+            case 122:
+              {
+                reason_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00004000;
+                break;
+              } // case 122
+            case 130:
+              {
+                operationId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00008000;
+                break;
+              } // case 130
+            case 136:
+              {
+                oldStateCollectorBudgetPercent_ = input.readUInt32();
+                bitField0_ |= 0x00010000;
+                break;
+              } // case 136
+            case 144:
+              {
+                oldRemoteDesktopBitrateKbps_ = input.readUInt32();
+                bitField0_ |= 0x00020000;
+                break;
+              } // case 144
+            case 152:
+              {
+                newStateCollectorBudgetPercent_ = input.readUInt32();
+                bitField0_ |= 0x00040000;
+                break;
+              } // case 152
+            case 160:
+              {
+                newRemoteDesktopBitrateKbps_ = input.readUInt32();
+                bitField0_ |= 0x00080000;
+                break;
+              } // case 160
+            case 168:
+              {
+                oldExtensionCpuWeight_ = input.readUInt32();
+                bitField0_ |= 0x00100000;
+                break;
+              } // case 168
+            case 176:
+              {
+                newExtensionCpuWeight_ = input.readUInt32();
+                bitField0_ |= 0x00200000;
+                break;
+              } // case 176
+            case 184:
+              {
+                oldMediaEncoderSlots_ = input.readUInt32();
+                bitField0_ |= 0x00400000;
+                break;
+              } // case 184
+            case 192:
+              {
+                newMediaEncoderSlots_ = input.readUInt32();
+                bitField0_ |= 0x00800000;
+                break;
+              } // case 192
+            case 200:
+              {
+                oldFreezeBackgroundTabs_ = input.readBool();
+                bitField0_ |= 0x01000000;
+                break;
+              } // case 200
+            case 208:
+              {
+                newFreezeBackgroundTabs_ = input.readBool();
+                bitField0_ |= 0x02000000;
+                break;
+              } // case 208
+            case 216:
+              {
+                oldBlockNewTabs_ = input.readBool();
+                bitField0_ |= 0x04000000;
+                break;
+              } // case 216
+            case 224:
+              {
+                newBlockNewTabs_ = input.readBool();
+                bitField0_ |= 0x08000000;
+                break;
+              } // case 224
+            case 234:
+              {
+                input.readMessage(
+                    getOldExtensionBackgroundPolicyFieldBuilder().getBuilder(), extensionRegistry);
+                bitField0_ |= 0x10000000;
+                break;
+              } // case 234
+            case 242:
+              {
+                input.readMessage(
+                    getNewExtensionBackgroundPolicyFieldBuilder().getBuilder(), extensionRegistry);
+                bitField0_ |= 0x20000000;
+                break;
+              } // case 242
+            case 248:
+              {
+                oldSuccessTraceSamplePercent_ = input.readUInt32();
+                bitField0_ |= 0x40000000;
+                break;
+              } // case 248
+            case 256:
+              {
+                newSuccessTraceSamplePercent_ = input.readUInt32();
+                bitField0_ |= 0x80000000;
+                break;
+              } // case 256
+            case 264:
+              {
+                oldObserverFrameRateFps_ = input.readUInt32();
+                bitField1_ |= 0x00000001;
+                break;
+              } // case 264
+            case 272:
+              {
+                newObserverFrameRateFps_ = input.readUInt32();
+                bitField1_ |= 0x00000002;
+                break;
+              } // case 272
+            case 280:
+              {
+                oldVideoRecordingEnabled_ = input.readBool();
+                bitField1_ |= 0x00000004;
+                break;
+              } // case 280
+            case 288:
+              {
+                newVideoRecordingEnabled_ = input.readBool();
+                bitField1_ |= 0x00000008;
+                break;
+              } // case 288
+            case 296:
+              {
+                oldSuccessScreenshotSamplePercent_ = input.readUInt32();
+                bitField1_ |= 0x00000010;
+                break;
+              } // case 296
+            case 304:
+              {
+                newSuccessScreenshotSamplePercent_ = input.readUInt32();
+                bitField1_ |= 0x00000020;
+                break;
+              } // case 304
+            default:
+              {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
           } // switch (tag)
         } // while (!done)
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -2189,19 +2400,21 @@ private static final long serialVersionUID = 0L;
       } // finally
       return this;
     }
+
     private int bitField0_;
     private int bitField1_;
 
     private java.lang.Object sessionId_ = "";
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return The sessionId.
      */
     public java.lang.String getSessionId() {
       java.lang.Object ref = sessionId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         sessionId_ = s;
         return s;
@@ -2209,38 +2422,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return The bytes for sessionId.
      */
-    public com.google.protobuf.ByteString
-        getSessionIdBytes() {
+    public com.google.protobuf.ByteString getSessionIdBytes() {
       java.lang.Object ref = sessionId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         sessionId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @param value The sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setSessionId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSessionId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       sessionId_ = value;
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearSessionId() {
@@ -2249,14 +2467,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string session_id = 1 [json_name = "sessionId"];</code>
+     *
      * @param value The bytes for sessionId to set.
      * @return This builder for chaining.
      */
-    public Builder setSessionIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setSessionIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       sessionId_ = value;
       bitField0_ |= 0x00000001;
@@ -2265,15 +2486,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object nodeId_ = "";
+
     /**
      * <code>string node_id = 2 [json_name = "nodeId"];</code>
+     *
      * @return The nodeId.
      */
     public java.lang.String getNodeId() {
       java.lang.Object ref = nodeId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         nodeId_ = s;
         return s;
@@ -2281,38 +2503,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string node_id = 2 [json_name = "nodeId"];</code>
+     *
      * @return The bytes for nodeId.
      */
-    public com.google.protobuf.ByteString
-        getNodeIdBytes() {
+    public com.google.protobuf.ByteString getNodeIdBytes() {
       java.lang.Object ref = nodeId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         nodeId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string node_id = 2 [json_name = "nodeId"];</code>
+     *
      * @param value The nodeId to set.
      * @return This builder for chaining.
      */
-    public Builder setNodeId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setNodeId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       nodeId_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
+
     /**
      * <code>string node_id = 2 [json_name = "nodeId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNodeId() {
@@ -2321,14 +2548,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string node_id = 2 [json_name = "nodeId"];</code>
+     *
      * @param value The bytes for nodeId to set.
      * @return This builder for chaining.
      */
-    public Builder setNodeIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setNodeIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       nodeId_ = value;
       bitField0_ |= 0x00000002;
@@ -2337,15 +2567,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object oldResourceClass_ = "";
+
     /**
      * <code>string old_resource_class = 3 [json_name = "oldResourceClass"];</code>
+     *
      * @return The oldResourceClass.
      */
     public java.lang.String getOldResourceClass() {
       java.lang.Object ref = oldResourceClass_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         oldResourceClass_ = s;
         return s;
@@ -2353,38 +2584,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string old_resource_class = 3 [json_name = "oldResourceClass"];</code>
+     *
      * @return The bytes for oldResourceClass.
      */
-    public com.google.protobuf.ByteString
-        getOldResourceClassBytes() {
+    public com.google.protobuf.ByteString getOldResourceClassBytes() {
       java.lang.Object ref = oldResourceClass_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         oldResourceClass_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string old_resource_class = 3 [json_name = "oldResourceClass"];</code>
+     *
      * @param value The oldResourceClass to set.
      * @return This builder for chaining.
      */
-    public Builder setOldResourceClass(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setOldResourceClass(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       oldResourceClass_ = value;
       bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
+
     /**
      * <code>string old_resource_class = 3 [json_name = "oldResourceClass"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOldResourceClass() {
@@ -2393,14 +2629,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string old_resource_class = 3 [json_name = "oldResourceClass"];</code>
+     *
      * @param value The bytes for oldResourceClass to set.
      * @return This builder for chaining.
      */
-    public Builder setOldResourceClassBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setOldResourceClassBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       oldResourceClass_ = value;
       bitField0_ |= 0x00000004;
@@ -2408,17 +2647,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int oldCpuMillis_ ;
+    private int oldCpuMillis_;
+
     /**
      * <code>uint32 old_cpu_millis = 4 [json_name = "oldCpuMillis"];</code>
+     *
      * @return The oldCpuMillis.
      */
     @java.lang.Override
     public int getOldCpuMillis() {
       return oldCpuMillis_;
     }
+
     /**
      * <code>uint32 old_cpu_millis = 4 [json_name = "oldCpuMillis"];</code>
+     *
      * @param value The oldCpuMillis to set.
      * @return This builder for chaining.
      */
@@ -2429,8 +2672,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 old_cpu_millis = 4 [json_name = "oldCpuMillis"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOldCpuMillis() {
@@ -2440,17 +2685,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int oldMemoryRequestMib_ ;
+    private int oldMemoryRequestMib_;
+
     /**
      * <code>uint32 old_memory_request_mib = 5 [json_name = "oldMemoryRequestMib"];</code>
+     *
      * @return The oldMemoryRequestMib.
      */
     @java.lang.Override
     public int getOldMemoryRequestMib() {
       return oldMemoryRequestMib_;
     }
+
     /**
      * <code>uint32 old_memory_request_mib = 5 [json_name = "oldMemoryRequestMib"];</code>
+     *
      * @param value The oldMemoryRequestMib to set.
      * @return This builder for chaining.
      */
@@ -2461,8 +2710,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 old_memory_request_mib = 5 [json_name = "oldMemoryRequestMib"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOldMemoryRequestMib() {
@@ -2472,17 +2723,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int oldMemoryLimitMib_ ;
+    private int oldMemoryLimitMib_;
+
     /**
      * <code>uint32 old_memory_limit_mib = 6 [json_name = "oldMemoryLimitMib"];</code>
+     *
      * @return The oldMemoryLimitMib.
      */
     @java.lang.Override
     public int getOldMemoryLimitMib() {
       return oldMemoryLimitMib_;
     }
+
     /**
      * <code>uint32 old_memory_limit_mib = 6 [json_name = "oldMemoryLimitMib"];</code>
+     *
      * @param value The oldMemoryLimitMib to set.
      * @return This builder for chaining.
      */
@@ -2493,8 +2748,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 old_memory_limit_mib = 6 [json_name = "oldMemoryLimitMib"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOldMemoryLimitMib() {
@@ -2504,17 +2761,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int oldPidLimit_ ;
+    private int oldPidLimit_;
+
     /**
      * <code>uint32 old_pid_limit = 7 [json_name = "oldPidLimit"];</code>
+     *
      * @return The oldPidLimit.
      */
     @java.lang.Override
     public int getOldPidLimit() {
       return oldPidLimit_;
     }
+
     /**
      * <code>uint32 old_pid_limit = 7 [json_name = "oldPidLimit"];</code>
+     *
      * @param value The oldPidLimit to set.
      * @return This builder for chaining.
      */
@@ -2525,8 +2786,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 old_pid_limit = 7 [json_name = "oldPidLimit"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOldPidLimit() {
@@ -2536,17 +2799,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int oldTabBudget_ ;
+    private int oldTabBudget_;
+
     /**
      * <code>uint32 old_tab_budget = 8 [json_name = "oldTabBudget"];</code>
+     *
      * @return The oldTabBudget.
      */
     @java.lang.Override
     public int getOldTabBudget() {
       return oldTabBudget_;
     }
+
     /**
      * <code>uint32 old_tab_budget = 8 [json_name = "oldTabBudget"];</code>
+     *
      * @param value The oldTabBudget to set.
      * @return This builder for chaining.
      */
@@ -2557,8 +2824,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 old_tab_budget = 8 [json_name = "oldTabBudget"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOldTabBudget() {
@@ -2569,15 +2838,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object newResourceClass_ = "";
+
     /**
      * <code>string new_resource_class = 9 [json_name = "newResourceClass"];</code>
+     *
      * @return The newResourceClass.
      */
     public java.lang.String getNewResourceClass() {
       java.lang.Object ref = newResourceClass_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         newResourceClass_ = s;
         return s;
@@ -2585,38 +2855,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string new_resource_class = 9 [json_name = "newResourceClass"];</code>
+     *
      * @return The bytes for newResourceClass.
      */
-    public com.google.protobuf.ByteString
-        getNewResourceClassBytes() {
+    public com.google.protobuf.ByteString getNewResourceClassBytes() {
       java.lang.Object ref = newResourceClass_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         newResourceClass_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string new_resource_class = 9 [json_name = "newResourceClass"];</code>
+     *
      * @param value The newResourceClass to set.
      * @return This builder for chaining.
      */
-    public Builder setNewResourceClass(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setNewResourceClass(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       newResourceClass_ = value;
       bitField0_ |= 0x00000100;
       onChanged();
       return this;
     }
+
     /**
      * <code>string new_resource_class = 9 [json_name = "newResourceClass"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNewResourceClass() {
@@ -2625,14 +2900,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string new_resource_class = 9 [json_name = "newResourceClass"];</code>
+     *
      * @param value The bytes for newResourceClass to set.
      * @return This builder for chaining.
      */
-    public Builder setNewResourceClassBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setNewResourceClassBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       newResourceClass_ = value;
       bitField0_ |= 0x00000100;
@@ -2640,17 +2918,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int newCpuMillis_ ;
+    private int newCpuMillis_;
+
     /**
      * <code>uint32 new_cpu_millis = 10 [json_name = "newCpuMillis"];</code>
+     *
      * @return The newCpuMillis.
      */
     @java.lang.Override
     public int getNewCpuMillis() {
       return newCpuMillis_;
     }
+
     /**
      * <code>uint32 new_cpu_millis = 10 [json_name = "newCpuMillis"];</code>
+     *
      * @param value The newCpuMillis to set.
      * @return This builder for chaining.
      */
@@ -2661,8 +2943,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 new_cpu_millis = 10 [json_name = "newCpuMillis"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNewCpuMillis() {
@@ -2672,17 +2956,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int newMemoryRequestMib_ ;
+    private int newMemoryRequestMib_;
+
     /**
      * <code>uint32 new_memory_request_mib = 11 [json_name = "newMemoryRequestMib"];</code>
+     *
      * @return The newMemoryRequestMib.
      */
     @java.lang.Override
     public int getNewMemoryRequestMib() {
       return newMemoryRequestMib_;
     }
+
     /**
      * <code>uint32 new_memory_request_mib = 11 [json_name = "newMemoryRequestMib"];</code>
+     *
      * @param value The newMemoryRequestMib to set.
      * @return This builder for chaining.
      */
@@ -2693,8 +2981,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 new_memory_request_mib = 11 [json_name = "newMemoryRequestMib"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNewMemoryRequestMib() {
@@ -2704,17 +2994,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int newMemoryLimitMib_ ;
+    private int newMemoryLimitMib_;
+
     /**
      * <code>uint32 new_memory_limit_mib = 12 [json_name = "newMemoryLimitMib"];</code>
+     *
      * @return The newMemoryLimitMib.
      */
     @java.lang.Override
     public int getNewMemoryLimitMib() {
       return newMemoryLimitMib_;
     }
+
     /**
      * <code>uint32 new_memory_limit_mib = 12 [json_name = "newMemoryLimitMib"];</code>
+     *
      * @param value The newMemoryLimitMib to set.
      * @return This builder for chaining.
      */
@@ -2725,8 +3019,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 new_memory_limit_mib = 12 [json_name = "newMemoryLimitMib"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNewMemoryLimitMib() {
@@ -2736,17 +3032,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int newPidLimit_ ;
+    private int newPidLimit_;
+
     /**
      * <code>uint32 new_pid_limit = 13 [json_name = "newPidLimit"];</code>
+     *
      * @return The newPidLimit.
      */
     @java.lang.Override
     public int getNewPidLimit() {
       return newPidLimit_;
     }
+
     /**
      * <code>uint32 new_pid_limit = 13 [json_name = "newPidLimit"];</code>
+     *
      * @param value The newPidLimit to set.
      * @return This builder for chaining.
      */
@@ -2757,8 +3057,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 new_pid_limit = 13 [json_name = "newPidLimit"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNewPidLimit() {
@@ -2768,17 +3070,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int newTabBudget_ ;
+    private int newTabBudget_;
+
     /**
      * <code>uint32 new_tab_budget = 14 [json_name = "newTabBudget"];</code>
+     *
      * @return The newTabBudget.
      */
     @java.lang.Override
     public int getNewTabBudget() {
       return newTabBudget_;
     }
+
     /**
      * <code>uint32 new_tab_budget = 14 [json_name = "newTabBudget"];</code>
+     *
      * @param value The newTabBudget to set.
      * @return This builder for chaining.
      */
@@ -2789,8 +3095,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>uint32 new_tab_budget = 14 [json_name = "newTabBudget"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNewTabBudget() {
@@ -2801,15 +3109,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object reason_ = "";
+
     /**
      * <code>string reason = 15 [json_name = "reason"];</code>
+     *
      * @return The reason.
      */
     public java.lang.String getReason() {
       java.lang.Object ref = reason_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         reason_ = s;
         return s;
@@ -2817,38 +3126,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string reason = 15 [json_name = "reason"];</code>
+     *
      * @return The bytes for reason.
      */
-    public com.google.protobuf.ByteString
-        getReasonBytes() {
+    public com.google.protobuf.ByteString getReasonBytes() {
       java.lang.Object ref = reason_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         reason_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string reason = 15 [json_name = "reason"];</code>
+     *
      * @param value The reason to set.
      * @return This builder for chaining.
      */
-    public Builder setReason(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setReason(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       reason_ = value;
       bitField0_ |= 0x00004000;
       onChanged();
       return this;
     }
+
     /**
      * <code>string reason = 15 [json_name = "reason"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearReason() {
@@ -2857,14 +3171,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string reason = 15 [json_name = "reason"];</code>
+     *
      * @param value The bytes for reason to set.
      * @return This builder for chaining.
      */
-    public Builder setReasonBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setReasonBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       reason_ = value;
       bitField0_ |= 0x00004000;
@@ -2873,15 +3190,16 @@ private static final long serialVersionUID = 0L;
     }
 
     private java.lang.Object operationId_ = "";
+
     /**
      * <code>string operation_id = 16 [json_name = "operationId"];</code>
+     *
      * @return The operationId.
      */
     public java.lang.String getOperationId() {
       java.lang.Object ref = operationId_;
       if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         operationId_ = s;
         return s;
@@ -2889,38 +3207,43 @@ private static final long serialVersionUID = 0L;
         return (java.lang.String) ref;
       }
     }
+
     /**
      * <code>string operation_id = 16 [json_name = "operationId"];</code>
+     *
      * @return The bytes for operationId.
      */
-    public com.google.protobuf.ByteString
-        getOperationIdBytes() {
+    public com.google.protobuf.ByteString getOperationIdBytes() {
       java.lang.Object ref = operationId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
         operationId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
+
     /**
      * <code>string operation_id = 16 [json_name = "operationId"];</code>
+     *
      * @param value The operationId to set.
      * @return This builder for chaining.
      */
-    public Builder setOperationId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setOperationId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       operationId_ = value;
       bitField0_ |= 0x00008000;
       onChanged();
       return this;
     }
+
     /**
      * <code>string operation_id = 16 [json_name = "operationId"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOperationId() {
@@ -2929,14 +3252,17 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>string operation_id = 16 [json_name = "operationId"];</code>
+     *
      * @param value The bytes for operationId to set.
      * @return This builder for chaining.
      */
-    public Builder setOperationIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
+    public Builder setOperationIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
       checkByteStringIsUtf8(value);
       operationId_ = value;
       bitField0_ |= 0x00008000;
@@ -2944,37 +3270,55 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int oldStateCollectorBudgetPercent_ ;
+    private int oldStateCollectorBudgetPercent_;
+
     /**
+     *
+     *
      * <pre>
      * N-1 Node 不会上报这些字段；Control Plane 此时只提交已确认的 Cgroup 调整。
      * </pre>
      *
-     * <code>optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];</code>
+     * <code>
+     * optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];
+     * </code>
+     *
      * @return Whether the oldStateCollectorBudgetPercent field is set.
      */
     @java.lang.Override
     public boolean hasOldStateCollectorBudgetPercent() {
       return ((bitField0_ & 0x00010000) != 0);
     }
+
     /**
+     *
+     *
      * <pre>
      * N-1 Node 不会上报这些字段；Control Plane 此时只提交已确认的 Cgroup 调整。
      * </pre>
      *
-     * <code>optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];</code>
+     * <code>
+     * optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];
+     * </code>
+     *
      * @return The oldStateCollectorBudgetPercent.
      */
     @java.lang.Override
     public int getOldStateCollectorBudgetPercent() {
       return oldStateCollectorBudgetPercent_;
     }
+
     /**
+     *
+     *
      * <pre>
      * N-1 Node 不会上报这些字段；Control Plane 此时只提交已确认的 Cgroup 调整。
      * </pre>
      *
-     * <code>optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];</code>
+     * <code>
+     * optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];
+     * </code>
+     *
      * @param value The oldStateCollectorBudgetPercent to set.
      * @return This builder for chaining.
      */
@@ -2985,12 +3329,18 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
+     *
+     *
      * <pre>
      * N-1 Node 不会上报这些字段；Control Plane 此时只提交已确认的 Cgroup 调整。
      * </pre>
      *
-     * <code>optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];</code>
+     * <code>
+     * optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOldStateCollectorBudgetPercent() {
@@ -3000,25 +3350,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int oldRemoteDesktopBitrateKbps_ ;
+    private int oldRemoteDesktopBitrateKbps_;
+
     /**
-     * <code>optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];</code>
+     * <code>
+     * optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];
+     * </code>
+     *
      * @return Whether the oldRemoteDesktopBitrateKbps field is set.
      */
     @java.lang.Override
     public boolean hasOldRemoteDesktopBitrateKbps() {
       return ((bitField0_ & 0x00020000) != 0);
     }
+
     /**
-     * <code>optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];</code>
+     * <code>
+     * optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];
+     * </code>
+     *
      * @return The oldRemoteDesktopBitrateKbps.
      */
     @java.lang.Override
     public int getOldRemoteDesktopBitrateKbps() {
       return oldRemoteDesktopBitrateKbps_;
     }
+
     /**
-     * <code>optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];</code>
+     * <code>
+     * optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];
+     * </code>
+     *
      * @param value The oldRemoteDesktopBitrateKbps to set.
      * @return This builder for chaining.
      */
@@ -3029,8 +3391,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];</code>
+     * <code>
+     * optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOldRemoteDesktopBitrateKbps() {
@@ -3040,25 +3406,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int newStateCollectorBudgetPercent_ ;
+    private int newStateCollectorBudgetPercent_;
+
     /**
-     * <code>optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];</code>
+     * <code>
+     * optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];
+     * </code>
+     *
      * @return Whether the newStateCollectorBudgetPercent field is set.
      */
     @java.lang.Override
     public boolean hasNewStateCollectorBudgetPercent() {
       return ((bitField0_ & 0x00040000) != 0);
     }
+
     /**
-     * <code>optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];</code>
+     * <code>
+     * optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];
+     * </code>
+     *
      * @return The newStateCollectorBudgetPercent.
      */
     @java.lang.Override
     public int getNewStateCollectorBudgetPercent() {
       return newStateCollectorBudgetPercent_;
     }
+
     /**
-     * <code>optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];</code>
+     * <code>
+     * optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];
+     * </code>
+     *
      * @param value The newStateCollectorBudgetPercent to set.
      * @return This builder for chaining.
      */
@@ -3069,8 +3447,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];</code>
+     * <code>
+     * optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNewStateCollectorBudgetPercent() {
@@ -3080,25 +3462,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int newRemoteDesktopBitrateKbps_ ;
+    private int newRemoteDesktopBitrateKbps_;
+
     /**
-     * <code>optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];</code>
+     * <code>
+     * optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];
+     * </code>
+     *
      * @return Whether the newRemoteDesktopBitrateKbps field is set.
      */
     @java.lang.Override
     public boolean hasNewRemoteDesktopBitrateKbps() {
       return ((bitField0_ & 0x00080000) != 0);
     }
+
     /**
-     * <code>optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];</code>
+     * <code>
+     * optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];
+     * </code>
+     *
      * @return The newRemoteDesktopBitrateKbps.
      */
     @java.lang.Override
     public int getNewRemoteDesktopBitrateKbps() {
       return newRemoteDesktopBitrateKbps_;
     }
+
     /**
-     * <code>optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];</code>
+     * <code>
+     * optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];
+     * </code>
+     *
      * @param value The newRemoteDesktopBitrateKbps to set.
      * @return This builder for chaining.
      */
@@ -3109,8 +3503,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];</code>
+     * <code>
+     * optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNewRemoteDesktopBitrateKbps() {
@@ -3120,25 +3518,34 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int oldExtensionCpuWeight_ ;
+    private int oldExtensionCpuWeight_;
+
     /**
-     * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];</code>
+     * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];
+     * </code>
+     *
      * @return Whether the oldExtensionCpuWeight field is set.
      */
     @java.lang.Override
     public boolean hasOldExtensionCpuWeight() {
       return ((bitField0_ & 0x00100000) != 0);
     }
+
     /**
-     * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];</code>
+     * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];
+     * </code>
+     *
      * @return The oldExtensionCpuWeight.
      */
     @java.lang.Override
     public int getOldExtensionCpuWeight() {
       return oldExtensionCpuWeight_;
     }
+
     /**
-     * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];</code>
+     * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];
+     * </code>
+     *
      * @param value The oldExtensionCpuWeight to set.
      * @return This builder for chaining.
      */
@@ -3149,8 +3556,11 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];</code>
+     * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOldExtensionCpuWeight() {
@@ -3160,25 +3570,34 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int newExtensionCpuWeight_ ;
+    private int newExtensionCpuWeight_;
+
     /**
-     * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];</code>
+     * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];
+     * </code>
+     *
      * @return Whether the newExtensionCpuWeight field is set.
      */
     @java.lang.Override
     public boolean hasNewExtensionCpuWeight() {
       return ((bitField0_ & 0x00200000) != 0);
     }
+
     /**
-     * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];</code>
+     * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];
+     * </code>
+     *
      * @return The newExtensionCpuWeight.
      */
     @java.lang.Override
     public int getNewExtensionCpuWeight() {
       return newExtensionCpuWeight_;
     }
+
     /**
-     * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];</code>
+     * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];
+     * </code>
+     *
      * @param value The newExtensionCpuWeight to set.
      * @return This builder for chaining.
      */
@@ -3189,8 +3608,11 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];</code>
+     * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNewExtensionCpuWeight() {
@@ -3200,25 +3622,34 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int oldMediaEncoderSlots_ ;
+    private int oldMediaEncoderSlots_;
+
     /**
-     * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];</code>
+     * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];
+     * </code>
+     *
      * @return Whether the oldMediaEncoderSlots field is set.
      */
     @java.lang.Override
     public boolean hasOldMediaEncoderSlots() {
       return ((bitField0_ & 0x00400000) != 0);
     }
+
     /**
-     * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];</code>
+     * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];
+     * </code>
+     *
      * @return The oldMediaEncoderSlots.
      */
     @java.lang.Override
     public int getOldMediaEncoderSlots() {
       return oldMediaEncoderSlots_;
     }
+
     /**
-     * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];</code>
+     * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];
+     * </code>
+     *
      * @param value The oldMediaEncoderSlots to set.
      * @return This builder for chaining.
      */
@@ -3229,8 +3660,11 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];</code>
+     * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOldMediaEncoderSlots() {
@@ -3240,25 +3674,34 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int newMediaEncoderSlots_ ;
+    private int newMediaEncoderSlots_;
+
     /**
-     * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];</code>
+     * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];
+     * </code>
+     *
      * @return Whether the newMediaEncoderSlots field is set.
      */
     @java.lang.Override
     public boolean hasNewMediaEncoderSlots() {
       return ((bitField0_ & 0x00800000) != 0);
     }
+
     /**
-     * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];</code>
+     * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];
+     * </code>
+     *
      * @return The newMediaEncoderSlots.
      */
     @java.lang.Override
     public int getNewMediaEncoderSlots() {
       return newMediaEncoderSlots_;
     }
+
     /**
-     * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];</code>
+     * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];
+     * </code>
+     *
      * @param value The newMediaEncoderSlots to set.
      * @return This builder for chaining.
      */
@@ -3269,8 +3712,11 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];</code>
+     * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNewMediaEncoderSlots() {
@@ -3280,25 +3726,34 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean oldFreezeBackgroundTabs_ ;
+    private boolean oldFreezeBackgroundTabs_;
+
     /**
-     * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];</code>
+     * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];
+     * </code>
+     *
      * @return Whether the oldFreezeBackgroundTabs field is set.
      */
     @java.lang.Override
     public boolean hasOldFreezeBackgroundTabs() {
       return ((bitField0_ & 0x01000000) != 0);
     }
+
     /**
-     * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];</code>
+     * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];
+     * </code>
+     *
      * @return The oldFreezeBackgroundTabs.
      */
     @java.lang.Override
     public boolean getOldFreezeBackgroundTabs() {
       return oldFreezeBackgroundTabs_;
     }
+
     /**
-     * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];</code>
+     * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];
+     * </code>
+     *
      * @param value The oldFreezeBackgroundTabs to set.
      * @return This builder for chaining.
      */
@@ -3309,8 +3764,11 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];</code>
+     * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOldFreezeBackgroundTabs() {
@@ -3320,25 +3778,34 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean newFreezeBackgroundTabs_ ;
+    private boolean newFreezeBackgroundTabs_;
+
     /**
-     * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];</code>
+     * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];
+     * </code>
+     *
      * @return Whether the newFreezeBackgroundTabs field is set.
      */
     @java.lang.Override
     public boolean hasNewFreezeBackgroundTabs() {
       return ((bitField0_ & 0x02000000) != 0);
     }
+
     /**
-     * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];</code>
+     * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];
+     * </code>
+     *
      * @return The newFreezeBackgroundTabs.
      */
     @java.lang.Override
     public boolean getNewFreezeBackgroundTabs() {
       return newFreezeBackgroundTabs_;
     }
+
     /**
-     * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];</code>
+     * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];
+     * </code>
+     *
      * @param value The newFreezeBackgroundTabs to set.
      * @return This builder for chaining.
      */
@@ -3349,8 +3816,11 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];</code>
+     * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNewFreezeBackgroundTabs() {
@@ -3360,25 +3830,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean oldBlockNewTabs_ ;
+    private boolean oldBlockNewTabs_;
+
     /**
      * <code>optional bool old_block_new_tabs = 27 [json_name = "oldBlockNewTabs"];</code>
+     *
      * @return Whether the oldBlockNewTabs field is set.
      */
     @java.lang.Override
     public boolean hasOldBlockNewTabs() {
       return ((bitField0_ & 0x04000000) != 0);
     }
+
     /**
      * <code>optional bool old_block_new_tabs = 27 [json_name = "oldBlockNewTabs"];</code>
+     *
      * @return The oldBlockNewTabs.
      */
     @java.lang.Override
     public boolean getOldBlockNewTabs() {
       return oldBlockNewTabs_;
     }
+
     /**
      * <code>optional bool old_block_new_tabs = 27 [json_name = "oldBlockNewTabs"];</code>
+     *
      * @param value The oldBlockNewTabs to set.
      * @return This builder for chaining.
      */
@@ -3389,8 +3865,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional bool old_block_new_tabs = 27 [json_name = "oldBlockNewTabs"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOldBlockNewTabs() {
@@ -3400,25 +3878,31 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean newBlockNewTabs_ ;
+    private boolean newBlockNewTabs_;
+
     /**
      * <code>optional bool new_block_new_tabs = 28 [json_name = "newBlockNewTabs"];</code>
+     *
      * @return Whether the newBlockNewTabs field is set.
      */
     @java.lang.Override
     public boolean hasNewBlockNewTabs() {
       return ((bitField0_ & 0x08000000) != 0);
     }
+
     /**
      * <code>optional bool new_block_new_tabs = 28 [json_name = "newBlockNewTabs"];</code>
+     *
      * @return The newBlockNewTabs.
      */
     @java.lang.Override
     public boolean getNewBlockNewTabs() {
       return newBlockNewTabs_;
     }
+
     /**
      * <code>optional bool new_block_new_tabs = 28 [json_name = "newBlockNewTabs"];</code>
+     *
      * @param value The newBlockNewTabs to set.
      * @return This builder for chaining.
      */
@@ -3429,8 +3913,10 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
      * <code>optional bool new_block_new_tabs = 28 [json_name = "newBlockNewTabs"];</code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNewBlockNewTabs() {
@@ -3442,29 +3928,47 @@ private static final long serialVersionUID = 0L;
 
     private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy oldExtensionBackgroundPolicy_;
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder> oldExtensionBackgroundPolicyBuilder_;
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
+        oldExtensionBackgroundPolicyBuilder_;
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];
+     * </code>
+     *
      * @return Whether the oldExtensionBackgroundPolicy field is set.
      */
     public boolean hasOldExtensionBackgroundPolicy() {
       return ((bitField0_ & 0x10000000) != 0);
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];
+     * </code>
+     *
      * @return The oldExtensionBackgroundPolicy.
      */
-    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getOldExtensionBackgroundPolicy() {
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy
+        getOldExtensionBackgroundPolicy() {
       if (oldExtensionBackgroundPolicyBuilder_ == null) {
-        return oldExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : oldExtensionBackgroundPolicy_;
+        return oldExtensionBackgroundPolicy_ == null
+            ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()
+            : oldExtensionBackgroundPolicy_;
       } else {
         return oldExtensionBackgroundPolicyBuilder_.getMessage();
       }
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];
+     * </code>
      */
-    public Builder setOldExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+    public Builder setOldExtensionBackgroundPolicy(
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
       if (oldExtensionBackgroundPolicyBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
@@ -3477,8 +3981,11 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];
+     * </code>
      */
     public Builder setOldExtensionBackgroundPolicy(
         io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder builderForValue) {
@@ -3491,14 +3998,19 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];
+     * </code>
      */
-    public Builder mergeOldExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+    public Builder mergeOldExtensionBackgroundPolicy(
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
       if (oldExtensionBackgroundPolicyBuilder_ == null) {
-        if (((bitField0_ & 0x10000000) != 0) &&
-          oldExtensionBackgroundPolicy_ != null &&
-          oldExtensionBackgroundPolicy_ != io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()) {
+        if (((bitField0_ & 0x10000000) != 0)
+            && oldExtensionBackgroundPolicy_ != null
+            && oldExtensionBackgroundPolicy_
+                != io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()) {
           getOldExtensionBackgroundPolicyBuilder().mergeFrom(value);
         } else {
           oldExtensionBackgroundPolicy_ = value;
@@ -3512,8 +4024,11 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];
+     * </code>
      */
     public Builder clearOldExtensionBackgroundPolicy() {
       bitField0_ = (bitField0_ & ~0x10000000);
@@ -3525,37 +4040,52 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];
+     * </code>
      */
-    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder getOldExtensionBackgroundPolicyBuilder() {
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder
+        getOldExtensionBackgroundPolicyBuilder() {
       bitField0_ |= 0x10000000;
       onChanged();
       return getOldExtensionBackgroundPolicyFieldBuilder().getBuilder();
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];
+     * </code>
      */
-    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getOldExtensionBackgroundPolicyOrBuilder() {
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder
+        getOldExtensionBackgroundPolicyOrBuilder() {
       if (oldExtensionBackgroundPolicyBuilder_ != null) {
         return oldExtensionBackgroundPolicyBuilder_.getMessageOrBuilder();
       } else {
-        return oldExtensionBackgroundPolicy_ == null ?
-            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : oldExtensionBackgroundPolicy_;
+        return oldExtensionBackgroundPolicy_ == null
+            ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()
+            : oldExtensionBackgroundPolicy_;
       }
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];
+     * </code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
         getOldExtensionBackgroundPolicyFieldBuilder() {
       if (oldExtensionBackgroundPolicyBuilder_ == null) {
-        oldExtensionBackgroundPolicyBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>(
-                getOldExtensionBackgroundPolicy(),
-                getParentForChildren(),
-                isClean());
+        oldExtensionBackgroundPolicyBuilder_ =
+            new com.google.protobuf.SingleFieldBuilderV3<
+                io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy,
+                io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder,
+                io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>(
+                getOldExtensionBackgroundPolicy(), getParentForChildren(), isClean());
         oldExtensionBackgroundPolicy_ = null;
       }
       return oldExtensionBackgroundPolicyBuilder_;
@@ -3563,29 +4093,47 @@ private static final long serialVersionUID = 0L;
 
     private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy newExtensionBackgroundPolicy_;
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder> newExtensionBackgroundPolicyBuilder_;
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
+        newExtensionBackgroundPolicyBuilder_;
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];
+     * </code>
+     *
      * @return Whether the newExtensionBackgroundPolicy field is set.
      */
     public boolean hasNewExtensionBackgroundPolicy() {
       return ((bitField0_ & 0x20000000) != 0);
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];
+     * </code>
+     *
      * @return The newExtensionBackgroundPolicy.
      */
-    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getNewExtensionBackgroundPolicy() {
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy
+        getNewExtensionBackgroundPolicy() {
       if (newExtensionBackgroundPolicyBuilder_ == null) {
-        return newExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : newExtensionBackgroundPolicy_;
+        return newExtensionBackgroundPolicy_ == null
+            ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()
+            : newExtensionBackgroundPolicy_;
       } else {
         return newExtensionBackgroundPolicyBuilder_.getMessage();
       }
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];
+     * </code>
      */
-    public Builder setNewExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+    public Builder setNewExtensionBackgroundPolicy(
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
       if (newExtensionBackgroundPolicyBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
@@ -3598,8 +4146,11 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];
+     * </code>
      */
     public Builder setNewExtensionBackgroundPolicy(
         io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder builderForValue) {
@@ -3612,14 +4163,19 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];
+     * </code>
      */
-    public Builder mergeNewExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+    public Builder mergeNewExtensionBackgroundPolicy(
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
       if (newExtensionBackgroundPolicyBuilder_ == null) {
-        if (((bitField0_ & 0x20000000) != 0) &&
-          newExtensionBackgroundPolicy_ != null &&
-          newExtensionBackgroundPolicy_ != io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()) {
+        if (((bitField0_ & 0x20000000) != 0)
+            && newExtensionBackgroundPolicy_ != null
+            && newExtensionBackgroundPolicy_
+                != io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()) {
           getNewExtensionBackgroundPolicyBuilder().mergeFrom(value);
         } else {
           newExtensionBackgroundPolicy_ = value;
@@ -3633,8 +4189,11 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];
+     * </code>
      */
     public Builder clearNewExtensionBackgroundPolicy() {
       bitField0_ = (bitField0_ & ~0x20000000);
@@ -3646,61 +4205,88 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];
+     * </code>
      */
-    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder getNewExtensionBackgroundPolicyBuilder() {
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder
+        getNewExtensionBackgroundPolicyBuilder() {
       bitField0_ |= 0x20000000;
       onChanged();
       return getNewExtensionBackgroundPolicyFieldBuilder().getBuilder();
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];
+     * </code>
      */
-    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getNewExtensionBackgroundPolicyOrBuilder() {
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder
+        getNewExtensionBackgroundPolicyOrBuilder() {
       if (newExtensionBackgroundPolicyBuilder_ != null) {
         return newExtensionBackgroundPolicyBuilder_.getMessageOrBuilder();
       } else {
-        return newExtensionBackgroundPolicy_ == null ?
-            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : newExtensionBackgroundPolicy_;
+        return newExtensionBackgroundPolicy_ == null
+            ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()
+            : newExtensionBackgroundPolicy_;
       }
     }
+
     /**
-     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     * <code>
+     * .browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];
+     * </code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder,
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
         getNewExtensionBackgroundPolicyFieldBuilder() {
       if (newExtensionBackgroundPolicyBuilder_ == null) {
-        newExtensionBackgroundPolicyBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>(
-                getNewExtensionBackgroundPolicy(),
-                getParentForChildren(),
-                isClean());
+        newExtensionBackgroundPolicyBuilder_ =
+            new com.google.protobuf.SingleFieldBuilderV3<
+                io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy,
+                io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder,
+                io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>(
+                getNewExtensionBackgroundPolicy(), getParentForChildren(), isClean());
         newExtensionBackgroundPolicy_ = null;
       }
       return newExtensionBackgroundPolicyBuilder_;
     }
 
-    private int oldSuccessTraceSamplePercent_ ;
+    private int oldSuccessTraceSamplePercent_;
+
     /**
-     * <code>optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];</code>
+     * <code>
+     * optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];
+     * </code>
+     *
      * @return Whether the oldSuccessTraceSamplePercent field is set.
      */
     @java.lang.Override
     public boolean hasOldSuccessTraceSamplePercent() {
       return ((bitField0_ & 0x40000000) != 0);
     }
+
     /**
-     * <code>optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];</code>
+     * <code>
+     * optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];
+     * </code>
+     *
      * @return The oldSuccessTraceSamplePercent.
      */
     @java.lang.Override
     public int getOldSuccessTraceSamplePercent() {
       return oldSuccessTraceSamplePercent_;
     }
+
     /**
-     * <code>optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];</code>
+     * <code>
+     * optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];
+     * </code>
+     *
      * @param value The oldSuccessTraceSamplePercent to set.
      * @return This builder for chaining.
      */
@@ -3711,8 +4297,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];</code>
+     * <code>
+     * optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOldSuccessTraceSamplePercent() {
@@ -3722,25 +4312,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int newSuccessTraceSamplePercent_ ;
+    private int newSuccessTraceSamplePercent_;
+
     /**
-     * <code>optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];</code>
+     * <code>
+     * optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];
+     * </code>
+     *
      * @return Whether the newSuccessTraceSamplePercent field is set.
      */
     @java.lang.Override
     public boolean hasNewSuccessTraceSamplePercent() {
       return ((bitField0_ & 0x80000000) != 0);
     }
+
     /**
-     * <code>optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];</code>
+     * <code>
+     * optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];
+     * </code>
+     *
      * @return The newSuccessTraceSamplePercent.
      */
     @java.lang.Override
     public int getNewSuccessTraceSamplePercent() {
       return newSuccessTraceSamplePercent_;
     }
+
     /**
-     * <code>optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];</code>
+     * <code>
+     * optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];
+     * </code>
+     *
      * @param value The newSuccessTraceSamplePercent to set.
      * @return This builder for chaining.
      */
@@ -3751,8 +4353,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];</code>
+     * <code>
+     * optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNewSuccessTraceSamplePercent() {
@@ -3762,25 +4368,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int oldObserverFrameRateFps_ ;
+    private int oldObserverFrameRateFps_;
+
     /**
-     * <code>optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];</code>
+     * <code>
+     * optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];
+     * </code>
+     *
      * @return Whether the oldObserverFrameRateFps field is set.
      */
     @java.lang.Override
     public boolean hasOldObserverFrameRateFps() {
       return ((bitField1_ & 0x00000001) != 0);
     }
+
     /**
-     * <code>optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];</code>
+     * <code>
+     * optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];
+     * </code>
+     *
      * @return The oldObserverFrameRateFps.
      */
     @java.lang.Override
     public int getOldObserverFrameRateFps() {
       return oldObserverFrameRateFps_;
     }
+
     /**
-     * <code>optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];</code>
+     * <code>
+     * optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];
+     * </code>
+     *
      * @param value The oldObserverFrameRateFps to set.
      * @return This builder for chaining.
      */
@@ -3791,8 +4409,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];</code>
+     * <code>
+     * optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOldObserverFrameRateFps() {
@@ -3802,25 +4424,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int newObserverFrameRateFps_ ;
+    private int newObserverFrameRateFps_;
+
     /**
-     * <code>optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];</code>
+     * <code>
+     * optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];
+     * </code>
+     *
      * @return Whether the newObserverFrameRateFps field is set.
      */
     @java.lang.Override
     public boolean hasNewObserverFrameRateFps() {
       return ((bitField1_ & 0x00000002) != 0);
     }
+
     /**
-     * <code>optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];</code>
+     * <code>
+     * optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];
+     * </code>
+     *
      * @return The newObserverFrameRateFps.
      */
     @java.lang.Override
     public int getNewObserverFrameRateFps() {
       return newObserverFrameRateFps_;
     }
+
     /**
-     * <code>optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];</code>
+     * <code>
+     * optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];
+     * </code>
+     *
      * @param value The newObserverFrameRateFps to set.
      * @return This builder for chaining.
      */
@@ -3831,8 +4465,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];</code>
+     * <code>
+     * optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNewObserverFrameRateFps() {
@@ -3842,25 +4480,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean oldVideoRecordingEnabled_ ;
+    private boolean oldVideoRecordingEnabled_;
+
     /**
-     * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];</code>
+     * <code>
+     * optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];
+     * </code>
+     *
      * @return Whether the oldVideoRecordingEnabled field is set.
      */
     @java.lang.Override
     public boolean hasOldVideoRecordingEnabled() {
       return ((bitField1_ & 0x00000004) != 0);
     }
+
     /**
-     * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];</code>
+     * <code>
+     * optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];
+     * </code>
+     *
      * @return The oldVideoRecordingEnabled.
      */
     @java.lang.Override
     public boolean getOldVideoRecordingEnabled() {
       return oldVideoRecordingEnabled_;
     }
+
     /**
-     * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];</code>
+     * <code>
+     * optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];
+     * </code>
+     *
      * @param value The oldVideoRecordingEnabled to set.
      * @return This builder for chaining.
      */
@@ -3871,8 +4521,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];</code>
+     * <code>
+     * optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOldVideoRecordingEnabled() {
@@ -3882,25 +4536,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean newVideoRecordingEnabled_ ;
+    private boolean newVideoRecordingEnabled_;
+
     /**
-     * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];</code>
+     * <code>
+     * optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];
+     * </code>
+     *
      * @return Whether the newVideoRecordingEnabled field is set.
      */
     @java.lang.Override
     public boolean hasNewVideoRecordingEnabled() {
       return ((bitField1_ & 0x00000008) != 0);
     }
+
     /**
-     * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];</code>
+     * <code>
+     * optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];
+     * </code>
+     *
      * @return The newVideoRecordingEnabled.
      */
     @java.lang.Override
     public boolean getNewVideoRecordingEnabled() {
       return newVideoRecordingEnabled_;
     }
+
     /**
-     * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];</code>
+     * <code>
+     * optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];
+     * </code>
+     *
      * @param value The newVideoRecordingEnabled to set.
      * @return This builder for chaining.
      */
@@ -3911,8 +4577,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];</code>
+     * <code>
+     * optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNewVideoRecordingEnabled() {
@@ -3922,25 +4592,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int oldSuccessScreenshotSamplePercent_ ;
+    private int oldSuccessScreenshotSamplePercent_;
+
     /**
-     * <code>optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];</code>
+     * <code>
+     * optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];
+     * </code>
+     *
      * @return Whether the oldSuccessScreenshotSamplePercent field is set.
      */
     @java.lang.Override
     public boolean hasOldSuccessScreenshotSamplePercent() {
       return ((bitField1_ & 0x00000010) != 0);
     }
+
     /**
-     * <code>optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];</code>
+     * <code>
+     * optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];
+     * </code>
+     *
      * @return The oldSuccessScreenshotSamplePercent.
      */
     @java.lang.Override
     public int getOldSuccessScreenshotSamplePercent() {
       return oldSuccessScreenshotSamplePercent_;
     }
+
     /**
-     * <code>optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];</code>
+     * <code>
+     * optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];
+     * </code>
+     *
      * @param value The oldSuccessScreenshotSamplePercent to set.
      * @return This builder for chaining.
      */
@@ -3951,8 +4633,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];</code>
+     * <code>
+     * optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearOldSuccessScreenshotSamplePercent() {
@@ -3962,25 +4648,37 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int newSuccessScreenshotSamplePercent_ ;
+    private int newSuccessScreenshotSamplePercent_;
+
     /**
-     * <code>optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];</code>
+     * <code>
+     * optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];
+     * </code>
+     *
      * @return Whether the newSuccessScreenshotSamplePercent field is set.
      */
     @java.lang.Override
     public boolean hasNewSuccessScreenshotSamplePercent() {
       return ((bitField1_ & 0x00000020) != 0);
     }
+
     /**
-     * <code>optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];</code>
+     * <code>
+     * optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];
+     * </code>
+     *
      * @return The newSuccessScreenshotSamplePercent.
      */
     @java.lang.Override
     public int getNewSuccessScreenshotSamplePercent() {
       return newSuccessScreenshotSamplePercent_;
     }
+
     /**
-     * <code>optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];</code>
+     * <code>
+     * optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];
+     * </code>
+     *
      * @param value The newSuccessScreenshotSamplePercent to set.
      * @return This builder for chaining.
      */
@@ -3991,8 +4689,12 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     /**
-     * <code>optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];</code>
+     * <code>
+     * optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];
+     * </code>
+     *
      * @return This builder for chaining.
      */
     public Builder clearNewSuccessScreenshotSamplePercent() {
@@ -4001,9 +4703,9 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
     @java.lang.Override
-    public final Builder setUnknownFields(
-        final com.google.protobuf.UnknownFieldSet unknownFields) {
+    public final Builder setUnknownFields(final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.setUnknownFields(unknownFields);
     }
 
@@ -4013,12 +4715,12 @@ private static final long serialVersionUID = 0L;
       return super.mergeUnknownFields(unknownFields);
     }
 
-
     // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.RuntimeResourcesAdjustedEvent)
   }
 
   // @@protoc_insertion_point(class_scope:browsercloud.node.v1.RuntimeResourcesAdjustedEvent)
   private static final io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent DEFAULT_INSTANCE;
+
   static {
     DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent();
   }
@@ -4027,27 +4729,27 @@ private static final long serialVersionUID = 0L;
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<RuntimeResourcesAdjustedEvent>
-      PARSER = new com.google.protobuf.AbstractParser<RuntimeResourcesAdjustedEvent>() {
-    @java.lang.Override
-    public RuntimeResourcesAdjustedEvent parsePartialFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      Builder builder = newBuilder();
-      try {
-        builder.mergeFrom(input, extensionRegistry);
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(builder.buildPartial());
-      } catch (com.google.protobuf.UninitializedMessageException e) {
-        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(e)
-            .setUnfinishedMessage(builder.buildPartial());
-      }
-      return builder.buildPartial();
-    }
-  };
+  private static final com.google.protobuf.Parser<RuntimeResourcesAdjustedEvent> PARSER =
+      new com.google.protobuf.AbstractParser<RuntimeResourcesAdjustedEvent>() {
+        @java.lang.Override
+        public RuntimeResourcesAdjustedEvent parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          Builder builder = newBuilder();
+          try {
+            builder.mergeFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            throw e.setUnfinishedMessage(builder.buildPartial());
+          } catch (com.google.protobuf.UninitializedMessageException e) {
+            throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+          } catch (java.io.IOException e) {
+            throw new com.google.protobuf.InvalidProtocolBufferException(e)
+                .setUnfinishedMessage(builder.buildPartial());
+          }
+          return builder.buildPartial();
+        }
+      };
 
   public static com.google.protobuf.Parser<RuntimeResourcesAdjustedEvent> parser() {
     return PARSER;
@@ -4062,5 +4764,4 @@ private static final long serialVersionUID = 0L;
   public io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
-
 }

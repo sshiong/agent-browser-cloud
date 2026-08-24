@@ -4,18 +4,21 @@
 // Protobuf Java Version: 3.25.3
 package io.browsercloud.proto.node.v1;
 
-public interface MouseMoveInputOrBuilder extends
+public interface MouseMoveInputOrBuilder
+    extends
     // @@protoc_insertion_point(interface_extends:browsercloud.node.v1.MouseMoveInput)
     com.google.protobuf.MessageOrBuilder {
 
   /**
    * <code>int32 x = 1 [json_name = "x"];</code>
+   *
    * @return The x.
    */
   int getX();
 
   /**
    * <code>int32 y = 2 [json_name = "y"];</code>
+   *
    * @return The y.
    */
   int getY();

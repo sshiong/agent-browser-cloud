@@ -2,7 +2,7 @@
 
 > 更新日期：2026-08-24
 > 基准分支：`main`
-> 编写时基准提交：`9a47989 docs: record agent screenshot release gates`
+> 编写时基准提交：`2240f75 feat: add governed agent javascript evaluation`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -205,8 +205,11 @@ Rust Browser Node
   PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过；Integration 输出
   `agent_browser_javascript_evaluations=true`，显式覆盖 READ_ONLY 副作用保护/递归脱敏、
   PAGE_ACTION 真实页面变更、租户/Actor 隔离、禁止 `fetch`、源码不落库/审计/Outbox 明文和
-  State Cursor 自动重试。OpenAPI 基线为 235 Operations / 313 Schemas；GitHub `ci`/`desktop`
-  状态须在本次提交推送后确认，未确认前不得写为通过，见 progress 156。
+  State Cursor 自动重试。OpenAPI 基线为 235 Operations / 313 Schemas；实现提交 `2240f75`
+  的 GitHub `ci` run `32733435238` 第二次尝试（首轮仅因 GitHub API Unicorn 导致固定 Buf
+  Action 安装失败）已通过 Verify、供应链、完整 Integration、Object Storage/Recording
+  GameDay 与 Kubernetes Operator E2E；`desktop` run `32733435176` 的 Windows/macOS 均通过，
+  见 progress 156。
 
 - Agent Browser 截图切片本地 Control Plane、Rust Workspace、Web 118 项、Worker/Provider、
   完整 Test/Lint/Build、Desktop test/lint/unsigned build、OpenAPI/四 SDK、供应链、Operator、

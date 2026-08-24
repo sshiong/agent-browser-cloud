@@ -1,7 +1,7 @@
 # Agent Browser 受治理 JavaScript Evaluate 闭环
 
 > 日期：2026-08-24
-> 状态：仓库内实现与本地完整 Gate 已通过；GitHub CI/Desktop Gate 待本次提交推送后确认
+> 状态：仓库内实现、本地完整 Gate 与 GitHub CI/Desktop Gate 均已通过
 
 ## 目标与边界
 
@@ -67,6 +67,12 @@ OTP 发给 Agent 代填，也可自愿进入 VNC，系统不会把人工接管�
   Challenge、Overview SSE、Recording 和 19 个持久 Workflow 继续通过。
 
 ## 剩余边界
+
+实现提交 `2240f75` 的 GitHub `ci` run `32733435238` 第二次尝试已通过 Verify、镜像、
+SBOM/扫描、完整 Integration、Object Storage/Recording GameDay 和 Kubernetes Operator E2E；
+首轮 Verify 在项目代码执行前因 GitHub API 返回 Unicorn HTML 导致固定 Buf Action 安装失败，
+原 run 只重跑失败 Job 后通过。`desktop` run `32733435176` 的 Windows/macOS 原生安全测试与
+unsigned build 均通过。
 
 本切片不授权任意浏览器调试、Secret 读取、跨域网络或高风险业务决定。Select/Press、
 Drag/Drop/Swipe、通用 Mouse/Keyboard/Touch 和 AgentClipboard/UserClipboard 显式受控 Bridge

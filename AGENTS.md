@@ -2,7 +2,7 @@
 
 > 更新日期：2026-08-24
 > 基准分支：`main`
-> 编写时基准提交：`519f588 fix: scope rust 1.98 tonic status lint`
+> 编写时基准提交：`2b6ed3c test: update generated SDK operation baseline`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -193,8 +193,10 @@ Rust Browser Node
   Worker/Provider、完整 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N−1 与最新完整
   PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过；Integration 显式验证隐藏文件
   输入、上传提交、跨租户拒绝、下载生命周期及数据库/审计无文件内容或 Node 路径，输出
-  `agent_browser_files=true`。OpenAPI 基线为 230 Operations / 306 Schemas；GitHub
-  `ci`/`desktop` 状态须在推送后补记，见 progress 154。
+  `agent_browser_files=true`。OpenAPI 基线为 230 Operations / 306 Schemas；实现提交
+  `8663157`，SDK 测试基线修复提交 `2b6ed3c` 的 GitHub `ci` run `32704051504`（含供应链、
+  完整 Integration、Object Storage/Recording GameDay 与 Kubernetes Operator E2E）和
+  `desktop` run `32704051540`（Windows/macOS）均通过，见 progress 154。
 
 - Agent Browser 原生 Dialog 切片本地 Control Plane 466 项、Rust Workspace、Web 115 项、
   Worker/Provider、完整 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N−1 与两轮完整

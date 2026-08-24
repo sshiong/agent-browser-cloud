@@ -1,7 +1,7 @@
 # Agent Browser 文件上传下载权威闭环
 
 > 日期：2026-08-24
-> 状态：仓库内实现与本地完整 Gate 已通过；GitHub CI/Desktop Gate 待推送后确认
+> 状态：仓库内实现、本地完整 Gate 与 GitHub CI/Desktop Gate 均已通过
 
 ## 目标与边界
 
@@ -55,6 +55,10 @@ AUTONOMOUS 下的上传、下载等待、状态推进和有界失败重试保持
 - 最新完整 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 输出
   `agent_browser_files=true`，显式验证隐藏文件输入、上传提交、三次静默重试、跨租户拒绝、
   下载完成/freshness/list/wait，以及数据库和审计不含文件内容或 Node 本地路径。
+- 实现提交 `8663157`；首轮 CI 发现三语言 SDK 测试仍固定旧的 226 Operation 基线，修复提交
+  `2b6ed3c` 将 Python/Go/Java 统一为 230 并以 `make test-sdk` 全量复验。最终 GitHub `ci`
+  run `32704051504` 已通过 Verify、供应链、完整 Integration、Object Storage/Recording
+  GameDay 与 Kubernetes Operator E2E；`desktop` run `32704051540` 的 Windows/macOS 均通过。
 
 ## 剩余边界
 

@@ -60,6 +60,9 @@ public class SessionEvidenceGovernanceService {
       String idempotencyKey,
       String requestId,
       CaptureEvidenceRequest request) {
+    if (request.purpose() == EvidencePurpose.AGENT_PERCEPTION) {
+      throw new EvidenceGovernanceRejectedException("AGENT_PERCEPTION_PURPOSE_RESERVED");
+    }
     var session = sessions.requireForUpdate(sessionId);
     requireTenant(session.tenantId(), tenantId, sessionId);
     if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
@@ -141,6 +144,9 @@ public class SessionEvidenceGovernanceService {
       String idempotencyKey,
       String requestId,
       CreateEvidenceAccessGrantRequest request) {
+    if (request.purpose() == EvidencePurpose.AGENT_PERCEPTION) {
+      throw new EvidenceGovernanceRejectedException("AGENT_PERCEPTION_PURPOSE_RESERVED");
+    }
     var session = sessions.requireForUpdate(sessionId);
     requireTenant(session.tenantId(), tenantId, sessionId);
     store
@@ -195,8 +201,18 @@ public class SessionEvidenceGovernanceService {
 
   public RedeemEvidenceAccessResponse redeem(
       String sessionId, String grantId, String tenantId, String actorId, String requestId) {
+    return redeem(sessionId, grantId, tenantId, actorId, requestId, null);
+  }
+
+  public RedeemEvidenceAccessResponse redeem(
+      String sessionId,
+      String grantId,
+      String tenantId,
+      String actorId,
+      String requestId,
+      EvidencePurpose expectedPurpose) {
     requireTenant(sessions.require(sessionId).tenantId(), tenantId, sessionId);
-    var claim = store.claim(tenantId, sessionId, grantId, actorId, Instant.now());
+    var claim = store.claim(tenantId, sessionId, grantId, actorId, expectedPurpose, Instant.now());
     if (!capacity.nodeHasCapability(claim.nodeId(), "evidenceAccess", "presigned-get-v1")) {
       store.failGrant(grantId, "EVIDENCE_ACCESS_NODE_UNAVAILABLE", Instant.now());
       appendRedeemAudit(

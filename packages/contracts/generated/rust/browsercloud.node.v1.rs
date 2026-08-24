@@ -1516,6 +1516,40 @@ pub struct CaptureObserverScreenshotCommand {
     #[prost(string, tag="2")]
     pub capture_id: ::prost::alloc::string::String,
 }
+/// Coarse, state-fenced Agent screenshot. The Node selects the authoritative active Page Target;
+/// callers cannot provide a CDP endpoint, Object Storage coordinate or arbitrary CDP method.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CaptureAgentScreenshotCommand {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub screenshot_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub capture_mode: ::prost::alloc::string::String,
+    #[prost(uint64, tag="4")]
+    pub base_state_version: u64,
+    #[prost(uint64, tag="5")]
+    pub target_revision: u64,
+    #[prost(string, tag="6")]
+    pub base_content_hash: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub active_tab_id: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub element_id: ::prost::alloc::string::String,
+    #[prost(double, tag="9")]
+    pub region_x: f64,
+    #[prost(double, tag="10")]
+    pub region_y: f64,
+    #[prost(double, tag="11")]
+    pub region_width: f64,
+    #[prost(double, tag="12")]
+    pub region_height: f64,
+    #[prost(string, tag="13")]
+    pub evidence_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="14")]
+    pub captured_at_ms: i64,
+}
 /// Agent 动作完成后由独立 CDP 截图数据面产生。对象由 Storage Helper 提交，
 /// Node 不持有 Bucket 凭据；失败事件也会持久化，避免把缺失证据伪装成成功。
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -1553,6 +1587,34 @@ pub struct SessionEvidenceCapturedEvent {
     pub redaction_state: ::prost::alloc::string::String,
     #[prost(uint32, tag="15")]
     pub redacted_region_count: u32,
+    /// Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+    /// provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
+    #[prost(string, tag="16")]
+    pub capture_mode: ::prost::alloc::string::String,
+    #[prost(uint64, tag="17")]
+    pub captured_state_version: u64,
+    #[prost(uint64, tag="18")]
+    pub captured_target_revision: u64,
+    #[prost(string, tag="19")]
+    pub captured_state_hash: ::prost::alloc::string::String,
+    #[prost(string, tag="20")]
+    pub captured_active_tab_id: ::prost::alloc::string::String,
+    #[prost(double, tag="21")]
+    pub viewport_width: f64,
+    #[prost(double, tag="22")]
+    pub viewport_height: f64,
+    #[prost(double, tag="23")]
+    pub device_scale_factor: f64,
+    #[prost(double, tag="24")]
+    pub captured_region_x: f64,
+    #[prost(double, tag="25")]
+    pub captured_region_y: f64,
+    #[prost(double, tag="26")]
+    pub captured_region_width: f64,
+    #[prost(double, tag="27")]
+    pub captured_region_height: f64,
+    #[prost(string, tag="28")]
+    pub coordinate_space: ::prost::alloc::string::String,
 }
 /// Emitted only after Storage Helper has committed the immutable recording manifest. The event
 /// carries bounded metadata and hashes, never frame bytes or storage credentials.

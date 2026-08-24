@@ -20,6 +20,9 @@ export type { AgentBrowserFileUpload } from './models/AgentBrowserFileUpload.js'
 export type { AgentBrowserFindRequest } from './models/AgentBrowserFindRequest.js';
 export type { AgentBrowserInspectRequest } from './models/AgentBrowserInspectRequest.js';
 export type { AgentBrowserNativeDialog } from './models/AgentBrowserNativeDialog.js';
+export type { AgentBrowserScreenshot } from './models/AgentBrowserScreenshot.js';
+export type { AgentBrowserScreenshotMode } from './models/AgentBrowserScreenshotMode.js';
+export type { AgentBrowserScreenshotRegion } from './models/AgentBrowserScreenshotRegion.js';
 export type { AgentBrowserSnapshot } from './models/AgentBrowserSnapshot.js';
 export type { AgentBrowserTab } from './models/AgentBrowserTab.js';
 export type { AgentBrowserTargetList } from './models/AgentBrowserTargetList.js';
@@ -69,6 +72,7 @@ export type { BrowserState } from './models/BrowserState.js';
 export type { BusinessRecoveryAction } from './models/BusinessRecoveryAction.js';
 export type { BusinessRecoveryValidation } from './models/BusinessRecoveryValidation.js';
 export type { CancelWorkspaceBatchOperationRequest } from './models/CancelWorkspaceBatchOperationRequest.js';
+export type { CaptureAgentBrowserScreenshotRequest } from './models/CaptureAgentBrowserScreenshotRequest.js';
 export type { CaptureEvidenceRequest } from './models/CaptureEvidenceRequest.js';
 export type { ChallengeAutomationPolicy } from './models/ChallengeAutomationPolicy.js';
 export type { ChallengeAutomationRun } from './models/ChallengeAutomationRun.js';

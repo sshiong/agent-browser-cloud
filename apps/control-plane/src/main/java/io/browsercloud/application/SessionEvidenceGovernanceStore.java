@@ -177,7 +177,19 @@ public class SessionEvidenceGovernanceStore {
 
   @Transactional
   public EvidenceAccessClaim claim(
-      String tenantId, String sessionId, String grantId, String actorId, Instant now) {
+      String tenantId,
+      String sessionId,
+      String grantId,
+      String actorId,
+      EvidencePurpose expectedPurpose,
+      Instant now) {
+    var purposePredicate = expectedPurpose == null ? "" : "  AND access_grant.purpose = ?\n";
+    Object[] queryArguments =
+        expectedPurpose == null
+            ? new Object[] {tenantId, sessionId, grantId, actorId, Timestamp.from(now)}
+            : new Object[] {
+              tenantId, sessionId, grantId, actorId, expectedPurpose.name(), Timestamp.from(now)
+            };
     var claims =
         jdbc.query(
             """
@@ -200,6 +212,9 @@ public class SessionEvidenceGovernanceStore {
               AND access_grant.session_id = ?
               AND access_grant.grant_id = ?
               AND access_grant.actor_id = ?
+            """
+                + purposePredicate
+                + """
               AND access_grant.state = 'ISSUED'
               AND access_grant.expires_at > ?
               AND evidence.result = 'COMMITTED'
@@ -214,11 +229,7 @@ public class SessionEvidenceGovernanceStore {
                     result.getString("content_sha256"),
                     result.getLong("content_bytes"),
                     result.getTimestamp("expires_at").toInstant()),
-            tenantId,
-            sessionId,
-            grantId,
-            actorId,
-            Timestamp.from(now));
+            queryArguments);
     if (claims.isEmpty()) {
       throw new SessionEvidenceGovernanceService.EvidenceGovernanceRejectedException(
           "EVIDENCE_ACCESS_GRANT_NOT_REDEEMABLE");

@@ -927,6 +927,25 @@ message CaptureObserverScreenshotCommand {
   string capture_id = 2;
 }
 
+// Coarse, state-fenced Agent screenshot. The Node selects the authoritative active Page Target;
+// callers cannot provide a CDP endpoint, Object Storage coordinate or arbitrary CDP method.
+message CaptureAgentScreenshotCommand {
+  string session_id = 1;
+  string screenshot_id = 2;
+  string capture_mode = 3;
+  uint64 base_state_version = 4;
+  uint64 target_revision = 5;
+  string base_content_hash = 6;
+  string active_tab_id = 7;
+  string element_id = 8;
+  double region_x = 9;
+  double region_y = 10;
+  double region_width = 11;
+  double region_height = 12;
+  string evidence_id = 13;
+  int64 captured_at_ms = 14;
+}
+
 // Agent 动作完成后由独立 CDP 截图数据面产生。对象由 Storage Helper 提交，
 // Node 不持有 Bucket 凭据；失败事件也会持久化，避免把缺失证据伪装成成功。
 message SessionEvidenceCapturedEvent {
@@ -947,6 +966,21 @@ message SessionEvidenceCapturedEvent {
   // Empty is reserved for N-1 Nodes and is persisted as LEGACY_UNVERIFIED.
   string redaction_state = 14;
   uint32 redacted_region_count = 15;
+  // Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+  // provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
+  string capture_mode = 16;
+  uint64 captured_state_version = 17;
+  uint64 captured_target_revision = 18;
+  string captured_state_hash = 19;
+  string captured_active_tab_id = 20;
+  double viewport_width = 21;
+  double viewport_height = 22;
+  double device_scale_factor = 23;
+  double captured_region_x = 24;
+  double captured_region_y = 25;
+  double captured_region_width = 26;
+  double captured_region_height = 27;
+  string coordinate_space = 28;
 }
 
 // Emitted only after Storage Helper has committed the immutable recording manifest. The event

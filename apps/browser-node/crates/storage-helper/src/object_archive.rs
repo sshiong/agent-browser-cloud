@@ -304,7 +304,7 @@ impl ObjectArchive {
         );
         let base = self.evidence_key_for(tenant_id, profile_id, session_id, evidence_id);
         let object_key = format!("{base}/screenshot.jpeg");
-        self.put(&object_key, content.clone()).await?;
+        self.put_immutable(&object_key, content.clone()).await?;
         let marker = EvidenceCommitMarker {
             evidence_id,
             evidence_kind,
@@ -312,7 +312,7 @@ impl ObjectArchive {
             content_bytes: content.len() as u64,
             captured_at_ms,
         };
-        self.put(
+        self.put_immutable(
             &format!("{base}/COMMITTED"),
             Bytes::from(serde_json::to_vec(&marker)?),
         )

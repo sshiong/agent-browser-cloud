@@ -17,6 +17,9 @@ import type {
   AgentBrowserFileUploadRequest,
   AgentBrowserDownload,
   AgentBrowserDownloadList,
+  AgentBrowserScreenshot,
+  CaptureAgentBrowserScreenshotRequest,
+  RedeemAgentBrowserScreenshotResponse,
   CreateAgentTaskRequest,
   ExecuteAgentBrowserActionsRequest,
 } from '@/types/agent';
@@ -117,6 +120,58 @@ export function waitForAgentBrowserDownload(
     `/sessions/${encodeURIComponent(sessionId)}/agent-browser/files/downloads/${encodeURIComponent(downloadId)}:wait?timeoutMs=${timeoutMs}`,
     { signal },
     tenantId
+  );
+}
+
+export function captureAgentBrowserScreenshot(
+  sessionId: string,
+  data: CaptureAgentBrowserScreenshotRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+) {
+  return request<AgentBrowserScreenshot>(
+    `/sessions/${encodeURIComponent(sessionId)}/agent-browser/screenshots`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+    tenantId,
+    actorId
+  );
+}
+
+export function getAgentBrowserScreenshot(
+  sessionId: string,
+  screenshotId: string,
+  waitMs = 0,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+) {
+  return request<AgentBrowserScreenshot>(
+    `/sessions/${encodeURIComponent(sessionId)}/agent-browser/screenshots/${encodeURIComponent(screenshotId)}?waitMs=${waitMs}`,
+    { signal },
+    tenantId,
+    actorId
+  );
+}
+
+export function redeemAgentBrowserScreenshot(
+  sessionId: string,
+  screenshotId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+) {
+  return request<RedeemAgentBrowserScreenshotResponse>(
+    `/sessions/${encodeURIComponent(sessionId)}/agent-browser/screenshots/${encodeURIComponent(screenshotId)}:redeem`,
+    { method: 'POST', signal },
+    tenantId,
+    actorId
   );
 }
 

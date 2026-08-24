@@ -962,6 +962,92 @@ class NodeEventMapperTest {
   }
 
   @Test
+  void shouldMapAStateFencedAgentScreenshotWithoutExposingPixels() {
+    var payload =
+        SessionEvidenceCapturedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setEvidenceId("evd_1234567890abcdef")
+            .setEvidenceKind("AGENT_SCREENSHOT")
+            .setTaskId("shot_1234567890abcdefghij")
+            .setStepId("agent-screenshot")
+            .setCommandId("cmd_1234567890abcdefghij")
+            .setContentSha256("a".repeat(64))
+            .setContentBytes(4096)
+            .setObjectKey(
+                "tenants/tenant-test/profiles/profile-test/sessions/ses_test/evidence/"
+                    + "evd_1234567890abcdef/screenshot.jpeg")
+            .setCapturedAtMs(1_785_283_200_000L)
+            .setResult("COMMITTED")
+            .setRedactionState("MASKED")
+            .setRedactedRegionCount(2)
+            .setCaptureMode("REGION")
+            .setCapturedStateVersion(9)
+            .setCapturedTargetRevision(4)
+            .setCapturedStateHash("b".repeat(64))
+            .setCapturedActiveTabId("tab-login")
+            .setViewportWidth(1280)
+            .setViewportHeight(720)
+            .setDeviceScaleFactor(2)
+            .setCapturedRegionX(10)
+            .setCapturedRegionY(20)
+            .setCapturedRegionWidth(300)
+            .setCapturedRegionHeight(180)
+            .setCoordinateSpace("VIEWPORT")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_agent_screenshot")
+            .setEventType(NodeEventMapper.SESSION_EVIDENCE_CAPTURED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(5)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.EvidenceCaptured.class,
+            evidence -> {
+              assertThat(evidence.evidenceKind()).isEqualTo("AGENT_SCREENSHOT");
+              assertThat(evidence.captureMode()).isEqualTo("REGION");
+              assertThat(evidence.capturedStateVersion()).isEqualTo(9);
+              assertThat(evidence.capturedActiveTabId()).isEqualTo("tab-login");
+              assertThat(evidence.coordinateSpace()).isEqualTo("VIEWPORT");
+            });
+  }
+
+  @Test
+  void shouldRejectScreenshotMetadataOnOrdinaryEvidence() {
+    var payload =
+        SessionEvidenceCapturedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setEvidenceId("evd_1234567890abcdef")
+            .setEvidenceKind("AGENT_ACTION_FAILURE")
+            .setTaskId("agt_1234567890abcdef")
+            .setStepId("step_1234567890abcd")
+            .setCommandId("cmd_1234567890abcdef")
+            .setCapturedAtMs(1_785_283_200_000L)
+            .setResult("FAILED")
+            .setErrorCode("CAPTURE_FAILED")
+            .setRedactionState("FAILED_CLOSED")
+            .setCaptureMode("VIEWPORT")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_invalid_screenshot_metadata")
+            .setEventType(NodeEventMapper.SESSION_EVIDENCE_CAPTURED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(6)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThatThrownBy(() -> mapper.toCommand(envelope))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("non-screenshot evidence");
+  }
+
+  @Test
   void shouldPreserveNMinusOneEvidenceAsLegacyUnverified() {
     var payload =
         SessionEvidenceCapturedEvent.newBuilder()

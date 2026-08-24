@@ -519,6 +519,97 @@ paths:
           $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/UnprocessableEntity"
+  /api/v1/sessions/{sessionId}/agent-browser/screenshots:
+    post:
+      operationId: captureAgentBrowserScreenshot
+      summary: Capture one state-fenced, redacted Agent screenshot
+      description: >
+        Captures the exact active Page Target as a viewport, full page, structured element,
+        bounded region, or challenge region. The response contains metadata only. Pixels remain
+        in immutable evidence storage and can be retrieved once through the purpose-bound grant.
+      tags: [Session, Agent, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CaptureAgentBrowserScreenshotRequest"
+      responses:
+        "202":
+          description: The durable screenshot command is executing or was idempotently reused.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentBrowserScreenshot"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/sessions/{sessionId}/agent-browser/screenshots/{screenshotId}:
+    get:
+      operationId: getAgentBrowserScreenshot
+      summary: Read or wait for one PostgreSQL-authoritative screenshot lifecycle
+      description: Bounded waiting rereads PostgreSQL only; it never polls Chromium or Object Storage.
+      tags: [Session, Agent, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: screenshotId
+          in: path
+          required: true
+          schema: {type: string, pattern: "^shot_[A-Za-z0-9]{20}$"}
+        - name: waitMs
+          in: query
+          required: false
+          schema: {type: integer, minimum: 0, maximum: 30000, default: 0}
+      responses:
+        "200":
+          description: Actor-scoped screenshot metadata without pixels, object paths, or signed URLs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentBrowserScreenshot"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "408":
+          description: The screenshot did not become terminal within the bounded wait.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /api/v1/sessions/{sessionId}/agent-browser/screenshots/{screenshotId}:redeem:
+    post:
+      operationId: redeemAgentBrowserScreenshot
+      summary: Redeem the screenshot's actor-bound one-time access grant
+      description: Returns one short-lived exact-object URL and consumes the AGENT_PERCEPTION grant.
+      tags: [Session, Agent, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: screenshotId
+          in: path
+          required: true
+          schema: {type: string, pattern: "^shot_[A-Za-z0-9]{20}$"}
+      responses:
+        "200":
+          description: One-time screenshot access has been redeemed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RedeemEvidenceAccessResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
   /api/v1/sessions/{sessionId}/agent-browser/clipboard:
     get:
       operationId: readAgentClipboard
@@ -9579,6 +9670,70 @@ components:
           type: array
           maxItems: 32
           items: {$ref: "#/components/schemas/AgentBrowserDownload"}
+    AgentBrowserScreenshotMode:
+      type: string
+      enum: [VIEWPORT, FULL_PAGE, ELEMENT, REGION, CHALLENGE_REGION]
+    AgentBrowserScreenshotRegion:
+      type: object
+      additionalProperties: false
+      required: [x, y, width, height]
+      properties:
+        x: {type: number, format: double, minimum: 0, maximum: 7680}
+        y: {type: number, format: double, minimum: 0, maximum: 4320}
+        width: {type: number, format: double, minimum: 1, maximum: 7680}
+        height: {type: number, format: double, minimum: 1, maximum: 4320}
+    CaptureAgentBrowserScreenshotRequest:
+      type: object
+      additionalProperties: false
+      required: [mode, expectedStateCursor]
+      description: >
+        VIEWPORT and FULL_PAGE accept no target. ELEMENT requires elementId. REGION and
+        CHALLENGE_REGION require a viewport-relative region. Other combinations are rejected.
+      properties:
+        mode: {$ref: "#/components/schemas/AgentBrowserScreenshotMode"}
+        expectedStateCursor:
+          type: string
+          pattern: "^[0-9]+:[0-9]+:[a-f0-9]{64}$"
+        elementId: {type: [string, "null"], maxLength: 256}
+        region:
+          anyOf:
+            - $ref: "#/components/schemas/AgentBrowserScreenshotRegion"
+            - type: "null"
+    AgentBrowserScreenshot:
+      type: object
+      additionalProperties: false
+      required:
+        [screenshotId, sessionId, mode, state, expectedStateCursor, activeTabId,
+         requestId, createdAt, updatedAt]
+      properties:
+        screenshotId: {type: string, pattern: "^shot_[A-Za-z0-9]{20}$"}
+        sessionId: {type: string, pattern: "^ses_[A-Za-z0-9]{16,}$"}
+        mode: {$ref: "#/components/schemas/AgentBrowserScreenshotMode"}
+        state: {type: string, enum: [EXECUTING, COMMITTED, FAILED]}
+        expectedStateCursor: {type: string, pattern: "^[0-9]+:[0-9]+:[a-f0-9]{64}$"}
+        capturedStateCursor: {type: [string, "null"], pattern: "^[0-9]+:[0-9]+:[a-f0-9]{64}$"}
+        activeTabId: {type: string, minLength: 1, maxLength: 128}
+        elementId: {type: [string, "null"], maxLength: 256}
+        region:
+          anyOf:
+            - $ref: "#/components/schemas/AgentBrowserScreenshotRegion"
+            - type: "null"
+        coordinateSpace: {type: [string, "null"], enum: [VIEWPORT, DOCUMENT, null]}
+        viewportWidth: {type: [number, "null"], format: double, minimum: 1}
+        viewportHeight: {type: [number, "null"], format: double, minimum: 1}
+        deviceScaleFactor: {type: [number, "null"], format: double, minimum: 0.1, maximum: 8}
+        evidenceId: {type: [string, "null"], pattern: "^evd_[A-Za-z0-9]{16,}$"}
+        accessGrantId: {type: [string, "null"], pattern: "^egr_[A-Za-z0-9]{16,}$"}
+        accessGrantExpiresAt: {type: [string, "null"], format: date-time}
+        contentSha256: {type: [string, "null"], pattern: "^[0-9a-f]{64}$"}
+        contentBytes: {type: [integer, "null"], format: int64, minimum: 1, maximum: 8388608}
+        redactionState: {type: [string, "null"], enum: [MASKED, NOT_REQUIRED, null]}
+        redactedRegionCount: {type: [integer, "null"], minimum: 0}
+        errorCode: {type: [string, "null"], maxLength: 128}
+        requestId: {type: string, maxLength: 128}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+        completedAt: {type: [string, "null"], format: date-time}
     AgentBrowserSnapshot:
       type: object
       additionalProperties: false
@@ -11263,7 +11418,8 @@ components:
     EvidencePurpose:
       type: string
       enum:
-        [INCIDENT_RESPONSE, CHANGE_VALIDATION, SUPPORT_DIAGNOSTICS, COMPLIANCE_AUDIT]
+        [INCIDENT_RESPONSE, CHANGE_VALIDATION, SUPPORT_DIAGNOSTICS, COMPLIANCE_AUDIT, AGENT_PERCEPTION]
+      description: AGENT_PERCEPTION is reserved for state-fenced Agent screenshots and cannot be requested through Observer evidence APIs.
     CaptureEvidenceRequest:
       type: object
       additionalProperties: false

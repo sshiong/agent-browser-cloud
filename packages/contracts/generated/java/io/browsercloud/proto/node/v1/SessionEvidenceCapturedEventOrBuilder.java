@@ -204,4 +204,137 @@ public interface SessionEvidenceCapturedEventOrBuilder
    * @return The redactedRegionCount.
    */
   int getRedactedRegionCount();
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+   * provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
+   * </pre>
+   *
+   * <code>string capture_mode = 16 [json_name = "captureMode"];</code>
+   *
+   * @return The captureMode.
+   */
+  java.lang.String getCaptureMode();
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+   * provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
+   * </pre>
+   *
+   * <code>string capture_mode = 16 [json_name = "captureMode"];</code>
+   *
+   * @return The bytes for captureMode.
+   */
+  com.google.protobuf.ByteString getCaptureModeBytes();
+
+  /**
+   * <code>uint64 captured_state_version = 17 [json_name = "capturedStateVersion"];</code>
+   *
+   * @return The capturedStateVersion.
+   */
+  long getCapturedStateVersion();
+
+  /**
+   * <code>uint64 captured_target_revision = 18 [json_name = "capturedTargetRevision"];</code>
+   *
+   * @return The capturedTargetRevision.
+   */
+  long getCapturedTargetRevision();
+
+  /**
+   * <code>string captured_state_hash = 19 [json_name = "capturedStateHash"];</code>
+   *
+   * @return The capturedStateHash.
+   */
+  java.lang.String getCapturedStateHash();
+
+  /**
+   * <code>string captured_state_hash = 19 [json_name = "capturedStateHash"];</code>
+   *
+   * @return The bytes for capturedStateHash.
+   */
+  com.google.protobuf.ByteString getCapturedStateHashBytes();
+
+  /**
+   * <code>string captured_active_tab_id = 20 [json_name = "capturedActiveTabId"];</code>
+   *
+   * @return The capturedActiveTabId.
+   */
+  java.lang.String getCapturedActiveTabId();
+
+  /**
+   * <code>string captured_active_tab_id = 20 [json_name = "capturedActiveTabId"];</code>
+   *
+   * @return The bytes for capturedActiveTabId.
+   */
+  com.google.protobuf.ByteString getCapturedActiveTabIdBytes();
+
+  /**
+   * <code>double viewport_width = 21 [json_name = "viewportWidth"];</code>
+   *
+   * @return The viewportWidth.
+   */
+  double getViewportWidth();
+
+  /**
+   * <code>double viewport_height = 22 [json_name = "viewportHeight"];</code>
+   *
+   * @return The viewportHeight.
+   */
+  double getViewportHeight();
+
+  /**
+   * <code>double device_scale_factor = 23 [json_name = "deviceScaleFactor"];</code>
+   *
+   * @return The deviceScaleFactor.
+   */
+  double getDeviceScaleFactor();
+
+  /**
+   * <code>double captured_region_x = 24 [json_name = "capturedRegionX"];</code>
+   *
+   * @return The capturedRegionX.
+   */
+  double getCapturedRegionX();
+
+  /**
+   * <code>double captured_region_y = 25 [json_name = "capturedRegionY"];</code>
+   *
+   * @return The capturedRegionY.
+   */
+  double getCapturedRegionY();
+
+  /**
+   * <code>double captured_region_width = 26 [json_name = "capturedRegionWidth"];</code>
+   *
+   * @return The capturedRegionWidth.
+   */
+  double getCapturedRegionWidth();
+
+  /**
+   * <code>double captured_region_height = 27 [json_name = "capturedRegionHeight"];</code>
+   *
+   * @return The capturedRegionHeight.
+   */
+  double getCapturedRegionHeight();
+
+  /**
+   * <code>string coordinate_space = 28 [json_name = "coordinateSpace"];</code>
+   *
+   * @return The coordinateSpace.
+   */
+  java.lang.String getCoordinateSpace();
+
+  /**
+   * <code>string coordinate_space = 28 [json_name = "coordinateSpace"];</code>
+   *
+   * @return The bytes for coordinateSpace.
+   */
+  com.google.protobuf.ByteString getCoordinateSpaceBytes();
 }

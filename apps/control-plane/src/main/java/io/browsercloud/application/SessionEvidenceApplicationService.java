@@ -2,6 +2,7 @@ package io.browsercloud.application;
 
 import static io.browsercloud.api.SessionEvidenceModels.*;
 
+import io.browsercloud.api.AgentBrowserScreenshotModels;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.coordinator.exceptions.SessionNotFoundException;
@@ -18,12 +19,17 @@ public class SessionEvidenceApplicationService {
   private final JdbcTemplate jdbc;
   private final SessionRepository sessions;
   private final SessionEvidenceGovernanceStore governance;
+  private final AgentBrowserScreenshotStore screenshots;
 
   public SessionEvidenceApplicationService(
-      JdbcTemplate jdbc, SessionRepository sessions, SessionEvidenceGovernanceStore governance) {
+      JdbcTemplate jdbc,
+      SessionRepository sessions,
+      SessionEvidenceGovernanceStore governance,
+      AgentBrowserScreenshotStore screenshots) {
     this.jdbc = jdbc;
     this.sessions = sessions;
     this.governance = governance;
+    this.screenshots = screenshots;
   }
 
   @Transactional
@@ -64,6 +70,32 @@ public class SessionEvidenceApplicationService {
           evidence.result(),
           evidence.errorCode(),
           Instant.ofEpochMilli(evidence.capturedAtMs()));
+    } else if ("AGENT_SCREENSHOT".equals(evidence.evidenceKind())) {
+      screenshots.complete(
+          new AgentBrowserScreenshotStore.Completion(
+              tenantId,
+              evidence.sessionId(),
+              evidence.commandId(),
+              evidence.evidenceId(),
+              "COMMITTED".equals(evidence.result()),
+              evidence.errorCode(),
+              evidence.captureMode(),
+              evidence.capturedStateVersion(),
+              evidence.capturedTargetRevision(),
+              evidence.capturedStateHash(),
+              evidence.capturedActiveTabId(),
+              evidence.viewportWidth(),
+              evidence.viewportHeight(),
+              evidence.deviceScaleFactor(),
+              "COMMITTED".equals(evidence.result())
+                  ? new AgentBrowserScreenshotModels.ScreenshotRegion(
+                      evidence.capturedRegionX(),
+                      evidence.capturedRegionY(),
+                      evidence.capturedRegionWidth(),
+                      evidence.capturedRegionHeight())
+                  : null,
+              evidence.coordinateSpace(),
+              Instant.now()));
     }
   }
 

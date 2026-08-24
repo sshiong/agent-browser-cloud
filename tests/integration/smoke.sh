@@ -717,7 +717,7 @@ for _ in $(seq 1 30); do
   sleep 0.25
 done
 printf '%s' "$browser_nodes" | python3 -c \
-  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["safePointBrowserTransactions"] == "cdp-transaction-v1"; assert node["labels"]["safePointBrowserTransactionPolicy"] == "approved-route-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileExport"] == "presigned-checkpoint-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["evidenceRedaction"] == "dom-overlay-script-freeze-v1"; assert node["labels"]["recordingRedaction"] == "frame-mask-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["safePointBrowserTransactions"] == "cdp-transaction-v1"; assert node["labels"]["safePointBrowserTransactionPolicy"] == "approved-route-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileExport"] == "presigned-checkpoint-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["evidenceRedaction"] == "dom-overlay-script-freeze-v1"; assert node["labels"]["recordingRedaction"] == "frame-mask-v1"; assert node["labels"]["agentScreenshot"] == "state-fenced-region-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
 printf 'safe_point_browser_transaction_policy=true\n'
 
 runtime_builds="$(curl -fsS \
@@ -4423,6 +4423,123 @@ curl -fsS \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Roles: TENANT_VIEWER' | python3 -c \
   'import json,sys; state=json.load(sys.stdin)["state"]; textbox=next(item for item in state["targets"] if item["role"] == "textbox" and not item["sensitive"]); assert textbox["value"] == "dialog-prompt-integration"'
+
+agent_screenshot_state=""
+agent_screenshot=""
+agent_screenshot_id=""
+for agent_screenshot_attempt in $(seq 1 3); do
+  agent_screenshot_snapshot="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: TENANT_VIEWER')"
+  agent_screenshot_cursor="$(printf '%s' "$agent_screenshot_snapshot" | python3 -c \
+    'import json,sys; value=json.load(sys.stdin); assert value["activeTab"]["tabId"] == value["state"]["activeTabId"]; print(value["stateCursor"])')"
+  agent_screenshot_status="$(curl -sS -o "$temp_dir/agent-screenshot-response.json" -w '%{http_code}' -X POST \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/screenshots" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Actor-Id: integration-agent' \
+    -H 'X-Roles: TENANT_OPERATOR' \
+    -H "Idempotency-Key: smoke-agent-browser-screenshot-00${agent_screenshot_attempt}" \
+    -d "{\"mode\":\"REGION\",\"expectedStateCursor\":\"${agent_screenshot_cursor}\",\"region\":{\"x\":10,\"y\":20,\"width\":300,\"height\":180}}")"
+  if [[ "$agent_screenshot_status" != "202" ]]; then
+    agent_screenshot_reason="$(python3 - "$temp_dir/agent-screenshot-response.json" <<'PY'
+import json
+import sys
+try:
+    print(json.load(open(sys.argv[1]))["details"].get("reason", ""))
+except (OSError, KeyError, json.JSONDecodeError):
+    print("")
+PY
+)"
+    if [[ "$agent_screenshot_status" != "409" || "$agent_screenshot_reason" != "STATE_CURSOR_STALE" ]]; then
+      cat "$temp_dir/agent-screenshot-response.json" >&2
+      exit 1
+    fi
+    sleep 0.25
+    continue
+  fi
+  agent_screenshot="$(<"$temp_dir/agent-screenshot-response.json")"
+  agent_screenshot_id="$(printf '%s' "$agent_screenshot" | python3 -c \
+    'import json,sys; item=json.load(sys.stdin); assert item["mode"] == "REGION"; assert item["state"] in ("EXECUTING", "COMMITTED"); assert "downloadUrl" not in item and "objectKey" not in item; print(item["screenshotId"])')"
+  for _ in $(seq 1 80); do
+    agent_screenshot="$(curl -fsS \
+      "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/screenshots/${agent_screenshot_id}?waitMs=5000" \
+      -H 'X-Tenant-Id: tenant-integration' \
+      -H 'X-Actor-Id: integration-agent' \
+      -H 'X-Roles: TENANT_VIEWER')"
+    agent_screenshot_state="$(printf '%s' "$agent_screenshot" | python3 -c \
+      'import json,sys; print(json.load(sys.stdin)["state"])')"
+    if [[ "$agent_screenshot_state" = "COMMITTED" || "$agent_screenshot_state" = "FAILED" ]]; then
+      break
+    fi
+    sleep 0.25
+  done
+  if [[ "$agent_screenshot_state" = "COMMITTED" ]]; then break; fi
+  agent_screenshot_reason="$(printf '%s' "$agent_screenshot" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin).get("errorCode") or "")')"
+  if [[ "$agent_screenshot_state" != "FAILED" || "$agent_screenshot_reason" != "STATE_STALE" ]]; then
+    break
+  fi
+  previous_agent_screenshot_cursor="$agent_screenshot_cursor"
+  for _ in $(seq 1 80); do
+    current_agent_screenshot_cursor="$(curl -fsS \
+      "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+      -H 'X-Tenant-Id: tenant-integration' \
+      -H 'X-Roles: TENANT_VIEWER' | python3 -c \
+      'import json,sys; print(json.load(sys.stdin)["stateCursor"])')"
+    if [[ "$current_agent_screenshot_cursor" != "$previous_agent_screenshot_cursor" ]]; then break; fi
+    sleep 0.25
+  done
+done
+if [[ "$agent_screenshot_state" != "COMMITTED" ]]; then
+  printf '%s\n' "agent_screenshot_terminal=${agent_screenshot}" >&2
+  docker exec "$postgres_name" psql -U browsercloud -d browsercloud -x -c \
+    "SELECT screenshot_id, command_id, state, error_code, expected_state_version,
+            captured_state_version, expected_active_tab_id, captured_active_tab_id
+       FROM agent_browser_screenshot_requests WHERE screenshot_id='${agent_screenshot_id}'" >&2
+fi
+test "$agent_screenshot_state" = "COMMITTED"
+read -r agent_screenshot_sha agent_screenshot_grant < <(printf '%s' "$agent_screenshot" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["capturedStateCursor"] == item["expectedStateCursor"]; assert item["activeTabId"]; assert item["coordinateSpace"] == "VIEWPORT"; assert item["viewportWidth"] == 1280; assert item["viewportHeight"] == 720; assert item["deviceScaleFactor"] == 1; assert item["region"] == {"x":10.0,"y":20.0,"width":300.0,"height":180.0}; assert item["redactionState"] == "MASKED"; assert item["redactedRegionCount"] == 1; assert item["contentBytes"] == 4; assert "downloadUrl" not in item and "objectKey" not in item; print(item["contentSha256"], item["accessGrantId"])')
+agent_screenshot_cross_tenant_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/screenshots/${agent_screenshot_id}" \
+  -H 'X-Tenant-Id: tenant-other' \
+  -H 'X-Actor-Id: integration-agent' \
+  -H 'X-Roles: TENANT_VIEWER')"
+test "$agent_screenshot_cross_tenant_status" = "404"
+agent_screenshot_cross_actor_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/screenshots/${agent_screenshot_id}" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: another-agent' \
+  -H 'X-Roles: TENANT_VIEWER')"
+test "$agent_screenshot_cross_actor_status" = "404"
+agent_screenshot_redeem="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/screenshots/${agent_screenshot_id}:redeem" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: integration-agent' \
+  -H 'X-Roles: TENANT_OPERATOR')"
+agent_screenshot_download_url="$(printf '%s' "$agent_screenshot_redeem" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["grantId"] == sys.argv[1]; print(item["downloadUrl"])' "$agent_screenshot_grant")"
+curl -fsS "$agent_screenshot_download_url" -o "$temp_dir/agent-screenshot.jpeg"
+test "$(openssl dgst -sha256 -r "$temp_dir/agent-screenshot.jpeg" | awk '{print $1}')" = "$agent_screenshot_sha"
+agent_screenshot_second_redeem_status="$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/screenshots/${agent_screenshot_id}:redeem" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: integration-agent' \
+  -H 'X-Roles: TENANT_OPERATOR')"
+test "$agent_screenshot_second_redeem_status" = "409"
+agent_screenshot_database_state="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select screenshot.state || ':' || access_grant.purpose || ':' || access_grant.state
+     from agent_browser_screenshot_requests screenshot
+     join session_evidence_access_grants access_grant on access_grant.grant_id=screenshot.access_grant_id
+    where screenshot.screenshot_id='${agent_screenshot_id}'")"
+test "$agent_screenshot_database_state" = "COMMITTED:AGENT_PERCEPTION:REDEEMED"
+agent_screenshot_sensitive_columns="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from information_schema.columns where table_name='agent_browser_screenshot_requests' and column_name ~ '(path|url|bytes|(^|_)data$|content$)'")"
+test "$agent_screenshot_sensitive_columns" = "0"
+printf 'agent_browser_screenshots=true\n'
+
 printf 'integration-file-content\n' >"$temp_dir/agent-upload.txt"
 agent_file_hash="$(shasum -a 256 "$temp_dir/agent-upload.txt" | awk '{print $1}')"
 agent_file_status=""

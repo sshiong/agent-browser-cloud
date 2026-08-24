@@ -12,6 +12,7 @@ import io.browsercloud.proto.node.v1.AgentFileUploadCommand;
 import io.browsercloud.proto.node.v1.AgentNavigateCommand;
 import io.browsercloud.proto.node.v1.BeginHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand;
+import io.browsercloud.proto.node.v1.CaptureAgentScreenshotCommand;
 import io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand;
 import io.browsercloud.proto.node.v1.ChallengeAutomationActionCommand;
 import io.browsercloud.proto.node.v1.ChallengeVisualAction;
@@ -487,6 +488,53 @@ public final class NodeCommands {
         session.contextEpoch(),
         0,
         "observer-evidence:" + captureId,
+        payload);
+  }
+
+  public static NodeCommand captureAgentScreenshot(
+      SessionContext session,
+      String screenshotId,
+      String evidenceId,
+      String commandId,
+      String mode,
+      long stateVersion,
+      long targetRevision,
+      String stateHash,
+      String activeTabId,
+      String elementId,
+      Double regionX,
+      Double regionY,
+      Double regionWidth,
+      Double regionHeight,
+      long capturedAtMs) {
+    var payload =
+        CaptureAgentScreenshotCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setScreenshotId(screenshotId)
+            .setCaptureMode(mode)
+            .setBaseStateVersion(stateVersion)
+            .setTargetRevision(targetRevision)
+            .setBaseContentHash(stateHash)
+            .setActiveTabId(activeTabId)
+            .setElementId(elementId == null ? "" : elementId)
+            .setRegionX(regionX == null ? 0 : regionX)
+            .setRegionY(regionY == null ? 0 : regionY)
+            .setRegionWidth(regionWidth == null ? 0 : regionWidth)
+            .setRegionHeight(regionHeight == null ? 0 : regionHeight)
+            .setEvidenceId(evidenceId)
+            .setCapturedAtMs(capturedAtMs)
+            .build()
+            .toByteArray();
+    return new NodeCommand(
+        commandId,
+        "CaptureAgentScreenshot",
+        session.nodeId(),
+        session.sessionId(),
+        session.tenantId(),
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        0,
+        "agent-screenshot:" + screenshotId,
         payload);
   }
 

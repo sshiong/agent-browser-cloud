@@ -16,21 +16,21 @@ use node_contracts::proto::{
     BrowserNativeDialogState, BrowserStateDiffEvent, BrowserStateEvent,
     BrowserStateSnapshotBeginEvent, BrowserStateSnapshotChunkEvent,
     BrowserStateSnapshotCommitEvent, BrowserTabState, BusinessRecoveryActionCommand,
-    CaptureObserverScreenshotCommand, ChallengeAutomationActionCommand,
-    ChallengeAutomationFailedEvent, ChallengeVisualAction, CommandAck, CommandEnvelope,
-    DiffTruncatedEvent, DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope,
-    ExecuteInputCommand, ExtensionBackgroundPolicy, HumanAssistClickCommand,
-    HumanAssistFailedEvent, HumanTakeoverEndedEvent, HumanTakeoverReadyEvent,
-    InteractiveTargetState, PingRequest, PingResponse, PresignEvidenceDownloadRequest,
-    PresignEvidenceDownloadResponse, PresignProfileExportDownloadRequest,
-    PresignProfileExportDownloadResponse, ProbeProxyBindingRequest, ProbeProxyBindingResponse,
-    ProfileWarmTierSyncedEvent, PublishRequest, PublishResponse, ReleaseAllInputCommand,
-    RemoteDesktopParticipantEvent, ReportCapacityRequest, ReportSessionResourcesRequest,
-    RequestStateResyncCommand, RevokeRemoteDesktopConnectionCommand, RuntimeResourcesAdjustedEvent,
-    RuntimeStartedEvent, RuntimeStoppedEvent, SessionEvidenceCapturedEvent,
-    SessionRecordingFinalizedEvent, StageAgentBrowserFileRequest, StageAgentBrowserFileResponse,
-    StartRuntimeCommand, StopRuntimeCommand, TargetBounds, UploadProfileImportRequest,
-    UploadProfileImportResponse,
+    CaptureAgentScreenshotCommand, CaptureObserverScreenshotCommand,
+    ChallengeAutomationActionCommand, ChallengeAutomationFailedEvent, ChallengeVisualAction,
+    CommandAck, CommandEnvelope, DiffTruncatedEvent, DispatchRequest, DispatchResponse,
+    EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand, ExtensionBackgroundPolicy,
+    HumanAssistClickCommand, HumanAssistFailedEvent, HumanTakeoverEndedEvent,
+    HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest, PingResponse,
+    PresignEvidenceDownloadRequest, PresignEvidenceDownloadResponse,
+    PresignProfileExportDownloadRequest, PresignProfileExportDownloadResponse,
+    ProbeProxyBindingRequest, ProbeProxyBindingResponse, ProfileWarmTierSyncedEvent,
+    PublishRequest, PublishResponse, ReleaseAllInputCommand, RemoteDesktopParticipantEvent,
+    ReportCapacityRequest, ReportSessionResourcesRequest, RequestStateResyncCommand,
+    RevokeRemoteDesktopConnectionCommand, RuntimeResourcesAdjustedEvent, RuntimeStartedEvent,
+    RuntimeStoppedEvent, SessionEvidenceCapturedEvent, SessionRecordingFinalizedEvent,
+    StageAgentBrowserFileRequest, StageAgentBrowserFileResponse, StartRuntimeCommand,
+    StopRuntimeCommand, TargetBounds, UploadProfileImportRequest, UploadProfileImportResponse,
 };
 use node_journal::{
     CommandFenceDecision, PersistedAcknowledgement, PersistedCommandResult, RuntimeLease,
@@ -45,8 +45,8 @@ use runtime_supervisor::{
     RuntimeResourceLimits, RuntimeSpec, RuntimeSupervisor,
 };
 use session_recorder::{
-    EvidenceCapture, EvidenceSpec, RecordingSpec, RecordingSummary, SessionEvidenceRegistry,
-    SessionRecorderRegistry,
+    EvidenceCapture, EvidenceSpec, RecordingSpec, RecordingSummary, ScreenshotCaptureOptions,
+    ScreenshotClip, SessionEvidenceRegistry, SessionRecorderRegistry,
 };
 use sha2::{Digest, Sha256};
 use state_collector::{
@@ -719,6 +719,15 @@ impl NodeCapacityReporter {
             .to_owned(),
         );
         labels.insert(
+            "agentScreenshot".to_owned(),
+            if evidence_storage_available {
+                "state-fenced-region-v1"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
+        );
+        labels.insert(
             "evidenceAccess".to_owned(),
             if evidence_storage_available {
                 "presigned-get-v1"
@@ -1107,17 +1116,20 @@ impl NodeControlService {
             redacted_region_count,
         ) = match capture {
             Ok(EvidenceCapture::Skipped { .. }) => return Ok(()),
-            Ok(EvidenceCapture::Committed(summary)) => (
-                summary.evidence_id,
-                summary.content_sha256,
-                summary.content_bytes,
-                summary.object_key,
-                summary.captured_at_ms as i64,
-                "COMMITTED".to_owned(),
-                String::new(),
-                summary.redaction_state,
-                summary.redacted_region_count,
-            ),
+            Ok(EvidenceCapture::Committed(summary)) => {
+                let summary = *summary;
+                (
+                    summary.evidence_id,
+                    summary.content_sha256,
+                    summary.content_bytes,
+                    summary.object_key,
+                    summary.captured_at_ms as i64,
+                    "COMMITTED".to_owned(),
+                    String::new(),
+                    summary.redaction_state,
+                    summary.redacted_region_count,
+                )
+            }
             Err(error) => {
                 tracing::warn!(
                     session_id = command.session_id,
@@ -1170,6 +1182,19 @@ impl NodeControlService {
                 error_code,
                 redaction_state,
                 redacted_region_count,
+                capture_mode: String::new(),
+                captured_state_version: 0,
+                captured_target_revision: 0,
+                captured_state_hash: String::new(),
+                captured_active_tab_id: String::new(),
+                viewport_width: 0.0,
+                viewport_height: 0.0,
+                device_scale_factor: 0.0,
+                captured_region_x: 0.0,
+                captured_region_y: 0.0,
+                captured_region_width: 0.0,
+                captured_region_height: 0.0,
+                coordinate_space: String::new(),
             },
         )
         .await
@@ -1591,6 +1616,240 @@ impl NodeControlService {
                 session_id: command.session_id.clone(),
                 upload_id: payload.upload_id.clone(),
                 error_code: error_code.to_owned(),
+            },
+        );
+        Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
+    }
+
+    fn agent_screenshot_error_code(error: &anyhow::Error) -> &'static str {
+        let message = error.to_string().to_ascii_lowercase();
+        if message.contains("state cursor") || message.contains("target revision") {
+            "STATE_STALE"
+        } else if message.contains("not visible") {
+            "ELEMENT_NOT_VISIBLE"
+        } else if message.contains("outside viewport") {
+            "ELEMENT_OUTSIDE_VIEWPORT"
+        } else if message.contains("occluded") {
+            "ELEMENT_OCCLUDED"
+        } else if message.contains("target") || message.contains("element") {
+            "ELEMENT_NOT_FOUND"
+        } else if message.contains("pixel budget") || message.contains("bounded capture range") {
+            "SCREENSHOT_TOO_LARGE"
+        } else if message.contains("sensitive redaction") {
+            "SENSITIVE_REDACTION_FAILED"
+        } else if message.contains("object storage") || message.contains("storage helper") {
+            "OBJECT_STORAGE_UNAVAILABLE"
+        } else {
+            "CDP_CAPTURE_FAILED"
+        }
+    }
+
+    async fn agent_screenshot_failed(
+        &self,
+        command: &CommandEnvelope,
+        payload: &CaptureAgentScreenshotCommand,
+        error_code: &str,
+    ) -> CommandResult {
+        let sequence = match self.next_event_sequence(&command.session_id).await {
+            Ok(sequence) => sequence,
+            Err(error) => return self.failed(command, error),
+        };
+        let event = Self::event(
+            command,
+            "SessionEvidenceCaptured",
+            sequence,
+            SessionEvidenceCapturedEvent {
+                session_id: command.session_id.clone(),
+                evidence_id: payload.evidence_id.clone(),
+                evidence_kind: "AGENT_SCREENSHOT".to_owned(),
+                task_id: payload.screenshot_id.clone(),
+                step_id: "agent-screenshot".to_owned(),
+                command_id: command.message_id.clone(),
+                content_sha256: String::new(),
+                content_bytes: 0,
+                object_key: String::new(),
+                captured_at_ms: payload.captured_at_ms,
+                mandatory: true,
+                result: "FAILED".to_owned(),
+                error_code: error_code.to_owned(),
+                redaction_state: "FAILED_CLOSED".to_owned(),
+                redacted_region_count: 0,
+                capture_mode: payload.capture_mode.clone(),
+                captured_state_version: 0,
+                captured_target_revision: 0,
+                captured_state_hash: String::new(),
+                captured_active_tab_id: String::new(),
+                viewport_width: 0.0,
+                viewport_height: 0.0,
+                device_scale_factor: 0.0,
+                captured_region_x: 0.0,
+                captured_region_y: 0.0,
+                captured_region_width: 0.0,
+                captured_region_height: 0.0,
+                coordinate_space: String::new(),
+            },
+        );
+        Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
+    }
+
+    async fn capture_agent_screenshot(
+        &self,
+        command: &CommandEnvelope,
+        payload: &CaptureAgentScreenshotCommand,
+    ) -> CommandResult {
+        if self.human_input_has_priority(&command.session_id) {
+            return self
+                .agent_screenshot_failed(command, payload, "USER_ACTIVITY_DETECTED")
+                .await;
+        }
+        let current = match self
+            .state_collector
+            .collect_current_state(&command.session_id)
+            .await
+        {
+            Ok(state) => state,
+            Err(_) => {
+                return self
+                    .agent_screenshot_failed(command, payload, "CURRENT_STATE_UNAVAILABLE")
+                    .await
+            }
+        };
+        if !matches!(
+            current.quality,
+            StateQuality::Complete | StateQuality::DepthLimited
+        ) || current.state_version != payload.base_state_version
+            || current.target_revision != payload.target_revision
+            || current.content_hash != payload.base_content_hash
+            || current.active_tab_id != payload.active_tab_id
+        {
+            return self
+                .agent_screenshot_failed(command, payload, "STATE_STALE")
+                .await;
+        }
+        let clip = match payload.capture_mode.as_str() {
+            "VIEWPORT" | "FULL_PAGE" => None,
+            "ELEMENT" => {
+                let target = match self
+                    .state_collector
+                    .resolve_target(
+                        &payload.session_id,
+                        &payload.element_id,
+                        payload.target_revision,
+                    )
+                    .await
+                {
+                    Ok(target) => target,
+                    Err(error) => {
+                        return self
+                            .agent_screenshot_failed(
+                                command,
+                                payload,
+                                Self::agent_screenshot_error_code(&error),
+                            )
+                            .await
+                    }
+                };
+                Some(ScreenshotClip {
+                    x: target.bounds.x,
+                    y: target.bounds.y,
+                    width: target.bounds.width,
+                    height: target.bounds.height,
+                })
+            }
+            "REGION" | "CHALLENGE_REGION" => Some(ScreenshotClip {
+                x: payload.region_x,
+                y: payload.region_y,
+                width: payload.region_width,
+                height: payload.region_height,
+            }),
+            _ => {
+                return self
+                    .agent_screenshot_failed(command, payload, "SCREENSHOT_MODE_UNSUPPORTED")
+                    .await
+            }
+        };
+        let capture = self
+            .session_evidence
+            .capture_with_options(
+                &command.session_id,
+                &command.message_id,
+                "AGENT_SCREENSHOT",
+                true,
+                Some(ScreenshotCaptureOptions {
+                    evidence_id: payload.evidence_id.clone(),
+                    captured_at_ms: payload.captured_at_ms as u64,
+                    active_tab_id: payload.active_tab_id.clone(),
+                    capture_mode: payload.capture_mode.clone(),
+                    clip,
+                }),
+            )
+            .await;
+        let summary = match capture {
+            Ok(EvidenceCapture::Committed(summary)) => *summary,
+            Ok(EvidenceCapture::Skipped { .. }) => {
+                return self
+                    .agent_screenshot_failed(command, payload, "SCREENSHOT_CAPTURE_SKIPPED")
+                    .await
+            }
+            Err(error) => {
+                return self
+                    .agent_screenshot_failed(
+                        command,
+                        payload,
+                        Self::agent_screenshot_error_code(&error),
+                    )
+                    .await
+            }
+        };
+        let Some(metadata) = summary.screenshot_metadata else {
+            return self
+                .agent_screenshot_failed(command, payload, "SCREENSHOT_METADATA_MISSING")
+                .await;
+        };
+        if metadata.active_tab_id != current.active_tab_id
+            || metadata.capture_mode != payload.capture_mode
+        {
+            return self
+                .agent_screenshot_failed(command, payload, "SCREENSHOT_METADATA_MISMATCH")
+                .await;
+        }
+        let sequence = match self.next_event_sequence(&command.session_id).await {
+            Ok(sequence) => sequence,
+            Err(error) => return self.failed(command, error),
+        };
+        let event = Self::event(
+            command,
+            "SessionEvidenceCaptured",
+            sequence,
+            SessionEvidenceCapturedEvent {
+                session_id: command.session_id.clone(),
+                evidence_id: summary.evidence_id,
+                evidence_kind: "AGENT_SCREENSHOT".to_owned(),
+                task_id: payload.screenshot_id.clone(),
+                step_id: "agent-screenshot".to_owned(),
+                command_id: command.message_id.clone(),
+                content_sha256: summary.content_sha256,
+                content_bytes: summary.content_bytes,
+                object_key: summary.object_key,
+                captured_at_ms: summary.captured_at_ms as i64,
+                mandatory: true,
+                result: "COMMITTED".to_owned(),
+                error_code: String::new(),
+                redaction_state: summary.redaction_state,
+                redacted_region_count: summary.redacted_region_count,
+                capture_mode: metadata.capture_mode,
+                captured_state_version: current.state_version,
+                captured_target_revision: current.target_revision,
+                captured_state_hash: current.content_hash,
+                captured_active_tab_id: current.active_tab_id,
+                viewport_width: metadata.viewport_width,
+                viewport_height: metadata.viewport_height,
+                device_scale_factor: metadata.device_scale_factor,
+                captured_region_x: metadata.region.x,
+                captured_region_y: metadata.region.y,
+                captured_region_width: metadata.region.width,
+                captured_region_height: metadata.region.height,
+                coordinate_space: metadata.coordinate_space,
             },
         );
         Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
@@ -5946,6 +6205,68 @@ impl NodeControlService {
                             );
                         }
                         Self::result(Self::ack(&command.message_id, true, "", ""), None)
+                    }
+                    Err(error) => self.failed(command, error.into()),
+                }
+            }
+            "CaptureAgentScreenshot" => {
+                match CaptureAgentScreenshotCommand::decode(command.payload.as_slice()) {
+                    Ok(payload) => {
+                        let no_region = payload.region_x == 0.0
+                            && payload.region_y == 0.0
+                            && payload.region_width == 0.0
+                            && payload.region_height == 0.0;
+                        let valid_region = payload.region_x.is_finite()
+                            && payload.region_y.is_finite()
+                            && payload.region_width.is_finite()
+                            && payload.region_height.is_finite()
+                            && (0.0..=7680.0).contains(&payload.region_x)
+                            && (0.0..=4320.0).contains(&payload.region_y)
+                            && (1.0..=7680.0).contains(&payload.region_width)
+                            && (1.0..=4320.0).contains(&payload.region_height);
+                        let valid_mode_input = match payload.capture_mode.as_str() {
+                            "VIEWPORT" | "FULL_PAGE" => payload.element_id.is_empty() && no_region,
+                            "ELEMENT" => {
+                                !payload.element_id.is_empty()
+                                    && payload.element_id.len() <= 256
+                                    && !payload.element_id.chars().any(char::is_control)
+                                    && no_region
+                            }
+                            "REGION" | "CHALLENGE_REGION" => {
+                                payload.element_id.is_empty() && valid_region
+                            }
+                            _ => false,
+                        };
+                        if payload.session_id != command.session_id
+                            || !payload.screenshot_id.starts_with("shot_")
+                            || payload.screenshot_id.len() != 25
+                            || !payload.screenshot_id[5..]
+                                .bytes()
+                                .all(|value| value.is_ascii_alphanumeric())
+                            || payload.base_state_version == 0
+                            || payload.target_revision == 0
+                            || payload.base_content_hash.len() != 64
+                            || !payload
+                                .base_content_hash
+                                .bytes()
+                                .all(|value| value.is_ascii_hexdigit())
+                            || payload.active_tab_id.is_empty()
+                            || payload.active_tab_id.len() > 128
+                            || payload.active_tab_id.chars().any(char::is_control)
+                            || !payload.evidence_id.starts_with("evd_")
+                            || payload.evidence_id.len() != 36
+                            || !payload.evidence_id[4..]
+                                .bytes()
+                                .all(|value| value.is_ascii_hexdigit())
+                            || payload.captured_at_ms <= 0
+                            || !valid_mode_input
+                        {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!("Agent screenshot payload is invalid"),
+                            );
+                        }
+                        self.capture_agent_screenshot(command, &payload).await
                     }
                     Err(error) => self.failed(command, error.into()),
                 }

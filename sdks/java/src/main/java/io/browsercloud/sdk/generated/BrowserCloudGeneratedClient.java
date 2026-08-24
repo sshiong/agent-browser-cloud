@@ -49,6 +49,9 @@ public final class BrowserCloudGeneratedClient {
     operation("inspectAgentBrowserElements", "POST", "/api/v1/sessions/{sessionId}/agent-browser/inspect", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "AgentBrowserInspectRequest", true, "AgentBrowserTargetList"),
     operation("findAgentBrowserElements", "POST", "/api/v1/sessions/{sessionId}/agent-browser/find", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "AgentBrowserFindRequest", true, "AgentBrowserTargetList"),
     operation("executeAgentBrowserActions", "POST", "/api/v1/sessions/{sessionId}/agent-browser/execute-actions", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "ExecuteAgentBrowserActionsRequest", true, "AgentTask"),
+    operation("captureAgentBrowserScreenshot", "POST", "/api/v1/sessions/{sessionId}/agent-browser/screenshots", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CaptureAgentBrowserScreenshotRequest", true, "AgentBrowserScreenshot"),
+    operation("getAgentBrowserScreenshot", "GET", "/api/v1/sessions/{sessionId}/agent-browser/screenshots/{screenshotId}", List.of("screenshotId", "sessionId"), List.of("waitMs"), List.of("X-Tenant-Id"), "", false, "AgentBrowserScreenshot"),
+    operation("redeemAgentBrowserScreenshot", "POST", "/api/v1/sessions/{sessionId}/agent-browser/screenshots/{screenshotId}:redeem", List.of("screenshotId", "sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "RedeemEvidenceAccessResponse"),
     operation("readAgentClipboard", "GET", "/api/v1/sessions/{sessionId}/agent-browser/clipboard", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "AgentClipboard"),
     operation("writeAgentClipboard", "PUT", "/api/v1/sessions/{sessionId}/agent-browser/clipboard", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "WriteAgentClipboardRequest", true, "AgentClipboard"),
     operation("clearAgentClipboard", "DELETE", "/api/v1/sessions/{sessionId}/agent-browser/clipboard", List.of("sessionId"), List.of("expectedVersion"), List.of("X-Tenant-Id"), "", false, "AgentClipboard"),
@@ -311,6 +314,9 @@ public final class BrowserCloudGeneratedClient {
   public Response inspectAgentBrowserElements(Request request) { return call("inspectAgentBrowserElements", request); }
   public Response findAgentBrowserElements(Request request) { return call("findAgentBrowserElements", request); }
   public Response executeAgentBrowserActions(Request request) { return call("executeAgentBrowserActions", request); }
+  public Response captureAgentBrowserScreenshot(Request request) { return call("captureAgentBrowserScreenshot", request); }
+  public Response getAgentBrowserScreenshot(Request request) { return call("getAgentBrowserScreenshot", request); }
+  public Response redeemAgentBrowserScreenshot(Request request) { return call("redeemAgentBrowserScreenshot", request); }
   public Response readAgentClipboard(Request request) { return call("readAgentClipboard", request); }
   public Response writeAgentClipboard(Request request) { return call("writeAgentClipboard", request); }
   public Response clearAgentClipboard(Request request) { return call("clearAgentClipboard", request); }

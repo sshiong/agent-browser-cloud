@@ -1343,6 +1343,58 @@ type AgentBrowserDownloadList struct {
 	Downloads     []AgentBrowserDownload `json:"downloads,omitempty"`
 }
 
+type AgentBrowserScreenshotMode string
+
+const (
+	AgentBrowserScreenshotModeVIEWPORT        AgentBrowserScreenshotMode = "VIEWPORT"
+	AgentBrowserScreenshotModeFULLPAGE        AgentBrowserScreenshotMode = "FULL_PAGE"
+	AgentBrowserScreenshotModeELEMENT         AgentBrowserScreenshotMode = "ELEMENT"
+	AgentBrowserScreenshotModeREGION          AgentBrowserScreenshotMode = "REGION"
+	AgentBrowserScreenshotModeCHALLENGEREGION AgentBrowserScreenshotMode = "CHALLENGE_REGION"
+)
+
+type AgentBrowserScreenshotRegion struct {
+	X      float64 `json:"x,omitempty"`
+	Y      float64 `json:"y,omitempty"`
+	Width  float64 `json:"width,omitempty"`
+	Height float64 `json:"height,omitempty"`
+}
+
+type CaptureAgentBrowserScreenshotRequest struct {
+	Mode                AgentBrowserScreenshotMode    `json:"mode,omitempty"`
+	ExpectedStateCursor string                        `json:"expectedStateCursor,omitempty"`
+	ElementId           any                           `json:"elementId,omitempty"`
+	Region              *AgentBrowserScreenshotRegion `json:"region,omitempty"`
+}
+
+type AgentBrowserScreenshot struct {
+	ScreenshotId         string                        `json:"screenshotId,omitempty"`
+	SessionId            string                        `json:"sessionId,omitempty"`
+	Mode                 AgentBrowserScreenshotMode    `json:"mode,omitempty"`
+	State                string                        `json:"state,omitempty"`
+	ExpectedStateCursor  string                        `json:"expectedStateCursor,omitempty"`
+	CapturedStateCursor  any                           `json:"capturedStateCursor,omitempty"`
+	ActiveTabId          string                        `json:"activeTabId,omitempty"`
+	ElementId            any                           `json:"elementId,omitempty"`
+	Region               *AgentBrowserScreenshotRegion `json:"region,omitempty"`
+	CoordinateSpace      any                           `json:"coordinateSpace,omitempty"`
+	ViewportWidth        any                           `json:"viewportWidth,omitempty"`
+	ViewportHeight       any                           `json:"viewportHeight,omitempty"`
+	DeviceScaleFactor    any                           `json:"deviceScaleFactor,omitempty"`
+	EvidenceId           any                           `json:"evidenceId,omitempty"`
+	AccessGrantId        any                           `json:"accessGrantId,omitempty"`
+	AccessGrantExpiresAt any                           `json:"accessGrantExpiresAt,omitempty"`
+	ContentSha256        any                           `json:"contentSha256,omitempty"`
+	ContentBytes         any                           `json:"contentBytes,omitempty"`
+	RedactionState       any                           `json:"redactionState,omitempty"`
+	RedactedRegionCount  any                           `json:"redactedRegionCount,omitempty"`
+	ErrorCode            any                           `json:"errorCode,omitempty"`
+	RequestId            string                        `json:"requestId,omitempty"`
+	CreatedAt            string                        `json:"createdAt,omitempty"`
+	UpdatedAt            string                        `json:"updatedAt,omitempty"`
+	CompletedAt          any                           `json:"completedAt,omitempty"`
+}
+
 type AgentBrowserSnapshot struct {
 	StateCursor               string                     `json:"stateCursor,omitempty"`
 	State                     BrowserState               `json:"state,omitempty"`
@@ -1894,6 +1946,7 @@ const (
 	EvidencePurposeCHANGEVALIDATION   EvidencePurpose = "CHANGE_VALIDATION"
 	EvidencePurposeSUPPORTDIAGNOSTICS EvidencePurpose = "SUPPORT_DIAGNOSTICS"
 	EvidencePurposeCOMPLIANCEAUDIT    EvidencePurpose = "COMPLIANCE_AUDIT"
+	EvidencePurposeAGENTPERCEPTION    EvidencePurpose = "AGENT_PERCEPTION"
 )
 
 type CaptureEvidenceRequest struct {

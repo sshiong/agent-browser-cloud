@@ -5648,6 +5648,124 @@ export class CaptureObserverScreenshotCommand extends Message<CaptureObserverScr
 }
 
 /**
+ * Coarse, state-fenced Agent screenshot. The Node selects the authoritative active Page Target;
+ * callers cannot provide a CDP endpoint, Object Storage coordinate or arbitrary CDP method.
+ *
+ * @generated from message browsercloud.node.v1.CaptureAgentScreenshotCommand
+ */
+export class CaptureAgentScreenshotCommand extends Message<CaptureAgentScreenshotCommand> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string screenshot_id = 2;
+   */
+  screenshotId = "";
+
+  /**
+   * @generated from field: string capture_mode = 3;
+   */
+  captureMode = "";
+
+  /**
+   * @generated from field: uint64 base_state_version = 4;
+   */
+  baseStateVersion = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 target_revision = 5;
+   */
+  targetRevision = protoInt64.zero;
+
+  /**
+   * @generated from field: string base_content_hash = 6;
+   */
+  baseContentHash = "";
+
+  /**
+   * @generated from field: string active_tab_id = 7;
+   */
+  activeTabId = "";
+
+  /**
+   * @generated from field: string element_id = 8;
+   */
+  elementId = "";
+
+  /**
+   * @generated from field: double region_x = 9;
+   */
+  regionX = 0;
+
+  /**
+   * @generated from field: double region_y = 10;
+   */
+  regionY = 0;
+
+  /**
+   * @generated from field: double region_width = 11;
+   */
+  regionWidth = 0;
+
+  /**
+   * @generated from field: double region_height = 12;
+   */
+  regionHeight = 0;
+
+  /**
+   * @generated from field: string evidence_id = 13;
+   */
+  evidenceId = "";
+
+  /**
+   * @generated from field: int64 captured_at_ms = 14;
+   */
+  capturedAtMs = protoInt64.zero;
+
+  constructor(data?: PartialMessage<CaptureAgentScreenshotCommand>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.CaptureAgentScreenshotCommand";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "screenshot_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "capture_mode", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "base_state_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 5, name: "target_revision", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 6, name: "base_content_hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "active_tab_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "element_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 9, name: "region_x", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 10, name: "region_y", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 11, name: "region_width", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 12, name: "region_height", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 13, name: "evidence_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 14, name: "captured_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CaptureAgentScreenshotCommand {
+    return new CaptureAgentScreenshotCommand().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): CaptureAgentScreenshotCommand {
+    return new CaptureAgentScreenshotCommand().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): CaptureAgentScreenshotCommand {
+    return new CaptureAgentScreenshotCommand().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: CaptureAgentScreenshotCommand | PlainMessage<CaptureAgentScreenshotCommand> | undefined, b: CaptureAgentScreenshotCommand | PlainMessage<CaptureAgentScreenshotCommand> | undefined): boolean {
+    return proto3.util.equals(CaptureAgentScreenshotCommand, a, b);
+  }
+}
+
+/**
  * Agent 动作完成后由独立 CDP 截图数据面产生。对象由 Storage Helper 提交，
  * Node 不持有 Bucket 凭据；失败事件也会持久化，避免把缺失证据伪装成成功。
  *
@@ -5732,6 +5850,74 @@ export class SessionEvidenceCapturedEvent extends Message<SessionEvidenceCapture
    */
   redactedRegionCount = 0;
 
+  /**
+   * Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+   * provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
+   *
+   * @generated from field: string capture_mode = 16;
+   */
+  captureMode = "";
+
+  /**
+   * @generated from field: uint64 captured_state_version = 17;
+   */
+  capturedStateVersion = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 captured_target_revision = 18;
+   */
+  capturedTargetRevision = protoInt64.zero;
+
+  /**
+   * @generated from field: string captured_state_hash = 19;
+   */
+  capturedStateHash = "";
+
+  /**
+   * @generated from field: string captured_active_tab_id = 20;
+   */
+  capturedActiveTabId = "";
+
+  /**
+   * @generated from field: double viewport_width = 21;
+   */
+  viewportWidth = 0;
+
+  /**
+   * @generated from field: double viewport_height = 22;
+   */
+  viewportHeight = 0;
+
+  /**
+   * @generated from field: double device_scale_factor = 23;
+   */
+  deviceScaleFactor = 0;
+
+  /**
+   * @generated from field: double captured_region_x = 24;
+   */
+  capturedRegionX = 0;
+
+  /**
+   * @generated from field: double captured_region_y = 25;
+   */
+  capturedRegionY = 0;
+
+  /**
+   * @generated from field: double captured_region_width = 26;
+   */
+  capturedRegionWidth = 0;
+
+  /**
+   * @generated from field: double captured_region_height = 27;
+   */
+  capturedRegionHeight = 0;
+
+  /**
+   * @generated from field: string coordinate_space = 28;
+   */
+  coordinateSpace = "";
+
   constructor(data?: PartialMessage<SessionEvidenceCapturedEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -5755,6 +5941,19 @@ export class SessionEvidenceCapturedEvent extends Message<SessionEvidenceCapture
     { no: 13, name: "error_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 14, name: "redaction_state", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 15, name: "redacted_region_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 16, name: "capture_mode", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 17, name: "captured_state_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 18, name: "captured_target_revision", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 19, name: "captured_state_hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 20, name: "captured_active_tab_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 21, name: "viewport_width", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 22, name: "viewport_height", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 23, name: "device_scale_factor", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 24, name: "captured_region_x", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 25, name: "captured_region_y", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 26, name: "captured_region_width", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 27, name: "captured_region_height", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 28, name: "coordinate_space", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): SessionEvidenceCapturedEvent {

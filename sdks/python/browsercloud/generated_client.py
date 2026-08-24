@@ -59,6 +59,9 @@ OPERATIONS: dict[str, Operation] = {
     'inspectAgentBrowserElements': Operation('inspectAgentBrowserElements', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/inspect', ('sessionId',), (), ('X-Tenant-Id',), 'AgentBrowserInspectRequest', True, 'AgentBrowserTargetList'),
     'findAgentBrowserElements': Operation('findAgentBrowserElements', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/find', ('sessionId',), (), ('X-Tenant-Id',), 'AgentBrowserFindRequest', True, 'AgentBrowserTargetList'),
     'executeAgentBrowserActions': Operation('executeAgentBrowserActions', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/execute-actions', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'ExecuteAgentBrowserActionsRequest', True, 'AgentTask'),
+    'captureAgentBrowserScreenshot': Operation('captureAgentBrowserScreenshot', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/screenshots', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CaptureAgentBrowserScreenshotRequest', True, 'AgentBrowserScreenshot'),
+    'getAgentBrowserScreenshot': Operation('getAgentBrowserScreenshot', 'GET', '/api/v1/sessions/{sessionId}/agent-browser/screenshots/{screenshotId}', ('screenshotId', 'sessionId'), ('waitMs',), ('X-Tenant-Id',), '', False, 'AgentBrowserScreenshot'),
+    'redeemAgentBrowserScreenshot': Operation('redeemAgentBrowserScreenshot', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/screenshots/{screenshotId}:redeem', ('screenshotId', 'sessionId'), (), ('X-Tenant-Id',), '', False, 'RedeemEvidenceAccessResponse'),
     'readAgentClipboard': Operation('readAgentClipboard', 'GET', '/api/v1/sessions/{sessionId}/agent-browser/clipboard', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'AgentClipboard'),
     'writeAgentClipboard': Operation('writeAgentClipboard', 'PUT', '/api/v1/sessions/{sessionId}/agent-browser/clipboard', ('sessionId',), (), ('X-Tenant-Id',), 'WriteAgentClipboardRequest', True, 'AgentClipboard'),
     'clearAgentClipboard': Operation('clearAgentClipboard', 'DELETE', '/api/v1/sessions/{sessionId}/agent-browser/clipboard', ('sessionId',), ('expectedVersion',), ('X-Tenant-Id',), '', False, 'AgentClipboard'),
@@ -394,6 +397,15 @@ class BrowserCloudGeneratedClient:
 
     def executeAgentBrowserActions(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('executeAgentBrowserActions', path=path, query=query, body=body, headers=headers)
+
+    def captureAgentBrowserScreenshot(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('captureAgentBrowserScreenshot', path=path, query=query, body=body, headers=headers)
+
+    def getAgentBrowserScreenshot(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getAgentBrowserScreenshot', path=path, query=query, body=body, headers=headers)
+
+    def redeemAgentBrowserScreenshot(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('redeemAgentBrowserScreenshot', path=path, query=query, body=body, headers=headers)
 
     def readAgentClipboard(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('readAgentClipboard', path=path, query=query, body=body, headers=headers)

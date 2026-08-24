@@ -607,14 +607,7 @@ async fn execute_storage_operation(
         } => {
             validate_recording_identifier("evidence_id", evidence_id)?;
             anyhow::ensure!(
-                matches!(
-                    evidence_kind.as_str(),
-                    "AGENT_ACTION_SUCCESS"
-                        | "AGENT_ACTION_FAILURE"
-                        | "AGENT_NAVIGATION_SUCCESS"
-                        | "AGENT_NAVIGATION_FAILURE"
-                        | "OBSERVER_MANUAL"
-                ),
+                valid_evidence_kind(evidence_kind),
                 "evidence kind is invalid"
             );
             anyhow::ensure!(
@@ -1014,6 +1007,18 @@ fn validate_recording_identifier(name: &str, value: &str) -> anyhow::Result<()> 
     Ok(())
 }
 
+fn valid_evidence_kind(value: &str) -> bool {
+    matches!(
+        value,
+        "AGENT_ACTION_SUCCESS"
+            | "AGENT_ACTION_FAILURE"
+            | "AGENT_NAVIGATION_SUCCESS"
+            | "AGENT_NAVIGATION_FAILURE"
+            | "OBSERVER_MANUAL"
+            | "AGENT_SCREENSHOT"
+    )
+}
+
 fn verify_recording_segment_redaction(
     content: &[u8],
     expected_frames: u64,
@@ -1179,6 +1184,13 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static TEST_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+
+    #[test]
+    fn evidence_kind_allowlist_includes_state_fenced_agent_screenshots_only() {
+        assert!(valid_evidence_kind("AGENT_SCREENSHOT"));
+        assert!(valid_evidence_kind("OBSERVER_MANUAL"));
+        assert!(!valid_evidence_kind("ARBITRARY_SCREENSHOT"));
+    }
 
     #[tokio::test]
     async fn rejects_a_peer_whose_kernel_uid_is_not_allowed() {

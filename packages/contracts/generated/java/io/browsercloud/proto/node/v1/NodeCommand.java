@@ -282,6 +282,10 @@ public final class NodeCommand {
   static final com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_CaptureObserverScreenshotCommand_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
+      internal_static_browsercloud_node_v1_CaptureAgentScreenshotCommand_descriptor;
+  static final com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_browsercloud_node_v1_CaptureAgentScreenshotCommand_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
       internal_static_browsercloud_node_v1_SessionEvidenceCapturedEvent_descriptor;
   static final com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_SessionEvidenceCapturedEvent_fieldAccessorTable;
@@ -1142,7 +1146,26 @@ public final class NodeCommand {
           + "error_code\030\006 \001(\tR\terrorCode\"`\n"
           + " CaptureObserverScreenshotCommand\022\035\n\n"
           + "session_id\030\001 \001(\tR\tsessionId\022\035\n\n"
-          + "capture_id\030\002 \001(\tR\tcaptureId\"\227\004\n"
+          + "capture_id\030\002 \001(\tR\tcaptureId\"\221\004\n"
+          + "\035CaptureAgentScreenshotCommand\022\035\n\n"
+          + "session_id\030\001 \001(\tR\tsessionId\022#\n"
+          + "\r"
+          + "screenshot_id\030\002 \001(\tR\014screenshotId\022!\n"
+          + "\014capture_mode\030\003 \001(\tR\013captureMode\022,\n"
+          + "\022base_state_version\030\004 \001(\004R\020baseStateVersion\022\'\n"
+          + "\017target_revision\030\005 \001(\004R\016targetRevision\022*\n"
+          + "\021base_content_hash\030\006 \001(\tR\017baseContentHash\022\"\n\r"
+          + "active_tab_id\030\007 \001(\tR\013activeTabId\022\035\n\n"
+          + "element_id\030\010 \001(\tR\telementId\022\031\n"
+          + "\010region_x\030\t \001(\001R\007regionX\022\031\n"
+          + "\010region_y\030\n"
+          + " \001(\001R\007regionY\022!\n"
+          + "\014region_width\030\013 \001(\001R\013regionWidth\022#\n\r"
+          + "region_height\030\014 \001(\001R\014regionHeight\022\037\n"
+          + "\013evidence_id\030\r"
+          + " \001(\tR\n"
+          + "evidenceId\022$\n"
+          + "\016captured_at_ms\030\016 \001(\003R\014capturedAtMs\"\374\010\n"
           + "\034SessionEvidenceCapturedEvent\022\035\n\n"
           + "session_id\030\001 \001(\tR\tsessionId\022\037\n"
           + "\013evidence_id\030\002 \001(\tR\n"
@@ -1163,7 +1186,21 @@ public final class NodeCommand {
           + " \001(\tR\terrorCode\022\'\n"
           + "\017redaction_state\030\016 \001(\tR\016redactionState\0222\n"
           + "\025redacted_region_count\030\017 \001(\r"
-          + "R\023redactedRegionCount\"\314\004\n"
+          + "R\023redactedRegionCount\022!\n"
+          + "\014capture_mode\030\020 \001(\tR\013captureMode\0224\n"
+          + "\026captured_state_version\030\021 \001(\004R\024capturedStateVersion\0228\n"
+          + "\030captured_target_revision\030\022 \001(\004R\026capturedTargetRevision\022.\n"
+          + "\023captured_state_hash\030\023 \001(\tR\021capturedStateHash\0223\n"
+          + "\026captured_active_tab_id\030\024 \001(\tR\023capturedActiveTabId\022%\n"
+          + "\016viewport_width\030\025 \001(\001R\r"
+          + "viewportWidth\022\'\n"
+          + "\017viewport_height\030\026 \001(\001R\016viewportHeight\022.\n"
+          + "\023device_scale_factor\030\027 \001(\001R\021deviceScaleFactor\022*\n"
+          + "\021captured_region_x\030\030 \001(\001R\017capturedRegionX\022*\n"
+          + "\021captured_region_y\030\031 \001(\001R\017capturedRegionY\0222\n"
+          + "\025captured_region_width\030\032 \001(\001R\023capturedRegionWidth\0224\n"
+          + "\026captured_region_height\030\033 \001(\001R\024capturedRegionHeight\022)\n"
+          + "\020coordinate_space\030\034 \001(\tR\017coordinateSpace\"\314\004\n"
           + "\036SessionRecordingFinalizedEvent\022\035\n\n"
           + "session_id\030\001 \001(\tR\tsessionId\022!\n"
           + "\014recording_id\030\002 \001(\tR\013recordingId\022#\n\r"
@@ -1194,8 +1231,8 @@ public final class NodeCommand {
           + "\005title\030\006 \001(\tR\005title\022#\n\r"
           + "state_quality\030\007 \001(\tR\014stateQuality\022!\n"
           + "\014content_hash\030\010 \001(\tR\013contentHash\022W\n"
-          + "\020upserted_targets\030\t \003(\0132,.browsercloud.node"
-          + ".v1.InteractiveTargetStateR\017upsertedTargets\022.\n"
+          + "\020upserted_targets\030\t"
+          + " \003(\0132,.browsercloud.node.v1.InteractiveTargetStateR\017upsertedTargets\022.\n"
           + "\023removed_target_refs\030\n"
           + " \003(\tR\021removedTargetRefs\0220\n"
           + "\024document_ready_state\030\013 \001(\tR\022documentReadyState\0220\n"
@@ -1229,9 +1266,10 @@ public final class NodeCommand {
           + "target_ref\030\001 \001(\tR\ttargetRef\022\022\n"
           + "\004role\030\002 \001(\tR\004role\022\027\n"
           + "\004name\030\003 \001(\tH\000R\004name\210\001\001\022?\n"
-          + "\006bounds\030\004"
-          + " \001(\0132\".browsercloud.node.v1.TargetBoundsH\001R\006bounds\210\001\001\022\030\n"
-          + "\007enabled\030\005 \001(\010R\007enabled\022\030\n"
+          + "\006bounds\030\004 "
+          + "\001(\0132\".browsercloud.node.v1.TargetBoundsH\001R\006bounds\210\001\001\022\030\n"
+          + "\007enabled\030\005 \001(\010R\007enabled\022\030",
+      "\n"
           + "\007visible\030\006 \001(\010R\007visible\022\034\n"
           + "\tsensitive\030\007 \001(\010R\tsensitive\022\035\n\n"
           + "element_id\030\010 \001(\tR\telementId\022\031\n"
@@ -1261,33 +1299,31 @@ public final class NodeCommand {
           + "\005width\030\003 \001(\001R\005width\022\026\n"
           + "\006height\030\004 \001(\001R\006height2\330\006\n"
           + "\022NodeControlService\022M\n"
-          + "\004Ping\022!.browsercloud.node.v1.PingRequest\032\".browsercloud.node.v1.PingResponse\022Y\n"
-          + "\010Dispatch\022%.browsercloud.node.v1.DispatchR"
-          + "equest\032&.browsercloud.node.v1.DispatchResponse\022t\n"
-          + "\021ProbeProxyBinding\022..browsercloud.node.v1.ProbeProxyBindingRequest\032/.br"
-          + "owsercloud.node.v1.ProbeProxyBindingResponse\022|\n"
-          + "\023UploadProfileImport\0220.browsercloud.node.v1.UploadProfileImportRequest\0321."
-          + "browsercloud.node.v1.UploadProfileImportResponse(\001\022\202\001\n"
-          + "\025StageAgentBrowserFile\0222.browsercloud.node.v1.StageAgentBrowserFil"
-          + "eRequest\0323.browsercloud.node.v1.StageAge",
-      "ntBrowserFileResponse(\001\022\206\001\n\027PresignEvide"
-          + "nceDownload\0224.browsercloud.node.v1.Presi"
-          + "gnEvidenceDownloadRequest\0325.browsercloud"
-          + ".node.v1.PresignEvidenceDownloadResponse"
-          + "\022\225\001\n\034PresignProfileExportDownload\0229.brow"
-          + "sercloud.node.v1.PresignProfileExportDow"
-          + "nloadRequest\032:.browsercloud.node.v1.Pres"
-          + "ignProfileExportDownloadResponse2\335\002\n\020Nod"
-          + "eEventService\022V\n\007Publish\022$.browsercloud."
-          + "node.v1.PublishRequest\032%.browsercloud.no"
-          + "de.v1.PublishResponse\022k\n\016ReportCapacity\022"
-          + "+.browsercloud.node.v1.ReportCapacityReq"
-          + "uest\032,.browsercloud.node.v1.ReportCapaci"
-          + "tyResponse\022\203\001\n\026ReportSessionResources\0223."
-          + "browsercloud.node.v1.ReportSessionResour"
-          + "cesRequest\0324.browsercloud.node.v1.Report"
-          + "SessionResourcesResponseB!\n\035io.browsercl"
-          + "oud.proto.node.v1P\001b\006proto3"
+          + "\004Ping\022!.browserc"
+          + "loud.node.v1.PingRequest\032\".browsercloud.node.v1.PingResponse\022Y\n"
+          + "\010Dispatch\022%.brows"
+          + "ercloud.node.v1.DispatchRequest\032&.browsercloud.node.v1.DispatchResponse\022t\n"
+          + "\021ProbeProxyBinding\022..browsercloud.node.v1.Prob"
+          + "eProxyBindingRequest\032/.browsercloud.node.v1.ProbeProxyBindingResponse\022|\n"
+          + "\023UploadProfileImport\0220.browsercloud.node.v1.Uplo"
+          + "adProfileImportRequest\0321.browsercloud.node.v1.UploadProfileImportResponse(\001\022\202\001\n"
+          + "\025StageAgentBrowserFile\0222.browsercloud.nod"
+          + "e.v1.StageAgentBrowserFileRequest\0323.brow"
+          + "sercloud.node.v1.StageAgentBrowserFileResponse(\001\022\206\001\n"
+          + "\027PresignEvidenceDownload\0224.browsercloud.node.v1.PresignEvidenceDownl"
+          + "oadRequest\0325.browsercloud.node.v1.PresignEvidenceDownloadResponse\022\225\001\n"
+          + "\034PresignProfileExportDownload\0229.browsercloud.node.v"
+          + "1.PresignProfileExportDownloadRequest\032:."
+          + "browsercloud.node.v1.PresignProfileExportDownloadResponse2\335\002\n"
+          + "\020NodeEventService\022V\n"
+          + "\007Publish\022$.browsercloud.node.v1.Publish"
+          + "Request\032%.browsercloud.node.v1.PublishResponse\022k\n"
+          + "\016ReportCapacity\022+.browsercloud."
+          + "node.v1.ReportCapacityRequest\032,.browsercloud.node.v1.ReportCapacityResponse\022\203\001\n"
+          + "\026ReportSessionResources\0223.browsercloud.no"
+          + "de.v1.ReportSessionResourcesRequest\0324.br"
+          + "owsercloud.node.v1.ReportSessionResourcesResponseB!\n"
+          + "\035io.browsercloud.proto.node.v1P\001b\006proto3"
     };
     descriptor =
         com.google.protobuf.Descriptors.FileDescriptor.internalBuildGeneratedFileFrom(
@@ -2230,8 +2266,29 @@ public final class NodeCommand {
             new java.lang.String[] {
               "SessionId", "CaptureId",
             });
-    internal_static_browsercloud_node_v1_SessionEvidenceCapturedEvent_descriptor =
+    internal_static_browsercloud_node_v1_CaptureAgentScreenshotCommand_descriptor =
         getDescriptor().getMessageTypes().get(66);
+    internal_static_browsercloud_node_v1_CaptureAgentScreenshotCommand_fieldAccessorTable =
+        new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+            internal_static_browsercloud_node_v1_CaptureAgentScreenshotCommand_descriptor,
+            new java.lang.String[] {
+              "SessionId",
+              "ScreenshotId",
+              "CaptureMode",
+              "BaseStateVersion",
+              "TargetRevision",
+              "BaseContentHash",
+              "ActiveTabId",
+              "ElementId",
+              "RegionX",
+              "RegionY",
+              "RegionWidth",
+              "RegionHeight",
+              "EvidenceId",
+              "CapturedAtMs",
+            });
+    internal_static_browsercloud_node_v1_SessionEvidenceCapturedEvent_descriptor =
+        getDescriptor().getMessageTypes().get(67);
     internal_static_browsercloud_node_v1_SessionEvidenceCapturedEvent_fieldAccessorTable =
         new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
             internal_static_browsercloud_node_v1_SessionEvidenceCapturedEvent_descriptor,
@@ -2251,9 +2308,22 @@ public final class NodeCommand {
               "ErrorCode",
               "RedactionState",
               "RedactedRegionCount",
+              "CaptureMode",
+              "CapturedStateVersion",
+              "CapturedTargetRevision",
+              "CapturedStateHash",
+              "CapturedActiveTabId",
+              "ViewportWidth",
+              "ViewportHeight",
+              "DeviceScaleFactor",
+              "CapturedRegionX",
+              "CapturedRegionY",
+              "CapturedRegionWidth",
+              "CapturedRegionHeight",
+              "CoordinateSpace",
             });
     internal_static_browsercloud_node_v1_SessionRecordingFinalizedEvent_descriptor =
-        getDescriptor().getMessageTypes().get(67);
+        getDescriptor().getMessageTypes().get(68);
     internal_static_browsercloud_node_v1_SessionRecordingFinalizedEvent_fieldAccessorTable =
         new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
             internal_static_browsercloud_node_v1_SessionRecordingFinalizedEvent_descriptor,
@@ -2274,7 +2344,7 @@ public final class NodeCommand {
               "NodeId",
             });
     internal_static_browsercloud_node_v1_BrowserStateDiffEvent_descriptor =
-        getDescriptor().getMessageTypes().get(68);
+        getDescriptor().getMessageTypes().get(69);
     internal_static_browsercloud_node_v1_BrowserStateDiffEvent_fieldAccessorTable =
         new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
             internal_static_browsercloud_node_v1_BrowserStateDiffEvent_descriptor,
@@ -2304,7 +2374,7 @@ public final class NodeCommand {
               "DownloadEvidenceFresh",
             });
     internal_static_browsercloud_node_v1_DiffTruncatedEvent_descriptor =
-        getDescriptor().getMessageTypes().get(69);
+        getDescriptor().getMessageTypes().get(70);
     internal_static_browsercloud_node_v1_DiffTruncatedEvent_fieldAccessorTable =
         new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
             internal_static_browsercloud_node_v1_DiffTruncatedEvent_descriptor,
@@ -2317,7 +2387,7 @@ public final class NodeCommand {
               "EstimatedTargets",
             });
     internal_static_browsercloud_node_v1_InteractiveTargetState_descriptor =
-        getDescriptor().getMessageTypes().get(70);
+        getDescriptor().getMessageTypes().get(71);
     internal_static_browsercloud_node_v1_InteractiveTargetState_fieldAccessorTable =
         new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
             internal_static_browsercloud_node_v1_InteractiveTargetState_descriptor,
@@ -2342,7 +2412,7 @@ public final class NodeCommand {
               "VisibilityReason",
             });
     internal_static_browsercloud_node_v1_TargetBounds_descriptor =
-        getDescriptor().getMessageTypes().get(71);
+        getDescriptor().getMessageTypes().get(72);
     internal_static_browsercloud_node_v1_TargetBounds_fieldAccessorTable =
         new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
             internal_static_browsercloud_node_v1_TargetBounds_descriptor,

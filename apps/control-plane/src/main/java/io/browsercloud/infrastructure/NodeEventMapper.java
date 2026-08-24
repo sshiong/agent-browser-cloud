@@ -656,7 +656,8 @@ public class NodeEventMapper {
                   "AGENT_ACTION_FAILURE",
                   "AGENT_NAVIGATION_SUCCESS",
                   "AGENT_NAVIGATION_FAILURE",
-                  "OBSERVER_MANUAL")
+                  "OBSERVER_MANUAL",
+                  "AGENT_SCREENSHOT")
               .contains(payload.getEvidenceKind())) {
             throw new IllegalArgumentException("unsupported evidence_kind");
           }
@@ -710,6 +711,65 @@ public class NodeEventMapper {
           } else {
             throw new IllegalArgumentException("unsupported evidence result");
           }
+          var agentScreenshot = payload.getEvidenceKind().equals("AGENT_SCREENSHOT");
+          if (agentScreenshot) {
+            if (!payload.getTaskId().matches("^shot_[A-Za-z0-9]{20}$")
+                || !payload.getStepId().equals("agent-screenshot")
+                || !java.util.Set.of(
+                        "VIEWPORT", "FULL_PAGE", "ELEMENT", "REGION", "CHALLENGE_REGION")
+                    .contains(payload.getCaptureMode())) {
+              throw new IllegalArgumentException("Agent screenshot identity is invalid");
+            }
+            if (payload.getResult().equals("COMMITTED")) {
+              var expectedCoordinateSpace =
+                  payload.getCaptureMode().equals("FULL_PAGE") ? "DOCUMENT" : "VIEWPORT";
+              if (payload.getCapturedStateVersion() <= 0
+                  || payload.getCapturedTargetRevision() <= 0
+                  || !payload.getCapturedStateHash().matches("^[0-9a-f]{64}$")
+                  || payload.getCapturedActiveTabId().isBlank()
+                  || payload.getCapturedActiveTabId().length() > 128
+                  || !finiteBetween(payload.getViewportWidth(), 1, 7680)
+                  || !finiteBetween(payload.getViewportHeight(), 1, 4320)
+                  || !finiteBetween(payload.getDeviceScaleFactor(), 0.25, 8)
+                  || !finiteBetween(payload.getCapturedRegionX(), 0, 16384)
+                  || !finiteBetween(payload.getCapturedRegionY(), 0, 16384)
+                  || !finiteBetween(payload.getCapturedRegionWidth(), 1, 16384)
+                  || !finiteBetween(payload.getCapturedRegionHeight(), 1, 16384)
+                  || !payload.getCoordinateSpace().equals(expectedCoordinateSpace)) {
+                throw new IllegalArgumentException(
+                    "committed Agent screenshot metadata is invalid");
+              }
+            } else if (payload.getCapturedStateVersion() != 0
+                || payload.getCapturedTargetRevision() != 0
+                || !payload.getCapturedStateHash().isBlank()
+                || !payload.getCapturedActiveTabId().isBlank()
+                || payload.getViewportWidth() != 0
+                || payload.getViewportHeight() != 0
+                || payload.getDeviceScaleFactor() != 0
+                || payload.getCapturedRegionX() != 0
+                || payload.getCapturedRegionY() != 0
+                || payload.getCapturedRegionWidth() != 0
+                || payload.getCapturedRegionHeight() != 0
+                || !payload.getCoordinateSpace().isBlank()) {
+              throw new IllegalArgumentException(
+                  "failed Agent screenshot contains capture metadata");
+            }
+          } else if (!payload.getCaptureMode().isBlank()
+              || payload.getCapturedStateVersion() != 0
+              || payload.getCapturedTargetRevision() != 0
+              || !payload.getCapturedStateHash().isBlank()
+              || !payload.getCapturedActiveTabId().isBlank()
+              || payload.getViewportWidth() != 0
+              || payload.getViewportHeight() != 0
+              || payload.getDeviceScaleFactor() != 0
+              || payload.getCapturedRegionX() != 0
+              || payload.getCapturedRegionY() != 0
+              || payload.getCapturedRegionWidth() != 0
+              || payload.getCapturedRegionHeight() != 0
+              || !payload.getCoordinateSpace().isBlank()) {
+            throw new IllegalArgumentException(
+                "non-screenshot evidence contains screenshot metadata");
+          }
           yield new NodeEvent.EvidenceCaptured(
               payload.getSessionId(),
               payload.getEvidenceId(),
@@ -725,7 +785,20 @@ public class NodeEventMapper {
               payload.getResult(),
               payload.getErrorCode(),
               redactionState,
-              redactedRegionCount);
+              redactedRegionCount,
+              payload.getCaptureMode(),
+              payload.getCapturedStateVersion(),
+              payload.getCapturedTargetRevision(),
+              payload.getCapturedStateHash(),
+              payload.getCapturedActiveTabId(),
+              payload.getViewportWidth(),
+              payload.getViewportHeight(),
+              payload.getDeviceScaleFactor(),
+              payload.getCapturedRegionX(),
+              payload.getCapturedRegionY(),
+              payload.getCapturedRegionWidth(),
+              payload.getCapturedRegionHeight(),
+              payload.getCoordinateSpace());
         }
         case SESSION_RECORDING_FINALIZED -> {
           var payload = SessionRecordingFinalizedEvent.parseFrom(envelope.getPayload());
@@ -1176,6 +1249,10 @@ public class NodeEventMapper {
 
   private static boolean isLowerHex(int character) {
     return (character >= '0' && character <= '9') || (character >= 'a' && character <= 'f');
+  }
+
+  private static boolean finiteBetween(double value, double minimum, double maximum) {
+    return Double.isFinite(value) && value >= minimum && value <= maximum;
   }
 
   private void requireText(String value, String field) {

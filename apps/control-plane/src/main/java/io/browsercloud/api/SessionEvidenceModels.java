@@ -36,7 +36,8 @@ public final class SessionEvidenceModels {
     INCIDENT_RESPONSE,
     CHANGE_VALIDATION,
     SUPPORT_DIAGNOSTICS,
-    COMPLIANCE_AUDIT
+    COMPLIANCE_AUDIT,
+    AGENT_PERCEPTION
   }
 
   public record CaptureEvidenceRequest(@NotNull EvidencePurpose purpose) {}

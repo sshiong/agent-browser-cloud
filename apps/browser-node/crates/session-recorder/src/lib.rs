@@ -87,7 +87,7 @@ struct RegisteredEvidence {
     success_sample_percent: u32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct EvidenceSummary {
     pub evidence_id: String,
     pub content_sha256: String,
@@ -96,12 +96,42 @@ pub struct EvidenceSummary {
     pub captured_at_ms: u64,
     pub redaction_state: String,
     pub redacted_region_count: u32,
+    pub screenshot_metadata: Option<ScreenshotMetadata>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScreenshotClip {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScreenshotCaptureOptions {
+    pub evidence_id: String,
+    pub captured_at_ms: u64,
+    pub active_tab_id: String,
+    pub capture_mode: String,
+    /// CSS-pixel viewport coordinates. Required only for ELEMENT/REGION/CHALLENGE_REGION.
+    pub clip: Option<ScreenshotClip>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScreenshotMetadata {
+    pub capture_mode: String,
+    pub active_tab_id: String,
+    pub viewport_width: f64,
+    pub viewport_height: f64,
+    pub device_scale_factor: f64,
+    pub region: ScreenshotClip,
+    pub coordinate_space: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum EvidenceCapture {
     Skipped { sample_percent: u32 },
-    Committed(EvidenceSummary),
+    Committed(Box<EvidenceSummary>),
 }
 
 #[derive(Clone, Default)]
@@ -165,6 +195,18 @@ impl SessionEvidenceRegistry {
         evidence_kind: &str,
         mandatory: bool,
     ) -> anyhow::Result<EvidenceCapture> {
+        self.capture_with_options(session_id, evidence_key, evidence_kind, mandatory, None)
+            .await
+    }
+
+    pub async fn capture_with_options(
+        &self,
+        session_id: &str,
+        evidence_key: &str,
+        evidence_kind: &str,
+        mandatory: bool,
+        options: Option<ScreenshotCaptureOptions>,
+    ) -> anyhow::Result<EvidenceCapture> {
         let registered = self
             .sessions
             .lock()
@@ -177,9 +219,24 @@ impl SessionEvidenceRegistry {
                 sample_percent: registered.success_sample_percent,
             });
         }
-        let evidence_id = format!("evd_{}", uuid::Uuid::new_v4().simple());
-        let captured_at_ms = now_millis();
-        let capture = capture_screenshot(&registered.spec.cdp_endpoint).await?;
+        let evidence_id = options
+            .as_ref()
+            .map(|value| value.evidence_id.clone())
+            .unwrap_or_else(|| format!("evd_{}", uuid::Uuid::new_v4().simple()));
+        let captured_at_ms = options
+            .as_ref()
+            .map(|value| value.captured_at_ms)
+            .unwrap_or_else(now_millis);
+        anyhow::ensure!(
+            evidence_id.starts_with("evd_")
+                && evidence_id.len() == 36
+                && evidence_id[4..]
+                    .bytes()
+                    .all(|value| value.is_ascii_hexdigit())
+                && captured_at_ms > 0,
+            "requested evidence identity is invalid"
+        );
+        let capture = capture_screenshot(&registered.spec.cdp_endpoint, options.as_ref()).await?;
         let content = capture.content;
         anyhow::ensure!(
             !content.is_empty() && content.len() <= EVIDENCE_MAX_BYTES,
@@ -224,7 +281,7 @@ impl SessionEvidenceRegistry {
                 && committed.captured_at_ms == captured_at_ms,
             "Storage Helper evidence acknowledgement mismatch"
         );
-        Ok(EvidenceCapture::Committed(EvidenceSummary {
+        Ok(EvidenceCapture::Committed(Box::new(EvidenceSummary {
             evidence_id,
             content_sha256,
             content_bytes: content.len() as u64,
@@ -236,7 +293,8 @@ impl SessionEvidenceRegistry {
                 "NOT_REQUIRED".to_owned()
             },
             redacted_region_count: capture.redacted_region_count,
-        }))
+            screenshot_metadata: capture.metadata,
+        })))
     }
 }
 
@@ -554,7 +612,7 @@ async fn capture_frames(
     dropped_frames: &std::sync::atomic::AtomicU64,
     capture_failed: &std::sync::atomic::AtomicBool,
 ) -> anyhow::Result<()> {
-    let websocket_url = target_websocket(cdp_endpoint).await?;
+    let websocket_url = target_websocket(cdp_endpoint, None).await?;
     require_loopback_websocket(&websocket_url)?;
     let (mut socket, _) = tokio::time::timeout(
         CDP_TIMEOUT,
@@ -1100,10 +1158,11 @@ async fn commit_segment(
     Ok(())
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 struct RedactedScreenshot {
     content: Vec<u8>,
     redacted_region_count: u32,
+    metadata: Option<ScreenshotMetadata>,
 }
 
 const INSTALL_REDACTION_SCRIPT: &str = r#"
@@ -1113,11 +1172,24 @@ const INSTALL_REDACTION_SCRIPT: &str = r#"
   const root = document.createElement('div');
   root.id = rootId;
   root.setAttribute('aria-hidden', 'true');
+  const documentWidth = Math.max(
+    document.documentElement.scrollWidth,
+    document.documentElement.clientWidth,
+    document.body?.scrollWidth || 0,
+    document.body?.clientWidth || 0
+  );
+  const documentHeight = Math.max(
+    document.documentElement.scrollHeight,
+    document.documentElement.clientHeight,
+    document.body?.scrollHeight || 0,
+    document.body?.clientHeight || 0
+  );
   for (const [name, value] of Object.entries({
-    position: 'fixed',
-    inset: '0',
-    width: '100vw',
-    height: '100vh',
+    position: 'absolute',
+    left: '0',
+    top: '0',
+    width: `${documentWidth}px`,
+    height: `${documentHeight}px`,
     overflow: 'hidden',
     'pointer-events': 'none',
     'z-index': '2147483647'
@@ -1169,10 +1241,10 @@ const INSTALL_REDACTION_SCRIPT: &str = r#"
   for (const element of candidates) {
     if (!isSensitive(element)) continue;
     const rect = element.getBoundingClientRect();
-    const left = Math.max(0, rect.left);
-    const top = Math.max(0, rect.top);
-    const right = Math.min(window.innerWidth, rect.right);
-    const bottom = Math.min(window.innerHeight, rect.bottom);
+    const left = Math.max(0, rect.left + window.scrollX);
+    const top = Math.max(0, rect.top + window.scrollY);
+    const right = Math.min(documentWidth, rect.right + window.scrollX);
+    const bottom = Math.min(documentHeight, rect.bottom + window.scrollY);
     if (right <= left || bottom <= top) continue;
     const mask = document.createElement('div');
     mask.setAttribute('data-agent-browser-redaction-region', String(count + 1));
@@ -1192,7 +1264,17 @@ const INSTALL_REDACTION_SCRIPT: &str = r#"
     count += 1;
   }
   document.documentElement.appendChild(root);
-  return {version: 1, redactedRegionCount: count};
+  return {
+    version: 1,
+    redactedRegionCount: count,
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+    deviceScaleFactor: window.devicePixelRatio,
+    pageX: window.scrollX,
+    pageY: window.scrollY,
+    documentWidth,
+    documentHeight
+  };
 })()
 "#;
 
@@ -1229,8 +1311,184 @@ fn verified_redacted_region_count(installed: &Value, verified: &Value) -> anyhow
     Ok(installed_count)
 }
 
-async fn capture_screenshot(cdp_endpoint: &str) -> anyhow::Result<RedactedScreenshot> {
-    let websocket_url = target_websocket(cdp_endpoint).await?;
+#[derive(Debug, Clone, Copy)]
+struct CaptureLayout {
+    viewport_width: f64,
+    viewport_height: f64,
+    device_scale_factor: f64,
+    page_x: f64,
+    page_y: f64,
+    document_width: f64,
+    document_height: f64,
+}
+
+fn capture_layout(installed: &Value) -> anyhow::Result<CaptureLayout> {
+    let number = |name: &str| {
+        installed
+            .pointer(&format!("/result/result/value/{name}"))
+            .and_then(Value::as_f64)
+            .ok_or_else(|| anyhow::anyhow!("screenshot layout {name} is unavailable"))
+    };
+    let layout = CaptureLayout {
+        viewport_width: number("viewportWidth")?,
+        viewport_height: number("viewportHeight")?,
+        device_scale_factor: number("deviceScaleFactor")?,
+        page_x: number("pageX")?,
+        page_y: number("pageY")?,
+        document_width: number("documentWidth")?,
+        document_height: number("documentHeight")?,
+    };
+    anyhow::ensure!(
+        layout.viewport_width.is_finite()
+            && layout.viewport_height.is_finite()
+            && layout.device_scale_factor.is_finite()
+            && layout.page_x.is_finite()
+            && layout.page_y.is_finite()
+            && layout.document_width.is_finite()
+            && layout.document_height.is_finite()
+            && (1.0..=7680.0).contains(&layout.viewport_width)
+            && (1.0..=4320.0).contains(&layout.viewport_height)
+            && (0.25..=8.0).contains(&layout.device_scale_factor)
+            && layout.page_x >= 0.0
+            && layout.page_y >= 0.0
+            && (1.0..=16384.0).contains(&layout.document_width)
+            && (1.0..=16384.0).contains(&layout.document_height),
+        "screenshot layout is outside the bounded capture range"
+    );
+    Ok(layout)
+}
+
+fn screenshot_capture_plan(
+    options: &ScreenshotCaptureOptions,
+    layout: CaptureLayout,
+) -> anyhow::Result<(Value, ScreenshotMetadata)> {
+    anyhow::ensure!(
+        !options.active_tab_id.is_empty()
+            && options.active_tab_id.len() <= 128
+            && !options.active_tab_id.chars().any(char::is_control),
+        "active screenshot Page Target ID is invalid"
+    );
+    let (params, region, coordinate_space) = match options.capture_mode.as_str() {
+        "VIEWPORT" => {
+            anyhow::ensure!(
+                options.clip.is_none(),
+                "viewport screenshot cannot contain a clip"
+            );
+            (
+                json!({
+                    "format": "jpeg",
+                    "quality": 70,
+                    "fromSurface": true,
+                    "captureBeyondViewport": false
+                }),
+                ScreenshotClip {
+                    x: 0.0,
+                    y: 0.0,
+                    width: layout.viewport_width,
+                    height: layout.viewport_height,
+                },
+                "VIEWPORT".to_owned(),
+            )
+        }
+        "FULL_PAGE" => {
+            anyhow::ensure!(
+                options.clip.is_none(),
+                "full-page screenshot cannot contain a clip"
+            );
+            (
+                json!({
+                    "format": "jpeg",
+                    "quality": 70,
+                    "fromSurface": true,
+                    "captureBeyondViewport": true,
+                    "clip": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "width": layout.document_width,
+                        "height": layout.document_height,
+                        "scale": 1.0
+                    }
+                }),
+                ScreenshotClip {
+                    x: 0.0,
+                    y: 0.0,
+                    width: layout.document_width,
+                    height: layout.document_height,
+                },
+                "DOCUMENT".to_owned(),
+            )
+        }
+        "ELEMENT" | "REGION" | "CHALLENGE_REGION" => {
+            let clip = options
+                .clip
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("bounded screenshot clip is required"))?;
+            anyhow::ensure!(
+                clip.x.is_finite()
+                    && clip.y.is_finite()
+                    && clip.width.is_finite()
+                    && clip.height.is_finite()
+                    && clip.x >= 0.0
+                    && clip.y >= 0.0
+                    && clip.width >= 1.0
+                    && clip.height >= 1.0
+                    && clip.x + clip.width <= layout.viewport_width + 0.001
+                    && clip.y + clip.height <= layout.viewport_height + 0.001,
+                "bounded screenshot clip is outside the current viewport"
+            );
+            (
+                json!({
+                    "format": "jpeg",
+                    "quality": 70,
+                    "fromSurface": true,
+                    "captureBeyondViewport": false,
+                    "clip": {
+                        "x": layout.page_x + clip.x,
+                        "y": layout.page_y + clip.y,
+                        "width": clip.width,
+                        "height": clip.height,
+                        "scale": 1.0
+                    }
+                }),
+                clip.clone(),
+                "VIEWPORT".to_owned(),
+            )
+        }
+        _ => anyhow::bail!("screenshot capture mode is unsupported"),
+    };
+    let pixel_width = region.width * layout.device_scale_factor;
+    let pixel_height = region.height * layout.device_scale_factor;
+    anyhow::ensure!(
+        pixel_width.is_finite()
+            && pixel_height.is_finite()
+            && pixel_width <= 16384.0
+            && pixel_height <= 16384.0
+            && pixel_width * pixel_height <= 33_554_432.0,
+        "screenshot capture exceeds the bounded pixel budget"
+    );
+    Ok((
+        params,
+        ScreenshotMetadata {
+            capture_mode: options.capture_mode.clone(),
+            active_tab_id: options.active_tab_id.clone(),
+            viewport_width: layout.viewport_width,
+            viewport_height: layout.viewport_height,
+            device_scale_factor: layout.device_scale_factor,
+            region,
+            coordinate_space,
+        },
+    ))
+}
+
+async fn capture_screenshot(
+    cdp_endpoint: &str,
+    options: Option<&ScreenshotCaptureOptions>,
+) -> anyhow::Result<RedactedScreenshot> {
+    let websocket_url = target_websocket(
+        cdp_endpoint,
+        options.map(|value| value.active_tab_id.as_str()),
+    )
+    .await?;
     require_loopback_websocket(&websocket_url)?;
     let (mut socket, _) = tokio::time::timeout(
         CDP_TIMEOUT,
@@ -1295,6 +1553,24 @@ async fn capture_screenshot(cdp_endpoint: &str) -> anyhow::Result<RedactedScreen
     };
     let redacted_region_count = match verified_redacted_region_count(&installed, &verified) {
         Ok(count) => count,
+        Err(error) => {
+            let _ = send_command_value(
+                &mut socket,
+                7,
+                "Runtime.evaluate",
+                json!({"expression": REMOVE_REDACTION_SCRIPT}),
+            )
+            .await;
+            return Err(error);
+        }
+    };
+    let capture_plan = match options
+        .map(|options| {
+            capture_layout(&installed).and_then(|layout| screenshot_capture_plan(options, layout))
+        })
+        .transpose()
+    {
+        Ok(plan) => plan,
         Err(error) => {
             let _ = send_command_value(
                 &mut socket,
@@ -1375,16 +1651,22 @@ async fn capture_screenshot(cdp_endpoint: &str) -> anyhow::Result<RedactedScreen
                                 .and_then(Value::as_array)
                                 .and_then(|values| u32::try_from(values.len()).ok());
                             if frozen_count == Some(redacted_region_count) {
+                                let capture_parameters = capture_plan
+                                    .as_ref()
+                                    .map(|(parameters, _)| parameters.clone())
+                                    .unwrap_or_else(|| {
+                                        json!({
+                                            "format": "jpeg",
+                                            "quality": 70,
+                                            "fromSurface": true,
+                                            "captureBeyondViewport": false
+                                        })
+                                    });
                                 send_command_value(
                                     &mut socket,
                                     8,
                                     "Page.captureScreenshot",
-                                    json!({
-                                        "format": "jpeg",
-                                        "quality": 70,
-                                        "fromSurface": true,
-                                        "captureBeyondViewport": false
-                                    }),
+                                    capture_parameters,
                                 )
                                 .await
                             } else {
@@ -1447,6 +1729,7 @@ async fn capture_screenshot(cdp_endpoint: &str) -> anyhow::Result<RedactedScreen
     Ok(RedactedScreenshot {
         content,
         redacted_region_count,
+        metadata: capture_plan.map(|(_, metadata)| metadata),
     })
 }
 
@@ -1489,13 +1772,14 @@ async fn prepare_evidence_path(
 
 #[derive(Deserialize)]
 struct CdpTarget {
+    id: String,
     #[serde(rename = "type")]
     target_type: String,
     #[serde(rename = "webSocketDebuggerUrl")]
     websocket_url: Option<String>,
 }
 
-async fn target_websocket(endpoint: &str) -> anyhow::Result<String> {
+async fn target_websocket(endpoint: &str, target_id: Option<&str>) -> anyhow::Result<String> {
     require_loopback_http(endpoint)?;
     let targets = reqwest::Client::new()
         .get(format!("{}/json/list", endpoint.trim_end_matches('/')))
@@ -1507,9 +1791,11 @@ async fn target_websocket(endpoint: &str) -> anyhow::Result<String> {
         .await?;
     targets
         .into_iter()
-        .find(|target| target.target_type == "page")
+        .find(|target| {
+            target.target_type == "page" && target_id.is_none_or(|expected| target.id == expected)
+        })
         .and_then(|target| target.websocket_url)
-        .ok_or_else(|| anyhow::anyhow!("CDP has no recordable Page target"))
+        .ok_or_else(|| anyhow::anyhow!("CDP has no matching recordable Page target"))
 }
 
 fn require_loopback_http(endpoint: &str) -> anyhow::Result<()> {
@@ -1629,6 +1915,87 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("failed closed"));
+    }
+
+    #[test]
+    fn plans_viewport_full_page_and_scrolled_region_captures() {
+        let layout = CaptureLayout {
+            viewport_width: 1280.0,
+            viewport_height: 720.0,
+            device_scale_factor: 2.0,
+            page_x: 0.0,
+            page_y: 480.0,
+            document_width: 1280.0,
+            document_height: 2400.0,
+        };
+        let options = |capture_mode: &str, clip: Option<ScreenshotClip>| ScreenshotCaptureOptions {
+            evidence_id: "evd_1234567890abcdef".to_owned(),
+            captured_at_ms: 1_785_283_200_000,
+            active_tab_id: "tab-login".to_owned(),
+            capture_mode: capture_mode.to_owned(),
+            clip,
+        };
+
+        let (viewport, viewport_metadata) =
+            screenshot_capture_plan(&options("VIEWPORT", None), layout).unwrap();
+        assert_eq!(viewport["captureBeyondViewport"], false);
+        assert_eq!(viewport_metadata.coordinate_space, "VIEWPORT");
+        assert_eq!(viewport_metadata.region.width, 1280.0);
+
+        let (full_page, full_page_metadata) =
+            screenshot_capture_plan(&options("FULL_PAGE", None), layout).unwrap();
+        assert_eq!(full_page["clip"]["height"], 2400.0);
+        assert_eq!(full_page_metadata.coordinate_space, "DOCUMENT");
+
+        let clip = ScreenshotClip {
+            x: 10.0,
+            y: 20.0,
+            width: 300.0,
+            height: 180.0,
+        };
+        let (region, region_metadata) =
+            screenshot_capture_plan(&options("REGION", Some(clip.clone())), layout).unwrap();
+        assert_eq!(region["clip"]["x"], 10.0);
+        assert_eq!(region["clip"]["y"], 500.0);
+        assert_eq!(region_metadata.region, clip);
+        assert_eq!(region_metadata.coordinate_space, "VIEWPORT");
+    }
+
+    #[test]
+    fn rejects_out_of_viewport_clips_and_oversized_pixel_captures() {
+        let layout = CaptureLayout {
+            viewport_width: 1280.0,
+            viewport_height: 720.0,
+            device_scale_factor: 2.0,
+            page_x: 0.0,
+            page_y: 0.0,
+            document_width: 12000.0,
+            document_height: 8000.0,
+        };
+        let options = |capture_mode: &str, clip: Option<ScreenshotClip>| ScreenshotCaptureOptions {
+            evidence_id: "evd_1234567890abcdef".to_owned(),
+            captured_at_ms: 1_785_283_200_000,
+            active_tab_id: "tab-login".to_owned(),
+            capture_mode: capture_mode.to_owned(),
+            clip,
+        };
+        let outside = ScreenshotClip {
+            x: 1200.0,
+            y: 0.0,
+            width: 200.0,
+            height: 100.0,
+        };
+
+        assert!(
+            screenshot_capture_plan(&options("ELEMENT", Some(outside)), layout)
+                .unwrap_err()
+                .to_string()
+                .contains("outside the current viewport")
+        );
+        assert!(screenshot_capture_plan(&options("FULL_PAGE", None), layout)
+            .unwrap_err()
+            .to_string()
+            .contains("pixel budget"));
     }
 
     #[tokio::test]
@@ -1783,6 +2150,7 @@ mod tests {
             let count = stream.read(&mut request).await.unwrap();
             assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list "));
             let body = json!([{
+                "id": "page-1",
                 "type": "page",
                 "webSocketDebuggerUrl": format!("ws://{websocket_address}/devtools/page/1")
             }])
@@ -1800,14 +2168,15 @@ mod tests {
                 .unwrap();
         });
 
-        let screenshot = capture_screenshot(&format!("http://{http_address}"))
+        let screenshot = capture_screenshot(&format!("http://{http_address}"), None)
             .await
             .unwrap();
         assert_eq!(
             screenshot,
             RedactedScreenshot {
                 content: vec![0xff, 0xd8, 0xff, 0xd9],
-                redacted_region_count: 2
+                redacted_region_count: 2,
+                metadata: None,
             }
         );
         websocket_task.await.unwrap();
@@ -1910,6 +2279,7 @@ mod tests {
             let count = stream.read(&mut request).await.unwrap();
             assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list "));
             let body = json!([{
+                "id": "page-1",
                 "type": "page",
                 "webSocketDebuggerUrl": format!("ws://{websocket_address}/devtools/page/1")
             }])
@@ -2037,6 +2407,7 @@ mod tests {
             let count = stream.read(&mut request).await.unwrap();
             assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list "));
             let body = json!([{
+                "id": "page-1",
                 "type": "page",
                 "webSocketDebuggerUrl": format!("ws://{websocket_address}/devtools/page/1")
             }])

@@ -10,6 +10,9 @@ import {
   uploadAgentBrowserFile,
   listAgentBrowserDownloads,
   waitForAgentBrowserDownload,
+  captureAgentBrowserScreenshot,
+  getAgentBrowserScreenshot,
+  redeemAgentBrowserScreenshot,
 } from './agent';
 
 afterEach(() => vi.restoreAllMocks());
@@ -239,6 +242,69 @@ describe('agent API', () => {
       2,
       '/api/v1/sessions/ses_1234567890abcdef/agent-browser/files/downloads/dld_1234567890abcdefabcd:wait?timeoutMs=5000',
       expect.any(Object)
+    );
+  });
+
+  it('captures, waits for, and redeems actor-bound Agent screenshots', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({ screenshotId: 'shot_1234567890abcdefghij' }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+    );
+    const body = {
+      mode: 'REGION' as const,
+      expectedStateCursor: `9:4:${'a'.repeat(64)}`,
+      region: { x: 10, y: 20, width: 300, height: 180 },
+    };
+
+    await captureAgentBrowserScreenshot(
+      'ses_1234567890abcdef',
+      body,
+      'idem-shot-1',
+      'tenant-test',
+      'agent-worker'
+    );
+    await getAgentBrowserScreenshot(
+      'ses_1234567890abcdef',
+      'shot_1234567890abcdefghij',
+      5000,
+      'tenant-test',
+      'agent-worker'
+    );
+    await redeemAgentBrowserScreenshot(
+      'ses_1234567890abcdef',
+      'shot_1234567890abcdefghij',
+      'tenant-test',
+      'agent-worker'
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/sessions/ses_1234567890abcdef/agent-browser/screenshots',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(body),
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+          'X-Actor-Id': 'agent-worker',
+          'Idempotency-Key': 'idem-shot-1',
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/sessions/ses_1234567890abcdef/agent-browser/screenshots/shot_1234567890abcdefghij?waitMs=5000',
+      expect.any(Object)
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/v1/sessions/ses_1234567890abcdef/agent-browser/screenshots/shot_1234567890abcdefghij:redeem',
+      expect.objectContaining({ method: 'POST' })
     );
   });
 });

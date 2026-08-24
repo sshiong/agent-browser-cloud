@@ -3,6 +3,7 @@ package io.browsercloud.infrastructure;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import io.browsercloud.application.AgentActionPayloadService;
+import io.browsercloud.application.AgentBrowserScreenshotStore;
 import io.browsercloud.application.AgentExecutionWaitProjectionService;
 import io.browsercloud.application.SessionEvidenceGovernanceStore;
 import io.browsercloud.application.SessionResourceAdjustmentLifecycleService;
@@ -49,6 +50,7 @@ public class NodeCommandOutboxDispatcher {
   private final AgentActionPayloadService actionPayloadService;
   private final AgentExecutionWaitProjectionService executionWaitProjection;
   private final SessionEvidenceGovernanceStore evidenceGovernance;
+  private final AgentBrowserScreenshotStore agentScreenshots;
   private final SessionResourceAdjustmentLifecycleService resourceAdjustments;
   private final CoordinatorRouteAuthority routeAuthority;
   private final BrowserNodeJpaRepository browserNodeRepository;
@@ -63,6 +65,7 @@ public class NodeCommandOutboxDispatcher {
       AgentActionPayloadService actionPayloadService,
       AgentExecutionWaitProjectionService executionWaitProjection,
       SessionEvidenceGovernanceStore evidenceGovernance,
+      AgentBrowserScreenshotStore agentScreenshots,
       SessionResourceAdjustmentLifecycleService resourceAdjustments,
       CoordinatorRouteAuthority routeAuthority,
       BrowserNodeJpaRepository browserNodeRepository,
@@ -74,6 +77,7 @@ public class NodeCommandOutboxDispatcher {
     this.actionPayloadService = actionPayloadService;
     this.executionWaitProjection = executionWaitProjection;
     this.evidenceGovernance = evidenceGovernance;
+    this.agentScreenshots = agentScreenshots;
     this.resourceAdjustments = resourceAdjustments;
     this.routeAuthority = routeAuthority;
     this.browserNodeRepository = browserNodeRepository;
@@ -407,6 +411,8 @@ public class NodeCommandOutboxDispatcher {
       var command = objectMapper.readValue(event.getPayload(), NodeCommand.class);
       if ("CaptureObserverScreenshot".equals(command.commandType())) {
         evidenceGovernance.failCaptureDispatch(command.messageId(), errorCode, Instant.now());
+      } else if ("CaptureAgentScreenshot".equals(command.commandType())) {
+        agentScreenshots.failDispatch(command.messageId(), errorCode, Instant.now());
       }
     } catch (Exception exception) {
       log.debug(

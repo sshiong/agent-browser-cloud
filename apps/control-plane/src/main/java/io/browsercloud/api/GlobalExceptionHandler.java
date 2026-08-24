@@ -7,6 +7,7 @@ import io.browsercloud.application.AgentBrowserFileUploadStore.FileUploadNotFoun
 import io.browsercloud.application.AgentBrowserFileUploadStore.FileUploadRejectedException;
 import io.browsercloud.application.AgentBrowserFilesApplicationService.AgentBrowserFilesException;
 import io.browsercloud.application.AgentBrowserPerceptionService.PerceptionException;
+import io.browsercloud.application.AgentBrowserScreenshotApplicationService.AgentBrowserScreenshotException;
 import io.browsercloud.application.AgentClipboardApplicationService.AgentClipboardRejectedException;
 import io.browsercloud.application.AgentExecutionService.AgentExecutionRejectedException;
 import io.browsercloud.application.AgentExecutionWorkerApplicationService.AgentExecutionWorkerJobNotFoundException;
@@ -203,6 +204,34 @@ public class GlobalExceptionHandler {
         status,
         "AGENT_BROWSER_FILES_REJECTED",
         "The browser file lifecycle is unavailable for this request",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(AgentBrowserScreenshotException.class)
+  ResponseEntity<ApiError> agentBrowserScreenshotRejected(
+      AgentBrowserScreenshotException exception, HttpServletRequest request) {
+    var status =
+        switch (exception.getMessage()) {
+          case "SCREENSHOT_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+          case "SCREENSHOT_WAIT_TIMEOUT" -> HttpStatus.REQUEST_TIMEOUT;
+          case "SCREENSHOT_WAIT_CAPACITY_EXCEEDED" -> HttpStatus.TOO_MANY_REQUESTS;
+          case "SCREENSHOT_WAIT_INTERRUPTED", "AGENT_SCREENSHOT_UNAVAILABLE" ->
+              HttpStatus.SERVICE_UNAVAILABLE;
+          case "ELEMENT_NOT_FOUND",
+                  "ELEMENT_NOT_VISIBLE",
+                  "ELEMENT_OUTSIDE_VIEWPORT",
+                  "ELEMENT_OCCLUDED",
+                  "ELEMENT_LAYOUT_UNAVAILABLE",
+                  "ACTIVE_TAB_UNAVAILABLE",
+                  "STATE_CURSOR_INVALID" ->
+              HttpStatus.UNPROCESSABLE_ENTITY;
+          default -> HttpStatus.CONFLICT;
+        };
+    return response(
+        status,
+        "AGENT_BROWSER_SCREENSHOT_REJECTED",
+        "The state-fenced browser screenshot request cannot be completed",
         Map.of("reason", exception.getMessage()),
         request);
   }

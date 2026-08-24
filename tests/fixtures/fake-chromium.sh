@@ -256,6 +256,13 @@ class Handler(BaseHTTPRequestHandler):
                                     "value": {
                                         "version": 1,
                                         "redactedRegionCount": 1,
+                                        "viewportWidth": 1280,
+                                        "viewportHeight": 720,
+                                        "deviceScaleFactor": 1,
+                                        "pageX": 0,
+                                        "pageY": 0,
+                                        "documentWidth": 1280,
+                                        "documentHeight": 2400,
                                     },
                                 }
                             },

@@ -7,6 +7,7 @@ import type { AgentBrowserDownloadList } from '../models/AgentBrowserDownloadLis
 import type { AgentBrowserFileUpload } from '../models/AgentBrowserFileUpload.js';
 import type { AgentBrowserFindRequest } from '../models/AgentBrowserFindRequest.js';
 import type { AgentBrowserInspectRequest } from '../models/AgentBrowserInspectRequest.js';
+import type { AgentBrowserScreenshot } from '../models/AgentBrowserScreenshot.js';
 import type { AgentBrowserSnapshot } from '../models/AgentBrowserSnapshot.js';
 import type { AgentBrowserTargetList } from '../models/AgentBrowserTargetList.js';
 import type { AgentClipboard } from '../models/AgentClipboard.js';
@@ -14,6 +15,7 @@ import type { AgentTask } from '../models/AgentTask.js';
 import type { BrowserPlacement } from '../models/BrowserPlacement.js';
 import type { BrowserState } from '../models/BrowserState.js';
 import type { BusinessRecoveryValidation } from '../models/BusinessRecoveryValidation.js';
+import type { CaptureAgentBrowserScreenshotRequest } from '../models/CaptureAgentBrowserScreenshotRequest.js';
 import type { CaptureEvidenceRequest } from '../models/CaptureEvidenceRequest.js';
 import type { CommitEnvironmentImportRequest } from '../models/CommitEnvironmentImportRequest.js';
 import type { CreateEnvironmentSavedViewRequest } from '../models/CreateEnvironmentSavedViewRequest.js';
@@ -354,6 +356,121 @@ export class SessionService {
             body: requestBody,
             mediaType: 'application/json',
             errors: {
+                409: `State or idempotency conflict.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
+            },
+        });
+    }
+    /**
+     * Capture one state-fenced, redacted Agent screenshot
+     * Captures the exact active Page Target as a viewport, full page, structured element, bounded region, or challenge region. The response contains metadata only. Pixels remain in immutable evidence storage and can be retrieved once through the purpose-bound grant.
+     *
+     * @returns AgentBrowserScreenshot The durable screenshot command is executing or was idempotently reused.
+     * @throws ApiError
+     */
+    public captureAgentBrowserScreenshot({
+        sessionId,
+        idempotencyKey,
+        requestBody,
+        xTenantId,
+    }: {
+        sessionId: string,
+        idempotencyKey: string,
+        requestBody: CaptureAgentBrowserScreenshotRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentBrowserScreenshot> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/screenshots',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                409: `State or idempotency conflict.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
+                503: `A required capacity or dependency is temporarily unavailable.`,
+            },
+        });
+    }
+    /**
+     * Read or wait for one PostgreSQL-authoritative screenshot lifecycle
+     * Bounded waiting rereads PostgreSQL only; it never polls Chromium or Object Storage.
+     * @returns AgentBrowserScreenshot Actor-scoped screenshot metadata without pixels, object paths, or signed URLs.
+     * @throws ApiError
+     */
+    public getAgentBrowserScreenshot({
+        sessionId,
+        screenshotId,
+        xTenantId,
+        waitMs,
+    }: {
+        sessionId: string,
+        screenshotId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+        waitMs?: number,
+    }): CancelablePromise<AgentBrowserScreenshot> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/screenshots/{screenshotId}',
+            path: {
+                'sessionId': sessionId,
+                'screenshotId': screenshotId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            query: {
+                'waitMs': waitMs,
+            },
+            errors: {
+                404: `Resource not found.`,
+                408: `The screenshot did not become terminal within the bounded wait.`,
+                429: `The bounded concurrent stream capacity has been reached.`,
+            },
+        });
+    }
+    /**
+     * Redeem the screenshot's actor-bound one-time access grant
+     * Returns one short-lived exact-object URL and consumes the AGENT_PERCEPTION grant.
+     * @returns RedeemEvidenceAccessResponse One-time screenshot access has been redeemed.
+     * @throws ApiError
+     */
+    public redeemAgentBrowserScreenshot({
+        sessionId,
+        screenshotId,
+        xTenantId,
+    }: {
+        sessionId: string,
+        screenshotId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<RedeemEvidenceAccessResponse> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/screenshots/{screenshotId}:redeem',
+            path: {
+                'sessionId': sessionId,
+                'screenshotId': screenshotId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            errors: {
+                404: `Resource not found.`,
                 409: `State or idempotency conflict.`,
                 422: `The bounded archive was received but failed semantic or integrity validation.`,
             },

@@ -37,6 +37,10 @@ public final class SessionEvidenceCapturedEvent extends com.google.protobuf.Gene
     result_ = "";
     errorCode_ = "";
     redactionState_ = "";
+    captureMode_ = "";
+    capturedStateHash_ = "";
+    capturedActiveTabId_ = "";
+    coordinateSpace_ = "";
   }
 
   @java.lang.Override
@@ -577,6 +581,301 @@ public final class SessionEvidenceCapturedEvent extends com.google.protobuf.Gene
     return redactedRegionCount_;
   }
 
+  public static final int CAPTURE_MODE_FIELD_NUMBER = 16;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object captureMode_ = "";
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+   * provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
+   * </pre>
+   *
+   * <code>string capture_mode = 16 [json_name = "captureMode"];</code>
+   *
+   * @return The captureMode.
+   */
+  @java.lang.Override
+  public java.lang.String getCaptureMode() {
+    java.lang.Object ref = captureMode_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      captureMode_ = s;
+      return s;
+    }
+  }
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+   * provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
+   * </pre>
+   *
+   * <code>string capture_mode = 16 [json_name = "captureMode"];</code>
+   *
+   * @return The bytes for captureMode.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getCaptureModeBytes() {
+    java.lang.Object ref = captureMode_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      captureMode_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int CAPTURED_STATE_VERSION_FIELD_NUMBER = 17;
+  private long capturedStateVersion_ = 0L;
+
+  /**
+   * <code>uint64 captured_state_version = 17 [json_name = "capturedStateVersion"];</code>
+   *
+   * @return The capturedStateVersion.
+   */
+  @java.lang.Override
+  public long getCapturedStateVersion() {
+    return capturedStateVersion_;
+  }
+
+  public static final int CAPTURED_TARGET_REVISION_FIELD_NUMBER = 18;
+  private long capturedTargetRevision_ = 0L;
+
+  /**
+   * <code>uint64 captured_target_revision = 18 [json_name = "capturedTargetRevision"];</code>
+   *
+   * @return The capturedTargetRevision.
+   */
+  @java.lang.Override
+  public long getCapturedTargetRevision() {
+    return capturedTargetRevision_;
+  }
+
+  public static final int CAPTURED_STATE_HASH_FIELD_NUMBER = 19;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object capturedStateHash_ = "";
+
+  /**
+   * <code>string captured_state_hash = 19 [json_name = "capturedStateHash"];</code>
+   *
+   * @return The capturedStateHash.
+   */
+  @java.lang.Override
+  public java.lang.String getCapturedStateHash() {
+    java.lang.Object ref = capturedStateHash_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      capturedStateHash_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string captured_state_hash = 19 [json_name = "capturedStateHash"];</code>
+   *
+   * @return The bytes for capturedStateHash.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getCapturedStateHashBytes() {
+    java.lang.Object ref = capturedStateHash_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      capturedStateHash_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int CAPTURED_ACTIVE_TAB_ID_FIELD_NUMBER = 20;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object capturedActiveTabId_ = "";
+
+  /**
+   * <code>string captured_active_tab_id = 20 [json_name = "capturedActiveTabId"];</code>
+   *
+   * @return The capturedActiveTabId.
+   */
+  @java.lang.Override
+  public java.lang.String getCapturedActiveTabId() {
+    java.lang.Object ref = capturedActiveTabId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      capturedActiveTabId_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string captured_active_tab_id = 20 [json_name = "capturedActiveTabId"];</code>
+   *
+   * @return The bytes for capturedActiveTabId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getCapturedActiveTabIdBytes() {
+    java.lang.Object ref = capturedActiveTabId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      capturedActiveTabId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int VIEWPORT_WIDTH_FIELD_NUMBER = 21;
+  private double viewportWidth_ = 0D;
+
+  /**
+   * <code>double viewport_width = 21 [json_name = "viewportWidth"];</code>
+   *
+   * @return The viewportWidth.
+   */
+  @java.lang.Override
+  public double getViewportWidth() {
+    return viewportWidth_;
+  }
+
+  public static final int VIEWPORT_HEIGHT_FIELD_NUMBER = 22;
+  private double viewportHeight_ = 0D;
+
+  /**
+   * <code>double viewport_height = 22 [json_name = "viewportHeight"];</code>
+   *
+   * @return The viewportHeight.
+   */
+  @java.lang.Override
+  public double getViewportHeight() {
+    return viewportHeight_;
+  }
+
+  public static final int DEVICE_SCALE_FACTOR_FIELD_NUMBER = 23;
+  private double deviceScaleFactor_ = 0D;
+
+  /**
+   * <code>double device_scale_factor = 23 [json_name = "deviceScaleFactor"];</code>
+   *
+   * @return The deviceScaleFactor.
+   */
+  @java.lang.Override
+  public double getDeviceScaleFactor() {
+    return deviceScaleFactor_;
+  }
+
+  public static final int CAPTURED_REGION_X_FIELD_NUMBER = 24;
+  private double capturedRegionX_ = 0D;
+
+  /**
+   * <code>double captured_region_x = 24 [json_name = "capturedRegionX"];</code>
+   *
+   * @return The capturedRegionX.
+   */
+  @java.lang.Override
+  public double getCapturedRegionX() {
+    return capturedRegionX_;
+  }
+
+  public static final int CAPTURED_REGION_Y_FIELD_NUMBER = 25;
+  private double capturedRegionY_ = 0D;
+
+  /**
+   * <code>double captured_region_y = 25 [json_name = "capturedRegionY"];</code>
+   *
+   * @return The capturedRegionY.
+   */
+  @java.lang.Override
+  public double getCapturedRegionY() {
+    return capturedRegionY_;
+  }
+
+  public static final int CAPTURED_REGION_WIDTH_FIELD_NUMBER = 26;
+  private double capturedRegionWidth_ = 0D;
+
+  /**
+   * <code>double captured_region_width = 26 [json_name = "capturedRegionWidth"];</code>
+   *
+   * @return The capturedRegionWidth.
+   */
+  @java.lang.Override
+  public double getCapturedRegionWidth() {
+    return capturedRegionWidth_;
+  }
+
+  public static final int CAPTURED_REGION_HEIGHT_FIELD_NUMBER = 27;
+  private double capturedRegionHeight_ = 0D;
+
+  /**
+   * <code>double captured_region_height = 27 [json_name = "capturedRegionHeight"];</code>
+   *
+   * @return The capturedRegionHeight.
+   */
+  @java.lang.Override
+  public double getCapturedRegionHeight() {
+    return capturedRegionHeight_;
+  }
+
+  public static final int COORDINATE_SPACE_FIELD_NUMBER = 28;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object coordinateSpace_ = "";
+
+  /**
+   * <code>string coordinate_space = 28 [json_name = "coordinateSpace"];</code>
+   *
+   * @return The coordinateSpace.
+   */
+  @java.lang.Override
+  public java.lang.String getCoordinateSpace() {
+    java.lang.Object ref = coordinateSpace_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      coordinateSpace_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string coordinate_space = 28 [json_name = "coordinateSpace"];</code>
+   *
+   * @return The bytes for coordinateSpace.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getCoordinateSpaceBytes() {
+    java.lang.Object ref = coordinateSpace_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      coordinateSpace_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
 
   @java.lang.Override
@@ -636,6 +935,45 @@ public final class SessionEvidenceCapturedEvent extends com.google.protobuf.Gene
     if (redactedRegionCount_ != 0) {
       output.writeUInt32(15, redactedRegionCount_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(captureMode_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 16, captureMode_);
+    }
+    if (capturedStateVersion_ != 0L) {
+      output.writeUInt64(17, capturedStateVersion_);
+    }
+    if (capturedTargetRevision_ != 0L) {
+      output.writeUInt64(18, capturedTargetRevision_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(capturedStateHash_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 19, capturedStateHash_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(capturedActiveTabId_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 20, capturedActiveTabId_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(viewportWidth_) != 0) {
+      output.writeDouble(21, viewportWidth_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(viewportHeight_) != 0) {
+      output.writeDouble(22, viewportHeight_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(deviceScaleFactor_) != 0) {
+      output.writeDouble(23, deviceScaleFactor_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(capturedRegionX_) != 0) {
+      output.writeDouble(24, capturedRegionX_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(capturedRegionY_) != 0) {
+      output.writeDouble(25, capturedRegionY_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(capturedRegionWidth_) != 0) {
+      output.writeDouble(26, capturedRegionWidth_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(capturedRegionHeight_) != 0) {
+      output.writeDouble(27, capturedRegionHeight_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(coordinateSpace_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 28, coordinateSpace_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -690,6 +1028,45 @@ public final class SessionEvidenceCapturedEvent extends com.google.protobuf.Gene
     if (redactedRegionCount_ != 0) {
       size += com.google.protobuf.CodedOutputStream.computeUInt32Size(15, redactedRegionCount_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(captureMode_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(16, captureMode_);
+    }
+    if (capturedStateVersion_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(17, capturedStateVersion_);
+    }
+    if (capturedTargetRevision_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(18, capturedTargetRevision_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(capturedStateHash_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(19, capturedStateHash_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(capturedActiveTabId_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(20, capturedActiveTabId_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(viewportWidth_) != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(21, viewportWidth_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(viewportHeight_) != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(22, viewportHeight_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(deviceScaleFactor_) != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(23, deviceScaleFactor_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(capturedRegionX_) != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(24, capturedRegionX_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(capturedRegionY_) != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(25, capturedRegionY_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(capturedRegionWidth_) != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(26, capturedRegionWidth_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(capturedRegionHeight_) != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(27, capturedRegionHeight_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(coordinateSpace_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(28, coordinateSpace_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -721,6 +1098,26 @@ public final class SessionEvidenceCapturedEvent extends com.google.protobuf.Gene
     if (!getErrorCode().equals(other.getErrorCode())) return false;
     if (!getRedactionState().equals(other.getRedactionState())) return false;
     if (getRedactedRegionCount() != other.getRedactedRegionCount()) return false;
+    if (!getCaptureMode().equals(other.getCaptureMode())) return false;
+    if (getCapturedStateVersion() != other.getCapturedStateVersion()) return false;
+    if (getCapturedTargetRevision() != other.getCapturedTargetRevision()) return false;
+    if (!getCapturedStateHash().equals(other.getCapturedStateHash())) return false;
+    if (!getCapturedActiveTabId().equals(other.getCapturedActiveTabId())) return false;
+    if (java.lang.Double.doubleToLongBits(getViewportWidth())
+        != java.lang.Double.doubleToLongBits(other.getViewportWidth())) return false;
+    if (java.lang.Double.doubleToLongBits(getViewportHeight())
+        != java.lang.Double.doubleToLongBits(other.getViewportHeight())) return false;
+    if (java.lang.Double.doubleToLongBits(getDeviceScaleFactor())
+        != java.lang.Double.doubleToLongBits(other.getDeviceScaleFactor())) return false;
+    if (java.lang.Double.doubleToLongBits(getCapturedRegionX())
+        != java.lang.Double.doubleToLongBits(other.getCapturedRegionX())) return false;
+    if (java.lang.Double.doubleToLongBits(getCapturedRegionY())
+        != java.lang.Double.doubleToLongBits(other.getCapturedRegionY())) return false;
+    if (java.lang.Double.doubleToLongBits(getCapturedRegionWidth())
+        != java.lang.Double.doubleToLongBits(other.getCapturedRegionWidth())) return false;
+    if (java.lang.Double.doubleToLongBits(getCapturedRegionHeight())
+        != java.lang.Double.doubleToLongBits(other.getCapturedRegionHeight())) return false;
+    if (!getCoordinateSpace().equals(other.getCoordinateSpace())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -762,6 +1159,53 @@ public final class SessionEvidenceCapturedEvent extends com.google.protobuf.Gene
     hash = (53 * hash) + getRedactionState().hashCode();
     hash = (37 * hash) + REDACTED_REGION_COUNT_FIELD_NUMBER;
     hash = (53 * hash) + getRedactedRegionCount();
+    hash = (37 * hash) + CAPTURE_MODE_FIELD_NUMBER;
+    hash = (53 * hash) + getCaptureMode().hashCode();
+    hash = (37 * hash) + CAPTURED_STATE_VERSION_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getCapturedStateVersion());
+    hash = (37 * hash) + CAPTURED_TARGET_REVISION_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getCapturedTargetRevision());
+    hash = (37 * hash) + CAPTURED_STATE_HASH_FIELD_NUMBER;
+    hash = (53 * hash) + getCapturedStateHash().hashCode();
+    hash = (37 * hash) + CAPTURED_ACTIVE_TAB_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getCapturedActiveTabId().hashCode();
+    hash = (37 * hash) + VIEWPORT_WIDTH_FIELD_NUMBER;
+    hash =
+        (53 * hash)
+            + com.google.protobuf.Internal.hashLong(
+                java.lang.Double.doubleToLongBits(getViewportWidth()));
+    hash = (37 * hash) + VIEWPORT_HEIGHT_FIELD_NUMBER;
+    hash =
+        (53 * hash)
+            + com.google.protobuf.Internal.hashLong(
+                java.lang.Double.doubleToLongBits(getViewportHeight()));
+    hash = (37 * hash) + DEVICE_SCALE_FACTOR_FIELD_NUMBER;
+    hash =
+        (53 * hash)
+            + com.google.protobuf.Internal.hashLong(
+                java.lang.Double.doubleToLongBits(getDeviceScaleFactor()));
+    hash = (37 * hash) + CAPTURED_REGION_X_FIELD_NUMBER;
+    hash =
+        (53 * hash)
+            + com.google.protobuf.Internal.hashLong(
+                java.lang.Double.doubleToLongBits(getCapturedRegionX()));
+    hash = (37 * hash) + CAPTURED_REGION_Y_FIELD_NUMBER;
+    hash =
+        (53 * hash)
+            + com.google.protobuf.Internal.hashLong(
+                java.lang.Double.doubleToLongBits(getCapturedRegionY()));
+    hash = (37 * hash) + CAPTURED_REGION_WIDTH_FIELD_NUMBER;
+    hash =
+        (53 * hash)
+            + com.google.protobuf.Internal.hashLong(
+                java.lang.Double.doubleToLongBits(getCapturedRegionWidth()));
+    hash = (37 * hash) + CAPTURED_REGION_HEIGHT_FIELD_NUMBER;
+    hash =
+        (53 * hash)
+            + com.google.protobuf.Internal.hashLong(
+                java.lang.Double.doubleToLongBits(getCapturedRegionHeight()));
+    hash = (37 * hash) + COORDINATE_SPACE_FIELD_NUMBER;
+    hash = (53 * hash) + getCoordinateSpace().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -919,6 +1363,19 @@ public final class SessionEvidenceCapturedEvent extends com.google.protobuf.Gene
       errorCode_ = "";
       redactionState_ = "";
       redactedRegionCount_ = 0;
+      captureMode_ = "";
+      capturedStateVersion_ = 0L;
+      capturedTargetRevision_ = 0L;
+      capturedStateHash_ = "";
+      capturedActiveTabId_ = "";
+      viewportWidth_ = 0D;
+      viewportHeight_ = 0D;
+      deviceScaleFactor_ = 0D;
+      capturedRegionX_ = 0D;
+      capturedRegionY_ = 0D;
+      capturedRegionWidth_ = 0D;
+      capturedRegionHeight_ = 0D;
+      coordinateSpace_ = "";
       return this;
     }
 
@@ -999,6 +1456,45 @@ public final class SessionEvidenceCapturedEvent extends com.google.protobuf.Gene
       }
       if (((from_bitField0_ & 0x00004000) != 0)) {
         result.redactedRegionCount_ = redactedRegionCount_;
+      }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.captureMode_ = captureMode_;
+      }
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.capturedStateVersion_ = capturedStateVersion_;
+      }
+      if (((from_bitField0_ & 0x00020000) != 0)) {
+        result.capturedTargetRevision_ = capturedTargetRevision_;
+      }
+      if (((from_bitField0_ & 0x00040000) != 0)) {
+        result.capturedStateHash_ = capturedStateHash_;
+      }
+      if (((from_bitField0_ & 0x00080000) != 0)) {
+        result.capturedActiveTabId_ = capturedActiveTabId_;
+      }
+      if (((from_bitField0_ & 0x00100000) != 0)) {
+        result.viewportWidth_ = viewportWidth_;
+      }
+      if (((from_bitField0_ & 0x00200000) != 0)) {
+        result.viewportHeight_ = viewportHeight_;
+      }
+      if (((from_bitField0_ & 0x00400000) != 0)) {
+        result.deviceScaleFactor_ = deviceScaleFactor_;
+      }
+      if (((from_bitField0_ & 0x00800000) != 0)) {
+        result.capturedRegionX_ = capturedRegionX_;
+      }
+      if (((from_bitField0_ & 0x01000000) != 0)) {
+        result.capturedRegionY_ = capturedRegionY_;
+      }
+      if (((from_bitField0_ & 0x02000000) != 0)) {
+        result.capturedRegionWidth_ = capturedRegionWidth_;
+      }
+      if (((from_bitField0_ & 0x04000000) != 0)) {
+        result.capturedRegionHeight_ = capturedRegionHeight_;
+      }
+      if (((from_bitField0_ & 0x08000000) != 0)) {
+        result.coordinateSpace_ = coordinateSpace_;
       }
     }
 
@@ -1114,6 +1610,53 @@ public final class SessionEvidenceCapturedEvent extends com.google.protobuf.Gene
       }
       if (other.getRedactedRegionCount() != 0) {
         setRedactedRegionCount(other.getRedactedRegionCount());
+      }
+      if (!other.getCaptureMode().isEmpty()) {
+        captureMode_ = other.captureMode_;
+        bitField0_ |= 0x00008000;
+        onChanged();
+      }
+      if (other.getCapturedStateVersion() != 0L) {
+        setCapturedStateVersion(other.getCapturedStateVersion());
+      }
+      if (other.getCapturedTargetRevision() != 0L) {
+        setCapturedTargetRevision(other.getCapturedTargetRevision());
+      }
+      if (!other.getCapturedStateHash().isEmpty()) {
+        capturedStateHash_ = other.capturedStateHash_;
+        bitField0_ |= 0x00040000;
+        onChanged();
+      }
+      if (!other.getCapturedActiveTabId().isEmpty()) {
+        capturedActiveTabId_ = other.capturedActiveTabId_;
+        bitField0_ |= 0x00080000;
+        onChanged();
+      }
+      if (other.getViewportWidth() != 0D) {
+        setViewportWidth(other.getViewportWidth());
+      }
+      if (other.getViewportHeight() != 0D) {
+        setViewportHeight(other.getViewportHeight());
+      }
+      if (other.getDeviceScaleFactor() != 0D) {
+        setDeviceScaleFactor(other.getDeviceScaleFactor());
+      }
+      if (other.getCapturedRegionX() != 0D) {
+        setCapturedRegionX(other.getCapturedRegionX());
+      }
+      if (other.getCapturedRegionY() != 0D) {
+        setCapturedRegionY(other.getCapturedRegionY());
+      }
+      if (other.getCapturedRegionWidth() != 0D) {
+        setCapturedRegionWidth(other.getCapturedRegionWidth());
+      }
+      if (other.getCapturedRegionHeight() != 0D) {
+        setCapturedRegionHeight(other.getCapturedRegionHeight());
+      }
+      if (!other.getCoordinateSpace().isEmpty()) {
+        coordinateSpace_ = other.coordinateSpace_;
+        bitField0_ |= 0x08000000;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1231,6 +1774,84 @@ public final class SessionEvidenceCapturedEvent extends com.google.protobuf.Gene
                 bitField0_ |= 0x00004000;
                 break;
               } // case 120
+            case 130:
+              {
+                captureMode_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00008000;
+                break;
+              } // case 130
+            case 136:
+              {
+                capturedStateVersion_ = input.readUInt64();
+                bitField0_ |= 0x00010000;
+                break;
+              } // case 136
+            case 144:
+              {
+                capturedTargetRevision_ = input.readUInt64();
+                bitField0_ |= 0x00020000;
+                break;
+              } // case 144
+            case 154:
+              {
+                capturedStateHash_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00040000;
+                break;
+              } // case 154
+            case 162:
+              {
+                capturedActiveTabId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00080000;
+                break;
+              } // case 162
+            case 169:
+              {
+                viewportWidth_ = input.readDouble();
+                bitField0_ |= 0x00100000;
+                break;
+              } // case 169
+            case 177:
+              {
+                viewportHeight_ = input.readDouble();
+                bitField0_ |= 0x00200000;
+                break;
+              } // case 177
+            case 185:
+              {
+                deviceScaleFactor_ = input.readDouble();
+                bitField0_ |= 0x00400000;
+                break;
+              } // case 185
+            case 193:
+              {
+                capturedRegionX_ = input.readDouble();
+                bitField0_ |= 0x00800000;
+                break;
+              } // case 193
+            case 201:
+              {
+                capturedRegionY_ = input.readDouble();
+                bitField0_ |= 0x01000000;
+                break;
+              } // case 201
+            case 209:
+              {
+                capturedRegionWidth_ = input.readDouble();
+                bitField0_ |= 0x02000000;
+                break;
+              } // case 209
+            case 217:
+              {
+                capturedRegionHeight_ = input.readDouble();
+                bitField0_ |= 0x04000000;
+                break;
+              } // case 217
+            case 226:
+              {
+                coordinateSpace_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x08000000;
+                break;
+              } // case 226
             default:
               {
                 if (!super.parseUnknownField(input, extensionRegistry, tag)) {
@@ -2324,6 +2945,707 @@ public final class SessionEvidenceCapturedEvent extends com.google.protobuf.Gene
     public Builder clearRedactedRegionCount() {
       bitField0_ = (bitField0_ & ~0x00004000);
       redactedRegionCount_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object captureMode_ = "";
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+     * provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
+     * </pre>
+     *
+     * <code>string capture_mode = 16 [json_name = "captureMode"];</code>
+     *
+     * @return The captureMode.
+     */
+    public java.lang.String getCaptureMode() {
+      java.lang.Object ref = captureMode_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        captureMode_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+     * provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
+     * </pre>
+     *
+     * <code>string capture_mode = 16 [json_name = "captureMode"];</code>
+     *
+     * @return The bytes for captureMode.
+     */
+    public com.google.protobuf.ByteString getCaptureModeBytes() {
+      java.lang.Object ref = captureMode_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        captureMode_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+     * provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
+     * </pre>
+     *
+     * <code>string capture_mode = 16 [json_name = "captureMode"];</code>
+     *
+     * @param value The captureMode to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCaptureMode(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      captureMode_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+     * provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
+     * </pre>
+     *
+     * <code>string capture_mode = 16 [json_name = "captureMode"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearCaptureMode() {
+      captureMode_ = getDefaultInstance().getCaptureMode();
+      bitField0_ = (bitField0_ & ~0x00008000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+     * provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
+     * </pre>
+     *
+     * <code>string capture_mode = 16 [json_name = "captureMode"];</code>
+     *
+     * @param value The bytes for captureMode to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCaptureModeBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      captureMode_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+
+    private long capturedStateVersion_;
+
+    /**
+     * <code>uint64 captured_state_version = 17 [json_name = "capturedStateVersion"];</code>
+     *
+     * @return The capturedStateVersion.
+     */
+    @java.lang.Override
+    public long getCapturedStateVersion() {
+      return capturedStateVersion_;
+    }
+
+    /**
+     * <code>uint64 captured_state_version = 17 [json_name = "capturedStateVersion"];</code>
+     *
+     * @param value The capturedStateVersion to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapturedStateVersion(long value) {
+
+      capturedStateVersion_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>uint64 captured_state_version = 17 [json_name = "capturedStateVersion"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearCapturedStateVersion() {
+      bitField0_ = (bitField0_ & ~0x00010000);
+      capturedStateVersion_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private long capturedTargetRevision_;
+
+    /**
+     * <code>uint64 captured_target_revision = 18 [json_name = "capturedTargetRevision"];</code>
+     *
+     * @return The capturedTargetRevision.
+     */
+    @java.lang.Override
+    public long getCapturedTargetRevision() {
+      return capturedTargetRevision_;
+    }
+
+    /**
+     * <code>uint64 captured_target_revision = 18 [json_name = "capturedTargetRevision"];</code>
+     *
+     * @param value The capturedTargetRevision to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapturedTargetRevision(long value) {
+
+      capturedTargetRevision_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>uint64 captured_target_revision = 18 [json_name = "capturedTargetRevision"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearCapturedTargetRevision() {
+      bitField0_ = (bitField0_ & ~0x00020000);
+      capturedTargetRevision_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object capturedStateHash_ = "";
+
+    /**
+     * <code>string captured_state_hash = 19 [json_name = "capturedStateHash"];</code>
+     *
+     * @return The capturedStateHash.
+     */
+    public java.lang.String getCapturedStateHash() {
+      java.lang.Object ref = capturedStateHash_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        capturedStateHash_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string captured_state_hash = 19 [json_name = "capturedStateHash"];</code>
+     *
+     * @return The bytes for capturedStateHash.
+     */
+    public com.google.protobuf.ByteString getCapturedStateHashBytes() {
+      java.lang.Object ref = capturedStateHash_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        capturedStateHash_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string captured_state_hash = 19 [json_name = "capturedStateHash"];</code>
+     *
+     * @param value The capturedStateHash to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapturedStateHash(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      capturedStateHash_ = value;
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string captured_state_hash = 19 [json_name = "capturedStateHash"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearCapturedStateHash() {
+      capturedStateHash_ = getDefaultInstance().getCapturedStateHash();
+      bitField0_ = (bitField0_ & ~0x00040000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string captured_state_hash = 19 [json_name = "capturedStateHash"];</code>
+     *
+     * @param value The bytes for capturedStateHash to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapturedStateHashBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      capturedStateHash_ = value;
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object capturedActiveTabId_ = "";
+
+    /**
+     * <code>string captured_active_tab_id = 20 [json_name = "capturedActiveTabId"];</code>
+     *
+     * @return The capturedActiveTabId.
+     */
+    public java.lang.String getCapturedActiveTabId() {
+      java.lang.Object ref = capturedActiveTabId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        capturedActiveTabId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string captured_active_tab_id = 20 [json_name = "capturedActiveTabId"];</code>
+     *
+     * @return The bytes for capturedActiveTabId.
+     */
+    public com.google.protobuf.ByteString getCapturedActiveTabIdBytes() {
+      java.lang.Object ref = capturedActiveTabId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        capturedActiveTabId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string captured_active_tab_id = 20 [json_name = "capturedActiveTabId"];</code>
+     *
+     * @param value The capturedActiveTabId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapturedActiveTabId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      capturedActiveTabId_ = value;
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string captured_active_tab_id = 20 [json_name = "capturedActiveTabId"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearCapturedActiveTabId() {
+      capturedActiveTabId_ = getDefaultInstance().getCapturedActiveTabId();
+      bitField0_ = (bitField0_ & ~0x00080000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string captured_active_tab_id = 20 [json_name = "capturedActiveTabId"];</code>
+     *
+     * @param value The bytes for capturedActiveTabId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapturedActiveTabIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      capturedActiveTabId_ = value;
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+
+    private double viewportWidth_;
+
+    /**
+     * <code>double viewport_width = 21 [json_name = "viewportWidth"];</code>
+     *
+     * @return The viewportWidth.
+     */
+    @java.lang.Override
+    public double getViewportWidth() {
+      return viewportWidth_;
+    }
+
+    /**
+     * <code>double viewport_width = 21 [json_name = "viewportWidth"];</code>
+     *
+     * @param value The viewportWidth to set.
+     * @return This builder for chaining.
+     */
+    public Builder setViewportWidth(double value) {
+
+      viewportWidth_ = value;
+      bitField0_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>double viewport_width = 21 [json_name = "viewportWidth"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearViewportWidth() {
+      bitField0_ = (bitField0_ & ~0x00100000);
+      viewportWidth_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double viewportHeight_;
+
+    /**
+     * <code>double viewport_height = 22 [json_name = "viewportHeight"];</code>
+     *
+     * @return The viewportHeight.
+     */
+    @java.lang.Override
+    public double getViewportHeight() {
+      return viewportHeight_;
+    }
+
+    /**
+     * <code>double viewport_height = 22 [json_name = "viewportHeight"];</code>
+     *
+     * @param value The viewportHeight to set.
+     * @return This builder for chaining.
+     */
+    public Builder setViewportHeight(double value) {
+
+      viewportHeight_ = value;
+      bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>double viewport_height = 22 [json_name = "viewportHeight"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearViewportHeight() {
+      bitField0_ = (bitField0_ & ~0x00200000);
+      viewportHeight_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double deviceScaleFactor_;
+
+    /**
+     * <code>double device_scale_factor = 23 [json_name = "deviceScaleFactor"];</code>
+     *
+     * @return The deviceScaleFactor.
+     */
+    @java.lang.Override
+    public double getDeviceScaleFactor() {
+      return deviceScaleFactor_;
+    }
+
+    /**
+     * <code>double device_scale_factor = 23 [json_name = "deviceScaleFactor"];</code>
+     *
+     * @param value The deviceScaleFactor to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDeviceScaleFactor(double value) {
+
+      deviceScaleFactor_ = value;
+      bitField0_ |= 0x00400000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>double device_scale_factor = 23 [json_name = "deviceScaleFactor"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearDeviceScaleFactor() {
+      bitField0_ = (bitField0_ & ~0x00400000);
+      deviceScaleFactor_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double capturedRegionX_;
+
+    /**
+     * <code>double captured_region_x = 24 [json_name = "capturedRegionX"];</code>
+     *
+     * @return The capturedRegionX.
+     */
+    @java.lang.Override
+    public double getCapturedRegionX() {
+      return capturedRegionX_;
+    }
+
+    /**
+     * <code>double captured_region_x = 24 [json_name = "capturedRegionX"];</code>
+     *
+     * @param value The capturedRegionX to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapturedRegionX(double value) {
+
+      capturedRegionX_ = value;
+      bitField0_ |= 0x00800000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>double captured_region_x = 24 [json_name = "capturedRegionX"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearCapturedRegionX() {
+      bitField0_ = (bitField0_ & ~0x00800000);
+      capturedRegionX_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double capturedRegionY_;
+
+    /**
+     * <code>double captured_region_y = 25 [json_name = "capturedRegionY"];</code>
+     *
+     * @return The capturedRegionY.
+     */
+    @java.lang.Override
+    public double getCapturedRegionY() {
+      return capturedRegionY_;
+    }
+
+    /**
+     * <code>double captured_region_y = 25 [json_name = "capturedRegionY"];</code>
+     *
+     * @param value The capturedRegionY to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapturedRegionY(double value) {
+
+      capturedRegionY_ = value;
+      bitField0_ |= 0x01000000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>double captured_region_y = 25 [json_name = "capturedRegionY"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearCapturedRegionY() {
+      bitField0_ = (bitField0_ & ~0x01000000);
+      capturedRegionY_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double capturedRegionWidth_;
+
+    /**
+     * <code>double captured_region_width = 26 [json_name = "capturedRegionWidth"];</code>
+     *
+     * @return The capturedRegionWidth.
+     */
+    @java.lang.Override
+    public double getCapturedRegionWidth() {
+      return capturedRegionWidth_;
+    }
+
+    /**
+     * <code>double captured_region_width = 26 [json_name = "capturedRegionWidth"];</code>
+     *
+     * @param value The capturedRegionWidth to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapturedRegionWidth(double value) {
+
+      capturedRegionWidth_ = value;
+      bitField0_ |= 0x02000000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>double captured_region_width = 26 [json_name = "capturedRegionWidth"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearCapturedRegionWidth() {
+      bitField0_ = (bitField0_ & ~0x02000000);
+      capturedRegionWidth_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double capturedRegionHeight_;
+
+    /**
+     * <code>double captured_region_height = 27 [json_name = "capturedRegionHeight"];</code>
+     *
+     * @return The capturedRegionHeight.
+     */
+    @java.lang.Override
+    public double getCapturedRegionHeight() {
+      return capturedRegionHeight_;
+    }
+
+    /**
+     * <code>double captured_region_height = 27 [json_name = "capturedRegionHeight"];</code>
+     *
+     * @param value The capturedRegionHeight to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapturedRegionHeight(double value) {
+
+      capturedRegionHeight_ = value;
+      bitField0_ |= 0x04000000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>double captured_region_height = 27 [json_name = "capturedRegionHeight"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearCapturedRegionHeight() {
+      bitField0_ = (bitField0_ & ~0x04000000);
+      capturedRegionHeight_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object coordinateSpace_ = "";
+
+    /**
+     * <code>string coordinate_space = 28 [json_name = "coordinateSpace"];</code>
+     *
+     * @return The coordinateSpace.
+     */
+    public java.lang.String getCoordinateSpace() {
+      java.lang.Object ref = coordinateSpace_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        coordinateSpace_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string coordinate_space = 28 [json_name = "coordinateSpace"];</code>
+     *
+     * @return The bytes for coordinateSpace.
+     */
+    public com.google.protobuf.ByteString getCoordinateSpaceBytes() {
+      java.lang.Object ref = coordinateSpace_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        coordinateSpace_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string coordinate_space = 28 [json_name = "coordinateSpace"];</code>
+     *
+     * @param value The coordinateSpace to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCoordinateSpace(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      coordinateSpace_ = value;
+      bitField0_ |= 0x08000000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string coordinate_space = 28 [json_name = "coordinateSpace"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearCoordinateSpace() {
+      coordinateSpace_ = getDefaultInstance().getCoordinateSpace();
+      bitField0_ = (bitField0_ & ~0x08000000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string coordinate_space = 28 [json_name = "coordinateSpace"];</code>
+     *
+     * @param value The bytes for coordinateSpace to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCoordinateSpaceBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      coordinateSpace_ = value;
+      bitField0_ |= 0x08000000;
       onChanged();
       return this;
     }

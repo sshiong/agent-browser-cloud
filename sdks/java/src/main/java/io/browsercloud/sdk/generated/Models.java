@@ -241,6 +241,14 @@ public final class Models {
 
   public record AgentBrowserDownloadList(String stateCursor, Boolean evidenceFresh, Boolean dataStale, List<AgentBrowserDownload> downloads) {}
 
+  public enum AgentBrowserScreenshotMode { VIEWPORT, FULLPAGE, ELEMENT, REGION, CHALLENGEREGION }
+
+  public record AgentBrowserScreenshotRegion(Double x, Double y, Double width, Double height) {}
+
+  public record CaptureAgentBrowserScreenshotRequest(AgentBrowserScreenshotMode mode, String expectedStateCursor, Object elementId, AgentBrowserScreenshotRegion region) {}
+
+  public record AgentBrowserScreenshot(String screenshotId, String sessionId, AgentBrowserScreenshotMode mode, String state, String expectedStateCursor, Object capturedStateCursor, String activeTabId, Object elementId, AgentBrowserScreenshotRegion region, Object coordinateSpace, Object viewportWidth, Object viewportHeight, Object deviceScaleFactor, Object evidenceId, Object accessGrantId, Object accessGrantExpiresAt, Object contentSha256, Object contentBytes, Object redactionState, Object redactedRegionCount, Object errorCode, String requestId, String createdAt, String updatedAt, Object completedAt) {}
+
   public record AgentBrowserSnapshot(String stateCursor, BrowserState state, String visibleTextSummary, List<AgentBrowserTab> tabs, AgentBrowserTab activeTab, Object focusedElementId, List<String> formControlElementIds, List<String> dialogElementIds, List<AgentBrowserNativeDialog> nativeDialogs, Boolean nativeDialogEvidenceFresh, String pageLoadingState, String challengeState, Boolean visionRecommended) {}
 
   public record AgentBrowserTab(String tabId, String url, String title, Boolean active) {}
@@ -339,7 +347,7 @@ public final class Models {
 
   public record RecordingList(List<Recording> items, Integer limit, Integer offset) {}
 
-  public enum EvidencePurpose { INCIDENTRESPONSE, CHANGEVALIDATION, SUPPORTDIAGNOSTICS, COMPLIANCEAUDIT }
+  public enum EvidencePurpose { INCIDENTRESPONSE, CHANGEVALIDATION, SUPPORTDIAGNOSTICS, COMPLIANCEAUDIT, AGENTPERCEPTION }
 
   public record CaptureEvidenceRequest(EvidencePurpose purpose) {}
 

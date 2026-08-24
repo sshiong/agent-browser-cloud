@@ -120,6 +120,7 @@ class SessionEvidenceGovernanceServiceTest {
             eq(session.sessionId()),
             eq(claim.grantId()),
             eq("actor-test"),
+            org.mockito.ArgumentMatchers.isNull(),
             any(Instant.class)))
         .thenReturn(claim);
     when(capacity.nodeHasCapability(session.nodeId(), "evidenceAccess", "presigned-get-v1"))

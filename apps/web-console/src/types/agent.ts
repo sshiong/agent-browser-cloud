@@ -180,6 +180,58 @@ export interface AgentBrowserDownloadList {
   downloads: AgentBrowserDownload[];
 }
 
+export type AgentBrowserScreenshotMode =
+  'VIEWPORT' | 'FULL_PAGE' | 'ELEMENT' | 'REGION' | 'CHALLENGE_REGION';
+
+export interface AgentBrowserScreenshotRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface CaptureAgentBrowserScreenshotRequest {
+  mode: AgentBrowserScreenshotMode;
+  expectedStateCursor: string;
+  elementId?: string;
+  region?: AgentBrowserScreenshotRegion;
+}
+
+export interface AgentBrowserScreenshot {
+  screenshotId: string;
+  sessionId: string;
+  mode: AgentBrowserScreenshotMode;
+  state: 'EXECUTING' | 'COMMITTED' | 'FAILED';
+  expectedStateCursor: string;
+  capturedStateCursor?: string;
+  activeTabId: string;
+  elementId?: string;
+  region?: AgentBrowserScreenshotRegion;
+  coordinateSpace?: 'VIEWPORT' | 'DOCUMENT';
+  viewportWidth?: number;
+  viewportHeight?: number;
+  deviceScaleFactor?: number;
+  evidenceId?: string;
+  accessGrantId?: string;
+  accessGrantExpiresAt?: string;
+  contentSha256?: string;
+  contentBytes?: number;
+  redactionState?: 'MASKED' | 'NOT_REQUIRED';
+  redactedRegionCount?: number;
+  errorCode?: string;
+  requestId: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+export interface RedeemAgentBrowserScreenshotResponse {
+  grantId: string;
+  evidenceId: string;
+  downloadUrl: string;
+  expiresAt: string;
+}
+
 export interface CreateAgentTaskRequest {
   goal: string;
   startUrl?: string;

@@ -73,6 +73,8 @@ var Operations = map[string]Operation{
 	"inspectAgentBrowserElements":                {OperationID: "inspectAgentBrowserElements", Method: "POST", Path: "/api/v1/sessions/{sessionId}/agent-browser/inspect", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "AgentBrowserInspectRequest", RequestRequired: true, ResponseSchema: "AgentBrowserTargetList"},
 	"findAgentBrowserElements":                   {OperationID: "findAgentBrowserElements", Method: "POST", Path: "/api/v1/sessions/{sessionId}/agent-browser/find", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "AgentBrowserFindRequest", RequestRequired: true, ResponseSchema: "AgentBrowserTargetList"},
 	"executeAgentBrowserActions":                 {OperationID: "executeAgentBrowserActions", Method: "POST", Path: "/api/v1/sessions/{sessionId}/agent-browser/execute-actions", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "ExecuteAgentBrowserActionsRequest", RequestRequired: true, ResponseSchema: "AgentTask"},
+	"createAgentBrowserEvaluation":               {OperationID: "createAgentBrowserEvaluation", Method: "POST", Path: "/api/v1/sessions/{sessionId}/agent-browser/evaluations", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "CreateAgentBrowserEvaluationRequest", RequestRequired: true, ResponseSchema: "AgentBrowserEvaluation"},
+	"getAgentBrowserEvaluation":                  {OperationID: "getAgentBrowserEvaluation", Method: "GET", Path: "/api/v1/sessions/{sessionId}/agent-browser/evaluations/{evaluationId}", PathParameters: []string{"evaluationId", "sessionId"}, QueryParameters: []string{"waitMs"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentBrowserEvaluation"},
 	"captureAgentBrowserScreenshot":              {OperationID: "captureAgentBrowserScreenshot", Method: "POST", Path: "/api/v1/sessions/{sessionId}/agent-browser/screenshots", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "CaptureAgentBrowserScreenshotRequest", RequestRequired: true, ResponseSchema: "AgentBrowserScreenshot"},
 	"getAgentBrowserScreenshot":                  {OperationID: "getAgentBrowserScreenshot", Method: "GET", Path: "/api/v1/sessions/{sessionId}/agent-browser/screenshots/{screenshotId}", PathParameters: []string{"screenshotId", "sessionId"}, QueryParameters: []string{"waitMs"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentBrowserScreenshot"},
 	"redeemAgentBrowserScreenshot":               {OperationID: "redeemAgentBrowserScreenshot", Method: "POST", Path: "/api/v1/sessions/{sessionId}/agent-browser/screenshots/{screenshotId}:redeem", PathParameters: []string{"screenshotId", "sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "RedeemEvidenceAccessResponse"},
@@ -456,6 +458,12 @@ func (c *Client) FindAgentBrowserElements(ctx context.Context, request Request) 
 }
 func (c *Client) ExecuteAgentBrowserActions(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "executeAgentBrowserActions", request)
+}
+func (c *Client) CreateAgentBrowserEvaluation(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "createAgentBrowserEvaluation", request)
+}
+func (c *Client) GetAgentBrowserEvaluation(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "getAgentBrowserEvaluation", request)
 }
 func (c *Client) CaptureAgentBrowserScreenshot(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "captureAgentBrowserScreenshot", request)

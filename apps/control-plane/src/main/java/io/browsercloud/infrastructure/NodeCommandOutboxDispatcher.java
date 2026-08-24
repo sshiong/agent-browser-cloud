@@ -3,6 +3,7 @@ package io.browsercloud.infrastructure;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import io.browsercloud.application.AgentActionPayloadService;
+import io.browsercloud.application.AgentBrowserEvaluationStore;
 import io.browsercloud.application.AgentBrowserScreenshotStore;
 import io.browsercloud.application.AgentExecutionWaitProjectionService;
 import io.browsercloud.application.SessionEvidenceGovernanceStore;
@@ -11,6 +12,7 @@ import io.browsercloud.coordinator.CoordinatorRouteAuthority;
 import io.browsercloud.coordinator.NodeCommand;
 import io.browsercloud.persistence.BrowserNodeJpaRepository;
 import io.browsercloud.proto.node.v1.AgentActionCommand;
+import io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand;
 import io.browsercloud.proto.node.v1.AgentNavigateCommand;
 import io.browsercloud.proto.node.v1.CommandEnvelope;
 import io.browsercloud.proto.node.v1.DispatchRequest;
@@ -51,6 +53,7 @@ public class NodeCommandOutboxDispatcher {
   private final AgentExecutionWaitProjectionService executionWaitProjection;
   private final SessionEvidenceGovernanceStore evidenceGovernance;
   private final AgentBrowserScreenshotStore agentScreenshots;
+  private final AgentBrowserEvaluationStore agentEvaluations;
   private final SessionResourceAdjustmentLifecycleService resourceAdjustments;
   private final CoordinatorRouteAuthority routeAuthority;
   private final BrowserNodeJpaRepository browserNodeRepository;
@@ -66,6 +69,7 @@ public class NodeCommandOutboxDispatcher {
       AgentExecutionWaitProjectionService executionWaitProjection,
       SessionEvidenceGovernanceStore evidenceGovernance,
       AgentBrowserScreenshotStore agentScreenshots,
+      AgentBrowserEvaluationStore agentEvaluations,
       SessionResourceAdjustmentLifecycleService resourceAdjustments,
       CoordinatorRouteAuthority routeAuthority,
       BrowserNodeJpaRepository browserNodeRepository,
@@ -78,6 +82,7 @@ public class NodeCommandOutboxDispatcher {
     this.executionWaitProjection = executionWaitProjection;
     this.evidenceGovernance = evidenceGovernance;
     this.agentScreenshots = agentScreenshots;
+    this.agentEvaluations = agentEvaluations;
     this.resourceAdjustments = resourceAdjustments;
     this.routeAuthority = routeAuthority;
     this.browserNodeRepository = browserNodeRepository;
@@ -318,6 +323,28 @@ public class NodeCommandOutboxDispatcher {
   }
 
   private byte[] outboundPayload(NodeCommand command) {
+    if (command.commandType().equals("AgentBrowserEvaluate")) {
+      try {
+        var payload = AgentBrowserEvaluateCommand.parseFrom(command.payload());
+        if (payload.getSealedExpression().isBlank() || !payload.getExpression().isBlank()) {
+          throw new IllegalArgumentException("Agent evaluation payload envelope is invalid");
+        }
+        var plaintext =
+            actionPayloadService.unseal(
+                command.tenantId(),
+                payload.getEvaluationId(),
+                "expression",
+                payload.getSealedExpression());
+        return payload.toBuilder()
+            .clearSealedExpression()
+            .setExpression(plaintext)
+            .build()
+            .toByteArray();
+      } catch (com.google.protobuf.InvalidProtocolBufferException exception) {
+        throw new IllegalArgumentException(
+            "Agent evaluation payload is invalid protobuf", exception);
+      }
+    }
     if (!command.commandType().equals("AgentAction")) {
       return command.payload();
     }
@@ -413,6 +440,8 @@ public class NodeCommandOutboxDispatcher {
         evidenceGovernance.failCaptureDispatch(command.messageId(), errorCode, Instant.now());
       } else if ("CaptureAgentScreenshot".equals(command.commandType())) {
         agentScreenshots.failDispatch(command.messageId(), errorCode, Instant.now());
+      } else if ("AgentBrowserEvaluate".equals(command.commandType())) {
+        agentEvaluations.failDispatch(command.messageId(), errorCode, Instant.now());
       }
     } catch (Exception exception) {
       log.debug(

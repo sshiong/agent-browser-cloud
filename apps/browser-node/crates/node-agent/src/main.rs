@@ -11,7 +11,8 @@ use node_contracts::proto::node_control_service_server::{
 use node_contracts::proto::node_event_service_client::NodeEventServiceClient;
 use node_contracts::proto::{
     AdjustRuntimeResourcesCommand, AgentActionCommand, AgentActionFailedEvent, AgentActionOutcome,
-    AgentActionPrimitive, AgentFileUploadCommand, AgentFileUploadFailedEvent, AgentNavigateCommand,
+    AgentActionPrimitive, AgentBrowserEvaluateCommand, AgentBrowserEvaluationCompletedEvent,
+    AgentFileUploadCommand, AgentFileUploadFailedEvent, AgentNavigateCommand,
     AgentNavigationFailedEvent, BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserDownloadState,
     BrowserNativeDialogState, BrowserStateDiffEvent, BrowserStateEvent,
     BrowserStateSnapshotBeginEvent, BrowserStateSnapshotChunkEvent,
@@ -50,8 +51,8 @@ use session_recorder::{
 };
 use sha2::{Digest, Sha256};
 use state_collector::{
-    diff_states, BrowserStateCollector, BrowserTransactionPolicy, CdpStateCollector, CurrentState,
-    DiffOutcome, StateDiff, StateQuality, TabResourcePolicy,
+    diff_states, AgentJavascriptEvaluationRequest, BrowserStateCollector, BrowserTransactionPolicy,
+    CdpStateCollector, CurrentState, DiffOutcome, StateDiff, StateQuality, TabResourcePolicy,
 };
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -681,6 +682,10 @@ impl NodeCapacityReporter {
         );
         labels.insert("agentBrowserFiles".to_owned(), "cdp-file-v1".to_owned());
         labels.insert(
+            "agentJavascriptEvaluate".to_owned(),
+            "state-fenced-bounded-v1".to_owned(),
+        );
+        labels.insert(
             "profileExport".to_owned(),
             if std::env::var("STORAGE_HELPER_SOCKET")
                 .map(|value| !value.trim().is_empty())
@@ -1002,6 +1007,14 @@ struct CommandResult {
     state_baseline: Option<CurrentState>,
     recording_summary_ack: Option<String>,
     remove_recording_after_ack: bool,
+}
+
+struct AgentEvaluationCompletion<'a> {
+    before: &'a CurrentState,
+    after: Option<CurrentState>,
+    evaluation: Option<state_collector::AgentJavascriptEvaluation>,
+    error_code: &'a str,
+    failure_duration_ms: u32,
 }
 
 impl NodeControlService {
@@ -1690,6 +1703,273 @@ impl NodeControlService {
             },
         );
         Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
+    }
+
+    fn agent_evaluation_error_code(error: &anyhow::Error) -> &'static str {
+        let message = error.to_string().to_ascii_lowercase();
+        if message.contains("forbidden browser source") {
+            "EVALUATION_SOURCE_FORBIDDEN"
+        } else if message.contains("result exceeds") {
+            "EVALUATION_RESULT_TOO_LARGE"
+        } else if message.contains("timed out") {
+            "EVALUATION_TIMEOUT"
+        } else if message.contains("active page target changed") {
+            "ACTIVE_TAB_CHANGED"
+        } else {
+            "CDP_EVALUATION_FAILED"
+        }
+    }
+
+    async fn agent_evaluation_completed(
+        &self,
+        command: &CommandEnvelope,
+        payload: &AgentBrowserEvaluateCommand,
+        completion: AgentEvaluationCompletion<'_>,
+    ) -> CommandResult {
+        let evaluation =
+            completion
+                .evaluation
+                .unwrap_or(state_collector::AgentJavascriptEvaluation {
+                    result_type: String::new(),
+                    result_json: String::new(),
+                    result_bytes: 0,
+                    redacted_value_count: 0,
+                    exception_class: String::new(),
+                    exception_message: String::new(),
+                    duration_ms: completion.failure_duration_ms.min(30_000),
+                });
+        let (state_version_after, target_revision_after, state_hash_after, active_tab_id_after) =
+            completion
+                .after
+                .as_ref()
+                .map(|state| {
+                    (
+                        state.state_version,
+                        state.target_revision,
+                        state.content_hash.clone(),
+                        state.active_tab_id.clone(),
+                    )
+                })
+                .unwrap_or((0, 0, String::new(), String::new()));
+        let completed = AgentBrowserEvaluationCompletedEvent {
+            session_id: command.session_id.clone(),
+            evaluation_id: payload.evaluation_id.clone(),
+            evaluation_mode: payload.evaluation_mode.clone(),
+            result_type: evaluation.result_type,
+            result_json: evaluation.result_json,
+            result_bytes: evaluation.result_bytes,
+            redacted_value_count: evaluation.redacted_value_count,
+            exception_class: evaluation.exception_class,
+            exception_message: evaluation.exception_message,
+            error_code: completion.error_code.to_owned(),
+            state_version_before: completion.before.state_version,
+            target_revision_before: completion.before.target_revision,
+            state_hash_before: completion.before.content_hash.clone(),
+            active_tab_id_before: completion.before.active_tab_id.clone(),
+            state_version_after,
+            target_revision_after,
+            state_hash_after,
+            active_tab_id_after,
+            duration_ms: evaluation.duration_ms,
+        };
+        let state_sequence = if completion.after.is_some() {
+            match self.next_event_sequence(&command.session_id).await {
+                Ok(sequence) => Some(sequence),
+                Err(error) => return self.failed(command, error),
+            }
+        } else {
+            None
+        };
+        let completion_sequence = match self.next_event_sequence(&command.session_id).await {
+            Ok(sequence) => sequence,
+            Err(error) => return self.failed(command, error),
+        };
+        let completion_event = Self::event_with_id(
+            command,
+            format!("evt_{}_evaluation", command.message_id),
+            "AgentBrowserEvaluationCompleted",
+            completion_sequence,
+            completed,
+        );
+        let Some(state) = completion.after else {
+            return Self::result(
+                Self::ack(&command.message_id, true, "", ""),
+                Some(completion_event),
+            );
+        };
+        let mut state_payload = Self::browser_state_payload(state.clone());
+        state_payload.snapshot_kind = "AGENT_EVALUATE".to_owned();
+        state_payload.requested_root_ref = payload.evaluation_id.clone();
+        let state_event = Self::event(
+            command,
+            "BrowserStateUpdated",
+            state_sequence.expect("state event sequence must exist when after-state exists"),
+            state_payload,
+        );
+        let mut result = Self::state_result(
+            Self::ack(&command.message_id, true, "", ""),
+            state_event,
+            state,
+        );
+        result.additional_events.push(completion_event);
+        result
+    }
+
+    async fn evaluate_agent_javascript(
+        &self,
+        command: &CommandEnvelope,
+        payload: &AgentBrowserEvaluateCommand,
+    ) -> CommandResult {
+        if self.human_input_has_priority(&command.session_id) {
+            return Self::defer_for_human_input(command);
+        }
+        let before = match self
+            .state_collector
+            .collect_current_state(&command.session_id)
+            .await
+        {
+            Ok(state) => state,
+            Err(_) => {
+                let expected = CurrentState {
+                    session_id: command.session_id.clone(),
+                    state_version: payload.base_state_version,
+                    target_revision: payload.target_revision,
+                    url: String::new(),
+                    title: String::new(),
+                    quality: StateQuality::Invalid,
+                    content_hash: payload.base_content_hash.clone(),
+                    targets: Vec::new(),
+                    document_ready_state: String::new(),
+                    network_quiet_millis: 0,
+                    network_evidence_fresh: false,
+                    tabs: Vec::new(),
+                    active_tab_id: payload.active_tab_id.clone(),
+                    native_dialogs: Vec::new(),
+                    native_dialog_evidence_fresh: false,
+                    downloads: Vec::new(),
+                    download_evidence_fresh: false,
+                };
+                return self
+                    .agent_evaluation_completed(
+                        command,
+                        payload,
+                        AgentEvaluationCompletion {
+                            before: &expected,
+                            after: None,
+                            evaluation: None,
+                            error_code: "CURRENT_STATE_UNAVAILABLE",
+                            failure_duration_ms: 0,
+                        },
+                    )
+                    .await;
+            }
+        };
+        if !matches!(
+            before.quality,
+            StateQuality::Complete | StateQuality::DepthLimited
+        ) || before.state_version != payload.base_state_version
+            || before.target_revision != payload.target_revision
+            || before.content_hash != payload.base_content_hash
+            || before.active_tab_id != payload.active_tab_id
+        {
+            return self
+                .agent_evaluation_completed(
+                    command,
+                    payload,
+                    AgentEvaluationCompletion {
+                        before: &before,
+                        after: Some(before.clone()),
+                        evaluation: None,
+                        error_code: "STATE_STALE",
+                        failure_duration_ms: 0,
+                    },
+                )
+                .await;
+        }
+        if !before.native_dialogs.is_empty() {
+            return self
+                .agent_evaluation_completed(
+                    command,
+                    payload,
+                    AgentEvaluationCompletion {
+                        before: &before,
+                        after: None,
+                        evaluation: None,
+                        error_code: "NATIVE_DIALOG_ACTIVE",
+                        failure_duration_ms: 0,
+                    },
+                )
+                .await;
+        }
+        let started = Instant::now();
+        let evaluation = self
+            .state_collector
+            .evaluate_agent_javascript(
+                &command.session_id,
+                AgentJavascriptEvaluationRequest {
+                    expected_active_tab_id: &payload.active_tab_id,
+                    mode: &payload.evaluation_mode,
+                    expression: &payload.expression,
+                    await_promise: payload.await_promise,
+                    timeout_ms: payload.timeout_ms,
+                    maximum_result_bytes: payload.maximum_result_bytes,
+                },
+            )
+            .await;
+        let duration_ms = started.elapsed().as_millis().min(30_000) as u32;
+        let after = match self
+            .state_collector
+            .collect_action_confirmation(&command.session_id)
+            .await
+        {
+            Ok(state)
+                if matches!(
+                    state.quality,
+                    StateQuality::Complete | StateQuality::DepthLimited
+                ) =>
+            {
+                Some(state)
+            }
+            _ => None,
+        };
+        match evaluation {
+            Ok(evaluation) => {
+                let error_code = if !evaluation.exception_class.is_empty() {
+                    "JAVASCRIPT_EXCEPTION"
+                } else if after.is_none() {
+                    "POST_EVALUATION_STATE_UNAVAILABLE"
+                } else {
+                    ""
+                };
+                self.agent_evaluation_completed(
+                    command,
+                    payload,
+                    AgentEvaluationCompletion {
+                        before: &before,
+                        after,
+                        evaluation: Some(evaluation),
+                        error_code,
+                        failure_duration_ms: duration_ms,
+                    },
+                )
+                .await
+            }
+            Err(error) => {
+                let error_code = Self::agent_evaluation_error_code(&error);
+                self.agent_evaluation_completed(
+                    command,
+                    payload,
+                    AgentEvaluationCompletion {
+                        before: &before,
+                        after,
+                        evaluation: None,
+                        error_code,
+                        failure_duration_ms: duration_ms,
+                    },
+                )
+                .await
+            }
+        }
     }
 
     async fn capture_agent_screenshot(
@@ -6205,6 +6485,47 @@ impl NodeControlService {
                             );
                         }
                         Self::result(Self::ack(&command.message_id, true, "", ""), None)
+                    }
+                    Err(error) => self.failed(command, error.into()),
+                }
+            }
+            "AgentBrowserEvaluate" => {
+                match AgentBrowserEvaluateCommand::decode(command.payload.as_slice()) {
+                    Ok(payload) => {
+                        if payload.session_id != command.session_id
+                            || !payload.evaluation_id.starts_with("aje_")
+                            || payload.evaluation_id.len() != 24
+                            || !payload.evaluation_id[4..]
+                                .bytes()
+                                .all(|value| value.is_ascii_alphanumeric())
+                            || !matches!(
+                                payload.evaluation_mode.as_str(),
+                                "READ_ONLY" | "PAGE_ACTION"
+                            )
+                            || payload.base_state_version == 0
+                            || payload.target_revision == 0
+                            || payload.base_content_hash.len() != 64
+                            || !payload.base_content_hash.bytes().all(|value| {
+                                value.is_ascii_hexdigit() && !value.is_ascii_uppercase()
+                            })
+                            || payload.active_tab_id.is_empty()
+                            || payload.active_tab_id.len() > 128
+                            || payload.active_tab_id.chars().any(char::is_control)
+                            || !payload.sealed_expression.is_empty()
+                            || payload.expression.trim().is_empty()
+                            || payload.expression.len() > 16_384
+                            || payload.expression.chars().any(|value| {
+                                value.is_control() && !matches!(value, '\n' | '\r' | '\t')
+                            })
+                            || !(100..=5_000).contains(&payload.timeout_ms)
+                            || !(1..=32_768).contains(&payload.maximum_result_bytes)
+                        {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!("Agent Browser evaluation payload is invalid"),
+                            );
+                        }
+                        self.evaluate_agent_javascript(command, &payload).await
                     }
                     Err(error) => self.failed(command, error.into()),
                 }

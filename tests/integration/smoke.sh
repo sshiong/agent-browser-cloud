@@ -4424,6 +4424,204 @@ curl -fsS \
   -H 'X-Roles: TENANT_VIEWER' | python3 -c \
   'import json,sys; state=json.load(sys.stdin)["state"]; textbox=next(item for item in state["targets"] if item["role"] == "textbox" and not item["sensitive"]); assert textbox["value"] == "dialog-prompt-integration"'
 
+agent_evaluation=""
+agent_evaluation_id=""
+agent_evaluation_state=""
+for agent_evaluation_attempt in $(seq 1 3); do
+  agent_evaluation_snapshot="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: TENANT_VIEWER')"
+  agent_evaluation_request="$(python3 - "$agent_evaluation_snapshot" <<'PY'
+import json
+import sys
+snapshot = json.loads(sys.argv[1])
+print(json.dumps({
+    "goal": "Read bounded visible page metadata",
+    "mode": "READ_ONLY",
+    "expression": "({label: document.title, api_token: 'fixture-evaluate-secret'})",
+    "expectedStateCursor": snapshot["stateCursor"],
+    "awaitPromise": True,
+    "timeoutMs": 2000,
+    "maximumResultBytes": 16384,
+}, separators=(",", ":")))
+PY
+)"
+  agent_evaluation_status="$(curl -sS -o "$temp_dir/agent-evaluation-response.json" -w '%{http_code}' -X POST \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/evaluations" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Actor-Id: integration-agent' \
+    -H 'X-Roles: TENANT_OPERATOR' \
+    -H "Idempotency-Key: smoke-agent-browser-evaluation-00${agent_evaluation_attempt}" \
+    -d "$agent_evaluation_request")"
+  if [[ "$agent_evaluation_status" != "202" ]]; then
+    agent_evaluation_reason="$(python3 - "$temp_dir/agent-evaluation-response.json" <<'PY'
+import json
+import sys
+try:
+    print(json.load(open(sys.argv[1]))["details"].get("reason", ""))
+except (OSError, KeyError, json.JSONDecodeError):
+    print("")
+PY
+)"
+    if [[ "$agent_evaluation_status" != "409" || "$agent_evaluation_reason" != "STATE_CURSOR_STALE" ]]; then
+      cat "$temp_dir/agent-evaluation-response.json" >&2
+      exit 1
+    fi
+    sleep 0.25
+    continue
+  fi
+  agent_evaluation="$(<"$temp_dir/agent-evaluation-response.json")"
+  agent_evaluation_id="$(printf '%s' "$agent_evaluation" | python3 -c \
+    'import json,sys; value=json.load(sys.stdin); assert value["state"] in ("EXECUTING", "COMMITTED"); assert value["mode"] == "READ_ONLY"; assert "expression" not in value; print(value["evaluationId"])')"
+  for _ in $(seq 1 80); do
+    agent_evaluation="$(curl -fsS \
+      "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/evaluations/${agent_evaluation_id}?waitMs=5000" \
+      -H 'X-Tenant-Id: tenant-integration' \
+      -H 'X-Actor-Id: integration-agent' \
+      -H 'X-Roles: TENANT_VIEWER')"
+    agent_evaluation_state="$(printf '%s' "$agent_evaluation" | python3 -c \
+      'import json,sys; print(json.load(sys.stdin)["state"])')"
+    if [[ "$agent_evaluation_state" = "COMMITTED" || "$agent_evaluation_state" = "FAILED" ]]; then break; fi
+    sleep 0.25
+  done
+  if [[ "$agent_evaluation_state" = "COMMITTED" ]]; then break; fi
+  agent_evaluation_reason="$(printf '%s' "$agent_evaluation" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin).get("errorCode") or "")')"
+  if [[ "$agent_evaluation_reason" != "STATE_STALE" && "$agent_evaluation_reason" != "EVALUATION_EVENT_FENCE_MISMATCH" ]]; then
+    break
+  fi
+done
+if [[ "$agent_evaluation_state" != "COMMITTED" ]]; then
+  printf '%s\n' "agent_evaluation_terminal=${agent_evaluation}" >&2
+  docker exec "$postgres_name" psql -U browsercloud -d browsercloud -x -c \
+    "SELECT evaluation_id, operation_id, command_id, state, error_code, expected_state_version,
+            state_version_after, expected_active_tab_id, active_tab_id_after
+       FROM agent_browser_javascript_evaluations WHERE evaluation_id='${agent_evaluation_id}'" >&2
+fi
+test "$agent_evaluation_state" = "COMMITTED"
+printf '%s' "$agent_evaluation" | python3 -c \
+  'import json,sys; value=json.load(sys.stdin); assert value["result"] == {"label":"Browser Cloud Test Page","api_token":"[REDACTED]"}; assert value["resultType"] == "OBJECT"; assert value["redactedValueCount"] == 1; assert value["resultBytes"] > 0; assert value["stateCursorAfter"] != value["expectedStateCursor"]; assert value["activeTabIdAfter"] == value["activeTabId"]; assert value["errorCode"] is None; assert "expression" not in value'
+agent_evaluation_cross_tenant_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/evaluations/${agent_evaluation_id}" \
+  -H 'X-Tenant-Id: tenant-other' \
+  -H 'X-Actor-Id: integration-agent' \
+  -H 'X-Roles: TENANT_VIEWER')"
+test "$agent_evaluation_cross_tenant_status" = "404"
+agent_evaluation_cross_actor_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/evaluations/${agent_evaluation_id}" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: another-agent' \
+  -H 'X-Roles: TENANT_VIEWER')"
+test "$agent_evaluation_cross_actor_status" = "404"
+agent_evaluation_source_columns="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from information_schema.columns
+    where table_name='agent_browser_javascript_evaluations'
+      and column_name like '%expression%'
+      and column_name not in ('expression_sha256','expression_bytes')")"
+test "$agent_evaluation_source_columns" = "0"
+agent_evaluation_secret_leak="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select
+     (select count(*) from agent_browser_javascript_evaluations where evaluation_id='${agent_evaluation_id}' and coalesce(result_json,'') like '%fixture-evaluate-secret%') +
+     (select count(*) from audit_events where resource_id='${agent_evaluation_id}' and details::text like '%fixture-evaluate-secret%') +
+     (select count(*) from outbox_events where aggregate_id='${tab_session}' and payload::text like '%fixture-evaluate-secret%')")"
+test "$agent_evaluation_secret_leak" = "0"
+
+page_action_evaluation=""
+page_action_evaluation_id=""
+page_action_evaluation_state=""
+for page_action_attempt in $(seq 1 3); do
+  page_action_snapshot="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: TENANT_VIEWER')"
+  page_action_request="$(python3 - "$page_action_snapshot" <<'PY'
+import json
+import sys
+snapshot = json.loads(sys.argv[1])
+print(json.dumps({
+    "goal": "Set the local page filter",
+    "mode": "PAGE_ACTION",
+    "expression": "(() => { const __browsercloud_evaluate_page_action_v1 = true; document.querySelector('input').value = 'evaluate-page-action'; return {updated: true}; })()",
+    "expectedStateCursor": snapshot["stateCursor"],
+}, separators=(",", ":")))
+PY
+)"
+  page_action_status="$(curl -sS -o "$temp_dir/page-action-evaluation-response.json" -w '%{http_code}' -X POST \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/evaluations" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Actor-Id: integration-agent' \
+    -H 'X-Roles: TENANT_OPERATOR' \
+    -H "Idempotency-Key: smoke-agent-browser-page-action-00${page_action_attempt}" \
+    -d "$page_action_request")"
+  if [[ "$page_action_status" != "202" ]]; then
+    page_action_reason="$(python3 - "$temp_dir/page-action-evaluation-response.json" <<'PY'
+import json
+import sys
+try:
+    print(json.load(open(sys.argv[1]))["details"].get("reason", ""))
+except (OSError, KeyError, json.JSONDecodeError):
+    print("")
+PY
+)"
+    if [[ "$page_action_status" != "409" || "$page_action_reason" != "STATE_CURSOR_STALE" ]]; then
+      cat "$temp_dir/page-action-evaluation-response.json" >&2
+      exit 1
+    fi
+    sleep 0.25
+    continue
+  fi
+  page_action_evaluation="$(<"$temp_dir/page-action-evaluation-response.json")"
+  page_action_evaluation_id="$(printf '%s' "$page_action_evaluation" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["evaluationId"])')"
+  page_action_evaluation="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/evaluations/${page_action_evaluation_id}?waitMs=30000" \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Actor-Id: integration-agent' \
+    -H 'X-Roles: TENANT_VIEWER')"
+  page_action_evaluation_state="$(printf '%s' "$page_action_evaluation" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$page_action_evaluation_state" = "COMMITTED" ]]; then break; fi
+  page_action_reason="$(printf '%s' "$page_action_evaluation" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin).get("errorCode") or "")')"
+  if [[ "$page_action_reason" != "STATE_STALE" && "$page_action_reason" != "EVALUATION_EVENT_FENCE_MISMATCH" ]]; then
+    break
+  fi
+done
+if [[ "$page_action_evaluation_state" != "COMMITTED" ]]; then
+  printf '%s\n' "page_action_evaluation_terminal=${page_action_evaluation}" >&2
+  docker exec "$postgres_name" psql -U browsercloud -d browsercloud -x -c \
+    "SELECT evaluation_id, operation_id, command_id, state, error_code, result_type,
+            result_json, expected_state_version, state_version_after
+       FROM agent_browser_javascript_evaluations WHERE evaluation_id='${page_action_evaluation_id}'" >&2
+fi
+test "$page_action_evaluation_state" = "COMMITTED"
+printf '%s' "$page_action_evaluation" | python3 -c \
+  'import json,sys; value=json.load(sys.stdin); assert value["mode"] == "PAGE_ACTION"; assert value["state"] == "COMMITTED"; assert value["result"] == {"updated": True}; assert value["errorCode"] is None'
+curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER' | python3 -c \
+  'import json,sys; state=json.load(sys.stdin)["state"]; textbox=next(item for item in state["targets"] if item["role"] == "textbox" and not item["sensitive"]); assert textbox["value"] == "evaluate-page-action"'
+agent_evaluation_forbidden_cursor="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER' | python3 -c 'import json,sys; print(json.load(sys.stdin)["stateCursor"])')"
+agent_evaluation_forbidden_status="$(curl -sS -o "$temp_dir/agent-evaluation-forbidden.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/evaluations" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: integration-agent' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-agent-browser-evaluation-forbidden-001' \
+  -d "{\"goal\":\"Read page metadata\",\"mode\":\"READ_ONLY\",\"expression\":\"fetch('/private')\",\"expectedStateCursor\":\"${agent_evaluation_forbidden_cursor}\"}")"
+test "$agent_evaluation_forbidden_status" = "422"
+printf '%s' "$(<"$temp_dir/agent-evaluation-forbidden.json")" | python3 -c \
+  'import json,sys; assert json.load(sys.stdin)["details"]["reason"] == "EVALUATION_FORBIDDEN_BROWSER_SOURCE"'
+printf 'agent_browser_javascript_evaluations=true\n'
+
 agent_screenshot_state=""
 agent_screenshot=""
 agent_screenshot_id=""

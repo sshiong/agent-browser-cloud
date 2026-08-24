@@ -247,6 +247,34 @@ class Handler(BaseHTTPRequestHandler):
                         }
                         self.write_websocket_text(json.dumps(response))
                         continue
+                    if expression == "({label: document.title, api_token: 'fixture-evaluate-secret'})":
+                        response = {
+                            "id": command["id"],
+                            "result": {
+                                "result": {
+                                    "type": "object",
+                                    "value": {
+                                        "label": "Browser Cloud Test Page",
+                                        "api_token": "fixture-evaluate-secret",
+                                    },
+                                }
+                            },
+                        }
+                        self.write_websocket_text(json.dumps(response))
+                        continue
+                    if "__browsercloud_evaluate_page_action_v1" in expression:
+                        public_note_value = "evaluate-page-action"
+                        response = {
+                            "id": command["id"],
+                            "result": {
+                                "result": {
+                                    "type": "object",
+                                    "value": {"updated": True},
+                                }
+                            },
+                        }
+                        self.write_websocket_text(json.dumps(response))
+                        continue
                     if "redactedRegionCount: count" in expression:
                         response = {
                             "id": command["id"],

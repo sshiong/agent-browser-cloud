@@ -180,6 +180,46 @@ export interface AgentBrowserDownloadList {
   downloads: AgentBrowserDownload[];
 }
 
+export type AgentBrowserEvaluationMode = 'READ_ONLY' | 'PAGE_ACTION';
+
+export interface CreateAgentBrowserEvaluationRequest {
+  goal: string;
+  mode: AgentBrowserEvaluationMode;
+  expression: string;
+  expectedStateCursor: string;
+  awaitPromise?: boolean;
+  timeoutMs?: number;
+  maximumResultBytes?: number;
+}
+
+export interface AgentBrowserEvaluation {
+  evaluationId: string;
+  sessionId: string;
+  mode: AgentBrowserEvaluationMode;
+  state: 'EXECUTING' | 'COMMITTED' | 'FAILED';
+  expectedStateCursor: string;
+  stateCursorAfter?: string;
+  activeTabId: string;
+  activeTabIdAfter?: string;
+  expressionSha256: string;
+  expressionBytes: number;
+  awaitPromise: boolean;
+  timeoutMs: number;
+  maximumResultBytes: number;
+  resultType?: string;
+  result?: unknown;
+  resultBytes?: number;
+  redactedValueCount?: number;
+  exceptionClass?: string;
+  exceptionMessage?: string;
+  errorCode?: string;
+  durationMs?: number;
+  requestId: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
 export type AgentBrowserScreenshotMode =
   'VIEWPORT' | 'FULL_PAGE' | 'ELEMENT' | 'REGION' | 'CHALLENGE_REGION';
 

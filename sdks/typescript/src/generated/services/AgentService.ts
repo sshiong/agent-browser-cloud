@@ -4,6 +4,7 @@
 /* eslint-disable */
 import type { AgentBrowserDownload } from '../models/AgentBrowserDownload.js';
 import type { AgentBrowserDownloadList } from '../models/AgentBrowserDownloadList.js';
+import type { AgentBrowserEvaluation } from '../models/AgentBrowserEvaluation.js';
 import type { AgentBrowserFileUpload } from '../models/AgentBrowserFileUpload.js';
 import type { AgentBrowserFindRequest } from '../models/AgentBrowserFindRequest.js';
 import type { AgentBrowserInspectRequest } from '../models/AgentBrowserInspectRequest.js';
@@ -25,6 +26,7 @@ import type { CaptureAgentBrowserScreenshotRequest } from '../models/CaptureAgen
 import type { ClaimAgentExecutionJobRequest } from '../models/ClaimAgentExecutionJobRequest.js';
 import type { ClaimAgentReviewJobRequest } from '../models/ClaimAgentReviewJobRequest.js';
 import type { CompleteAgentReviewJobRequest } from '../models/CompleteAgentReviewJobRequest.js';
+import type { CreateAgentBrowserEvaluationRequest } from '../models/CreateAgentBrowserEvaluationRequest.js';
 import type { CreateAgentInputSecretRequest } from '../models/CreateAgentInputSecretRequest.js';
 import type { CreateAgentTaskRequest } from '../models/CreateAgentTaskRequest.js';
 import type { CreateSessionIdentityChangeRequest } from '../models/CreateSessionIdentityChangeRequest.js';
@@ -175,6 +177,86 @@ export class AgentService {
             errors: {
                 409: `State or idempotency conflict.`,
                 422: `The bounded archive was received but failed semantic or integrity validation.`,
+            },
+        });
+    }
+    /**
+     * Execute one governed, state-fenced JavaScript evaluation
+     * Runs bounded JavaScript against the exact active Page Target. READ_ONLY asks Chromium to reject side effects; PAGE_ACTION may mutate the page after intent policy checks. Script source is sealed for Node delivery and is never returned or copied to ordinary audit rows. Cookie, credential, storage, clipboard, network, navigation and tab escape APIs are rejected.
+     *
+     * @returns AgentBrowserEvaluation The exclusive PostgreSQL-authoritative evaluation is executing or reused.
+     * @throws ApiError
+     */
+    public createAgentBrowserEvaluation({
+        sessionId,
+        idempotencyKey,
+        requestBody,
+        xTenantId,
+    }: {
+        sessionId: string,
+        idempotencyKey: string,
+        requestBody: CreateAgentBrowserEvaluationRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentBrowserEvaluation> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/evaluations',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                409: `State or idempotency conflict.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
+                503: `A required capacity or dependency is temporarily unavailable.`,
+            },
+        });
+    }
+    /**
+     * Read or wait for one governed JavaScript evaluation
+     * Bounded waiting rereads PostgreSQL only; it never polls Chromium.
+     * @returns AgentBrowserEvaluation Actor-scoped bounded result; script source is never returned.
+     * @throws ApiError
+     */
+    public getAgentBrowserEvaluation({
+        sessionId,
+        evaluationId,
+        xTenantId,
+        waitMs,
+    }: {
+        sessionId: string,
+        evaluationId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+        waitMs?: number,
+    }): CancelablePromise<AgentBrowserEvaluation> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/evaluations/{evaluationId}',
+            path: {
+                'sessionId': sessionId,
+                'evaluationId': evaluationId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            query: {
+                'waitMs': waitMs,
+            },
+            errors: {
+                404: `Resource not found.`,
+                408: `The evaluation did not become terminal within the bounded wait.`,
+                429: `The bounded concurrent stream capacity has been reached.`,
             },
         });
     }

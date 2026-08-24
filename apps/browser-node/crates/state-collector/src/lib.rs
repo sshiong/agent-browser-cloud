@@ -325,6 +325,29 @@ pub struct BrowserResourceMetrics {
     pub main_thread_task_duration_ms: Option<f64>,
 }
 
+/// Bounded value produced by one governed Runtime.evaluate call.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AgentJavascriptEvaluation {
+    pub result_type: String,
+    pub result_json: String,
+    pub result_bytes: u32,
+    pub redacted_value_count: u32,
+    pub exception_class: String,
+    pub exception_message: String,
+    pub duration_ms: u32,
+}
+
+/// State-fenced, bounded input for one governed Runtime.evaluate call.
+#[derive(Debug, Clone, Copy)]
+pub struct AgentJavascriptEvaluationRequest<'a> {
+    pub expected_active_tab_id: &'a str,
+    pub mode: &'a str,
+    pub expression: &'a str,
+    pub await_promise: bool,
+    pub timeout_ms: u32,
+    pub maximum_result_bytes: u32,
+}
+
 /// Browser Node 实际执行的标签页资源保护策略。
 ///
 /// `block_new_tabs` 启用时以策略提交瞬间仍存在的 Page Target 为允许集合；之后出现的
@@ -877,6 +900,262 @@ impl CdpStateCollector {
 
     pub async fn active_page_websocket(&self, session_id: &str) -> anyhow::Result<String> {
         Ok(self.tab_snapshot(session_id).await?.active_websocket_url)
+    }
+
+    /// Executes bounded JavaScript against the exact active Page target.
+    ///
+    /// READ_ONLY uses CDP's throwOnSideEffect guard. PAGE_ACTION may mutate the page, but common
+    /// credential/storage/network/tab/navigation escape hatches are rejected again on the Node so
+    /// a compromised Control Plane cannot turn this command into raw CDP access.
+    pub async fn evaluate_agent_javascript(
+        &self,
+        session_id: &str,
+        request: AgentJavascriptEvaluationRequest<'_>,
+    ) -> anyhow::Result<AgentJavascriptEvaluation> {
+        anyhow::ensure!(
+            matches!(request.mode, "READ_ONLY" | "PAGE_ACTION"),
+            "evaluation mode is invalid"
+        );
+        anyhow::ensure!(
+            (100..=5_000).contains(&request.timeout_ms),
+            "evaluation timeout is invalid"
+        );
+        anyhow::ensure!(
+            (1..=32_768).contains(&request.maximum_result_bytes),
+            "evaluation result bound is invalid"
+        );
+        Self::validate_agent_javascript(request.expression)?;
+        let tabs = self.tab_snapshot(session_id).await?;
+        anyhow::ensure!(
+            tabs.active_tab_id == request.expected_active_tab_id,
+            "active Page Target changed before evaluation"
+        );
+        let started = std::time::Instant::now();
+        let result = Self::cdp_agent_evaluate(
+            &tabs.active_websocket_url,
+            request.expression,
+            request.mode == "READ_ONLY",
+            request.await_promise,
+            request.timeout_ms,
+        )
+        .await?;
+        let duration_ms = started.elapsed().as_millis().min(30_000) as u32;
+        if let Some(exception) = result.get("exceptionDetails") {
+            let class_name = exception
+                .pointer("/exception/className")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("JavaScriptError");
+            let description = exception
+                .pointer("/exception/description")
+                .and_then(serde_json::Value::as_str)
+                .or_else(|| exception.get("text").and_then(serde_json::Value::as_str))
+                .unwrap_or("JavaScript evaluation failed");
+            return Ok(AgentJavascriptEvaluation {
+                result_type: String::new(),
+                result_json: String::new(),
+                result_bytes: 0,
+                redacted_value_count: 0,
+                exception_class: Self::bounded_text(class_name, 256),
+                exception_message: Self::bounded_text(description, 2_048),
+                duration_ms,
+            });
+        }
+        let remote = result
+            .get("result")
+            .ok_or_else(|| anyhow::anyhow!("CDP Runtime.evaluate result is missing"))?;
+        let result_type = remote
+            .get("type")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("unknown")
+            .to_uppercase();
+        let mut value = if let Some(value) = remote.get("value") {
+            value.clone()
+        } else if let Some(value) = remote
+            .get("unserializableValue")
+            .and_then(serde_json::Value::as_str)
+        {
+            serde_json::json!({"unserializableValue": value})
+        } else {
+            serde_json::Value::Null
+        };
+        let mut redacted_value_count = 0_u32;
+        Self::redact_agent_result(&mut value, None, &mut redacted_value_count);
+        let result_json = serde_json::to_string(&value)?;
+        let result_bytes = u32::try_from(result_json.len()).unwrap_or(u32::MAX);
+        anyhow::ensure!(
+            result_bytes <= request.maximum_result_bytes,
+            "evaluation result exceeds configured bound"
+        );
+        Ok(AgentJavascriptEvaluation {
+            result_type,
+            result_json,
+            result_bytes,
+            redacted_value_count,
+            exception_class: String::new(),
+            exception_message: String::new(),
+            duration_ms,
+        })
+    }
+
+    async fn cdp_agent_evaluate(
+        websocket_url: &str,
+        expression: &str,
+        throw_on_side_effect: bool,
+        await_promise: bool,
+        timeout_ms: u32,
+    ) -> anyhow::Result<serde_json::Value> {
+        Self::require_loopback_websocket(websocket_url)?;
+        let deadline = Duration::from_millis(u64::from(timeout_ms).saturating_add(1_000));
+        let (mut socket, _) = timeout(deadline, tokio_tungstenite::connect_async(websocket_url))
+            .await
+            .map_err(|_| anyhow::anyhow!("CDP evaluation websocket connection timed out"))??;
+        socket
+            .send(Message::Text(
+                serde_json::json!({
+                    "id": 701,
+                    "method": "Runtime.evaluate",
+                    "params": {
+                        "expression": expression,
+                        "awaitPromise": await_promise,
+                        "returnByValue": true,
+                        "throwOnSideEffect": throw_on_side_effect,
+                        "timeout": timeout_ms,
+                        "silent": true,
+                        "disableBreaks": true,
+                        "userGesture": false,
+                        "allowUnsafeEvalBlockedByCSP": false,
+                        "generatePreview": false
+                    }
+                })
+                .to_string(),
+            ))
+            .await?;
+        while let Some(message) = timeout(deadline, socket.next())
+            .await
+            .map_err(|_| anyhow::anyhow!("CDP Runtime.evaluate timed out"))?
+        {
+            let Message::Text(text) = message? else {
+                continue;
+            };
+            let response: serde_json::Value = serde_json::from_str(&text)?;
+            if response.get("id").and_then(serde_json::Value::as_i64) != Some(701) {
+                continue;
+            }
+            if let Some(error) = response.get("error") {
+                anyhow::bail!("CDP Runtime.evaluate failed: {error}");
+            }
+            return response
+                .get("result")
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("CDP Runtime.evaluate response has no result"));
+        }
+        anyhow::bail!("CDP websocket closed before Runtime.evaluate completed")
+    }
+
+    fn validate_agent_javascript(expression: &str) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            !expression.trim().is_empty(),
+            "evaluation expression is empty"
+        );
+        anyhow::ensure!(
+            expression.len() <= 16_384,
+            "evaluation expression exceeds 16 KiB"
+        );
+        anyhow::ensure!(
+            !expression
+                .chars()
+                .any(|value| value.is_control() && !matches!(value, '\n' | '\r' | '\t')),
+            "evaluation expression contains a control character"
+        );
+        let normalized = expression
+            .to_lowercase()
+            .chars()
+            .filter(|value| !value.is_whitespace())
+            .collect::<String>();
+        const FORBIDDEN: &[&str] = &[
+            "document.cookie",
+            "cookiestore",
+            "localstorage",
+            "sessionstorage",
+            "indexeddb",
+            "navigator.credentials",
+            "navigator.clipboard",
+            "fetch(",
+            "xmlhttprequest",
+            "websocket",
+            "eventsource",
+            "sendbeacon",
+            "serviceworker",
+            "newworker",
+            "newsharedworker",
+            "window.open",
+            "location.assign",
+            "location.replace",
+            "history.pushstate",
+            "history.replacestate",
+            "chrome.",
+            "devtools",
+        ];
+        anyhow::ensure!(
+            !FORBIDDEN.iter().any(|value| normalized.contains(value)),
+            "evaluation references a forbidden browser source"
+        );
+        Ok(())
+    }
+
+    fn redact_agent_result(
+        value: &mut serde_json::Value,
+        parent_key: Option<&str>,
+        redacted: &mut u32,
+    ) {
+        if parent_key.is_some_and(Self::sensitive_result_key) {
+            *value = serde_json::Value::String("[REDACTED]".to_owned());
+            *redacted = redacted.saturating_add(1);
+            return;
+        }
+        match value {
+            serde_json::Value::Array(values) => {
+                for value in values {
+                    Self::redact_agent_result(value, None, redacted);
+                }
+            }
+            serde_json::Value::Object(values) => {
+                for (key, value) in values {
+                    Self::redact_agent_result(value, Some(key), redacted);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn sensitive_result_key(value: &str) -> bool {
+        let key = value
+            .to_ascii_lowercase()
+            .chars()
+            .filter(|value| !matches!(value, '_' | '-'))
+            .collect::<String>();
+        [
+            "password",
+            "passwd",
+            "secret",
+            "token",
+            "authorization",
+            "cookie",
+            "otp",
+            "passcode",
+            "privatekey",
+            "apikey",
+            "creditcard",
+            "cardnumber",
+            "cvv",
+            "cvc",
+        ]
+        .iter()
+        .any(|sensitive| key.contains(sensitive))
+    }
+
+    fn bounded_text(value: &str, maximum: usize) -> String {
+        value.chars().take(maximum).collect()
     }
 
     async fn native_dialog_snapshot(
@@ -2997,6 +3276,106 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
+
+    #[tokio::test]
+    async fn evaluates_read_only_javascript_with_side_effect_guard_and_redacts_result_keys() {
+        let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let websocket_address = websocket_listener.local_addr().unwrap();
+        let websocket_task = tokio::spawn(async move {
+            let (stream, _) = websocket_listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            let request = socket.next().await.unwrap().unwrap();
+            let Message::Text(request) = request else {
+                panic!("expected CDP text request");
+            };
+            let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+            assert_eq!(request["method"], "Runtime.evaluate");
+            assert_eq!(request["params"]["throwOnSideEffect"], true);
+            assert_eq!(request["params"]["returnByValue"], true);
+            assert_eq!(request["params"]["userGesture"], false);
+            assert_eq!(
+                request["params"]["expression"],
+                "({label: 'ready', api_token: 'secret-value'})"
+            );
+            socket
+                .send(Message::Text(
+                    serde_json::json!({
+                        "id": 701,
+                        "result": {
+                            "result": {
+                                "type": "object",
+                                "value": {"label": "ready", "api_token": "secret-value"}
+                            }
+                        }
+                    })
+                    .to_string(),
+                ))
+                .await
+                .unwrap();
+        });
+
+        let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let http_address = http_listener.local_addr().unwrap();
+        let http_task = tokio::spawn(async move {
+            let body = serde_json::json!([{
+                "id": "page-evaluate",
+                "type": "page",
+                "url": "https://example.test/",
+                "title": "Evaluate",
+                "webSocketDebuggerUrl": format!("ws://{websocket_address}/devtools/page/evaluate")
+            }])
+            .to_string();
+            let (mut stream, _) = http_listener.accept().await.unwrap();
+            let mut request = vec![0_u8; 4096];
+            let count = stream.read(&mut request).await.unwrap();
+            assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list "));
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            stream.write_all(response.as_bytes()).await.unwrap();
+        });
+
+        let collector = CdpStateCollector::new();
+        collector
+            .register_runtime("ses_evaluate", &format!("http://{http_address}"))
+            .await
+            .unwrap();
+        let result = collector
+            .evaluate_agent_javascript(
+                "ses_evaluate",
+                AgentJavascriptEvaluationRequest {
+                    expected_active_tab_id: "page-evaluate",
+                    mode: "READ_ONLY",
+                    expression: "({label: 'ready', api_token: 'secret-value'})",
+                    await_promise: true,
+                    timeout_ms: 2_000,
+                    maximum_result_bytes: 16_384,
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result.result_type, "OBJECT");
+        assert_eq!(result.redacted_value_count, 1);
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&result.result_json).unwrap(),
+            serde_json::json!({"label": "ready", "api_token": "[REDACTED]"})
+        );
+        websocket_task.await.unwrap();
+        http_task.await.unwrap();
+    }
+
+    #[test]
+    fn rejects_javascript_browser_escape_sources_before_cdp() {
+        assert!(CdpStateCollector::validate_agent_javascript("document.cookie").is_err());
+        assert!(CdpStateCollector::validate_agent_javascript("fetch('/private')").is_err());
+        assert!(CdpStateCollector::validate_agent_javascript(
+            "document.querySelector('h1')?.textContent"
+        )
+        .is_ok());
+    }
 
     #[test]
     fn network_readiness_hash_bucket_tracks_policy_thresholds_without_unbounded_churn() {

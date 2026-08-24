@@ -8,6 +8,7 @@ import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.proto.node.v1.AdjustRuntimeResourcesCommand;
 import io.browsercloud.proto.node.v1.AgentActionCommand;
 import io.browsercloud.proto.node.v1.AgentActionPrimitive;
+import io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand;
 import io.browsercloud.proto.node.v1.AgentFileUploadCommand;
 import io.browsercloud.proto.node.v1.AgentNavigateCommand;
 import io.browsercloud.proto.node.v1.BeginHumanTakeoverCommand;
@@ -535,6 +536,48 @@ public final class NodeCommands {
         session.contextEpoch(),
         0,
         "agent-screenshot:" + screenshotId,
+        payload);
+  }
+
+  public static NodeCommand agentBrowserEvaluate(
+      SessionContext session,
+      ExclusiveOperation operation,
+      String evaluationId,
+      String mode,
+      long stateVersion,
+      long targetRevision,
+      String stateHash,
+      String activeTabId,
+      String sealedExpression,
+      boolean awaitPromise,
+      int timeoutMs,
+      int maximumResultBytes,
+      String commandId) {
+    var payload =
+        AgentBrowserEvaluateCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setEvaluationId(evaluationId)
+            .setEvaluationMode(mode)
+            .setBaseStateVersion(stateVersion)
+            .setTargetRevision(targetRevision)
+            .setBaseContentHash(stateHash)
+            .setActiveTabId(activeTabId)
+            .setSealedExpression(sealedExpression)
+            .setAwaitPromise(awaitPromise)
+            .setTimeoutMs(timeoutMs)
+            .setMaximumResultBytes(maximumResultBytes)
+            .build()
+            .toByteArray();
+    return new NodeCommand(
+        commandId,
+        "AgentBrowserEvaluate",
+        session.nodeId(),
+        session.sessionId(),
+        session.tenantId(),
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        operation.operationEpoch(),
+        "agent-evaluation:" + evaluationId,
         payload);
   }
 

@@ -16,6 +16,8 @@ export type { AgentBatchActionInput } from './models/AgentBatchActionInput.js';
 export type { AgentBatchActionRequest } from './models/AgentBatchActionRequest.js';
 export type { AgentBrowserDownload } from './models/AgentBrowserDownload.js';
 export type { AgentBrowserDownloadList } from './models/AgentBrowserDownloadList.js';
+export type { AgentBrowserEvaluation } from './models/AgentBrowserEvaluation.js';
+export type { AgentBrowserEvaluationMode } from './models/AgentBrowserEvaluationMode.js';
 export type { AgentBrowserFileUpload } from './models/AgentBrowserFileUpload.js';
 export type { AgentBrowserFindRequest } from './models/AgentBrowserFindRequest.js';
 export type { AgentBrowserInspectRequest } from './models/AgentBrowserInspectRequest.js';
@@ -102,6 +104,7 @@ export type { CompleteRuntimeValidationJobRequest } from './models/CompleteRunti
 export type { CompleteRuntimeValidationRequest } from './models/CompleteRuntimeValidationRequest.js';
 export type { ComplianceSnapshot } from './models/ComplianceSnapshot.js';
 export type { CostRate } from './models/CostRate.js';
+export type { CreateAgentBrowserEvaluationRequest } from './models/CreateAgentBrowserEvaluationRequest.js';
 export type { CreateAgentInputSecretRequest } from './models/CreateAgentInputSecretRequest.js';
 export type { CreateAgentTaskRequest } from './models/CreateAgentTaskRequest.js';
 export type { CreateBreakGlassRequest } from './models/CreateBreakGlassRequest.js';

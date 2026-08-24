@@ -2,7 +2,7 @@
 
 > 更新日期：2026-08-24
 > 基准分支：`main`
-> 编写时基准提交：`703f974 feat: add state-fenced agent screenshots`
+> 编写时基准提交：`9a47989 docs: record agent screenshot release gates`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **233 Operations / 310 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **235 Operations / 313 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -93,7 +93,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V110 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V111 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -180,6 +180,12 @@ Rust Browser Node
   Tab 围栏、活动 Page CDP 捕获、整页敏感遮罩和 create-only 对象提交覆盖 Viewport、Full Page、
   Element、Region 与 Challenge Region；只有原 Actor 可用五分钟 `AGENT_PERCEPTION` 一次性 Grant
   兑换，API/数据库/审计不含像素、对象路径或 URL，见 progress 155。
+- [已确认] Agent Browser 受治理 JavaScript Evaluate 已通过 V111 PostgreSQL 权威账本、
+  AES-GCM 密封源码派发、精确 State/Target/Active Tab 围栏和持久 Operation/Outbox/Node
+  Journal 完成；READ_ONLY 使用 Chromium `throwOnSideEffect`，PAGE_ACTION 复用 Intent 风险
+  策略，Cookie/Storage/Credential/Clipboard/Network/Navigation/Tab/DevTools 逃逸在 Control
+  Plane 与 Node 双重拒绝。状态过期时不执行脚本，先投影真实新 State 再允许自动重试；源码
+  不进入 API、普通 Audit、Worker 或 PostgreSQL Evaluation 结果，见 progress 156。
 - 自动模式普通操作和有界失败重试保持静默；只在 OTP/设备确认/高风险决定等真人信息缺失，
   或低风险 Challenge 自动预算确实耗尽时通知一次。操作员可发 OTP 由 Agent 代填或自愿进入
   VNC，系统不得把人工接管设为普通自动化的必经步骤。
@@ -192,6 +198,15 @@ Rust Browser Node
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- Agent Browser 受治理 JavaScript Evaluate 切片本地 Control Plane 481 项、Rust Workspace、
+  Web 119 项、Worker/Provider、完整 Test/Lint/Build、Desktop test/lint/unsigned build、
+  OpenAPI/四 SDK、供应链、Operator 17 项、50k Coordinator Capacity、V111 N/N−1 与完整
+  PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过；Integration 输出
+  `agent_browser_javascript_evaluations=true`，显式覆盖 READ_ONLY 副作用保护/递归脱敏、
+  PAGE_ACTION 真实页面变更、租户/Actor 隔离、禁止 `fetch`、源码不落库/审计/Outbox 明文和
+  State Cursor 自动重试。OpenAPI 基线为 235 Operations / 313 Schemas；GitHub `ci`/`desktop`
+  状态须在本次提交推送后确认，未确认前不得写为通过，见 progress 156。
 
 - Agent Browser 截图切片本地 Control Plane、Rust Workspace、Web 118 项、Worker/Provider、
   完整 Test/Lint/Build、Desktop test/lint/unsigned build、OpenAPI/四 SDK、供应链、Operator、
@@ -289,10 +304,10 @@ Rust Browser Node
   Operator、50k Coordinator Capacity、N−1 和完整 PostgreSQL/mTLS/Chromium Integration
   已通过；提交 `a14e5f1` 的 GitHub `ci` run `32363001442` 与 `desktop` run
   `32363001455` 也均通过；
-- 原生 Dialog、File 和 Screenshot 已分别由 progress 153—155 闭环；当前继续收口受治理 JS
-  Evaluate 和 Select/Press/Drag/Drop/Swipe/通用 Mouse/Keyboard/Touch Primitive，见
-  progress 149、151—155；稳定 Element ID 重绑定、扩展指针/表单动作、权威 Tab、原生
-  Dialog、文件与截图链路已通过完整本地 Gate。
+- 原生 Dialog、File、Screenshot 和受治理 JS Evaluate 已分别由 progress 153—156 闭环；
+  当前继续收口 Select/Press/Drag/Drop/Swipe/通用 Mouse/Keyboard/Touch Primitive，见
+  progress 149、151—156；稳定 Element ID 重绑定、扩展指针/表单动作、权威 Tab、原生
+  Dialog、文件、截图与 Evaluate 链路已通过完整本地 Gate。
 
 ### Agent SAFE/AUTONOMOUS 与敏感输入自动化（已闭环）
 
@@ -344,8 +359,7 @@ Hold、对象存储 Helper 和 Evidence Grant 边界，不得把 PostgreSQL 删�
 3. 目标云 Secret 解引用/轮换/撤销、商业 Proxy Provider Adapter、高级 SLA/业务成功率路由、Challenge/黑名单与受约束探索。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
 5. Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM、到期对象删除 Worker；OCR 级敏感信息分类。
-6. Agent Browser 受治理 JS Evaluate、Select/Press/
-   Drag/Drop/Swipe/通用 Mouse/Keyboard/Touch Action Primitive 和
+6. Agent Browser Select/Press/Drag/Drop/Swipe/通用 Mouse/Keyboard/Touch Action Primitive 和
    AgentClipboard/UserClipboard 显式受控 Bridge；现有底层能力不等于
    已完成粗粒度 Agent Gateway 契约。
 
@@ -429,8 +443,8 @@ make test-desktop
 
 ## 13. 下一步开发计划
 
-1. 按 progress 149、151—155 的保留边界继续收口 Evaluate 与高级 Action Primitive；基础
-   结构化感知/Batch/Identity/Clipboard/Tab/原生 Dialog/File/Screenshot 切片不得重做。
+1. 按 progress 149、151—156 的保留边界继续收口高级 Action Primitive；基础结构化感知/
+   Batch/Identity/Clipboard/Tab/原生 Dialog/File/Screenshot/Evaluate 切片不得重做。
 2. 随后开始 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与
    到期删除 Worker；实施前复核对象存储和 Retention/Legal Hold 当前边界。
 3. Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore、目标 Provider/Secret/Proxy 和 OCR/Replay 按第 12 节顺序推进。

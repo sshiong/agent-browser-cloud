@@ -22,6 +22,7 @@ public sealed interface NodeEvent
         NodeEvent.AgentNavigationFailed,
         NodeEvent.AgentActionFailed,
         NodeEvent.AgentFileUploadFailed,
+        NodeEvent.AgentBrowserEvaluationCompleted,
         NodeEvent.HumanAssistFailed,
         NodeEvent.ChallengeAutomationFailed,
         NodeEvent.RemoteDesktopParticipantChanged,
@@ -910,6 +911,28 @@ public sealed interface NodeEvent
       implements NodeEvent {}
 
   record AgentFileUploadFailed(String sessionId, String uploadId, String errorCode)
+      implements NodeEvent {}
+
+  record AgentBrowserEvaluationCompleted(
+      String sessionId,
+      String evaluationId,
+      String mode,
+      String resultType,
+      String resultJson,
+      int resultBytes,
+      int redactedValueCount,
+      String exceptionClass,
+      String exceptionMessage,
+      String errorCode,
+      long stateVersionBefore,
+      long targetRevisionBefore,
+      String stateHashBefore,
+      String activeTabIdBefore,
+      long stateVersionAfter,
+      long targetRevisionAfter,
+      String stateHashAfter,
+      String activeTabIdAfter,
+      int durationMs)
       implements NodeEvent {}
 
   record HumanAssistFailed(

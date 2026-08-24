@@ -3,6 +3,8 @@ package io.browsercloud.api;
 import io.browsercloud.application.AgentApplicationService.AgentTaskNotFoundException;
 import io.browsercloud.application.AgentApplicationService.InvalidAgentTaskException;
 import io.browsercloud.application.AgentBrowserActionApplicationService.AgentBrowserActionRejectedException;
+import io.browsercloud.application.AgentBrowserEvaluationStore.EvaluationNotFoundException;
+import io.browsercloud.application.AgentBrowserEvaluationStore.EvaluationRejectedException;
 import io.browsercloud.application.AgentBrowserFileUploadStore.FileUploadNotFoundException;
 import io.browsercloud.application.AgentBrowserFileUploadStore.FileUploadRejectedException;
 import io.browsercloud.application.AgentBrowserFilesApplicationService.AgentBrowserFilesException;
@@ -162,6 +164,43 @@ public class GlobalExceptionHandler {
         HttpStatus.CONFLICT,
         "AGENT_BROWSER_ACTION_REJECTED",
         "The ordered browser action request no longer matches authoritative state",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(EvaluationNotFoundException.class)
+  ResponseEntity<ApiError> agentBrowserEvaluationNotFound(
+      EvaluationNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "AGENT_BROWSER_EVALUATION_NOT_FOUND",
+        "The governed browser evaluation was not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(EvaluationRejectedException.class)
+  ResponseEntity<ApiError> agentBrowserEvaluationRejected(
+      EvaluationRejectedException exception, HttpServletRequest request) {
+    var status =
+        switch (exception.getMessage()) {
+          case "EVALUATION_WAIT_TIMEOUT" -> HttpStatus.REQUEST_TIMEOUT;
+          case "EVALUATION_WAIT_CAPACITY_EXCEEDED" -> HttpStatus.TOO_MANY_REQUESTS;
+          case "AGENT_EVALUATE_UNAVAILABLE", "EVALUATION_WAIT_INTERRUPTED" ->
+              HttpStatus.SERVICE_UNAVAILABLE;
+          case "EVALUATION_EXPRESSION_INVALID",
+                  "EVALUATION_EXPRESSION_TOO_LARGE",
+                  "EVALUATION_FORBIDDEN_BROWSER_SOURCE",
+                  "STATE_CURSOR_INVALID",
+                  "ACTIVE_TAB_UNAVAILABLE" ->
+              HttpStatus.UNPROCESSABLE_ENTITY;
+          case "EVALUATION_PERMISSION_DENIED" -> HttpStatus.FORBIDDEN;
+          default -> HttpStatus.CONFLICT;
+        };
+    return response(
+        status,
+        "AGENT_BROWSER_EVALUATION_REJECTED",
+        "The governed browser evaluation cannot be completed",
         Map.of("reason", exception.getMessage()),
         request);
   }

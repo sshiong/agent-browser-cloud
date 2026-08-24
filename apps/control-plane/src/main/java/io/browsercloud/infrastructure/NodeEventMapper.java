@@ -1,9 +1,11 @@
 package io.browsercloud.infrastructure;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.NodeEventReceived;
 import io.browsercloud.proto.node.v1.AgentActionFailedEvent;
+import io.browsercloud.proto.node.v1.AgentBrowserEvaluationCompletedEvent;
 import io.browsercloud.proto.node.v1.AgentFileUploadFailedEvent;
 import io.browsercloud.proto.node.v1.AgentNavigationFailedEvent;
 import io.browsercloud.proto.node.v1.BrowserCrashEvent;
@@ -38,6 +40,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class NodeEventMapper {
 
+  private static final ObjectMapper JSON = new ObjectMapper();
+
   static final String RUNTIME_STARTED = "RuntimeStarted";
   static final String RUNTIME_STOPPED = "RuntimeStopped";
   static final String PROFILE_WARM_TIER_SYNCED = "ProfileWarmTierSynced";
@@ -52,6 +56,7 @@ public class NodeEventMapper {
   static final String AGENT_NAVIGATION_FAILED = "AgentNavigationFailed";
   static final String AGENT_ACTION_FAILED = "AgentActionFailed";
   static final String AGENT_FILE_UPLOAD_FAILED = "AgentFileUploadFailed";
+  static final String AGENT_BROWSER_EVALUATION_COMPLETED = "AgentBrowserEvaluationCompleted";
   static final String HUMAN_ASSIST_FAILED = "HumanAssistFailed";
   static final String CHALLENGE_AUTOMATION_FAILED = "ChallengeAutomationFailed";
   static final String REMOTE_DESKTOP_PARTICIPANT_CHANGED = "RemoteDesktopParticipantChanged";
@@ -573,6 +578,75 @@ public class NodeEventMapper {
           yield new NodeEvent.AgentFileUploadFailed(
               payload.getSessionId(), payload.getUploadId(), payload.getErrorCode());
         }
+        case AGENT_BROWSER_EVALUATION_COMPLETED -> {
+          var payload = AgentBrowserEvaluationCompletedEvent.parseFrom(envelope.getPayload());
+          requireText(payload.getEvaluationId(), "evaluation_id");
+          requireText(payload.getEvaluationMode(), "evaluation_mode");
+          if (!payload.getEvaluationId().matches("^aje_[A-Za-z0-9]{20}$")
+              || !java.util.Set.of("READ_ONLY", "PAGE_ACTION").contains(payload.getEvaluationMode())
+              || payload.getStateVersionBefore() < 1
+              || payload.getTargetRevisionBefore() < 1
+              || !payload.getStateHashBefore().matches("^[0-9a-f]{64}$")
+              || payload.getActiveTabIdBefore().isBlank()
+              || payload.getActiveTabIdBefore().length() > 128
+              || payload.getDurationMs() > 30_000) {
+            throw new IllegalArgumentException("Agent evaluation result metadata is invalid");
+          }
+          var succeeded = payload.getErrorCode().isBlank();
+          if (succeeded) {
+            if (payload.getResultType().isBlank()
+                || payload.getResultType().length() > 64
+                || payload.getResultBytes() > 32_768
+                || payload.getResultBytes()
+                    != payload
+                        .getResultJson()
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                        .length
+                || payload.getRedactedValueCount() > 10_000
+                || !payload.getExceptionClass().isBlank()
+                || !payload.getExceptionMessage().isBlank()
+                || payload.getStateVersionAfter() < payload.getStateVersionBefore()
+                || payload.getTargetRevisionAfter() < 1
+                || !payload.getStateHashAfter().matches("^[0-9a-f]{64}$")
+                || payload.getActiveTabIdAfter().isBlank()
+                || payload.getActiveTabIdAfter().length() > 128) {
+              throw new IllegalArgumentException("Agent evaluation success result is invalid");
+            }
+            try {
+              JSON.readTree(payload.getResultJson());
+            } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
+              throw new IllegalArgumentException("Agent evaluation result is not JSON", exception);
+            }
+          } else if (!payload.getErrorCode().matches("^[A-Z][A-Z0-9_]{2,127}$")
+              || !payload.getResultType().isBlank()
+              || !payload.getResultJson().isBlank()
+              || payload.getResultBytes() != 0
+              || payload.getRedactedValueCount() != 0
+              || payload.getExceptionClass().length() > 256
+              || payload.getExceptionMessage().length() > 2_048) {
+            throw new IllegalArgumentException("Agent evaluation failure result is invalid");
+          }
+          yield new NodeEvent.AgentBrowserEvaluationCompleted(
+              payload.getSessionId(),
+              payload.getEvaluationId(),
+              payload.getEvaluationMode(),
+              payload.getResultType(),
+              payload.getResultJson(),
+              payload.getResultBytes(),
+              payload.getRedactedValueCount(),
+              payload.getExceptionClass(),
+              payload.getExceptionMessage(),
+              payload.getErrorCode(),
+              payload.getStateVersionBefore(),
+              payload.getTargetRevisionBefore(),
+              payload.getStateHashBefore(),
+              payload.getActiveTabIdBefore(),
+              payload.getStateVersionAfter(),
+              payload.getTargetRevisionAfter(),
+              payload.getStateHashAfter(),
+              payload.getActiveTabIdAfter(),
+              payload.getDurationMs());
+        }
         case HUMAN_ASSIST_FAILED -> {
           var payload = HumanAssistFailedEvent.parseFrom(envelope.getPayload());
           requireText(payload.getChallengeEventId(), "challenge_event_id");
@@ -902,6 +976,7 @@ public class NodeEventMapper {
       case NodeEvent.AgentNavigationFailed failed -> failed.sessionId();
       case NodeEvent.AgentActionFailed failed -> failed.sessionId();
       case NodeEvent.AgentFileUploadFailed failed -> failed.sessionId();
+      case NodeEvent.AgentBrowserEvaluationCompleted completed -> completed.sessionId();
       case NodeEvent.HumanAssistFailed failed -> failed.sessionId();
       case NodeEvent.ChallengeAutomationFailed failed -> failed.sessionId();
       case NodeEvent.RemoteDesktopParticipantChanged changed -> changed.sessionId();

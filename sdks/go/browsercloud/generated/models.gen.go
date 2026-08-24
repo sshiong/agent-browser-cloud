@@ -1343,6 +1343,51 @@ type AgentBrowserDownloadList struct {
 	Downloads     []AgentBrowserDownload `json:"downloads,omitempty"`
 }
 
+type AgentBrowserEvaluationMode string
+
+const (
+	AgentBrowserEvaluationModeREADONLY   AgentBrowserEvaluationMode = "READ_ONLY"
+	AgentBrowserEvaluationModePAGEACTION AgentBrowserEvaluationMode = "PAGE_ACTION"
+)
+
+type CreateAgentBrowserEvaluationRequest struct {
+	Goal                string                     `json:"goal,omitempty"`
+	Mode                AgentBrowserEvaluationMode `json:"mode,omitempty"`
+	Expression          string                     `json:"expression,omitempty"`
+	ExpectedStateCursor string                     `json:"expectedStateCursor,omitempty"`
+	AwaitPromise        bool                       `json:"awaitPromise,omitempty"`
+	TimeoutMs           int                        `json:"timeoutMs,omitempty"`
+	MaximumResultBytes  int                        `json:"maximumResultBytes,omitempty"`
+}
+
+type AgentBrowserEvaluation struct {
+	EvaluationId        string                     `json:"evaluationId,omitempty"`
+	SessionId           string                     `json:"sessionId,omitempty"`
+	Mode                AgentBrowserEvaluationMode `json:"mode,omitempty"`
+	State               string                     `json:"state,omitempty"`
+	ExpectedStateCursor string                     `json:"expectedStateCursor,omitempty"`
+	StateCursorAfter    any                        `json:"stateCursorAfter,omitempty"`
+	ActiveTabId         string                     `json:"activeTabId,omitempty"`
+	ActiveTabIdAfter    any                        `json:"activeTabIdAfter,omitempty"`
+	ExpressionSha256    string                     `json:"expressionSha256,omitempty"`
+	ExpressionBytes     int                        `json:"expressionBytes,omitempty"`
+	AwaitPromise        bool                       `json:"awaitPromise,omitempty"`
+	TimeoutMs           int                        `json:"timeoutMs,omitempty"`
+	MaximumResultBytes  int                        `json:"maximumResultBytes,omitempty"`
+	ResultType          any                        `json:"resultType,omitempty"`
+	Result              any                        `json:"result,omitempty"`
+	ResultBytes         any                        `json:"resultBytes,omitempty"`
+	RedactedValueCount  any                        `json:"redactedValueCount,omitempty"`
+	ExceptionClass      any                        `json:"exceptionClass,omitempty"`
+	ExceptionMessage    any                        `json:"exceptionMessage,omitempty"`
+	ErrorCode           any                        `json:"errorCode,omitempty"`
+	DurationMs          any                        `json:"durationMs,omitempty"`
+	RequestId           string                     `json:"requestId,omitempty"`
+	CreatedAt           string                     `json:"createdAt,omitempty"`
+	UpdatedAt           string                     `json:"updatedAt,omitempty"`
+	CompletedAt         any                        `json:"completedAt,omitempty"`
+}
+
 type AgentBrowserScreenshotMode string
 
 const (

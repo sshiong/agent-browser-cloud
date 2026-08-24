@@ -17,7 +17,9 @@ import type {
   AgentBrowserFileUploadRequest,
   AgentBrowserDownload,
   AgentBrowserDownloadList,
+  AgentBrowserEvaluation,
   AgentBrowserScreenshot,
+  CreateAgentBrowserEvaluationRequest,
   CaptureAgentBrowserScreenshotRequest,
   RedeemAgentBrowserScreenshotResponse,
   CreateAgentTaskRequest,
@@ -120,6 +122,43 @@ export function waitForAgentBrowserDownload(
     `/sessions/${encodeURIComponent(sessionId)}/agent-browser/files/downloads/${encodeURIComponent(downloadId)}:wait?timeoutMs=${timeoutMs}`,
     { signal },
     tenantId
+  );
+}
+
+export function createAgentBrowserEvaluation(
+  sessionId: string,
+  data: CreateAgentBrowserEvaluationRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+) {
+  return request<AgentBrowserEvaluation>(
+    `/sessions/${encodeURIComponent(sessionId)}/agent-browser/evaluations`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+    tenantId,
+    actorId
+  );
+}
+
+export function getAgentBrowserEvaluation(
+  sessionId: string,
+  evaluationId: string,
+  waitMs = 0,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+) {
+  return request<AgentBrowserEvaluation>(
+    `/sessions/${encodeURIComponent(sessionId)}/agent-browser/evaluations/${encodeURIComponent(evaluationId)}?waitMs=${waitMs}`,
+    { signal },
+    tenantId,
+    actorId
   );
 }
 

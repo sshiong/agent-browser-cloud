@@ -946,6 +946,48 @@ message CaptureAgentScreenshotCommand {
   int64 captured_at_ms = 14;
 }
 
+// Governed Runtime.evaluate. The durable Outbox stores only sealed_expression; the dispatcher
+// materializes expression immediately before mTLS delivery and clears the sealed field. The Node
+// selects the authoritative active Page target and never accepts a caller-supplied CDP endpoint.
+message AgentBrowserEvaluateCommand {
+  string session_id = 1;
+  string evaluation_id = 2;
+  string evaluation_mode = 3;
+  uint64 base_state_version = 4;
+  uint64 target_revision = 5;
+  string base_content_hash = 6;
+  string active_tab_id = 7;
+  string sealed_expression = 8;
+  string expression = 9;
+  bool await_promise = 10;
+  uint32 timeout_ms = 11;
+  uint32 maximum_result_bytes = 12;
+}
+
+// Bounded result metadata. Script source is never echoed and ordinary Node-event audit records
+// only hashes/sizes from the PostgreSQL evaluation ledger, not result_json or exception text.
+message AgentBrowserEvaluationCompletedEvent {
+  string session_id = 1;
+  string evaluation_id = 2;
+  string evaluation_mode = 3;
+  string result_type = 4;
+  string result_json = 5;
+  uint32 result_bytes = 6;
+  uint32 redacted_value_count = 7;
+  string exception_class = 8;
+  string exception_message = 9;
+  string error_code = 10;
+  uint64 state_version_before = 11;
+  uint64 target_revision_before = 12;
+  string state_hash_before = 13;
+  string active_tab_id_before = 14;
+  uint64 state_version_after = 15;
+  uint64 target_revision_after = 16;
+  string state_hash_after = 17;
+  string active_tab_id_after = 18;
+  uint32 duration_ms = 19;
+}
+
 // Agent 动作完成后由独立 CDP 截图数据面产生。对象由 Storage Helper 提交，
 // Node 不持有 Bucket 凭据；失败事件也会持久化，避免把缺失证据伪装成成功。
 message SessionEvidenceCapturedEvent {

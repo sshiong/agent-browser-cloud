@@ -280,6 +280,31 @@ public final class OperationFactory {
         null);
   }
 
+  /** Creates one state-fenced governed Runtime.evaluate operation. */
+  public static ExclusiveOperation agentJavascriptEvaluation(
+      SessionContext session, String actorId, long operationEpoch, boolean readOnly) {
+    var now = Instant.now();
+    return new ExclusiveOperation(
+        "op_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16),
+        session.sessionId(),
+        OwnerType.AGENT,
+        actorId,
+        OperationMode.AGENT_INTERACTIVE,
+        40,
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        operationEpoch,
+        null,
+        false,
+        false,
+        OperationPhase.EXECUTING,
+        OperationState.ACTIVE,
+        Set.of(readOnly ? "browser.evaluate.read-only" : "browser.evaluate.page-action"),
+        now.plusSeconds(600),
+        now,
+        null);
+  }
+
   /** 创建已同步提交的资源策略 Operation。策略写入 PostgreSQL 后即完成。 */
   public static ExclusiveOperation committedResourceAdjustment(
       SessionContext session, String actorId, long operationEpoch, String operationId) {

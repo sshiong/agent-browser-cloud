@@ -2,7 +2,11 @@ import json
 import unittest
 
 from browsercloud import ApiError, BrowserCloudGeneratedClient, OPERATIONS
-from browsercloud.generated_models import ProxyRoutingDecision, SessionView
+from browsercloud.generated_models import (
+    AgentBrowserEvaluation,
+    ProxyRoutingDecision,
+    SessionView,
+)
 
 
 class GeneratedClientTest(unittest.TestCase):
@@ -20,7 +24,7 @@ class GeneratedClientTest(unittest.TestCase):
             transport=transport,
         )
         result = client.getSession(path={"sessionId": "ses_1"})
-        self.assertEqual(233, len(OPERATIONS))
+        self.assertEqual(235, len(OPERATIONS))
         self.assertEqual("GET", captured["method"])
         self.assertEqual(
             "https://browser.example/api/v1/sessions/ses_1", captured["url"]
@@ -30,6 +34,7 @@ class GeneratedClientTest(unittest.TestCase):
         self.assertEqual({"sessionId": "ses_1"}, result)
         self.assertTrue(issubclass(SessionView, dict))
         self.assertTrue(issubclass(ProxyRoutingDecision, dict))
+        self.assertTrue(issubclass(AgentBrowserEvaluation, dict))
 
     def test_query_allowlist_and_structured_error(self):
         client = BrowserCloudGeneratedClient(

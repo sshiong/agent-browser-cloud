@@ -217,6 +217,31 @@ class NodeEventIngestionServiceTest {
   }
 
   @Test
+  void shouldPersistEvaluationStateWithoutTreatingItAsAnAgentTaskStep() {
+    var state =
+        new NodeEvent.StateUpdated(
+            "ses-test",
+            10,
+            4,
+            "https://example.test",
+            "Example",
+            "a".repeat(64),
+            "COMPLETE",
+            java.util.List.of(),
+            "AGENT_EVALUATE",
+            "aje_1234567890abcdefghij");
+    var command =
+        new NodeEventReceived("evt-evaluate-state", "tenant-test", "ses-test", 1, 2, 7, 3, state);
+    when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());
+
+    service.receive(command);
+
+    verify(browserStateRepository).save("tenant-test", 2, state);
+    verify(agentNavigationCompletionService, never()).stateUpdated(any(), any(), any());
+    verify(inboxRepository).save(any());
+  }
+
+  @Test
   void shouldCommitAgentSuppliedOtpBeforeRunningChallengeDetectionAgain() {
     var state =
         new NodeEvent.StateUpdated(

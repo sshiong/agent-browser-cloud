@@ -241,6 +241,12 @@ public final class Models {
 
   public record AgentBrowserDownloadList(String stateCursor, Boolean evidenceFresh, Boolean dataStale, List<AgentBrowserDownload> downloads) {}
 
+  public enum AgentBrowserEvaluationMode { READONLY, PAGEACTION }
+
+  public record CreateAgentBrowserEvaluationRequest(String goal, AgentBrowserEvaluationMode mode, String expression, String expectedStateCursor, Boolean awaitPromise, Integer timeoutMs, Integer maximumResultBytes) {}
+
+  public record AgentBrowserEvaluation(String evaluationId, String sessionId, AgentBrowserEvaluationMode mode, String state, String expectedStateCursor, Object stateCursorAfter, String activeTabId, Object activeTabIdAfter, String expressionSha256, Integer expressionBytes, Boolean awaitPromise, Integer timeoutMs, Integer maximumResultBytes, Object resultType, Object result, Object resultBytes, Object redactedValueCount, Object exceptionClass, Object exceptionMessage, Object errorCode, Object durationMs, String requestId, String createdAt, String updatedAt, Object completedAt) {}
+
   public enum AgentBrowserScreenshotMode { VIEWPORT, FULLPAGE, ELEMENT, REGION, CHALLENGEREGION }
 
   public record AgentBrowserScreenshotRegion(Double x, Double y, Double width, Double height) {}

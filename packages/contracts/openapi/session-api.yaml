@@ -519,6 +519,72 @@ paths:
           $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/UnprocessableEntity"
+  /api/v1/sessions/{sessionId}/agent-browser/evaluations:
+    post:
+      operationId: createAgentBrowserEvaluation
+      summary: Execute one governed, state-fenced JavaScript evaluation
+      description: >
+        Runs bounded JavaScript against the exact active Page Target. READ_ONLY asks Chromium to
+        reject side effects; PAGE_ACTION may mutate the page after intent policy checks. Script
+        source is sealed for Node delivery and is never returned or copied to ordinary audit rows.
+        Cookie, credential, storage, clipboard, network, navigation and tab escape APIs are rejected.
+      tags: [Session, Agent, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAgentBrowserEvaluationRequest"
+      responses:
+        "202":
+          description: The exclusive PostgreSQL-authoritative evaluation is executing or reused.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentBrowserEvaluation"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/sessions/{sessionId}/agent-browser/evaluations/{evaluationId}:
+    get:
+      operationId: getAgentBrowserEvaluation
+      summary: Read or wait for one governed JavaScript evaluation
+      description: Bounded waiting rereads PostgreSQL only; it never polls Chromium.
+      tags: [Session, Agent, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: evaluationId
+          in: path
+          required: true
+          schema: {type: string, pattern: "^aje_[A-Za-z0-9]{20}$"}
+        - name: waitMs
+          in: query
+          required: false
+          schema: {type: integer, minimum: 0, maximum: 30000, default: 0}
+      responses:
+        "200":
+          description: Actor-scoped bounded result; script source is never returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentBrowserEvaluation"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "408":
+          description: The evaluation did not become terminal within the bounded wait.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/sessions/{sessionId}/agent-browser/screenshots:
     post:
       operationId: captureAgentBrowserScreenshot
@@ -9670,6 +9736,66 @@ components:
           type: array
           maxItems: 32
           items: {$ref: "#/components/schemas/AgentBrowserDownload"}
+    AgentBrowserEvaluationMode:
+      type: string
+      enum: [READ_ONLY, PAGE_ACTION]
+    CreateAgentBrowserEvaluationRequest:
+      type: object
+      additionalProperties: false
+      required: [goal, mode, expression, expectedStateCursor]
+      properties:
+        goal:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Intent evaluated by the existing risk and high-risk confirmation policy.
+        mode: {$ref: "#/components/schemas/AgentBrowserEvaluationMode"}
+        expression:
+          type: string
+          minLength: 1
+          maxLength: 16384
+          writeOnly: true
+          description: Sealed for Node delivery and never returned by this API.
+        expectedStateCursor:
+          type: string
+          pattern: "^[0-9]+:[0-9]+:[a-f0-9]{64}$"
+        awaitPromise: {type: boolean, default: true}
+        timeoutMs: {type: integer, minimum: 100, maximum: 5000, default: 2000}
+        maximumResultBytes: {type: integer, minimum: 1, maximum: 32768, default: 16384}
+    AgentBrowserEvaluation:
+      type: object
+      additionalProperties: false
+      required:
+        [evaluationId, sessionId, mode, state, expectedStateCursor, activeTabId,
+         expressionSha256, expressionBytes, awaitPromise, timeoutMs, maximumResultBytes,
+         requestId, createdAt, updatedAt]
+      properties:
+        evaluationId: {type: string, pattern: "^aje_[A-Za-z0-9]{20}$"}
+        sessionId: {type: string, pattern: "^ses_[A-Za-z0-9]{16,}$"}
+        mode: {$ref: "#/components/schemas/AgentBrowserEvaluationMode"}
+        state: {type: string, enum: [EXECUTING, COMMITTED, FAILED]}
+        expectedStateCursor: {type: string, pattern: "^[0-9]+:[0-9]+:[a-f0-9]{64}$"}
+        stateCursorAfter: {type: [string, "null"], pattern: "^[0-9]+:[0-9]+:[a-f0-9]{64}$"}
+        activeTabId: {type: string, minLength: 1, maxLength: 128}
+        activeTabIdAfter: {type: [string, "null"], minLength: 1, maxLength: 128}
+        expressionSha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+        expressionBytes: {type: integer, minimum: 1, maximum: 16384}
+        awaitPromise: {type: boolean}
+        timeoutMs: {type: integer, minimum: 100, maximum: 5000}
+        maximumResultBytes: {type: integer, minimum: 1, maximum: 32768}
+        resultType: {type: [string, "null"], maxLength: 64}
+        result:
+          description: Any bounded JSON value after recursive sensitive-key redaction; null while executing or failed.
+        resultBytes: {type: [integer, "null"], minimum: 0, maximum: 32768}
+        redactedValueCount: {type: [integer, "null"], minimum: 0, maximum: 10000}
+        exceptionClass: {type: [string, "null"], minLength: 1, maxLength: 256}
+        exceptionMessage: {type: [string, "null"], minLength: 1, maxLength: 2048}
+        errorCode: {type: [string, "null"], pattern: "^[A-Z][A-Z0-9_]{2,127}$"}
+        durationMs: {type: [integer, "null"], minimum: 0, maximum: 30000}
+        requestId: {type: string, maxLength: 128}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+        completedAt: {type: [string, "null"], format: date-time}
     AgentBrowserScreenshotMode:
       type: string
       enum: [VIEWPORT, FULL_PAGE, ELEMENT, REGION, CHALLENGE_REGION]

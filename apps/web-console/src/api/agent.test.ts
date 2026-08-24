@@ -10,6 +10,8 @@ import {
   uploadAgentBrowserFile,
   listAgentBrowserDownloads,
   waitForAgentBrowserDownload,
+  createAgentBrowserEvaluation,
+  getAgentBrowserEvaluation,
   captureAgentBrowserScreenshot,
   getAgentBrowserScreenshot,
   redeemAgentBrowserScreenshot,
@@ -305,6 +307,64 @@ describe('agent API', () => {
       3,
       '/api/v1/sessions/ses_1234567890abcdef/agent-browser/screenshots/shot_1234567890abcdefghij:redeem',
       expect.objectContaining({ method: 'POST' })
+    );
+  });
+
+  it('creates and waits for an actor-bound governed JavaScript evaluation', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({ evaluationId: 'aje_1234567890abcdefghij' }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+    );
+    const body = {
+      goal: 'read the visible account label',
+      mode: 'READ_ONLY' as const,
+      expression: 'document.querySelector("h1")?.textContent',
+      expectedStateCursor: `9:4:${'a'.repeat(64)}`,
+    };
+
+    await createAgentBrowserEvaluation(
+      'ses_1234567890abcdef',
+      body,
+      'idem-eval-1',
+      'tenant-test',
+      'agent-worker'
+    );
+    await getAgentBrowserEvaluation(
+      'ses_1234567890abcdef',
+      'aje_1234567890abcdefghij',
+      5000,
+      'tenant-test',
+      'agent-worker'
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/sessions/ses_1234567890abcdef/agent-browser/evaluations',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(body),
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+          'X-Actor-Id': 'agent-worker',
+          'Idempotency-Key': 'idem-eval-1',
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/sessions/ses_1234567890abcdef/agent-browser/evaluations/aje_1234567890abcdefghij?waitMs=5000',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+          'X-Actor-Id': 'agent-worker',
+        }),
+      })
     );
   });
 });

@@ -26,13 +26,14 @@ public final class BrowserCloudGeneratedClientTest {
         client.getSession(
             new BrowserCloudGeneratedClient.Request(
                 Map.of("sessionId", "ses_1"), Map.of(), Map.of(), null));
-    require(BrowserCloudGeneratedClient.OPERATIONS.size() == 233, "operation coverage drifted");
+    require(BrowserCloudGeneratedClient.OPERATIONS.size() == 235, "operation coverage drifted");
     require(response.body().contains("ses_1"), "response missing");
     Models.SessionView session = null;
     Models.ProxyRoutingDecision routing = null;
     Models.RuntimeValidationJobClaim validationClaim = null;
+    Models.AgentBrowserEvaluation evaluation = null;
     require(
-        session == null && routing == null && validationClaim == null,
+        session == null && routing == null && validationClaim == null && evaluation == null,
         "generated models are unavailable");
   }
 

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.application.AgentActionPayloadService;
+import io.browsercloud.application.AgentBrowserEvaluationStore;
 import io.browsercloud.application.AgentBrowserScreenshotStore;
 import io.browsercloud.application.AgentExecutionWaitProjectionService;
 import io.browsercloud.application.SessionEvidenceGovernanceStore;
@@ -114,6 +115,7 @@ class NodeCommandMultiNodeRoutingTest {
             mock(AgentExecutionWaitProjectionService.class),
             mock(SessionEvidenceGovernanceStore.class),
             mock(AgentBrowserScreenshotStore.class),
+            mock(AgentBrowserEvaluationStore.class),
             mock(SessionResourceAdjustmentLifecycleService.class),
             routeAuthority,
             nodeRepository,
@@ -183,6 +185,7 @@ class NodeCommandMultiNodeRoutingTest {
             waitProjection,
             mock(SessionEvidenceGovernanceStore.class),
             mock(AgentBrowserScreenshotStore.class),
+            mock(AgentBrowserEvaluationStore.class),
             mock(SessionResourceAdjustmentLifecycleService.class),
             routeAuthority,
             nodeRepository,
@@ -246,6 +249,7 @@ class NodeCommandMultiNodeRoutingTest {
             mock(AgentExecutionWaitProjectionService.class),
             mock(SessionEvidenceGovernanceStore.class),
             mock(AgentBrowserScreenshotStore.class),
+            mock(AgentBrowserEvaluationStore.class),
             mock(SessionResourceAdjustmentLifecycleService.class),
             routeAuthority,
             mock(BrowserNodeJpaRepository.class),

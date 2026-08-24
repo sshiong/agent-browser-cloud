@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.google.protobuf.ByteString;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.proto.node.v1.AgentActionFailedEvent;
+import io.browsercloud.proto.node.v1.AgentBrowserEvaluationCompletedEvent;
 import io.browsercloud.proto.node.v1.AgentFileUploadFailedEvent;
 import io.browsercloud.proto.node.v1.AgentNavigationFailedEvent;
 import io.browsercloud.proto.node.v1.BrowserDownloadState;
@@ -38,6 +39,87 @@ import org.junit.jupiter.api.Test;
 class NodeEventMapperTest {
 
   private final NodeEventMapper mapper = new NodeEventMapper();
+
+  @Test
+  void shouldMapBoundedStateFencedAgentBrowserEvaluationResult() {
+    var result = "{\"label\":\"ready\",\"password\":\"[REDACTED]\"}";
+    var payload =
+        AgentBrowserEvaluationCompletedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setEvaluationId("aje_1234567890abcdefghij")
+            .setEvaluationMode("READ_ONLY")
+            .setResultType("OBJECT")
+            .setResultJson(result)
+            .setResultBytes(result.getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+            .setRedactedValueCount(1)
+            .setStateVersionBefore(9)
+            .setTargetRevisionBefore(4)
+            .setStateHashBefore("a".repeat(64))
+            .setActiveTabIdBefore("tab-main")
+            .setStateVersionAfter(10)
+            .setTargetRevisionAfter(4)
+            .setStateHashAfter("b".repeat(64))
+            .setActiveTabIdAfter("tab-main")
+            .setDurationMs(42)
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_agent_evaluation")
+            .setEventType(NodeEventMapper.AGENT_BROWSER_EVALUATION_COMPLETED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setCoordinatorTerm(2)
+            .setContextEpoch(3)
+            .setOperationEpoch(4)
+            .setSequence(7)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.AgentBrowserEvaluationCompleted.class,
+            completed -> {
+              assertThat(completed.evaluationId()).isEqualTo("aje_1234567890abcdefghij");
+              assertThat(completed.resultJson()).isEqualTo(result);
+              assertThat(completed.redactedValueCount()).isEqualTo(1);
+              assertThat(completed.stateVersionAfter()).isEqualTo(10);
+            });
+  }
+
+  @Test
+  void shouldRejectAgentBrowserEvaluationWithUnparseableJson() {
+    var payload =
+        AgentBrowserEvaluationCompletedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setEvaluationId("aje_1234567890abcdefghij")
+            .setEvaluationMode("PAGE_ACTION")
+            .setResultType("OBJECT")
+            .setResultJson("{not-json}")
+            .setResultBytes(10)
+            .setStateVersionBefore(9)
+            .setTargetRevisionBefore(4)
+            .setStateHashBefore("a".repeat(64))
+            .setActiveTabIdBefore("tab-main")
+            .setStateVersionAfter(10)
+            .setTargetRevisionAfter(4)
+            .setStateHashAfter("b".repeat(64))
+            .setActiveTabIdAfter("tab-main")
+            .setDurationMs(42)
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_agent_evaluation_invalid")
+            .setEventType(NodeEventMapper.AGENT_BROWSER_EVALUATION_COMPLETED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(7)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThatThrownBy(() -> mapper.toCommand(envelope))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("not JSON");
+  }
 
   @Test
   void shouldMapAuthoritativeRemoteDesktopParticipantLifecycle() {

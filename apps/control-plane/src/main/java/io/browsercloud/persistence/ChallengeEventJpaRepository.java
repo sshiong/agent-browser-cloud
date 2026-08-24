@@ -36,6 +36,19 @@ public interface ChallengeEventJpaRepository extends JpaRepository<ChallengeEven
       @Param("suspectedType") String suspectedType,
       @Param("targetRef") String targetRef);
 
+  @Query(
+      """
+      select count(event) > 0 from ChallengeEventEntity event
+      where event.tenantId = :tenantId and event.sessionId = :sessionId
+        and event.contextEpoch = :contextEpoch and event.stateVersion = :stateVersion
+        and event.status in ('SUSPECTED', 'CONFIRMED', 'AUTHORIZED', 'EXECUTING', 'TAKEOVER_REQUIRED')
+      """)
+  boolean existsActiveAtState(
+      @Param("tenantId") String tenantId,
+      @Param("sessionId") String sessionId,
+      @Param("contextEpoch") long contextEpoch,
+      @Param("stateVersion") long stateVersion);
+
   List<ChallengeEventEntity> findAllByTenantIdAndSessionIdOrderByDetectedAtDescChallengeEventIdDesc(
       String tenantId, String sessionId, Pageable pageable);
 

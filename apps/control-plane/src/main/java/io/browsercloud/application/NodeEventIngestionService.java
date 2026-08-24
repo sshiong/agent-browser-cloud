@@ -47,6 +47,7 @@ public class NodeEventIngestionService {
   private final ChallengeAutomationApplicationService challengeAutomation;
   private final ChallengeInputApplicationService challengeInputs;
   private final AgentBrowserFileUploadStore fileUploads;
+  private final AgentBrowserEvaluationStore evaluations;
 
   public NodeEventIngestionService(
       InboxEventJpaRepository inboxRepository,
@@ -86,6 +87,7 @@ public class NodeEventIngestionService {
         stateSnapshotAssembler,
         challengeDetectionService,
         humanAssistService,
+        null,
         null,
         null,
         null,
@@ -140,6 +142,7 @@ public class NodeEventIngestionService {
         recordings,
         null,
         null,
+        null,
         null);
   }
 
@@ -168,7 +171,8 @@ public class NodeEventIngestionService {
       SessionRecordingApplicationService recordings,
       ChallengeAutomationApplicationService challengeAutomation,
       ChallengeInputApplicationService challengeInputs,
-      AgentBrowserFileUploadStore fileUploads) {
+      AgentBrowserFileUploadStore fileUploads,
+      AgentBrowserEvaluationStore evaluations) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
     this.browserStateRepository = browserStateRepository;
@@ -193,6 +197,7 @@ public class NodeEventIngestionService {
     this.challengeAutomation = challengeAutomation;
     this.challengeInputs = challengeInputs;
     this.fileUploads = fileUploads;
+    this.evaluations = evaluations;
   }
 
   /** Source-compatible constructor retained for focused tests and N-1 wiring. */
@@ -244,6 +249,7 @@ public class NodeEventIngestionService {
         recordings,
         challengeAutomation,
         challengeInputs,
+        null,
         null);
   }
 
@@ -311,6 +317,9 @@ public class NodeEventIngestionService {
       }
       case NodeEvent.AgentFileUploadFailed failed -> {
         if (fileUploads != null) fileUploads.failed(command, failed);
+      }
+      case NodeEvent.AgentBrowserEvaluationCompleted completed -> {
+        if (evaluations != null) evaluations.completed(command, completed);
       }
       case NodeEvent.HumanAssistFailed failed -> humanAssistService.failed(command, failed);
       case NodeEvent.ChallengeAutomationFailed failed -> {
@@ -483,7 +492,9 @@ public class NodeEventIngestionService {
       agentNavigationCompletionService.challengeObserved(
           command.sessionId(), command.tenantId(), challenge);
     }
-    if (!assist.humanAssist()) {
+    // Governed Evaluate owns an AGENT_INTERACTIVE Operation for fencing, but it is not an
+    // AgentTask step. Its completion event closes the evaluation ledger and Operation.
+    if (!assist.humanAssist() && !"AGENT_EVALUATE".equals(state.snapshotKind())) {
       agentNavigationCompletionService.stateUpdated(command, state, challenge);
     } else if (assist.committed()) {
       humanAssistService.continueAgentAfterState(

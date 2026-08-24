@@ -783,6 +783,20 @@ public final class SessionCoordinator {
         }
         yield CoordinatorResult.completed();
       }
+      case NodeEvent.AgentBrowserEvaluationCompleted completed -> {
+        var operation = matchingActiveOperation(session.sessionId(), command);
+        var requiredCapability =
+            completed.mode().equals("READ_ONLY")
+                ? "browser.evaluate.read-only"
+                : "browser.evaluate.page-action";
+        if (operation.isEmpty()
+            || operation.orElseThrow().ownerType() != OwnerType.AGENT
+            || operation.orElseThrow().mode() != OperationMode.AGENT_INTERACTIVE
+            || !operation.orElseThrow().allowedCapabilities().contains(requiredCapability)) {
+          yield CoordinatorResult.rejected("STALE_AGENT_EVALUATION_OPERATION");
+        }
+        yield CoordinatorResult.completed();
+      }
       case NodeEvent.HumanAssistFailed failed -> {
         var operation = matchingActiveOperation(session.sessionId(), command);
         if (operation.isEmpty()
@@ -879,6 +893,7 @@ public final class SessionCoordinator {
       case NodeEvent.AgentNavigationFailed failed -> failed.sessionId();
       case NodeEvent.AgentActionFailed failed -> failed.sessionId();
       case NodeEvent.AgentFileUploadFailed failed -> failed.sessionId();
+      case NodeEvent.AgentBrowserEvaluationCompleted completed -> completed.sessionId();
       case NodeEvent.HumanAssistFailed failed -> failed.sessionId();
       case NodeEvent.ChallengeAutomationFailed failed -> failed.sessionId();
       case NodeEvent.RemoteDesktopParticipantChanged changed -> changed.sessionId();

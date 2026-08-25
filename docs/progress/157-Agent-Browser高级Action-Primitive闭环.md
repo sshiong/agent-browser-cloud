@@ -1,7 +1,7 @@
 # Agent Browser 高级 Action Primitive 闭环
 
 > 日期：2026-08-25
-> 状态：仓库内实现与完整本地 Gate 已通过；GitHub CI/Desktop Gate 待提交后验证
+> 状态：仓库内实现、完整本地 Gate 与 GitHub CI/Desktop Gate 均已通过
 
 ## 目标与自动模式边界
 
@@ -65,6 +65,11 @@ AUTONOMOUS 下普通动作、登录和可恢复失败继续静默重试。只有
 第二次完整 Integration 通过。
 
 ## 剩余边界
+
+实现提交 `18c2186` 的 GitHub `ci` run `32827778113` 已通过 Verify、镜像、SBOM/扫描、完整
+Integration、Object Storage/Recording GameDay 和 Kubernetes Operator E2E；`desktop` run
+`32827778135` 的 Windows/macOS 原生安全测试与 unsigned build 均通过。Workflow 仅有 GitHub
+对固定 Action 的 Node 20 弃用维护提示，Runner 已用 Node 24 正常执行，不影响本次 Gate。
 
 Agent Browser 高级 Action Primitive 已从当前未实现清单移除。仍缺
 AgentClipboard/UserClipboard 显式、受控、可审计 Bridge；底层两套剪贴板独立存在不等于允许

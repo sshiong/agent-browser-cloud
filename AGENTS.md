@@ -2,7 +2,7 @@
 
 > 更新日期：2026-08-25
 > 基准分支：`main`
-> 编写时基准提交：`2240f75 feat: add governed agent javascript evaluation`
+> 编写时基准提交：`18c2186 feat: add governed advanced browser actions`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -211,7 +211,10 @@ Rust Browser Node
   `agent_browser_advanced_actions=true`，以单一 19 Primitive Batch 显式覆盖 Select、Press、
   Drag/Drop/Swipe、Mouse/Keyboard/Touch 和最终结构化状态。第一次 Integration 在创建阶段
   发现 19 动作加固定三步超过旧计划上限 20，修复为 Plan 23/Batch 20 并增加回归后第二次与
-  最终第三次完整 Integration 均通过；GitHub `ci`/`desktop` 待提交后验证，见 progress 157。
+  最终第三次完整 Integration 均通过。实现提交 `18c2186` 的 GitHub `ci` run
+  `32827778113` 已通过 Verify、供应链、完整 Integration、Object Storage/Recording GameDay
+  与 Kubernetes Operator E2E；`desktop` run `32827778135` 的 Windows/macOS 均通过，见
+  progress 157。
 
 - Agent Browser 受治理 JavaScript Evaluate 切片本地 Control Plane 481 项、Rust Workspace、
   Web 119 项、Worker/Provider、完整 Test/Lint/Build、Desktop test/lint/unsigned build、

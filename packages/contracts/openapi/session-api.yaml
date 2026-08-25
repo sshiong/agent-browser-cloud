@@ -6360,7 +6360,7 @@ components:
         maxActions:
           type: integer
           minimum: 1
-          maximum: 20
+          maximum: 23
         replanBudget:
           type: integer
           minimum: 0
@@ -6400,6 +6400,20 @@ components:
             - CLOSE_TAB
             - ACCEPT_DIALOG
             - DISMISS_DIALOG
+            - PRESS_KEY
+            - SELECT_OPTION
+            - DRAG_TARGET
+            - DROP_TARGET
+            - SWIPE_TARGET
+            - MOUSE_MOVE
+            - MOUSE_DOWN
+            - MOUSE_UP
+            - MOUSE_WHEEL
+            - KEY_DOWN
+            - KEY_UP
+            - TOUCH_START
+            - TOUCH_MOVE
+            - TOUCH_END
             - EXECUTE_ACTIONS
             - REQUEST_HUMAN_TAKEOVER
         targetRef:
@@ -6440,6 +6454,29 @@ components:
         dialogId:
           type: string
           pattern: "^dlg_[0-9a-f]{20}$"
+        endTargetRef:
+          type: string
+          maxLength: 128
+        key:
+          type: string
+          maxLength: 32
+          description: Bounded key name or one printable character; never accepts arbitrary CDP key payloads.
+        button:
+          type: integer
+          minimum: 0
+          maximum: 2
+        deltaX:
+          type: integer
+          minimum: -4000
+          maximum: 4000
+        deltaY:
+          type: integer
+          minimum: -4000
+          maximum: 4000
+        durationMs:
+          type: integer
+          minimum: 0
+          maximum: 5000
         actions:
           type: array
           minItems: 1
@@ -6456,7 +6493,7 @@ components:
       properties:
         toolId:
           type: string
-          enum: [CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, OPEN_TAB, SWITCH_TAB, CLOSE_TAB, ACCEPT_DIALOG, DISMISS_DIALOG]
+          enum: [CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, OPEN_TAB, SWITCH_TAB, CLOSE_TAB, ACCEPT_DIALOG, DISMISS_DIALOG, PRESS_KEY, SELECT_OPTION, DRAG_TARGET, DROP_TARGET, SWIPE_TARGET, MOUSE_MOVE, MOUSE_DOWN, MOUSE_UP, MOUSE_WHEEL, KEY_DOWN, KEY_UP, TOUCH_START, TOUCH_MOVE, TOUCH_END]
         targetRef:
           type: string
           maxLength: 128
@@ -6494,6 +6531,28 @@ components:
         dialogId:
           type: string
           pattern: "^dlg_[0-9a-f]{20}$"
+        endTargetRef:
+          type: string
+          maxLength: 128
+        key:
+          type: string
+          maxLength: 32
+        button:
+          type: integer
+          minimum: 0
+          maximum: 2
+        deltaX:
+          type: integer
+          minimum: -4000
+          maximum: 4000
+        deltaY:
+          type: integer
+          minimum: -4000
+          maximum: 4000
+        durationMs:
+          type: integer
+          minimum: 0
+          maximum: 5000
     AgentInstructionSource:
       type: object
       additionalProperties: false
@@ -7615,7 +7674,7 @@ components:
           type: string
         toolId:
           type: string
-          enum: [NAVIGATE, GET_CURRENT_STATE, CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, OPEN_TAB, SWITCH_TAB, CLOSE_TAB, ACCEPT_DIALOG, DISMISS_DIALOG, EXECUTE_ACTIONS, GET_URL, GET_PAGE_SUMMARY, REQUEST_HUMAN_TAKEOVER]
+          enum: [NAVIGATE, GET_CURRENT_STATE, CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, OPEN_TAB, SWITCH_TAB, CLOSE_TAB, ACCEPT_DIALOG, DISMISS_DIALOG, PRESS_KEY, SELECT_OPTION, DRAG_TARGET, DROP_TARGET, SWIPE_TARGET, MOUSE_MOVE, MOUSE_DOWN, MOUSE_UP, MOUSE_WHEEL, KEY_DOWN, KEY_UP, TOUCH_START, TOUCH_MOVE, TOUCH_END, EXECUTE_ACTIONS, GET_URL, GET_PAGE_SUMMARY, REQUEST_HUMAN_TAKEOVER]
         riskClass:
           $ref: "#/components/schemas/AgentRiskClass"
         targetOrigin:
@@ -7669,7 +7728,7 @@ components:
         maximumActions:
           type: integer
           minimum: 1
-          maximum: 20
+          maximum: 23
         replanBudget:
           type: integer
           minimum: 0
@@ -7941,7 +8000,7 @@ components:
         maxActions:
           type: integer
           minimum: 1
-          maximum: 20
+          maximum: 23
         replanBudget:
           type: integer
           minimum: 0
@@ -7992,6 +8051,20 @@ components:
             - CLOSE_TAB
             - ACCEPT_DIALOG
             - DISMISS_DIALOG
+            - PRESS_KEY
+            - SELECT_OPTION
+            - DRAG_TARGET
+            - DROP_TARGET
+            - SWIPE_TARGET
+            - MOUSE_MOVE
+            - MOUSE_DOWN
+            - MOUSE_UP
+            - MOUSE_WHEEL
+            - KEY_DOWN
+            - KEY_UP
+            - TOUCH_START
+            - TOUCH_MOVE
+            - TOUCH_END
             - EXECUTE_ACTIONS
             - GET_URL
             - GET_PAGE_SUMMARY
@@ -8054,6 +8127,13 @@ components:
         - tabId
         - tabUrl
         - dialogId
+        - endTargetRef
+        - endElementId
+        - key
+        - button
+        - deltaX
+        - deltaY
+        - durationMs
       properties:
         targetRef:
           type: [string, "null"]
@@ -8095,6 +8175,30 @@ components:
         dialogId:
           type: [string, "null"]
           pattern: "^dlg_[0-9a-f]{20}$"
+        endTargetRef:
+          type: [string, "null"]
+        endElementId:
+          type: [string, "null"]
+          maxLength: 256
+        key:
+          type: [string, "null"]
+          maxLength: 32
+        button:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 2
+        deltaX:
+          type: [integer, "null"]
+          minimum: -4000
+          maximum: 4000
+        deltaY:
+          type: [integer, "null"]
+          minimum: -4000
+          maximum: 4000
+        durationMs:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 5000
     AgentBatchActionInput:
       type: object
       additionalProperties: false
@@ -8115,13 +8219,20 @@ components:
         - tabId
         - tabUrl
         - dialogId
+        - endTargetRef
+        - endElementId
+        - key
+        - button
+        - deltaX
+        - deltaY
+        - durationMs
       properties:
         actionId:
           type: string
           pattern: "^action_[1-9][0-9]?$"
         toolId:
           type: string
-          enum: [CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, OPEN_TAB, SWITCH_TAB, CLOSE_TAB, ACCEPT_DIALOG, DISMISS_DIALOG]
+          enum: [CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, OPEN_TAB, SWITCH_TAB, CLOSE_TAB, ACCEPT_DIALOG, DISMISS_DIALOG, PRESS_KEY, SELECT_OPTION, DRAG_TARGET, DROP_TARGET, SWIPE_TARGET, MOUSE_MOVE, MOUSE_DOWN, MOUSE_UP, MOUSE_WHEEL, KEY_DOWN, KEY_UP, TOUCH_START, TOUCH_MOVE, TOUCH_END]
         targetRef:
           type: [string, "null"]
         elementId:
@@ -8158,6 +8269,30 @@ components:
         dialogId:
           type: [string, "null"]
           pattern: "^dlg_[0-9a-f]{20}$"
+        endTargetRef:
+          type: [string, "null"]
+        endElementId:
+          type: [string, "null"]
+          maxLength: 256
+        key:
+          type: [string, "null"]
+          maxLength: 32
+        button:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 2
+        deltaX:
+          type: [integer, "null"]
+          minimum: -4000
+          maximum: 4000
+        deltaY:
+          type: [integer, "null"]
+          minimum: -4000
+          maximum: 4000
+        durationMs:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 5000
     AgentRiskClass:
       type: string
       enum:
@@ -8211,6 +8346,20 @@ components:
             - CLOSE_TAB
             - ACCEPT_DIALOG
             - DISMISS_DIALOG
+            - PRESS_KEY
+            - SELECT_OPTION
+            - DRAG_TARGET
+            - DROP_TARGET
+            - SWIPE_TARGET
+            - MOUSE_MOVE
+            - MOUSE_DOWN
+            - MOUSE_UP
+            - MOUSE_WHEEL
+            - KEY_DOWN
+            - KEY_UP
+            - TOUCH_START
+            - TOUCH_MOVE
+            - TOUCH_END
             - EXECUTE_ACTIONS
             - GET_URL
             - GET_PAGE_SUMMARY

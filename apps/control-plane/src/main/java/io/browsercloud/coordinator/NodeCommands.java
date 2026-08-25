@@ -681,7 +681,14 @@ public final class NodeCommands {
             .setStopOnError(input == null || input.stopOnError())
             .setTabId(input == null || input.tabId() == null ? "" : input.tabId())
             .setTabUrl(input == null || input.tabUrl() == null ? "" : input.tabUrl())
-            .setDialogId(input == null || input.dialogId() == null ? "" : input.dialogId());
+            .setDialogId(input == null || input.dialogId() == null ? "" : input.dialogId())
+            .setEndTargetRef(
+                input == null || input.endTargetRef() == null ? "" : input.endTargetRef())
+            .setKey(input == null || input.key() == null ? "" : input.key())
+            .setButton(input == null || input.button() == null ? 0 : input.button())
+            .setDeltaX(input == null || input.deltaX() == null ? 0 : input.deltaX())
+            .setDeltaY(input == null || input.deltaY() == null ? 0 : input.deltaY())
+            .setDurationMs(input == null || input.durationMs() == null ? 0 : input.durationMs());
     if (input != null && !input.actions().isEmpty()) {
       builder.addAllActions(
           input.actions().stream()
@@ -706,6 +713,15 @@ public final class NodeCommands {
                           .setTabId(action.tabId() == null ? "" : action.tabId())
                           .setTabUrl(action.tabUrl() == null ? "" : action.tabUrl())
                           .setDialogId(action.dialogId() == null ? "" : action.dialogId())
+                          .setEndTargetRef(
+                              action.endTargetRef() == null ? "" : action.endTargetRef())
+                          .setEndElementId(
+                              action.endElementId() == null ? "" : action.endElementId())
+                          .setKey(action.key() == null ? "" : action.key())
+                          .setButton(action.button() == null ? 0 : action.button())
+                          .setDeltaX(action.deltaX() == null ? 0 : action.deltaX())
+                          .setDeltaY(action.deltaY() == null ? 0 : action.deltaY())
+                          .setDurationMs(action.durationMs() == null ? 0 : action.durationMs())
                           .build())
               .toList());
     }

@@ -90,6 +90,7 @@ pointer_y = 0.0
 focused_control = None
 control_pressed = False
 select_all = False
+selected_option = "alpha"
 pages_lock = threading.Lock()
 pages = {
     "page-1": {
@@ -152,6 +153,7 @@ class Handler(BaseHTTPRequestHandler):
         global evaluation_count, business_recovery_completed
         global public_note_value, checkbox_checked, pointer_x, pointer_y
         global focused_control, control_pressed, select_all
+        global selected_option
         global active_page_id
         global native_dialog, native_dialog_sequence
         global uploaded_file, download_event_version
@@ -366,6 +368,17 @@ class Handler(BaseHTTPRequestHandler):
                             "enabled": True,
                             "visible": True,
                             "sensitive": True,
+                        }, {
+                            "path": "html:nth-of-type(1)>body:nth-of-type(1)>select:nth-of-type(1)",
+                            "role": "combobox",
+                            "name": "Integration choice",
+                            "value": selected_option,
+                            "controlType": "select-one",
+                            "bounds": {"x": 20.0, "y": 186.0, "width": 240.0, "height": 36.0},
+                            "enabled": True,
+                            "visible": True,
+                            "sensitive": False,
+                            "focused": focused_control == "integration-choice",
                         }, {
                             "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(3)",
                             "role": "checkbox",
@@ -634,6 +647,9 @@ class Handler(BaseHTTPRequestHandler):
                     elif 20 <= pointer_x <= 44 and 240 <= pointer_y <= 264:
                         focused_control = "checkbox"
                         checkbox_checked = not checkbox_checked
+                    elif 20 <= pointer_x <= 260 and 186 <= pointer_y <= 222:
+                        focused_control = "integration-choice"
+                        select_all = False
                     elif 20 <= pointer_x <= 200 and 300 <= pointer_y <= 336:
                         native_dialog_sequence += 1
                         native_dialog = {
@@ -693,6 +709,8 @@ class Handler(BaseHTTPRequestHandler):
                     text = command.get("params", {}).get("text", "")
                     public_note_value = text if select_all else public_note_value + text
                     select_all = False
+                elif focused_control == "integration-choice":
+                    selected_option = command.get("params", {}).get("text", "")
                 response = {"id": command["id"], "result": {}}
             else:
                 response = {"id": command.get("id", 1), "result": {}}

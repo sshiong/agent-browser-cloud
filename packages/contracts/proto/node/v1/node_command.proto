@@ -798,6 +798,14 @@ message AgentActionCommand {
   string tab_id = 18;
   string tab_url = 19;
   string dialog_id = 20;
+  // Additive target-bound advanced input fields. Coordinates remain relative to an
+  // authoritative target; the public gateway never exposes arbitrary desktop coordinates.
+  string end_target_ref = 21;
+  string key = 22;
+  uint32 button = 23;
+  int32 delta_x = 24;
+  int32 delta_y = 25;
+  uint32 duration_ms = 26;
 }
 
 message AgentActionPrimitive {
@@ -819,6 +827,13 @@ message AgentActionPrimitive {
   string tab_id = 13;
   string tab_url = 14;
   string dialog_id = 15;
+  string end_target_ref = 16;
+  string end_element_id = 17;
+  string key = 18;
+  uint32 button = 19;
+  int32 delta_x = 20;
+  int32 delta_y = 21;
+  uint32 duration_ms = 22;
 }
 
 message AgentActionOutcome {

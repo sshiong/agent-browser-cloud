@@ -372,7 +372,21 @@ public class AgentApplicationService {
             UNCHECK_TARGET,
             TYPE_TEXT,
             FILL,
-            PASTE_AGENT_CLIPBOARD -> {
+            PASTE_AGENT_CLIPBOARD,
+            PRESS_KEY,
+            SELECT_OPTION,
+            DRAG_TARGET,
+            DROP_TARGET,
+            SWIPE_TARGET,
+            MOUSE_MOVE,
+            MOUSE_DOWN,
+            MOUSE_UP,
+            MOUSE_WHEEL,
+            KEY_DOWN,
+            KEY_UP,
+            TOUCH_START,
+            TOUCH_MOVE,
+            TOUCH_END -> {
           if (action.tabId() != null
               || action.tabUrl() != null
               || action.dialogId() != null
@@ -414,6 +428,19 @@ public class AgentApplicationService {
             if (!java.util.Set.of("textbox", "combobox").contains(target.role())) {
               return "TYPE_TARGET_ROLE_INVALID";
             }
+            if (action.toolId() == ToolId.SELECT_OPTION && !"combobox".equals(target.role())) {
+              return "SELECT_TARGET_ROLE_INVALID";
+            }
+            if (action.toolId() == ToolId.SELECT_OPTION
+                && (action.value() == null || action.value().isBlank())
+                && action.secretId() == null) {
+              return "SELECT_OPTION_VALUE_REQUIRED";
+            }
+            if (action.toolId() == ToolId.SELECT_OPTION
+                && action.value() != null
+                && action.secretId() != null) {
+              return "SELECT_OPTION_VALUE_SOURCE_AMBIGUOUS";
+            }
             if (isSecretInput(action.toolId())
                 && (action.value() == null || action.value().isBlank())
                 && action.secretId() == null) {
@@ -430,6 +457,7 @@ public class AgentApplicationService {
                     || action.dataClass() != null)) {
               return "AGENT_CLIPBOARD_PASTE_SOURCE_FORBIDDEN";
             }
+            if (hasAdvancedInput(action)) return "TEXT_ACTION_ADVANCED_INPUT_FORBIDDEN";
           } else {
             if (action.value() != null
                 || action.secretId() != null
@@ -441,6 +469,8 @@ public class AgentApplicationService {
             }
             var roleError = validateTargetActionRole(action.toolId(), target);
             if (!roleError.isBlank()) return roleError;
+            var advancedError = validateAdvancedRequestedInput(action, state);
+            if (!advancedError.isBlank()) return advancedError;
           }
         }
         case SCROLL -> {
@@ -549,6 +579,7 @@ public class AgentApplicationService {
               || action.tabId() != null
               || action.tabUrl() != null
               || action.dialogId() != null
+              || hasAdvancedInput(action)
               || action.actions().isEmpty()) {
             return "BATCH_ACTION_INPUT_INVALID";
           }
@@ -570,7 +601,13 @@ public class AgentApplicationService {
                               true,
                               primitive.tabId(),
                               primitive.tabUrl(),
-                              primitive.dialogId()))
+                              primitive.dialogId(),
+                              primitive.endTargetRef(),
+                              primitive.key(),
+                              primitive.button(),
+                              primitive.deltaX(),
+                              primitive.deltaY(),
+                              primitive.durationMs()))
                   .toList();
           if (primitives.stream()
               .anyMatch(
@@ -592,7 +629,21 @@ public class AgentApplicationService {
                               ToolId.SWITCH_TAB,
                               ToolId.CLOSE_TAB,
                               ToolId.ACCEPT_DIALOG,
-                              ToolId.DISMISS_DIALOG)
+                              ToolId.DISMISS_DIALOG,
+                              ToolId.PRESS_KEY,
+                              ToolId.SELECT_OPTION,
+                              ToolId.DRAG_TARGET,
+                              ToolId.DROP_TARGET,
+                              ToolId.SWIPE_TARGET,
+                              ToolId.MOUSE_MOVE,
+                              ToolId.MOUSE_DOWN,
+                              ToolId.MOUSE_UP,
+                              ToolId.MOUSE_WHEEL,
+                              ToolId.KEY_DOWN,
+                              ToolId.KEY_UP,
+                              ToolId.TOUCH_START,
+                              ToolId.TOUCH_MOVE,
+                              ToolId.TOUCH_END)
                           .contains(primitive.toolId()))) {
             return "BATCH_ACTION_TOOL_FORBIDDEN";
           }
@@ -613,7 +664,8 @@ public class AgentApplicationService {
               || action.timeoutMs() != null
               || action.tabId() != null
               || action.tabUrl() != null
-              || action.dialogId() != null) {
+              || action.dialogId() != null
+              || hasAdvancedInput(action)) {
             return "HUMAN_HANDOFF_INPUT_FORBIDDEN";
           }
         }
@@ -635,7 +687,110 @@ public class AgentApplicationService {
         || action.waitCondition() != null
         || action.timeoutMs() != null
         || action.dialogId() != null
+        || hasAdvancedInput(action)
         || !action.actions().isEmpty();
+  }
+
+  private static boolean hasAdvancedInput(CreateAgentTaskRequest.ActionRequest action) {
+    return action.endTargetRef() != null
+        || action.key() != null
+        || action.button() != null
+        || action.deltaX() != null
+        || action.deltaY() != null
+        || action.durationMs() != null;
+  }
+
+  private static String validateAdvancedRequestedInput(
+      CreateAgentTaskRequest.ActionRequest action,
+      io.browsercloud.coordinator.NodeEvent.StateUpdated state) {
+    var toolId = action.toolId();
+    if (java.util.Set.of(ToolId.PRESS_KEY, ToolId.KEY_DOWN, ToolId.KEY_UP).contains(toolId)) {
+      return action.key() == null
+              || action.key().isBlank()
+              || action.key().length() > 32
+              || action.endTargetRef() != null
+              || action.button() != null
+              || action.deltaX() != null
+              || action.deltaY() != null
+              || action.durationMs() != null
+          ? "KEY_INPUT_INVALID"
+          : "";
+    }
+    if (toolId == ToolId.DRAG_TARGET) {
+      if (action.endTargetRef() == null
+          || action.endTargetRef().isBlank()
+          || action.key() != null
+          || action.button() != null
+          || action.deltaX() != null
+          || action.deltaY() != null
+          || invalidDuration(action.durationMs())) {
+        return "DRAG_INPUT_INVALID";
+      }
+      var destination =
+          state.targets().stream()
+              .filter(
+                  target ->
+                      target.targetRef().equals(action.endTargetRef())
+                          || action.endTargetRef().equals(target.elementId()))
+              .findFirst()
+              .orElse(null);
+      return destination == null
+              || !destination.visible()
+              || !destination.enabled()
+              || destination.bounds() == null
+              || destination.occluded()
+              || !destination.inViewport()
+          ? "DRAG_DESTINATION_NOT_ACTIONABLE"
+          : "";
+    }
+    if (java.util.Set.of(ToolId.SWIPE_TARGET, ToolId.MOUSE_WHEEL).contains(toolId)) {
+      var invalid =
+          action.endTargetRef() != null
+              || action.key() != null
+              || action.button() != null
+              || (zero(action.deltaX()) && zero(action.deltaY()))
+              || invalidDelta(action.deltaX())
+              || invalidDelta(action.deltaY())
+              || (toolId == ToolId.SWIPE_TARGET && invalidDuration(action.durationMs()))
+              || (toolId == ToolId.MOUSE_WHEEL && action.durationMs() != null);
+      return invalid
+          ? toolId == ToolId.SWIPE_TARGET ? "SWIPE_INPUT_INVALID" : "WHEEL_INPUT_INVALID"
+          : "";
+    }
+    if (java.util.Set.of(ToolId.MOUSE_DOWN, ToolId.MOUSE_UP).contains(toolId)) {
+      return action.endTargetRef() != null
+              || action.key() != null
+              || action.deltaX() != null
+              || action.deltaY() != null
+              || action.durationMs() != null
+              || action.button() == null
+              || action.button() < 0
+              || action.button() > 2
+          ? "MOUSE_BUTTON_INPUT_INVALID"
+          : "";
+    }
+    if (java.util.Set.of(
+            ToolId.DROP_TARGET,
+            ToolId.MOUSE_MOVE,
+            ToolId.TOUCH_START,
+            ToolId.TOUCH_MOVE,
+            ToolId.TOUCH_END)
+        .contains(toolId)) {
+      return hasAdvancedInput(action) ? "POINTER_INPUT_INVALID" : "";
+    }
+    return hasAdvancedInput(action) ? "TARGET_ACTION_ADVANCED_INPUT_FORBIDDEN" : "";
+  }
+
+  private static boolean zero(Integer value) {
+    return value == null || value == 0;
+  }
+
+  private static boolean invalidDelta(Integer value) {
+    return value != null && Math.abs(value) > 4_000;
+  }
+
+  private static boolean invalidDuration(Integer value) {
+    return value != null && (value < 0 || value > 5_000);
   }
 
   private static boolean containsDialogAction(CreateAgentTaskRequest.ActionRequest action) {
@@ -808,13 +963,27 @@ public class AgentApplicationService {
             : singleActionInput(tenantId, sessionId, taskId, stepId, request, controlPolicy);
     var risk =
         switch (request.toolId()) {
-          case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, CLEAR_TARGET -> RiskClass.R2_DATA_CHANGE;
+          case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, CLEAR_TARGET, SELECT_OPTION ->
+              RiskClass.R2_DATA_CHANGE;
           case CLICK_TARGET,
                   DOUBLE_CLICK_TARGET,
                   RIGHT_CLICK_TARGET,
                   HOVER_TARGET,
                   CHECK_TARGET,
                   UNCHECK_TARGET,
+                  PRESS_KEY,
+                  DRAG_TARGET,
+                  DROP_TARGET,
+                  SWIPE_TARGET,
+                  MOUSE_MOVE,
+                  MOUSE_DOWN,
+                  MOUSE_UP,
+                  MOUSE_WHEEL,
+                  KEY_DOWN,
+                  KEY_UP,
+                  TOUCH_START,
+                  TOUCH_MOVE,
+                  TOUCH_END,
                   SCROLL ->
               RiskClass.R1_LOW_RISK_CHANGE;
           case OPEN_TAB, SWITCH_TAB -> RiskClass.R1_LOW_RISK_CHANGE;
@@ -913,7 +1082,14 @@ public class AgentApplicationService {
         true,
         request.tabId(),
         request.tabUrl(),
-        request.dialogId());
+        request.dialogId(),
+        request.endTargetRef(),
+        null,
+        request.key(),
+        request.button(),
+        request.deltaX(),
+        request.deltaY(),
+        request.durationMs());
   }
 
   private StepInput batchInput(
@@ -951,6 +1127,7 @@ public class AgentApplicationService {
               ? actionPayloadService.seal(tenantId, taskId, stepId + ":" + actionId, plaintext)
               : null;
       var elementId = stableElementId(currentState, action.targetRef());
+      var endElementId = stableElementId(currentState, action.endTargetRef());
       actions.add(
           new ActionInput(
               actionId,
@@ -971,7 +1148,14 @@ public class AgentApplicationService {
                   : 1,
               action.tabId(),
               action.tabUrl(),
-              action.dialogId()));
+              action.dialogId(),
+              action.endTargetRef(),
+              endElementId,
+              action.key(),
+              action.button(),
+              action.deltaX(),
+              action.deltaY(),
+              action.durationMs()));
     }
     return new StepInput(
         null,
@@ -987,6 +1171,13 @@ public class AgentApplicationService {
         1,
         actions,
         request.stopOnError() == null || request.stopOnError(),
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
         null,
         null,
         null);
@@ -1012,9 +1203,22 @@ public class AgentApplicationService {
               HOVER_TARGET,
               CLEAR_TARGET,
               CHECK_TARGET,
-              UNCHECK_TARGET ->
+              UNCHECK_TARGET,
+              PRESS_KEY,
+              DRAG_TARGET,
+              DROP_TARGET,
+              SWIPE_TARGET,
+              MOUSE_MOVE,
+              MOUSE_DOWN,
+              MOUSE_UP,
+              MOUSE_WHEEL,
+              KEY_DOWN,
+              KEY_UP,
+              TOUCH_START,
+              TOUCH_MOVE,
+              TOUCH_END ->
           "TARGET_ACTION";
-      case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD ->
+      case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SELECT_OPTION ->
           input == null
               ? "FORM_INPUT_PUBLIC"
               : switch (input.dataClass()) {
@@ -1060,6 +1264,20 @@ public class AgentApplicationService {
       case CLOSE_TAB -> "Close an existing authoritative Browser Page Target";
       case ACCEPT_DIALOG -> "Accept the exact authoritative browser-native JavaScript Dialog";
       case DISMISS_DIALOG -> "Dismiss the exact authoritative browser-native JavaScript Dialog";
+      case PRESS_KEY -> "Press one bounded key on the exact current-state target";
+      case SELECT_OPTION -> "Select one sealed option on the exact current-state control";
+      case DRAG_TARGET -> "Drag the exact source target to the exact destination target";
+      case DROP_TARGET -> "Drop the active bounded pointer drag on the exact destination target";
+      case SWIPE_TARGET -> "Swipe from the exact target by a bounded target-relative delta";
+      case MOUSE_MOVE -> "Move the pointer to the exact current-state target";
+      case MOUSE_DOWN -> "Press one bounded mouse button on the exact current-state target";
+      case MOUSE_UP -> "Release one bounded mouse button on the exact current-state target";
+      case MOUSE_WHEEL -> "Dispatch a bounded wheel gesture on the exact current-state target";
+      case KEY_DOWN -> "Press one bounded key on the exact current-state target";
+      case KEY_UP -> "Release one bounded key on the exact current-state target";
+      case TOUCH_START -> "Start one bounded touch on the exact current-state target";
+      case TOUCH_MOVE -> "Move the active bounded touch to the exact current-state target";
+      case TOUCH_END -> "End the active bounded touch on the exact current-state target";
       case EXECUTE_ACTIONS -> "Execute an ordered, state-fenced browser action batch";
       case REQUEST_HUMAN_TAKEOVER -> "Pause the Agent and request an explicit human takeover";
       default -> "Execute the authorized action";
@@ -1082,6 +1300,21 @@ public class AgentApplicationService {
       case CLOSE_TAB -> "REQUESTED_TAB_ABSENT_FROM_AUTHORITATIVE_STATE";
       case ACCEPT_DIALOG, DISMISS_DIALOG ->
           "REQUESTED_NATIVE_DIALOG_ABSENT_FROM_FRESH_AUTHORITATIVE_STATE";
+      case PRESS_KEY,
+              SELECT_OPTION,
+              DRAG_TARGET,
+              DROP_TARGET,
+              SWIPE_TARGET,
+              MOUSE_MOVE,
+              MOUSE_DOWN,
+              MOUSE_UP,
+              MOUSE_WHEEL,
+              KEY_DOWN,
+              KEY_UP,
+              TOUCH_START,
+              TOUCH_MOVE,
+              TOUCH_END ->
+          "POST_ACTION_STATE_VERSION_ADVANCED";
       case EXECUTE_ACTIONS -> "BATCH_ACTIONS_VERIFIED_WITH_FINAL_STATE";
       case REQUEST_HUMAN_TAKEOVER -> "HUMAN_HANDOFF_REQUEST_RECORDED";
       default -> "RESULT_VERIFIED";
@@ -1300,13 +1533,27 @@ public class AgentApplicationService {
             : requestedActions) {
       var actionRisk =
           switch (action.toolId()) {
-            case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, CLEAR_TARGET -> RiskClass.R2_DATA_CHANGE;
+            case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, CLEAR_TARGET, SELECT_OPTION ->
+                RiskClass.R2_DATA_CHANGE;
             case CLICK_TARGET,
                     DOUBLE_CLICK_TARGET,
                     RIGHT_CLICK_TARGET,
                     HOVER_TARGET,
                     CHECK_TARGET,
                     UNCHECK_TARGET,
+                    PRESS_KEY,
+                    DRAG_TARGET,
+                    DROP_TARGET,
+                    SWIPE_TARGET,
+                    MOUSE_MOVE,
+                    MOUSE_DOWN,
+                    MOUSE_UP,
+                    MOUSE_WHEEL,
+                    KEY_DOWN,
+                    KEY_UP,
+                    TOUCH_START,
+                    TOUCH_MOVE,
+                    TOUCH_END,
                     SCROLL,
                     OPEN_TAB,
                     SWITCH_TAB,
@@ -1404,7 +1651,9 @@ public class AgentApplicationService {
   }
 
   private static boolean isTextInput(ToolId toolId) {
-    return isSecretInput(toolId) || toolId == ToolId.PASTE_AGENT_CLIPBOARD;
+    return isSecretInput(toolId)
+        || toolId == ToolId.PASTE_AGENT_CLIPBOARD
+        || toolId == ToolId.SELECT_OPTION;
   }
 
   private static boolean isSecretInput(ToolId toolId) {

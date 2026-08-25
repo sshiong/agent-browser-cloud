@@ -45,6 +45,20 @@ public class AgentActionToolService {
           ToolId.CLOSE_TAB,
           ToolId.ACCEPT_DIALOG,
           ToolId.DISMISS_DIALOG,
+          ToolId.PRESS_KEY,
+          ToolId.SELECT_OPTION,
+          ToolId.DRAG_TARGET,
+          ToolId.DROP_TARGET,
+          ToolId.SWIPE_TARGET,
+          ToolId.MOUSE_MOVE,
+          ToolId.MOUSE_DOWN,
+          ToolId.MOUSE_UP,
+          ToolId.MOUSE_WHEEL,
+          ToolId.KEY_DOWN,
+          ToolId.KEY_UP,
+          ToolId.TOUCH_START,
+          ToolId.TOUCH_MOVE,
+          ToolId.TOUCH_END,
           ToolId.EXECUTE_ACTIONS);
 
   private final BrowserStateRepository stateRepository;
@@ -130,7 +144,21 @@ public class AgentActionToolService {
           UNCHECK_TARGET,
           TYPE_TEXT,
           FILL,
-          PASTE_AGENT_CLIPBOARD -> {
+          PASTE_AGENT_CLIPBOARD,
+          PRESS_KEY,
+          SELECT_OPTION,
+          DRAG_TARGET,
+          DROP_TARGET,
+          SWIPE_TARGET,
+          MOUSE_MOVE,
+          MOUSE_DOWN,
+          MOUSE_UP,
+          MOUSE_WHEEL,
+          KEY_DOWN,
+          KEY_UP,
+          TOUCH_START,
+          TOUCH_MOVE,
+          TOUCH_END -> {
         if (input.tabId() != null
             || input.tabUrl() != null
             || input.dialogId() != null
@@ -172,6 +200,9 @@ public class AgentActionToolService {
           if (!Set.of("textbox", "combobox").contains(target.role())) {
             throw new ActionToolException("TYPE_TARGET_ROLE_INVALID");
           }
+          if (step.toolId() == ToolId.SELECT_OPTION && !"combobox".equals(target.role())) {
+            throw new ActionToolException("SELECT_TARGET_ROLE_INVALID");
+          }
           if (input.sealedPayload() == null
               || input.sealedPayload().isBlank()
               || input.payloadHash() == null
@@ -179,6 +210,9 @@ public class AgentActionToolService {
               || input.payloadLength() < 1
               || input.payloadLength() > 2_000) {
             throw new ActionToolException("TYPE_PAYLOAD_INVALID");
+          }
+          if (hasAdvancedInput(input)) {
+            throw new ActionToolException("TEXT_ACTION_ADVANCED_INPUT_FORBIDDEN");
           }
         } else {
           if (input.sealedPayload() != null
@@ -191,6 +225,7 @@ public class AgentActionToolService {
             throw new ActionToolException("TARGET_ACTION_PAYLOAD_FORBIDDEN");
           }
           validateTargetActionRole(step.toolId(), target);
+          validateAdvancedTargetInput(step.toolId(), input, state);
         }
       }
       case SCROLL -> {
@@ -277,7 +312,21 @@ public class AgentActionToolService {
             ToolId.SWITCH_TAB,
             ToolId.CLOSE_TAB,
             ToolId.ACCEPT_DIALOG,
-            ToolId.DISMISS_DIALOG)
+            ToolId.DISMISS_DIALOG,
+            ToolId.PRESS_KEY,
+            ToolId.SELECT_OPTION,
+            ToolId.DRAG_TARGET,
+            ToolId.DROP_TARGET,
+            ToolId.SWIPE_TARGET,
+            ToolId.MOUSE_MOVE,
+            ToolId.MOUSE_DOWN,
+            ToolId.MOUSE_UP,
+            ToolId.MOUSE_WHEEL,
+            ToolId.KEY_DOWN,
+            ToolId.KEY_UP,
+            ToolId.TOUCH_START,
+            ToolId.TOUCH_MOVE,
+            ToolId.TOUCH_END)
         .contains(input.toolId())) {
       throw new ActionToolException("BATCH_ACTION_TOOL_FORBIDDEN");
     }
@@ -298,7 +347,14 @@ public class AgentActionToolService {
             true,
             input.tabId(),
             input.tabUrl(),
-            input.dialogId());
+            input.dialogId(),
+            input.endTargetRef(),
+            input.endElementId(),
+            input.key(),
+            input.button(),
+            input.deltaX(),
+            input.deltaY(),
+            input.durationMs());
     var step =
         new PlanStep(
             input.actionId(),
@@ -327,9 +383,22 @@ public class AgentActionToolService {
               HOVER_TARGET,
               CLEAR_TARGET,
               CHECK_TARGET,
-              UNCHECK_TARGET ->
+              UNCHECK_TARGET,
+              PRESS_KEY,
+              DRAG_TARGET,
+              DROP_TARGET,
+              SWIPE_TARGET,
+              MOUSE_MOVE,
+              MOUSE_DOWN,
+              MOUSE_UP,
+              MOUSE_WHEEL,
+              KEY_DOWN,
+              KEY_UP,
+              TOUCH_START,
+              TOUCH_MOVE,
+              TOUCH_END ->
           "TARGET_ACTION";
-      case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD ->
+      case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SELECT_OPTION ->
           switch (step.input().dataClass()) {
             case PII -> "FORM_INPUT_PII";
             case CREDENTIAL -> "FORM_INPUT_CREDENTIAL";
@@ -377,6 +446,7 @@ public class AgentActionToolService {
         || input.waitCondition() != null
         || input.timeoutMs() != null
         || input.dialogId() != null
+        || hasAdvancedInput(input)
         || !input.actions().isEmpty();
   }
 
@@ -403,6 +473,7 @@ public class AgentActionToolService {
         || input.scrollDeltaY() != null
         || input.waitCondition() != null
         || input.timeoutMs() != null
+        || hasAdvancedInput(input)
         || !input.actions().isEmpty()
         || !state.nativeDialogEvidenceFresh()) {
       throw new ActionToolException("NATIVE_DIALOG_BINDING_INVALID");
@@ -457,7 +528,119 @@ public class AgentActionToolService {
   private static boolean isTextInput(ToolId toolId) {
     return toolId == ToolId.TYPE_TEXT
         || toolId == ToolId.FILL
-        || toolId == ToolId.PASTE_AGENT_CLIPBOARD;
+        || toolId == ToolId.PASTE_AGENT_CLIPBOARD
+        || toolId == ToolId.SELECT_OPTION;
+  }
+
+  private static boolean hasAdvancedInput(StepInput input) {
+    return input.endTargetRef() != null
+        || input.endElementId() != null
+        || input.key() != null
+        || input.button() != null
+        || input.deltaX() != null
+        || input.deltaY() != null
+        || input.durationMs() != null;
+  }
+
+  private static void validateAdvancedTargetInput(
+      ToolId toolId, StepInput input, io.browsercloud.coordinator.NodeEvent.StateUpdated state) {
+    var keyAction = Set.of(ToolId.PRESS_KEY, ToolId.KEY_DOWN, ToolId.KEY_UP).contains(toolId);
+    var buttonAction = Set.of(ToolId.MOUSE_DOWN, ToolId.MOUSE_UP).contains(toolId);
+    var deltaAction = Set.of(ToolId.SWIPE_TARGET, ToolId.MOUSE_WHEEL).contains(toolId);
+    if (keyAction) {
+      if (input.key() == null
+          || input.key().isBlank()
+          || input.key().length() > 32
+          || input.endTargetRef() != null
+          || input.button() != null
+          || input.deltaX() != null
+          || input.deltaY() != null
+          || input.durationMs() != null) {
+        throw new ActionToolException("KEY_INPUT_INVALID");
+      }
+      return;
+    }
+    if (toolId == ToolId.DRAG_TARGET) {
+      if (input.endTargetRef() == null
+          || input.endTargetRef().isBlank()
+          || input.key() != null
+          || input.button() != null
+          || input.deltaX() != null
+          || input.deltaY() != null
+          || invalidDuration(input.durationMs())) {
+        throw new ActionToolException("DRAG_INPUT_INVALID");
+      }
+      var destination =
+          state.targets().stream()
+              .filter(
+                  candidate ->
+                      candidate.targetRef().equals(input.endTargetRef())
+                          || input.endTargetRef().equals(candidate.elementId()))
+              .findFirst()
+              .orElseThrow(() -> new ActionToolException("DRAG_DESTINATION_NOT_FOUND"));
+      if (!destination.visible()
+          || !destination.enabled()
+          || destination.bounds() == null
+          || destination.occluded()
+          || !destination.inViewport()) {
+        throw new ActionToolException("DRAG_DESTINATION_NOT_ACTIONABLE");
+      }
+      return;
+    }
+    if (deltaAction) {
+      if (input.endTargetRef() != null
+          || input.key() != null
+          || input.button() != null
+          || (zero(input.deltaX()) && zero(input.deltaY()))
+          || invalidDelta(input.deltaX())
+          || invalidDelta(input.deltaY())
+          || (toolId == ToolId.SWIPE_TARGET && invalidDuration(input.durationMs()))
+          || (toolId == ToolId.MOUSE_WHEEL && input.durationMs() != null)) {
+        throw new ActionToolException(
+            toolId == ToolId.SWIPE_TARGET ? "SWIPE_INPUT_INVALID" : "WHEEL_INPUT_INVALID");
+      }
+      return;
+    }
+    if (buttonAction) {
+      if (input.endTargetRef() != null
+          || input.key() != null
+          || input.deltaX() != null
+          || input.deltaY() != null
+          || input.durationMs() != null
+          || input.button() == null
+          || input.button() < 0
+          || input.button() > 2) {
+        throw new ActionToolException("MOUSE_BUTTON_INPUT_INVALID");
+      }
+      return;
+    }
+    if (Set.of(
+            ToolId.DROP_TARGET,
+            ToolId.MOUSE_MOVE,
+            ToolId.TOUCH_START,
+            ToolId.TOUCH_MOVE,
+            ToolId.TOUCH_END)
+        .contains(toolId)) {
+      if (hasAdvancedInput(input)) {
+        throw new ActionToolException("POINTER_INPUT_INVALID");
+      }
+      return;
+    }
+    if (hasAdvancedInput(input)) {
+      throw new ActionToolException("TARGET_ACTION_ADVANCED_INPUT_FORBIDDEN");
+    }
+  }
+
+  private static boolean zero(Integer value) {
+    return value == null || value == 0;
+  }
+
+  private static boolean invalidDelta(Integer value) {
+    return value != null && Math.abs(value) > 4_000;
+  }
+
+  private static boolean invalidDuration(Integer value) {
+    return value != null && (value < 0 || value > 5_000);
   }
 
   private static void validateTargetActionRole(

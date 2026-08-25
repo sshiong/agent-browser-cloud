@@ -426,7 +426,8 @@ public class NodeCommandOutboxDispatcher {
   private static boolean isTextInput(String toolId) {
     return toolId.equals("TYPE_TEXT")
         || toolId.equals("FILL")
-        || toolId.equals("PASTE_AGENT_CLIPBOARD");
+        || toolId.equals("PASTE_AGENT_CLIPBOARD")
+        || toolId.equals("SELECT_OPTION");
   }
 
   private void failEvidenceCaptureIfDeadLettered(

@@ -4114,6 +4114,7 @@ textbox = next(
     if item["role"] == "textbox" and not item["sensitive"]
 )
 checkbox = next(item for item in state["targets"] if item["role"] == "checkbox")
+select = next(item for item in state["targets"] if item["role"] == "combobox")
 actions = [
     ("HOVER_TARGET", button),
     ("DOUBLE_CLICK_TARGET", button),
@@ -4122,14 +4123,36 @@ actions = [
     ("CHECK_TARGET", checkbox),
     ("UNCHECK_TARGET", checkbox),
 ]
+advanced = [
+    {"toolId": "SELECT_OPTION", "target": select, "value": "beta", "dataClass": "PUBLIC"},
+    {"toolId": "PRESS_KEY", "target": textbox, "key": "Enter"},
+    {"toolId": "DRAG_TARGET", "target": button, "endTargetRef": textbox["elementId"], "durationMs": 160},
+    {"toolId": "MOUSE_MOVE", "target": button},
+    {"toolId": "MOUSE_DOWN", "target": button, "button": 0},
+    {"toolId": "DROP_TARGET", "target": textbox},
+    {"toolId": "MOUSE_WHEEL", "target": button, "deltaY": 240},
+    {"toolId": "KEY_DOWN", "target": button, "key": "Shift"},
+    {"toolId": "KEY_UP", "target": button, "key": "Shift"},
+    {"toolId": "TOUCH_START", "target": button},
+    {"toolId": "TOUCH_MOVE", "target": textbox},
+    {"toolId": "TOUCH_END", "target": textbox},
+    {"toolId": "SWIPE_TARGET", "target": button, "deltaX": 120, "deltaY": 40, "durationMs": 160},
+]
+batch = [{
+    "toolId": tool,
+    "targetRef": target["elementId"],
+    "targetRevision": state["targetRevision"],
+} for tool, target in actions]
+batch.extend({
+    key: value for key, value in item.items() if key != "target"
+} | {
+    "targetRef": item["target"]["elementId"],
+    "targetRevision": state["targetRevision"],
+} for item in advanced)
 print(json.dumps({
     "goal": "Exercise authorized low-risk page controls",
     "expectedStateCursor": snapshot["stateCursor"],
-    "actions": [{
-        "toolId": tool,
-        "targetRef": target["elementId"],
-        "targetRevision": state["targetRevision"],
-    } for tool, target in actions],
+    "actions": batch,
     "stopOnError": True,
 }, separators=(",", ":")))
 PY
@@ -4154,12 +4177,13 @@ for _ in $(seq 1 80); do
 done
 test "$extended_action_state" = "COMPLETED"
 printf '%s' "$extended_action_task" | python3 -c \
-  'import json,sys; task=json.load(sys.stdin); batch=next(item for item in task["executionResults"] if item["toolId"] == "EXECUTE_ACTIONS"); assert batch["output"]["completedActions"] == 6; assert [item["actionId"] for item in batch["output"]["actions"]] == [f"action_{index}" for index in range(1, 7)]; assert all(item["status"] == "SUCCEEDED" and item["errorCode"] == "" for item in batch["output"]["actions"])'
+  'import json,sys; task=json.load(sys.stdin); batch=next(item for item in task["executionResults"] if item["toolId"] == "EXECUTE_ACTIONS"); assert batch["output"]["completedActions"] == 19; assert [item["actionId"] for item in batch["output"]["actions"]] == [f"action_{index}" for index in range(1, 20)]; assert all(item["status"] == "SUCCEEDED" and item["errorCode"] == "" for item in batch["output"]["actions"])'
 curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Roles: TENANT_VIEWER' | python3 -c \
-  'import json,sys; state=json.load(sys.stdin)["state"]; textbox=next(item for item in state["targets"] if item["role"] == "textbox" and not item["sensitive"]); checkbox=next(item for item in state["targets"] if item["role"] == "checkbox"); assert textbox["value"] == ""; assert checkbox["checked"] is False'
+  'import json,sys; state=json.load(sys.stdin)["state"]; textbox=next(item for item in state["targets"] if item["role"] == "textbox" and not item["sensitive"]); checkbox=next(item for item in state["targets"] if item["role"] == "checkbox"); select=next(item for item in state["targets"] if item["role"] == "combobox"); assert textbox["value"] == ""; assert checkbox["checked"] is False; assert select["value"] == "beta"'
+printf 'agent_browser_advanced_actions=true\n'
 tab_session_created="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \

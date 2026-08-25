@@ -20,7 +20,8 @@ public enum AgentPolicy {
           ToolId.WAIT_FOR,
           ToolId.REQUEST_HUMAN_TAKEOVER)),
   BALANCED(8, 12, 1, 1, EnumSet.allOf(ToolId.class)),
-  INTERACTIVE(12, 20, 2, 3, EnumSet.allOf(ToolId.class));
+  // A full 20-primitive EXECUTE_ACTIONS batch also carries three bounded read/verification steps.
+  INTERACTIVE(12, 23, 2, 3, EnumSet.allOf(ToolId.class));
 
   private final int defaultMaxActions;
   private final int maximumMaxActions;

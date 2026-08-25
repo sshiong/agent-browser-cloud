@@ -58,6 +58,20 @@ public class AgentExecutionService {
           ToolId.CLOSE_TAB,
           ToolId.ACCEPT_DIALOG,
           ToolId.DISMISS_DIALOG,
+          ToolId.PRESS_KEY,
+          ToolId.SELECT_OPTION,
+          ToolId.DRAG_TARGET,
+          ToolId.DROP_TARGET,
+          ToolId.SWIPE_TARGET,
+          ToolId.MOUSE_MOVE,
+          ToolId.MOUSE_DOWN,
+          ToolId.MOUSE_UP,
+          ToolId.MOUSE_WHEEL,
+          ToolId.KEY_DOWN,
+          ToolId.KEY_UP,
+          ToolId.TOUCH_START,
+          ToolId.TOUCH_MOVE,
+          ToolId.TOUCH_END,
           ToolId.EXECUTE_ACTIONS);
 
   private final AgentTaskJpaRepository taskRepository;

@@ -221,6 +221,12 @@ type AgentActionRequest struct {
 	TabId          string                    `json:"tabId,omitempty"`
 	TabUrl         string                    `json:"tabUrl,omitempty"`
 	DialogId       string                    `json:"dialogId,omitempty"`
+	EndTargetRef   string                    `json:"endTargetRef,omitempty"`
+	Key            string                    `json:"key,omitempty"`
+	Button         int                       `json:"button,omitempty"`
+	DeltaX         int                       `json:"deltaX,omitempty"`
+	DeltaY         int                       `json:"deltaY,omitempty"`
+	DurationMs     int                       `json:"durationMs,omitempty"`
 	Actions        []AgentBatchActionRequest `json:"actions,omitempty"`
 	StopOnError    bool                      `json:"stopOnError,omitempty"`
 }
@@ -238,6 +244,12 @@ type AgentBatchActionRequest struct {
 	TabId          string `json:"tabId,omitempty"`
 	TabUrl         string `json:"tabUrl,omitempty"`
 	DialogId       string `json:"dialogId,omitempty"`
+	EndTargetRef   string `json:"endTargetRef,omitempty"`
+	Key            string `json:"key,omitempty"`
+	Button         int    `json:"button,omitempty"`
+	DeltaX         int    `json:"deltaX,omitempty"`
+	DeltaY         int    `json:"deltaY,omitempty"`
+	DurationMs     int    `json:"durationMs,omitempty"`
 }
 
 type AgentInstructionSource struct {
@@ -763,6 +775,13 @@ type AgentStepInput struct {
 	TabId                     any                     `json:"tabId,omitempty"`
 	TabUrl                    any                     `json:"tabUrl,omitempty"`
 	DialogId                  any                     `json:"dialogId,omitempty"`
+	EndTargetRef              any                     `json:"endTargetRef,omitempty"`
+	EndElementId              any                     `json:"endElementId,omitempty"`
+	Key                       any                     `json:"key,omitempty"`
+	Button                    any                     `json:"button,omitempty"`
+	DeltaX                    any                     `json:"deltaX,omitempty"`
+	DeltaY                    any                     `json:"deltaY,omitempty"`
+	DurationMs                any                     `json:"durationMs,omitempty"`
 }
 
 type AgentBatchActionInput struct {
@@ -782,6 +801,13 @@ type AgentBatchActionInput struct {
 	TabId                     any    `json:"tabId,omitempty"`
 	TabUrl                    any    `json:"tabUrl,omitempty"`
 	DialogId                  any    `json:"dialogId,omitempty"`
+	EndTargetRef              any    `json:"endTargetRef,omitempty"`
+	EndElementId              any    `json:"endElementId,omitempty"`
+	Key                       any    `json:"key,omitempty"`
+	Button                    any    `json:"button,omitempty"`
+	DeltaX                    any    `json:"deltaX,omitempty"`
+	DeltaY                    any    `json:"deltaY,omitempty"`
+	DurationMs                any    `json:"durationMs,omitempty"`
 }
 
 type AgentRiskClass string

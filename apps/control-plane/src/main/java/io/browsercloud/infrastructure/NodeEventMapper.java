@@ -556,6 +556,20 @@ public class NodeEventMapper {
                   "CLOSE_TAB",
                   "ACCEPT_DIALOG",
                   "DISMISS_DIALOG",
+                  "PRESS_KEY",
+                  "SELECT_OPTION",
+                  "DRAG_TARGET",
+                  "DROP_TARGET",
+                  "SWIPE_TARGET",
+                  "MOUSE_MOVE",
+                  "MOUSE_DOWN",
+                  "MOUSE_UP",
+                  "MOUSE_WHEEL",
+                  "KEY_DOWN",
+                  "KEY_UP",
+                  "TOUCH_START",
+                  "TOUCH_MOVE",
+                  "TOUCH_END",
                   "EXECUTE_ACTIONS")
               .contains(payload.getToolId())) {
             throw new IllegalArgumentException("unsupported Agent Action tool_id");

@@ -78,7 +78,7 @@ public class AgentBrowserActionApplicationService {
             request.goal(),
             null,
             List.copyOf(domains),
-            Math.min(20, request.actions().size() + 3),
+            request.actions().size() + 3,
             0,
             List.of(),
             List.of(batch));

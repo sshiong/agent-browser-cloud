@@ -40,6 +40,9 @@ pub struct InputLedger {
     pub last_sequence: u64,
     pub pointer_x: i32,
     pub pointer_y: i32,
+    pub active_touch: bool,
+    pub touch_x: i32,
+    pub touch_y: i32,
 }
 
 impl InputLedger {
@@ -71,6 +74,7 @@ impl InputLedger {
         self.pressed_keys.clear();
         self.pressed_buttons.clear();
         self.active_drag = false;
+        self.active_touch = false;
     }
 
     pub fn is_key_pressed(&self, key: &InputKey) -> bool {
@@ -78,7 +82,10 @@ impl InputLedger {
     }
 
     pub fn has_any_input(&self) -> bool {
-        !self.pressed_keys.is_empty() || !self.pressed_buttons.is_empty() || self.active_drag
+        !self.pressed_keys.is_empty()
+            || !self.pressed_buttons.is_empty()
+            || self.active_drag
+            || self.active_touch
     }
 }
 
@@ -91,6 +98,10 @@ pub trait DesktopInput: Send + Sync {
     async fn key_down(&self, key: InputKey, sequence: u64) -> anyhow::Result<()>;
     async fn key_up(&self, key: InputKey, sequence: u64) -> anyhow::Result<()>;
     async fn insert_text(&self, text: &str, sequence: u64) -> anyhow::Result<()>;
+    async fn mouse_wheel(&self, delta_x: i32, delta_y: i32, sequence: u64) -> anyhow::Result<()>;
+    async fn touch_start(&self, x: i32, y: i32, sequence: u64) -> anyhow::Result<()>;
+    async fn touch_move(&self, x: i32, y: i32, sequence: u64) -> anyhow::Result<()>;
+    async fn touch_end(&self, sequence: u64) -> anyhow::Result<()>;
     async fn release_all(&self) -> anyhow::Result<()>;
 }
 
@@ -182,6 +193,9 @@ impl CdpDesktopInput {
             last_sequence: ledger.last_sequence,
             pointer_x: ledger.pointer_x,
             pointer_y: ledger.pointer_y,
+            active_touch: ledger.active_touch,
+            touch_x: ledger.touch_x,
+            touch_y: ledger.touch_y,
         }
     }
 
@@ -373,7 +387,15 @@ impl CdpDesktopInput {
             )
             .await?;
         }
+        if ledger.active_touch {
+            self.send(
+                "Input.dispatchTouchEvent",
+                serde_json::json!({"type": "touchEnd", "touchPoints": []}),
+            )
+            .await?;
+        }
         ledger.release_all();
+        ledger.active_touch = false;
         self.mark_activity().await;
         Ok(())
     }
@@ -415,6 +437,7 @@ impl DesktopInput for CdpDesktopInput {
                 "type": "mouseMoved",
                 "x": x,
                 "y": y,
+                "buttons": Self::pressed_button_mask(&ledger)?,
                 "modifiers": Self::modifiers(&ledger)
             }),
         )
@@ -544,6 +567,90 @@ impl DesktopInput for CdpDesktopInput {
         Ok(())
     }
 
+    async fn mouse_wheel(&self, delta_x: i32, delta_y: i32, sequence: u64) -> anyhow::Result<()> {
+        anyhow::ensure!(delta_x != 0 || delta_y != 0, "wheel delta must be non-zero");
+        let mut ledger = self.ledger.lock().await;
+        if !Self::validate_sequence(&ledger, sequence)? {
+            return Ok(());
+        }
+        self.send(
+            "Input.dispatchMouseEvent",
+            serde_json::json!({
+                "type": "mouseWheel",
+                "x": ledger.pointer_x,
+                "y": ledger.pointer_y,
+                "deltaX": delta_x,
+                "deltaY": delta_y,
+                "buttons": Self::pressed_button_mask(&ledger)?,
+                "modifiers": Self::modifiers(&ledger)
+            }),
+        )
+        .await?;
+        ledger.last_sequence = sequence;
+        self.mark_activity().await;
+        Ok(())
+    }
+
+    async fn touch_start(&self, x: i32, y: i32, sequence: u64) -> anyhow::Result<()> {
+        let mut ledger = self.ledger.lock().await;
+        if !Self::validate_sequence(&ledger, sequence)? {
+            return Ok(());
+        }
+        anyhow::ensure!(!ledger.active_touch, "touch is already active");
+        self.send(
+            "Input.dispatchTouchEvent",
+            serde_json::json!({
+                "type": "touchStart",
+                "touchPoints": [{"x": x, "y": y, "id": 1, "radiusX": 1, "radiusY": 1}]
+            }),
+        )
+        .await?;
+        ledger.active_touch = true;
+        ledger.touch_x = x;
+        ledger.touch_y = y;
+        ledger.last_sequence = sequence;
+        self.mark_activity().await;
+        Ok(())
+    }
+
+    async fn touch_move(&self, x: i32, y: i32, sequence: u64) -> anyhow::Result<()> {
+        let mut ledger = self.ledger.lock().await;
+        if !Self::validate_sequence(&ledger, sequence)? {
+            return Ok(());
+        }
+        anyhow::ensure!(ledger.active_touch, "touch is not active");
+        self.send(
+            "Input.dispatchTouchEvent",
+            serde_json::json!({
+                "type": "touchMove",
+                "touchPoints": [{"x": x, "y": y, "id": 1, "radiusX": 1, "radiusY": 1}]
+            }),
+        )
+        .await?;
+        ledger.touch_x = x;
+        ledger.touch_y = y;
+        ledger.last_sequence = sequence;
+        self.mark_activity().await;
+        Ok(())
+    }
+
+    async fn touch_end(&self, sequence: u64) -> anyhow::Result<()> {
+        let mut ledger = self.ledger.lock().await;
+        if !Self::validate_sequence(&ledger, sequence)? {
+            return Ok(());
+        }
+        anyhow::ensure!(ledger.active_touch, "touch is not active");
+        self.send(
+            "Input.dispatchTouchEvent",
+            serde_json::json!({"type": "touchEnd", "touchPoints": []}),
+        )
+        .await?;
+        ledger.active_touch = false;
+        ledger.last_sequence = sequence;
+        self.mark_activity().await;
+        Ok(())
+    }
+
     async fn release_all(&self) -> anyhow::Result<()> {
         let mut ledger = self.ledger.lock().await;
         self.release_locked(&mut ledger).await
@@ -559,7 +666,8 @@ pub async fn run_release_watchdog<I: DesktopInput>(
     if heartbeat_age > std::time::Duration::from_secs(5)
         && (!ledger.pressed_keys.is_empty()
             || !ledger.pressed_buttons.is_empty()
-            || ledger.active_drag)
+            || ledger.active_drag
+            || ledger.active_touch)
     {
         tracing::warn!("Input watchdog triggered, releasing all inputs");
         input.release_all().await?;
@@ -627,9 +735,9 @@ mod tests {
     async fn dispatches_real_cdp_input_and_releases_pressed_keys() {
         let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let websocket_address = websocket_listener.local_addr().unwrap();
-        let (sender, mut receiver) = mpsc::channel(4);
+        let (sender, mut receiver) = mpsc::channel(8);
         let websocket_task = tokio::spawn(async move {
-            for _ in 0..3 {
+            for _ in 0..7 {
                 let (stream, _) = websocket_listener.accept().await.unwrap();
                 let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
                 let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
@@ -694,16 +802,30 @@ mod tests {
             .insert_text("public note", 2)
             .await
             .expect("text should be delivered through Input.insertText");
+        input.mouse_wheel(0, 240, 3).await.unwrap();
+        input.touch_start(10, 20, 4).await.unwrap();
+        input.touch_move(30, 40, 5).await.unwrap();
+        input.touch_end(6).await.unwrap();
 
         let key_down = receiver.recv().await.unwrap();
         let key_up = receiver.recv().await.unwrap();
         let insert_text = receiver.recv().await.unwrap();
+        let wheel = receiver.recv().await.unwrap();
+        let touch_start = receiver.recv().await.unwrap();
+        let touch_move = receiver.recv().await.unwrap();
+        let touch_end = receiver.recv().await.unwrap();
         assert_eq!(key_down["method"], "Input.dispatchKeyEvent");
         assert_eq!(key_down["params"]["type"], "keyDown");
         assert!(key_down["params"].get("text").is_none());
         assert_eq!(key_up["params"]["type"], "keyUp");
         assert_eq!(insert_text["method"], "Input.insertText");
         assert_eq!(insert_text["params"]["text"], "public note");
+        assert_eq!(wheel["params"]["type"], "mouseWheel");
+        assert_eq!(wheel["params"]["deltaY"], 240);
+        assert_eq!(touch_start["params"]["type"], "touchStart");
+        assert_eq!(touch_move["params"]["touchPoints"][0]["x"], 30);
+        assert_eq!(touch_end["params"]["type"], "touchEnd");
+        assert!(!input.ledger_snapshot().await.active_touch);
         assert!(receiver.try_recv().is_err());
 
         websocket_task.await.unwrap();

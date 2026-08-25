@@ -81,6 +81,46 @@ fn rebound_action_target(
     }
 }
 
+fn rebound_action_end_target(
+    action: &AgentActionPrimitive,
+    current_target_revision: u64,
+) -> (String, u64) {
+    if action.end_element_id.is_empty() {
+        (action.end_target_ref.clone(), action.target_revision)
+    } else {
+        (action.end_element_id.clone(), current_target_revision)
+    }
+}
+
+fn bounded_input_key(value: &str) -> anyhow::Result<InputKey> {
+    anyhow::ensure!(
+        !value.is_empty() && value.chars().count() <= 32,
+        "key must contain 1 to 32 characters"
+    );
+    Ok(match value {
+        "Shift" => InputKey::Shift,
+        "Control" => InputKey::Control,
+        "Alt" => InputKey::Alt,
+        "Meta" => InputKey::Meta,
+        "Enter" => InputKey::Enter,
+        "Tab" => InputKey::Tab,
+        "Escape" => InputKey::Escape,
+        "Backspace" => InputKey::Backspace,
+        "Delete" => InputKey::Delete,
+        "ArrowUp" => InputKey::ArrowUp,
+        "ArrowDown" => InputKey::ArrowDown,
+        "ArrowLeft" => InputKey::ArrowLeft,
+        "ArrowRight" => InputKey::ArrowRight,
+        other
+            if other.chars().count() == 1
+                && !other.chars().any(|character| character.is_control()) =>
+        {
+            InputKey::Character(other.to_owned())
+        }
+        _ => anyhow::bail!("key is not in the bounded allowlist"),
+    })
+}
+
 fn agent_file_cursor_is_current(
     current_state_version: u64,
     current_content_hash: &str,
@@ -3483,6 +3523,12 @@ impl NodeControlService {
                 && payload.tab_id.is_empty()
                 && payload.tab_url.is_empty()
                 && payload.dialog_id.is_empty()
+                && payload.end_target_ref.is_empty()
+                && payload.key.is_empty()
+                && payload.button == 0
+                && payload.delta_x == 0
+                && payload.delta_y == 0
+                && payload.duration_ms == 0
                 && (1..=20).contains(&payload.actions.len()),
             "agent action batch payload is invalid"
         );
@@ -3515,6 +3561,20 @@ impl NodeControlService {
                             | "CLOSE_TAB"
                             | "ACCEPT_DIALOG"
                             | "DISMISS_DIALOG"
+                            | "PRESS_KEY"
+                            | "SELECT_OPTION"
+                            | "DRAG_TARGET"
+                            | "DROP_TARGET"
+                            | "SWIPE_TARGET"
+                            | "MOUSE_MOVE"
+                            | "MOUSE_DOWN"
+                            | "MOUSE_UP"
+                            | "MOUSE_WHEEL"
+                            | "KEY_DOWN"
+                            | "KEY_UP"
+                            | "TOUCH_START"
+                            | "TOUCH_MOVE"
+                            | "TOUCH_END"
                             | "TYPE_TEXT"
                             | "FILL"
                             | "PASTE_AGENT_CLIPBOARD"
@@ -3561,6 +3621,12 @@ impl NodeControlService {
                 tab_id: action.tab_id.clone(),
                 tab_url: action.tab_url.clone(),
                 dialog_id: action.dialog_id.clone(),
+                end_target_ref: rebound_action_end_target(action, current.target_revision).0,
+                key: action.key.clone(),
+                button: action.button,
+                delta_x: action.delta_x,
+                delta_y: action.delta_y,
+                duration_ms: action.duration_ms,
             };
             match Box::pin(self.execute_agent_action(&single)).await {
                 Ok(state) => {
@@ -3632,7 +3698,17 @@ impl NodeControlService {
             | "UNCHECK_TARGET"
             | "TYPE_TEXT"
             | "FILL"
-            | "PASTE_AGENT_CLIPBOARD" => {
+            | "PASTE_AGENT_CLIPBOARD"
+            | "SELECT_OPTION" => {
+                anyhow::ensure!(
+                    payload.end_target_ref.is_empty()
+                        && payload.key.is_empty()
+                        && payload.button == 0
+                        && payload.delta_x == 0
+                        && payload.delta_y == 0
+                        && payload.duration_ms == 0,
+                    "target action contains advanced input fields"
+                );
                 let target = self
                     .state_collector
                     .resolve_target(
@@ -3643,7 +3719,7 @@ impl NodeControlService {
                     .await?;
                 if matches!(
                     payload.tool_id.as_str(),
-                    "TYPE_TEXT" | "FILL" | "PASTE_AGENT_CLIPBOARD"
+                    "TYPE_TEXT" | "FILL" | "PASTE_AGENT_CLIPBOARD" | "SELECT_OPTION"
                 ) {
                     anyhow::ensure!(
                         !target.sensitive || payload.allow_sensitive_target,
@@ -3661,6 +3737,10 @@ impl NodeControlService {
                     anyhow::ensure!(
                         matches!(target.role.as_str(), "textbox" | "combobox"),
                         "type target role is not supported"
+                    );
+                    anyhow::ensure!(
+                        payload.tool_id != "SELECT_OPTION" || target.role == "combobox",
+                        "select target role is not supported"
                     );
                     anyhow::ensure!(
                         payload.sealed_text.is_empty() && !payload.text.is_empty(),
@@ -3761,7 +3841,7 @@ impl NodeControlService {
                             input.key_up(InputKey::Backspace, sequence(8)?).await?;
                         } else if matches!(
                             payload.tool_id.as_str(),
-                            "TYPE_TEXT" | "FILL" | "PASTE_AGENT_CLIPBOARD"
+                            "TYPE_TEXT" | "FILL" | "PASTE_AGENT_CLIPBOARD" | "SELECT_OPTION"
                         ) {
                             // FILL and Clipboard paste replace the field. Sensitive TYPE_TEXT also
                             // replaces on every retry so a password or OTP is never appended twice.
@@ -3776,6 +3856,10 @@ impl NodeControlService {
                                 input.key_up(InputKey::Control, sequence(7)?).await?;
                             }
                             input.insert_text(&payload.text, sequence(8)?).await?;
+                            if payload.tool_id == "SELECT_OPTION" {
+                                input.key_down(InputKey::Enter, sequence(9)?).await?;
+                                input.key_up(InputKey::Enter, sequence(10)?).await?;
+                            }
                         }
                         Ok(())
                     }
@@ -3795,6 +3879,251 @@ impl NodeControlService {
                 }
                 if let Some(error) = last_error {
                     return Err(error);
+                }
+            }
+            "PRESS_KEY" | "DRAG_TARGET" | "DROP_TARGET" | "SWIPE_TARGET" | "MOUSE_MOVE"
+            | "MOUSE_DOWN" | "MOUSE_UP" | "MOUSE_WHEEL" | "KEY_DOWN" | "KEY_UP" | "TOUCH_START"
+            | "TOUCH_MOVE" | "TOUCH_END" => {
+                anyhow::ensure!(
+                    payload.text.is_empty()
+                        && payload.sealed_text.is_empty()
+                        && payload.scroll_delta_y == 0
+                        && payload.wait_condition.is_empty()
+                        && payload.timeout_ms == 0,
+                    "advanced input contains unsupported fields"
+                );
+                let target = self
+                    .state_collector
+                    .resolve_target(
+                        &payload.session_id,
+                        &payload.target_ref,
+                        payload.target_revision,
+                    )
+                    .await?;
+                let start_x = target.bounds.x + target.bounds.width / 2.0;
+                let start_y = target.bounds.y + target.bounds.height / 2.0;
+                anyhow::ensure!(
+                    start_x.is_finite()
+                        && start_y.is_finite()
+                        && start_x >= 0.0
+                        && start_y >= 0.0
+                        && start_x <= i32::MAX as f64
+                        && start_y <= i32::MAX as f64,
+                    "target center is outside the input coordinate range"
+                );
+                let start = (start_x.round() as i32, start_y.round() as i32);
+                let input = self.active_input_broker(&payload.session_id).await?;
+                let mut sequence = input.ledger_snapshot().await.last_sequence;
+                let next = |value: &mut u64| -> anyhow::Result<u64> {
+                    *value = value
+                        .checked_add(1)
+                        .ok_or_else(|| anyhow::anyhow!("input sequence overflow"))?;
+                    Ok(*value)
+                };
+                match payload.tool_id.as_str() {
+                    "PRESS_KEY" | "KEY_DOWN" | "KEY_UP" => {
+                        anyhow::ensure!(
+                            payload.end_target_ref.is_empty()
+                                && payload.button == 0
+                                && payload.delta_x == 0
+                                && payload.delta_y == 0
+                                && payload.duration_ms == 0,
+                            "key input contains unsupported fields"
+                        );
+                        let key = bounded_input_key(&payload.key)?;
+                        input
+                            .mouse_move(start.0, start.1, next(&mut sequence)?)
+                            .await?;
+                        if payload.tool_id != "KEY_UP" {
+                            input.mouse_click(0, 1, next(&mut sequence)?).await?;
+                        }
+                        if payload.tool_id != "KEY_UP" {
+                            input.key_down(key.clone(), next(&mut sequence)?).await?;
+                        }
+                        if payload.tool_id != "KEY_DOWN" {
+                            input.key_up(key, next(&mut sequence)?).await?;
+                        }
+                    }
+                    "MOUSE_MOVE" => {
+                        anyhow::ensure!(
+                            payload.end_target_ref.is_empty()
+                                && payload.key.is_empty()
+                                && payload.button == 0
+                                && payload.delta_x == 0
+                                && payload.delta_y == 0
+                                && payload.duration_ms == 0,
+                            "mouse move contains unsupported fields"
+                        );
+                        input
+                            .mouse_move(start.0, start.1, next(&mut sequence)?)
+                            .await?;
+                    }
+                    "MOUSE_DOWN" | "MOUSE_UP" => {
+                        anyhow::ensure!(
+                            payload.end_target_ref.is_empty()
+                                && payload.key.is_empty()
+                                && payload.button <= 2
+                                && payload.delta_x == 0
+                                && payload.delta_y == 0
+                                && payload.duration_ms == 0,
+                            "mouse button input is invalid"
+                        );
+                        input
+                            .mouse_move(start.0, start.1, next(&mut sequence)?)
+                            .await?;
+                        if payload.tool_id == "MOUSE_DOWN" {
+                            input
+                                .mouse_down(payload.button as u8, next(&mut sequence)?)
+                                .await?;
+                        } else {
+                            input
+                                .mouse_up(payload.button as u8, next(&mut sequence)?)
+                                .await?;
+                        }
+                    }
+                    "MOUSE_WHEEL" => {
+                        anyhow::ensure!(
+                            payload.end_target_ref.is_empty()
+                                && payload.key.is_empty()
+                                && payload.button == 0
+                                && (payload.delta_x != 0 || payload.delta_y != 0)
+                                && payload.delta_x.unsigned_abs() <= 4_000
+                                && payload.delta_y.unsigned_abs() <= 4_000
+                                && payload.duration_ms == 0,
+                            "mouse wheel input is invalid"
+                        );
+                        input
+                            .mouse_move(start.0, start.1, next(&mut sequence)?)
+                            .await?;
+                        input
+                            .mouse_wheel(payload.delta_x, payload.delta_y, next(&mut sequence)?)
+                            .await?;
+                    }
+                    "DRAG_TARGET" => {
+                        anyhow::ensure!(
+                            !payload.end_target_ref.is_empty()
+                                && payload.key.is_empty()
+                                && payload.button == 0
+                                && payload.delta_x == 0
+                                && payload.delta_y == 0
+                                && payload.duration_ms <= 5_000,
+                            "drag input is invalid"
+                        );
+                        let destination = self
+                            .state_collector
+                            .resolve_target(
+                                &payload.session_id,
+                                &payload.end_target_ref,
+                                payload.target_revision,
+                            )
+                            .await?;
+                        let end = (
+                            (destination.bounds.x + destination.bounds.width / 2.0).round() as i32,
+                            (destination.bounds.y + destination.bounds.height / 2.0).round() as i32,
+                        );
+                        let duration = payload.duration_ms.max(80);
+                        let drag_result: anyhow::Result<()> = async {
+                            input
+                                .mouse_move(start.0, start.1, next(&mut sequence)?)
+                                .await?;
+                            input.mouse_down(0, next(&mut sequence)?).await?;
+                            for index in 1..=8_i32 {
+                                let x = start.0 + (end.0 - start.0) * index / 8;
+                                let y = start.1 + (end.1 - start.1) * index / 8;
+                                input.mouse_move(x, y, next(&mut sequence)?).await?;
+                                tokio::time::sleep(Duration::from_millis(u64::from(duration / 8)))
+                                    .await;
+                            }
+                            input.mouse_up(0, next(&mut sequence)?).await
+                        }
+                        .await;
+                        if let Err(error) = drag_result {
+                            let _ = input.release_all().await;
+                            return Err(error);
+                        }
+                    }
+                    "DROP_TARGET" => {
+                        anyhow::ensure!(
+                            payload.end_target_ref.is_empty()
+                                && payload.key.is_empty()
+                                && payload.button == 0
+                                && payload.delta_x == 0
+                                && payload.delta_y == 0
+                                && payload.duration_ms == 0
+                                && input.ledger_snapshot().await.pressed_buttons.contains(&0),
+                            "drop requires one active bounded drag"
+                        );
+                        input
+                            .mouse_move(start.0, start.1, next(&mut sequence)?)
+                            .await?;
+                        input.mouse_up(0, next(&mut sequence)?).await?;
+                    }
+                    "SWIPE_TARGET" => {
+                        anyhow::ensure!(
+                            payload.end_target_ref.is_empty()
+                                && payload.key.is_empty()
+                                && payload.button == 0
+                                && (payload.delta_x != 0 || payload.delta_y != 0)
+                                && payload.delta_x.unsigned_abs() <= 4_000
+                                && payload.delta_y.unsigned_abs() <= 4_000
+                                && payload.duration_ms <= 5_000,
+                            "swipe input is invalid"
+                        );
+                        let end =
+                            (
+                                start.0.checked_add(payload.delta_x).ok_or_else(|| {
+                                    anyhow::anyhow!("swipe x coordinate overflow")
+                                })?,
+                                start.1.checked_add(payload.delta_y).ok_or_else(|| {
+                                    anyhow::anyhow!("swipe y coordinate overflow")
+                                })?,
+                            );
+                        anyhow::ensure!(end.0 >= 0 && end.1 >= 0, "swipe leaves the viewport");
+                        input
+                            .touch_start(start.0, start.1, next(&mut sequence)?)
+                            .await?;
+                        let duration = payload.duration_ms.max(80);
+                        let swipe_result: anyhow::Result<()> = async {
+                            for index in 1..=8_i32 {
+                                let x = start.0 + (end.0 - start.0) * index / 8;
+                                let y = start.1 + (end.1 - start.1) * index / 8;
+                                input.touch_move(x, y, next(&mut sequence)?).await?;
+                                tokio::time::sleep(Duration::from_millis(u64::from(duration / 8)))
+                                    .await;
+                            }
+                            input.touch_end(next(&mut sequence)?).await
+                        }
+                        .await;
+                        if let Err(error) = swipe_result {
+                            let _ = input.release_all().await;
+                            return Err(error);
+                        }
+                    }
+                    "TOUCH_START" | "TOUCH_MOVE" | "TOUCH_END" => {
+                        anyhow::ensure!(
+                            payload.end_target_ref.is_empty()
+                                && payload.key.is_empty()
+                                && payload.button == 0
+                                && payload.delta_x == 0
+                                && payload.delta_y == 0
+                                && payload.duration_ms == 0,
+                            "touch input contains unsupported fields"
+                        );
+                        match payload.tool_id.as_str() {
+                            "TOUCH_START" => {
+                                input
+                                    .touch_start(start.0, start.1, next(&mut sequence)?)
+                                    .await?
+                            }
+                            "TOUCH_MOVE" => {
+                                input
+                                    .touch_move(start.0, start.1, next(&mut sequence)?)
+                                    .await?
+                            }
+                            _ => input.touch_end(next(&mut sequence)?).await?,
+                        }
+                    }
+                    _ => unreachable!(),
                 }
             }
             "SCROLL" => {
@@ -5717,6 +6046,20 @@ impl NodeControlService {
                                 | "CLOSE_TAB"
                                 | "ACCEPT_DIALOG"
                                 | "DISMISS_DIALOG"
+                                | "PRESS_KEY"
+                                | "SELECT_OPTION"
+                                | "DRAG_TARGET"
+                                | "DROP_TARGET"
+                                | "SWIPE_TARGET"
+                                | "MOUSE_MOVE"
+                                | "MOUSE_DOWN"
+                                | "MOUSE_UP"
+                                | "MOUSE_WHEEL"
+                                | "KEY_DOWN"
+                                | "KEY_UP"
+                                | "TOUCH_START"
+                                | "TOUCH_MOVE"
+                                | "TOUCH_END"
                                 | "TYPE_TEXT"
                                 | "FILL"
                                 | "PASTE_AGENT_CLIPBOARD"
@@ -6416,6 +6759,12 @@ impl NodeControlService {
                             tab_id: String::new(),
                             tab_url: String::new(),
                             dialog_id: String::new(),
+                            end_target_ref: String::new(),
+                            key: String::new(),
+                            button: 0,
+                            delta_x: 0,
+                            delta_y: 0,
+                            duration_ms: 0,
                         };
                         let state = match self.execute_agent_action(&click).await {
                             Ok(state) => state,
@@ -9292,6 +9641,33 @@ mod tests {
             rebound_action_target(&action, 7),
             ("target:2:1".to_owned(), 2)
         );
+    }
+
+    #[test]
+    fn advanced_batch_rebinds_both_drag_targets_and_allows_only_bounded_keys() {
+        let action = AgentActionPrimitive {
+            target_ref: "target:2:1".into(),
+            target_revision: 2,
+            element_id: "e-source".into(),
+            end_target_ref: "target:2:2".into(),
+            end_element_id: "e-destination".into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            rebound_action_target(&action, 9),
+            ("e-source".to_owned(), 9)
+        );
+        assert_eq!(
+            rebound_action_end_target(&action, 9),
+            ("e-destination".to_owned(), 9)
+        );
+        assert_eq!(bounded_input_key("Enter").unwrap(), InputKey::Enter);
+        assert_eq!(
+            bounded_input_key("x").unwrap(),
+            InputKey::Character("x".to_owned())
+        );
+        assert!(bounded_input_key("F13").is_err());
+        assert!(bounded_input_key("ab").is_err());
     }
 
     #[test]

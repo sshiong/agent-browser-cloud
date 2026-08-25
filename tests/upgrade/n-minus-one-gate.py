@@ -661,6 +661,17 @@ for field_name, field_tag in (("tab_id", 18), ("tab_url", 19)):
 assert re.search(r"\bdialog_id\s*=\s*20\s*;", agent_action_contract), (
     "AgentActionCommand lacks additive Native Dialog ID tag 20"
 )
+for field_name, field_tag in (
+    ("end_target_ref", 21),
+    ("key", 22),
+    ("button", 23),
+    ("delta_x", 24),
+    ("delta_y", 25),
+    ("duration_ms", 26),
+):
+    assert re.search(rf"\b{field_name}\s*=\s*{field_tag}\s*;", agent_action_contract), (
+        f"AgentActionCommand lacks additive advanced input {field_name} tag {field_tag}"
+    )
 agent_action_primitive_contract = node_contract.split(
     "message AgentActionPrimitive {", 1
 )[1].split("}", 1)[0]
@@ -674,6 +685,18 @@ for field_name, field_tag in (("tab_id", 13), ("tab_url", 14)):
 assert re.search(r"\bdialog_id\s*=\s*15\s*;", agent_action_primitive_contract), (
     "AgentActionPrimitive lacks additive Native Dialog ID tag 15"
 )
+for field_name, field_tag in (
+    ("end_target_ref", 16),
+    ("end_element_id", 17),
+    ("key", 18),
+    ("button", 19),
+    ("delta_x", 20),
+    ("delta_y", 21),
+    ("duration_ms", 22),
+):
+    assert re.search(
+        rf"\b{field_name}\s*=\s*{field_tag}\s*;", agent_action_primitive_contract
+    ), f"AgentActionPrimitive lacks additive advanced input {field_name} tag {field_tag}"
 agent_batch_action_input_contract = read("packages/contracts/openapi/session-api.yaml").split(
     "    AgentBatchActionInput:", 1
 )[1].split(
@@ -683,6 +706,17 @@ assert "- elementId" in agent_batch_action_input_contract
 assert "elementId:" in agent_batch_action_input_contract
 assert "- dialogId" in agent_batch_action_input_contract
 assert "dialogId:" in agent_batch_action_input_contract
+for field_name in (
+    "endTargetRef",
+    "endElementId",
+    "key",
+    "button",
+    "deltaX",
+    "deltaY",
+    "durationMs",
+):
+    assert f"- {field_name}" in agent_batch_action_input_contract
+    assert f"{field_name}:" in agent_batch_action_input_contract
 start_runtime_contract = node_contract.split("message StartRuntimeCommand {", 1)[1].split("}", 1)[0]
 for field_name, field_tag in (
     ("identity_user_agent", 39),
@@ -2777,7 +2811,7 @@ for invariant in (
 
 facts = {
     "schema": "V019-V021 additive,V028,V034,V039-V042,V062-V065,V070,V084-V086,V097 expand-online-index-validate,V098-site-policy-additive-and-validate,V099-recording-manifest-additive-and-validate,V100-secure-debug-notification-admission-function-replace,V101-browser-node-freshness-additive,V102-enterprise-overview-stream-additive,V103-challenge-visual-automation-additive-default-three,V104-agent-autonomous-input-additive-safe-default,V105-agent-human-input-assistance-additive,V106-challenge-human-motion-additive-bounded,V107-session-identity-lock-additive,V108-agent-clipboard-isolated-encrypted,V109-agent-browser-files-additive-direct-stream,V110-agent-browser-screenshot-metadata-and-purpose-grant,V111-agent-browser-javascript-evaluation-additive,online concurrent-index,V029-V033,V035-V038,V043-V060,V066-V068,V071-V076 additive,V077 gameday-expand,V078 gameday-governance-additive,V079 agent-worker-expand,V080 reviewer-worker-expand,V081 agent-human-input-wait-expand,V082 state-resync-budget-additive,V083-state-snapshot-stream-additive,V093-workspace-desktop-actor-quota-additive-default-and-validate,V094-desktop-usage-metering-additive-default-and-validate,V095-profile-export-access-additive-and-validate,V096-profile-warm-tier-journal-additive-and-validate,V061 concurrent-trigram-index,V069 concurrent-agent-summary-index,V070 workspace-overview-stream",
-    "protobuf": "unknown-fields-13-16,optional-28-53,browser-transaction-tags-35-37-capability-gated,browser-transaction-site-policy-start-tags-34-38,session-identity-start-tags-39-53,proxy-health-tags-31-34,resource-readback-tags-40-56,remote-desktop-usage-tags-10-12,cold-probe-rpc-request-1-6-response-1-7-capability-gated,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,recording-finalized-event-tags-1-14,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-28,recovery-extension-tag-6,browser-readiness-tags-full-and-diff-11-14,state-snapshot-begin-chunk-commit-additive,resync-request-and-cpu-tags-9-16-17,profile-import-stream-tags-1-10-capability-gated,evidence-presign-tags-request-1-8-response-1-5,profile-export-presign-tags-request-1-5-response-1-8-capability-gated,warm-tier-sync-event-tags-1-13,observer-capture-tags-1-2,agent-screenshot-command-tags-1-14-capability-gated,agent-javascript-evaluation-command-tags-1-12-event-tags-1-19-capability-gated,challenge-visual-action-and-failure-and-motion-tags-9-13,agent-action-sensitive-input-and-batch-tags-14-20,agent-action-primitive-stable-element-tab-and-dialog-tags-12-15,browser-tab-and-native-dialog-state-full-diff-tags-15-21,interactive-target-structured-fields-8-18,agent-browser-download-full-diff-tags-19-23,agent-file-stage-stream-and-command-additive",
+    "protobuf": "unknown-fields-13-16,optional-28-53,browser-transaction-tags-35-37-capability-gated,browser-transaction-site-policy-start-tags-34-38,session-identity-start-tags-39-53,proxy-health-tags-31-34,resource-readback-tags-40-56,remote-desktop-usage-tags-10-12,cold-probe-rpc-request-1-6-response-1-7-capability-gated,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,recording-finalized-event-tags-1-14,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-28,recovery-extension-tag-6,browser-readiness-tags-full-and-diff-11-14,state-snapshot-begin-chunk-commit-additive,resync-request-and-cpu-tags-9-16-17,profile-import-stream-tags-1-10-capability-gated,evidence-presign-tags-request-1-8-response-1-5,profile-export-presign-tags-request-1-5-response-1-8-capability-gated,warm-tier-sync-event-tags-1-13,observer-capture-tags-1-2,agent-screenshot-command-tags-1-14-capability-gated,agent-javascript-evaluation-command-tags-1-12-event-tags-1-19-capability-gated,challenge-visual-action-and-failure-and-motion-tags-9-13,agent-action-sensitive-input-and-batch-tags-14-20,agent-action-primitive-stable-element-tab-and-dialog-tags-12-15,agent-action-advanced-command-tags-21-26-and-primitive-tags-16-22,browser-tab-and-native-dialog-state-full-diff-tags-15-21,interactive-target-structured-fields-8-18,agent-browser-download-full-diff-tags-19-23,agent-file-stage-stream-and-command-additive",
     "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints,proxy-provider-routing-metadata,workspace-batch-operation-saved-view-filter-and-metadata-batch-and-agent-summary-and-workspace-overview-and-notification-stream-and-audit-stream-and-enterprise-overview-stream-and-release-freeze-and-validation-worker-and-gameday-worker-and-gameday-governance-and-agent-worker-and-reviewer-worker-and-human-input-wait-additive-contracts",
     "rolling": "leased-rendezvous-shard-dispatch,durable-routed-coordinator-command-inbox,durable-workspace-batch-command-ledger,isolated-metadata-batch-lease-ledger,isolated-validation-worker-lease-and-claim-token-fencing,isolated-gameday-worker-lease-claim-token-and-recovery-fencing,isolated-agent-worker-lease-claim-token-and-epoch-fencing,isolated-reviewer-worker-lease-claim-token-model-revision-and-plan-hash-fencing,isolated-vision-worker-lease-claim-token-model-revision-and-screenshot-grant-fencing,proxy-cold-probe-db-lease-and-node-capability,proxy-routing-snapshot-and-fail-closed-selection,migration-target-generation-floor-capability,recording-frame-redaction-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }

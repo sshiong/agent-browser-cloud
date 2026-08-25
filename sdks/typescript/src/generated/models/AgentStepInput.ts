@@ -22,4 +22,11 @@ export type AgentStepInput = {
     tabId: string | null;
     tabUrl: string | null;
     dialogId: string | null;
+    endTargetRef: string | null;
+    endElementId: string | null;
+    key: string | null;
+    button: number | null;
+    deltaX: number | null;
+    deltaY: number | null;
+    durationMs: number | null;
 };

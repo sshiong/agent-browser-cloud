@@ -164,7 +164,7 @@ class CreateAgentTaskRequest(TypedDict, total=False):
     actions: list[AgentActionRequest]
 
 class AgentActionRequest(TypedDict, total=False):
-    toolId: Literal['CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB', 'ACCEPT_DIALOG', 'DISMISS_DIALOG', 'EXECUTE_ACTIONS', 'REQUEST_HUMAN_TAKEOVER']
+    toolId: Literal['CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB', 'ACCEPT_DIALOG', 'DISMISS_DIALOG', 'PRESS_KEY', 'SELECT_OPTION', 'DRAG_TARGET', 'DROP_TARGET', 'SWIPE_TARGET', 'MOUSE_MOVE', 'MOUSE_DOWN', 'MOUSE_UP', 'MOUSE_WHEEL', 'KEY_DOWN', 'KEY_UP', 'TOUCH_START', 'TOUCH_MOVE', 'TOUCH_END', 'EXECUTE_ACTIONS', 'REQUEST_HUMAN_TAKEOVER']
     targetRef: str
     targetRevision: int
     value: str
@@ -176,11 +176,17 @@ class AgentActionRequest(TypedDict, total=False):
     tabId: str
     tabUrl: str
     dialogId: str
+    endTargetRef: str
+    key: str
+    button: int
+    deltaX: int
+    deltaY: int
+    durationMs: int
     actions: list[AgentBatchActionRequest]
     stopOnError: bool
 
 class AgentBatchActionRequest(TypedDict, total=False):
-    toolId: Literal['CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB', 'ACCEPT_DIALOG', 'DISMISS_DIALOG']
+    toolId: Literal['CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB', 'ACCEPT_DIALOG', 'DISMISS_DIALOG', 'PRESS_KEY', 'SELECT_OPTION', 'DRAG_TARGET', 'DROP_TARGET', 'SWIPE_TARGET', 'MOUSE_MOVE', 'MOUSE_DOWN', 'MOUSE_UP', 'MOUSE_WHEEL', 'KEY_DOWN', 'KEY_UP', 'TOUCH_START', 'TOUCH_MOVE', 'TOUCH_END']
     targetRef: str
     targetRevision: int
     value: str
@@ -192,6 +198,12 @@ class AgentBatchActionRequest(TypedDict, total=False):
     tabId: str
     tabUrl: str
     dialogId: str
+    endTargetRef: str
+    key: str
+    button: int
+    deltaX: int
+    deltaY: int
+    durationMs: int
 
 class AgentInstructionSource(TypedDict, total=False):
     sourceId: str
@@ -520,7 +532,7 @@ class FailAgentReviewJobRequest(TypedDict, total=False):
 
 class AgentReviewStep(TypedDict, total=False):
     stepId: str
-    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB', 'ACCEPT_DIALOG', 'DISMISS_DIALOG', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
+    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB', 'ACCEPT_DIALOG', 'DISMISS_DIALOG', 'PRESS_KEY', 'SELECT_OPTION', 'DRAG_TARGET', 'DROP_TARGET', 'SWIPE_TARGET', 'MOUSE_MOVE', 'MOUSE_DOWN', 'MOUSE_UP', 'MOUSE_WHEEL', 'KEY_DOWN', 'KEY_UP', 'TOUCH_START', 'TOUCH_MOVE', 'TOUCH_END', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
     riskClass: AgentRiskClass
     targetOrigin: Any
     targetRefHash: Any
@@ -639,7 +651,7 @@ class AgentPlan(TypedDict, total=False):
 
 class AgentPlanStep(TypedDict, total=False):
     stepId: str
-    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB', 'ACCEPT_DIALOG', 'DISMISS_DIALOG', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
+    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB', 'ACCEPT_DIALOG', 'DISMISS_DIALOG', 'PRESS_KEY', 'SELECT_OPTION', 'DRAG_TARGET', 'DROP_TARGET', 'SWIPE_TARGET', 'MOUSE_MOVE', 'MOUSE_DOWN', 'MOUSE_UP', 'MOUSE_WHEEL', 'KEY_DOWN', 'KEY_UP', 'TOUCH_START', 'TOUCH_MOVE', 'TOUCH_END', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
     riskClass: AgentRiskClass
     targetUrl: Any
     input: AgentStepInput | None
@@ -669,10 +681,17 @@ class AgentStepInput(TypedDict, total=False):
     tabId: Any
     tabUrl: Any
     dialogId: Any
+    endTargetRef: Any
+    endElementId: Any
+    key: Any
+    button: Any
+    deltaX: Any
+    deltaY: Any
+    durationMs: Any
 
 class AgentBatchActionInput(TypedDict, total=False):
     actionId: str
-    toolId: Literal['CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB', 'ACCEPT_DIALOG', 'DISMISS_DIALOG']
+    toolId: Literal['CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB', 'ACCEPT_DIALOG', 'DISMISS_DIALOG', 'PRESS_KEY', 'SELECT_OPTION', 'DRAG_TARGET', 'DROP_TARGET', 'SWIPE_TARGET', 'MOUSE_MOVE', 'MOUSE_DOWN', 'MOUSE_UP', 'MOUSE_WHEEL', 'KEY_DOWN', 'KEY_UP', 'TOUCH_START', 'TOUCH_MOVE', 'TOUCH_END']
     targetRef: Any
     elementId: Any
     targetRevision: Any
@@ -687,6 +706,13 @@ class AgentBatchActionInput(TypedDict, total=False):
     tabId: Any
     tabUrl: Any
     dialogId: Any
+    endTargetRef: Any
+    endElementId: Any
+    key: Any
+    button: Any
+    deltaX: Any
+    deltaY: Any
+    durationMs: Any
 
 AgentRiskClass = Literal['R0_READ_ONLY', 'R1_LOW_RISK_CHANGE', 'R2_DATA_CHANGE', 'R3_ACCOUNT_CHANGE', 'R4_FINANCIAL', 'R5_SECURITY']
 
@@ -694,7 +720,7 @@ AgentPolicy = Literal['DISABLED', 'RESTRICTED', 'BALANCED', 'INTERACTIVE']
 
 class AgentToolExecutionResult(TypedDict, total=False):
     stepId: str
-    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB', 'ACCEPT_DIALOG', 'DISMISS_DIALOG', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
+    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB', 'ACCEPT_DIALOG', 'DISMISS_DIALOG', 'PRESS_KEY', 'SELECT_OPTION', 'DRAG_TARGET', 'DROP_TARGET', 'SWIPE_TARGET', 'MOUSE_MOVE', 'MOUSE_DOWN', 'MOUSE_UP', 'MOUSE_WHEEL', 'KEY_DOWN', 'KEY_UP', 'TOUCH_START', 'TOUCH_MOVE', 'TOUCH_END', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
     status: Literal['VERIFIED', 'WAITING_FOR_HUMAN', 'ACCEPTED']
     resultHash: str
     output: dict[str, Any]

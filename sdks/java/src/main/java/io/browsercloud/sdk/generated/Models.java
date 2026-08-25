@@ -55,9 +55,9 @@ public final class Models {
 
   public record CreateAgentTaskRequest(String goal, String startUrl, List<String> allowedDomains, Integer maxActions, Integer replanBudget, List<AgentInstructionSource> contextSources, List<AgentActionRequest> actions) {}
 
-  public record AgentActionRequest(String toolId, String targetRef, Long targetRevision, String value, String secretId, String dataClass, Integer scrollDeltaY, String waitCondition, Integer timeoutMs, String tabId, String tabUrl, String dialogId, List<AgentBatchActionRequest> actions, Boolean stopOnError) {}
+  public record AgentActionRequest(String toolId, String targetRef, Long targetRevision, String value, String secretId, String dataClass, Integer scrollDeltaY, String waitCondition, Integer timeoutMs, String tabId, String tabUrl, String dialogId, String endTargetRef, String key, Integer button, Integer deltaX, Integer deltaY, Integer durationMs, List<AgentBatchActionRequest> actions, Boolean stopOnError) {}
 
-  public record AgentBatchActionRequest(String toolId, String targetRef, Long targetRevision, String value, String secretId, String dataClass, Integer scrollDeltaY, String waitCondition, Integer timeoutMs, String tabId, String tabUrl, String dialogId) {}
+  public record AgentBatchActionRequest(String toolId, String targetRef, Long targetRevision, String value, String secretId, String dataClass, Integer scrollDeltaY, String waitCondition, Integer timeoutMs, String tabId, String tabUrl, String dialogId, String endTargetRef, String key, Integer button, Integer deltaX, Integer deltaY, Integer durationMs) {}
 
   public record AgentInstructionSource(String sourceId, String sourceType, String classification, String content) {}
 
@@ -153,9 +153,9 @@ public final class Models {
 
   public record AgentPlanStep(String stepId, String toolId, AgentRiskClass riskClass, Object targetUrl, AgentStepInput input, String rationale, List<String> supportingSources, String trustFloor, List<String> taintLabels, Boolean requiredConfirmation, String strategy, String requiredStateQuality, String verification, String capabilityTokenId) {}
 
-  public record AgentStepInput(Object targetRef, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs, Boolean sensitiveTargetAuthorized, Integer maximumAttempts, List<AgentBatchActionInput> actions, Boolean stopOnError, Object tabId, Object tabUrl, Object dialogId) {}
+  public record AgentStepInput(Object targetRef, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs, Boolean sensitiveTargetAuthorized, Integer maximumAttempts, List<AgentBatchActionInput> actions, Boolean stopOnError, Object tabId, Object tabUrl, Object dialogId, Object endTargetRef, Object endElementId, Object key, Object button, Object deltaX, Object deltaY, Object durationMs) {}
 
-  public record AgentBatchActionInput(String actionId, String toolId, Object targetRef, Object elementId, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs, Boolean sensitiveTargetAuthorized, Integer maximumAttempts, Object tabId, Object tabUrl, Object dialogId) {}
+  public record AgentBatchActionInput(String actionId, String toolId, Object targetRef, Object elementId, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs, Boolean sensitiveTargetAuthorized, Integer maximumAttempts, Object tabId, Object tabUrl, Object dialogId, Object endTargetRef, Object endElementId, Object key, Object button, Object deltaX, Object deltaY, Object durationMs) {}
 
   public enum AgentRiskClass { R0READONLY, R1LOWRISKCHANGE, R2DATACHANGE, R3ACCOUNTCHANGE, R4FINANCIAL, R5SECURITY }
 

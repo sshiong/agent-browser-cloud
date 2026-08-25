@@ -80,6 +80,7 @@ class AgentBrowserActionApplicationServiceTest {
         .containsExactly("example.com");
     org.assertj.core.api.Assertions.assertThat(create.getValue().actions().getFirst().toolId())
         .isEqualTo(ToolId.EXECUTE_ACTIONS);
+    org.assertj.core.api.Assertions.assertThat(create.getValue().maxActions()).isEqualTo(4);
     verify(reviewer).enqueueForExecution("agt_1234567890abcdef", "tenant-test", "idem:execute");
   }
 
@@ -146,6 +147,34 @@ class AgentBrowserActionApplicationServiceTest {
         "ses_1234567890abcdef", "tenant-test", "idem", request("9:2:" + "a".repeat(64)));
 
     verifyNoInteractions(execution, reviewer, externalWorker, routing);
+  }
+
+  @Test
+  void reservesThreeVerificationStepsForTheFullTwentyPrimitiveBatch() {
+    var task = mock(AgentTaskView.class);
+    when(task.state()).thenReturn(TaskState.AWAITING_CONFIRMATION);
+    when(tasks.create(eq("ses_1234567890abcdef"), eq("tenant-test"), any(), eq("idem:create")))
+        .thenReturn(task);
+    var action =
+        new CreateAgentTaskRequest.BatchActionRequest(
+            ToolId.MOUSE_MOVE, "e123", 2L, null, null, null, null, null, null);
+
+    service.execute(
+        "ses_1234567890abcdef",
+        "tenant-test",
+        "idem",
+        new ExecuteActionsRequest(
+            "Bounded full batch",
+            "9:2:" + "a".repeat(64),
+            java.util.Collections.nCopies(20, action),
+            true));
+
+    var create = ArgumentCaptor.forClass(CreateAgentTaskRequest.class);
+    verify(tasks)
+        .create(eq("ses_1234567890abcdef"), eq("tenant-test"), create.capture(), eq("idem:create"));
+    org.assertj.core.api.Assertions.assertThat(create.getValue().maxActions()).isEqualTo(23);
+    org.assertj.core.api.Assertions.assertThat(create.getValue().actions().getFirst().actions())
+        .hasSize(20);
   }
 
   private static ExecuteActionsRequest request(String cursor) {

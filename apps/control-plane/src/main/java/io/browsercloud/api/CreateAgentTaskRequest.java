@@ -19,7 +19,7 @@ public record CreateAgentTaskRequest(
     @NotNull @Size(min = 1, max = 20)
         List<@NotBlank @Size(max = 253) @Pattern(regexp = "^[A-Za-z0-9.-]+$") String>
             allowedDomains,
-    @Min(1) @Max(20) Integer maxActions,
+    @Min(1) @Max(23) Integer maxActions,
     @Min(0) @Max(3) Integer replanBudget,
     @Valid @Size(max = 20) List<InstructionSourceRequest> contextSources,
     @Valid @Size(max = 10) List<ActionRequest> actions) {
@@ -44,7 +44,13 @@ public record CreateAgentTaskRequest(
       Boolean stopOnError,
       @Size(max = 128) String tabId,
       @Size(max = 8_192) String tabUrl,
-      @Pattern(regexp = "^dlg_[0-9a-f]{20}$") String dialogId) {
+      @Pattern(regexp = "^dlg_[0-9a-f]{20}$") String dialogId,
+      @Size(max = 128) String endTargetRef,
+      @Size(max = 32) String key,
+      @Min(0) @Max(2) Integer button,
+      @Min(-4_000) @Max(4_000) Integer deltaX,
+      @Min(-4_000) @Max(4_000) Integer deltaY,
+      @Min(0) @Max(5_000) Integer durationMs) {
     public ActionRequest(
         ToolId toolId,
         String targetRef,
@@ -67,6 +73,50 @@ public record CreateAgentTaskRequest(
           timeoutMs,
           List.of(),
           true,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null);
+    }
+
+    public ActionRequest(
+        ToolId toolId,
+        String targetRef,
+        Long targetRevision,
+        String value,
+        String secretId,
+        ActionDataClass dataClass,
+        Integer scrollDeltaY,
+        WaitCondition waitCondition,
+        Integer timeoutMs,
+        List<BatchActionRequest> actions,
+        Boolean stopOnError,
+        String tabId,
+        String tabUrl,
+        String dialogId) {
+      this(
+          toolId,
+          targetRef,
+          targetRevision,
+          value,
+          secretId,
+          dataClass,
+          scrollDeltaY,
+          waitCondition,
+          timeoutMs,
+          actions,
+          stopOnError,
+          tabId,
+          tabUrl,
+          dialogId,
+          null,
+          null,
+          null,
           null,
           null,
           null);
@@ -100,6 +150,12 @@ public record CreateAgentTaskRequest(
           stopOnError,
           tabId,
           tabUrl,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
           null);
     }
 
@@ -129,6 +185,12 @@ public record CreateAgentTaskRequest(
           stopOnError,
           null,
           null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
           null);
     }
 
@@ -149,7 +211,13 @@ public record CreateAgentTaskRequest(
       @Min(100) @Max(10_000) Integer timeoutMs,
       @Size(max = 128) String tabId,
       @Size(max = 8_192) String tabUrl,
-      @Pattern(regexp = "^dlg_[0-9a-f]{20}$") String dialogId) {
+      @Pattern(regexp = "^dlg_[0-9a-f]{20}$") String dialogId,
+      @Size(max = 128) String endTargetRef,
+      @Size(max = 32) String key,
+      @Min(0) @Max(2) Integer button,
+      @Min(-4_000) @Max(4_000) Integer deltaX,
+      @Min(-4_000) @Max(4_000) Integer deltaY,
+      @Min(0) @Max(5_000) Integer durationMs) {
     public BatchActionRequest(
         ToolId toolId,
         String targetRef,
@@ -170,6 +238,46 @@ public record CreateAgentTaskRequest(
           scrollDeltaY,
           waitCondition,
           timeoutMs,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null);
+    }
+
+    public BatchActionRequest(
+        ToolId toolId,
+        String targetRef,
+        Long targetRevision,
+        String value,
+        String secretId,
+        ActionDataClass dataClass,
+        Integer scrollDeltaY,
+        WaitCondition waitCondition,
+        Integer timeoutMs,
+        String tabId,
+        String tabUrl,
+        String dialogId) {
+      this(
+          toolId,
+          targetRef,
+          targetRevision,
+          value,
+          secretId,
+          dataClass,
+          scrollDeltaY,
+          waitCondition,
+          timeoutMs,
+          tabId,
+          tabUrl,
+          dialogId,
+          null,
+          null,
+          null,
           null,
           null,
           null);
@@ -199,6 +307,12 @@ public record CreateAgentTaskRequest(
           timeoutMs,
           tabId,
           tabUrl,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
           null);
     }
   }

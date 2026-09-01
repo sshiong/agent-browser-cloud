@@ -1,30 +1,64 @@
 import { LoaderCircle, MonitorOff, Radio } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import {
   createRemoteDesktopConnection,
   isSessionApiError,
 } from '@/api/session';
-import type { RfbDisconnectEvent, RfbSecurityFailureEvent } from '@novnc/novnc';
+import type {
+  RfbClipboardEvent,
+  RfbDisconnectEvent,
+  RfbSecurityFailureEvent,
+} from '@novnc/novnc';
 
 export type DesktopConnectionState =
   'CONNECTING' | 'CONNECTED' | 'DISCONNECTED' | 'FAILED';
 
-export function NoVncViewport({
-  sessionId,
-  bindingEpoch,
-  viewOnly = false,
-  onConnectionState,
-  onUnexpectedDisconnect,
-}: {
-  sessionId: string;
-  bindingEpoch: number;
-  viewOnly?: boolean;
-  onConnectionState?: (state: DesktopConnectionState) => void;
-  onUnexpectedDisconnect?: () => void;
-}) {
+export interface NoVncViewportHandle {
+  writeUserClipboard(value: string): boolean;
+}
+
+export interface UserClipboardObservation {
+  value: string;
+  observedAt: string;
+}
+
+export const NoVncViewport = forwardRef<
+  NoVncViewportHandle,
+  {
+    sessionId: string;
+    bindingEpoch: number;
+    viewOnly?: boolean;
+    onConnectionState?: (state: DesktopConnectionState) => void;
+    onUnexpectedDisconnect?: () => void;
+    onConnectionId?: (connectionId?: string) => void;
+    onUserClipboard?: (observation: UserClipboardObservation) => void;
+  }
+>(function NoVncViewport(
+  {
+    sessionId,
+    bindingEpoch,
+    viewOnly = false,
+    onConnectionState,
+    onUnexpectedDisconnect,
+    onConnectionId,
+    onUserClipboard,
+  },
+  ref
+) {
   const viewportRef = useRef<HTMLDivElement>(null);
+  const clientRef = useRef<import('@novnc/novnc').default | undefined>(
+    undefined
+  );
   const onConnectionStateRef = useRef(onConnectionState);
   const onUnexpectedDisconnectRef = useRef(onUnexpectedDisconnect);
+  const onConnectionIdRef = useRef(onConnectionId);
+  const onUserClipboardRef = useRef(onUserClipboard);
   const [state, setState] = useState<DesktopConnectionState>('CONNECTING');
   const [error, setError] = useState<string>();
   const [actorQuota, setActorQuota] = useState<{
@@ -33,6 +67,21 @@ export function NoVncViewport({
   }>();
   onConnectionStateRef.current = onConnectionState;
   onUnexpectedDisconnectRef.current = onUnexpectedDisconnect;
+  onConnectionIdRef.current = onConnectionId;
+  onUserClipboardRef.current = onUserClipboard;
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      writeUserClipboard(value: string) {
+        if (!clientRef.current || state !== 'CONNECTED' || viewOnly)
+          return false;
+        clientRef.current.clipboardPasteFrom(value);
+        return true;
+      },
+    }),
+    [state, viewOnly]
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -63,6 +112,7 @@ export function NoVncViewport({
             '远程桌面票据属于过期 Session Context，请刷新后重试。'
           );
         }
+        onConnectionIdRef.current?.(connection.connectionId);
         if (
           connection.actorBitrateLimitKbps &&
           connection.actorFrameRateLimitFps
@@ -85,6 +135,7 @@ export function NoVncViewport({
           shared: true,
           wsProtocols: ['binary'],
         });
+        clientRef.current = client;
         client.background = '#080d13';
         client.scaleViewport = true;
         client.resizeSession = false;
@@ -114,6 +165,15 @@ export function NoVncViewport({
           setError(detail.reason || 'VNC 安全协商失败。');
           transition('FAILED');
         });
+        client.addEventListener('clipboard', (event) => {
+          if (disposed) return;
+          const value = (event as RfbClipboardEvent).detail.text;
+          if (!value || value.length > 2_000) return;
+          onUserClipboardRef.current?.({
+            value,
+            observedAt: new Date().toISOString(),
+          });
+        });
       } catch (reason) {
         if (controller.signal.aborted || disposed) return;
         const message = isSessionApiError(reason)
@@ -131,6 +191,8 @@ export function NoVncViewport({
       disposed = true;
       controller.abort();
       client?.disconnect();
+      clientRef.current = undefined;
+      onConnectionIdRef.current?.(undefined);
     };
   }, [bindingEpoch, sessionId, viewOnly]);
 
@@ -179,4 +241,4 @@ export function NoVncViewport({
       )}
     </div>
   );
-}
+});

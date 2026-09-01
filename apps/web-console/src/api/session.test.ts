@@ -7,6 +7,8 @@ import {
   createRemoteDesktopConnection,
   createSession,
   createAgentInputSecret,
+  createClipboardBridge,
+  completeClipboardBridge,
   submitChallengeInputResponse,
   getBrowserState,
   getBusinessRecovery,
@@ -241,6 +243,82 @@ describe('session API', () => {
           'Idempotency-Key': 'desktop-revoke-request-1',
           'X-Actor-Id': 'admin-test',
         }),
+      })
+    );
+  });
+
+  it('binds explicit clipboard bridges to one actor, connection, purpose and idempotency key', async () => {
+    const bridge = {
+      bridgeId: 'acb_1234567890abcdefghij',
+      sessionId: 'ses_1234567890abcdef',
+      direction: 'AGENT_TO_USER',
+      purpose: 'HUMAN_ASSISTANCE',
+      connectionId: 'rdc_1234567890abcdefghij',
+      state: 'ISSUED',
+      agentClipboardVersion: 2,
+      contentHash: 'a'.repeat(64),
+      valueLength: 12,
+      value: 'handoff text',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(bridge), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ ...bridge, state: 'COMPLETED', value: null }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createClipboardBridge(
+      bridge.sessionId,
+      {
+        direction: 'AGENT_TO_USER',
+        purpose: 'HUMAN_ASSISTANCE',
+        connectionId: bridge.connectionId,
+        expectedAgentClipboardVersion: 2,
+      },
+      'clipboard-bridge-request-1',
+      'tenant-test',
+      'operator-test'
+    );
+    await completeClipboardBridge(
+      bridge.sessionId,
+      bridge.bridgeId,
+      bridge.contentHash,
+      'tenant-test',
+      'operator-test'
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      `/api/v1/sessions/${bridge.sessionId}/agent-browser/clipboard-bridges`,
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Idempotency-Key': 'clipboard-bridge-request-1',
+          'X-Tenant-Id': 'tenant-test',
+          'X-Actor-Id': 'operator-test',
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `/api/v1/sessions/${bridge.sessionId}/agent-browser/clipboard-bridges/${bridge.bridgeId}:complete`,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ contentHash: bridge.contentHash }),
       })
     );
   });

@@ -29,6 +29,7 @@ export type { AgentBrowserSnapshot } from './models/AgentBrowserSnapshot.js';
 export type { AgentBrowserTab } from './models/AgentBrowserTab.js';
 export type { AgentBrowserTargetList } from './models/AgentBrowserTargetList.js';
 export type { AgentClipboard } from './models/AgentClipboard.js';
+export type { AgentClipboardBridge } from './models/AgentClipboardBridge.js';
 export type { AgentConfirmation } from './models/AgentConfirmation.js';
 export type { AgentExecutionJob } from './models/AgentExecutionJob.js';
 export type { AgentExecutionJobClaim } from './models/AgentExecutionJobClaim.js';
@@ -95,6 +96,7 @@ export type { ClaimChallengeVisualJobRequest } from './models/ClaimChallengeVisu
 export type { ClaimRecoveryGameDayJobRequest } from './models/ClaimRecoveryGameDayJobRequest.js';
 export type { ClaimRuntimeValidationJobRequest } from './models/ClaimRuntimeValidationJobRequest.js';
 export type { CommitEnvironmentImportRequest } from './models/CommitEnvironmentImportRequest.js';
+export type { CompleteAgentClipboardBridgeRequest } from './models/CompleteAgentClipboardBridgeRequest.js';
 export type { CompleteAgentReviewJobRequest } from './models/CompleteAgentReviewJobRequest.js';
 export type { CompleteChallengeVisualJobRequest } from './models/CompleteChallengeVisualJobRequest.js';
 export type { CompleteKeyRotationRequest } from './models/CompleteKeyRotationRequest.js';
@@ -105,6 +107,7 @@ export type { CompleteRuntimeValidationRequest } from './models/CompleteRuntimeV
 export type { ComplianceSnapshot } from './models/ComplianceSnapshot.js';
 export type { CostRate } from './models/CostRate.js';
 export type { CreateAgentBrowserEvaluationRequest } from './models/CreateAgentBrowserEvaluationRequest.js';
+export type { CreateAgentClipboardBridgeRequest } from './models/CreateAgentClipboardBridgeRequest.js';
 export type { CreateAgentInputSecretRequest } from './models/CreateAgentInputSecretRequest.js';
 export type { CreateAgentTaskRequest } from './models/CreateAgentTaskRequest.js';
 export type { CreateBreakGlassRequest } from './models/CreateBreakGlassRequest.js';

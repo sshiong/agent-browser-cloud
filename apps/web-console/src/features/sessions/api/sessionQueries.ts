@@ -52,6 +52,9 @@ import {
   getCurrentChallengeAutomationRun,
   createAgentInputSecret,
   submitChallengeInputResponse,
+  readAgentClipboard,
+  createClipboardBridge,
+  completeClipboardBridge,
 } from '@/api/session';
 import type {
   CreateSessionRequest,
@@ -66,6 +69,7 @@ import type {
   EvidencePurpose,
   AuthorizeHumanAssistRequest,
   UpdateChallengeAutomationPolicyRequest,
+  CreateClipboardBridgeRequest,
 } from '@/types/session';
 import type { ProxyRebindRequest } from '@/types/proxy';
 
@@ -116,6 +120,8 @@ export const sessionKeys = {
     [...sessionKeys.detail(sessionId), 'desktop-participants'] as const,
   desktopParticipantHistory: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'desktop-participant-history'] as const,
+  agentClipboard: (sessionId: string) =>
+    [...sessionKeys.detail(sessionId), 'agent-clipboard'] as const,
   challengePreview: (sessionId: string, eventId: string) =>
     [...sessionKeys.challenges(sessionId), eventId, 'preview'] as const,
   recoveryContracts: ['application-recovery-contracts'] as const,
@@ -853,6 +859,44 @@ export function useRevokeRemoteDesktopParticipant(sessionId: string) {
         queryKey: sessionKeys.desktopParticipants(sessionId),
       });
     },
+  });
+}
+
+export function useAgentClipboard(sessionId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: sessionKeys.agentClipboard(sessionId),
+    queryFn: ({ signal }) =>
+      readAgentClipboard(sessionId, undefined, undefined, signal, false),
+    enabled: enabled && Boolean(sessionId),
+  });
+}
+
+export function useCreateClipboardBridge(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateClipboardBridgeRequest) =>
+      createClipboardBridge(
+        sessionId,
+        body,
+        `clipboard-bridge-${crypto.randomUUID()}`
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: sessionKeys.agentClipboard(sessionId),
+      });
+    },
+  });
+}
+
+export function useCompleteClipboardBridge(sessionId: string) {
+  return useMutation({
+    mutationFn: ({
+      bridgeId,
+      contentHash,
+    }: {
+      bridgeId: string;
+      contentHash: string;
+    }) => completeClipboardBridge(sessionId, bridgeId, contentHash),
   });
 }
 

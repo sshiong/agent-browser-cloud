@@ -83,6 +83,12 @@ public class AgentClipboardApplicationService {
 
   @Transactional
   public AgentClipboardView read(String sessionId, String tenantId, String actorId) {
+    return read(sessionId, tenantId, actorId, true);
+  }
+
+  @Transactional
+  public AgentClipboardView read(
+      String sessionId, String tenantId, String actorId, boolean includeValue) {
     requireTenant(sessionId, tenantId);
     var row = currentRow(sessionId, tenantId, false);
     if (row == null || row.sealedValue() == null) {
@@ -95,9 +101,13 @@ public class AgentClipboardApplicationService {
           row == null ? null : row.updatedAt());
     }
     var value =
-        payloads.unsealReference(
-            tenantId, sessionId, REFERENCE_PREFIX + row.version(), row.sealedValue());
-    appendAudit(tenantId, sessionId, actorId, "READ", row.version(), row.contentHash());
+        includeValue
+            ? payloads.unsealReference(
+                tenantId, sessionId, REFERENCE_PREFIX + row.version(), row.sealedValue())
+            : null;
+    if (includeValue) {
+      appendAudit(tenantId, sessionId, actorId, "READ", row.version(), row.contentHash());
+    }
     return new AgentClipboardView(
         sessionId, row.version(), row.contentHash(), row.valueLength(), value, row.updatedAt());
   }

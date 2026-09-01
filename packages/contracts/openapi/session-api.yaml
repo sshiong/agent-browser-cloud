@@ -685,6 +685,11 @@ paths:
       parameters:
         - $ref: "#/components/parameters/SessionId"
         - $ref: "#/components/parameters/TenantId"
+        - name: includeValue
+          in: query
+          required: false
+          description: Set false for metadata-only reads that never decrypt plaintext.
+          schema: {type: boolean, default: true}
       responses:
         "200":
           description: Current AgentClipboard; value is null when empty.
@@ -734,6 +739,66 @@ paths:
                 $ref: "#/components/schemas/AgentClipboard"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}/agent-browser/clipboard-bridges:
+    post:
+      operationId: createAgentClipboardBridge
+      summary: Explicitly bridge one current RFB UserClipboard and the isolated AgentClipboard
+      description: >
+        Client-mediated, actor/connection/purpose-bound transfer. USER_TO_AGENT requires a fresh
+        RFB ServerCutText observation. AGENT_TO_USER returns one short-lived value for injection
+        through the same non-view-only noVNC connection and must then be completed. Passwords and
+        OTPs remain on the purpose-bound one-time sensitive-input API. Plaintext is never audited.
+      tags: [Session, Agent]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAgentClipboardBridgeRequest"
+      responses:
+        "200":
+          description: Transfer completed or an actor-bound AGENT_TO_USER delivery was issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentClipboardBridge"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /api/v1/sessions/{sessionId}/agent-browser/clipboard-bridges/{bridgeId}:complete:
+    post:
+      operationId: completeAgentClipboardBridge
+      summary: Confirm that one issued Agent-to-User bridge was injected into RFB/X11
+      tags: [Session, Agent]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: bridgeId
+          in: path
+          required: true
+          schema: {type: string, pattern: "^acb_[A-Za-z0-9]{20}$"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteAgentClipboardBridgeRequest"
+      responses:
+        "200":
+          description: Delivery was acknowledged; the bridge ledger contains no content material.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentClipboardBridge"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
   /api/v1/sessions/{sessionId}/agent-browser/files/uploads:
     post:
       operationId: uploadAgentBrowserFile
@@ -11088,6 +11153,102 @@ components:
           type: integer
           format: int64
           minimum: 0
+    CreateAgentClipboardBridgeRequest:
+      type: object
+      additionalProperties: false
+      required: [direction, purpose, connectionId, expectedAgentClipboardVersion]
+      properties:
+        direction:
+          type: string
+          enum: [USER_TO_AGENT, AGENT_TO_USER]
+        purpose:
+          type: string
+          enum: [OPERATOR_COPY, AUTOMATION_HANDOFF, HUMAN_ASSISTANCE]
+        connectionId:
+          type: string
+          pattern: "^rdc_[A-Za-z0-9]{20}$"
+        expectedAgentClipboardVersion:
+          type: integer
+          format: int64
+          minimum: 0
+        value:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          writeOnly: true
+          description: Required only for USER_TO_AGENT and obtained from a fresh RFB ServerCutText.
+        userClipboardObservedAt:
+          type: string
+          format: date-time
+          description: Required only for USER_TO_AGENT; observations older than two minutes fail closed.
+    CompleteAgentClipboardBridgeRequest:
+      type: object
+      additionalProperties: false
+      required: [contentHash]
+      properties:
+        contentHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+    AgentClipboardBridge:
+      type: object
+      additionalProperties: false
+      required:
+        - bridgeId
+        - sessionId
+        - direction
+        - purpose
+        - connectionId
+        - state
+        - agentClipboardVersion
+        - contentHash
+        - valueLength
+        - value
+        - expiresAt
+        - completedAt
+        - createdAt
+      properties:
+        bridgeId:
+          type: string
+          pattern: "^acb_[A-Za-z0-9]{20}$"
+        sessionId:
+          type: string
+          pattern: "^ses_[A-Za-z0-9]{16,}$"
+        direction:
+          type: string
+          enum: [USER_TO_AGENT, AGENT_TO_USER]
+        purpose:
+          type: string
+          enum: [OPERATOR_COPY, AUTOMATION_HANDOFF, HUMAN_ASSISTANCE]
+        connectionId:
+          type: string
+          pattern: "^rdc_[A-Za-z0-9]{20}$"
+        state:
+          type: string
+          enum: [ISSUED, COMPLETED, EXPIRED]
+        agentClipboardVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        contentHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        valueLength:
+          type: integer
+          minimum: 1
+          maximum: 2000
+        value:
+          type: [string, "null"]
+          maxLength: 2000
+          description: Returned only while an AGENT_TO_USER delivery is ISSUED and unexpired.
+        expiresAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
     SessionIdentitySpecInput:
       type: object
       additionalProperties: false

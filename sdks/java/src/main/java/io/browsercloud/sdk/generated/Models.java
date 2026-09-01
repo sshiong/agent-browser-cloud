@@ -317,6 +317,12 @@ public final class Models {
 
   public record WriteAgentClipboardRequest(String value, Long expectedVersion) {}
 
+  public record CreateAgentClipboardBridgeRequest(String direction, String purpose, String connectionId, Long expectedAgentClipboardVersion, String value, String userClipboardObservedAt) {}
+
+  public record CompleteAgentClipboardBridgeRequest(String contentHash) {}
+
+  public record AgentClipboardBridge(String bridgeId, String sessionId, String direction, String purpose, String connectionId, String state, Long agentClipboardVersion, String contentHash, Integer valueLength, Object value, String expiresAt, Object completedAt, String createdAt) {}
+
   public record SessionIdentitySpecInput(Object userAgent, Object timezone, Object locale, List<String> languages, Object webRtcPolicy, Object dnsPolicy, Object viewportWidth, Object viewportHeight, Object screenWidth, Object screenHeight, Object deviceScaleFactor, Object fingerprintProfile, Object operatingSystemProfile) {}
 
   public record SessionIdentitySpec(String sessionId, Long version, String specHash, Boolean locked, SessionIdentitySpecInput spec, String lockedAt, String updatedAt) {}

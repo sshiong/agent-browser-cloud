@@ -1781,6 +1781,35 @@ type WriteAgentClipboardRequest struct {
 	ExpectedVersion int64  `json:"expectedVersion,omitempty"`
 }
 
+type CreateAgentClipboardBridgeRequest struct {
+	Direction                     string `json:"direction,omitempty"`
+	Purpose                       string `json:"purpose,omitempty"`
+	ConnectionId                  string `json:"connectionId,omitempty"`
+	ExpectedAgentClipboardVersion int64  `json:"expectedAgentClipboardVersion,omitempty"`
+	Value                         string `json:"value,omitempty"`
+	UserClipboardObservedAt       string `json:"userClipboardObservedAt,omitempty"`
+}
+
+type CompleteAgentClipboardBridgeRequest struct {
+	ContentHash string `json:"contentHash,omitempty"`
+}
+
+type AgentClipboardBridge struct {
+	BridgeId              string `json:"bridgeId,omitempty"`
+	SessionId             string `json:"sessionId,omitempty"`
+	Direction             string `json:"direction,omitempty"`
+	Purpose               string `json:"purpose,omitempty"`
+	ConnectionId          string `json:"connectionId,omitempty"`
+	State                 string `json:"state,omitempty"`
+	AgentClipboardVersion int64  `json:"agentClipboardVersion,omitempty"`
+	ContentHash           string `json:"contentHash,omitempty"`
+	ValueLength           int    `json:"valueLength,omitempty"`
+	Value                 any    `json:"value,omitempty"`
+	ExpiresAt             string `json:"expiresAt,omitempty"`
+	CompletedAt           any    `json:"completedAt,omitempty"`
+	CreatedAt             string `json:"createdAt,omitempty"`
+}
+
 type SessionIdentitySpecInput struct {
 	UserAgent              any      `json:"userAgent,omitempty"`
 	Timezone               any      `json:"timezone,omitempty"`

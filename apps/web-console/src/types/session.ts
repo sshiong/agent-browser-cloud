@@ -225,6 +225,35 @@ export interface WriteAgentClipboardRequest {
   expectedVersion: number;
 }
 
+export type ClipboardBridgeDirection = 'USER_TO_AGENT' | 'AGENT_TO_USER';
+export type ClipboardBridgePurpose =
+  'OPERATOR_COPY' | 'AUTOMATION_HANDOFF' | 'HUMAN_ASSISTANCE';
+
+export interface CreateClipboardBridgeRequest {
+  direction: ClipboardBridgeDirection;
+  purpose: ClipboardBridgePurpose;
+  connectionId: string;
+  expectedAgentClipboardVersion: number;
+  value?: string;
+  userClipboardObservedAt?: string;
+}
+
+export interface ClipboardBridgeView {
+  bridgeId: string;
+  sessionId: string;
+  direction: ClipboardBridgeDirection;
+  purpose: ClipboardBridgePurpose;
+  connectionId: string;
+  state: 'ISSUED' | 'COMPLETED' | 'EXPIRED';
+  agentClipboardVersion: number;
+  contentHash: string;
+  valueLength: number;
+  value?: string;
+  expiresAt: string;
+  completedAt?: string;
+  createdAt: string;
+}
+
 export interface RecoveryTargetIndicator {
   role: string;
   name: string;

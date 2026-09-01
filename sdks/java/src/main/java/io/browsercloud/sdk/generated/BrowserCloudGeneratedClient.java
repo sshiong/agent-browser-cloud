@@ -54,9 +54,11 @@ public final class BrowserCloudGeneratedClient {
     operation("captureAgentBrowserScreenshot", "POST", "/api/v1/sessions/{sessionId}/agent-browser/screenshots", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CaptureAgentBrowserScreenshotRequest", true, "AgentBrowserScreenshot"),
     operation("getAgentBrowserScreenshot", "GET", "/api/v1/sessions/{sessionId}/agent-browser/screenshots/{screenshotId}", List.of("screenshotId", "sessionId"), List.of("waitMs"), List.of("X-Tenant-Id"), "", false, "AgentBrowserScreenshot"),
     operation("redeemAgentBrowserScreenshot", "POST", "/api/v1/sessions/{sessionId}/agent-browser/screenshots/{screenshotId}:redeem", List.of("screenshotId", "sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "RedeemEvidenceAccessResponse"),
-    operation("readAgentClipboard", "GET", "/api/v1/sessions/{sessionId}/agent-browser/clipboard", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "AgentClipboard"),
+    operation("readAgentClipboard", "GET", "/api/v1/sessions/{sessionId}/agent-browser/clipboard", List.of("sessionId"), List.of("includeValue"), List.of("X-Tenant-Id"), "", false, "AgentClipboard"),
     operation("writeAgentClipboard", "PUT", "/api/v1/sessions/{sessionId}/agent-browser/clipboard", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "WriteAgentClipboardRequest", true, "AgentClipboard"),
     operation("clearAgentClipboard", "DELETE", "/api/v1/sessions/{sessionId}/agent-browser/clipboard", List.of("sessionId"), List.of("expectedVersion"), List.of("X-Tenant-Id"), "", false, "AgentClipboard"),
+    operation("createAgentClipboardBridge", "POST", "/api/v1/sessions/{sessionId}/agent-browser/clipboard-bridges", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CreateAgentClipboardBridgeRequest", true, "AgentClipboardBridge"),
+    operation("completeAgentClipboardBridge", "POST", "/api/v1/sessions/{sessionId}/agent-browser/clipboard-bridges/{bridgeId}:complete", List.of("bridgeId", "sessionId"), List.of(), List.of("X-Tenant-Id"), "CompleteAgentClipboardBridgeRequest", true, "AgentClipboardBridge"),
     operation("uploadAgentBrowserFile", "POST", "/api/v1/sessions/{sessionId}/agent-browser/files/uploads", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "UploadAgentBrowserFileRequest", true, "AgentBrowserFileUpload"),
     operation("getAgentBrowserFileUpload", "GET", "/api/v1/sessions/{sessionId}/agent-browser/files/uploads/{uploadId}", List.of("sessionId", "uploadId"), List.of(), List.of("X-Tenant-Id"), "", false, "AgentBrowserFileUpload"),
     operation("listAgentBrowserDownloads", "GET", "/api/v1/sessions/{sessionId}/agent-browser/files/downloads", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "AgentBrowserDownloadList"),
@@ -324,6 +326,8 @@ public final class BrowserCloudGeneratedClient {
   public Response readAgentClipboard(Request request) { return call("readAgentClipboard", request); }
   public Response writeAgentClipboard(Request request) { return call("writeAgentClipboard", request); }
   public Response clearAgentClipboard(Request request) { return call("clearAgentClipboard", request); }
+  public Response createAgentClipboardBridge(Request request) { return call("createAgentClipboardBridge", request); }
+  public Response completeAgentClipboardBridge(Request request) { return call("completeAgentClipboardBridge", request); }
   public Response uploadAgentBrowserFile(Request request) { return call("uploadAgentBrowserFile", request); }
   public Response getAgentBrowserFileUpload(Request request) { return call("getAgentBrowserFileUpload", request); }
   public Response listAgentBrowserDownloads(Request request) { return call("listAgentBrowserDownloads", request); }

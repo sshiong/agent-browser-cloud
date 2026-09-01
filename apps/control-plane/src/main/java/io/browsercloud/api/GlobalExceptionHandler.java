@@ -11,6 +11,7 @@ import io.browsercloud.application.AgentBrowserFilesApplicationService.AgentBrow
 import io.browsercloud.application.AgentBrowserPerceptionService.PerceptionException;
 import io.browsercloud.application.AgentBrowserScreenshotApplicationService.AgentBrowserScreenshotException;
 import io.browsercloud.application.AgentClipboardApplicationService.AgentClipboardRejectedException;
+import io.browsercloud.application.AgentClipboardBridgeApplicationService.AgentClipboardBridgeRejectedException;
 import io.browsercloud.application.AgentExecutionService.AgentExecutionRejectedException;
 import io.browsercloud.application.AgentExecutionWorkerApplicationService.AgentExecutionWorkerJobNotFoundException;
 import io.browsercloud.application.AgentExecutionWorkerApplicationService.AgentExecutionWorkerRejectedException;
@@ -153,6 +154,17 @@ public class GlobalExceptionHandler {
         HttpStatus.CONFLICT,
         "AGENT_CLIPBOARD_REJECTED",
         "The isolated Agent clipboard cannot perform this operation",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(AgentClipboardBridgeRejectedException.class)
+  public ResponseEntity<ApiError> handleAgentClipboardBridgeRejected(
+      AgentClipboardBridgeRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "AGENT_CLIPBOARD_BRIDGE_REJECTED",
+        "The explicit clipboard bridge cannot perform this operation",
         Map.of("reason", exception.getMessage()),
         request);
   }

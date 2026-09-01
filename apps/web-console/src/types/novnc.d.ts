@@ -7,6 +7,10 @@ declare module '@novnc/novnc' {
     detail: { status: number; reason?: string };
   }
 
+  export interface RfbClipboardEvent extends Event {
+    detail: { text: string };
+  }
+
   export default class RFB extends EventTarget {
     constructor(
       target: HTMLElement,
@@ -36,5 +40,6 @@ declare module '@novnc/novnc' {
     focus(options?: FocusOptions): void;
     blur(): void;
     sendCtrlAltDel(): void;
+    clipboardPasteFrom(text: string): void;
   }
 }

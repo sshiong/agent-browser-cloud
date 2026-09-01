@@ -37,9 +37,10 @@ public class AgentClipboardController {
 
   @GetMapping
   public AgentClipboardView read(
-      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId) {
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestParam(defaultValue = "true") boolean includeValue) {
     var principal = identity.current();
-    return service.read(sessionId, principal.tenantId(), principal.actorId());
+    return service.read(sessionId, principal.tenantId(), principal.actorId(), includeValue);
   }
 
   @PutMapping

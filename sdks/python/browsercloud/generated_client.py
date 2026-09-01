@@ -64,9 +64,11 @@ OPERATIONS: dict[str, Operation] = {
     'captureAgentBrowserScreenshot': Operation('captureAgentBrowserScreenshot', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/screenshots', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CaptureAgentBrowserScreenshotRequest', True, 'AgentBrowserScreenshot'),
     'getAgentBrowserScreenshot': Operation('getAgentBrowserScreenshot', 'GET', '/api/v1/sessions/{sessionId}/agent-browser/screenshots/{screenshotId}', ('screenshotId', 'sessionId'), ('waitMs',), ('X-Tenant-Id',), '', False, 'AgentBrowserScreenshot'),
     'redeemAgentBrowserScreenshot': Operation('redeemAgentBrowserScreenshot', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/screenshots/{screenshotId}:redeem', ('screenshotId', 'sessionId'), (), ('X-Tenant-Id',), '', False, 'RedeemEvidenceAccessResponse'),
-    'readAgentClipboard': Operation('readAgentClipboard', 'GET', '/api/v1/sessions/{sessionId}/agent-browser/clipboard', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'AgentClipboard'),
+    'readAgentClipboard': Operation('readAgentClipboard', 'GET', '/api/v1/sessions/{sessionId}/agent-browser/clipboard', ('sessionId',), ('includeValue',), ('X-Tenant-Id',), '', False, 'AgentClipboard'),
     'writeAgentClipboard': Operation('writeAgentClipboard', 'PUT', '/api/v1/sessions/{sessionId}/agent-browser/clipboard', ('sessionId',), (), ('X-Tenant-Id',), 'WriteAgentClipboardRequest', True, 'AgentClipboard'),
     'clearAgentClipboard': Operation('clearAgentClipboard', 'DELETE', '/api/v1/sessions/{sessionId}/agent-browser/clipboard', ('sessionId',), ('expectedVersion',), ('X-Tenant-Id',), '', False, 'AgentClipboard'),
+    'createAgentClipboardBridge': Operation('createAgentClipboardBridge', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/clipboard-bridges', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CreateAgentClipboardBridgeRequest', True, 'AgentClipboardBridge'),
+    'completeAgentClipboardBridge': Operation('completeAgentClipboardBridge', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/clipboard-bridges/{bridgeId}:complete', ('bridgeId', 'sessionId'), (), ('X-Tenant-Id',), 'CompleteAgentClipboardBridgeRequest', True, 'AgentClipboardBridge'),
     'uploadAgentBrowserFile': Operation('uploadAgentBrowserFile', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/files/uploads', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'UploadAgentBrowserFileRequest', True, 'AgentBrowserFileUpload'),
     'getAgentBrowserFileUpload': Operation('getAgentBrowserFileUpload', 'GET', '/api/v1/sessions/{sessionId}/agent-browser/files/uploads/{uploadId}', ('sessionId', 'uploadId'), (), ('X-Tenant-Id',), '', False, 'AgentBrowserFileUpload'),
     'listAgentBrowserDownloads': Operation('listAgentBrowserDownloads', 'GET', '/api/v1/sessions/{sessionId}/agent-browser/files/downloads', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'AgentBrowserDownloadList'),
@@ -423,6 +425,12 @@ class BrowserCloudGeneratedClient:
 
     def clearAgentClipboard(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('clearAgentClipboard', path=path, query=query, body=body, headers=headers)
+
+    def createAgentClipboardBridge(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('createAgentClipboardBridge', path=path, query=query, body=body, headers=headers)
+
+    def completeAgentClipboardBridge(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('completeAgentClipboardBridge', path=path, query=query, body=body, headers=headers)
 
     def uploadAgentBrowserFile(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('uploadAgentBrowserFile', path=path, query=query, body=body, headers=headers)

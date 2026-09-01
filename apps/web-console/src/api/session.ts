@@ -56,6 +56,8 @@ import type {
   ChallengeInputResponseView,
   AgentClipboardView,
   WriteAgentClipboardRequest,
+  ClipboardBridgeView,
+  CreateClipboardBridgeRequest,
   SessionIdentitySpecInput,
   SessionIdentitySpecView,
   CreateSessionIdentityChangeRequest,
@@ -1004,10 +1006,11 @@ export async function readAgentClipboard(
   sessionId: string,
   tenantId = DEFAULT_TENANT_ID,
   actorId = currentActorId(),
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  includeValue = true
 ): Promise<AgentClipboardView> {
   return request<AgentClipboardView>(
-    `/sessions/${sessionId}/agent-browser/clipboard`,
+    `/sessions/${sessionId}/agent-browser/clipboard${includeValue ? '' : '?includeValue=false'}`,
     { signal },
     tenantId,
     actorId
@@ -1039,6 +1042,47 @@ export async function clearAgentClipboard(
   return request<AgentClipboardView>(
     `/sessions/${sessionId}/agent-browser/clipboard?expectedVersion=${expectedVersion}`,
     { method: 'DELETE', signal },
+    tenantId,
+    actorId
+  );
+}
+
+export async function createClipboardBridge(
+  sessionId: string,
+  body: CreateClipboardBridgeRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+): Promise<ClipboardBridgeView> {
+  return request<ClipboardBridgeView>(
+    `/sessions/${sessionId}/agent-browser/clipboard-bridges`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+    tenantId,
+    actorId
+  );
+}
+
+export async function completeClipboardBridge(
+  sessionId: string,
+  bridgeId: string,
+  contentHash: string,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+): Promise<ClipboardBridgeView> {
+  return request<ClipboardBridgeView>(
+    `/sessions/${sessionId}/agent-browser/clipboard-bridges/${bridgeId}:complete`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ contentHash }),
+      signal,
+    },
     tenantId,
     actorId
   );

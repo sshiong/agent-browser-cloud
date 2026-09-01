@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   CircleDot,
+  ClipboardCopy,
   Crosshair,
   Eye,
   Hand,
@@ -12,7 +13,7 @@ import {
   Unplug,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { ErrorState, LoadingPanel } from '@/components/feedback/AsyncStates';
 import { TopContextBar } from '@/components/layout/TopContextBar';
@@ -26,9 +27,17 @@ import {
   useRemoteDesktopParticipants,
   useRemoteDesktopParticipantHistory,
   useRevokeRemoteDesktopParticipant,
+  useAgentClipboard,
+  useCreateClipboardBridge,
+  useCompleteClipboardBridge,
 } from '@/features/sessions/api/sessionQueries';
 import { cn } from '@/shared/lib/utils';
-import { NoVncViewport, type DesktopConnectionState } from './NoVncViewport';
+import {
+  NoVncViewport,
+  type DesktopConnectionState,
+  type NoVncViewportHandle,
+  type UserClipboardObservation,
+} from './NoVncViewport';
 
 export function RemoteDesktopPage() {
   const [searchParams] = useSearchParams();
@@ -49,6 +58,15 @@ export function RemoteDesktopPage() {
     Boolean(sessionId)
   );
   const revokeParticipant = useRevokeRemoteDesktopParticipant(sessionId);
+  const agentClipboardQuery = useAgentClipboard(sessionId, Boolean(sessionId));
+  const createClipboardBridge = useCreateClipboardBridge(sessionId);
+  const completeClipboardBridge = useCompleteClipboardBridge(sessionId);
+  const desktopRef = useRef<NoVncViewportHandle>(null);
+  const [connectionId, setConnectionId] = useState<string>();
+  const [userClipboard, setUserClipboard] =
+    useState<UserClipboardObservation>();
+  const [clipboardBridgeMessage, setClipboardBridgeMessage] =
+    useState<string>();
   const [desktopState, setDesktopState] =
     useState<DesktopConnectionState>('DISCONNECTED');
   // Opening VNC is primarily an Agent observer workflow. Default to the
@@ -70,6 +88,59 @@ export function RemoteDesktopPage() {
     'PLATFORM_ADMIN',
   ]);
   const bindingEpoch = session?.contextEpoch ?? 0;
+  const bridgeUserToAgent = async () => {
+    if (!connectionId || !userClipboard) return;
+    setClipboardBridgeMessage(undefined);
+    createClipboardBridge.reset();
+    try {
+      const result = await createClipboardBridge.mutateAsync({
+        direction: 'USER_TO_AGENT',
+        purpose: 'HUMAN_ASSISTANCE',
+        connectionId,
+        expectedAgentClipboardVersion: agentClipboardQuery.data?.version ?? 0,
+        value: userClipboard.value,
+        userClipboardObservedAt: userClipboard.observedAt,
+      });
+      setUserClipboard(undefined);
+      setClipboardBridgeMessage(
+        `已显式写入 AgentClipboard v${result.agentClipboardVersion}；正文未进入审计。`
+      );
+    } catch {
+      // Structured mutation error is rendered below.
+    }
+  };
+  const bridgeAgentToUser = async () => {
+    if (!connectionId || !agentClipboardQuery.data) return;
+    setClipboardBridgeMessage(undefined);
+    createClipboardBridge.reset();
+    completeClipboardBridge.reset();
+    try {
+      const issued = await createClipboardBridge.mutateAsync({
+        direction: 'AGENT_TO_USER',
+        purpose: 'HUMAN_ASSISTANCE',
+        connectionId,
+        expectedAgentClipboardVersion: agentClipboardQuery.data.version,
+      });
+      if (
+        !issued.value ||
+        !desktopRef.current?.writeUserClipboard(issued.value)
+      ) {
+        setClipboardBridgeMessage(
+          '桥接已签发但 RFB 控制连接不可写；未确认交付，密文将在 60 秒后过期。'
+        );
+        return;
+      }
+      await completeClipboardBridge.mutateAsync({
+        bridgeId: issued.bridgeId,
+        contentHash: issued.contentHash,
+      });
+      setClipboardBridgeMessage(
+        `已显式写入 UserClipboard（${issued.valueLength} 字符）；Agent 会在真人输入空闲 2 秒后继续。`
+      );
+    } catch {
+      // Structured mutation error is rendered below.
+    }
+  };
   const release = async () => {
     try {
       await releaseMutation.mutateAsync();
@@ -194,10 +265,16 @@ export function RemoteDesktopPage() {
                 <div className="aspect-[16/10] min-h-[420px]">
                   {ready ? (
                     <NoVncViewport
+                      ref={desktopRef}
                       sessionId={sessionId}
                       bindingEpoch={bindingEpoch}
                       viewOnly={viewOnly}
-                      onConnectionState={setDesktopState}
+                      onConnectionState={(next) => {
+                        setDesktopState(next);
+                        if (next !== 'CONNECTED') setUserClipboard(undefined);
+                      }}
+                      onConnectionId={setConnectionId}
+                      onUserClipboard={setUserClipboard}
                     />
                   ) : (
                     <DisplayProvisioning
@@ -268,6 +345,85 @@ export function RemoteDesktopPage() {
                   <RailMetric label="Collaborators" value="Bounded to 8" />
                   <RailMetric label="View-only input" value="Node rejected" />
                 </dl>
+              </RailSection>
+
+              <RailSection title="显式 Clipboard Bridge">
+                <div className="space-y-2.5 text-[9px] leading-4 text-text-muted">
+                  <p>
+                    AgentClipboard 与 RFB/X11 UserClipboard
+                    默认隔离。只有点击下方按钮才跨域， 且绑定当前 Actor、连接与
+                    60 秒交付窗口。
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void bridgeUserToAgent()}
+                      disabled={
+                        desktopState !== 'CONNECTED' ||
+                        !connectionId ||
+                        !userClipboard ||
+                        createClipboardBridge.isPending
+                      }
+                      className="inline-flex min-h-9 items-center justify-center gap-1 border border-border-default bg-surface-2 px-2 text-text-secondary hover:border-accent/45 hover:text-accent disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      <ClipboardCopy size={10} /> 真人 → Agent
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void bridgeAgentToUser()}
+                      disabled={
+                        desktopState !== 'CONNECTED' ||
+                        viewOnly ||
+                        !connectionId ||
+                        !agentClipboardQuery.data?.valueLength ||
+                        createClipboardBridge.isPending ||
+                        completeClipboardBridge.isPending
+                      }
+                      className="inline-flex min-h-9 items-center justify-center gap-1 border border-border-default bg-surface-2 px-2 text-text-secondary hover:border-accent/45 hover:text-accent disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      <ClipboardCopy size={10} /> Agent → 真人
+                    </button>
+                  </div>
+                  <dl className="grid grid-cols-2 gap-2 font-mono text-[8px]">
+                    <RailMetric
+                      label="User source"
+                      value={
+                        userClipboard
+                          ? `${userClipboard.value.length} chars / fresh`
+                          : 'waiting for RFB cut text'
+                      }
+                    />
+                    <RailMetric
+                      label="Agent source"
+                      value={
+                        agentClipboardQuery.data
+                          ? `v${agentClipboardQuery.data.version} / ${agentClipboardQuery.data.valueLength} chars`
+                          : 'unavailable'
+                      }
+                    />
+                  </dl>
+                  <p>
+                    密码和 OTP 不走通用剪贴板；人工发送后仍由一次性敏感输入 API
+                    交给 Agent 有界重试代填。人工接管始终可选。
+                  </p>
+                  {clipboardBridgeMessage && (
+                    <p className="border border-success/25 bg-success/8 p-2 text-success">
+                      {clipboardBridgeMessage}
+                    </p>
+                  )}
+                  {(createClipboardBridge.error ||
+                    completeClipboardBridge.error) && (
+                    <p className="border border-danger/25 bg-danger/8 p-2 text-danger">
+                      {(createClipboardBridge.error ||
+                        completeClipboardBridge.error) instanceof Error
+                        ? (
+                            createClipboardBridge.error ||
+                            completeClipboardBridge.error
+                          )?.message
+                        : 'Clipboard Bridge 失败，请按结构化错误修正后重试。'}
+                    </p>
+                  )}
+                </div>
               </RailSection>
 
               <RailSection

@@ -12,6 +12,7 @@ import type { AgentBrowserScreenshot } from '../models/AgentBrowserScreenshot.js
 import type { AgentBrowserSnapshot } from '../models/AgentBrowserSnapshot.js';
 import type { AgentBrowserTargetList } from '../models/AgentBrowserTargetList.js';
 import type { AgentClipboard } from '../models/AgentClipboard.js';
+import type { AgentClipboardBridge } from '../models/AgentClipboardBridge.js';
 import type { AgentTask } from '../models/AgentTask.js';
 import type { BrowserPlacement } from '../models/BrowserPlacement.js';
 import type { BrowserState } from '../models/BrowserState.js';
@@ -19,7 +20,9 @@ import type { BusinessRecoveryValidation } from '../models/BusinessRecoveryValid
 import type { CaptureAgentBrowserScreenshotRequest } from '../models/CaptureAgentBrowserScreenshotRequest.js';
 import type { CaptureEvidenceRequest } from '../models/CaptureEvidenceRequest.js';
 import type { CommitEnvironmentImportRequest } from '../models/CommitEnvironmentImportRequest.js';
+import type { CompleteAgentClipboardBridgeRequest } from '../models/CompleteAgentClipboardBridgeRequest.js';
 import type { CreateAgentBrowserEvaluationRequest } from '../models/CreateAgentBrowserEvaluationRequest.js';
+import type { CreateAgentClipboardBridgeRequest } from '../models/CreateAgentClipboardBridgeRequest.js';
 import type { CreateEnvironmentSavedViewRequest } from '../models/CreateEnvironmentSavedViewRequest.js';
 import type { CreateEvidenceAccessGrantRequest } from '../models/CreateEvidenceAccessGrantRequest.js';
 import type { CreateSafetyLeaseRequest } from '../models/CreateSafetyLeaseRequest.js';
@@ -567,12 +570,17 @@ export class SessionService {
     public readAgentClipboard({
         sessionId,
         xTenantId,
+        includeValue = true,
     }: {
         sessionId: string,
         /**
          * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
          */
         xTenantId?: string,
+        /**
+         * Set false for metadata-only reads that never decrypt plaintext.
+         */
+        includeValue?: boolean,
     }): CancelablePromise<AgentClipboard> {
         return this.httpRequest.request({
             method: 'GET',
@@ -582,6 +590,9 @@ export class SessionService {
             },
             headers: {
                 'X-Tenant-Id': xTenantId,
+            },
+            query: {
+                'includeValue': includeValue,
             },
         });
     }
@@ -649,6 +660,82 @@ export class SessionService {
             },
             errors: {
                 409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Explicitly bridge one current RFB UserClipboard and the isolated AgentClipboard
+     * Client-mediated, actor/connection/purpose-bound transfer. USER_TO_AGENT requires a fresh RFB ServerCutText observation. AGENT_TO_USER returns one short-lived value for injection through the same non-view-only noVNC connection and must then be completed. Passwords and OTPs remain on the purpose-bound one-time sensitive-input API. Plaintext is never audited.
+     *
+     * @returns AgentClipboardBridge Transfer completed or an actor-bound AGENT_TO_USER delivery was issued.
+     * @throws ApiError
+     */
+    public createAgentClipboardBridge({
+        sessionId,
+        idempotencyKey,
+        requestBody,
+        xTenantId,
+    }: {
+        sessionId: string,
+        idempotencyKey: string,
+        requestBody: CreateAgentClipboardBridgeRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentClipboardBridge> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/clipboard-bridges',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                409: `State or idempotency conflict.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
+            },
+        });
+    }
+    /**
+     * Confirm that one issued Agent-to-User bridge was injected into RFB/X11
+     * @returns AgentClipboardBridge Delivery was acknowledged; the bridge ledger contains no content material.
+     * @throws ApiError
+     */
+    public completeAgentClipboardBridge({
+        sessionId,
+        bridgeId,
+        requestBody,
+        xTenantId,
+    }: {
+        sessionId: string,
+        bridgeId: string,
+        requestBody: CompleteAgentClipboardBridgeRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentClipboardBridge> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/clipboard-bridges/{bridgeId}:complete',
+            path: {
+                'sessionId': sessionId,
+                'bridgeId': bridgeId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                409: `State or idempotency conflict.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
             },
         });
     }

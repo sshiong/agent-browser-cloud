@@ -1,8 +1,8 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-08-25
+> 更新日期：2026-09-02
 > 基准分支：`main`
-> 编写时基准提交：`18c2186 feat: add governed advanced browser actions`
+> 编写时基准提交：`372aee5 feat: add governed clipboard bridge`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **235 Operations / 313 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **237 Operations / 316 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -93,7 +93,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V111 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V112 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -172,6 +172,10 @@ Rust Browser Node
 - [已确认] V106—V108 分别增加有界 Human-like Motion Policy、创建时锁定且
   每次 Runtime 启动重放的 Session Identity Spec，以及与 VNC UserClipboard 完全隔离、
   PostgreSQL/AES-GCM 权威的 AgentClipboard。详细边界见 progress 149。
+- [已确认] V112 已增加显式、用途/租户/Session/Actor/当前 noVNC Connection/Context Epoch
+  绑定的 UserClipboard ↔ AgentClipboard Bridge。USER_TO_AGENT 只接受两分钟内真实 noVNC
+  observation；AGENT_TO_USER 只允许当前非只读连接。账本不保存正文或第二份密文，常规 UI
+  只读 AgentClipboard 元数据；密码和 OTP 仍必须走一次性敏感输入 API，见 progress 158。
 - [已确认] Agent Browser 文件上传通过精确 Placement mTLS stream、V109 PostgreSQL 元数据
   账本、持久 Operation/Outbox/Node Journal 与 CDP `DOM.setFileInputFiles` 完成，不打开 OS
   chooser；文件字节和 Node 路径不进入公共 API、数据库或审计。下载从真实 Browser/Network
@@ -203,6 +207,16 @@ Rust Browser Node
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- AgentClipboard/UserClipboard 显式受控 Bridge 切片本地 Control Plane 484 项、Rust
+  Workspace、Web 120 项、Worker/Provider、完整 Test/Lint/Build、Desktop
+  test/lint/unsigned build、OpenAPI/四 SDK、供应链、Operator 17 项、50k Coordinator
+  Capacity、V112 N/N−1 与完整 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过；
+  Integration 输出 `agent_clipboard_bridge=true`，显式覆盖当前连接/Context、只读拒绝、
+  双向 Bridge、租户隔离和账本无正文。公开基线为 237 Operations / 316 Schemas；实现提交
+  `372aee5` 的 GitHub `ci` run `33533657239` 已通过 Verify、供应链、完整 Integration、
+  Object Storage/Recording GameDay 与 Kubernetes Operator E2E；`desktop` run
+  `33533657129` 的 Windows/macOS 均通过，见 progress 158。
 
 - Agent Browser 高级 Action Primitive 切片本地 Control Plane 482 项、Rust Workspace、Web
   119 项、Worker/Provider、完整 Test/Lint/Build、Desktop test/lint/unsigned build、OpenAPI/
@@ -326,8 +340,21 @@ Rust Browser Node
   已通过；提交 `a14e5f1` 的 GitHub `ci` run `32363001442` 与 `desktop` run
   `32363001455` 也均通过；
 - 原生 Dialog、File、Screenshot、受治理 JS Evaluate 和高级 Action Primitive 已分别由
-  progress 153—157 闭环；当前只保留 AgentClipboard/UserClipboard 显式受控 Bridge，底层
-  双剪贴板隔离不等于已开放跨边界读写。
+  progress 153—157 闭环；显式受控 Clipboard Bridge 已由 progress 158 关闭，基础结构化
+  感知和高级动作不得重做。
+
+### AgentClipboard/UserClipboard 显式受控 Bridge（已闭环）
+
+- V112 以内容零持久化账本保存 Direction/Purpose/Connection/Context/Version/Hash/Length，
+  Tenant/Session/Actor/幂等和状态约束均由 PostgreSQL 强制；
+- USER_TO_AGENT 只消费当前 noVNC 连接两分钟内的真实 Clipboard observation；
+  AGENT_TO_USER 只允许当前 Actor 的非只读连接，读取后由同一 noVNC 连接写入并完成账本；
+- Web/Tauri 共用 Remote Desktop 入口和 API Client；页面元数据查询不解密正文；OpenAPI/
+  四 SDK 为 237 Operations / 316 Schemas；
+- 本地全量 Gate 与 Integration 已通过；功能提交 `372aee5` 的 GitHub `ci` run
+  `33533657239` 和 `desktop` run `33533657129` 均通过。自动模式仍只在 OTP/设备确认/高风险
+  决定等真人信息确实缺失，或 Challenge 自动预算耗尽时通知一次，人工可发 OTP 由 Agent
+  代填或自愿进入 VNC。
 
 ### Agent SAFE/AUTONOMOUS 与敏感输入自动化（已闭环）
 
@@ -379,8 +406,6 @@ Hold、对象存储 Helper 和 Evidence Grant 边界，不得把 PostgreSQL 删�
 3. 目标云 Secret 解引用/轮换/撤销、商业 Proxy Provider Adapter、高级 SLA/业务成功率路由、Challenge/黑名单与受约束探索。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
 5. Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM、到期对象删除 Worker；OCR 级敏感信息分类。
-6. AgentClipboard/UserClipboard 显式受控 Bridge；现有底层双剪贴板隔离不等于已完成受控、
-   可审计的跨边界 Agent Gateway 契约。
 
 ### P1/P2：目标环境与外部集成 Gate
 
@@ -452,7 +477,6 @@ make test-desktop
 
 | 优先级 | 任务 | 原因 |
 | --- | --- | --- |
-| P0 | Agent Browser 当前切片全量 Gate 与剩余粗粒度 Tool | 决定自主 Agent 是否能低延迟、可靠地长期操作真实页面 |
 | P1 | Recording 播放授权、WORM/删除 Worker 和对象治理 | 涉及敏感浏览器证据、Retention/Legal Hold 的生产闭环 |
 | P1 | Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore | Profile 一致性和迁移恢复的主要剩余代码缺口 |
 | P1 | 目标 Provider/Secret/Proxy Adapter | 真实客户业务接入的前提 |
@@ -462,10 +486,9 @@ make test-desktop
 
 ## 13. 下一步开发计划
 
-1. 按 progress 157 的保留边界继续实现 AgentClipboard/UserClipboard 显式受控 Bridge；基础
-   结构化感知、Action Primitive、Identity、Tab、原生 Dialog、File、Screenshot、Evaluate
-   和双剪贴板隔离切片不得重做。
-2. 随后开始 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与
+1. Clipboard Bridge 已由 progress 158 完成；不得让 Agent Planner 自动调用该操作员显式
+   协作通道，也不得用它替代账号/密码/OTP 一次性敏感输入 API。
+2. 开始 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与
    到期删除 Worker；实施前复核对象存储和 Retention/Legal Hold 当前边界。
 3. Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore、目标 Provider/Secret/Proxy 和 OCR/Replay 按第 12 节顺序推进。
 4. 持续补齐目标 Linux/云/多 Region/桌面签名长稳和组织安全发布 Gate；仓库测试通过不等同于允许处理真实客户数据。

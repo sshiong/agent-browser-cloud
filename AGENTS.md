@@ -221,7 +221,8 @@ Rust Browser Node
   50k Capacity、N/N−1 与完整 PostgreSQL/Redis/MinIO/mTLS Integration 均通过。
   集成使用确定性 Chromium fixture，输出 `reusable_session_lifecycle=true`；另以真实 Chrome
   验证持久/会话 Cookie 经正常关闭、Checkpoint、清除测试工作区、同 Session 恢复后均保留。
-  OrbStack 真实 Chromium 的 RUNNING→HIBERNATED→RUNNING 已验收；GitHub 待推送检查，见 progress 162。
+  OrbStack 真实 Chromium 的 RUNNING→HIBERNATED→RUNNING 已验收；实现提交 `2c98988` 已推送，
+  GitHub `ci` run `33608543787` 与 `desktop` run `33608543798` 检查时仍在运行，见 progress 162。
 
 - 环境列表批量删除切片本地 Control Plane 488 项、Rust Workspace、Web
   122 项、Worker/Provider、完整 Test/Lint/Build、Desktop test/lint/unsigned build、

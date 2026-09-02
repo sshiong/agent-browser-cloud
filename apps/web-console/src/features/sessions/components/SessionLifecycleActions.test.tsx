@@ -2,13 +2,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { SessionLifecycleActions } from './SessionLifecycleActions';
 import type { SessionView } from '@/types/session';
+import { SessionApiError } from '@/api/session';
+import { ApiSessionStateChip } from './ApiSessionStateChip';
 
-const mocks = vi.hoisted(() => ({ canOperate: true, pending: false }));
+const mocks = vi.hoisted(() => ({
+  canOperate: true,
+  pending: false,
+  error: null as Error | null,
+}));
 vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => ({ canOperate: mocks.canOperate }),
 }));
 vi.mock('../api/sessionQueries', () => ({
   useStartSession: () => ({
+    error: mocks.error,
     isPending: mocks.pending,
     reset: vi.fn(),
     mutate: vi.fn(),
@@ -42,6 +49,7 @@ describe('shared session lifecycle controls', () => {
   beforeEach(() => {
     mocks.canOperate = true;
     mocks.pending = false;
+    mocks.error = null;
   });
   it.each(['CREATED', 'HIBERNATED'] as const)(
     'offers start for %s',
@@ -79,5 +87,21 @@ describe('shared session lifecycle controls', () => {
   it('hides writes from viewers', () => {
     mocks.canOperate = false;
     expect(render()).toBe('');
+  });
+  it('keeps long errors out of table sizing and exposes the actual reason', () => {
+    mocks.error = new SessionApiError(503, {
+      code: 'COORDINATOR_COMMAND_UNAVAILABLE',
+      message: 'The Session command could not be committed',
+      details: { reason: 'RESOURCE_DEMAND_MISSING' },
+      requestId: 'legacy-request-id',
+    });
+    const html = render();
+    expect(html).toContain('<details');
+    expect(html).toContain('absolute right-0');
+    expect(html).toContain('环境初始化数据缺失');
+    expect(html).toContain('legacy-request-id');
+    expect(
+      renderToStaticMarkup(<ApiSessionStateChip state="TERMINATED" />)
+    ).toContain('whitespace-nowrap');
   });
 });

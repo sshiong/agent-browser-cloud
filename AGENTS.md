@@ -2,7 +2,7 @@
 
 > 更新日期：2026-09-02
 > 基准分支：`main`
-> 编写时基准提交：`33e41cf feat: add shared session start and stop controls`
+> 编写时基准提交：`a65c5a3 docs: record persistent environment verification and CI status`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -216,13 +216,20 @@ Rust Browser Node
 
 ### 最近验证状态
 
+- 历史环境初始化兼容切片本地 Java 496 项、Web 133 项、完整 Test（首次 Lint 仅格式失败，
+  格式化后 Lint/Build 重跑通过）、Desktop test/lint、契约与 N/N−1、完整 Integration 通过。
+  `legacy_session_start_metadata=true` 覆盖缺 Demand/Profile 的旧 TERMINATED 环境启动及停止；
+  操作员截图原环境 `ses_9797bc3306c944d0` 已经由真实 OrbStack 启动到 RUNNING，保留运行。
+  本轮 GitHub 待推送检查，见 progress 163。
+
 - 持久环境启停切片本地 Java 492 项、Web 132 项、Rust Workspace/Clippy、完整
   Test/Lint/Build、Desktop test/lint/unsigned build、OpenAPI/四 SDK、供应链、Operator、
   50k Capacity、N/N−1 与完整 PostgreSQL/Redis/MinIO/mTLS Integration 均通过。
   集成使用确定性 Chromium fixture，输出 `reusable_session_lifecycle=true`；另以真实 Chrome
   验证持久/会话 Cookie 经正常关闭、Checkpoint、清除测试工作区、同 Session 恢复后均保留。
   OrbStack 真实 Chromium 的 RUNNING→HIBERNATED→RUNNING 已验收；实现提交 `2c98988` 已推送，
-  GitHub `ci` run `33608543787` 与 `desktop` run `33608543798` 检查时仍在运行，见 progress 162。
+  GitHub `ci` run `33608543787` 与 `desktop` run `33608543798` 均已通过；后续文档提交
+  `a65c5a3` 的 `ci` run `33608695247`、`desktop` run `33608695235` 也通过，见 progress 162。
 
 - 环境列表批量删除切片本地 Control Plane 488 项、Rust Workspace、Web
   122 项、Worker/Provider、完整 Test/Lint/Build、Desktop test/lint/unsigned build、
@@ -503,6 +510,11 @@ make test-desktop
 ```
 
 ## 11. 已知问题、Bug 和技术债
+
+- 2026-09-02 操作员复测发现六条旧环境缺 Demand，其中三条缺 Profile 元数据。
+  progress 163 已补启动时事务初始化：只适用于 runtimeBuild/node 均空、generation/epoch=0、
+  CREATED/TERMINATED 的未运行旧记录，使用既有资源级别/扩展/真人协作设置，保留租户校验与审计。
+  其他曾运行或现代环境若缺资源数据仍拒绝，不能通过重建空数据掩盖损坏；其余旧记录在用户启动时修复。
 
 0. OrbStack Chromium 的沙箱启动阻塞已由 progress 162 修复：显式安装 chromium-sandbox，
    仅 Browser Node 使用版本固定的 Docker 默认 seccomp 加 clone/setns/unshare 规则。

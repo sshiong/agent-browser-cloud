@@ -319,6 +319,48 @@ public class BrowserCapacityApplicationService {
             now));
   }
 
+  /** Repair only never-started, pre-registry records using persisted creation settings. */
+  @Transactional
+  public boolean prepareLegacyStart(SessionContext session) {
+    // Only pre-runtime-registry records that have never had a browser can use creation defaults.
+    // Missing demand on a modern/running/restored Session is corruption, not permission to guess.
+    if (session.runtimeBuildId() != null
+        || session.nodeId() != null
+        || session.browserGeneration() != 0
+        || session.contextEpoch() != 0
+        || (session.state() != io.browsercloud.domain.session.SessionState.CREATED
+            && session.state() != io.browsercloud.domain.session.SessionState.TERMINATED)) {
+      return false;
+    }
+    sessionRepository.lockForUpdate(session.sessionId());
+    var demand = demandRepository.findById(session.sessionId());
+    if (demand.isPresent()) {
+      if (!demand.orElseThrow().getTenantId().equals(session.tenantId())) {
+        throw new BrowserCapacityUnavailableException("RESOURCE_DEMAND_TENANT_MISMATCH");
+      }
+      return true;
+    }
+    var descriptor = sessionRepository.describe(session.sessionId());
+    if (!descriptor.context().tenantId().equals(session.tenantId())) {
+      throw new BrowserCapacityUnavailableException("RESOURCE_DEMAND_TENANT_MISMATCH");
+    }
+    recordDemand(
+        session.sessionId(),
+        session.tenantId(),
+        session.resourceClass(),
+        1,
+        0,
+        descriptor.humanTakeoverEnabled(),
+        false,
+        false,
+        0,
+        0,
+        false,
+        descriptor.extensionIds(),
+        Instant.now());
+    return true;
+  }
+
   /** 在同一事务内锁定候选 Node、执行反亲和打分、预留资源并提交 Session Context。 */
   @Transactional
   public BrowserPlacementView reserve(SessionContext session, String region) {

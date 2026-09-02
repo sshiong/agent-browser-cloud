@@ -316,6 +316,17 @@ public class SessionApplicationService {
             ? workspaceSettingsService.resolve(tenantId).defaultRuntimeBuildId()
             : session.runtimeBuildId();
     runtimeBuildPolicy.requireApproved(runtimeBuildId);
+    if (browserCapacityService.prepareLegacyStart(session)) {
+      profileApplicationService.ensureExists(tenantId, session.profileId());
+      appendAudit(
+          session,
+          "SESSION_LIFECYCLE",
+          actorId,
+          "LEGACY_START_METADATA_REPAIR",
+          "COMMITTED",
+          Map.of("profileId", session.profileId(), "defaults", "NEVER_STARTED_LEGACY"),
+          UUID.randomUUID().toString());
+    }
     var descriptor = sessionRepository.describe(sessionId);
     session = proxyApplicationService.ensureBinding(session);
     var placement = browserCapacityService.reserve(session, descriptor.region());

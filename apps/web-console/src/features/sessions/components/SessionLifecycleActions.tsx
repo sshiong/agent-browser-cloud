@@ -62,7 +62,19 @@ export function SessionLifecycleActions({ session }: { session: SessionView }) {
           )}
         </button>
       )}
-      {error && !confirmOpen && <ActionError error={error} />}
+      {error && !confirmOpen && (
+        <details className="relative">
+          <summary
+            role="alert"
+            className="cursor-pointer whitespace-nowrap text-[11px] text-danger"
+          >
+            操作失败 · 详情
+          </summary>
+          <div className="absolute right-0 top-full z-30 mt-1 w-72 max-w-[calc(100vw-3rem)] border border-danger/30 bg-surface-1 p-3 shadow-xl">
+            <ActionError error={error} />
+          </div>
+        </details>
+      )}
       {(start.isSuccess || terminate.isSuccess) && (
         <span
           role="status"
@@ -132,12 +144,24 @@ export function SessionLifecycleActions({ session }: { session: SessionView }) {
 }
 
 function ActionError({ error }: { error: Error }) {
+  const reason = isSessionApiError(error)
+    ? error.body.details?.reason
+    : undefined;
+  const explanation =
+    reason === 'RESOURCE_DEMAND_MISSING'
+      ? '环境初始化数据缺失，无法分配浏览器资源。请保留环境并检查服务端数据。'
+      : reason === 'NO_ELIGIBLE_BROWSER_NODE'
+        ? '当前没有可用的 Browser Node，请检查节点状态与资源容量后重试。'
+        : error.message;
   return (
     <p
       role="alert"
       className="mt-2 break-all text-[11px] leading-5 text-danger"
     >
-      操作失败：{error.message}
+      操作失败：{explanation}
+      {typeof reason === 'string' && (
+        <span className="block">原因：{reason}</span>
+      )}
       {isSessionApiError(error) && error.body.requestId && (
         <span className="block font-mono text-[10px]">
           Request ID: {error.body.requestId}

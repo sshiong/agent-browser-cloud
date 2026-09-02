@@ -6132,6 +6132,40 @@ PY
 done
 printf 'reusable_session_lifecycle=true\n'
 
+# Reproduce never-started pre-registry rows with missing creation-side metadata.
+legacy_created="$(curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-legacy-start-metadata' \
+  -d '{"tenantId":"tenant-integration","profileId":"profile-legacy-start-metadata","region":"local","resourcePolicy":{"mode":"AUTO"},"humanTakeoverEnabled":true}')"
+legacy_session="$(printf '%s' "$legacy_created" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+docker exec "$postgres_name" psql -v ON_ERROR_STOP=1 -U browsercloud -d browsercloud -c \
+  "DELETE FROM session_resource_demands WHERE session_id='${legacy_session}';
+   DELETE FROM profiles WHERE profile_id='profile-legacy-start-metadata';
+   UPDATE session_contexts SET runtime_build_id=NULL WHERE session_id='${legacy_session}';
+   UPDATE sessions SET state='TERMINATED' WHERE id='${legacy_session}';" >/dev/null
+curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions/${legacy_session}:start" \
+  -H 'X-Tenant-Id: tenant-integration' >"$temp_dir/legacy-start.json"
+for _ in $(seq 1 80); do
+  legacy_state="$(curl -fsS "http://localhost:${control_port}/api/v1/sessions/${legacy_session}" \
+    -H 'X-Tenant-Id: tenant-integration' | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$legacy_state" = "RUNNING" ]]; then break; fi
+  sleep 0.25
+done
+test "$legacy_state" = "RUNNING"
+test "$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "SELECT count(*) FROM session_resource_demands d JOIN profiles p ON p.tenant_id=d.tenant_id
+   WHERE d.session_id='${legacy_session}' AND p.profile_id='profile-legacy-start-metadata'")" = "1"
+curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions/${legacy_session}:stop" \
+  -H 'X-Tenant-Id: tenant-integration' >"$temp_dir/legacy-stop.json"
+for _ in $(seq 1 80); do
+  legacy_state="$(curl -fsS "http://localhost:${control_port}/api/v1/sessions/${legacy_session}" \
+    -H 'X-Tenant-Id: tenant-integration' | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$legacy_state" = "HIBERNATED" ]]; then break; fi
+  sleep 0.25
+done
+test "$legacy_state" = "HIBERNATED"
+printf 'legacy_session_start_metadata=true\n'
+
 kill -TERM "$network_helper_pid"
 wait "$network_helper_pid" 2>/dev/null || true
 network_helper_pid=""

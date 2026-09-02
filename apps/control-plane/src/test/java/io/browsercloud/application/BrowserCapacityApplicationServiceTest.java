@@ -67,6 +67,86 @@ class BrowserCapacityApplicationServiceTest {
   }
 
   @Test
+  void preparesNeverStartedLegacyDemandFromPersistedSettings() {
+    var context = session(ResourceClass.L2).withState(SessionState.TERMINATED);
+    when(demandRepository.findById(context.sessionId())).thenReturn(Optional.empty());
+    when(sessionRepository.describe(context.sessionId()))
+        .thenReturn(
+            new io.browsercloud.coordinator.SessionDescriptor(
+                context,
+                "local",
+                "legacy",
+                null,
+                true,
+                io.browsercloud.domain.agent.AgentPolicy.BALANCED,
+                List.of("saved.extension")));
+
+    assertThat(service.prepareLegacyStart(context)).isTrue();
+
+    var captured = ArgumentCaptor.forClass(SessionResourceDemandEntity.class);
+    verify(sessionRepository).lockForUpdate(context.sessionId());
+    verify(demandRepository).save(captured.capture());
+    assertThat(captured.getValue().getTenantId()).isEqualTo("tenant-a");
+    assertThat(captured.getValue().getRequestedTabs()).isEqualTo(1);
+    assertThat(captured.getValue().isRemoteDesktop()).isTrue();
+    assertThat(captured.getValue().getExtensionIds()).contains("saved.extension");
+  }
+
+  @Test
+  void doesNotOverwriteAnExistingLegacyDemand() {
+    var context = session(ResourceClass.L2);
+    var existing =
+        new SessionResourceDemandEntity(
+            context.sessionId(),
+            context.tenantId(),
+            ResourceClass.L2,
+            4,
+            60,
+            false,
+            false,
+            false,
+            0,
+            0,
+            "[]",
+            Instant.now());
+    when(demandRepository.findById(context.sessionId())).thenReturn(Optional.of(existing));
+    assertThat(service.prepareLegacyStart(context)).isTrue();
+    verify(demandRepository, org.mockito.Mockito.never()).save(any());
+  }
+
+  @Test
+  void legacyRepairRejectsForeignDemand() {
+    var context = session(ResourceClass.L2);
+    var foreign =
+        new SessionResourceDemandEntity(
+            context.sessionId(),
+            "other-tenant",
+            ResourceClass.L2,
+            1,
+            0,
+            false,
+            false,
+            false,
+            0,
+            0,
+            "[]",
+            Instant.now());
+    when(demandRepository.findById(context.sessionId())).thenReturn(Optional.of(foreign));
+    assertThatThrownBy(() -> service.prepareLegacyStart(context))
+        .hasMessage("RESOURCE_DEMAND_TENANT_MISMATCH");
+    verify(demandRepository, org.mockito.Mockito.never()).save(any());
+  }
+
+  @Test
+  void neverGuessesDemandForPreviouslyRunningEnvironments() {
+    var context = session(ResourceClass.L2).withState(SessionState.HIBERNATED);
+    assertThat(service.prepareLegacyStart(context)).isFalse();
+    verify(demandRepository, org.mockito.Mockito.never()).save(any());
+    assertThatThrownBy(() -> service.reserve(context, "local"))
+        .hasMessage("RESOURCE_DEMAND_MISSING");
+  }
+
+  @Test
   void unknownExtensionUsesProbationAndPromotesL1BeforePlacement() throws Exception {
     var now = Instant.now();
     var demand =

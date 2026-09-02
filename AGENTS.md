@@ -2,7 +2,7 @@
 
 > 更新日期：2026-09-02
 > 基准分支：`main`
-> 编写时基准提交：`5de3eed docs: record environment operations release gates`
+> 编写时基准提交：`c46940f feat: add governed environment batch deletion`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -217,7 +217,8 @@ Rust Browser Node
   `session_batch_delete=true`，覆盖运行中原子拒绝、Viewer/跨租户拒绝、精确幂等重放、
   删除后不可见、审计保留和 Coordinator 路由释放。真实 OrbStack/API 已验证，
   Web/Tauri 共用复选/全选/确认交互已在本地页面验收且无控制台错误。公开基线为
-  239 Operations / 319 Schemas；GitHub `ci`/`desktop` 待推送后验证，见 progress 160。
+  239 Operations / 319 Schemas；实现提交 `c46940f` 已推送，GitHub `ci` run `33603116263`
+  与 `desktop` run `33603116248` 已触发、仍在运行，尚不计为远端 Gate 通过，见 progress 160。
 
 - 环境重命名与超期 Operation 收敛切片本地 Control Plane 486 项、Rust Workspace、Web
   121 项、Worker/Provider、完整 Test/Lint/Build、Desktop test/lint/unsigned build、OpenAPI/

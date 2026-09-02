@@ -2,7 +2,7 @@
 
 > 更新日期：2026-09-02
 > 基准分支：`main`
-> 编写时基准提交：`372aee5 feat: add governed clipboard bridge`
+> 编写时基准提交：`29bbc6b fix: make environment operations usable`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做

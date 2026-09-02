@@ -2,6 +2,7 @@
 
 > 日期：2026-09-02  
 > 状态：仓库内实现与本机真实运行验收已通过；GitHub Workflow 结果以对应提交检查为准。
+> 实现提交：`29bbc6b fix: make environment operations usable`
 
 ## 问题与根因
 

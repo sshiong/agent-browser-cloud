@@ -53,6 +53,7 @@ OPERATIONS: dict[str, Operation] = {
     'updateUserPreferences': Operation('updateUserPreferences', 'PUT', '/api/v1/user-preferences', (), (), (), 'UpdateUserPreferencesRequest', True, 'UserPreferences'),
     'listSessions': Operation('listSessions', 'GET', '/api/v1/sessions', (), ('groupId', 'limit', 'offset', 'q', 'state', 'tagId', 'tagMatch'), ('X-Tenant-Id',), '', False, 'SessionListResponse'),
     'createSession': Operation('createSession', 'POST', '/api/v1/sessions', (), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CreateSessionRequest', True, 'CreateSessionResponse'),
+    'batchDeleteSessions': Operation('batchDeleteSessions', 'POST', '/api/v1/sessions:batch-delete', (), (), ('Idempotency-Key', 'X-Tenant-Id'), 'BatchDeleteSessionsRequest', True, 'BatchDeleteSessionsResponse'),
     'getSession': Operation('getSession', 'GET', '/api/v1/sessions/{sessionId}', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'SessionView'),
     'updateSession': Operation('updateSession', 'PATCH', '/api/v1/sessions/{sessionId}', ('sessionId',), (), ('X-Tenant-Id',), 'UpdateSessionRequest', True, 'SessionView'),
     'getBrowserState': Operation('getBrowserState', 'GET', '/api/v1/sessions/{sessionId}/state', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'BrowserState'),
@@ -384,6 +385,9 @@ class BrowserCloudGeneratedClient:
 
     def createSession(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('createSession', path=path, query=query, body=body, headers=headers)
+
+    def batchDeleteSessions(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('batchDeleteSessions', path=path, query=query, body=body, headers=headers)
 
     def getSession(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('getSession', path=path, query=query, body=body, headers=headers)

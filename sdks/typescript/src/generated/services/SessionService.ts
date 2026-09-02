@@ -14,6 +14,8 @@ import type { AgentBrowserTargetList } from '../models/AgentBrowserTargetList.js
 import type { AgentClipboard } from '../models/AgentClipboard.js';
 import type { AgentClipboardBridge } from '../models/AgentClipboardBridge.js';
 import type { AgentTask } from '../models/AgentTask.js';
+import type { BatchDeleteSessionsRequest } from '../models/BatchDeleteSessionsRequest.js';
+import type { BatchDeleteSessionsResponse } from '../models/BatchDeleteSessionsResponse.js';
 import type { BrowserPlacement } from '../models/BrowserPlacement.js';
 import type { BrowserState } from '../models/BrowserState.js';
 import type { BusinessRecoveryValidation } from '../models/BusinessRecoveryValidation.js';
@@ -167,6 +169,41 @@ export class SessionService {
             },
             errors: {
                 400: `Invalid request.`,
+            },
+        });
+    }
+    /**
+     * Soft-delete tenant Sessions atomically
+     * Removes CREATED or TERMINATED Sessions with no active Operation from normal control-plane reads. Audit, recording, and recovery evidence remain retained. The whole batch is rejected if any Session is missing, cross-tenant, active, or in a non-deletable state.
+     * @returns BatchDeleteSessionsResponse Sessions deleted, or the original idempotent result.
+     * @throws ApiError
+     */
+    public batchDeleteSessions({
+        idempotencyKey,
+        requestBody,
+        xTenantId,
+    }: {
+        idempotencyKey: string,
+        requestBody: BatchDeleteSessionsRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<BatchDeleteSessionsResponse> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions:batch-delete',
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                400: `Invalid request.`,
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
             },
         });
     }

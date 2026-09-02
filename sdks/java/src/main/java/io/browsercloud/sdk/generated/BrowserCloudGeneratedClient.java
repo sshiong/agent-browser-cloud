@@ -43,6 +43,7 @@ public final class BrowserCloudGeneratedClient {
     operation("updateUserPreferences", "PUT", "/api/v1/user-preferences", List.of(), List.of(), List.of(), "UpdateUserPreferencesRequest", true, "UserPreferences"),
     operation("listSessions", "GET", "/api/v1/sessions", List.of(), List.of("groupId", "limit", "offset", "q", "state", "tagId", "tagMatch"), List.of("X-Tenant-Id"), "", false, "SessionListResponse"),
     operation("createSession", "POST", "/api/v1/sessions", List.of(), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CreateSessionRequest", true, "CreateSessionResponse"),
+    operation("batchDeleteSessions", "POST", "/api/v1/sessions:batch-delete", List.of(), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "BatchDeleteSessionsRequest", true, "BatchDeleteSessionsResponse"),
     operation("getSession", "GET", "/api/v1/sessions/{sessionId}", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "SessionView"),
     operation("updateSession", "PATCH", "/api/v1/sessions/{sessionId}", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "UpdateSessionRequest", true, "SessionView"),
     operation("getBrowserState", "GET", "/api/v1/sessions/{sessionId}/state", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "BrowserState"),
@@ -313,6 +314,7 @@ public final class BrowserCloudGeneratedClient {
   public Response updateUserPreferences(Request request) { return call("updateUserPreferences", request); }
   public Response listSessions(Request request) { return call("listSessions", request); }
   public Response createSession(Request request) { return call("createSession", request); }
+  public Response batchDeleteSessions(Request request) { return call("batchDeleteSessions", request); }
   public Response getSession(Request request) { return call("getSession", request); }
   public Response updateSession(Request request) { return call("updateSession", request); }
   public Response getBrowserState(Request request) { return call("getBrowserState", request); }

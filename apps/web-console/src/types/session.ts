@@ -168,6 +168,17 @@ export interface UpdateSessionRequest {
   displayName: string;
 }
 
+export interface BatchDeleteSessionsRequest {
+  sessionIds: string[];
+}
+
+export interface BatchDeleteSessionsResponse {
+  deletionId: string;
+  deletedCount: number;
+  sessionIds: string[];
+  deletedAt: string;
+}
+
 export interface SessionIdentitySpecInput {
   userAgent?: string;
   timezone?: string;

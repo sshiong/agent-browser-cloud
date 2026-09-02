@@ -1,4 +1,4 @@
-import { useDeferredValue, useState } from 'react';
+import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import {
   Box,
@@ -17,6 +17,7 @@ import {
   RotateCw,
   Search,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react';
 import { TopContextBar } from '@/components/layout/TopContextBar';
 import { ErrorState, LoadingRows } from '@/components/feedback/AsyncStates';
@@ -34,6 +35,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { EnvironmentSavedViews } from './EnvironmentSavedViews';
 import { EnvironmentImportDrawer } from './EnvironmentImportDrawer';
 import { SessionActionsMenu } from './SessionActionsMenu';
+import { BatchDeleteSessionsDialog } from './BatchDeleteSessionsDialog';
 import type {
   EnvironmentPrimaryView,
   EnvironmentSavedView,
@@ -125,6 +127,10 @@ export function EnvironmentsPage() {
   const state = exactState ?? activeView.state;
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showColumns, setShowColumns] = useState(false);
+  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [optionalColumns, setOptionalColumns] = useState<
     Record<OptionalColumn, boolean>
   >({
@@ -153,6 +159,27 @@ export function EnvironmentsPage() {
   const abnormalOnPage = items.filter((item) =>
     ['DEGRADED', 'FAILED'].includes(item.state)
   ).length;
+  const deletableItems = items.filter(canDeleteSession);
+  const selectedSessions = items.filter((item) =>
+    selectedSessionIds.has(item.sessionId)
+  );
+  const allDeletableSelected =
+    deletableItems.length > 0 &&
+    deletableItems.every((item) => selectedSessionIds.has(item.sessionId));
+  const someDeletableSelected = deletableItems.some((item) =>
+    selectedSessionIds.has(item.sessionId)
+  );
+  const visibleDeletableKey = deletableItems
+    .map((item) => item.sessionId)
+    .join('|');
+
+  useEffect(() => {
+    const visibleIds = new Set(visibleDeletableKey.split('|').filter(Boolean));
+    setSelectedSessionIds((current) => {
+      const next = new Set([...current].filter((id) => visibleIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [visibleDeletableKey]);
 
   const updateParams = (updates: Record<string, string | undefined>) => {
     const next = new URLSearchParams(searchParams);
@@ -564,11 +591,38 @@ export function EnvironmentsPage() {
         ) : (
           <section className="overflow-hidden border border-border-subtle bg-surface-1">
             <div className="flex min-h-11 items-center justify-between gap-3 border-b border-border-subtle bg-surface-2 px-4">
-              <p className="text-[11px] text-text-muted">
-                共{' '}
-                <span className="font-mono text-text-secondary">{total}</span>{' '}
-                个环境 · 服务端筛选与分页
-              </p>
+              {selectedSessions.length > 0 ? (
+                <div className="flex items-center gap-3">
+                  <p className="text-[11px] text-text-secondary">
+                    已选择{' '}
+                    <span className="font-mono text-text-primary">
+                      {selectedSessions.length}
+                    </span>{' '}
+                    个可删除环境
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteOpen(true)}
+                    className="inline-flex h-8 items-center gap-1.5 border border-danger/35 px-2.5 text-[11px] font-medium text-danger hover:bg-danger/10"
+                  >
+                    <Trash2 size={12} />
+                    删除所选
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSessionIds(new Set())}
+                    className="h-8 px-2 text-[11px] text-text-muted hover:text-text-primary"
+                  >
+                    清除选择
+                  </button>
+                </div>
+              ) : (
+                <p className="text-[11px] text-text-muted">
+                  共{' '}
+                  <span className="font-mono text-text-secondary">{total}</span>{' '}
+                  个环境 · 服务端筛选与分页
+                </p>
+              )}
               <button
                 type="button"
                 onClick={() => query.refetch()}
@@ -586,6 +640,27 @@ export function EnvironmentsPage() {
               <table className="w-full min-w-[1080px]">
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b border-border-subtle bg-surface-2">
+                    {auth.canOperate && (
+                      <th className="w-11 px-3 py-2.5 text-center">
+                        <SelectionCheckbox
+                          checked={allDeletableSelected}
+                          indeterminate={
+                            someDeletableSelected && !allDeletableSelected
+                          }
+                          disabled={deletableItems.length === 0}
+                          label="选择本页全部可删除环境"
+                          onChange={() =>
+                            setSelectedSessionIds(
+                              allDeletableSelected
+                                ? new Set()
+                                : new Set(
+                                    deletableItems.map((item) => item.sessionId)
+                                  )
+                            )
+                          }
+                        />
+                      </th>
+                    )}
                     <TableHead>环境</TableHead>
                     <TableHead>Profile / 租户</TableHead>
                     <TableHead>区域 / 资源</TableHead>
@@ -609,6 +684,15 @@ export function EnvironmentsPage() {
                       key={session.sessionId}
                       session={session}
                       columns={optionalColumns}
+                      selected={selectedSessionIds.has(session.sessionId)}
+                      onSelectedChange={(selected) =>
+                        setSelectedSessionIds((current) => {
+                          const next = new Set(current);
+                          if (selected) next.add(session.sessionId);
+                          else next.delete(session.sessionId);
+                          return next;
+                        })
+                      }
                     />
                   ))}
                 </tbody>
@@ -645,6 +729,12 @@ export function EnvironmentsPage() {
           <EnvironmentImportDrawer
             open={importOpen}
             onOpenChange={setImportOpen}
+          />
+          <BatchDeleteSessionsDialog
+            open={deleteOpen}
+            sessions={selectedSessions}
+            onOpenChange={setDeleteOpen}
+            onDeleted={() => setSelectedSessionIds(new Set())}
           />
         </>
       )}
@@ -771,9 +861,13 @@ function FilteredEmptyState({ onClear }: { onClear: () => void }) {
 function SessionRow({
   session,
   columns,
+  selected,
+  onSelectedChange,
 }: {
   session: SessionView;
   columns: Record<OptionalColumn, boolean>;
+  selected: boolean;
+  onSelectedChange: (selected: boolean) => void;
 }) {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -781,6 +875,7 @@ function SessionRow({
   const canStart =
     ['CREATED', 'HIBERNATED'].includes(session.state) &&
     !session.currentOperation;
+  const canDelete = canDeleteSession(session);
 
   return (
     <tr
@@ -788,9 +883,24 @@ function SessionRow({
         'group border-b border-border-subtle transition-colors hover:bg-surface-2 focus-within:bg-surface-2',
         session.state === 'RUNNING' && 'border-l-2 border-l-accent',
         ['DEGRADED', 'FAILED'].includes(session.state) &&
-          'border-l-2 border-l-danger'
+          'border-l-2 border-l-danger',
+        selected && 'bg-accent-soft/60 hover:bg-accent-soft/70'
       )}
     >
+      {auth.canOperate && (
+        <td className="w-11 px-3 py-3 text-center">
+          <SelectionCheckbox
+            checked={selected}
+            disabled={!canDelete}
+            label={
+              canDelete
+                ? `选择 ${session.displayName}`
+                : `${session.displayName} 需先终止并等待操作完成后才能删除`
+            }
+            onChange={() => onSelectedChange(!selected)}
+          />
+        </td>
+      )}
       <td className="px-4 py-3">
         <button
           type="button"
@@ -922,6 +1032,44 @@ function SessionRow({
         </div>
       </td>
     </tr>
+  );
+}
+
+function canDeleteSession(session: SessionView) {
+  return (
+    ['CREATED', 'TERMINATED'].includes(session.state) &&
+    !session.currentOperation
+  );
+}
+
+function SelectionCheckbox({
+  checked,
+  indeterminate = false,
+  disabled = false,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  indeterminate?: boolean;
+  disabled?: boolean;
+  label: string;
+  onChange: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={checked}
+      disabled={disabled}
+      onChange={onChange}
+      aria-label={label}
+      title={label}
+      className="h-3.5 w-3.5 cursor-pointer accent-accent disabled:cursor-not-allowed disabled:opacity-30"
+    />
   );
 }
 

@@ -186,7 +186,7 @@ public class AgentClipboardApplicationService {
 
   private void lockSession(String sessionId, String tenantId) {
     jdbc.queryForObject(
-        "SELECT id FROM sessions WHERE id=? AND tenant_id=? FOR UPDATE",
+        "SELECT id FROM sessions WHERE id=? AND tenant_id=? AND deleted_at IS NULL FOR UPDATE",
         String.class,
         sessionId,
         tenantId);

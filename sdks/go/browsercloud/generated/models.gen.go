@@ -1894,6 +1894,17 @@ type UpdateSessionRequest struct {
 	DisplayName string `json:"displayName,omitempty"`
 }
 
+type BatchDeleteSessionsRequest struct {
+	SessionIds []string `json:"sessionIds,omitempty"`
+}
+
+type BatchDeleteSessionsResponse struct {
+	DeletionId   string   `json:"deletionId,omitempty"`
+	DeletedCount int      `json:"deletedCount,omitempty"`
+	SessionIds   []string `json:"sessionIds,omitempty"`
+	DeletedAt    string   `json:"deletedAt,omitempty"`
+}
+
 type ResourcePolicyRequest struct {
 	Mode                              string               `json:"mode,omitempty"`
 	OnMaximumReached                  MaximumReachedPolicy `json:"onMaximumReached,omitempty"`

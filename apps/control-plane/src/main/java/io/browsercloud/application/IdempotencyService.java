@@ -332,6 +332,16 @@ public class IdempotencyService {
         candidateMigrationId);
   }
 
+  String claimSessionBatchDelete(
+      String tenantId, String idempotencyKey, Object request, String candidateDeletionId) {
+    return claim(
+        tenantId,
+        "BATCH_DELETE_SESSIONS",
+        idempotencyKey,
+        hashRequest(request),
+        candidateDeletionId);
+  }
+
   private String claim(
       String tenantId,
       String operationType,

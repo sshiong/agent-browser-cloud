@@ -36,12 +36,14 @@ public class WorkspaceOverviewApplicationService {
                 ) AS session_unhealthy,
                 count(*) FILTER (WHERE state = 'HIBERNATED') AS session_hibernated,
                 count(*) FILTER (WHERE state = 'TERMINATED') AS session_terminated
-              FROM sessions WHERE tenant_id = ?
+              FROM sessions WHERE tenant_id = ? AND deleted_at IS NULL
             ), operation_stats AS (
               SELECT count(*) AS active_operations
               FROM exclusive_operations operation
               JOIN sessions session ON session.id = operation.session_id
-              WHERE session.tenant_id = ? AND operation.state = 'ACTIVE'
+              WHERE session.tenant_id = ?
+                AND session.deleted_at IS NULL
+                AND operation.state = 'ACTIVE'
             ), node_stats AS (
               SELECT
                 count(*) AS node_total,
@@ -96,7 +98,9 @@ public class WorkspaceOverviewApplicationService {
                 count(*) FILTER (WHERE policy.current_hourly_cost IS NULL) AS missing_price
               FROM session_resource_policies policy
               JOIN sessions session ON session.id = policy.session_id
-              WHERE policy.tenant_id = ? AND session.state <> 'TERMINATED'
+              WHERE policy.tenant_id = ?
+                AND session.deleted_at IS NULL
+                AND session.state <> 'TERMINATED'
             ), security_stats AS (
               SELECT
                 count(*) FILTER (WHERE severity = 'WARNING') AS security_warning_last_24_hours,

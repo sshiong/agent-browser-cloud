@@ -28,6 +28,7 @@ public interface SessionProxyBindingAssignmentJpaRepository
           WHERE assignment.tenant_id = :tenantId
             AND assignment.provider_id = :providerId
             AND assignment.credential_ref = :credentialRef
+            AND session.deleted_at IS NULL
             AND session.state NOT IN ('TERMINATED', 'FAILED')
           """,
       nativeQuery = true)

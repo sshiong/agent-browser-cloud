@@ -106,7 +106,7 @@ public class ChallengeAutomationApplicationService {
                challenge_automation_allow_slide, challenge_motion_min_steps,
                challenge_motion_max_steps, challenge_motion_min_delay_ms,
                challenge_motion_max_delay_ms, challenge_target_offset_ratio, updated_at
-        FROM sessions WHERE id = ? AND tenant_id = ?
+        FROM sessions WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL
         """,
         (result, row) -> policy(result),
         sessionId,

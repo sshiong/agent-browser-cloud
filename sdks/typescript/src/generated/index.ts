@@ -64,6 +64,8 @@ export type { AuditEvent } from './models/AuditEvent.js';
 export type { AuditEventListResponse } from './models/AuditEventListResponse.js';
 export type { AuditExportManifest } from './models/AuditExportManifest.js';
 export type { AuthorizeHumanAssistRequest } from './models/AuthorizeHumanAssistRequest.js';
+export type { BatchDeleteSessionsRequest } from './models/BatchDeleteSessionsRequest.js';
+export type { BatchDeleteSessionsResponse } from './models/BatchDeleteSessionsResponse.js';
 export type { BooleanMap } from './models/BooleanMap.js';
 export type { BreakGlassRequest } from './models/BreakGlassRequest.js';
 export type { BreakGlassRequestId } from './models/BreakGlassRequestId.js';

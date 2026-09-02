@@ -20,6 +20,7 @@ public interface SessionResourcePolicyJpaRepository
           FROM session_resource_policies policy
           JOIN sessions session_record ON session_record.id = policy.session_id
           WHERE session_record.state IN ('RUNNING', 'DEGRADED')
+            AND session_record.deleted_at IS NULL
             AND (policy.last_evaluated_at IS NULL OR policy.last_evaluated_at <= :dueBefore)
           ORDER BY policy.last_evaluated_at NULLS FIRST
           """,
@@ -34,6 +35,7 @@ public interface SessionResourcePolicyJpaRepository
           FROM session_resource_policies policy
           JOIN sessions session_record ON session_record.id = policy.session_id
           WHERE session_record.state IN ('RUNNING', 'DEGRADED')
+            AND session_record.deleted_at IS NULL
             AND (
               policy.last_cost_evaluated_at IS NULL
               OR policy.last_cost_evaluated_at <= :dueBefore

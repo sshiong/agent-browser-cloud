@@ -27,6 +27,7 @@ import {
   startSession,
   terminateSession,
   updateSession,
+  batchDeleteSessions,
   updateSessionResourcePolicy,
   streamSessionChanges,
   listRecoveryContracts,
@@ -72,6 +73,7 @@ import type {
   AuthorizeHumanAssistRequest,
   UpdateChallengeAutomationPolicyRequest,
   CreateClipboardBridgeRequest,
+  BatchDeleteSessionsRequest,
 } from '@/types/session';
 import type { ProxyRebindRequest } from '@/types/proxy';
 
@@ -966,6 +968,23 @@ export function useUpdateSession(sessionId: string) {
     onSuccess: async (session) => {
       queryClient.setQueryData(sessionKeys.detail(sessionId), session);
       await queryClient.invalidateQueries({ queryKey: sessionKeys.all });
+    },
+  });
+}
+
+export function useBatchDeleteSessions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: BatchDeleteSessionsRequest) =>
+      batchDeleteSessions(request, `session-delete-${crypto.randomUUID()}`),
+    onSuccess: async (result) => {
+      result.sessionIds.forEach((sessionId) =>
+        queryClient.removeQueries({ queryKey: sessionKeys.detail(sessionId) })
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: sessionKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ['workspace-overview'] }),
+      ]);
     },
   });
 }

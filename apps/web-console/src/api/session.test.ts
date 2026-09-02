@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   acquireSessionSafetyLease,
   authorizeHumanAssist,
+  batchDeleteSessions,
   captureSessionEvidence,
   createSessionEvidenceAccessGrant,
   createRemoteDesktopConnection,
@@ -101,6 +102,46 @@ describe('session API', () => {
         method: 'PATCH',
         body: JSON.stringify({ displayName: 'Personal Browser' }),
         headers: expect.objectContaining({ 'X-Tenant-Id': 'tenant-test' }),
+      })
+    );
+  });
+
+  it('soft-deletes a tenant Session batch with an idempotency key', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          deletionId: 'sdel_1234567890abcdefghij',
+          deletedCount: 2,
+          sessionIds: ['ses_1234567890abcdef', 'ses_fedcba0987654321'],
+          deletedAt: '2026-09-02T05:00:00Z',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await batchDeleteSessions(
+      {
+        sessionIds: ['ses_1234567890abcdef', 'ses_fedcba0987654321'],
+      },
+      'delete-test-1',
+      'tenant-test'
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/sessions:batch-delete',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          sessionIds: ['ses_1234567890abcdef', 'ses_fedcba0987654321'],
+        }),
+        headers: expect.objectContaining({
+          'Idempotency-Key': 'delete-test-1',
+          'X-Tenant-Id': 'tenant-test',
+        }),
       })
     );
   });

@@ -4,11 +4,13 @@ import io.browsercloud.domain.agent.AgentPolicy;
 import jakarta.persistence.*;
 import java.time.Instant;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
 
 /** Session JPA 实体。 */
 @Entity
 @Table(name = "sessions")
+@SQLRestriction("deleted_at IS NULL")
 public class SessionEntity {
 
   @Id
@@ -59,6 +61,15 @@ public class SessionEntity {
 
   @Column(name = "terminated_at")
   private Instant terminatedAt;
+
+  @Column(name = "deleted_at")
+  private Instant deletedAt;
+
+  @Column(name = "deleted_by")
+  private String deletedBy;
+
+  @Column(name = "deletion_batch_id")
+  private String deletionBatchId;
 
   public SessionEntity() {}
 
@@ -197,5 +208,29 @@ public class SessionEntity {
 
   public void setTerminatedAt(Instant terminatedAt) {
     this.terminatedAt = terminatedAt;
+  }
+
+  public Instant getDeletedAt() {
+    return deletedAt;
+  }
+
+  public void setDeletedAt(Instant deletedAt) {
+    this.deletedAt = deletedAt;
+  }
+
+  public String getDeletedBy() {
+    return deletedBy;
+  }
+
+  public void setDeletedBy(String deletedBy) {
+    this.deletedBy = deletedBy;
+  }
+
+  public String getDeletionBatchId() {
+    return deletionBatchId;
+  }
+
+  public void setDeletionBatchId(String deletionBatchId) {
+    this.deletionBatchId = deletionBatchId;
   }
 }

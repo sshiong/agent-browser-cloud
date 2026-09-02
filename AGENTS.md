@@ -2,7 +2,7 @@
 
 > 更新日期：2026-09-02
 > 基准分支：`main`
-> 编写时基准提交：`29bbc6b fix: make environment operations usable`
+> 编写时基准提交：`5de3eed docs: record environment operations release gates`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **238 Operations / 317 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **239 Operations / 319 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -93,7 +93,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V112 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V113 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -123,6 +123,7 @@ Rust Browser Node
 
 - [已确认] 环境管理、创建向导、Session Detail、Workspace Overview、Groups/Tags、批量生命周期/归属、Saved View、全局搜索、通知、主题、用户菜单、Settings 已接正式 API/PostgreSQL。
 - [已确认] 环境列表三点菜单已接详情与 Tenant/RBAC 隔离的 PostgreSQL 重命名；无 Workflow 的超期 START/TERMINATE Operation 会由 deadline scanner 收敛，不再长期显示“启动中”，见 progress 159。
+- [已确认] 环境列表已增加左侧复选框、当前页全选和批量删除；V113 软删除仅允许 CREATED/TERMINATED 且无 ACTIVE Operation 的 Session，按 Tenant/RBAC 原子、幂等处理，保留 Audit/Recording/Recovery 证据并释放实时 Coordinator Route/Ownership，见 progress 160。
 - [已确认] Profile 导入/用途绑定一次性导出、Proxy Provider/Binding/探测/自动路由、Safe Point Rebind 已实现。
 - [已确认] Tauri 2 容器、OS 安全存储、系统浏览器 OIDC/Deep Link 和 Updater Gate 已实现；Web 与 Desktop 复用业务 UI。
 - [已确认] Validation Matrix、Recovery GameDay、Cost/SLO/Retention/Compliance/Residency/DR Registry、Error Budget Freeze、Terraform、四语言 SDK 和统一发布包已实现。
@@ -208,6 +209,15 @@ Rust Browser Node
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- 环境列表批量删除切片本地 Control Plane 488 项、Rust Workspace、Web
+  122 项、Worker/Provider、完整 Test/Lint/Build、Desktop test/lint/unsigned build、
+  OpenAPI/四 SDK、供应链、Operator 17 项、50k Coordinator Capacity、V113 N/N−1 与完整
+  PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过；Integration 输出
+  `session_batch_delete=true`，覆盖运行中原子拒绝、Viewer/跨租户拒绝、精确幂等重放、
+  删除后不可见、审计保留和 Coordinator 路由释放。真实 OrbStack/API 已验证，
+  Web/Tauri 共用复选/全选/确认交互已在本地页面验收且无控制台错误。公开基线为
+  239 Operations / 319 Schemas；GitHub `ci`/`desktop` 待推送后验证，见 progress 160。
 
 - 环境重命名与超期 Operation 收敛切片本地 Control Plane 486 项、Rust Workspace、Web
   121 项、Worker/Provider、完整 Test/Lint/Build、Desktop test/lint/unsigned build、OpenAPI/

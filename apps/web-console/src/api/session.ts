@@ -3,6 +3,8 @@ import type {
   CreateSessionRequest,
   CreateSessionResponse,
   UpdateSessionRequest,
+  BatchDeleteSessionsRequest,
+  BatchDeleteSessionsResponse,
   ApiError,
   OperationResponse,
   SessionListResponse,
@@ -197,6 +199,24 @@ export async function updateSession(
   return request<SessionView>(
     `/sessions/${sessionId}`,
     { method: 'PATCH', body: JSON.stringify(body), signal },
+    tenantId
+  );
+}
+
+export async function batchDeleteSessions(
+  body: BatchDeleteSessionsRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<BatchDeleteSessionsResponse> {
+  return request<BatchDeleteSessionsResponse>(
+    '/sessions:batch-delete',
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'Idempotency-Key': idempotencyKey },
+      signal,
+    },
     tenantId
   );
 }

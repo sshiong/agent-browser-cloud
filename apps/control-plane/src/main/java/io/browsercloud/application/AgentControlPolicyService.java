@@ -20,7 +20,7 @@ public final class AgentControlPolicyService {
         .query(
             """
             SELECT agent_control_mode, agent_sensitive_input_max_attempts
-            FROM sessions WHERE id = ? AND tenant_id = ?
+            FROM sessions WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL
             """,
             (result, row) ->
                 new Policy(

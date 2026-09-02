@@ -39,6 +39,7 @@ public interface SessionJpaRepository extends JpaRepository<SessionEntity, Strin
           """
           SELECT s.* FROM sessions s
           WHERE s.tenant_id = :tenantId
+            AND s.deleted_at IS NULL
             AND (
               LOWER(
                 s.id || ' ' ||
@@ -55,6 +56,7 @@ public interface SessionJpaRepository extends JpaRepository<SessionEntity, Strin
           """
           SELECT COUNT(*) FROM sessions s
           WHERE s.tenant_id = :tenantId
+            AND s.deleted_at IS NULL
             AND (
               LOWER(
                 s.id || ' ' ||
@@ -75,6 +77,7 @@ public interface SessionJpaRepository extends JpaRepository<SessionEntity, Strin
           """
           SELECT s.* FROM sessions s
           WHERE s.tenant_id = :tenantId
+            AND s.deleted_at IS NULL
             AND s.state = :state
             AND (
               LOWER(
@@ -92,6 +95,7 @@ public interface SessionJpaRepository extends JpaRepository<SessionEntity, Strin
           """
           SELECT COUNT(*) FROM sessions s
           WHERE s.tenant_id = :tenantId
+            AND s.deleted_at IS NULL
             AND s.state = :state
             AND (
               LOWER(
@@ -121,6 +125,7 @@ public interface SessionJpaRepository extends JpaRepository<SessionEntity, Strin
           SELECT s.id
             FROM sessions s
            WHERE s.tenant_id = :tenantId
+             AND s.deleted_at IS NULL
              AND NOT EXISTS (
                SELECT 1
                  FROM coordinator_session_routes route
@@ -138,6 +143,7 @@ public interface SessionJpaRepository extends JpaRepository<SessionEntity, Strin
           SELECT count(*)
             FROM sessions s
            WHERE s.tenant_id = :tenantId
+             AND s.deleted_at IS NULL
              AND NOT EXISTS (
                SELECT 1
                  FROM coordinator_session_routes route

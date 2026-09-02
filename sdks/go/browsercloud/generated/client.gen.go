@@ -67,6 +67,7 @@ var Operations = map[string]Operation{
 	"updateUserPreferences":                      {OperationID: "updateUserPreferences", Method: "PUT", Path: "/api/v1/user-preferences", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "UpdateUserPreferencesRequest", RequestRequired: true, ResponseSchema: "UserPreferences"},
 	"listSessions":                               {OperationID: "listSessions", Method: "GET", Path: "/api/v1/sessions", PathParameters: nil, QueryParameters: []string{"groupId", "limit", "offset", "q", "state", "tagId", "tagMatch"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "SessionListResponse"},
 	"createSession":                              {OperationID: "createSession", Method: "POST", Path: "/api/v1/sessions", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "CreateSessionRequest", RequestRequired: true, ResponseSchema: "CreateSessionResponse"},
+	"batchDeleteSessions":                        {OperationID: "batchDeleteSessions", Method: "POST", Path: "/api/v1/sessions:batch-delete", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "BatchDeleteSessionsRequest", RequestRequired: true, ResponseSchema: "BatchDeleteSessionsResponse"},
 	"getSession":                                 {OperationID: "getSession", Method: "GET", Path: "/api/v1/sessions/{sessionId}", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "SessionView"},
 	"updateSession":                              {OperationID: "updateSession", Method: "PATCH", Path: "/api/v1/sessions/{sessionId}", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "UpdateSessionRequest", RequestRequired: true, ResponseSchema: "SessionView"},
 	"getBrowserState":                            {OperationID: "getBrowserState", Method: "GET", Path: "/api/v1/sessions/{sessionId}/state", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "BrowserState"},
@@ -443,6 +444,9 @@ func (c *Client) ListSessions(ctx context.Context, request Request) (any, *http.
 }
 func (c *Client) CreateSession(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "createSession", request)
+}
+func (c *Client) BatchDeleteSessions(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "batchDeleteSessions", request)
 }
 func (c *Client) GetSession(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "getSession", request)

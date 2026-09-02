@@ -47,7 +47,9 @@ public class SessionFilteredQueryRepository {
 
   private QuerySpecification build(
       String tenantId, SessionState state, String rawQuery, SessionListFilter filter) {
-    var sql = new StringBuilder("FROM sessions session WHERE session.tenant_id = :tenantId");
+    var sql =
+        new StringBuilder(
+            "FROM sessions session WHERE session.tenant_id = :tenantId AND session.deleted_at IS NULL");
     var normalizedQuery = rawQuery == null ? "" : rawQuery.strip();
     if (state != null) {
       sql.append(" AND session.state = :state");

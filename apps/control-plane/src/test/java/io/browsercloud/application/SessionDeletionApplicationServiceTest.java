@@ -42,12 +42,13 @@ class SessionDeletionApplicationServiceTest {
         .thenAnswer(invocation -> invocation.getArgument(3));
   }
 
-  @Test
-  void atomicallySoftDeletesCreatedAndTerminatedSessions() throws Exception {
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(strings = {"HIBERNATED", "TERMINATED"})
+  void atomicallySoftDeletesCreatedAndStoppedSessions(String stoppedState) throws Exception {
     stubLockedRows(
         List.of(
             new PersistedSession("ses_1234567890abcdef", "CREATED"),
-            new PersistedSession("ses_fedcba0987654321", "TERMINATED")));
+            new PersistedSession("ses_fedcba0987654321", stoppedState)));
     when(operations.findActiveBySessionIds(any())).thenReturn(Map.of());
     when(jdbc.update(anyString(), anyMap())).thenReturn(2);
 

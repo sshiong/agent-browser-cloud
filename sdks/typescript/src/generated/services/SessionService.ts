@@ -174,7 +174,7 @@ export class SessionService {
     }
     /**
      * Soft-delete tenant Sessions atomically
-     * Removes CREATED or TERMINATED Sessions with no active Operation from normal control-plane reads. Audit, recording, and recovery evidence remain retained. The whole batch is rejected if any Session is missing, cross-tenant, active, or in a non-deletable state.
+     * Removes CREATED, HIBERNATED or TERMINATED Sessions with no active Operation from normal control-plane reads. Audit, recording, and recovery evidence remain retained. The whole batch is rejected if any Session is missing, cross-tenant, active, or in a non-deletable state.
      * @returns BatchDeleteSessionsResponse Sessions deleted, or the original idempotent result.
      * @throws ApiError
      */
@@ -2035,6 +2035,7 @@ export class SessionService {
     }
     /**
      * Start a Session Runtime
+     * Start or reopen a retained environment using its latest durable Profile checkpoint, including legacy TERMINATED environments. Deleted environments are not accessible.
      * @returns OperationResponse Start operation accepted.
      * @throws ApiError
      */
@@ -2101,6 +2102,38 @@ export class SessionService {
                 404: `Resource not found.`,
                 409: `State or idempotency conflict.`,
                 429: `The bounded concurrent stream capacity has been reached.`,
+            },
+        });
+    }
+    /**
+     * Stop the browser and preserve its Profile for a later start
+     * Operator-confirmed stop may interrupt an active operation. The durable HIBERNATE operation closes Chromium, checkpoints the Profile and releases runtime resources before HIBERNATED is reported. The same Session and Profile can then be started again; this does not delete the environment.
+     * @returns OperationResponse Recoverable stop operation accepted; completion is asynchronous.
+     * @throws ApiError
+     */
+    public stopSession({
+        sessionId,
+        xTenantId,
+    }: {
+        sessionId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<OperationResponse> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}:stop',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
             },
         });
     }

@@ -48,7 +48,7 @@ export function BatchDeleteSessionsDialog({
                 删除 {sessions.length} 个环境？
               </Dialog.Title>
               <Dialog.Description className="mt-1.5 text-[11px] leading-5 text-text-muted">
-                环境将从管理列表移除；审计、录制与恢复证据继续按保留策略保存。此操作不会替代终止流程。
+                环境将从管理列表移除；审计、录制与恢复证据继续按保留策略保存。如需保留环境供下次使用，请取消并选择停止。
               </Dialog.Description>
             </div>
           </div>

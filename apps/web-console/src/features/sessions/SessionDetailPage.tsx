@@ -42,7 +42,7 @@ import {
   useRebindSessionApplication,
   useValidateBusinessRecovery,
   useStartSession,
-  useTerminateSession,
+  useStopSession,
   useUpdateResourcePolicy,
   useRequestHumanTakeover,
 } from '@/features/sessions/api/sessionQueries';
@@ -80,7 +80,7 @@ export function SessionDetailPage() {
     sessionQuery.data?.state === 'RUNNING'
   );
   const startMutation = useStartSession(id);
-  const terminateMutation = useTerminateSession(id);
+  const terminateMutation = useStopSession(id);
   const resyncMutation = useResyncBrowserState(id);
   const resourceQuery = useSessionResources(id);
   const resourceEventsQuery = useSessionResourceEvents(id);
@@ -110,13 +110,18 @@ export function SessionDetailPage() {
   const canStart =
     auth.canOperate &&
     session &&
-    ['CREATED', 'HIBERNATED'].includes(session.state) &&
+    ['CREATED', 'HIBERNATED', 'TERMINATED'].includes(session.state) &&
     !session.currentOperation;
   const canTerminate =
     auth.canOperate &&
     session &&
-    !['TERMINATED', 'TERMINATING'].includes(session.state) &&
-    !session.currentOperation;
+    ![
+      'CREATED',
+      'HIBERNATED',
+      'HIBERNATING',
+      'TERMINATED',
+      'TERMINATING',
+    ].includes(session.state);
   const takeoverActive = session?.currentOperation?.mode === 'HUMAN_TAKEOVER';
   const canOpenDesktop =
     auth.canOperate &&
@@ -124,8 +129,12 @@ export function SessionDetailPage() {
     ['RUNNING', 'DEGRADED'].includes(session.state);
 
   const terminate = async () => {
-    await terminateMutation.mutateAsync();
-    setTerminateOpen(false);
+    try {
+      await terminateMutation.mutateAsync();
+      setTerminateOpen(false);
+    } catch {
+      // The mutation error remains visible in the dialog; keep it open for retry.
+    }
   };
 
   const openRemoteDesktop = () => {
@@ -291,7 +300,7 @@ export function SessionDetailPage() {
                     className="inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-danger/35 px-3 text-[11px] text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-35"
                   >
                     <Square size={12} />
-                    终止
+                    停止
                   </button>
                 </div>
               </div>
@@ -615,6 +624,7 @@ export function SessionDetailPage() {
         onOpenChange={setTerminateOpen}
         sessionId={id}
         pending={terminateMutation.isPending}
+        error={terminateMutation.error}
         onConfirm={terminate}
       />
     </div>
@@ -1075,12 +1085,14 @@ function TerminateDialog({
   onOpenChange,
   sessionId,
   pending,
+  error,
   onConfirm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sessionId: string;
   pending: boolean;
+  error: Error | null;
   onConfirm: () => Promise<void>;
 }) {
   return (
@@ -1091,16 +1103,16 @@ function TerminateDialog({
           <div className="flex items-start justify-between">
             <div>
               <Dialog.Title className="text-[15px] font-semibold text-text-primary">
-                终止 Session？
+                是否停止运行？
               </Dialog.Title>
               <Dialog.Description className="mt-1 text-[11px] leading-5 text-text-muted">
-                该操作会创建真实 Termination
-                Operation，不会由前端立即伪造成功状态。
+                关闭浏览器并保存 Profile、Cookie
+                和登录资料。之后可以再次启动同一个环境；正在执行的任务会中断。
               </Dialog.Description>
             </div>
             <Dialog.Close
               className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted hover:bg-surface-2"
-              aria-label="关闭终止确认"
+              aria-label="关闭停止确认"
             >
               <X size={14} />
             </Dialog.Close>
@@ -1108,6 +1120,16 @@ function TerminateDialog({
           <div className="mt-4 rounded-[8px] bg-surface-2 px-3 py-2 font-mono text-[11px] text-text-secondary">
             {sessionId}
           </div>
+          {error && (
+            <p role="alert" className="mt-3 break-all text-[11px] text-danger">
+              停止失败：{error.message}
+              {isSessionApiError(error) && error.body.requestId && (
+                <span className="block font-mono">
+                  Request ID: {error.body.requestId}
+                </span>
+              )}
+            </p>
+          )}
           <div className="mt-5 flex justify-end gap-2">
             <Dialog.Close className="h-8 rounded-[7px] border border-border-default px-3 text-[11px] text-text-secondary hover:bg-surface-2">
               取消
@@ -1119,7 +1141,7 @@ function TerminateDialog({
               className="inline-flex h-8 items-center gap-1.5 rounded-[7px] bg-danger px-3 text-[11px] font-medium text-canvas disabled:opacity-60"
             >
               {pending && <LoaderCircle size={12} className="animate-spin" />}
-              {pending ? '正在提交' : '确认终止'}
+              {pending ? '正在提交' : '确认停止'}
             </button>
           </div>
         </Dialog.Content>

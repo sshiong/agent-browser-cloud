@@ -12,7 +12,7 @@ RUN cargo build \
 
 FROM debian:bookworm-slim
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y ca-certificates chromium tini xvfb x11vnc \
+    && apt-get install --no-install-recommends -y ca-certificates chromium chromium-sandbox tini xvfb x11vnc \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system browsercloud \
     && useradd --system --gid browsercloud --home-dir /var/lib/browsercloud browsercloud \

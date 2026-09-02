@@ -14,22 +14,22 @@ const stateConfig: Record<
   RUNNING: { label: '运行中', className: 'bg-success/15 text-success' },
   DEGRADED: { label: '降级', className: 'bg-warning/15 text-warning' },
   HIBERNATING: {
-    label: '休眠中',
+    label: '停止中',
     className: 'bg-accent-secondary/15 text-accent-secondary',
     pulse: true,
   },
-  HIBERNATED: { label: '已休眠', className: 'bg-surface-3 text-text-muted' },
+  HIBERNATED: { label: '已停止', className: 'bg-surface-3 text-text-muted' },
   RECOVERING: {
     label: '恢复中',
     className: 'bg-accent-secondary/15 text-accent-secondary',
     pulse: true,
   },
   TERMINATING: {
-    label: '终止中',
+    label: '停止中',
     className: 'bg-warning/15 text-warning',
     pulse: true,
   },
-  TERMINATED: { label: '已终止', className: 'bg-surface-3 text-text-muted' },
+  TERMINATED: { label: '已停止', className: 'bg-surface-3 text-text-muted' },
   FAILED: { label: '失败', className: 'bg-danger/15 text-danger' },
 };
 

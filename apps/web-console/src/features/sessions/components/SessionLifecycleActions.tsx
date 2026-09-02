@@ -3,32 +3,33 @@ import { LoaderCircle, Play, Square } from 'lucide-react';
 import { useState } from 'react';
 import { isSessionApiError } from '@/api/session';
 import { useAuth } from '@/auth/AuthProvider';
-import { useStartSession, useTerminateSession } from '../api/sessionQueries';
+import { useStartSession, useStopSession } from '../api/sessionQueries';
 import type { SessionView } from '@/types/session';
 
 /** Shared by the Workspace overview and Environment table (including Tauri). */
 export function SessionLifecycleActions({ session }: { session: SessionView }) {
   const auth = useAuth();
   const start = useStartSession(session.sessionId);
-  const terminate = useTerminateSession(session.sessionId);
+  const terminate = useStopSession(session.sessionId);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const pending = start.isPending || terminate.isPending;
   const busy = pending || Boolean(session.currentOperation);
-  const canStart = ['CREATED', 'HIBERNATED'].includes(session.state);
-  const ended = session.state === 'TERMINATED';
-  const stopping = session.state === 'TERMINATING';
+  const canStart = ['CREATED', 'HIBERNATED', 'TERMINATED'].includes(
+    session.state
+  );
+  const stopping = ['TERMINATING', 'HIBERNATING'].includes(session.state);
   const error = start.error || terminate.error;
 
   if (!auth.canOperate) return null;
 
   return (
     <div className="flex max-w-64 flex-col items-end gap-1">
-      {canStart || ended ? (
+      {canStart ? (
         <button
           type="button"
           aria-label={`启动 ${session.sessionId}`}
-          title={ended ? '已终止的会话不能再次启动' : '启动会话'}
-          disabled={busy || ended}
+          title="启动会话（复用原有登录资料）"
+          disabled={busy}
           onClick={() => {
             terminate.reset();
             start.mutate();
@@ -85,7 +86,8 @@ export function SessionLifecycleActions({ session }: { session: SessionView }) {
               是否停止运行？
             </Dialog.Title>
             <Dialog.Description className="mt-2 text-[12px] leading-5 text-text-muted">
-              将终止此会话并关闭浏览器，正在进行的任务会中断。终止后不能再次启动同一会话；此操作不会删除环境记录。
+              将关闭浏览器并保存登录资料、Cookie 和
+              Profile，正在进行的任务会中断。之后可再次启动同一个环境；不会删除环境记录。
             </Dialog.Description>
             <p className="mt-4 break-all text-[13px] text-text-primary">
               {session.displayName}
@@ -106,7 +108,7 @@ export function SessionLifecycleActions({ session }: { session: SessionView }) {
               </Dialog.Close>
               <button
                 type="button"
-                disabled={pending || stopping || ended}
+                disabled={pending || stopping || canStart}
                 onClick={() =>
                   terminate.mutate(undefined, {
                     onSuccess: () => setConfirmOpen(false),

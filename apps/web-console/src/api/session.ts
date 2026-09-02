@@ -861,9 +861,20 @@ export async function startSession(
   );
 }
 
-/**
- * 终止 Session。
- */
+/** Close the browser while retaining its Profile for the next start. */
+export async function stopSession(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<OperationResponse> {
+  return request<OperationResponse>(
+    `/sessions/${sessionId}:stop`,
+    { method: 'POST', signal },
+    tenantId
+  );
+}
+
+/** Legacy termination API; ordinary UI close uses stopSession. */
 export async function terminateSession(
   sessionId: string,
   tenantId = DEFAULT_TENANT_ID,

@@ -40,6 +40,7 @@ import {
   resyncBrowserState,
   SessionApiError,
   startSession,
+  stopSession,
   terminateSession,
   streamSessionChanges,
   streamSessionResourceChanges,
@@ -533,6 +534,7 @@ describe('session API', () => {
 
   it.each([
     ['start', startSession],
+    ['stop', stopSession],
     ['terminate', terminateSession],
   ] as const)(
     'scopes %s operations to one session and tenant',

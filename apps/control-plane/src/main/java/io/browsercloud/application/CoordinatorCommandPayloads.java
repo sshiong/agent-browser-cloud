@@ -7,6 +7,7 @@ public final class CoordinatorCommandPayloads {
   private CoordinatorCommandPayloads() {}
 
   public static final String SESSION_START = "SESSION_START_V1";
+  public static final String SESSION_STOP = "SESSION_STOP_V1";
   public static final String SESSION_TERMINATE = "SESSION_TERMINATE_V1";
   public static final String SESSION_TAKEOVER = "SESSION_TAKEOVER_V1";
   public static final String SESSION_RELEASE_TAKEOVER = "SESSION_RELEASE_TAKEOVER_V1";

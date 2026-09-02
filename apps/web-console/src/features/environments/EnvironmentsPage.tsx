@@ -50,11 +50,11 @@ const exactStates: { value: SessionState; label: string }[] = [
   { value: 'STARTING', label: '启动中' },
   { value: 'RUNNING', label: '运行中' },
   { value: 'DEGRADED', label: '降级' },
-  { value: 'HIBERNATING', label: '休眠中' },
-  { value: 'HIBERNATED', label: '已休眠' },
+  { value: 'HIBERNATING', label: '停止中' },
+  { value: 'HIBERNATED', label: '已停止' },
   { value: 'RECOVERING', label: '恢复中' },
-  { value: 'TERMINATING', label: '终止中' },
-  { value: 'TERMINATED', label: '已终止' },
+  { value: 'TERMINATING', label: '停止中（兼容）' },
+  { value: 'TERMINATED', label: '已停止（兼容）' },
   { value: 'FAILED', label: '失败' },
 ];
 
@@ -897,7 +897,7 @@ function SessionRow({
             label={
               canDelete
                 ? `选择 ${session.displayName}`
-                : `${session.displayName} 需先终止并等待操作完成后才能删除`
+                : `${session.displayName} 需先停止并等待操作完成后才能删除`
             }
             onChange={() => onSelectedChange(!selected)}
           />
@@ -1024,7 +1024,7 @@ function SessionRow({
 
 function canDeleteSession(session: SessionView) {
   return (
-    ['CREATED', 'TERMINATED'].includes(session.state) &&
+    ['CREATED', 'HIBERNATED', 'TERMINATED'].includes(session.state) &&
     !session.currentOperation
   );
 }

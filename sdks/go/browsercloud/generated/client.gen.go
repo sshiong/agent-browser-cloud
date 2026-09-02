@@ -131,6 +131,7 @@ var Operations = map[string]Operation{
 	"updateSessionResourcePolicy":                {OperationID: "updateSessionResourcePolicy", Method: "PATCH", Path: "/api/v1/sessions/{sessionId}/resource-policy", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "ResourcePolicyRequest", RequestRequired: true, ResponseSchema: "ResourcePolicyOperation"},
 	"startSession":                               {OperationID: "startSession", Method: "POST", Path: "/api/v1/sessions/{sessionId}:start", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "OperationResponse"},
 	"resyncBrowserState":                         {OperationID: "resyncBrowserState", Method: "POST", Path: "/api/v1/sessions/{sessionId}:resync-state", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "StateResyncRequest", RequestRequired: true, ResponseSchema: "StateResyncResponse"},
+	"stopSession":                                {OperationID: "stopSession", Method: "POST", Path: "/api/v1/sessions/{sessionId}:stop", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "OperationResponse"},
 	"terminateSession":                           {OperationID: "terminateSession", Method: "POST", Path: "/api/v1/sessions/{sessionId}:terminate", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "OperationResponse"},
 	"requestHumanTakeover":                       {OperationID: "requestHumanTakeover", Method: "POST", Path: "/api/v1/sessions/{sessionId}:takeover", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "OperationResponse"},
 	"releaseHumanTakeover":                       {OperationID: "releaseHumanTakeover", Method: "POST", Path: "/api/v1/sessions/{sessionId}:release-takeover", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "OperationResponse"},
@@ -636,6 +637,9 @@ func (c *Client) StartSession(ctx context.Context, request Request) (any, *http.
 }
 func (c *Client) ResyncBrowserState(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "resyncBrowserState", request)
+}
+func (c *Client) StopSession(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "stopSession", request)
 }
 func (c *Client) TerminateSession(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "terminateSession", request)

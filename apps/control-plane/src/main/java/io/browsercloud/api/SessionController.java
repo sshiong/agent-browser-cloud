@@ -136,6 +136,25 @@ public class SessionController {
                 () -> service.start(sessionId, principal.tenantId(), principal.actorId())));
   }
 
+  /** Close the browser and checkpoint its Profile without deleting the environment. */
+  @PostMapping("/{sessionId}:stop")
+  @PreAuthorize(PlatformRoles.OPERATE)
+  public ResponseEntity<OperationResponse> stop(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      HttpServletRequest request) {
+    var principal = identity.current();
+    return ResponseEntity.accepted()
+        .body(
+            commandRouting.execute(
+                sessionId,
+                principal.tenantId(),
+                SESSION_STOP,
+                requestId(request),
+                new SessionActor(principal.tenantId(), principal.actorId()),
+                OperationResponse.class,
+                () -> service.stop(sessionId, principal.tenantId(), principal.actorId())));
+  }
+
   /**
    * 终止 Session。
    *

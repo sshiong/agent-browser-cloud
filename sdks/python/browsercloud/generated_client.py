@@ -117,6 +117,7 @@ OPERATIONS: dict[str, Operation] = {
     'updateSessionResourcePolicy': Operation('updateSessionResourcePolicy', 'PATCH', '/api/v1/sessions/{sessionId}/resource-policy', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'ResourcePolicyRequest', True, 'ResourcePolicyOperation'),
     'startSession': Operation('startSession', 'POST', '/api/v1/sessions/{sessionId}:start', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'OperationResponse'),
     'resyncBrowserState': Operation('resyncBrowserState', 'POST', '/api/v1/sessions/{sessionId}:resync-state', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'StateResyncRequest', True, 'StateResyncResponse'),
+    'stopSession': Operation('stopSession', 'POST', '/api/v1/sessions/{sessionId}:stop', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'OperationResponse'),
     'terminateSession': Operation('terminateSession', 'POST', '/api/v1/sessions/{sessionId}:terminate', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'OperationResponse'),
     'requestHumanTakeover': Operation('requestHumanTakeover', 'POST', '/api/v1/sessions/{sessionId}:takeover', ('sessionId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'OperationResponse'),
     'releaseHumanTakeover': Operation('releaseHumanTakeover', 'POST', '/api/v1/sessions/{sessionId}:release-takeover', ('sessionId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'OperationResponse'),
@@ -577,6 +578,9 @@ class BrowserCloudGeneratedClient:
 
     def resyncBrowserState(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('resyncBrowserState', path=path, query=query, body=body, headers=headers)
+
+    def stopSession(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('stopSession', path=path, query=query, body=body, headers=headers)
 
     def terminateSession(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('terminateSession', path=path, query=query, body=body, headers=headers)

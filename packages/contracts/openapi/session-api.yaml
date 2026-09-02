@@ -386,7 +386,7 @@ paths:
       operationId: batchDeleteSessions
       summary: Soft-delete tenant Sessions atomically
       description: >-
-        Removes CREATED or TERMINATED Sessions with no active Operation from normal control-plane
+        Removes CREATED, HIBERNATED or TERMINATED Sessions with no active Operation from normal control-plane
         reads. Audit, recording, and recovery evidence remain retained. The whole batch is rejected
         if any Session is missing, cross-tenant, active, or in a non-deletable state.
       tags: [Session]
@@ -1982,6 +1982,7 @@ paths:
     post:
       operationId: startSession
       summary: Start a Session Runtime
+      description: Start or reopen a retained environment using its latest durable Profile checkpoint, including legacy TERMINATED environments. Deleted environments are not accessible.
       tags: [Session]
       parameters:
         - $ref: "#/components/parameters/SessionId"
@@ -2031,6 +2032,28 @@ paths:
           $ref: "#/components/responses/Conflict"
         "429":
           $ref: "#/components/responses/TooManyRequests"
+  /api/v1/sessions/{sessionId}:stop:
+    post:
+      operationId: stopSession
+      summary: Stop the browser and preserve its Profile for a later start
+      description: Operator-confirmed stop may interrupt an active operation. The durable HIBERNATE operation closes Chromium, checkpoints the Profile and releases runtime resources before HIBERNATED is reported. The same Session and Profile can then be started again; this does not delete the environment.
+      tags: [Session]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "202":
+          description: Recoverable stop operation accepted; completion is asynchronous.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/sessions/{sessionId}:terminate:
     post:
       operationId: terminateSession

@@ -340,7 +340,9 @@ public final class SessionCoordinator {
     log.info("Handling start session: {}", command.sessionId());
 
     var session = sessionRepository.requireForUpdate(command.sessionId());
-    if (session.state() != SessionState.CREATED && session.state() != SessionState.HIBERNATED) {
+    if (session.state() != SessionState.CREATED
+        && session.state() != SessionState.HIBERNATED
+        && session.state() != SessionState.TERMINATED) {
       throw new InvalidSessionStateException(session.sessionId(), session.state(), "start");
     }
 
@@ -420,10 +422,25 @@ public final class SessionCoordinator {
 
   private CoordinatorResult handleHibernate(HibernateSession command) {
     var session = sessionRepository.requireForUpdate(command.sessionId());
-    if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
+    boolean operatorStop = "operator_stop".equals(command.reason());
+    if (operatorStop
+        ? (session.state() == SessionState.HIBERNATED
+            || session.state() == SessionState.HIBERNATING
+            || session.state() == SessionState.TERMINATED
+            || session.state() == SessionState.TERMINATING)
+        : (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED)) {
       throw new InvalidSessionStateException(session.sessionId(), session.state(), "hibernate");
     }
-    operationRepository.ensureNoActiveOperation(session.sessionId());
+    if (operatorStop) {
+      operationRepository
+          .findActive(session.sessionId())
+          .ifPresent(
+              active ->
+                  operationRepository.transition(
+                      active.operationId(), OperationState.ACTIVE, OperationState.ABORTED));
+    } else {
+      operationRepository.ensureNoActiveOperation(session.sessionId());
+    }
     var operation =
         OperationFactory.hibernate(
             session, operationRepository.nextOperationEpoch(session.sessionId()));

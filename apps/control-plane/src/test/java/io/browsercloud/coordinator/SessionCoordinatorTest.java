@@ -104,10 +104,13 @@ class SessionCoordinatorTest {
     verify(ownershipService).acquireSession("ses-1", 1);
   }
 
-  @Test
-  void shouldCreateStartOperation() {
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.EnumSource(
+      value = SessionState.class,
+      names = {"CREATED", "HIBERNATED", "TERMINATED"})
+  void shouldCreateStartOperation(SessionState state) {
     // Given
-    var session = createSession("ses-1", SessionState.CREATED);
+    var session = createSession("ses-1", state);
     when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
     when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(1L);
 
@@ -704,6 +707,29 @@ class SessionCoordinatorTest {
                 event ->
                     event instanceof SessionStateChanged changed
                         && changed.newState() == SessionState.HIBERNATED));
+  }
+
+  @Test
+  void operatorStopPreemptsStartupWithDurableHibernate() {
+    when(sessionRepository.requireForUpdate("ses-1"))
+        .thenReturn(createSession("ses-1", SessionState.STARTING));
+    when(operationRepository.findActive("ses-1"))
+        .thenReturn(Optional.of(createActiveOperation("ses-1")));
+    when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(2L);
+
+    var result = coordinator.handle(new HibernateSession("ses-1", "operator_stop"));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.ACCEPTED);
+    verify(operationRepository).transition("op-1", OperationState.ACTIVE, OperationState.ABORTED);
+    verify(operationRepository).insert(argThat(op -> op.mode() == OperationMode.HIBERNATE));
+    verify(nodeCommandGateway)
+        .send(
+            argThat(
+                command ->
+                    command.commandType().equals("StopRuntime") && command.operationEpoch() == 2));
+    verify(sessionRepository)
+        .updateWithExpectedEpoch(
+            argThat(session -> session.state() == SessionState.HIBERNATING), eq(0L));
   }
 
   @Test

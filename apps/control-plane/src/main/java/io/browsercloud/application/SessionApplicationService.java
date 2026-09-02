@@ -422,6 +422,12 @@ public class SessionApplicationService {
         "resource_danger:" + dangerEvent.toLowerCase(java.util.Locale.ROOT));
   }
 
+  /** Explicit operator stop: preserve the Profile and permit a later start of this environment. */
+  @Transactional
+  public OperationResponse stop(String sessionId, String tenantId, String actorId) {
+    return hibernateForWorkflow(sessionId, tenantId, actorId, "operator_stop", "operator_stop");
+  }
+
   /** Resource-policy hibernation after the Safe Point Aggregator has returned SAFE. */
   @Transactional
   public OperationResponse hibernateForResourcePolicy(String sessionId, String tenantId) {

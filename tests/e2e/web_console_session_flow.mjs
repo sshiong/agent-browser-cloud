@@ -1148,17 +1148,17 @@ try {
     page.getByText(/Agent (动作|导航)(成功|失败)/).first(),
   ).toBeVisible({ timeout: 10_000 });
   await expect(
-    page.getByRole("button", { name: "终止", exact: true }),
+    page.getByRole("button", { name: "停止", exact: true }),
   ).toBeEnabled({
     timeout: 15_000,
   });
-  await page.getByRole("button", { name: "终止", exact: true }).click();
+  await page.getByRole("button", { name: "停止", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "终止 Session？" }),
+    page.getByRole("heading", { name: "是否停止运行？" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "确认终止" }).click();
+  await page.getByRole("button", { name: "确认停止" }).click();
   await expect(
-    page.locator("main").getByText("已终止", { exact: true }).last(),
+    page.locator("main").getByText("已停止", { exact: true }).last(),
   ).toBeVisible({ timeout: 15_000 });
 
   await page.getByRole("link", { name: "Profile 存储" }).click();
@@ -1241,13 +1241,16 @@ try {
     page.locator("main").getByText("已创建", { exact: true }).last(),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "终止", exact: true }).click();
+  await page.getByRole("button", { name: "启动", exact: true }).click();
+  await expect(page.locator("main").getByText("运行中", { exact: true }).last())
+    .toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "停止", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "终止 Session？" }),
+    page.getByRole("heading", { name: "是否停止运行？" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "确认终止" }).click();
+  await page.getByRole("button", { name: "确认停止" }).click();
   await expect(
-    page.locator("main").getByText("已终止", { exact: true }).last(),
+    page.locator("main").getByText("已停止", { exact: true }).last(),
   ).toBeVisible({ timeout: 15_000 });
 
   await page.goto(

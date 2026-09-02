@@ -107,6 +107,7 @@ public final class BrowserCloudGeneratedClient {
     operation("updateSessionResourcePolicy", "PATCH", "/api/v1/sessions/{sessionId}/resource-policy", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "ResourcePolicyRequest", true, "ResourcePolicyOperation"),
     operation("startSession", "POST", "/api/v1/sessions/{sessionId}:start", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "OperationResponse"),
     operation("resyncBrowserState", "POST", "/api/v1/sessions/{sessionId}:resync-state", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "StateResyncRequest", true, "StateResyncResponse"),
+    operation("stopSession", "POST", "/api/v1/sessions/{sessionId}:stop", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "OperationResponse"),
     operation("terminateSession", "POST", "/api/v1/sessions/{sessionId}:terminate", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "OperationResponse"),
     operation("requestHumanTakeover", "POST", "/api/v1/sessions/{sessionId}:takeover", List.of("sessionId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "OperationResponse"),
     operation("releaseHumanTakeover", "POST", "/api/v1/sessions/{sessionId}:release-takeover", List.of("sessionId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "OperationResponse"),
@@ -378,6 +379,7 @@ public final class BrowserCloudGeneratedClient {
   public Response updateSessionResourcePolicy(Request request) { return call("updateSessionResourcePolicy", request); }
   public Response startSession(Request request) { return call("startSession", request); }
   public Response resyncBrowserState(Request request) { return call("resyncBrowserState", request); }
+  public Response stopSession(Request request) { return call("stopSession", request); }
   public Response terminateSession(Request request) { return call("terminateSession", request); }
   public Response requestHumanTakeover(Request request) { return call("requestHumanTakeover", request); }
   public Response releaseHumanTakeover(Request request) { return call("releaseHumanTakeover", request); }

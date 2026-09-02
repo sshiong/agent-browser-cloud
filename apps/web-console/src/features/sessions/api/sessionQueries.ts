@@ -25,6 +25,7 @@ import {
   requestHumanTakeover,
   resyncBrowserState,
   startSession,
+  stopSession,
   terminateSession,
   updateSession,
   batchDeleteSessions,
@@ -991,6 +992,10 @@ export function useBatchDeleteSessions() {
 
 export function useTerminateSession(sessionId: string) {
   return useSessionOperation(sessionId, () => terminateSession(sessionId));
+}
+
+export function useStopSession(sessionId: string) {
+  return useSessionOperation(sessionId, () => stopSession(sessionId));
 }
 
 export function useRequestHumanTakeover(sessionId: string) {

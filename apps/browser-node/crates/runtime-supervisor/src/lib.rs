@@ -4,6 +4,7 @@
 
 use anyhow::Context;
 use async_trait::async_trait;
+use futures_util::SinkExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -979,6 +980,41 @@ impl ChromiumRuntimeSupervisor {
         let _ = timeout(deadline, child.wait()).await;
     }
 
+    // Browser.close lets Chromium flush cookies, preferences, and session storage before the
+    // Node checkpoints the Profile. Never send this command to an unverified remote endpoint.
+    async fn close_browser(endpoint: &str) -> anyhow::Result<()> {
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .timeout(Duration::from_secs(2))
+            .build()?;
+        let version: serde_json::Value = client
+            .get(format!("{endpoint}/json/version"))
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        let websocket = version
+            .get("webSocketDebuggerUrl")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Browser CDP endpoint is missing"))?;
+        let expected = format!(
+            "{}/devtools/browser/",
+            endpoint.replacen("http://", "ws://", 1)
+        );
+        anyhow::ensure!(
+            websocket.starts_with(&expected),
+            "Browser CDP endpoint is not local"
+        );
+        let (mut socket, _) = tokio_tungstenite::connect_async(websocket).await?;
+        socket
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                serde_json::json!({"id": 1, "method": "Browser.close"}).to_string(),
+            ))
+            .await?;
+        Ok(())
+    }
+
     async fn wait_for_cdp(endpoint: &str, deadline: Duration) -> anyhow::Result<()> {
         let client = reqwest::Client::builder()
             .connect_timeout(Duration::from_millis(500))
@@ -1131,6 +1167,7 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
             .arg(format!("--remote-debugging-port={}", spec.cdp_port))
             .arg("--remote-debugging-address=127.0.0.1")
             .arg("--no-first-run")
+            .arg("--restore-last-session")
             .arg("--disable-background-networking")
             .arg("--disable-sync")
             .arg("--disable-translate")
@@ -1343,11 +1380,33 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
             return Ok(());
         };
 
+        if runtime.child.try_wait()?.is_none() {
+            let closed = timeout(
+                Duration::from_secs(3),
+                Self::close_browser(&runtime.handle.cdp_endpoint),
+            )
+            .await;
+            if !matches!(closed, Ok(Ok(()))) {
+                tracing::warn!(
+                    session_id,
+                    "Graceful Chromium close unavailable; using bounded process cleanup"
+                );
+                runtime.child.start_kill()?;
+            }
+            if timeout(Duration::from_secs(10), runtime.child.wait())
+                .await
+                .is_err()
+            {
+                tracing::warn!(
+                    session_id,
+                    "Chromium did not close in time; forcing process cleanup"
+                );
+                runtime.child.start_kill()?;
+            }
+        }
+        // Kill any remaining descendants only after Chromium had an opportunity to flush.
         if let Some(cgroup) = runtime.cgroup.as_ref() {
             cgroup.kill_all();
-        }
-        if runtime.child.try_wait()?.is_none() {
-            runtime.child.start_kill()?;
         }
         if timeout(Duration::from_secs(10), runtime.child.wait())
             .await
@@ -1776,6 +1835,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "requires REAL_CHROMIUM_PATH and launches a local browser"]
     async fn starts_probes_and_stops_real_chromium() {
+        use futures_util::StreamExt;
         let chromium =
             std::env::var("REAL_CHROMIUM_PATH").expect("REAL_CHROMIUM_PATH must point to Chromium");
         let reservation = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -1787,23 +1847,28 @@ mod tests {
             .as_nanos();
         let profile_dir =
             std::env::temp_dir().join(format!("browsercloud-runtime-supervisor-{nonce}"));
-        let supervisor = ChromiumRuntimeSupervisor::new(PathBuf::from(chromium));
-        let handle = supervisor
-            .start(RuntimeSpec {
-                session_id: "ses_real_runtime".into(),
-                runtime_build_id: "runtime-real-test".into(),
-                profile_dir: profile_dir.clone(),
-                cache_dir: profile_dir.join("EphemeralCache"),
-                proxy_server: None,
-                display: String::new(),
-                cdp_port,
-                vnc_port: None,
-                extension_dirs: Vec::new(),
-                resource_limits: RuntimeResourceLimits::local_test_default(),
-                browser_identity: BrowserIdentitySpec::default(),
-            })
+        let store = storage_helper::LocalProfileStore::open(profile_dir.clone())
             .await
             .unwrap();
+        let workspace = store
+            .acquire_workspace("tenant-test", "profile-test", "ses_real_runtime")
+            .await
+            .unwrap();
+        let supervisor = ChromiumRuntimeSupervisor::new(PathBuf::from(chromium));
+        let mut spec = RuntimeSpec {
+            session_id: "ses_real_runtime".into(),
+            runtime_build_id: "runtime-real-test".into(),
+            profile_dir: workspace.core_dir.clone(),
+            cache_dir: workspace.ephemeral_dir.clone(),
+            proxy_server: None,
+            display: String::new(),
+            cdp_port,
+            vnc_port: None,
+            extension_dirs: Vec::new(),
+            resource_limits: RuntimeResourceLimits::local_test_default(),
+            browser_identity: BrowserIdentitySpec::default(),
+        };
+        let handle = supervisor.start(spec.clone()).await.unwrap();
         assert!(handle.pid > 0);
         assert!(handle.process_started_at > 0);
         assert!(handle.cdp_endpoint.ends_with(&cdp_port.to_string()));
@@ -1814,11 +1879,93 @@ mod tests {
         let metrics = supervisor.metrics("ses_real_runtime").await.unwrap();
         assert_eq!(metrics.pid, handle.pid);
         assert!(metrics.resident_memory_bytes > 0);
+        async fn cdp(endpoint: &str, method: &str, params: serde_json::Value) -> serde_json::Value {
+            let version: serde_json::Value = reqwest::Client::builder()
+                .no_proxy()
+                .build()
+                .unwrap()
+                .get(format!("{endpoint}/json/version"))
+                .send()
+                .await
+                .unwrap()
+                .json()
+                .await
+                .unwrap();
+            let (mut socket, _) =
+                tokio_tungstenite::connect_async(version["webSocketDebuggerUrl"].as_str().unwrap())
+                    .await
+                    .unwrap();
+            socket
+                .send(tokio_tungstenite::tungstenite::Message::Text(
+                    serde_json::json!({"id": 42, "method": method, "params": params}).to_string(),
+                ))
+                .await
+                .unwrap();
+            timeout(Duration::from_secs(5), async {
+                while let Some(message) = socket.next().await {
+                    let message = message.unwrap();
+                    if let Ok(value) =
+                        serde_json::from_str::<serde_json::Value>(&message.to_string())
+                    {
+                        if value["id"] == 42 {
+                            assert!(value.get("error").is_none(), "{value}");
+                            return value["result"].clone();
+                        }
+                    }
+                }
+                panic!("CDP closed before response");
+            })
+            .await
+            .unwrap()
+        }
+        cdp(&handle.cdp_endpoint, "Storage.setCookies", serde_json::json!({"cookies": [
+            {"name": "persistent_login", "value": "test-only", "domain": "example.test", "path": "/", "expires": 4102444800.0},
+            {"name": "session_login", "value": "test-session", "domain": "example.test", "path": "/"}
+        ]})).await;
         supervisor.stop("ses_real_runtime").await.unwrap();
         assert!(matches!(
             supervisor.health("ses_real_runtime").await.unwrap(),
             RuntimeHealth::Crashed(_)
         ));
+        let checkpoint = store
+            .checkpoint(&workspace, "runtime-real-test")
+            .await
+            .unwrap();
+        assert!(checkpoint.committed);
+        store.release_writer(&workspace).await.unwrap();
+        // Remove the test workspace so restart must recover from the committed checkpoint.
+        tokio::fs::remove_dir_all(&workspace.core_dir)
+            .await
+            .unwrap();
+        let restored = store
+            .acquire_workspace("tenant-test", "profile-test", "ses_real_runtime")
+            .await
+            .unwrap();
+        assert_eq!(
+            restored.restored_checkpoint_id.as_deref(),
+            Some(checkpoint.checkpoint_id.as_str())
+        );
+        spec.profile_dir = restored.core_dir.clone();
+        spec.cache_dir = restored.ephemeral_dir.clone();
+        let restarted = supervisor.start(spec).await.unwrap();
+        let cookies = cdp(
+            &restarted.cdp_endpoint,
+            "Storage.getCookies",
+            serde_json::json!({}),
+        )
+        .await;
+        for expected in ["persistent_login", "session_login"] {
+            assert!(
+                cookies["cookies"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|cookie| cookie["name"] == expected),
+                "missing {expected}"
+            );
+        }
+        supervisor.stop("ses_real_runtime").await.unwrap();
+        store.release_writer(&restored).await.unwrap();
         let _ = tokio::fs::remove_dir_all(profile_dir).await;
     }
 }

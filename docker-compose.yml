@@ -64,6 +64,10 @@ services:
     build:
       context: .
       dockerfile: apps/browser-node/Dockerfile
+    # Non-root Chromium keeps its own sandbox; grant only namespace syscalls on top
+    # of the versioned Docker default profile (no SYS_ADMIN or privileged mode).
+    security_opt:
+      - seccomp=./deploy/docker/chromium-seccomp.json
     environment:
       NODE_AGENT_PORT: 9090
       NODE_ID: node_compose_1

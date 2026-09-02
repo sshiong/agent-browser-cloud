@@ -294,7 +294,7 @@ export function OverviewPage() {
                     <QuickAction
                       icon={Play}
                       label="管理 Session"
-                      detail="启动、查看与终止"
+                      detail="启动、查看与停止"
                       onClick={() => navigate('/environments')}
                     />
                   </div>

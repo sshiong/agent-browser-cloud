@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SessionDeletionApplicationService {
 
   private static final List<SessionState> DELETABLE_STATES =
-      List.of(SessionState.CREATED, SessionState.TERMINATED);
+      List.of(SessionState.CREATED, SessionState.HIBERNATED, SessionState.TERMINATED);
 
   private final NamedParameterJdbcTemplate jdbc;
   private final OperationRepository operations;

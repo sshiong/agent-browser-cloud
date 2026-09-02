@@ -2,7 +2,7 @@
 
 > 更新日期：2026-09-02
 > 基准分支：`main`
-> 编写时基准提交：`c46940f feat: add governed environment batch deletion`
+> 编写时基准提交：`33e41cf feat: add shared session start and stop controls`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **239 Operations / 319 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **240 Operations / 319 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -120,6 +120,12 @@ Rust Browser Node
 - [已确认] 本机真实 Chrome 500 次顺序及并发 4 容量证书、Kind N/N-1、Operator List/Watch 与核心告警已实现。
 
 ### Web、Desktop 与企业运营
+
+- [已确认] 环境为长期可复用对象：`:start` 打开浏览器，`:stop` 正常关闭后保存 Profile 并进入
+  HIBERNATED，随后可启动同一 Session；未删除的历史 TERMINATED 也允许显式再启动。
+  Web/Tauri 显示“已停止”，与删除独立；批量删除兼容 HIBERNATED。Chromium 先 Browser.close
+  再 Checkpoint，重启恢复 Session Cookie；真实 Chrome Checkpoint 恢复与 OrbStack 两次启停已验证，
+  见 progress 162。网站主动撤销/过期登录、强制清理时未落盘数据不作保证。
 
 - [已确认] 环境管理、创建向导、Session Detail、Workspace Overview、Groups/Tags、批量生命周期/归属、Saved View、全局搜索、通知、主题、用户菜单、Settings 已接正式 API/PostgreSQL。
 - [已确认] 环境列表三点菜单已接详情与 Tenant/RBAC 隔离的 PostgreSQL 重命名；无 Workflow 的超期 START/TERMINATE Operation 会由 deadline scanner 收敛，不再长期显示“启动中”，见 progress 159。
@@ -209,6 +215,13 @@ Rust Browser Node
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- 持久环境启停切片本地 Java 492 项、Web 132 项、Rust Workspace/Clippy、完整
+  Test/Lint/Build、Desktop test/lint/unsigned build、OpenAPI/四 SDK、供应链、Operator、
+  50k Capacity、N/N−1 与完整 PostgreSQL/Redis/MinIO/mTLS Integration 均通过。
+  集成使用确定性 Chromium fixture，输出 `reusable_session_lifecycle=true`；另以真实 Chrome
+  验证持久/会话 Cookie 经正常关闭、Checkpoint、清除测试工作区、同 Session 恢复后均保留。
+  OrbStack 真实 Chromium 的 RUNNING→HIBERNATED→RUNNING 已验收；GitHub 待推送检查，见 progress 162。
 
 - 环境列表批量删除切片本地 Control Plane 488 项、Rust Workspace、Web
   122 项、Worker/Provider、完整 Test/Lint/Build、Desktop test/lint/unsigned build、
@@ -490,11 +503,11 @@ make test-desktop
 
 ## 11. 已知问题、Bug 和技术债
 
-0. 2026-09-02 本机 OrbStack 真实启动验收发现 Chromium 报 `No usable sandbox`，CDP 无法就绪；
-   镜像未安装 `chromium-sandbox`，容器内核/namespace 支持仍需验证，不得把 API 返回 202 当作
-   浏览器已运行。总览/环境列表的共享启停按钮、停止确认、错误 Request ID 与 SSE 状态已接
-   正式 `:start`/`:terminate` API；真实停止中断启动已验证。TERMINATED 仍不可再次启动，
-   “可重复启停”的产品语义待确认，见 progress 161。
+0. OrbStack Chromium 的沙箱启动阻塞已由 progress 162 修复：显式安装 chromium-sandbox，
+   仅 Browser Node 使用版本固定的 Docker 默认 seccomp 加 clone/setns/unshare 规则。
+   未启用 privileged/SYS_ADMIN/--no-sandbox。普通停止必须保持可重启，不得回退到一次性环境。
+   本机容器内 Maven 下载曾遇 TLS 握手失败，本次 Control Plane 以本机验证后的同版 Boot JAR
+   构建运行镜像；标准源码镜像构建仍依赖 Maven 网络可用性。目标平台沙箱长稳仍独立验收。
 1. `useRecoveryGameDayEvents()` 仍以 5 秒轮询读取；替换前需先证明 timeline 事件分页的完整顺序和权限边界。
 2. 遗留 `EXCLUSIVE_TAKEOVER` 枚举/协议字段尚在 N/N-1 兼容窗口内；行为已失效，但暂不能物理删除。
 3. VNC/Agent 综合 E2E 历史上出现与 VNC 无关的 Agent 表单响应 30 秒偶发超时；并发关键段已有真实证据，完整长稳仍需单独稳定。

@@ -6097,6 +6097,41 @@ linked_workflows="$(docker exec "$postgres_name" psql -U browsercloud -d browser
   "select count(*) from exclusive_operations operation join sessions session on session.id=operation.session_id where operation.workflow_id is not null and session.tenant_id='tenant-integration'")"
 test "$linked_workflows" = "21"
 
+# Reuse one retained environment: legacy TERMINATED -> RUNNING -> HIBERNATED,
+# then HIBERNATED -> RUNNING -> HIBERNATED. PostgreSQL/Node/Storage are real;
+# this smoke uses a deterministic Chromium fixture (real Cookie test is separate).
+for lifecycle_cycle in 5 6; do
+  curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions/${second_session}:start" \
+    -H 'X-Tenant-Id: tenant-integration' >"$temp_dir/reusable-start.json"
+  for _ in $(seq 1 80); do
+    reusable_state="$(curl -fsS "http://localhost:${control_port}/api/v1/sessions/${second_session}" \
+      -H 'X-Tenant-Id: tenant-integration' | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+    if [[ "$reusable_state" = "RUNNING" ]]; then break; fi
+    sleep 0.25
+  done
+  test "$reusable_state" = "RUNNING"
+  python3 - "$temp_dir/runtime/profile-storage/tenants/tenant-integration/profiles/profile-integration/workspaces/${second_session}/core/Default/BrowserCloudProfileState.json" "$lifecycle_cycle" <<'PY'
+import json, pathlib, sys
+assert json.loads(pathlib.Path(sys.argv[1]).read_text()) == {"starts": int(sys.argv[2]), "durable": True}
+PY
+  test "$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
+    "http://localhost:${control_port}/api/v1/sessions/${second_session}:stop" \
+    -H 'X-Tenant-Id: tenant-integration' -H 'X-Roles: TENANT_VIEWER')" = "403"
+  test "$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
+    "http://localhost:${control_port}/api/v1/sessions/${second_session}:stop" \
+    -H 'X-Tenant-Id: different-tenant')" = "403"
+  curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions/${second_session}:stop" \
+    -H 'X-Tenant-Id: tenant-integration' >"$temp_dir/reusable-stop.json"
+  for _ in $(seq 1 80); do
+    reusable_state="$(curl -fsS "http://localhost:${control_port}/api/v1/sessions/${second_session}" \
+      -H 'X-Tenant-Id: tenant-integration' | python3 -c 'import json,sys; item=json.load(sys.stdin); assert item["profileId"] == "profile-integration"; print(item["state"])')"
+    if [[ "$reusable_state" = "HIBERNATED" ]]; then break; fi
+    sleep 0.25
+  done
+  test "$reusable_state" = "HIBERNATED"
+done
+printf 'reusable_session_lifecycle=true\n'
+
 kill -TERM "$network_helper_pid"
 wait "$network_helper_pid" 2>/dev/null || true
 network_helper_pid=""

@@ -13,7 +13,7 @@ vi.mock('../api/sessionQueries', () => ({
     reset: vi.fn(),
     mutate: vi.fn(),
   }),
-  useTerminateSession: () => ({
+  useStopSession: () => ({
     isPending: false,
     reset: vi.fn(),
     mutate: vi.fn(),
@@ -72,11 +72,9 @@ describe('shared session lifecycle controls', () => {
     mocks.pending = true;
     expect(render()).toContain('disabled=""');
   });
-  it('does not pretend a terminated session can restart', () => {
-    expect(render({ state: 'TERMINATED' })).toContain(
-      '已终止的会话不能再次启动'
-    );
-    expect(render({ state: 'TERMINATED' })).toContain('disabled=""');
+  it('allows retained legacy stopped environments to restart', () => {
+    expect(render({ state: 'TERMINATED' })).toContain('启动 ses-ui-test');
+    expect(render({ state: 'TERMINATED' })).not.toContain('disabled=""');
   });
   it('hides writes from viewers', () => {
     mocks.canOperate = false;

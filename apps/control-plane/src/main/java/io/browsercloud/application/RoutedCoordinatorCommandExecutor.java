@@ -46,6 +46,10 @@ public class RoutedCoordinatorCommandExecutor {
         var command = read(payload, SessionActor.class);
         yield sessions.start(sessionId, command.tenantId(), command.actorId());
       }
+      case SESSION_STOP -> {
+        var command = read(payload, SessionActor.class);
+        yield sessions.stop(sessionId, command.tenantId(), command.actorId());
+      }
       case SESSION_TERMINATE -> {
         var command = read(payload, SessionActor.class);
         yield sessions.terminate(sessionId, command.tenantId(), command.actorId());

@@ -177,6 +177,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             command = json.loads(request)
             method = command.get("method")
+            if method == "Browser.close":
+                # Match graceful Chromium shutdown for Profile checkpoint lifecycle tests.
+                os._exit(0)
             if method == "Runtime.evaluate":
                 if self.path.startswith("/devtools/page/extension-"):
                     if command.get("params", {}).get("expression") != (

@@ -218,7 +218,8 @@ Rust Browser Node
   删除后不可见、审计保留和 Coordinator 路由释放。真实 OrbStack/API 已验证，
   Web/Tauri 共用复选/全选/确认交互已在本地页面验收且无控制台错误。公开基线为
   239 Operations / 319 Schemas；实现提交 `c46940f` 已推送，GitHub `ci` run `33603116263`
-  与 `desktop` run `33603116248` 已触发、仍在运行，尚不计为远端 Gate 通过，见 progress 160。
+  与 `desktop` run `33603116248` 均通过；文档提交 `ac8e2e8` 的 `ci` run `33603368249`
+  与 `desktop` run `33603368436` 也均通过，见 progress 160。
 
 - 环境重命名与超期 Operation 收敛切片本地 Control Plane 486 项、Rust Workspace、Web
   121 项、Worker/Provider、完整 Test/Lint/Build、Desktop test/lint/unsigned build、OpenAPI/
@@ -489,6 +490,11 @@ make test-desktop
 
 ## 11. 已知问题、Bug 和技术债
 
+0. 2026-09-02 本机 OrbStack 真实启动验收发现 Chromium 报 `No usable sandbox`，CDP 无法就绪；
+   镜像未安装 `chromium-sandbox`，容器内核/namespace 支持仍需验证，不得把 API 返回 202 当作
+   浏览器已运行。总览/环境列表的共享启停按钮、停止确认、错误 Request ID 与 SSE 状态已接
+   正式 `:start`/`:terminate` API；真实停止中断启动已验证。TERMINATED 仍不可再次启动，
+   “可重复启停”的产品语义待确认，见 progress 161。
 1. `useRecoveryGameDayEvents()` 仍以 5 秒轮询读取；替换前需先证明 timeline 事件分页的完整顺序和权限边界。
 2. 遗留 `EXCLUSIVE_TAKEOVER` 枚举/协议字段尚在 N/N-1 兼容窗口内；行为已失效，但暂不能物理删除。
 3. VNC/Agent 综合 E2E 历史上出现与 VNC 无关的 Agent 表单响应 30 秒偶发超时；并发关键段已有真实证据，完整长稳仍需单独稳定。

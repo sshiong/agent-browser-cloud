@@ -10,9 +10,7 @@ import {
   FileUp,
   Filter,
   Layers3,
-  LoaderCircle,
   Network,
-  Play,
   Plus,
   RotateCw,
   Search,
@@ -23,10 +21,9 @@ import { TopContextBar } from '@/components/layout/TopContextBar';
 import { ErrorState, LoadingRows } from '@/components/feedback/AsyncStates';
 import { CreateSessionDialog } from '@/features/sessions/components/CreateSessionDialog';
 import { ApiSessionStateChip } from '@/features/sessions/components/ApiSessionStateChip';
-import {
-  useSessions,
-  useStartSession,
-} from '@/features/sessions/api/sessionQueries';
+import { useSessions } from '@/features/sessions/api/sessionQueries';
+import { SessionLifecycleActions } from '@/features/sessions/components/SessionLifecycleActions';
+import { useWorkspaceOverviewStream } from '@/features/overview/api/overviewQueries';
 import { useWorkspaceGroups } from '@/features/groups/groupQueries';
 import { useWorkspaceTags } from '@/features/groups/tagQueries';
 import { cn } from '@/shared/lib/utils';
@@ -150,6 +147,7 @@ export function EnvironmentsPage() {
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
+  const streamState = useWorkspaceOverviewStream(query.isSuccess);
   const createOpen = auth.canOperate && searchParams.get('create') === '1';
   const importOpen = auth.canOperate && searchParams.get('import') === '1';
   const total = query.data?.total ?? 0;
@@ -536,6 +534,14 @@ export function EnvironmentsPage() {
       </div>
 
       <main className="mx-auto max-w-[1760px] p-4 sm:p-6">
+        {query.isSuccess && streamState !== 'LIVE' && (
+          <p
+            role="status"
+            className="mb-3 border border-warning/30 bg-warning/10 px-3 py-2 text-[11px] text-warning"
+          >
+            会话状态连接中断或正在连接，当前状态可能已过期；连接恢复后自动同步，也可手动刷新。
+          </p>
+        )}
         <section className="mb-4 grid border border-border-subtle bg-border-subtle sm:grid-cols-3">
           <Readout
             label="当前结果"
@@ -871,10 +877,6 @@ function SessionRow({
 }) {
   const auth = useAuth();
   const navigate = useNavigate();
-  const startMutation = useStartSession(session.sessionId);
-  const canStart =
-    ['CREATED', 'HIBERNATED'].includes(session.state) &&
-    !session.currentOperation;
   const canDelete = canDeleteSession(session);
 
   return (
@@ -1003,22 +1005,7 @@ function SessionRow({
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-1">
-          {auth.canOperate && canStart && (
-            <button
-              type="button"
-              onClick={() => startMutation.mutate()}
-              disabled={startMutation.isPending}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:bg-success/12 hover:text-success disabled:opacity-50"
-              aria-label={`启动 ${session.sessionId}`}
-              title="启动"
-            >
-              {startMutation.isPending ? (
-                <LoaderCircle size={13} className="animate-spin" />
-              ) : (
-                <Play size={13} />
-              )}
-            </button>
-          )}
+          <SessionLifecycleActions session={session} />
           <button
             type="button"
             onClick={() => navigate(`/environments/${session.sessionId}`)}

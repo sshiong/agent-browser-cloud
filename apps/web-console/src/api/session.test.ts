@@ -40,6 +40,7 @@ import {
   resyncBrowserState,
   SessionApiError,
   startSession,
+  terminateSession,
   streamSessionChanges,
   streamSessionResourceChanges,
   upsertRecoveryContract,
@@ -530,29 +531,56 @@ describe('session API', () => {
     );
   });
 
-  it('scopes start operations with the tenant header', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ operationId: 'op_test', state: 'ACTIVE' }),
-        {
-          status: 202,
-          headers: { 'Content-Type': 'application/json' },
-        }
+  it.each([
+    ['start', startSession],
+    ['terminate', terminateSession],
+  ] as const)(
+    'scopes %s operations to one session and tenant',
+    async (action, invoke) => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ operationId: 'op_test', state: 'ACTIVE' }),
+          {
+            status: 202,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      await expect(
+        invoke('ses_1234567890abcdef', 'tenant-test')
+      ).resolves.toEqual({ operationId: 'op_test', state: 'ACTIVE' });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/v1/sessions/ses_1234567890abcdef:${action}`,
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'X-Tenant-Id': 'tenant-test',
+          }),
+        })
+      );
+    }
+  );
+
+  it('preserves a failed stop request ID for the operator', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            code: 'OPERATION_CONFLICT',
+            message: 'Session is busy',
+            requestId: 'req-stop-1',
+          }),
+          { status: 409, headers: { 'Content-Type': 'application/json' } }
+        )
       )
     );
-    vi.stubGlobal('fetch', fetchMock);
-
-    await startSession('ses_1234567890abcdef', 'tenant-test');
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/sessions/ses_1234567890abcdef:start',
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          'X-Tenant-Id': 'tenant-test',
-        }),
-      })
-    );
+    await expect(
+      terminateSession('ses_1234567890abcdef', 'tenant-test')
+    ).rejects.toMatchObject({ status: 409, body: { requestId: 'req-stop-1' } });
   });
 
   it('treats an uncollected browser state as an empty result', async () => {

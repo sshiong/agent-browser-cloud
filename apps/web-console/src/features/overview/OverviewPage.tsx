@@ -21,6 +21,7 @@ import {
 } from '@/features/overview/api/overviewQueries';
 import { useSessions } from '@/features/sessions/api/sessionQueries';
 import { ApiSessionStateChip } from '@/features/sessions/components/ApiSessionStateChip';
+import { SessionLifecycleActions } from '@/features/sessions/components/SessionLifecycleActions';
 import type { WorkspaceOverviewConnectionState } from '@/types/workspaceOverview';
 
 export function OverviewPage() {
@@ -141,30 +142,35 @@ export function OverviewPage() {
                 ) : (
                   <div className="divide-y divide-border-subtle">
                     {sessionsQuery.data?.items.map((session) => (
-                      <button
+                      <div
                         key={session.sessionId}
-                        type="button"
-                        onClick={() =>
-                          navigate(`/environments/${session.sessionId}`)
-                        }
-                        className="grid min-h-16 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2 sm:grid-cols-[1.2fr_0.8fr_0.8fr_auto] sm:gap-4 sm:px-5"
+                        className="flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-2 sm:px-5"
                       >
-                        <div className="min-w-0">
-                          <p className="truncate font-mono text-[11px] text-text-primary">
-                            {session.sessionId}
-                          </p>
-                          <p className="mt-0.5 text-[10px] text-text-muted">
-                            {formatDate(session.updatedAt)}
-                          </p>
-                        </div>
-                        <span className="hidden truncate font-mono text-[10px] text-text-secondary sm:block">
-                          {session.nodeId || 'Node 未分配'}
-                        </span>
-                        <span className="hidden truncate text-[10px] text-text-muted sm:block">
-                          {session.currentOperation?.mode || '无活跃操作'}
-                        </span>
-                        <ApiSessionStateChip state={session.state} />
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(`/environments/${session.sessionId}`)
+                          }
+                          className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-left sm:grid-cols-[1.2fr_0.8fr_auto]"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-[12px] text-text-primary">
+                              {session.displayName}
+                            </p>
+                            <p className="truncate font-mono text-[11px] text-text-primary">
+                              {session.sessionId}
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-text-muted">
+                              {formatDate(session.updatedAt)}
+                            </p>
+                          </div>
+                          <span className="hidden truncate font-mono text-[10px] text-text-secondary sm:block">
+                            {session.nodeId || 'Node 未分配'}
+                          </span>
+                          <ApiSessionStateChip state={session.state} />
+                        </button>
+                        <SessionLifecycleActions session={session} />
+                      </div>
                     ))}
                   </div>
                 )}

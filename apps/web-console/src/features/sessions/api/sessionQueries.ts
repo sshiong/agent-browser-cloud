@@ -1042,6 +1042,7 @@ function useSessionOperation(
           queryKey: sessionKeys.migration(sessionId),
         }),
         queryClient.invalidateQueries({ queryKey: sessionKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ['workspace-overview'] }),
       ]);
     },
   });

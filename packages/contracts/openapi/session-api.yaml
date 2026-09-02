@@ -400,6 +400,33 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateSession
+      summary: Update operator-owned Session presentation fields
+      description: Renames a tenant-owned Session without changing its runtime identity, Profile, or active Operation.
+      tags: [Session]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSessionRequest"
+      responses:
+        "200":
+          description: Updated tenant-scoped Session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionView"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/sessions/{sessionId}/state:
     get:
       operationId: getBrowserState
@@ -11444,6 +11471,15 @@ components:
           $ref: "#/components/schemas/ResourcePolicy"
         context:
           $ref: "#/components/schemas/SessionContext"
+    UpdateSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 128
     ResourcePolicyRequest:
       type: object
       additionalProperties: false

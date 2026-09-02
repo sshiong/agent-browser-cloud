@@ -68,6 +68,7 @@ var Operations = map[string]Operation{
 	"listSessions":                               {OperationID: "listSessions", Method: "GET", Path: "/api/v1/sessions", PathParameters: nil, QueryParameters: []string{"groupId", "limit", "offset", "q", "state", "tagId", "tagMatch"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "SessionListResponse"},
 	"createSession":                              {OperationID: "createSession", Method: "POST", Path: "/api/v1/sessions", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "CreateSessionRequest", RequestRequired: true, ResponseSchema: "CreateSessionResponse"},
 	"getSession":                                 {OperationID: "getSession", Method: "GET", Path: "/api/v1/sessions/{sessionId}", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "SessionView"},
+	"updateSession":                              {OperationID: "updateSession", Method: "PATCH", Path: "/api/v1/sessions/{sessionId}", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "UpdateSessionRequest", RequestRequired: true, ResponseSchema: "SessionView"},
 	"getBrowserState":                            {OperationID: "getBrowserState", Method: "GET", Path: "/api/v1/sessions/{sessionId}/state", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "BrowserState"},
 	"getAgentBrowserSnapshot":                    {OperationID: "getAgentBrowserSnapshot", Method: "GET", Path: "/api/v1/sessions/{sessionId}/agent-browser/snapshot", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentBrowserSnapshot"},
 	"inspectAgentBrowserElements":                {OperationID: "inspectAgentBrowserElements", Method: "POST", Path: "/api/v1/sessions/{sessionId}/agent-browser/inspect", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "AgentBrowserInspectRequest", RequestRequired: true, ResponseSchema: "AgentBrowserTargetList"},
@@ -445,6 +446,9 @@ func (c *Client) CreateSession(ctx context.Context, request Request) (any, *http
 }
 func (c *Client) GetSession(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "getSession", request)
+}
+func (c *Client) UpdateSession(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "updateSession", request)
 }
 func (c *Client) GetBrowserState(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "getBrowserState", request)

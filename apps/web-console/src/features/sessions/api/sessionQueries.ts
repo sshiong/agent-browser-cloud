@@ -26,6 +26,7 @@ import {
   resyncBrowserState,
   startSession,
   terminateSession,
+  updateSession,
   updateSessionResourcePolicy,
   streamSessionChanges,
   listRecoveryContracts,
@@ -58,6 +59,7 @@ import {
 } from '@/api/session';
 import type {
   CreateSessionRequest,
+  UpdateSessionRequest,
   ResourceStreamConnectionState,
   SessionState,
   StateResyncRequest,
@@ -954,6 +956,18 @@ export function useCreateSession() {
 
 export function useStartSession(sessionId: string) {
   return useSessionOperation(sessionId, () => startSession(sessionId));
+}
+
+export function useUpdateSession(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: UpdateSessionRequest) =>
+      updateSession(sessionId, request),
+    onSuccess: async (session) => {
+      queryClient.setQueryData(sessionKeys.detail(sessionId), session);
+      await queryClient.invalidateQueries({ queryKey: sessionKeys.all });
+    },
+  });
 }
 
 export function useTerminateSession(sessionId: string) {

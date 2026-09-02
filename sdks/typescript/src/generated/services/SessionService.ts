@@ -72,6 +72,7 @@ import type { StateResyncRequest } from '../models/StateResyncRequest.js';
 import type { StateResyncResponse } from '../models/StateResyncResponse.js';
 import type { SubmitProviderEvidenceRequest } from '../models/SubmitProviderEvidenceRequest.js';
 import type { UpdateEnvironmentSavedViewRequest } from '../models/UpdateEnvironmentSavedViewRequest.js';
+import type { UpdateSessionRequest } from '../models/UpdateSessionRequest.js';
 import type { UploadAgentBrowserFileRequest } from '../models/UploadAgentBrowserFileRequest.js';
 import type { WriteAgentClipboardRequest } from '../models/WriteAgentClipboardRequest.js';
 import type { CancelablePromise } from '../core/CancelablePromise.js';
@@ -194,6 +195,42 @@ export class SessionService {
                 'X-Tenant-Id': xTenantId,
             },
             errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * Update operator-owned Session presentation fields
+     * Renames a tenant-owned Session without changing its runtime identity, Profile, or active Operation.
+     * @returns SessionView Updated tenant-scoped Session.
+     * @throws ApiError
+     */
+    public updateSession({
+        sessionId,
+        requestBody,
+        xTenantId,
+    }: {
+        sessionId: string,
+        requestBody: UpdateSessionRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<SessionView> {
+        return this.httpRequest.request({
+            method: 'PATCH',
+            url: '/api/v1/sessions/{sessionId}',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                400: `Invalid request.`,
                 403: `Resource is outside the caller tenant scope.`,
                 404: `Resource not found.`,
             },

@@ -11,7 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/** Times out Resource Adjustment Operations that are not owned by a Durable Workflow. */
+/** Times out expired Operations that are not owned by a Durable Workflow. */
 @Component
 public class ExclusiveOperationDeadlineScanner {
 

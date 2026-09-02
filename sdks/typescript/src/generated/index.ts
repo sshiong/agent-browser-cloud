@@ -299,6 +299,7 @@ export type { UpdateEnvironmentSavedViewRequest } from './models/UpdateEnvironme
 export type { UpdateNotificationReadCursorRequest } from './models/UpdateNotificationReadCursorRequest.js';
 export type { UpdateRecoveryGameDayRemediationRequest } from './models/UpdateRecoveryGameDayRemediationRequest.js';
 export type { UpdateRecoveryGameDayStageRequest } from './models/UpdateRecoveryGameDayStageRequest.js';
+export type { UpdateSessionRequest } from './models/UpdateSessionRequest.js';
 export type { UpdateUserPreferencesRequest } from './models/UpdateUserPreferencesRequest.js';
 export type { UploadAgentBrowserFileRequest } from './models/UploadAgentBrowserFileRequest.js';
 export type { UpsertExtensionProfileRequest } from './models/UpsertExtensionProfileRequest.js';

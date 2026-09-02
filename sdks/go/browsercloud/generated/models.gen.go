@@ -1890,6 +1890,10 @@ type CreateSessionResponse struct {
 	Context        SessionContext `json:"context,omitempty"`
 }
 
+type UpdateSessionRequest struct {
+	DisplayName string `json:"displayName,omitempty"`
+}
+
 type ResourcePolicyRequest struct {
 	Mode                              string               `json:"mode,omitempty"`
 	OnMaximumReached                  MaximumReachedPolicy `json:"onMaximumReached,omitempty"`

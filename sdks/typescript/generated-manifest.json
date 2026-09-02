@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "6c0f7d3bef2a32a5ecf2b9fcbfe98cb6052a8a6457bbebdbb24ce6baf2cc754b",
+  "contractSha256": "162863b60616ffaa704106f7fa017650d4ee3e0a6969bac46ef19e79b75e9dd9",
   "files": {
     "BrowserCloudGeneratedClient.ts": "9af238a7342b4202ace30c93c8fac304d101b48a600224c76ce2d59908979c4c",
     "core/ApiError.ts": "1340dca2bdae61fcf8c1d1a52004c43fb070eb6f084a20c56423ee00f9d3a798",
@@ -11,7 +11,7 @@
     "core/FetchHttpRequest.ts": "6c3d87ef0960cfa9ee353bc638b6d9a389867a4f0f7f23e59931b4a972b4aeef",
     "core/OpenAPI.ts": "471e123472ddaf12e4b2ddd6ec301a05032331ddb720f2bd1b75bb8543eb9f63",
     "core/request.ts": "599939ccf4b4b09fbd4ad2a8e4d2cf3a441e64e9b4cd42c180a9599150c7374c",
-    "index.ts": "72c832241d85d14fa03ed7dc36e15f33207bbb9f06bcdf71e83052fca3093fed",
+    "index.ts": "1eb67511c4d3e79c5de94cf020a97bfd0743f74d7b78eb159b5c213b16d0d2e4",
     "models/ActorId.ts": "a6b9a2f1d3ae13603cf93ec6584983bc6798012e98e4870d7cd838778fb4c620",
     "models/AgentActionRequest.ts": "1a68b65ae898ac20a1551342e0e08fcf4e93dcbd1682111ffdbc543b798e9025",
     "models/AgentBatchActionInput.ts": "a6b863ff18089c5ac25021bcbc5014ac58e0da970b08950f4ef912bd16d28d30",
@@ -301,6 +301,7 @@
     "models/UpdateNotificationReadCursorRequest.ts": "0912247d9007943ad2c6de2685124bf25b1f88cafed6df65f6153ac9211d0715",
     "models/UpdateRecoveryGameDayRemediationRequest.ts": "6af16b7a40ee466f77436dc40aa2866d077bdfd8b075ef752d06f3f69539f601",
     "models/UpdateRecoveryGameDayStageRequest.ts": "b40a47336bbaf520964f4f2ef6446413103b6c7c78c29e498f66dbd09da55c49",
+    "models/UpdateSessionRequest.ts": "c792432940ad06e98971ade5e48bdb5f541e34d02d4f5183c82ed77705ee8be2",
     "models/UpdateUserPreferencesRequest.ts": "f2826ce91a45b20c8b42280f002dcfa3bbc8f150819a04cf3b57314047ed2397",
     "models/UploadAgentBrowserFileRequest.ts": "ed79df58b4cdb3e8bfe46fed3948e3bc134606f26ab4de78dec970d8ec0ac8b0",
     "models/UpsertExtensionProfileRequest.ts": "9c9b036d3c4cee049c7390b1ff87d58da84c9b039135295006443bcedd39c3b2",
@@ -378,7 +379,7 @@
     "services/SavedViewService.ts": "3917820daf3ad127569135eff7a42bd483e9e6b493a42c697bb92732e389d9b6",
     "services/SearchService.ts": "e9a377b859d1739f541427e82014cce14fe7db5d87811d6bd3f19264934d537e",
     "services/SecurityService.ts": "98216738f7b7c46fca65525ea7f3ed5c272ed6bcded877d1950c04331759e9ed",
-    "services/SessionService.ts": "fcbbd67169fb94a0c6949d1a76d357be46f48a5a3c0707f2bf2381698e78ca4e",
+    "services/SessionService.ts": "6df0e551070807651b77868b5ce039ec1fad4c36fcf55e951782ff02cde8daf4",
     "services/SettingsService.ts": "c5ed6d84ca3ae8afe42a9376c616bc76e8bba365145552a8db0b159c9ded312f",
     "services/SloService.ts": "5c2cb8e04af3245a690ef846dca3a3f0cb2e44bfef88b5dbf73c4bcd68ea86c1",
     "services/StateService.ts": "1f238fa12806a90744658e6ff230b32c5b3eed2940040ae1d3c0db81bb5f7a4d",

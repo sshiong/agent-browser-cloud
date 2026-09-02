@@ -288,6 +288,25 @@ public class SessionApplicationService {
         : request.resourceClass();
   }
 
+  /** 重命名 Session。 */
+  @Transactional
+  public SessionView rename(
+      String sessionId, String tenantId, String actorId, String displayName, String requestId) {
+    var session = requireTenant(sessionId, tenantId);
+    sessionRepository.lockForUpdate(sessionId);
+    var previousName = sessionRepository.describe(sessionId).displayName();
+    sessionRepository.rename(sessionId, tenantId, displayName);
+    appendAudit(
+        session,
+        "SESSION_METADATA",
+        actorId,
+        "RENAME",
+        "COMMITTED",
+        Map.of("previousDisplayName", previousName, "displayName", displayName.strip()),
+        requestId);
+    return get(sessionId, tenantId);
+  }
+
   /** 启动 Session。 */
   @Transactional
   public OperationResponse start(String sessionId, String tenantId, String actorId) {

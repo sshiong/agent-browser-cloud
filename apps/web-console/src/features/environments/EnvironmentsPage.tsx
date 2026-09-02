@@ -11,7 +11,6 @@ import {
   Filter,
   Layers3,
   LoaderCircle,
-  MoreHorizontal,
   Network,
   Play,
   Plus,
@@ -34,6 +33,7 @@ import type { SessionState, SessionView } from '@/types/session';
 import { useAuth } from '@/auth/AuthProvider';
 import { EnvironmentSavedViews } from './EnvironmentSavedViews';
 import { EnvironmentImportDrawer } from './EnvironmentImportDrawer';
+import { SessionActionsMenu } from './SessionActionsMenu';
 import type {
   EnvironmentPrimaryView,
   EnvironmentSavedView,
@@ -918,15 +918,7 @@ function SessionRow({
           >
             <ExternalLink size={13} />
           </button>
-          <button
-            type="button"
-            disabled
-            title="更多操作菜单待接入"
-            className="flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-md text-text-muted opacity-40"
-            aria-label="更多操作（尚未接入）"
-          >
-            <MoreHorizontal size={14} />
-          </button>
+          <SessionActionsMenu session={session} />
         </div>
       </td>
     </tr>

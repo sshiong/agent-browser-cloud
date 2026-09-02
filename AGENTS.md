@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **237 Operations / 316 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **238 Operations / 317 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -122,6 +122,7 @@ Rust Browser Node
 ### Web、Desktop 与企业运营
 
 - [已确认] 环境管理、创建向导、Session Detail、Workspace Overview、Groups/Tags、批量生命周期/归属、Saved View、全局搜索、通知、主题、用户菜单、Settings 已接正式 API/PostgreSQL。
+- [已确认] 环境列表三点菜单已接详情与 Tenant/RBAC 隔离的 PostgreSQL 重命名；无 Workflow 的超期 START/TERMINATE Operation 会由 deadline scanner 收敛，不再长期显示“启动中”，见 progress 159。
 - [已确认] Profile 导入/用途绑定一次性导出、Proxy Provider/Binding/探测/自动路由、Safe Point Rebind 已实现。
 - [已确认] Tauri 2 容器、OS 安全存储、系统浏览器 OIDC/Deep Link 和 Updater Gate 已实现；Web 与 Desktop 复用业务 UI。
 - [已确认] Validation Matrix、Recovery GameDay、Cost/SLO/Retention/Compliance/Residency/DR Registry、Error Budget Freeze、Terraform、四语言 SDK 和统一发布包已实现。
@@ -207,6 +208,14 @@ Rust Browser Node
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- 环境重命名与超期 Operation 收敛切片本地 Control Plane 486 项、Rust Workspace、Web
+  121 项、Worker/Provider、完整 Test/Lint/Build、Desktop test/lint/unsigned build、OpenAPI/
+  四 SDK、供应链、Operator 17 项、50k Coordinator Capacity、N/N−1 与完整 PostgreSQL/
+  Redis/MinIO/mTLS/Chromium Integration 已通过；Integration 输出 `session_rename=true`，
+  显式覆盖名称更新、状态保持、Viewer/跨租户拒绝和 Audit。真实 OrbStack 历史超期 Operation
+  自动收敛，Headless Chrome 三点菜单及重命名往返通过且无控制台错误。公开基线为
+  238 Operations / 317 Schemas，见 progress 159。
 
 - AgentClipboard/UserClipboard 显式受控 Bridge 切片本地 Control Plane 484 项、Rust
   Workspace、Web 120 项、Worker/Provider、完整 Test/Lint/Build、Desktop

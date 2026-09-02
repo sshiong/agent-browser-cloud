@@ -103,6 +103,23 @@ class JpaSessionRepositoryTest {
     verify(contexts).save(any(SessionContextEntity.class));
   }
 
+  @Test
+  void renamesOnlyTheDisplayNameInsideExistingMetadata() throws Exception {
+    var entity = session("ses_rename", "Before", Instant.parse("2026-09-02T00:00:00Z"));
+    entity.setMetadata("{\"displayName\":\"Before\",\"purpose\":\"personal\"}");
+    when(sessions.findWithLockById("ses_rename")).thenReturn(java.util.Optional.of(entity));
+    when(contexts.findTopBySessionIdOrderByContextEpochDesc("ses_rename"))
+        .thenReturn(java.util.Optional.empty());
+
+    var renamed = repository.rename("ses_rename", "tenant-test", "  Personal Browser  ");
+
+    assertThat(renamed.displayName()).isEqualTo("Personal Browser");
+    var metadata = new ObjectMapper().readTree(entity.getMetadata());
+    assertThat(metadata.get("purpose").asText()).isEqualTo("personal");
+    assertThat(metadata.get("displayName").asText()).isEqualTo("Personal Browser");
+    verify(sessions).saveAndFlush(entity);
+  }
+
   private SessionEntity session(String sessionId, String displayName, Instant createdAt) {
     return new SessionEntity(
         sessionId,

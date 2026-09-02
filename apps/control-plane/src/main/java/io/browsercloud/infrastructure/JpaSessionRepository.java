@@ -69,6 +69,24 @@ public class JpaSessionRepository implements SessionRepository {
 
   @Override
   @Transactional
+  public SessionDescriptor rename(String sessionId, String tenantId, String displayName) {
+    var entity =
+        sessionJpa
+            .findWithLockById(sessionId)
+            .orElseThrow(() -> new SessionNotFoundException(sessionId));
+    if (!entity.getTenantId().equals(tenantId)) {
+      throw new io.browsercloud.coordinator.exceptions.TenantAccessDeniedException(sessionId);
+    }
+    var metadata = readMetadata(entity.getMetadata());
+    metadata.put("displayName", displayName.strip());
+    entity.setMetadata(serializeMetadata(metadata));
+    entity.setUpdatedAt(Instant.now());
+    sessionJpa.saveAndFlush(entity);
+    return toDescriptor(entity, contextJpa.findTopBySessionIdOrderByContextEpochDesc(sessionId));
+  }
+
+  @Override
+  @Transactional
   public SessionContext requireForUpdate(String sessionId) {
     var entity =
         sessionJpa
@@ -134,6 +152,18 @@ public class JpaSessionRepository implements SessionRepository {
 
   private String serializeMetadata(Map<String, String> metadata) {
     return serialize(metadata);
+  }
+
+  private Map<String, String> readMetadata(String metadata) {
+    if (metadata == null || metadata.isBlank()) {
+      return new java.util.HashMap<>();
+    }
+    try {
+      return new java.util.HashMap<>(
+          objectMapper.readValue(metadata, new TypeReference<Map<String, String>>() {}));
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("Persisted Session metadata is invalid", exception);
+    }
   }
 
   private String serialize(Object value) {

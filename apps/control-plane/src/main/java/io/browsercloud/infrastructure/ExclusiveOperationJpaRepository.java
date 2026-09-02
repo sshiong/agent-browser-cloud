@@ -35,7 +35,6 @@ public interface ExclusiveOperationJpaRepository
       select operation
         from ExclusiveOperationEntity operation
        where operation.state = 'ACTIVE'
-         and operation.mode = 'RESOURCE_ADJUSTMENT'
          and operation.workflowId is null
          and operation.deadline <= :now
        order by operation.deadline

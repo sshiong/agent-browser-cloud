@@ -164,6 +164,10 @@ export interface CreateSessionRequest {
   identitySpec?: SessionIdentitySpecInput;
 }
 
+export interface UpdateSessionRequest {
+  displayName: string;
+}
+
 export interface SessionIdentitySpecInput {
   userAgent?: string;
   timezone?: string;

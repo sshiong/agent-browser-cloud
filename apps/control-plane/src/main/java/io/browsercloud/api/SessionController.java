@@ -223,6 +223,22 @@ public class SessionController {
     return service.get(sessionId, identity.current().tenantId());
   }
 
+  /** Rename a Session while preserving its runtime, Profile, and operation state. */
+  @PatchMapping("/{sessionId}")
+  @PreAuthorize(PlatformRoles.OPERATE)
+  public SessionView update(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @Valid @RequestBody UpdateSessionRequest body,
+      HttpServletRequest request) {
+    var principal = identity.current();
+    return service.rename(
+        sessionId,
+        principal.tenantId(),
+        principal.actorId(),
+        body.displayName(),
+        requestId(request));
+  }
+
   /** 获取 Browser Node 最近提交的 Current State。 */
   @GetMapping("/{sessionId}/state")
   public ResponseEntity<BrowserStateView> getState(

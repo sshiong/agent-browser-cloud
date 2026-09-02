@@ -54,6 +54,7 @@ OPERATIONS: dict[str, Operation] = {
     'listSessions': Operation('listSessions', 'GET', '/api/v1/sessions', (), ('groupId', 'limit', 'offset', 'q', 'state', 'tagId', 'tagMatch'), ('X-Tenant-Id',), '', False, 'SessionListResponse'),
     'createSession': Operation('createSession', 'POST', '/api/v1/sessions', (), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CreateSessionRequest', True, 'CreateSessionResponse'),
     'getSession': Operation('getSession', 'GET', '/api/v1/sessions/{sessionId}', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'SessionView'),
+    'updateSession': Operation('updateSession', 'PATCH', '/api/v1/sessions/{sessionId}', ('sessionId',), (), ('X-Tenant-Id',), 'UpdateSessionRequest', True, 'SessionView'),
     'getBrowserState': Operation('getBrowserState', 'GET', '/api/v1/sessions/{sessionId}/state', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'BrowserState'),
     'getAgentBrowserSnapshot': Operation('getAgentBrowserSnapshot', 'GET', '/api/v1/sessions/{sessionId}/agent-browser/snapshot', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'AgentBrowserSnapshot'),
     'inspectAgentBrowserElements': Operation('inspectAgentBrowserElements', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/inspect', ('sessionId',), (), ('X-Tenant-Id',), 'AgentBrowserInspectRequest', True, 'AgentBrowserTargetList'),
@@ -386,6 +387,9 @@ class BrowserCloudGeneratedClient:
 
     def getSession(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('getSession', path=path, query=query, body=body, headers=headers)
+
+    def updateSession(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('updateSession', path=path, query=query, body=body, headers=headers)
 
     def getBrowserState(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('getBrowserState', path=path, query=query, body=body, headers=headers)

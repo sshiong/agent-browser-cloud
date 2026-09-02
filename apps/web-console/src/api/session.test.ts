@@ -44,6 +44,7 @@ import {
   upsertRecoveryContract,
   validateBusinessRecovery,
   updateChallengeAutomationPolicy,
+  updateSession,
 } from './session';
 
 describe('session API', () => {
@@ -75,6 +76,31 @@ describe('session API', () => {
         headers: expect.objectContaining({
           'X-Tenant-Id': 'tenant-test',
         }),
+      })
+    );
+  });
+
+  it('renames a tenant Session with a bounded PATCH request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ sessionId: 'ses_1234567890abcdef' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await updateSession(
+      'ses_1234567890abcdef',
+      { displayName: 'Personal Browser' },
+      'tenant-test'
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/sessions/ses_1234567890abcdef',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ displayName: 'Personal Browser' }),
+        headers: expect.objectContaining({ 'X-Tenant-Id': 'tenant-test' }),
       })
     );
   });

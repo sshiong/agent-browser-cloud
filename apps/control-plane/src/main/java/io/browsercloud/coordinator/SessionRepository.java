@@ -25,6 +25,9 @@ public interface SessionRepository {
   /** 获取包含受控展示字段的 Session 查询投影。 */
   SessionDescriptor describe(String sessionId);
 
+  /** Rename a tenant-owned Session without changing its runtime identity or execution state. */
+  SessionDescriptor rename(String sessionId, String tenantId, String displayName);
+
   /** 在当前事务中锁定 Session 主行，用于串行化写命令。 */
   SessionContext requireForUpdate(String sessionId);
 

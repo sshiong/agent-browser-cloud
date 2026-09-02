@@ -2,6 +2,7 @@ import type {
   SessionView,
   CreateSessionRequest,
   CreateSessionResponse,
+  UpdateSessionRequest,
   ApiError,
   OperationResponse,
   SessionListResponse,
@@ -185,6 +186,19 @@ export async function getSession(
   signal?: AbortSignal
 ): Promise<SessionView> {
   return request<SessionView>(`/sessions/${sessionId}`, { signal }, tenantId);
+}
+
+export async function updateSession(
+  sessionId: string,
+  body: UpdateSessionRequest,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<SessionView> {
+  return request<SessionView>(
+    `/sessions/${sessionId}`,
+    { method: 'PATCH', body: JSON.stringify(body), signal },
+    tenantId
+  );
 }
 
 /**

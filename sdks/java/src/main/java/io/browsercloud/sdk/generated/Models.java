@@ -335,6 +335,8 @@ public final class Models {
 
   public record CreateSessionResponse(String sessionId, Object operationId, String state, ResourcePolicy resourcePolicy, SessionContext context) {}
 
+  public record UpdateSessionRequest(String displayName) {}
+
   public record ResourcePolicyRequest(String mode, MaximumReachedPolicy onMaximumReached, Boolean allowMigration, Boolean allowHibernate, Boolean blockMigrationDuringHumanTakeover, ExecutionEnvironment executionEnvironment, String minimumTemplate, Integer maximumCpuMillis, Integer maximumMemoryMib, Double maximumCostPerHour, Integer scaleUpWindowSeconds, Integer scaleDownWindowSeconds, Integer adjustmentCooldownSeconds) {}
 
   public record ResourcePolicy(String mode, MaximumReachedPolicy onMaximumReached, Boolean allowMigration, Boolean allowHibernate, Boolean blockMigrationDuringHumanTakeover, ExecutionEnvironment executionEnvironment, String minimumTemplate, Integer maximumCpuMillis, Integer maximumMemoryMib, Double maximumCostPerHour, Integer scaleUpWindowSeconds, Integer scaleDownWindowSeconds, Integer adjustmentCooldownSeconds, String resolvedTemplate) {}

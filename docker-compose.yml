@@ -90,8 +90,25 @@ services:
       - profile_storage:/var/lib/browsercloud/profiles
       - helper_ipc:/var/run/browsercloud/helpers
     depends_on:
+      browser-storage-init:
+        condition: service_completed_successfully
       storage-helper:
         condition: service_started
+
+  browser-storage-init:
+    build:
+      context: .
+      dockerfile: apps/browser-node/Dockerfile
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mkdir -p /var/lib/browsercloud/runtime /var/lib/browsercloud/profiles /var/run/browsercloud/helpers
+        && chown -R browsercloud:browsercloud /var/lib/browsercloud/runtime /var/lib/browsercloud/profiles /var/run/browsercloud/helpers
+    volumes:
+      - browser_runtime:/var/lib/browsercloud/runtime
+      - profile_storage:/var/lib/browsercloud/profiles
+      - helper_ipc:/var/run/browsercloud/helpers
 
   storage-helper:
     build:
@@ -107,6 +124,9 @@ services:
     volumes:
       - profile_storage:/var/lib/browsercloud/profiles
       - helper_ipc:/var/run/browsercloud/helpers
+    depends_on:
+      browser-storage-init:
+        condition: service_completed_successfully
 
   web-console:
     build:

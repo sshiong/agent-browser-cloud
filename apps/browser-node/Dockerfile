@@ -1,4 +1,4 @@
-FROM rust:1.88-bookworm AS build
+FROM rust:1.98-bookworm AS build
 WORKDIR /workspace
 COPY apps/browser-node apps/browser-node
 COPY packages/contracts/proto packages/contracts/proto

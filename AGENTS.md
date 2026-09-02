@@ -215,7 +215,9 @@ Rust Browser Node
   Redis/MinIO/mTLS/Chromium Integration 已通过；Integration 输出 `session_rename=true`，
   显式覆盖名称更新、状态保持、Viewer/跨租户拒绝和 Audit。真实 OrbStack 历史超期 Operation
   自动收敛，Headless Chrome 三点菜单及重命名往返通过且无控制台错误。公开基线为
-  238 Operations / 317 Schemas，见 progress 159。
+  238 Operations / 317 Schemas；实现提交 `29bbc6b` 的 GitHub `ci` run `33588990497`
+  已通过 Verify、供应链、完整 Integration、Object Storage/Recording GameDay 与 Kubernetes
+  Operator E2E；`desktop` run `33588990467` 的 Windows/macOS 均通过，见 progress 159。
 
 - AgentClipboard/UserClipboard 显式受控 Bridge 切片本地 Control Plane 484 项、Rust
   Workspace、Web 120 项、Worker/Provider、完整 Test/Lint/Build、Desktop

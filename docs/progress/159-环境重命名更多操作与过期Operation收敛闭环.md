@@ -1,7 +1,7 @@
 # 环境重命名、更多操作与过期 Operation 收敛闭环
 
 > 日期：2026-09-02  
-> 状态：仓库内实现与本机真实运行验收已通过；GitHub Workflow 结果以对应提交检查为准。
+> 状态：仓库内实现、本机真实运行与 GitHub Workflow 验收均已通过。
 > 实现提交：`29bbc6b fix: make environment operations usable`
 
 ## 问题与根因
@@ -43,6 +43,9 @@ workflow 且超过 deadline 时不会被扫描器收敛，因为查询错误地�
 - Headless Chrome 对 `http://localhost:3000/environments` 完成三点菜单打开、重命名、列表
   回读和恢复原名称，浏览器控制台无错误。页面包含持久 SSE，故自动化以表格稳定条件等待，
   不使用永远无法满足的 `networkidle`。
+- GitHub `ci` run `33588990497` 已通过 Verify、供应链、完整 Integration、Object
+  Storage/Recording GameDay 与 Kubernetes Operator E2E；`desktop` run `33588990467` 的
+  Windows/macOS 均通过。
 
 ## 保留边界
 

@@ -465,7 +465,7 @@ export function ResourcePolicyCard({
             <span className="font-mono text-text-secondary">
               ${resource.cost.currentHourlyCost?.toFixed(6) ?? '—'}/h
             </span>
-            {resource.cost.maximumHourlyCost !== undefined &&
+            {resource.cost.maximumHourlyCost != null &&
               ` · 上限 $${resource.cost.maximumHourlyCost.toFixed(6)}/h`}
             {resource.cost.pricingVersion &&
               ` · ${resource.cost.pricingVersion}`}

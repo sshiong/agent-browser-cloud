@@ -15,6 +15,7 @@ import type {
   RfbDisconnectEvent,
   RfbSecurityFailureEvent,
 } from '@novnc/novnc';
+import { desktopQualityLevel, type DesktopQuality } from './desktopQuality';
 
 export type DesktopConnectionState =
   'CONNECTING' | 'CONNECTED' | 'DISCONNECTED' | 'FAILED';
@@ -34,6 +35,7 @@ export const NoVncViewport = forwardRef<
     sessionId: string;
     bindingEpoch: number;
     viewOnly?: boolean;
+    quality?: DesktopQuality;
     onConnectionState?: (state: DesktopConnectionState) => void;
     onUnexpectedDisconnect?: () => void;
     onConnectionId?: (connectionId?: string) => void;
@@ -44,6 +46,7 @@ export const NoVncViewport = forwardRef<
     sessionId,
     bindingEpoch,
     viewOnly = false,
+    quality = 'SMOOTH',
     onConnectionState,
     onUnexpectedDisconnect,
     onConnectionId,
@@ -59,6 +62,8 @@ export const NoVncViewport = forwardRef<
   const onUnexpectedDisconnectRef = useRef(onUnexpectedDisconnect);
   const onConnectionIdRef = useRef(onConnectionId);
   const onUserClipboardRef = useRef(onUserClipboard);
+  const qualityRef = useRef(quality);
+  qualityRef.current = quality;
   const [state, setState] = useState<DesktopConnectionState>('CONNECTING');
   const [error, setError] = useState<string>();
   const [actorQuota, setActorQuota] = useState<{
@@ -82,6 +87,12 @@ export const NoVncViewport = forwardRef<
     }),
     [state, viewOnly]
   );
+
+  useEffect(() => {
+    if (clientRef.current) {
+      clientRef.current.qualityLevel = desktopQualityLevel[quality];
+    }
+  }, [quality]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -143,7 +154,7 @@ export const NoVncViewport = forwardRef<
         client.dragViewport = false;
         client.focusOnClick = true;
         client.compressionLevel = 3;
-        client.qualityLevel = 7;
+        client.qualityLevel = desktopQualityLevel[qualityRef.current];
         client.viewOnly = connection.viewOnly;
         client.addEventListener('connect', () => transition('CONNECTED'), {
           once: true,
@@ -234,7 +245,7 @@ export const NoVncViewport = forwardRef<
           {actorQuota && (
             <span>
               · ACTOR {actorQuota.bitrateKbps} Kbps / {actorQuota.frameRateFps}{' '}
-              FPS
+              FPS 上限（非实测）
             </span>
           )}
         </div>

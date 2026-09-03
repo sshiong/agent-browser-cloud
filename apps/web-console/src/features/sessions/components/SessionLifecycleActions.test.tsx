@@ -8,6 +8,7 @@ import { ApiSessionStateChip } from './ApiSessionStateChip';
 const mocks = vi.hoisted(() => ({
   canOperate: true,
   pending: false,
+  success: false,
   error: null as Error | null,
 }));
 vi.mock('@/auth/AuthProvider', () => ({
@@ -17,6 +18,7 @@ vi.mock('../api/sessionQueries', () => ({
   useStartSession: () => ({
     error: mocks.error,
     isPending: mocks.pending,
+    isSuccess: mocks.success,
     reset: vi.fn(),
     mutate: vi.fn(),
   }),
@@ -49,6 +51,7 @@ describe('shared session lifecycle controls', () => {
   beforeEach(() => {
     mocks.canOperate = true;
     mocks.pending = false;
+    mocks.success = false;
     mocks.error = null;
   });
   it.each(['CREATED', 'HIBERNATED'] as const)(
@@ -87,6 +90,12 @@ describe('shared session lifecycle controls', () => {
   it('hides writes from viewers', () => {
     mocks.canOperate = false;
     expect(render()).toBe('');
+  });
+  it('announces accepted requests without resizing the action column', () => {
+    mocks.success = true;
+    const html = render({ state: 'RUNNING' });
+    expect(html).toContain('role="status" class="sr-only"');
+    expect(html).toContain('w-8 shrink-0');
   });
   it('keeps long errors out of table sizing and exposes the actual reason', () => {
     mocks.error = new SessionApiError(503, {

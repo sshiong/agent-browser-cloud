@@ -511,6 +511,13 @@ make test-desktop
 
 ## 11. 已知问题、Bug 和技术债
 
+- 2026-09-03 环境 UI 与远程桌面流畅模式（progress 164）已通过本地与 OrbStack 验收：详情页在
+  `maximumHourlyCost=null` 时崩溃，已修复；生命周期成功提示改为不参与列宽的状态播报。
+  Gateway 共享上游仍是精确 Raw，但每连接可按标准 RFB Quality hint 转为独立 Tight JPEG，
+  低画质使用色彩降采样；清晰档/旧客户端保持 Raw。不是 CSS 缩放，也没有降低 Chromium
+  页面分辨率或绕过 Actor/Session FPS、带宽配额。两条原环境保存后恢复 RUNNING；
+  真实画面三档切换不重连，首个详情可用。本轮 GitHub Gate 待提交检查；不声称动态FPS达标。
+
 - 2026-09-02 操作员复测发现六条旧环境缺 Demand，其中三条缺 Profile 元数据。
   progress 163 已补启动时事务初始化：只适用于 runtimeBuild/node 均空、generation/epoch=0、
   CREATED/TERMINATED 的未运行旧记录，使用既有资源级别/扩展/真人协作设置，保留租户校验与审计。

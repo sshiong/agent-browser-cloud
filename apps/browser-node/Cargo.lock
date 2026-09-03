@@ -1792,6 +1792,8 @@ dependencies = [
  "base64",
  "futures-util",
  "hmac",
+ "jpeg-decoder",
+ "jpeg-encoder",
  "serde",
  "serde_json",
  "sha2",

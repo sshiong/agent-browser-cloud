@@ -38,6 +38,7 @@ import {
   type NoVncViewportHandle,
   type UserClipboardObservation,
 } from './NoVncViewport';
+import type { DesktopQuality } from './desktopQuality';
 
 export function RemoteDesktopPage() {
   const [searchParams] = useSearchParams();
@@ -74,6 +75,7 @@ export function RemoteDesktopPage() {
   // pointer movement over the canvas) can never defer Agent commands. The
   // operator can explicitly opt into shared control when human input is needed.
   const [viewOnly, setViewOnly] = useState(true);
+  const [quality, setQuality] = useState<DesktopQuality>('SMOOTH');
   const session = sessionQuery.data;
   const takeover = session?.currentOperation?.mode === 'HUMAN_TAKEOVER';
   const takeoverOwned =
@@ -192,7 +194,22 @@ export function RemoteDesktopPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 text-[11px] text-text-muted">
+                画质
+                <select
+                  aria-label="远程桌面画质"
+                  value={quality}
+                  onChange={(event) =>
+                    setQuality(event.target.value as DesktopQuality)
+                  }
+                  className="h-8 border border-border-default bg-surface-2 px-2 text-text-primary"
+                >
+                  <option value="SMOOTH">流畅优先 · 低画质</option>
+                  <option value="BALANCED">均衡 · 压缩画质</option>
+                  <option value="SHARP">清晰优先 · 原始像素</option>
+                </select>
+              </label>
               <div
                 className="inline-flex h-8 border border-border-default bg-surface-2"
                 aria-label="远程桌面连接模式"
@@ -244,7 +261,7 @@ export function RemoteDesktopPage() {
           </header>
 
           <div className="grid min-h-0 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px]">
-            <section className="relative flex min-h-[560px] items-center justify-center overflow-hidden bg-[#080d13] p-6">
+            <section className="relative flex min-h-[560px] items-start justify-center overflow-hidden bg-[#080d13] p-6">
               <div className="absolute inset-0 bg-grid opacity-45" />
               <div className="absolute inset-x-0 top-0 h-px bg-accent/25" />
               <div className="relative w-full max-w-5xl border border-border-default bg-canvas shadow-[0_24px_80px_rgba(0,0,0,0.32)]">
@@ -259,7 +276,7 @@ export function RemoteDesktopPage() {
                     DISPLAY / PRIMARY
                   </div>
                   <span className="font-mono text-[9px] text-text-muted">
-                    1440 × 900 · {desktopState}
+                    {desktopState}
                   </span>
                 </div>
                 <div className="aspect-[16/10] min-h-[420px]">
@@ -268,6 +285,7 @@ export function RemoteDesktopPage() {
                       ref={desktopRef}
                       sessionId={sessionId}
                       bindingEpoch={bindingEpoch}
+                      quality={quality}
                       viewOnly={viewOnly}
                       onConnectionState={(next) => {
                         setDesktopState(next);
@@ -290,6 +308,17 @@ export function RemoteDesktopPage() {
             </section>
 
             <aside className="border-l border-border-subtle bg-surface-1/55">
+              <RailSection title="画质与流畅度">
+                <p className="text-[11px] leading-5 text-text-muted">
+                  {quality === 'SMOOTH'
+                    ? '低画质 JPEG 与色彩降采样，减少传输量，优先降低操作延迟。浏览器分辨率和点击坐标不变。'
+                    : quality === 'BALANCED'
+                      ? '压缩传输，兼顾文字清晰度与带宽。'
+                      : '无损原始像素，适合检查细节；大面积变化时可能明显降低帧率。'}
+                  实际帧率受画面变化、网络和配额限制，不保证固定
+                  FPS。切换画质不停止 Agent，也不切换控制权限。
+                </p>
+              </RailSection>
               <RailSection title="协作控制">
                 <RailRow
                   icon={Hand}

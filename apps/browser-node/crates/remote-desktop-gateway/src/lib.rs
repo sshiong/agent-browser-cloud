@@ -878,18 +878,17 @@ impl RemoteDesktopGateway {
         // may be delivered twice, but it cannot be missed; subscribing afterwards
         // could leave a late joiner on a stale baseline indefinitely.
         let mut frames = hub.frames.subscribe();
-        let mut pending_server_payload = hub
+        let mut initial_frame = hub
             .latest_frame
             .lock()
             .expect("shared RFB latest frame lock poisoned")
             .clone();
-        let mut pending_server_ready_at = tokio::time::Instant::now()
-            + pending_server_payload
-                .as_ref()
-                .map(|payload| self.reserve_server_forwarding(&authorized.claims, payload.len()))
-                .unwrap_or_default();
-        let mut pending_server_quota_wait =
-            pending_server_ready_at.saturating_duration_since(tokio::time::Instant::now());
+        // Wait for the first framebuffer request: noVNC sends SetEncodings before it.
+        // Charging a multi-megabyte Raw baseline before negotiation defeats low-bandwidth mode.
+        let mut desktop_requested = false;
+        let mut pending_server_payload: Option<Arc<Vec<u8>>> = None;
+        let mut pending_server_ready_at = tokio::time::Instant::now();
+        let mut pending_server_quota_wait = Duration::ZERO;
         let mut last_reported_usage = RemoteDesktopUsageCounters::default();
         let mut input_parser =
             RfbClientMessageParser::new(pending_client_bytes, server_init.pixel_format);
@@ -937,7 +936,7 @@ impl RemoteDesktopGateway {
                         last_reported_usage = usage;
                     }
                 }
-                frame = frames.recv(), if pending_server_payload.is_none() => {
+                frame = frames.recv(), if desktop_requested && pending_server_payload.is_none() => {
                     let frame = match frame {
                         Ok(frame) => frame,
                         Err(broadcast::error::RecvError::Lagged(_)) => {
@@ -952,6 +951,7 @@ impl RemoteDesktopGateway {
                         .lock()
                         .expect("frame timestamp lock poisoned")
                         .insert(authorized.claims.session_id.clone(), Instant::now());
+                    let frame = encode_viewer_frame(frame, input_parser.jpeg_quality).await?;
                     pending_server_quota_wait =
                         self.reserve_server_forwarding(&authorized.claims, frame.len());
                     pending_server_ready_at =
@@ -984,6 +984,19 @@ impl RemoteDesktopGateway {
                                 "VNC client frame exceeds 1 MiB"
                             );
                             for message in input_parser.ingest(&payload)? {
+                                if message.reset_baseline && desktop_requested {
+                                    // A live quality switch must replace old lossy pixels even on
+                                    // an idle page. Resubscribe before reading the exact baseline.
+                                    frames = hub.frames.subscribe();
+                                    let baseline = hub.latest_frame.lock()
+                                        .expect("shared RFB latest frame lock poisoned").clone();
+                                    if let Some(frame) = baseline {
+                                        let frame = encode_viewer_frame(frame, input_parser.jpeg_quality).await?;
+                                        pending_server_quota_wait = self.reserve_server_forwarding(&authorized.claims, frame.len());
+                                        pending_server_ready_at = tokio::time::Instant::now() + pending_server_quota_wait;
+                                        pending_server_payload = Some(frame);
+                                    }
+                                }
                                 anyhow::ensure!(
                                     !authorized.claims.view_only || !message.human_input,
                                     "view-only remote desktop attempted human input"
@@ -1001,6 +1014,15 @@ impl RemoteDesktopGateway {
                                     .context("shared RFB input queue closed")?;
                                 }
                                 if message.refresh {
+                                    if !desktop_requested {
+                                        desktop_requested = true;
+                                        if let Some(frame) = initial_frame.take() {
+                                            let frame = encode_viewer_frame(frame, input_parser.jpeg_quality).await?;
+                                            pending_server_quota_wait = self.reserve_server_forwarding(&authorized.claims, frame.len());
+                                            pending_server_ready_at = tokio::time::Instant::now() + pending_server_quota_wait;
+                                            pending_server_payload = Some(frame);
+                                        }
+                                    }
                                     match hub.refresh.try_send(()) {
                                         Ok(()) | Err(mpsc::error::TrySendError::Full(())) => {}
                                         Err(mpsc::error::TrySendError::Closed(())) => {
@@ -1036,6 +1058,7 @@ impl RemoteDesktopGateway {
 struct RfbClientMessageParser {
     buffered: Vec<u8>,
     canonical_pixel_format: [u8; 16],
+    jpeg_quality: Option<u8>,
 }
 
 #[derive(Debug)]
@@ -1044,6 +1067,7 @@ struct ParsedRfbClientMessage {
     human_input: bool,
     forward: bool,
     refresh: bool,
+    reset_baseline: bool,
 }
 
 impl RfbClientMessageParser {
@@ -1051,6 +1075,7 @@ impl RfbClientMessageParser {
         Self {
             buffered,
             canonical_pixel_format,
+            jpeg_quality: None,
         }
     }
 
@@ -1121,6 +1146,17 @@ impl RfbClientMessageParser {
                     supports_raw,
                     "RFB client must advertise Raw encoding for shared fan-out"
                 );
+                let supports_tight = encodings.iter().any(|encoding| encoding == &[0, 0, 0, 7]);
+                self.jpeg_quality = supports_tight
+                    .then(|| {
+                        encodings.iter().find_map(|encoding| {
+                            let value = i32::from_be_bytes(*encoding);
+                            (-32..=-24)
+                                .contains(&value)
+                                .then_some(((value + 32) * 10 + 10) as u8)
+                        })
+                    })
+                    .flatten();
             }
             let bytes = self.buffered.drain(..message_length).collect();
             parsed.push(ParsedRfbClientMessage {
@@ -1128,10 +1164,90 @@ impl RfbClientMessageParser {
                 human_input,
                 forward,
                 refresh,
+                reset_baseline: message_type == 2,
             });
         }
         Ok(parsed)
     }
+}
+
+/// Stateless Tight JPEG rectangles keep the hub's exact Raw baseline and each
+/// viewer's input coordinates unchanged. Quality 9 (or older Raw-only clients)
+/// remains lossless. Encoding never runs on the async input/heartbeat executor.
+async fn encode_viewer_frame(
+    frame: Arc<Vec<u8>>,
+    quality: Option<u8>,
+) -> anyhow::Result<Arc<Vec<u8>>> {
+    let Some(quality) = quality else {
+        return Ok(frame);
+    };
+    if frame.first() != Some(&0) {
+        return Ok(frame);
+    }
+    tokio::task::spawn_blocking(move || encode_tight_jpeg(&frame, quality).map(Arc::new))
+        .await
+        .context("viewer encoder task failed")?
+}
+
+fn encode_tight_jpeg(frame: &[u8], quality: u8) -> anyhow::Result<Vec<u8>> {
+    anyhow::ensure!(
+        frame.len() >= 4 && frame.len() <= MAX_RFB_SERVER_MESSAGE_BYTES && frame[0] == 0,
+        "invalid Raw frame for viewer encoder"
+    );
+    let rectangles = u16::from_be_bytes([frame[2], frame[3]]);
+    let mut output = frame[..4].to_vec();
+    let mut offset = 4usize;
+    for _ in 0..rectangles {
+        let header = frame
+            .get(offset..offset + 12)
+            .context("truncated viewer rectangle")?;
+        let width = u16::from_be_bytes([header[4], header[5]]);
+        let height = u16::from_be_bytes([header[6], header[7]]);
+        anyhow::ensure!(
+            header[8..12] == [0, 0, 0, 0],
+            "viewer encoder requires Raw rectangles"
+        );
+        offset += 12;
+        let size = usize::from(width)
+            .checked_mul(usize::from(height))
+            .and_then(|size| size.checked_mul(4))
+            .context("viewer rectangle size overflow")?;
+        let pixels = frame
+            .get(offset..offset + size)
+            .context("truncated viewer pixels")?;
+        offset += size;
+        // Tiny updates are cheaper lossless. Keep the exact rectangle location/extent.
+        let mut jpeg = Vec::new();
+        if size >= 256 {
+            let mut encoder = jpeg_encoder::Encoder::new(&mut jpeg, quality.clamp(10, 90));
+            encoder.set_sampling_factor(if quality <= 40 {
+                jpeg_encoder::SamplingFactor::F_2_2
+            } else {
+                jpeg_encoder::SamplingFactor::F_1_1
+            });
+            encoder.encode(pixels, width, height, jpeg_encoder::ColorType::Rgba)?;
+        }
+        if jpeg.is_empty() || jpeg.len() + 4 >= size || jpeg.len() > 0x3f_ffff {
+            output.extend_from_slice(header);
+            output.extend_from_slice(pixels);
+        } else {
+            output.extend_from_slice(&header[..8]);
+            output.extend_from_slice(&7_i32.to_be_bytes());
+            output.push(0x90); // Tight JPEG, no shared zlib stream state
+            let mut length = jpeg.len();
+            output.push((length as u8 & 0x7f) | if length > 0x7f { 0x80 } else { 0 });
+            if length > 0x7f {
+                length >>= 7;
+                output.push((length as u8 & 0x7f) | if length > 0x7f { 0x80 } else { 0 });
+                if length > 0x7f {
+                    output.push((length >> 7) as u8);
+                }
+            }
+            output.extend_from_slice(&jpeg);
+        }
+    }
+    anyhow::ensure!(offset == frame.len(), "viewer frame has trailing bytes");
+    Ok(output)
 }
 
 async fn wait_for_shared_hub(hub: &SharedRfbHub) -> anyhow::Result<Arc<RfbServerInit>> {
@@ -1864,6 +1980,80 @@ mod tests {
     }
 
     #[test]
+    fn viewer_quality_negotiation_is_per_connection_and_does_not_forward_input() {
+        let mut smooth = RfbClientMessageParser::new(Vec::new(), SHARED_PIXEL_FORMAT);
+        let mut raw = RfbClientMessageParser::new(Vec::new(), SHARED_PIXEL_FORMAT);
+        let encodings = [2, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 7, 255, 255, 255, 226]; // quality 2
+        assert!(smooth.ingest(&encodings[..7]).unwrap().is_empty());
+        let parsed = smooth.ingest(&encodings[7..]).unwrap();
+        assert_eq!(smooth.jpeg_quality, Some(30));
+        assert!(parsed
+            .iter()
+            .all(|message| !message.forward && !message.human_input));
+        assert_eq!(raw.jpeg_quality, None);
+        let mut sharp = encodings;
+        sharp[15] = 233; // quality 9 = exact Raw
+        smooth.ingest(&sharp).unwrap();
+        assert_eq!(smooth.jpeg_quality, None);
+        raw.ingest(&[2, 0, 0, 1, 0, 0, 0, 0]).unwrap();
+        assert_eq!(raw.jpeg_quality, None);
+    }
+
+    #[test]
+    fn tight_jpeg_reduces_transfer_and_preserves_geometry_and_colour() {
+        let width = 1440u16;
+        let height = 900u16;
+        let mut frame = vec![0, 0, 0, 1, 0, 0, 0, 0];
+        frame.extend_from_slice(&width.to_be_bytes());
+        frame.extend_from_slice(&height.to_be_bytes());
+        frame.extend_from_slice(&0_i32.to_be_bytes());
+        for y in 0..height {
+            for x in 0..width {
+                frame.extend_from_slice(&[180 + (x % 60) as u8, (y % 100) as u8, 20, 0]);
+            }
+        }
+        let started = Instant::now();
+        let compressed = encode_tight_jpeg(&frame, 30).unwrap();
+        let elapsed = started.elapsed();
+        assert_eq!(&compressed[..12], &frame[..12]);
+        assert_eq!(&compressed[12..17], &[0, 0, 0, 7, 0x90]);
+        let mut offset = 17;
+        let first = compressed[offset];
+        offset += 1;
+        let mut length = usize::from(first & 0x7f);
+        if first & 0x80 != 0 {
+            let second = compressed[offset];
+            offset += 1;
+            length |= usize::from(second & 0x7f) << 7;
+            if second & 0x80 != 0 {
+                length |= usize::from(compressed[offset]) << 14;
+                offset += 1;
+            }
+        }
+        assert_eq!(offset + length, compressed.len());
+        let mut decoder = jpeg_decoder::Decoder::new(&compressed[offset..]);
+        let pixels = decoder.decode().unwrap();
+        let info = decoder.info().unwrap();
+        assert_eq!((info.width, info.height), (width, height));
+        assert!(
+            pixels[0] > 150 && pixels[2] < 60,
+            "R/G/B channel order must not be reversed"
+        );
+        assert!(compressed.len() < frame.len() / 20);
+        eprintln!(
+            "viewer encoding: raw={} jpeg={} encode_ms={} (synthetic 1440x900, not live FPS)",
+            frame.len(),
+            compressed.len(),
+            elapsed.as_millis()
+        );
+        assert_eq!(
+            encode_tight_jpeg(&test_raw_framebuffer_update([1, 2, 3, 4]), 30).unwrap(),
+            test_raw_framebuffer_update([1, 2, 3, 4])
+        );
+        assert!(encode_tight_jpeg(&frame[..frame.len() - 1], 30).is_err());
+    }
+
+    #[test]
     fn merges_incremental_raw_rectangles_into_late_join_baseline() {
         let server_init = RfbServerInit {
             wire_bytes: Vec::new(),
@@ -1941,7 +2131,12 @@ mod tests {
         websocket.send(Message::Binary(vec![1])).await.unwrap();
         assert_eq!(next_binary(websocket).await, [0, 0, 0, 0]);
         websocket.send(Message::Binary(vec![1])).await.unwrap();
-        next_binary(websocket).await
+        let init = next_binary(websocket).await;
+        websocket
+            .send(Message::Binary(vec![3, 0, 0, 0, 0, 0, 0, 1, 0, 1]))
+            .await
+            .unwrap();
+        init
     }
 
     async fn next_binary(

@@ -544,8 +544,8 @@ export interface SessionResourceView {
     memoryPercentOfLimit?: number;
   }[];
   cost?: {
-    currentHourlyCost?: number;
-    maximumHourlyCost?: number;
+    currentHourlyCost?: number | null;
+    maximumHourlyCost?: number | null;
     pricingVersion?: string;
     lastEvaluatedAt?: string;
     trend: {

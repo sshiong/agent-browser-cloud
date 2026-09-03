@@ -23,7 +23,7 @@ export function SessionLifecycleActions({ session }: { session: SessionView }) {
   if (!auth.canOperate) return null;
 
   return (
-    <div className="flex max-w-64 flex-col items-end gap-1">
+    <div className="relative flex w-8 shrink-0 flex-col items-end">
       {canStart ? (
         <button
           type="button"
@@ -63,7 +63,7 @@ export function SessionLifecycleActions({ session }: { session: SessionView }) {
         </button>
       )}
       {error && !confirmOpen && (
-        <details className="relative">
+        <details className="absolute right-0 top-full z-20 mt-1">
           <summary
             role="alert"
             className="cursor-pointer whitespace-nowrap text-[11px] text-danger"
@@ -76,10 +76,7 @@ export function SessionLifecycleActions({ session }: { session: SessionView }) {
         </details>
       )}
       {(start.isSuccess || terminate.isSuccess) && (
-        <span
-          role="status"
-          className="max-w-48 text-right text-[10px] text-text-muted"
-        >
+        <span role="status" className="sr-only">
           {session.currentOperation
             ? '操作执行中，以服务端状态为准'
             : '请求已受理，以服务端状态为准'}

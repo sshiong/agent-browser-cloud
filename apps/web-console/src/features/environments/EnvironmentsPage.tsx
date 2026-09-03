@@ -643,7 +643,7 @@ export function EnvironmentsPage() {
               </button>
             </div>
             <div className="max-h-[calc(100vh-340px)] overflow-auto">
-              <table className="w-full min-w-[1080px]">
+              <table className="w-full min-w-[1200px]">
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b border-border-subtle bg-surface-2">
                     {auth.canOperate && (
@@ -972,11 +972,11 @@ function SessionRow({
         </td>
       )}
       {columns.context && (
-        <td className="px-4 py-3">
-          <span className="font-mono text-[11px] text-text-primary">
+        <td className="whitespace-nowrap px-4 py-3">
+          <span className="block font-mono text-[11px] text-text-primary">
             e{session.contextEpoch}
           </span>
-          <span className="ml-2 font-mono text-[10px] text-text-muted">
+          <span className="block font-mono text-[10px] text-text-muted">
             gen {session.browserGeneration}
           </span>
         </td>
@@ -985,7 +985,10 @@ function SessionRow({
         <td className="px-4 py-3">
           {session.currentOperation ? (
             <div>
-              <p className="text-[11px] text-text-primary">
+              <p
+                className="max-w-[150px] truncate text-[11px] text-text-primary"
+                title={session.currentOperation.mode}
+              >
                 {session.currentOperation.mode}
               </p>
               <p className="max-w-[150px] truncate font-mono text-[10px] text-text-muted">
@@ -993,7 +996,9 @@ function SessionRow({
               </p>
             </div>
           ) : (
-            <span className="text-[11px] text-text-muted">无活跃操作</span>
+            <span className="whitespace-nowrap text-[11px] text-text-muted">
+              无活跃操作
+            </span>
           )}
         </td>
       )}
@@ -1004,12 +1009,12 @@ function SessionRow({
         {formatDate(session.updatedAt)}
       </td>
       <td className="px-4 py-3">
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex min-w-[104px] shrink-0 items-center justify-end gap-1">
           <SessionLifecycleActions session={session} />
           <button
             type="button"
             onClick={() => navigate(`/environments/${session.sessionId}`)}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:bg-accent-soft hover:text-accent"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-accent-soft hover:text-accent"
             aria-label={`查看 ${session.sessionId} 详情`}
             title="查看详情"
           >

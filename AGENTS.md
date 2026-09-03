@@ -516,7 +516,8 @@ make test-desktop
   Gateway 共享上游仍是精确 Raw，但每连接可按标准 RFB Quality hint 转为独立 Tight JPEG，
   低画质使用色彩降采样；清晰档/旧客户端保持 Raw。不是 CSS 缩放，也没有降低 Chromium
   页面分辨率或绕过 Actor/Session FPS、带宽配额。两条原环境保存后恢复 RUNNING；
-  真实画面三档切换不重连，首个详情可用。本轮 GitHub Gate 待提交检查；不声称动态FPS达标。
+  真实画面三档切换不重连，首个详情可用。2ecbfda已推送；ci33713083175、desktop33713083347
+  检查时运行中；不声称动态FPS达标。
 
 - 2026-09-02 操作员复测发现六条旧环境缺 Demand，其中三条缺 Profile 元数据。
   progress 163 已补启动时事务初始化：只适用于 runtimeBuild/node 均空、generation/epoch=0、

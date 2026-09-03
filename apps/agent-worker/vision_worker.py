@@ -20,7 +20,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from agent_worker import NoRedirect, WorkerError, control_plane_origin, read_secret
+from agent_worker import NoRedirect, WorkerError, control_plane_origin, read_secret, run_poll_loop
 from reviewer_worker import OpenAIResponsesReviewer, fixed_model_endpoint
 
 
@@ -259,40 +259,46 @@ class VisionLoop:
             return False
         started = False
         stop = threading.Event()
+        lease_lost = threading.Event()
+        thread = None
         try:
             self.client.transition(claim, "start")
             started = True
             def heartbeat():
                 while not stop.wait(self.heartbeat_seconds):
-                    self.client.transition(claim, "heartbeat")
+                    try:
+                        self.client.transition(claim, "heartbeat")
+                    except WorkerError:
+                        lease_lost.set()
+                        return
             thread = threading.Thread(target=heartbeat, daemon=True)
             thread.start()
             screenshot = self.provider.download(claim["screenshotUrl"], self.environment, self.screenshot_hosts)
+            if lease_lost.is_set():
+                raise WorkerError("CHALLENGE_VISION_LEASE_LOST")
             verdict = self.provider.analyze(claim, screenshot)
             verdict["deploymentId"] = self.client.deployment_id
+            if lease_lost.is_set():
+                raise WorkerError("CHALLENGE_VISION_LEASE_LOST")
             self.client.transition(claim, "complete", verdict)
             stop.set()
             thread.join(timeout=self.heartbeat_seconds + 1)
             return True
         except WorkerError as error:
             stop.set()
-            if started:
+            if started and not lease_lost.is_set():
                 try:
                     self.client.transition(claim, "fail", {"failureCode": error.code, "retryable": error.retryable})
                 except WorkerError:
                     pass
             raise
+        finally:
+            stop.set()
+            if thread is not None:
+                thread.join(timeout=self.heartbeat_seconds + 1)
 
     def run(self, once: bool):
-        while True:
-            try:
-                worked = self.run_once()
-            except WorkerError:
-                worked = False
-            if once:
-                return
-            if not worked:
-                time.sleep(self.poll_seconds)
+        run_poll_loop(self.run_once, once, self.poll_seconds)
 
 
 def main() -> int:

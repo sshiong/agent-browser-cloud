@@ -4,7 +4,6 @@ import java.util.Collection;
 import java.util.Locale;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -36,7 +35,8 @@ public class SecurityConfiguration {
   }
 
   @Configuration
-  @ConditionalOnExpression("'${app.environment:local}' != 'production'")
+  @ConditionalOnExpression(
+      "'${app.environment:local}' == 'local' or '${app.environment:local}' == 'test'")
   static class LocalSecurity {
 
     @Bean
@@ -50,7 +50,9 @@ public class SecurityConfiguration {
   }
 
   @Configuration
-  @ConditionalOnProperty(name = "app.environment", havingValue = "production")
+  // Unknown/staging/misspelled environments must never enable caller-supplied identity headers.
+  @ConditionalOnExpression(
+      "'${app.environment:local}' != 'local' and '${app.environment:local}' != 'test'")
   static class ProductionSecurity {
 
     @Bean

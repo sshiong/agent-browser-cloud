@@ -369,6 +369,14 @@ Rust Browser Node
 
 最近切片与当前最高优先级开发任务：
 
+- 2026-09-03 用户要求逐项修复 Agent 可靠性、安全部署和治理问题并验证推送；当前以
+  `docs/progress/165-Agent可靠性与个人安全部署修复清单.md` 的 A01—A24 为实施账本。
+  第一切片已加三 Worker 有界退避、Vision lease-lost 主流程阻断和 finally 心跳清理；
+  Local Header 仅允许显式 local/test，其他环境进入 OIDC 链。后续仍须完整 Compose、
+  语义目标/Outcome、像素隐私、动态微批次、取消、加密和 Personal Secure 验收。
+  不得把 Worker 心跳修复冒充已完成浏览器长操作取消。仓库许可证元数据 MIT/UNLICENSED
+  不一致，未经权利人选择不得擅自对整个仓库授予新许可证。
+
 ### Agent Browser 结构化感知与低延迟执行（高级 Action Primitive 已闭环）
 
 - Snapshot/Inspect/Find、精确 State Cursor、稳定 Element ID、可见/可操作性判定和同源

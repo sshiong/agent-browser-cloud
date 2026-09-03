@@ -19,7 +19,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from agent_worker import NoRedirect, WorkerError, control_plane_origin, read_secret
+from agent_worker import NoRedirect, WorkerError, control_plane_origin, read_secret, run_poll_loop
 
 
 MAX_RESPONSE_BYTES = 1024 * 1024
@@ -401,6 +401,7 @@ class ReviewerLoop:
         started = False
         stop = threading.Event()
         lease_lost = threading.Event()
+        thread = None
         try:
             deployment = claim["job"].get("deployment")
             if (
@@ -449,17 +450,13 @@ class ReviewerLoop:
                 except WorkerError:
                     pass
             raise
+        finally:
+            stop.set()
+            if thread is not None:
+                thread.join(timeout=self.heartbeat_seconds + 1)
 
     def run(self, once: bool) -> None:
-        while True:
-            try:
-                worked = self.run_once()
-            except WorkerError:
-                worked = False
-            if once:
-                return
-            if not worked:
-                time.sleep(self.poll_seconds)
+        run_poll_loop(self.run_once, once, self.poll_seconds)
 
 
 def parse_args() -> argparse.Namespace:

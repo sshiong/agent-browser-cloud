@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import pathlib
+import random
 import re
 import ssl
 import stat
@@ -26,6 +28,41 @@ MAX_RESPONSE_BYTES = 1024 * 1024
 JOB_ID = re.compile(r"^ajob_[A-Za-z0-9]{20}$")
 TASK_ID = re.compile(r"^agt_[A-Za-z0-9]{16,}$")
 WORKER_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+
+
+class PollBackoff:
+    """Bound empty/error claim traffic without delaying heartbeats or busy queues."""
+
+    def __init__(self, base_seconds: float):
+        if not math.isfinite(base_seconds):
+            raise ValueError("poll seconds must be finite")
+        self.base = min(max(base_seconds, 0.1), 60)
+        self.ceiling = max(self.base, 30)
+        self.window = self.base
+
+    def reset(self) -> None:
+        self.window = self.base
+
+    def next_delay(self) -> float:
+        # Equal jitter avoids synchronized claims and zero-delay busy loops.
+        delay = random.uniform(self.window / 2, self.window)
+        self.window = min(self.ceiling, self.window * 2)
+        return delay
+
+
+def run_poll_loop(run_once, once: bool, poll_seconds: float) -> None:
+    backoff = PollBackoff(poll_seconds)
+    while True:
+        try:
+            worked = run_once()
+        except WorkerError:
+            worked = False
+        if once:
+            return
+        if worked:
+            backoff.reset()
+        else:
+            time.sleep(backoff.next_delay())
 
 
 class WorkerError(RuntimeError):
@@ -190,6 +227,7 @@ class WorkerLoop:
         started = False
         stop = threading.Event()
         lease_lost = threading.Event()
+        thread = None
         try:
             self.client.transition(claim, "start")
             started = True
@@ -228,17 +266,13 @@ class WorkerLoop:
                 except WorkerError:
                     pass
             raise
+        finally:
+            stop.set()
+            if thread is not None:
+                thread.join(timeout=self.heartbeat_seconds + 1)
 
     def run(self, once: bool) -> None:
-        while True:
-            try:
-                worked = self.run_once()
-            except WorkerError:
-                worked = False
-            if once:
-                return
-            if not worked:
-                time.sleep(self.poll_seconds)
+        run_poll_loop(self.run_once, once, self.poll_seconds)
 
 
 def parse_args() -> argparse.Namespace:

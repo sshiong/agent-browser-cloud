@@ -164,11 +164,18 @@ class ValidationWorkerTest(unittest.TestCase):
                 self.assertTrue(loop.run_once())
             finally:
                 os.environ.pop("CONTROL_PLANE_TOKEN", None)
-        self.assertEqual(
-            [request["path"].rsplit(":", 1)[-1] for request in FixtureHandler.requests],
-            ["claim", "start", "complete"],
-        )
-        complete = FixtureHandler.requests[-1]["body"]
+        # Cold/loaded runners legitimately renew the lease while the subprocess is running.
+        # Verify business transitions independently of wall-clock-dependent heartbeat count.
+        transitions = [request["path"].rsplit(":", 1)[-1] for request in FixtureHandler.requests]
+        self.assertEqual([action for action in transitions if action != "heartbeat"],
+                         ["claim", "start", "complete"])
+        self.assertEqual(transitions[:2], ["claim", "start"])
+        for request in FixtureHandler.requests:
+            if request["path"].endswith(":heartbeat"):
+                self.assertEqual(request["body"]["claimToken"], "a" * 43)
+                self.assertEqual(request["roles"], "VALIDATION_WORKER")
+        complete = next(request["body"] for request in FixtureHandler.requests
+                        if request["path"].endswith(":complete"))
         self.assertEqual(complete["claimToken"], "a" * 43)
         self.assertEqual(complete["result"]["requiredTests"], 1)
 

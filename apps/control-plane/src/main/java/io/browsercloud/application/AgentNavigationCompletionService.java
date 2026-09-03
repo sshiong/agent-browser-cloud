@@ -75,6 +75,13 @@ public class AgentNavigationCompletionService {
     var step = pendingStep(task, plan);
     var failure = verifyState(task, step, state);
     if (failure != null) {
+      // A completed batch can contain failed/skipped primitives when stopOnError=false.
+      // New state is not success evidence, and resync must not erase a known failure.
+      if (failure.equals("BATCH_ACTION_FAILED")) {
+        executionService.failPendingStep(
+            task.getTaskId(), event.tenantId(), operation.operationId(), step.stepId(), failure);
+        return;
+      }
       replanOrFail(event, task, plan, operation, failure);
       return;
     }
@@ -162,6 +169,14 @@ public class AgentNavigationCompletionService {
                 .toList()
                 .equals(step.input().actions().stream().map(ActionInput::actionId).toList()))) {
       return "BATCH_ACTION_OUTCOMES_INVALID";
+    }
+    if (step.toolId() == ToolId.EXECUTE_ACTIONS
+        && state.actionOutcomes().stream()
+            .anyMatch(
+                outcome ->
+                    !"SUCCEEDED".equals(outcome.status())
+                        || (outcome.errorCode() != null && !outcome.errorCode().isEmpty()))) {
+      return "BATCH_ACTION_FAILED";
     }
     if (step.toolId() == ToolId.OPEN_TAB
         && (state.activeTabId().isBlank()

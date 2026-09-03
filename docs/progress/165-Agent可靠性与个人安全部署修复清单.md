@@ -26,8 +26,8 @@
 | --- | --- | --- |
 | A01 | Compose 完整 Agent/Reviewer/Vision 链 | 已确认默认缺服务；待实现并以真实进程验收，模型凭据不得用 fixture 冒充 |
 | A02 | Local Mode 公网风险 | 环境名 fail-closed 已修复；入口限制、随机凭据与安全部署层待实现 |
-| A03 | DOM 复用后的语义目标稳定性 | 已确认 element ID 仅从 DOM path 派生；待语义围栏与动态页面回归 |
-| A04 | Expected Outcome / Intent Verification | 已有 Step verification；待核查任务成功条件并补独立结果验证 |
+| A03 | DOM 复用后的语义目标稳定性 | progress 167 已补名称/角色/类型/Route/Tab 围栏，真实 Chrome 通过；同名业务行绑定仍待补 |
+| A04 | Expected Outcome / Intent Verification | progress 167 已拒绝 Batch 明确失败/跳过的假成功；业务 Expected Outcome 仍待实现 |
 | A05 | Vision Canvas/图片/PDF 隐私 | 待像素级 OCR/PII、裁剪与不可验证时拒绝外发 |
 | A06 | 动态微批次 | 当前上限 20；待页面变化驱动的停顿/重采与恢复语义 |
 | A07 | Browser State 新鲜度 | 已有网络/原生 Dialog freshness；采集年龄与页面活动仍待补 |

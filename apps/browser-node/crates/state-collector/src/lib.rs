@@ -27,7 +27,7 @@ const MAX_NETWORK_QUIET_POLICY_MILLIS: u64 = 30_000;
 pub struct InteractiveTarget {
     /// 目标引用
     pub target_ref: String,
-    /// 跨 State/Target Revision 稳定的结构化元素 ID；target_ref 仍保留版本 fencing。
+    /// 结构/语义身份不变时跨 Revision 稳定；角色、名称或控件用途变化后必须重新查找。
     pub element_id: String,
     /// 角色
     pub role: String,
@@ -2617,14 +2617,38 @@ impl CdpStateCollector {
         )
     }
 
-    fn element_id(path: &str) -> String {
-        format!("e{}", &hex_sha256(path.as_bytes())[..12])
+    fn element_id(target: &EvaluatedTarget) -> String {
+        // DOM paths are reusable slots in virtualized lists and React. Rebinding must not
+        // silently carry the old action to a different role/name/control at that same path.
+        // Exclude mutable values/focus/check state so normal form micro-actions stay bound.
+        // Sensitive names/values never participate, including low-entropy password/OTP hashes.
+        let identity = serde_json::json!([
+            target.path,
+            target.frame_id,
+            target.role,
+            target.control_type,
+            target.sensitive,
+            if target.sensitive {
+                None
+            } else {
+                target.name.as_ref()
+            },
+        ]);
+        format!("e{}", &hex_sha256(identity.to_string().as_bytes())[..24])
     }
 
-    fn registered_target(target_revision: u64, evaluated: EvaluatedTarget) -> RegisteredTarget {
-        let target_ref = Self::target_ref(target_revision, &evaluated.path);
+    fn registered_target(
+        target_revision: u64,
+        evaluated: EvaluatedTarget,
+        page_url: &str,
+        tab_id: &str,
+    ) -> RegisteredTarget {
+        let scope = serde_json::json!([Self::element_id(&evaluated), page_url, tab_id]);
+        let element_id = format!("e{}", &hex_sha256(scope.to_string().as_bytes())[..24]);
+        // Also fence direct target_ref callers after a same-revision region resync.
+        let target_ref = Self::target_ref(target_revision, &element_id);
         let resolved = evaluated.bounds.clone().map(|bounds| ResolvedTarget {
-            element_id: Self::element_id(&evaluated.path),
+            element_id: element_id.clone(),
             role: evaluated.role.clone(),
             bounds,
             enabled: evaluated.enabled,
@@ -2638,7 +2662,7 @@ impl CdpStateCollector {
         });
         let interactive = InteractiveTarget {
             target_ref,
-            element_id: Self::element_id(&evaluated.path),
+            element_id,
             role: evaluated.role.clone(),
             name: (!evaluated.sensitive)
                 .then_some(evaluated.name.clone())
@@ -2947,7 +2971,12 @@ impl CdpStateCollector {
             .targets
             .into_iter()
             .map(|target| {
-                let registered = Self::registered_target(target_revision, target);
+                let registered = Self::registered_target(
+                    target_revision,
+                    target,
+                    &page.url,
+                    &tab_snapshot.active_tab_id,
+                );
                 (registered.interactive.target_ref.clone(), registered)
             })
             .collect::<HashMap<_, _>>();
@@ -3103,7 +3132,12 @@ impl CdpStateCollector {
                 && !target.evaluated.path.starts_with(&descendant_prefix)
         });
         for target in page.targets {
-            let registered = Self::registered_target(baseline.target_revision, target);
+            let registered = Self::registered_target(
+                baseline.target_revision,
+                target,
+                &baseline.url,
+                &baseline.active_tab_id,
+            );
             registry
                 .targets
                 .insert(registered.interactive.target_ref.clone(), registered);
@@ -3514,6 +3548,121 @@ mod tests {
 
         websocket_task.await.unwrap();
         http_task.await.unwrap();
+    }
+
+    fn semantic_test_target() -> EvaluatedTarget {
+        serde_json::from_value(serde_json::json!({
+            "path": "html>body>button:nth-of-type(1)",
+            "role": "button", "name": "Save", "controlType": "submit",
+            "frameId": "main", "enabled": true, "visible": true,
+            "bounds": {"x": 0, "y": 0, "width": 100, "height": 40}
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn semantic_identity_invalidates_reused_dom_slots() {
+        let baseline = semantic_test_target();
+        let original = CdpStateCollector::element_id(&baseline);
+        let mut renamed = baseline.clone();
+        renamed.name = Some("Delete account".into());
+        let mut rerolled = baseline.clone();
+        rerolled.role = "link".into();
+        let mut repurposed = baseline.clone();
+        repurposed.control_type = Some("reset".into());
+        let mut reframed = baseline.clone();
+        reframed.frame_id = "frame:other".into();
+        let mut sensitive = baseline.clone();
+        sensitive.sensitive = true;
+        for changed in [renamed, rerolled, repurposed, reframed, sensitive] {
+            assert_ne!(original, CdpStateCollector::element_id(&changed));
+        }
+    }
+
+    #[test]
+    fn semantic_identity_preserves_form_state_changes_and_excludes_secrets() {
+        let baseline = semantic_test_target();
+        let mut changed = baseline.clone();
+        changed.value = Some("typed value".into());
+        changed.checked = Some(true);
+        changed.focused = true;
+        changed.selected = Some(true);
+        changed.bounds.as_mut().unwrap().x = 50.0;
+        assert_eq!(
+            CdpStateCollector::element_id(&baseline),
+            CdpStateCollector::element_id(&changed)
+        );
+        let mut sensitive = baseline.clone();
+        sensitive.sensitive = true;
+        let original = CdpStateCollector::element_id(&sensitive);
+        sensitive.name = Some("123456".into());
+        sensitive.value = Some("secret".into());
+        assert_eq!(original, CdpStateCollector::element_id(&sensitive));
+    }
+
+    #[tokio::test]
+    async fn old_semantic_id_cannot_resolve_reused_dom_slot_at_new_revision() {
+        let collector = CdpStateCollector::new();
+        let original = semantic_test_target();
+        let baseline = CdpStateCollector::registered_target(
+            2,
+            original.clone(),
+            "https://example.test",
+            "tab-a",
+        );
+        let old_id = baseline.interactive.element_id;
+        let old_ref = baseline.interactive.target_ref;
+        let mut changed = original.clone();
+        changed.name = Some("Delete".into());
+        let registered =
+            CdpStateCollector::registered_target(2, changed, "https://example.test", "tab-a");
+        let new_id = registered.interactive.element_id.clone();
+        collector.target_registries.lock().await.insert(
+            "ses_semantic".into(),
+            TargetRegistry {
+                target_revision: 2,
+                targets: HashMap::from([(registered.interactive.target_ref.clone(), registered)]),
+            },
+        );
+        assert!(collector
+            .resolve_target("ses_semantic", &old_id, 2)
+            .await
+            .is_err());
+        assert!(collector
+            .resolve_target("ses_semantic", &old_ref, 2)
+            .await
+            .is_err());
+        assert!(collector
+            .resolve_target("ses_semantic", &new_id, 2)
+            .await
+            .is_ok());
+    }
+
+    #[test]
+    fn semantic_identity_cannot_cross_tab_or_route_boundaries() {
+        let target = semantic_test_target();
+        let baseline = CdpStateCollector::registered_target(
+            1,
+            target.clone(),
+            "https://example.test/a",
+            "tab-a",
+        );
+        for (url, tab) in [
+            ("https://example.test/b", "tab-a"),
+            ("https://example.test/a", "tab-b"),
+        ] {
+            let changed = CdpStateCollector::registered_target(2, target.clone(), url, tab);
+            assert_ne!(
+                baseline.interactive.element_id,
+                changed.interactive.element_id
+            );
+        }
+        let unchanged =
+            CdpStateCollector::registered_target(2, target, "https://example.test/a", "tab-a");
+        assert_eq!(
+            baseline.interactive.element_id,
+            unchanged.interactive.element_id
+        );
     }
 
     #[tokio::test]
@@ -4748,6 +4897,60 @@ mod tests {
             .targets
             .iter()
             .any(|target| target.role == "textbox" && target.name.as_deref() == Some("Name")));
+
+        let old_button = state
+            .targets
+            .iter()
+            .find(|target| target.role == "button")
+            .unwrap();
+        let old_input = state
+            .targets
+            .iter()
+            .find(|target| target.role == "textbox")
+            .unwrap();
+        let websocket = collector
+            .active_page_websocket("ses_real_chromium")
+            .await
+            .unwrap();
+        CdpStateCollector::cdp_command_with_params(
+            &websocket, "Runtime.evaluate", 990,
+            serde_json::json!({
+                "expression": "document.querySelector('button').setAttribute('aria-label', 'Delete'); document.querySelector('input').value = 'normal form value'; true",
+                "returnByValue": true
+            }),
+        ).await.unwrap();
+        let changed = collector
+            .collect_current_state("ses_real_chromium")
+            .await
+            .unwrap();
+        let new_button = changed
+            .targets
+            .iter()
+            .find(|target| target.role == "button")
+            .unwrap();
+        let new_input = changed
+            .targets
+            .iter()
+            .find(|target| target.role == "textbox")
+            .unwrap();
+        assert_ne!(old_button.element_id, new_button.element_id);
+        assert_eq!(old_input.element_id, new_input.element_id);
+        assert!(collector
+            .resolve_target(
+                "ses_real_chromium",
+                &old_button.element_id,
+                changed.target_revision
+            )
+            .await
+            .is_err());
+        assert!(collector
+            .resolve_target(
+                "ses_real_chromium",
+                &new_button.element_id,
+                changed.target_revision
+            )
+            .await
+            .is_ok());
 
         collector.unregister_runtime("ses_real_chromium").await;
         let _ = child.start_kill();

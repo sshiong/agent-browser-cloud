@@ -377,6 +377,10 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   语义目标/Outcome、像素隐私、动态微批次、取消、加密和 Personal Secure 验收。
   不得把 Worker 心跳修复冒充已完成浏览器长操作取消。仓库许可证元数据 MIT/UNLICENSED
   不一致，未经权利人选择不得擅自对整个仓库授予新许可证。
+- progress 167：Element ID/target_ref 新增名称/角色/控件类型/Route/Tab 语义围栏，
+  可变输入值/焦点/勾选/位置不参与；真实 Chrome 改名拒绝旧 ID 的专项通过。同名业务行
+  的实体级绑定仍待补。控制面不再把包含 FAILED/SKIPPED 的 Batch 判为 VERIFIED，已知
+  失败直接结束该 Step，不以 Resync 洗白；这不替代业务 Expected Outcome 验证。
 
 ### Agent Browser 结构化感知与低延迟执行（高级 Action Primitive 已闭环）
 

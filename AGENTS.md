@@ -106,7 +106,8 @@ Rust Browser Node
 | `docs/prompt/` | Web 优先、跨平台复用及 Neo-Industrial Observatory UI 设计输入 |
 | `Makefile` | 统一构建、测试、契约、SDK、集成和发布检查入口 |
 
-注意：根 `README.md` 的目录树仍保留了早期 `apps/cli` 等描述，可能落后于真实目录；以当前文件系统和本文件为准，后续可单独清理 README。
+README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，再执行 `make docs-generate`。
+`make docs-check` 在 CI 拒绝目录表漂移和 README 本地链接失效，见 progress 166。
 
 ## 6. 已完成功能与真实开发进度
 
@@ -540,7 +541,9 @@ make test-desktop
 1. `useRecoveryGameDayEvents()` 仍以 5 秒轮询读取；替换前需先证明 timeline 事件分页的完整顺序和权限边界。
 2. 遗留 `EXCLUSIVE_TAKEOVER` 枚举/协议字段尚在 N/N-1 兼容窗口内；行为已失效，但暂不能物理删除。
 3. VNC/Agent 综合 E2E 历史上出现与 VNC 无关的 Agent 表单响应 30 秒偶发超时；并发关键段已有真实证据，完整长稳仍需单独稳定。
-4. README 目录树和部分早期进度快照可能落后；不要据此恢复已经删除或重构的模块。
+4. README 目录表已由 progress 166 增加生成/CI 门禁；历史进度快照仍不能替代代码证据。
+   实际查询确认 `917a8ff`/`2ecbfda` 的 ci 因 gRPC-Go 高危告警失败，desktop 成功。
+   Provider 已升级修复版 1.83.1，本地 race/vet/build/发布门禁通过，GitHub 复验待完成。
 5. 目标环境、真实外部凭据和组织审批缺失是发布阻断项，不是本地单测通过即可关闭的代码任务。
 
 ## 12. 当前重点与推荐优先级

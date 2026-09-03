@@ -6,6 +6,14 @@ RUNTIME_CAPACITY_CYCLES ?= 500
 BROWSER_DENSITY_CONCURRENCY ?= 4
 REAL_CHROMIUM_PATH ?=
 
+.PHONY: docs-generate docs-check
+docs-generate:
+	python3 tools/docs/check_readme.py --write
+
+docs-check:
+	python3 -m unittest discover -s tools/docs -p 'test_*.py'
+	python3 tools/docs/check_readme.py
+
 # Install workspace dependencies
 install:
 	pnpm --dir apps/web-console install --frozen-lockfile
@@ -236,4 +244,4 @@ test-sdk:
 	python3 tools/sdk/build_multilang_release.py .
 
 # Run all checks (CI)
-ci: lint test contracts-check sdk-typescript-check sdk-multilang-check supply-chain-check test-kubernetes-operator test-upgrade-compatibility test-coordinator-capacity test-sdk
+ci: docs-check lint test contracts-check sdk-typescript-check sdk-multilang-check supply-chain-check test-kubernetes-operator test-upgrade-compatibility test-coordinator-capacity test-sdk

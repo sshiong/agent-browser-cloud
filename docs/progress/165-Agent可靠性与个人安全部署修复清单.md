@@ -46,7 +46,7 @@
 | A20 | DOM/Layout/Network/Focus/Route 稳定性 | 网络观察已有实现；待组合稳定性与动态页面验证 |
 | A21 | 高层 Agent 操作接口 | snapshot/find/inspect/execute-actions 已有；待 wait/handoff 整合 |
 | A22 | Personal Secure 一键部署 | 待实现，不能复用开发身份后声称安全公网部署 |
-| A23 | 文档漂移 CI | 已确认 README 存在 apps/cli 等旧目录；待生成/校验 |
+| A23 | 文档漂移 CI | progress 166 已实现 Git 模块表生成/CI 校验及 README 本地链接检查，5 项测试通过 |
 | A24 | LICENSE / SECURITY.md | SECURITY.md 已新增；Rust 标 MIT、TS SDK 标 UNLICENSED，统一授权须权利人确认 |
 
 不修改用户未跟踪的 `agent-browser-cloud-before-rewrite.bundle` 和 `agent-browser-cloud/`。

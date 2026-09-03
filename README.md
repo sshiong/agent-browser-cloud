@@ -2,12 +2,11 @@
 
 以受控 Chromium Runtime 为核心的浏览器基础设施平台。
 
-> 当前状态：单 Region 工程 PoC 的 Chromium/CDP、State/Input、noVNC、Profile/Proxy、
-> Agent、Crash Recovery、OIDC/RBAC/mTLS、哈希审计、Break-glass 与最小化 Secure
-> Debug 主链路已可重复运行；GHCR 四镜像已具备 Keyless Cosign 签名、SPDX Attestation、
-> SBOM Hash 绑定和 Digest 锁定发布包。Phase 4 MVP、Phase 6 本机容量/N/N-1 和
-> Phase 7 企业运营核心已通过仓库内验收；目标云、多 Region、HSM、独立 Debug
-> Worker/录像与组织 Gate 尚未完成，当前版本不能直接用于生产或真实客户数据。
+> Phase 4 MVP、Phase 6 本机容量/N/N−1 和 Phase 7 企业运营核心已有仓库内验收证据，
+> 但尚未通过 V16 全量生产 Gate，不能直接处理真实客户数据。功能边界与验证结果以
+> [进度总览](docs/08-进度追踪.md)、[剩余清单](docs/progress/33-当前未实现清单.md)
+> 和当前提交的 CI 为准。默认 Compose 是 localhost 开发环境，禁止直接反代公网；
+> 请先阅读 [安全策略](SECURITY.md)。
 
 ## 快速开始
 
@@ -33,7 +32,7 @@ make install
 git clone https://github.com/sshiong/agent-browser-cloud.git
 cd agent-browser-cloud
 
-# 启动所有服务
+# 启动本地开发服务（完整外部 Worker 链仍见下方说明）
 make compose-up
 
 # 验证服务
@@ -73,29 +72,26 @@ cd apps/web-console && pnpm dev
 
 ## 项目结构
 
-```
-agent-browser-cloud/
-├── apps/
-│   ├── control-plane/          # Java 控制面
-│   ├── browser-node/           # Rust 浏览器节点
-│   ├── web-console/            # React 控制台
-│   └── cli/                    # Rust CLI
-├── packages/
-│   ├── contracts/              # Protobuf/OpenAPI 契约
-│   ├── policy-schemas/         # 策略 Schema
-│   ├── sdk-typescript/         # TypeScript SDK
-│   └── test-fixtures/          # 测试数据
-├── database/
-│   ├── migrations/             # 数据库迁移
-│   └── seeds/                  # 种子数据
-├── deploy/                     # 部署配置
-├── sdks/                       # TypeScript/Python/Go/Java SDK
-├── docs/                       # 文档
-├── tests/                      # 测试
-├── tools/                      # 工具
-├── Makefile                    # 构建命令
-└── docker-compose.yml          # 本地服务编排
-```
+模块表由 Git 跟踪文件生成，新增/删除模块后先暂存文件，再执行 `make docs-generate`。
+CI 的 `make docs-check` 会拒绝模块表漂移和 README 本地链接失效。
+
+<!-- BEGIN GENERATED MODULES -->
+
+| 目录 | Git 跟踪的模块 |
+| --- | --- |
+| `apps/` | [agent-worker](apps/agent-worker/)、[application-adapter](apps/application-adapter/)、[browser-node](apps/browser-node/)、[control-plane](apps/control-plane/)、[desktop](apps/desktop/)、[gameday-worker](apps/gameday-worker/)、[validation-worker](apps/validation-worker/)、[web-console](apps/web-console/) |
+| `packages/` | [contracts](packages/contracts/) |
+| `sdks/` | [go](sdks/go/)、[java](sdks/java/)、[python](sdks/python/)、[typescript](sdks/typescript/) |
+| `database/` | [migrations](database/migrations/)、[online-migrations](database/online-migrations/)、[seeds](database/seeds/) |
+| `deploy/` | [docker](deploy/docker/)、[kubernetes](deploy/kubernetes/)、[terraform](deploy/terraform/) |
+| `tools/` | [browser-session-operator](tools/browser-session-operator/)、[docs](tools/docs/)、[sdk](tools/sdk/)、[supply-chain](tools/supply-chain/) |
+
+<!-- END GENERATED MODULES -->
+
+`docs/` 保存架构与验证证据，`tests/` 保存跨组件 Gate，`Makefile` 是统一检查入口，
+`docker-compose.yml` 为开发编排。当前默认 Compose 尚未完整启动 Agent/Reviewer/Vision
+三个独立 Worker，不能用进程内执行的成功代替外部 Worker 验收；专项修复见
+[A01—A24 实施账本](docs/progress/165-Agent可靠性与个人安全部署修复清单.md)。
 
 ## 文档
 

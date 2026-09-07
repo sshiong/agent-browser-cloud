@@ -25,7 +25,7 @@
 | ID | 项目 | 当前状态 / 下一证据 |
 | --- | --- | --- |
 | A01 | Compose 完整 Agent/Reviewer/Vision 链 | 已确认默认缺服务；待实现并以真实进程验收，模型凭据不得用 fixture 冒充 |
-| A02 | Local Mode 公网风险 | 环境名 fail-closed 已修复；入口限制、随机凭据与安全部署层待实现 |
+| A02 | Local Mode 公网风险 | progress 168 统一 CP/Node/Helper 非 local/test 安全要求；完整集成验证中，入口限制、随机凭据与安全部署层待实现 |
 | A03 | DOM 复用后的语义目标稳定性 | progress 167 已补名称/角色/类型/Route/Tab 围栏，真实 Chrome 通过；同名业务行绑定仍待补 |
 | A04 | Expected Outcome / Intent Verification | progress 167 已拒绝 Batch 明确失败/跳过的假成功；业务 Expected Outcome 仍待实现 |
 | A05 | Vision Canvas/图片/PDF 隐私 | 待像素级 OCR/PII、裁剪与不可验证时拒绝外发 |

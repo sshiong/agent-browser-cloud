@@ -151,7 +151,7 @@ fn configured_node_agent_uid() -> anyhow::Result<u32> {
     let environment = std::env::var("APP_ENVIRONMENT").unwrap_or_else(|_| "local".to_owned());
     match std::env::var("NODE_AGENT_UID") {
         Ok(value) => value.parse().context("NODE_AGENT_UID must be an integer"),
-        Err(_) if environment.eq_ignore_ascii_case("production") => {
+        Err(_) if environment != "local" && environment != "test" => {
             anyhow::bail!("NODE_AGENT_UID is required in production")
         }
         Err(_) => Ok(Uid::current().as_raw()),

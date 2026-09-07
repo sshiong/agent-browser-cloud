@@ -1,5 +1,6 @@
 package io.browsercloud.application;
 
+import io.browsercloud.security.DeploymentEnvironment;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
@@ -28,7 +29,8 @@ public final class AgentActionPayloadService {
     if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
       throw new IllegalStateException("Agent action payload secret must be at least 32 bytes");
     }
-    if (environment.equalsIgnoreCase("production") && secret.equals(LOCAL_SECRET)) {
+    if (DeploymentEnvironment.requiresProductionSecurity(environment)
+        && secret.equals(LOCAL_SECRET)) {
       throw new IllegalStateException(
           "AGENT_ACTION_PAYLOAD_SECRET must be configured in production");
     }

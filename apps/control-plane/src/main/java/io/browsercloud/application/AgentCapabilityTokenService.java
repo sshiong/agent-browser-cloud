@@ -4,6 +4,7 @@ import static io.browsercloud.domain.agent.AgentModels.*;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.browsercloud.security.DeploymentEnvironment;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -32,7 +33,7 @@ public final class AgentCapabilityTokenService {
     if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
       throw new IllegalStateException("Agent capability token secret must be at least 32 bytes");
     }
-    if (environment.equalsIgnoreCase("production")
+    if (DeploymentEnvironment.requiresProductionSecurity(environment)
         && secret.equals("browsercloud-local-agent-capability-token-secret-v1")) {
       throw new IllegalStateException(
           "AGENT_CAPABILITY_TOKEN_SECRET must be configured in production");

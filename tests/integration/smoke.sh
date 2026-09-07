@@ -42,6 +42,9 @@ minio_access_key="browsercloud-integration"
 minio_secret_key="browsercloud-integration-secret"
 minio_bucket="profile-checkpoints"
 temp_dir="$(mktemp -d)"
+# Spring Boot lazily reads nested classes. Keep this run's artifact independent of later builds.
+control_plane_test_jar="$temp_dir/control-plane.jar"
+cp apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar "$control_plane_test_jar"
 control_pid=""
 control_b_pid=""
 node_pid=""
@@ -688,7 +691,7 @@ COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
 RESOURCE_POLICY_COST_TREND_INTERVAL_MS=1000 \
 SERVER_PORT="$control_port" \
-  "$java_bin" -jar apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
+  "$java_bin" -jar "$control_plane_test_jar" \
   >"$temp_dir/control-plane.log" 2>&1 &
 control_pid=$!
 
@@ -2485,7 +2488,7 @@ COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
 RESOURCE_POLICY_COST_TREND_INTERVAL_MS=1000 \
 SERVER_PORT="$control_b_port" \
-  "$java_bin" -jar apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
+  "$java_bin" -jar "$control_plane_test_jar" \
   >"$temp_dir/control-plane-b.log" 2>&1 &
 control_b_pid=$!
 
@@ -3598,7 +3601,7 @@ COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
 RESOURCE_POLICY_COST_TREND_INTERVAL_MS=1000 \
 SERVER_PORT="$control_port" \
-  "$java_bin" -jar apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
+  "$java_bin" -jar "$control_plane_test_jar" \
   >>"$temp_dir/control-plane.log" 2>&1 &
 control_pid=$!
 
@@ -3856,7 +3859,7 @@ COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
 RESOURCE_POLICY_COST_TREND_INTERVAL_MS=1000 \
 SERVER_PORT="$control_port" \
-  "$java_bin" -jar apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
+  "$java_bin" -jar "$control_plane_test_jar" \
   >>"$temp_dir/control-plane.log" 2>&1 &
 control_pid=$!
 
@@ -4189,7 +4192,7 @@ COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
 RESOURCE_POLICY_COST_TREND_INTERVAL_MS=1000 \
 SERVER_PORT="$control_port" \
-  "$java_bin" -jar apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
+  "$java_bin" -jar "$control_plane_test_jar" \
   >>"$temp_dir/control-plane.log" 2>&1 &
 control_pid=$!
 
@@ -5215,7 +5218,7 @@ AGENT_REVIEWER_INPUT_PRICE_MICROS_PER_MTOK=2000000 \
 AGENT_REVIEWER_OUTPUT_PRICE_MICROS_PER_MTOK=8000000 \
 RESOURCE_POLICY_COST_TREND_INTERVAL_MS=1000 \
 SERVER_PORT="$control_b_port" \
-  "$java_bin" -jar apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
+  "$java_bin" -jar "$control_plane_test_jar" \
   >"$temp_dir/control-plane-b.log" 2>&1 &
 control_b_pid=$!
 
@@ -6519,6 +6522,11 @@ dual_node_created="$(curl -fsS -X POST \
   -d '{"tenantId":"tenant-integration","profileId":"profile-dual-node-migration","runtimeBuildId":"runtime_local_chromium","region":"local","resourcePolicy":{"mode":"AUTO","onMaximumReached":"WAIT_SAFE_POINT_MIGRATE","allowMigration":true,"allowHibernate":true},"metadata":{"displayName":"Dual Node Migration"}}')"
 dual_node_session="$(printf '%s' "$dual_node_created" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+# Force the conflict before starting the runtime: no telemetry writer can be mistaken for
+# the HTTP PATCH in PostgreSQL's lock wait graph.
+python3 tests/integration/resource_policy_concurrency.py \
+  "$postgres_name" "$control_port" "$dual_node_session" 4000 4096 \
+  >"$temp_dir/concurrent-resource-policy.json"
 curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${dual_node_session}:start" \
   -H 'X-Tenant-Id: tenant-integration' \

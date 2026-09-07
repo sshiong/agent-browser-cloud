@@ -126,15 +126,17 @@ class RemoteDesktopTicketServiceTest {
         .contains("\"accessMode\":\"COLLABORATIVE\"");
   }
 
-  @Test
-  void shouldRejectLocalSecretInProduction() {
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(
+      strings = {"production", "staging", "LOCAL", "", "test "})
+  void shouldRejectLocalSecretOutsideDevelopment(String environment) {
     assertThatThrownBy(
             () ->
                 new RemoteDesktopTicketService(
                     new ObjectMapper(),
                     RemoteDesktopTicketService.LOCAL_SECRET,
                     45,
-                    "production",
+                    environment,
                     Clock.systemUTC()))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("must be overridden");

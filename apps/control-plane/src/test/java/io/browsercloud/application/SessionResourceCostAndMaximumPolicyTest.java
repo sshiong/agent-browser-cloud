@@ -143,8 +143,7 @@ class SessionResourceCostAndMaximumPolicyTest {
     var now = Instant.now();
     var policy = policy(MaximumReachedPolicy.TERMINATE_STRICT, 1.0);
     when(sessions.require("ses_cost")).thenReturn(session(now));
-    when(policies.findBySessionIdAndTenantId("ses_cost", "tenant-test"))
-        .thenReturn(Optional.of(policy));
+    when(policies.findForUpdate("ses_cost", "tenant-test")).thenReturn(Optional.of(policy));
     var partial =
         new ResourcePolicyRequest(
             ResourcePolicyMode.AUTO,

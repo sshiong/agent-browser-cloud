@@ -6,6 +6,7 @@ import io.browsercloud.application.ProfileExportAccessNodeGateway;
 import io.browsercloud.persistence.BrowserNodeJpaRepository;
 import io.browsercloud.proto.node.v1.NodeControlServiceGrpc;
 import io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest;
+import io.browsercloud.security.DeploymentEnvironment;
 import io.grpc.StatusRuntimeException;
 import java.net.URI;
 import java.time.Instant;
@@ -26,7 +27,7 @@ public class GrpcProfileExportAccessNodeGateway implements ProfileExportAccessNo
       @Value("${app.environment:local}") String environment) {
     this.nodes = nodes;
     this.transportFactory = transportFactory;
-    this.production = "production".equalsIgnoreCase(environment);
+    this.production = DeploymentEnvironment.requiresProductionSecurity(environment);
   }
 
   @Override

@@ -584,7 +584,7 @@ impl NodeCapacityReporter {
         supports_desktop: bool,
         cgroup_capabilities: RuntimeCgroupCapabilities,
     ) -> Result<Self> {
-        let production = environment.eq_ignore_ascii_case("production");
+        let production = environment != "local" && environment != "test";
         let region = std::env::var("NODE_REGION").unwrap_or_else(|_| "local".to_owned());
         let hostname = std::env::var("HOSTNAME").unwrap_or_else(|_| node_id.clone());
         let default_target = if production {
@@ -924,14 +924,19 @@ impl NodeCapacityReporter {
 }
 
 impl GrpcTlsMaterial {
+    fn require_secure_transport(environment: &str, enabled: bool) -> Result<()> {
+        anyhow::ensure!(
+            (environment == "local" || environment == "test") || enabled,
+            "Internal gRPC mTLS is mandatory outside local/test"
+        );
+        Ok(())
+    }
+
     fn from_environment(environment: &str) -> Result<Option<Self>> {
         let enabled = std::env::var("GRPC_TLS_ENABLED")
             .map(|value| value.eq_ignore_ascii_case("true"))
             .unwrap_or(false);
-        anyhow::ensure!(
-            !environment.eq_ignore_ascii_case("production") || enabled,
-            "Internal gRPC mTLS is mandatory in production"
-        );
+        Self::require_secure_transport(environment, enabled)?;
         if !enabled {
             return Ok(None);
         }
@@ -9206,7 +9211,7 @@ async fn main() -> Result<()> {
         && std::fs::read_to_string(Path::new(&runtime_cgroup_root).join("cgroup.controllers"))
             .map(|controllers| controllers.split_whitespace().any(|value| value == "io"))
             .unwrap_or(false);
-    if environment.eq_ignore_ascii_case("production") {
+    if environment != "local" && environment != "test" {
         anyhow::ensure!(
             !runtime_cgroup_root.is_empty(),
             "RUNTIME_CGROUP_ROOT is required in production"
@@ -9260,7 +9265,7 @@ async fn main() -> Result<()> {
     let allow_direct_network = std::env::var("ALLOW_DIRECT_NETWORK")
         .map(|value| value.eq_ignore_ascii_case("true"))
         .unwrap_or(false);
-    if environment.eq_ignore_ascii_case("production") {
+    if environment != "local" && environment != "test" {
         anyhow::ensure!(
             !storage_helper_socket.is_empty(),
             "STORAGE_HELPER_SOCKET is required in production"
@@ -9282,7 +9287,7 @@ async fn main() -> Result<()> {
         let startup_timeout = Duration::from_millis(
             std::env::var("STORAGE_HELPER_STARTUP_TIMEOUT_MS")
                 .unwrap_or_else(|_| {
-                    if environment.eq_ignore_ascii_case("production") {
+                    if environment != "local" && environment != "test" {
                         "30000".to_owned()
                     } else {
                         "5000".to_owned()
@@ -9309,7 +9314,7 @@ async fn main() -> Result<()> {
         .unwrap_or_default()
         .trim()
         .to_owned();
-    if environment.eq_ignore_ascii_case("production") {
+    if environment != "local" && environment != "test" {
         anyhow::ensure!(
             !allow_direct_network,
             "ALLOW_DIRECT_NETWORK cannot be enabled in production"
@@ -9331,7 +9336,7 @@ async fn main() -> Result<()> {
         let startup_timeout = Duration::from_millis(
             std::env::var("NETWORK_HELPER_STARTUP_TIMEOUT_MS")
                 .unwrap_or_else(|_| {
-                    if environment.eq_ignore_ascii_case("production") {
+                    if environment != "local" && environment != "test" {
                         "30000".to_owned()
                     } else {
                         "5000".to_owned()
@@ -9364,7 +9369,7 @@ async fn main() -> Result<()> {
         .filter(|origin| !origin.is_empty())
         .map(ToOwned::to_owned)
         .collect::<Vec<_>>();
-    if environment.eq_ignore_ascii_case("production") {
+    if environment != "local" && environment != "test" {
         anyhow::ensure!(
             ticket_secret != local_ticket_secret,
             "REMOTE_DESKTOP_TICKET_SECRET must be overridden in production"
@@ -9389,7 +9394,7 @@ async fn main() -> Result<()> {
             .unwrap_or_else(|_| "30000".to_owned())
             .parse()?,
     );
-    if environment.eq_ignore_ascii_case("production") {
+    if environment != "local" && environment != "test" {
         anyhow::ensure!(
             remote_desktop_disconnect_grace >= Duration::from_millis(500)
                 && remote_desktop_disconnect_grace <= Duration::from_secs(10),
@@ -9601,6 +9606,17 @@ async fn shutdown_signal() {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn unknown_deployment_names_cannot_enable_plaintext_grpc() {
+        for environment in ["production", "staging", "prod", "LOCAL", "test ", ""] {
+            assert!(super::GrpcTlsMaterial::require_secure_transport(environment, false).is_err());
+            assert!(super::GrpcTlsMaterial::require_secure_transport(environment, true).is_ok());
+        }
+        for environment in ["local", "test"] {
+            assert!(super::GrpcTlsMaterial::require_secure_transport(environment, false).is_ok());
+        }
+    }
+
     use super::*;
     use node_contracts::proto::node_event_service_server::{
         NodeEventService, NodeEventServiceServer,

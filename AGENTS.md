@@ -368,6 +368,11 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 
 ## 7. 当前正在处理的任务
 
+- progress 168：资源策略 PATCH 增加精确 Tenant/Session 行锁和真实 PostgreSQL
+  竞争回归；控制面非 local/test 环境统一默认密钥、mTLS、签名及下载检查，Node/Helper
+  已同步环境判断；Vision HTTP 错误分类已修。Java/Rust/Worker 定向 Gate 和完整集成通过，
+  本切片待推送。`bb4eb79` CI/Desktop 均已通过。
+
 最近切片与当前最高优先级开发任务：
 
 - 2026-09-03 用户要求逐项修复 Agent 可靠性、安全部署和治理问题并验证推送；当前以

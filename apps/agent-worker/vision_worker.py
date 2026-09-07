@@ -94,7 +94,10 @@ class VisionControlPlaneClient:
                 raise WorkerError("CONTROL_PLANE_RESPONSE_INVALID") from error
             if response.status >= 400:
                 reason = document.get("code") if isinstance(document, dict) else None
-                raise WorkerError(str(reason or f"CONTROL_PLANE_HTTP_{response.status}"), response.status >= 500)
+                raise WorkerError(
+                    str(reason or f"CONTROL_PLANE_HTTP_{response.status}"),
+                    retryable=response.status >= 500,
+                )
             if response.status == 204:
                 return None
             if response.status != 200 or not isinstance(document, dict):

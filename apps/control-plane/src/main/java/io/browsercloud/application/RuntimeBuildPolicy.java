@@ -2,6 +2,7 @@ package io.browsercloud.application;
 
 import io.browsercloud.persistence.RuntimeBuildEntity;
 import io.browsercloud.persistence.RuntimeBuildJpaRepository;
+import io.browsercloud.security.DeploymentEnvironment;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.PublicKey;
@@ -26,7 +27,7 @@ public class RuntimeBuildPolicy {
       @Value("${app.environment:local}") String environment,
       @Value("${security.runtime-signing-public-keys:}") String trustedSigningKeys) {
     this.repository = repository;
-    this.production = "production".equalsIgnoreCase(environment);
+    this.production = DeploymentEnvironment.requiresProductionSecurity(environment);
     this.trustedSigningKeys = parseTrustedKeys(trustedSigningKeys);
   }
 

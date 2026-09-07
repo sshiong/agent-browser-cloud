@@ -1,5 +1,6 @@
 package io.browsercloud.infrastructure;
 
+import io.browsercloud.security.DeploymentEnvironment;
 import io.grpc.ManagedChannel;
 import io.grpc.ServerBuilder;
 import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
@@ -27,7 +28,7 @@ public class GrpcTransportFactory {
       @Value("${grpc.tls.certificate:}") String certificate,
       @Value("${grpc.tls.private-key:}") String privateKey,
       @Value("${grpc.tls.node-server-name:browser-node.internal}") String nodeServerName) {
-    if ("production".equalsIgnoreCase(environment) && !tlsEnabled) {
+    if (DeploymentEnvironment.requiresProductionSecurity(environment) && !tlsEnabled) {
       throw new IllegalStateException("Internal gRPC mTLS is mandatory in production");
     }
     this.tlsEnabled = tlsEnabled;

@@ -134,7 +134,13 @@ public class SessionResourceApplicationService {
       String actorId,
       boolean platformAdmin) {
     var session = requireTenant(sessionId, tenantId);
-    var policy = requirePolicy(sessionId, tenantId);
+    // Telemetry/cost decisions update this same versioned row. Lock before reading it so a
+    // legitimate user PATCH cannot race those writes and fail at transaction commit with 500.
+    // Keep optimistic fencing for other writers; never remove @Version or retry partial work.
+    var policy =
+        policies
+            .findForUpdate(sessionId, tenantId)
+            .orElseThrow(ResourcePolicyNotFoundException::new);
     requirePolicyPermission(
         request != null && request.onMaximumReached() != null
             ? request.onMaximumReached()

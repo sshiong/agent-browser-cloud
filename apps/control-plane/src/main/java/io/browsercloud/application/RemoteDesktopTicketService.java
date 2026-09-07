@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.api.RemoteDesktopConnectionResponse;
 import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.domain.session.SessionContext;
+import io.browsercloud.security.DeploymentEnvironment;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.time.Clock;
@@ -79,7 +80,8 @@ public class RemoteDesktopTicketService {
       throw new IllegalArgumentException(
           "remote desktop ticket secret must contain at least 32 bytes");
     }
-    if ("production".equalsIgnoreCase(environment) && LOCAL_SECRET.equals(secret)) {
+    if (DeploymentEnvironment.requiresProductionSecurity(environment)
+        && LOCAL_SECRET.equals(secret)) {
       throw new IllegalArgumentException(
           "REMOTE_DESKTOP_TICKET_SECRET must be overridden in production");
     }

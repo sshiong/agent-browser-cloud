@@ -804,7 +804,7 @@ fn object_archive_from_environment() -> anyhow::Result<Option<ObjectArchive>> {
     let endpoint = required_environment("OBJECT_STORAGE_ENDPOINT")?;
     let allow_http = endpoint.starts_with("http://");
     anyhow::ensure!(
-        !environment.eq_ignore_ascii_case("production") || !allow_http,
+        (environment == "local" || environment == "test") || !allow_http,
         "production Object Storage requires HTTPS"
     );
     let connect_timeout = duration_from_environment("OBJECT_STORAGE_CONNECT_TIMEOUT_MS", 1_000)?;
@@ -1119,7 +1119,7 @@ fn configured_node_agent_uid() -> anyhow::Result<u32> {
     let environment = std::env::var("APP_ENVIRONMENT").unwrap_or_else(|_| "local".to_owned());
     match std::env::var("NODE_AGENT_UID") {
         Ok(value) => value.parse().context("NODE_AGENT_UID must be an integer"),
-        Err(_) if environment.eq_ignore_ascii_case("production") => {
+        Err(_) if environment != "local" && environment != "test" => {
             anyhow::bail!("NODE_AGENT_UID is required in production")
         }
         Err(_) => Ok(Uid::current().as_raw()),

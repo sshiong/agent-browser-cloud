@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 /** 仅用于非生产单 Node 开发闭环。生产环境必须由认证后的 Browser Node 心跳注册， 不会自动创建虚构容量。 */
 @Component
 @ConditionalOnExpression(
-    "'${app.environment:local}' != 'production' and '${browser-density.bootstrap-local-node.enabled:true}' == 'true'")
+    "('${app.environment:local}' == 'local' or '${app.environment:local}' == 'test') and '${browser-density.bootstrap-local-node.enabled:true}' == 'true'")
 public class LocalBrowserNodeCapacityBootstrap implements ApplicationRunner {
 
   private final BrowserCapacityApplicationService service;

@@ -6,6 +6,7 @@ import io.browsercloud.application.SessionEvidenceAccessNodeGateway;
 import io.browsercloud.persistence.BrowserNodeJpaRepository;
 import io.browsercloud.proto.node.v1.NodeControlServiceGrpc;
 import io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest;
+import io.browsercloud.security.DeploymentEnvironment;
 import io.grpc.StatusRuntimeException;
 import java.net.URI;
 import java.time.Instant;
@@ -30,7 +31,7 @@ public class GrpcSessionEvidenceAccessNodeGateway implements SessionEvidenceAcce
       @Value("${app.environment:local}") String environment) {
     this.nodes = nodes;
     this.transportFactory = transportFactory;
-    this.production = "production".equalsIgnoreCase(environment);
+    this.production = DeploymentEnvironment.requiresProductionSecurity(environment);
   }
 
   @Override

@@ -19,6 +19,7 @@ import io.browsercloud.persistence.ProxyBindingProfileEntity;
 import io.browsercloud.persistence.ProxyBindingProfileJpaRepository;
 import io.browsercloud.persistence.SessionProxyBindingAssignmentEntity;
 import io.browsercloud.persistence.SessionProxyBindingAssignmentJpaRepository;
+import io.browsercloud.security.DeploymentEnvironment;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.nio.file.Files;
@@ -98,7 +99,7 @@ public class StaticProxyApplicationService {
     this.endpoint = defaultProvider == null ? "" : defaultProvider.endpoint();
     this.expectedExitIp = defaultProvider == null ? "" : defaultProvider.expectedExitIp();
     this.allowDirect = allowDirect;
-    if (environment.equalsIgnoreCase("production")) {
+    if (DeploymentEnvironment.requiresProductionSecurity(environment)) {
       if (allowDirect) {
         throw new IllegalStateException("proxy.allow-direct cannot be enabled in production");
       }

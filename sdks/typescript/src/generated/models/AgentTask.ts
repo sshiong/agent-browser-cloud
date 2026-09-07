@@ -7,6 +7,7 @@ import type { AgentExecutionWait } from './AgentExecutionWait.js';
 import type { AgentHumanHandoff } from './AgentHumanHandoff.js';
 import type { AgentPlan } from './AgentPlan.js';
 import type { AgentPolicy } from './AgentPolicy.js';
+import type { AgentRecoveryGuidance } from './AgentRecoveryGuidance.js';
 import type { AgentReview } from './AgentReview.js';
 import type { AgentRiskClass } from './AgentRiskClass.js';
 import type { AgentStepExecution } from './AgentStepExecution.js';
@@ -50,6 +51,10 @@ export type AgentTask = {
     operationId: string | null;
     executionResults: Array<AgentToolExecutionResult>;
     lastError: string | null;
+    /**
+     * Authoritative next recovery decision; null while no recovery action is required. Older Control Planes may omit it during rolling upgrades.
+     */
+    recoveryGuidance?: (AgentRecoveryGuidance | null);
     securityEvents: Array<PromptSecurityEvent>;
     createdAt: string;
     updatedAt: string;

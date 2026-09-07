@@ -31,7 +31,7 @@
 | A05 | Vision Canvas/图片/PDF 隐私 | 待像素级 OCR/PII、裁剪与不可验证时拒绝外发 |
 | A06 | 动态微批次 | 当前上限 20；待页面变化驱动的停顿/重采与恢复语义 |
 | A07 | Browser State 新鲜度 | 已有网络/原生 Dialog freshness；采集年龄与页面活动仍待补 |
-| A08 | 统一恢复指令 | 待统一 RETRY/REFRESH/REPLAN/WAIT/HUMAN/TERMINAL |
+| A08 | 统一恢复指令 | progress 169 已闭环：持久 Task 状态产生六类正式指令，API/四 SDK/UI/完整集成通过 |
 | A09 | Action Attempt Signature / Loop Detection | 待 PostgreSQL 持久账本与有界循环回归 |
 | A10 | 结构化任务记忆 | 已有 Task/Step 持久化；待跨刷新/重规划已完成工作语义核查 |
 | A11 | 独立 Outcome Verifier | 待与策略 Reviewer 分离并测试假成功 |
@@ -39,7 +39,7 @@
 | A13 | Prompt Injection 来源与权限传播 | 已有 Source/Trust 枚举；待检查其执行约束而非仅关键词 |
 | A14 | Worker 空轮询 | 第一切片已实现三 Worker backoff+jitter；更低延迟唤醒为后续优化 |
 | A15 | 取消/Lease/Epoch | Vision lease-lost 已修复；Browser Node 长操作取消仍待验证 |
-| A16 | Agent Trace / Why Stuck | 待统一步骤/动作/验证/失败/下一决策的权威投影 |
+| A16 | Agent Trace / Why Stuck | progress 169 已闭环：Web/Tauri 统一展示持久步骤/动作/验证/失败/下一决策，完整集成通过 |
 | A17 | Profile 应用层加密 | 待检查现有对象存储与 restore 链后实施 |
 | A18 | 网站 Session Health / Reauth | 待独立于 Profile 恢复状态建模 |
 | A19 | Opaque Cross-Origin Frame | 待显式感知边界与受治理 Vision/Handoff 策略 |
@@ -50,7 +50,8 @@
 | A24 | LICENSE / SECURITY.md | SECURITY.md 已新增；Rust 标 MIT、TS SDK 标 UNLICENSED，统一授权须权利人确认 |
 
 不修改用户未跟踪的 `agent-browser-cloud-before-rewrite.bundle` 和 `agent-browser-cloud/`。
-正式 API / Protobuf 当前未变化，公开基线仍为 240 Operations / 319 Schemas。
+progress 169 新增一个可选正式 API Schema，Protobuf 未变化；公开基线为
+240 Operations / 320 Schemas。
 
 ## 参考
 

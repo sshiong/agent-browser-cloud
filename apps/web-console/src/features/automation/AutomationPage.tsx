@@ -48,6 +48,7 @@ import type {
   AgentTaskSummary,
   CreateAgentActionRequest,
   AgentTaskView,
+  AgentRecoveryGuidance,
   InstructionSourceType,
 } from '@/types/agent';
 import type {
@@ -1337,6 +1338,10 @@ function TaskInspector({
         </dl>
       </div>
 
+      {task.recoveryGuidance && (
+        <RecoveryGuidanceBanner guidance={task.recoveryGuidance} />
+      )}
+
       {queued && (
         <div className="border-b border-accent/20 bg-accent/5 px-5 py-4">
           <div className="flex items-start gap-3">
@@ -1709,6 +1714,43 @@ function TaskInspector({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+export function RecoveryGuidanceBanner({
+  guidance,
+}: {
+  guidance: AgentRecoveryGuidance;
+}) {
+  return (
+    <div
+      className={cn(
+        'border-b px-5 py-4',
+        guidance.directive === 'TERMINAL'
+          ? 'border-danger/20 bg-danger/5'
+          : guidance.directive === 'HUMAN'
+            ? 'border-warning/20 bg-warning/5'
+            : 'border-accent/20 bg-accent/5'
+      )}
+      data-testid="agent-recovery-guidance"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+          Why stuck / 下一步决策
+        </p>
+        <span className="font-mono text-[10px] font-semibold text-text-primary">
+          {guidance.directive}
+        </span>
+      </div>
+      <p className="mt-2 break-all font-mono text-[9px] leading-4 text-text-secondary">
+        {guidance.reasonCode}
+      </p>
+      <p className="mt-1 text-[9px] text-text-muted">
+        {guidance.automatic
+          ? '控制面正在自动处理，无需重复操作。'
+          : '需要人工决策或显式重试；系统不会自行猜测。'}
+      </p>
     </div>
   );
 }

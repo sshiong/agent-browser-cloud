@@ -37,6 +37,7 @@ public record AgentTaskView(
     String operationId,
     List<ToolExecutionResultView> executionResults,
     String lastError,
+    RecoveryGuidanceView recoveryGuidance,
     List<SecurityEventView> securityEvents,
     Instant createdAt,
     Instant updatedAt) {
@@ -51,6 +52,9 @@ public record AgentTaskView(
       String replanReason) {}
 
   public record ExecutionWaitView(String reason, Instant since) {}
+
+  /** Machine-readable next decision. Null means no recovery action is currently required. */
+  public record RecoveryGuidanceView(String directive, String reasonCode, boolean automatic) {}
 
   public record ConfirmationView(
       String confirmationId,

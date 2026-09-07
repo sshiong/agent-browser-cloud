@@ -1470,6 +1470,7 @@ public class AgentApplicationService {
         entity.getOperationId(),
         executionViews,
         entity.getLastError(),
+        AgentRecoveryPolicy.guidance(entity),
         eventViews,
         entity.getCreatedAt(),
         entity.getUpdatedAt());

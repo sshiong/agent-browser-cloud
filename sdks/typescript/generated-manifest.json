@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "31ee629a5c353d6d693e588ec955e60bdc1d0e2798b755aa96daf0e4207a16cb",
+  "contractSha256": "7ec7db4152a16c08907bce6829abb8a533248ceb9c556e1a9d0340387c8f4c04",
   "files": {
     "BrowserCloudGeneratedClient.ts": "9af238a7342b4202ace30c93c8fac304d101b48a600224c76ce2d59908979c4c",
     "core/ApiError.ts": "1340dca2bdae61fcf8c1d1a52004c43fb070eb6f084a20c56423ee00f9d3a798",
@@ -11,7 +11,7 @@
     "core/FetchHttpRequest.ts": "6c3d87ef0960cfa9ee353bc638b6d9a389867a4f0f7f23e59931b4a972b4aeef",
     "core/OpenAPI.ts": "471e123472ddaf12e4b2ddd6ec301a05032331ddb720f2bd1b75bb8543eb9f63",
     "core/request.ts": "599939ccf4b4b09fbd4ad2a8e4d2cf3a441e64e9b4cd42c180a9599150c7374c",
-    "index.ts": "6956430a8a62b419a6f0e34b704b70dbd1b9d791f817d0f64417fcb3dc00c859",
+    "index.ts": "dc7be49026e03f757319d54e5b10a91ae89aa887ec2bb00f6f879ea642fc21ee",
     "models/ActorId.ts": "a6b9a2f1d3ae13603cf93ec6584983bc6798012e98e4870d7cd838778fb4c620",
     "models/AgentActionRequest.ts": "1a68b65ae898ac20a1551342e0e08fcf4e93dcbd1682111ffdbc543b798e9025",
     "models/AgentBatchActionInput.ts": "a6b863ff18089c5ac25021bcbc5014ac58e0da970b08950f4ef912bd16d28d30",
@@ -44,6 +44,7 @@
     "models/AgentPlan.ts": "15b3de34813f97e43b85d67bcae173b9aa46bc3fa2b4e241ee1b449395374061",
     "models/AgentPlanStep.ts": "f1574f41cef1c6bb72bdca03f5b274c07052e4780c0d3f8e55811ea49f4a114f",
     "models/AgentPolicy.ts": "7dbccde04c0e37444f59156cea5d41a58aade8d9131fb360d5356d7e8d00cbcc",
+    "models/AgentRecoveryGuidance.ts": "a896ecdbd07470d3cac3aaf5744e8f3899d1bcf42dd87d9aefd5240f56758045",
     "models/AgentReview.ts": "3d7410a22fddc7d5af34f79c236e9f6cbdc66b84dbe63b8fc2dc09ae0a0f2fbc",
     "models/AgentReviewJob.ts": "9472f62a550a0fc15c64a9f0d2f64d8cba92ea47ffcded59762dad5307842383",
     "models/AgentReviewJobClaim.ts": "9c840735e36bbdb96e2e666b04e88ccda5eb2ea567028c6f2f0f2f35be52f992",
@@ -54,7 +55,7 @@
     "models/AgentRiskClass.ts": "8df175ab04b6d9ca3a913ce719cdb91ad726a358a6f30e59516460a4e3e622d4",
     "models/AgentStepExecution.ts": "0aa6d626333f4917786533de208f1cc444b368863f689ee82cd5a6fbf61cf08a",
     "models/AgentStepInput.ts": "804b42e979a2c34708e2224a65bd90977ea6b3299d136402fb6199e5e5a61441",
-    "models/AgentTask.ts": "8ce281f83d81c22793a7696e3beee347dcc8e0b9e3636c051bb5431d900ef84e",
+    "models/AgentTask.ts": "810b5052f57ef71e5339bb14efc899b2aef4e39cb348df80678631bd62afbe99",
     "models/AgentTaskId.ts": "69865f799caa1cdc62b27f726a37c53d337d292fc2d78bbb3ef8f16239a31c61",
     "models/AgentTaskListResponse.ts": "81018ca826799bb1af126827c9e078d356bf9f231cecc571330e5a625b324497",
     "models/AgentTaskSummary.ts": "77ed204b3263109a04536e17d7a909e123690bc1017004c91b08b7deb29254ac",

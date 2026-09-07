@@ -7598,6 +7598,11 @@ components:
             $ref: "#/components/schemas/AgentToolExecutionResult"
         lastError:
           type: [string, "null"]
+        recoveryGuidance:
+          oneOf:
+            - $ref: "#/components/schemas/AgentRecoveryGuidance"
+            - type: "null"
+          description: Authoritative next recovery decision; null while no recovery action is required. Older Control Planes may omit it during rolling upgrades.
         securityEvents:
           type: array
           items:
@@ -7608,6 +7613,21 @@ components:
         updatedAt:
           type: string
           format: date-time
+    AgentRecoveryGuidance:
+      type: object
+      additionalProperties: false
+      required: [directive, reasonCode, automatic]
+      properties:
+        directive:
+          type: string
+          enum: [RETRY, REFRESH, REPLAN, WAIT, HUMAN, TERMINAL]
+        reasonCode:
+          type: string
+          minLength: 1
+          maxLength: 256
+        automatic:
+          type: boolean
+          description: True when the control plane is already carrying out this recovery decision.
     ClaimAgentExecutionJobRequest:
       type: object
       additionalProperties: false

@@ -109,7 +109,9 @@ public final class Models {
 
   public record ChallengeInputResponse(String intentId, String challengeEventId, String sessionId, String taskId, String purpose, String state, Integer maximumAttempts, String operationId, String expiresAt, String createdAt, Object completedAt, Object errorCode) {}
 
-  public record AgentTask(String taskId, String sessionId, String goal, String state, AgentRiskClass riskClass, String intentDecision, Object blockedReason, AgentPolicy agentPolicy, Integer currentStep, Integer totalSteps, Integer replanCount, AgentStepExecution stepExecution, AgentExecutionWait executionWait, AgentConfirmation confirmation, AgentHumanHandoff humanHandoff, Object challengeEventId, AgentReview review, List<String> allowedDomains, AgentPlan plan, Object operationId, List<AgentToolExecutionResult> executionResults, Object lastError, List<PromptSecurityEvent> securityEvents, String createdAt, String updatedAt) {}
+  public record AgentTask(String taskId, String sessionId, String goal, String state, AgentRiskClass riskClass, String intentDecision, Object blockedReason, AgentPolicy agentPolicy, Integer currentStep, Integer totalSteps, Integer replanCount, AgentStepExecution stepExecution, AgentExecutionWait executionWait, AgentConfirmation confirmation, AgentHumanHandoff humanHandoff, Object challengeEventId, AgentReview review, List<String> allowedDomains, AgentPlan plan, Object operationId, List<AgentToolExecutionResult> executionResults, Object lastError, AgentRecoveryGuidance recoveryGuidance, List<PromptSecurityEvent> securityEvents, String createdAt, String updatedAt) {}
+
+  public record AgentRecoveryGuidance(String directive, String reasonCode, Boolean automatic) {}
 
   public record ClaimAgentExecutionJobRequest(String protocolVersion, Map<String, Boolean> capabilities) {}
 

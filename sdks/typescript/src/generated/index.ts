@@ -42,6 +42,7 @@ export type { AgentInstructionSource } from './models/AgentInstructionSource.js'
 export type { AgentPlan } from './models/AgentPlan.js';
 export type { AgentPlanStep } from './models/AgentPlanStep.js';
 export type { AgentPolicy } from './models/AgentPolicy.js';
+export type { AgentRecoveryGuidance } from './models/AgentRecoveryGuidance.js';
 export type { AgentReview } from './models/AgentReview.js';
 export type { AgentReviewJob } from './models/AgentReviewJob.js';
 export type { AgentReviewJobClaim } from './models/AgentReviewJobClaim.js';

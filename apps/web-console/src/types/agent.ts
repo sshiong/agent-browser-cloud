@@ -321,6 +321,12 @@ export interface CreateAgentTaskRequest {
   actions?: CreateAgentActionRequest[];
 }
 
+export interface AgentRecoveryGuidance {
+  directive: 'RETRY' | 'REFRESH' | 'REPLAN' | 'WAIT' | 'HUMAN' | 'TERMINAL';
+  reasonCode: string;
+  automatic: boolean;
+}
+
 export interface AgentTaskView {
   taskId: string;
   sessionId: string;
@@ -356,6 +362,7 @@ export interface AgentTaskView {
     reason?: 'HUMAN_INPUT_PRIORITY';
     since?: string;
   };
+  recoveryGuidance?: AgentRecoveryGuidance | null;
   confirmation: {
     confirmationId?: string;
     status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';

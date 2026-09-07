@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **240 Operations / 319 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **240 Operations / 320 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -368,10 +368,15 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 
 ## 7. 当前正在处理的任务
 
+- progress 169：Agent Task 正式 API 增加由持久 Task 状态确定的
+  `RETRY/REFRESH/REPLAN/WAIT/HUMAN/TERMINAL` 恢复指令；Web/Tauri 共用任务详情已展示
+  当前步骤、动作、验证、失败原因和 Why Stuck/下一决策。公开基线为 240 Operations / 320
+  Schemas；Java 512 项、Web 139 项、完整 Test/Lint/Build、四 SDK、N/N−1 与完整
+  PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过，待推送。
 - progress 168：资源策略 PATCH 增加精确 Tenant/Session 行锁和真实 PostgreSQL
   竞争回归；控制面非 local/test 环境统一默认密钥、mTLS、签名及下载检查，Node/Helper
-  已同步环境判断；Vision HTTP 错误分类已修。Java/Rust/Worker 定向 Gate 和完整集成通过，
-  本切片待推送。`bb4eb79` CI/Desktop 均已通过。
+  已同步环境判断；Vision HTTP 错误分类已修。Java/Rust/Worker 定向 Gate 和完整集成通过；
+  `4feb93c` 已推送，GitHub CI `34099931923` 与 Desktop `34099931978` 均成功。
 
 最近切片与当前最高优先级开发任务：
 

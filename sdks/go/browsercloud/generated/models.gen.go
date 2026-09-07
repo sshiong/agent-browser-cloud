@@ -537,9 +537,16 @@ type AgentTask struct {
 	OperationId      any                        `json:"operationId,omitempty"`
 	ExecutionResults []AgentToolExecutionResult `json:"executionResults,omitempty"`
 	LastError        any                        `json:"lastError,omitempty"`
+	RecoveryGuidance *AgentRecoveryGuidance     `json:"recoveryGuidance,omitempty"`
 	SecurityEvents   []PromptSecurityEvent      `json:"securityEvents,omitempty"`
 	CreatedAt        string                     `json:"createdAt,omitempty"`
 	UpdatedAt        string                     `json:"updatedAt,omitempty"`
+}
+
+type AgentRecoveryGuidance struct {
+	Directive  string `json:"directive,omitempty"`
+	ReasonCode string `json:"reasonCode,omitempty"`
+	Automatic  bool   `json:"automatic,omitempty"`
 }
 
 type ClaimAgentExecutionJobRequest struct {

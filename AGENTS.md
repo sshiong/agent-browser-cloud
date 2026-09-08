@@ -372,7 +372,8 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   增加 age/freshness/pageActivity，STALE 状态禁止结构化规划，Web/Tauri 显示样本年龄与页面
   活动。稳定页面通过 15 秒合并、精确状态围栏且不触发公开 SSE 的最小 observation heartbeat
   保持新鲜；完整 Test/Lint/Build、契约/四 SDK、N/N−1 与完整 Integration 已通过。组合
-  DOM/Layout/Focus/Route 稳定性仍由 A20 跟踪。
+  DOM/Layout/Focus/Route 稳定性仍由 A20 跟踪。实现提交 `677f694` 已推送，GitHub CI
+  `34224365484` 与 Desktop `34224365485` 均成功。
 - progress 169：Agent Task 正式 API 增加由持久 Task 状态确定的
   `RETRY/REFRESH/REPLAN/WAIT/HUMAN/TERMINAL` 恢复指令；Web/Tauri 共用任务详情已展示
   当前步骤、动作、验证、失败原因和 Why Stuck/下一决策。公开基线为 240 Operations / 320

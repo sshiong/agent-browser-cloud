@@ -53,3 +53,7 @@ A06 动态微批次仍独立跟踪，不以 document/network 的基础分类冒�
   改为受围栏、确认后计时、旧 Term 不计新鲜度且不触发公开 SSE 的 observation heartbeat；
   集成也显式等待 SIGSTOP/双 Coordinator 替换后的权威恢复，超时仍失败。最终完整集成通过
   （134 个 Node Inbox Event、70 个已发布命令、356 个有效审计事件）。
+
+实现提交 `677f694` 已推送；GitHub `ci` run `34224365484`（含 Verify、供应链、完整
+Integration、Object Storage/Recording GameDay 与 Kubernetes Operator E2E）及 `desktop`
+run `34224365485`（Windows/macOS）均通过。

@@ -13,6 +13,7 @@ import io.browsercloud.proto.node.v1.BrowserDownloadState;
 import io.browsercloud.proto.node.v1.BrowserNativeDialogState;
 import io.browsercloud.proto.node.v1.BrowserStateDiffEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
+import io.browsercloud.proto.node.v1.BrowserStateObservedEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotChunkEvent;
 import io.browsercloud.proto.node.v1.BrowserTabState;
@@ -39,6 +40,55 @@ import org.junit.jupiter.api.Test;
 class NodeEventMapperTest {
 
   private final NodeEventMapper mapper = new NodeEventMapper();
+
+  @Test
+  void shouldMapPayloadMinimalBrowserStateObservation() {
+    var payload =
+        BrowserStateObservedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setStateVersion(7)
+            .setTargetRevision(6)
+            .setContentHash("a".repeat(64))
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_state_observed")
+            .setEventType(NodeEventMapper.BROWSER_STATE_OBSERVED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setContextEpoch(3)
+            .setSequence(2)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isEqualTo(new NodeEvent.StateObserved("ses_test", 7, 6, "a".repeat(64)));
+  }
+
+  @Test
+  void shouldRejectBrowserStateObservationWithoutExactHashFence() {
+    var payload =
+        BrowserStateObservedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setStateVersion(7)
+            .setTargetRevision(6)
+            .setContentHash("not-a-sha256")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_state_observed_invalid")
+            .setEventType(NodeEventMapper.BROWSER_STATE_OBSERVED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setContextEpoch(3)
+            .setSequence(2)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThatThrownBy(() -> mapper.toCommand(envelope))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("content_hash");
+  }
 
   @Test
   void shouldMapBoundedStateFencedAgentBrowserEvaluationResult() {

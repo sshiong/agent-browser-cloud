@@ -1321,6 +1321,10 @@ type BrowserState struct {
 	DocumentReadyState        string                     `json:"documentReadyState,omitempty"`
 	NetworkQuietMillis        int64                      `json:"networkQuietMillis,omitempty"`
 	NetworkEvidenceFresh      bool                       `json:"networkEvidenceFresh,omitempty"`
+	ObservedAt                string                     `json:"observedAt,omitempty"`
+	AgeMillis                 int64                      `json:"ageMillis,omitempty"`
+	Freshness                 string                     `json:"freshness,omitempty"`
+	PageActivity              string                     `json:"pageActivity,omitempty"`
 	Targets                   []InteractiveTarget        `json:"targets,omitempty"`
 	Tabs                      []AgentBrowserTab          `json:"tabs,omitempty"`
 	ActiveTabId               string                     `json:"activeTabId,omitempty"`

@@ -14,6 +14,7 @@ public sealed interface NodeEvent
         NodeEvent.RuntimeResourcesAdjusted,
         NodeEvent.RuntimeCrashed,
         NodeEvent.StateUpdated,
+        NodeEvent.StateObserved,
         NodeEvent.StateSnapshotBegin,
         NodeEvent.StateSnapshotChunk,
         NodeEvent.StateSnapshotCommit,
@@ -30,6 +31,9 @@ public sealed interface NodeEvent
         NodeEvent.RecordingFinalized,
         NodeEvent.HumanTakeoverReady,
         NodeEvent.HumanTakeoverEnded {
+
+  record StateObserved(String sessionId, long stateVersion, long targetRevision, String contentHash)
+      implements NodeEvent {}
 
   /** Runtime 启动事件。 */
   record RuntimeStarted(

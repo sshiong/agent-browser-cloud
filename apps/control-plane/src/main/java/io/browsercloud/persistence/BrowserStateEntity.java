@@ -33,6 +33,9 @@ public class BrowserStateEntity {
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
+  @Column(name = "observed_at")
+  private Instant observedAt;
+
   public BrowserStateEntity() {}
 
   public String getSessionId() {
@@ -81,5 +84,13 @@ public class BrowserStateEntity {
 
   public void setUpdatedAt(Instant updatedAt) {
     this.updatedAt = updatedAt;
+  }
+
+  public Instant getObservedAt() {
+    return observedAt;
+  }
+
+  public void setObservedAt(Instant observedAt) {
+    this.observedAt = observedAt;
   }
 }

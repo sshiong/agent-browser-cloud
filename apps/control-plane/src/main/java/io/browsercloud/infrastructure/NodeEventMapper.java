@@ -13,6 +13,7 @@ import io.browsercloud.proto.node.v1.BrowserDownloadState;
 import io.browsercloud.proto.node.v1.BrowserNativeDialogState;
 import io.browsercloud.proto.node.v1.BrowserStateDiffEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
+import io.browsercloud.proto.node.v1.BrowserStateObservedEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotChunkEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotCommitEvent;
@@ -48,6 +49,7 @@ public class NodeEventMapper {
   static final String RUNTIME_RESOURCES_ADJUSTED = "RuntimeResourcesAdjusted";
   static final String BROWSER_CRASHED = "BrowserCrashed";
   static final String BROWSER_STATE_UPDATED = "BrowserStateUpdated";
+  static final String BROWSER_STATE_OBSERVED = "BrowserStateObserved";
   static final String BROWSER_STATE_SNAPSHOT_BEGIN = "BrowserStateSnapshotBegin";
   static final String BROWSER_STATE_SNAPSHOT_CHUNK = "BrowserStateSnapshotChunk";
   static final String BROWSER_STATE_SNAPSHOT_COMMIT = "BrowserStateSnapshotCommit";
@@ -435,6 +437,21 @@ public class NodeEventMapper {
               payload.getTotalChunks(),
               payload.getTotalBytes(),
               payload.getPayloadSha256());
+        }
+        case BROWSER_STATE_OBSERVED -> {
+          var payload = BrowserStateObservedEvent.parseFrom(envelope.getPayload());
+          requireText(payload.getSessionId(), "session_id");
+          if (payload.getStateVersion() <= 0 || payload.getTargetRevision() <= 0) {
+            throw new IllegalArgumentException("State observation versions must be positive");
+          }
+          if (!payload.getContentHash().matches("^[a-f0-9]{64}$")) {
+            throw new IllegalArgumentException("State observation content_hash is invalid");
+          }
+          yield new NodeEvent.StateObserved(
+              payload.getSessionId(),
+              payload.getStateVersion(),
+              payload.getTargetRevision(),
+              payload.getContentHash());
         }
         case BROWSER_STATE_DIFF -> {
           var payload = BrowserStateDiffEvent.parseFrom(envelope.getPayload());
@@ -982,6 +999,7 @@ public class NodeEventMapper {
       case NodeEvent.RuntimeResourcesAdjusted adjusted -> adjusted.sessionId();
       case NodeEvent.RuntimeCrashed crashed -> crashed.sessionId();
       case NodeEvent.StateUpdated updated -> updated.sessionId();
+      case NodeEvent.StateObserved observed -> observed.sessionId();
       case NodeEvent.StateSnapshotBegin begin -> begin.sessionId();
       case NodeEvent.StateSnapshotChunk chunk -> chunk.sessionId();
       case NodeEvent.StateSnapshotCommit commit -> commit.sessionId();

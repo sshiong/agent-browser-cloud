@@ -276,6 +276,12 @@ public class NodeEventIngestionService {
         browserStateRepository.save(command.tenantId(), command.contextEpoch(), state);
         processAuthoritativeState(command, state);
       }
+      case NodeEvent.StateObserved observation -> {
+        if (!browserStateRepository.observe(
+            command.tenantId(), command.contextEpoch(), observation)) {
+          throw new NodeEventRejectedException("STALE_BROWSER_STATE_OBSERVATION");
+        }
+      }
       case NodeEvent.StateSnapshotBegin ignored -> acceptStateSnapshot(command);
       case NodeEvent.StateSnapshotChunk ignored -> acceptStateSnapshot(command);
       case NodeEvent.StateSnapshotCommit ignored -> acceptStateSnapshot(command);

@@ -14,7 +14,7 @@ use node_contracts::proto::{
     AgentActionPrimitive, AgentBrowserEvaluateCommand, AgentBrowserEvaluationCompletedEvent,
     AgentFileUploadCommand, AgentFileUploadFailedEvent, AgentNavigateCommand,
     AgentNavigationFailedEvent, BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserDownloadState,
-    BrowserNativeDialogState, BrowserStateDiffEvent, BrowserStateEvent,
+    BrowserNativeDialogState, BrowserStateDiffEvent, BrowserStateEvent, BrowserStateObservedEvent,
     BrowserStateSnapshotBeginEvent, BrowserStateSnapshotChunkEvent,
     BrowserStateSnapshotCommitEvent, BrowserTabState, BusinessRecoveryActionCommand,
     CaptureAgentScreenshotCommand, CaptureObserverScreenshotCommand,
@@ -69,6 +69,7 @@ const HUMAN_INPUT_PRIORITY_IDLE: Duration = Duration::from_secs(2);
 const STATE_SNAPSHOT_CHUNK_BYTES: usize = 16 * 1024;
 const STATE_SNAPSHOT_MAX_CHUNKS: usize = 32;
 const STATE_SNAPSHOT_MAX_BYTES: usize = STATE_SNAPSHOT_CHUNK_BYTES * STATE_SNAPSHOT_MAX_CHUNKS;
+const STATE_OBSERVATION_HEARTBEAT: Duration = Duration::from_secs(15);
 
 fn rebound_action_target(
     action: &AgentActionPrimitive,
@@ -231,6 +232,10 @@ fn state_backpressure_truncation(
         affected_root: "document".to_owned(),
         estimated_targets: current.targets.len(),
     })
+}
+
+fn state_observation_due(elapsed_since_event: Option<Duration>) -> bool {
+    elapsed_since_event.is_none_or(|elapsed| elapsed >= STATE_OBSERVATION_HEARTBEAT)
 }
 
 #[derive(Clone)]
@@ -3107,6 +3112,7 @@ impl NodeControlService {
             "STALE_HUMAN_TAKEOVER"
                 | "STALE_COORDINATOR_TERM"
                 | "STALE_COORDINATOR_LEASE"
+                | "STALE_BROWSER_STATE_OBSERVATION"
                 | "STALE_PROFILE_WARM_TIER_CONTEXT"
         )
     }
@@ -7143,6 +7149,8 @@ impl NodeControlService {
             let mut interval = tokio::time::interval(Duration::from_secs(1));
             let mut probe_count = 0_u64;
             let mut degraded_probe_count = 0_u32;
+            let mut last_authoritative_state_event_at: Option<Instant> = None;
+            let mut pending_state_observation: Option<(String, i64)> = None;
             loop {
                 interval.tick().await;
                 if service.runtime_monitors.lock().await.get(&session_id) != Some(&monitor_token) {
@@ -7271,6 +7279,71 @@ impl NodeControlService {
                                         Some(previous)
                                             if previous.content_hash == state.content_hash =>
                                         {
+                                            if let Some((event_id, event_term)) =
+                                                pending_state_observation.as_ref()
+                                            {
+                                                match service
+                                                    .journal
+                                                    .is_event_delivered(event_id)
+                                                    .await
+                                                {
+                                                    Ok(true) => {
+                                                        // A failover may terminally fence the old
+                                                        // event. Only a delivery under the term we
+                                                        // just resolved proves a fresh observation.
+                                                        if *event_term == coordinator_term {
+                                                            last_authoritative_state_event_at =
+                                                                Some(Instant::now());
+                                                        }
+                                                        pending_state_observation = None;
+                                                    }
+                                                    Ok(false) => continue,
+                                                    Err(error) => {
+                                                        tracing::warn!(
+                                                            session_id,
+                                                            error = %error,
+                                                            "Failed to inspect pending Browser state observation"
+                                                        );
+                                                        continue;
+                                                    }
+                                                }
+                                            }
+                                            // Preserve an upper bound below the Control Plane's
+                                            // 30-second STALE threshold without turning every
+                                            // adaptive state sample into a durable Inbox write.
+                                            if !state_observation_due(
+                                                last_authoritative_state_event_at
+                                                    .map(|last| last.elapsed()),
+                                            ) {
+                                                continue;
+                                            }
+                                            match service
+                                                .record_and_publish_state_observed(
+                                                    &tenant_id,
+                                                    &session_id,
+                                                    coordinator_term,
+                                                    running_context_epoch,
+                                                    &state,
+                                                )
+                                                .await
+                                            {
+                                                Ok((_event_id, true)) => {
+                                                    last_authoritative_state_event_at =
+                                                        Some(Instant::now());
+                                                    pending_state_observation = None;
+                                                }
+                                                Ok((event_id, false)) => {
+                                                    pending_state_observation =
+                                                        Some((event_id, coordinator_term));
+                                                }
+                                                Err(error) => {
+                                                    tracing::warn!(
+                                                        session_id,
+                                                        error = %error,
+                                                        "Failed to queue Browser state observation"
+                                                    );
+                                                }
+                                            }
                                             continue;
                                         }
                                         Some(previous) => {
@@ -7351,6 +7424,8 @@ impl NodeControlService {
                                         .await
                                         .contains(&session_id)
                                     {
+                                        last_authoritative_state_event_at = Some(Instant::now());
+                                        pending_state_observation = None;
                                         service
                                             .state_baselines
                                             .lock()
@@ -7678,6 +7753,61 @@ impl NodeControlService {
             Self::state_diff_payload(diff),
         )
         .await
+    }
+
+    async fn record_and_publish_state_observed(
+        &self,
+        tenant_id: &str,
+        session_id: &str,
+        coordinator_term: i64,
+        context_epoch: i64,
+        state: &CurrentState,
+    ) -> anyhow::Result<(String, bool)> {
+        let event_id = format!("evt_state_{}", uuid::Uuid::new_v4().simple());
+        let message_id = format!("probe_{}", uuid::Uuid::new_v4().simple());
+        let sequence = self.next_event_sequence(session_id).await?;
+        let event = EventEnvelope {
+            event_id: event_id.clone(),
+            event_type: "BrowserStateObserved".to_owned(),
+            tenant_id: tenant_id.to_owned(),
+            session_id: session_id.to_owned(),
+            coordinator_term,
+            context_epoch,
+            operation_epoch: 0,
+            sequence,
+            payload: BrowserStateObservedEvent {
+                session_id: session_id.to_owned(),
+                state_version: state.state_version,
+                target_revision: state.target_revision,
+                content_hash: state.content_hash.clone(),
+            }
+            .encode_to_vec(),
+        };
+        self.journal
+            .record_command_result(&PersistedCommandResult {
+                acknowledgement: PersistedAcknowledgement {
+                    message_id,
+                    accepted: true,
+                    error_code: String::new(),
+                    error_message: String::new(),
+                },
+                event_id: Some(event_id.clone()),
+                event_payload: Some(event.encode_to_vec()),
+                event_delivered: false,
+            })
+            .await?;
+        let delivered = match self.publish_and_mark(event).await {
+            Ok(()) => true,
+            Err(error) => {
+                tracing::debug!(
+                    session_id,
+                    error = %error,
+                    "Browser state observation queued for redelivery"
+                );
+                false
+            }
+        };
+        Ok((event_id, delivered))
     }
 
     async fn record_and_publish_diff_truncated(
@@ -9899,12 +10029,23 @@ mod tests {
     }
 
     #[test]
+    fn unchanged_state_observation_is_coalesced_below_the_stale_threshold() {
+        assert!(state_observation_due(None));
+        assert!(!state_observation_due(Some(Duration::from_secs(14))));
+        assert!(state_observation_due(Some(Duration::from_secs(15))));
+        assert!(STATE_OBSERVATION_HEARTBEAT < Duration::from_secs(30));
+    }
+
+    #[test]
     fn stale_coordinator_fences_are_terminal_for_durable_event_delivery() {
         assert!(NodeControlService::is_terminal_event_rejection(
             "STALE_COORDINATOR_TERM"
         ));
         assert!(NodeControlService::is_terminal_event_rejection(
             "STALE_COORDINATOR_LEASE"
+        ));
+        assert!(NodeControlService::is_terminal_event_rejection(
+            "STALE_BROWSER_STATE_OBSERVATION"
         ));
         assert!(NodeControlService::is_terminal_event_rejection(
             "STALE_PROFILE_WARM_TIER_CONTEXT"

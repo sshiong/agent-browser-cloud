@@ -1141,6 +1141,10 @@ class BrowserState(TypedDict, total=False):
     documentReadyState: Literal['loading', 'interactive', 'complete', '']
     networkQuietMillis: int
     networkEvidenceFresh: bool
+    observedAt: str
+    ageMillis: int
+    freshness: Literal['FRESH', 'AGING', 'STALE', 'UNKNOWN']
+    pageActivity: Literal['CHANGING', 'SETTLING', 'STABLE', 'UNKNOWN']
     targets: list[InteractiveTarget]
     tabs: list[AgentBrowserTab]
     activeTabId: str

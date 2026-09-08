@@ -757,6 +757,7 @@ public final class SessionCoordinator {
         // 状态更新不修改 Session Context；Agent 状态回调已绑定当前 Operation。
         yield CoordinatorResult.completed();
       }
+      case NodeEvent.StateObserved ignored -> CoordinatorResult.completed();
       case NodeEvent.StateSnapshotBegin ignored -> CoordinatorResult.completed();
       case NodeEvent.StateSnapshotChunk ignored -> CoordinatorResult.completed();
       case NodeEvent.StateSnapshotCommit ignored -> CoordinatorResult.completed();
@@ -902,6 +903,7 @@ public final class SessionCoordinator {
       case NodeEvent.RuntimeResourcesAdjusted adjusted -> adjusted.sessionId();
       case NodeEvent.RuntimeCrashed crashed -> crashed.sessionId();
       case NodeEvent.StateUpdated updated -> updated.sessionId();
+      case NodeEvent.StateObserved observed -> observed.sessionId();
       case NodeEvent.StateSnapshotBegin begin -> begin.sessionId();
       case NodeEvent.StateSnapshotChunk chunk -> chunk.sessionId();
       case NodeEvent.StateSnapshotCommit commit -> commit.sessionId();

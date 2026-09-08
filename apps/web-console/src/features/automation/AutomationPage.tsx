@@ -684,7 +684,7 @@ export function AutomationPage() {
   );
 }
 
-function StateBindingPanel({
+export function StateBindingPanel({
   state,
   isLoading,
 }: {
@@ -721,6 +721,9 @@ function StateBindingPanel({
       </p>
       <div className="mt-2 flex gap-3 font-mono text-[8px] uppercase tracking-[0.08em] text-text-muted">
         <span>{state.stateQuality}</span>
+        <span>{state.freshness ?? 'UNKNOWN'}</span>
+        <span>{state.pageActivity ?? 'UNKNOWN'}</span>
+        {state.ageMillis !== undefined && <span>{state.ageMillis}ms old</span>}
         <span>{state.targets.length} targets</span>
         <span>
           {state.targets.filter((target) => target.sensitive).length} sensitive

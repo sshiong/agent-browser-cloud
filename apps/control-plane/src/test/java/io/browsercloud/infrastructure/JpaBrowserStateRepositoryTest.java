@@ -49,6 +49,8 @@ class JpaBrowserStateRepositoryTest {
     var saved = ArgumentCaptor.forClass(BrowserStateEntity.class);
     verify(jpa).save(saved.capture());
     var entity = saved.getValue();
+    var firstObservedAt = entity.getObservedAt();
+    assertThat(firstObservedAt).isNotNull();
     when(jpa.findByIdForUpdate("ses_test")).thenReturn(Optional.of(entity));
     var replacement = target("target:3:new", "New inside");
     var applied =
@@ -87,6 +89,7 @@ class JpaBrowserStateRepositoryTest {
     assertThat(merged.targets()).containsExactly(outside, replacement);
     assertThat(merged.snapshotKind()).isEqualTo("REGION_RESYNC");
     assertThat(merged.requestedRootRef()).isEqualTo("#app");
+    assertThat(entity.getObservedAt()).isAfterOrEqualTo(firstObservedAt);
   }
 
   @Test
@@ -117,6 +120,68 @@ class JpaBrowserStateRepositoryTest {
                 List.of()));
 
     assertThat(applied).isFalse();
+  }
+
+  @Test
+  void invalidationDoesNotMakeAnOldBrowserSampleLookFresh() throws Exception {
+    var jpa = mock(BrowserStateJpaRepository.class);
+    var objectMapper = new ObjectMapper().findAndRegisterModules();
+    var observedAt = java.time.Instant.parse("2026-09-07T08:00:00Z");
+    var state = stateWithDownloads(7, "hash-7", List.of(), true);
+    var entity = new BrowserStateEntity();
+    entity.setSessionId("ses_test");
+    entity.setTenantId("tenant-test");
+    entity.setContextEpoch(2);
+    entity.setStateVersion(7);
+    entity.setStateJson(objectMapper.writeValueAsString(state));
+    entity.setObservedAt(observedAt);
+    entity.setUpdatedAt(observedAt);
+    when(jpa.findById("ses_test")).thenReturn(Optional.of(entity));
+    when(jpa.save(any(BrowserStateEntity.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    new JpaBrowserStateRepository(jpa, objectMapper)
+        .invalidate("tenant-test", 2, "ses_test", 8, "OBSERVER_GAP");
+
+    assertThat(entity.getObservedAt()).isEqualTo(observedAt);
+    assertThat(entity.getUpdatedAt()).isAfter(observedAt);
+  }
+
+  @Test
+  void observationRefreshesOnlyAnExactlyFencedAuthoritativeState() throws Exception {
+    var jpa = mock(BrowserStateJpaRepository.class);
+    var objectMapper = new ObjectMapper().findAndRegisterModules();
+    var oldObservedAt = java.time.Instant.parse("2026-09-07T08:00:00Z");
+    var state = stateWithDownloads(7, "a".repeat(64), List.of(), true);
+    var entity = new BrowserStateEntity();
+    entity.setSessionId("ses_test");
+    entity.setTenantId("tenant-test");
+    entity.setContextEpoch(2);
+    entity.setStateVersion(7);
+    entity.setStateJson(objectMapper.writeValueAsString(state));
+    entity.setObservedAt(oldObservedAt);
+    when(jpa.findByIdForUpdate("ses_test")).thenReturn(Optional.of(entity));
+    when(jpa.save(any(BrowserStateEntity.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+    var repository = new JpaBrowserStateRepository(jpa, objectMapper);
+
+    assertThat(
+            repository.observe(
+                "tenant-test",
+                2,
+                new NodeEvent.StateObserved("ses_test", 7, state.targetRevision(), "a".repeat(64))))
+        .isTrue();
+    assertThat(entity.getObservedAt()).isAfter(oldObservedAt);
+    verify(jpa).save(entity);
+
+    var acceptedObservedAt = entity.getObservedAt();
+    assertThat(
+            repository.observe(
+                "tenant-test",
+                2,
+                new NodeEvent.StateObserved("ses_test", 7, state.targetRevision(), "b".repeat(64))))
+        .isFalse();
+    assertThat(entity.getObservedAt()).isEqualTo(acceptedObservedAt);
   }
 
   @Test

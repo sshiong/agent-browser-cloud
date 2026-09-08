@@ -26,6 +26,22 @@ export type BrowserState = {
      * True only while the Browser-level and Page Network observers remain authoritative.
      */
     networkEvidenceFresh: boolean;
+    /**
+     * Control Plane receipt time of the last authoritative Browser Node sample; server clock avoids trusting Node wall time. Optional during rolling upgrades.
+     */
+    observedAt?: string;
+    /**
+     * Age of observedAt when this response was built. Optional during rolling upgrades.
+     */
+    ageMillis?: number;
+    /**
+     * FRESH through 10s, AGING through 30s, STALE afterwards or when evidence is unusable; UNKNOWN only for rolling compatibility.
+     */
+    freshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNKNOWN';
+    /**
+     * Conservative document/network activity classification; UNKNOWN when evidence is discontinuous or degraded.
+     */
+    pageActivity?: 'CHANGING' | 'SETTLING' | 'STABLE' | 'UNKNOWN';
     targets: Array<InteractiveTarget>;
     /**
      * Browser-level Page Targets. Empty only while an N-1 Browser Node has not projected tab authority.

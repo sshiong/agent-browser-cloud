@@ -9963,6 +9963,23 @@ components:
         networkEvidenceFresh:
           type: boolean
           description: True only while the Browser-level and Page Network observers remain authoritative.
+        observedAt:
+          type: string
+          format: date-time
+          description: Control Plane receipt time of the last authoritative Browser Node sample; server clock avoids trusting Node wall time. Optional during rolling upgrades.
+        ageMillis:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Age of observedAt when this response was built. Optional during rolling upgrades.
+        freshness:
+          type: string
+          enum: [FRESH, AGING, STALE, UNKNOWN]
+          description: FRESH through 10s, AGING through 30s, STALE afterwards or when evidence is unusable; UNKNOWN only for rolling compatibility.
+        pageActivity:
+          type: string
+          enum: [CHANGING, SETTLING, STABLE, UNKNOWN]
+          description: Conservative document/network activity classification; UNKNOWN when evidence is discontinuous or degraded.
         targets:
           type: array
           maxItems: 500

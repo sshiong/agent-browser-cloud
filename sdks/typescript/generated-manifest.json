@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "7ec7db4152a16c08907bce6829abb8a533248ceb9c556e1a9d0340387c8f4c04",
+  "contractSha256": "09f15f7bb57628c3363b87109678f7430297b8f2f3f05b5b40252fa7195df747",
   "files": {
     "BrowserCloudGeneratedClient.ts": "9af238a7342b4202ace30c93c8fac304d101b48a600224c76ce2d59908979c4c",
     "core/ApiError.ts": "1340dca2bdae61fcf8c1d1a52004c43fb070eb6f084a20c56423ee00f9d3a798",
@@ -76,7 +76,7 @@
     "models/BrowserNode.ts": "65e01f427c34416081ed317256f10d80df52323b7ae01fa7ecdfecfb8b1e50d4",
     "models/BrowserNodeListResponse.ts": "ccf9c5c9a088349d72fb7305ed4ac6f658467af74d26200c986f3b638d3f9d58",
     "models/BrowserPlacement.ts": "a16c74e7cb254b5894f985150b624957f0363a11aa49bd29c742b1009b7f17e0",
-    "models/BrowserState.ts": "53ee80c3e7fd8988a6aae49e2c20c16ee73db2f4027dcbf5e2056095adf58148",
+    "models/BrowserState.ts": "272e99e0467526f3f1137e3b8650ab466f917ffc5332419a75e1c5c585e40d63",
     "models/BusinessRecoveryAction.ts": "0e604bbf7dcb0a4d70474e808f4083f6359dcf5bc594aec0fa1caa63365ba863",
     "models/BusinessRecoveryValidation.ts": "f3fd9c6413c4467d713ab3e58308f651012c502acc9b9c889b71ce10e5ec6ea2",
     "models/CancelWorkspaceBatchOperationRequest.ts": "baa4b147b874e079e7bf3db87ffee1bbe654bd1a3973d677b85a85f98a882010",

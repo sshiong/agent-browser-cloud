@@ -1130,6 +1130,20 @@ pub struct BrowserStateEvent {
     #[prost(bool, tag="20")]
     pub download_evidence_fresh: bool,
 }
+/// Payload-minimal proof that the Node resampled an unchanged page. Control Plane refreshes
+/// observed_at only when all three fences exactly match its current authoritative projection.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BrowserStateObservedEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="2")]
+    pub state_version: u64,
+    #[prost(uint64, tag="3")]
+    pub target_revision: u64,
+    #[prost(string, tag="4")]
+    pub content_hash: ::prost::alloc::string::String,
+}
 /// 显式 FULL Resync 的有界流式传输。Begin 声明不可变清单，Chunk 只承载状态
 /// protobuf 字节，Commit 允许 Control Plane 在校验全部分块和整流 SHA-256 后原子发布。
 /// 周期 State 和 Agent 动作确认仍使用 BrowserStateUpdated，保持 N/N-1 兼容。

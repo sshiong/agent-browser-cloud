@@ -23,6 +23,25 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
   }
 
   @Override
+  public boolean observe(String tenantId, long contextEpoch, NodeEvent.StateObserved observation) {
+    var entity = repository.findByIdForUpdate(observation.sessionId()).orElse(null);
+    if (entity == null
+        || !entity.getTenantId().equals(tenantId)
+        || entity.getContextEpoch() != contextEpoch
+        || entity.getStateVersion() != observation.stateVersion()) {
+      return false;
+    }
+    var state = read(entity.getStateJson());
+    if (state.targetRevision() != observation.targetRevision()
+        || !state.stateHash().equals(observation.contentHash())) {
+      return false;
+    }
+    entity.setObservedAt(Instant.now());
+    repository.save(entity);
+    return true;
+  }
+
+  @Override
   public boolean applyDiff(String tenantId, long contextEpoch, NodeEvent.StateDiff diff) {
     var entity = repository.findByIdForUpdate(diff.sessionId()).orElse(null);
     if (entity == null
@@ -72,7 +91,9 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
             diff.downloadEvidenceFresh());
     entity.setStateVersion(diff.stateVersion());
     entity.setStateJson(write(updated));
-    entity.setUpdatedAt(Instant.now());
+    var now = Instant.now();
+    entity.setObservedAt(now);
+    entity.setUpdatedAt(now);
     repository.save(entity);
     return true;
   }
@@ -222,7 +243,9 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
     existing.setContextEpoch(contextEpoch);
     existing.setStateVersion(state.stateVersion());
     existing.setStateJson(write(persistedState));
-    existing.setUpdatedAt(Instant.now());
+    var now = Instant.now();
+    existing.setObservedAt(now);
+    existing.setUpdatedAt(now);
     repository.save(existing);
   }
 
@@ -233,7 +256,12 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
         .map(
             entity ->
                 new Snapshot(
-                    entity.getTenantId(), entity.getContextEpoch(), read(entity.getStateJson())));
+                    entity.getTenantId(),
+                    entity.getContextEpoch(),
+                    read(entity.getStateJson()),
+                    entity.getObservedAt() == null
+                        ? entity.getUpdatedAt()
+                        : entity.getObservedAt()));
   }
 
   private String write(NodeEvent.StateUpdated state) {

@@ -898,6 +898,10 @@ export interface BrowserStateView {
   documentReadyState: 'loading' | 'interactive' | 'complete' | '';
   networkQuietMillis: number;
   networkEvidenceFresh: boolean;
+  observedAt?: string;
+  ageMillis?: number;
+  freshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNKNOWN';
+  pageActivity?: 'CHANGING' | 'SETTLING' | 'STABLE' | 'UNKNOWN';
   targets: InteractiveTargetView[];
   tabs: BrowserTabView[];
   activeTabId: string;

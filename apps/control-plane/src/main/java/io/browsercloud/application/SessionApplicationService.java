@@ -723,6 +723,8 @@ public class SessionApplicationService {
                                   dialog.defaultPrompt(),
                                   dialog.hasBrowserHandler()))
                       .toList();
+              var freshness =
+                  BrowserStateFreshness.describe(state, snapshot.observedAt(), Instant.now());
               return new BrowserStateView(
                   state.sessionId(),
                   snapshot.contextEpoch(),
@@ -739,7 +741,11 @@ public class SessionApplicationService {
                   tabs,
                   state.activeTabId(),
                   nativeDialogs,
-                  state.nativeDialogEvidenceFresh());
+                  state.nativeDialogEvidenceFresh(),
+                  freshness.observedAt(),
+                  freshness.ageMillis(),
+                  freshness.freshness(),
+                  freshness.pageActivity());
             });
   }
 

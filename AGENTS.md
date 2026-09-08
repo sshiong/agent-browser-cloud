@@ -93,7 +93,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V113 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V114 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -368,11 +368,16 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 
 ## 7. 当前正在处理的任务
 
+- progress 170：V114 单独保存控制面接收最后权威 Browser State 样本的时间；API/四 SDK
+  增加 age/freshness/pageActivity，STALE 状态禁止结构化规划，Web/Tauri 显示样本年龄与页面
+  活动。稳定页面通过 15 秒合并、精确状态围栏且不触发公开 SSE 的最小 observation heartbeat
+  保持新鲜；完整 Test/Lint/Build、契约/四 SDK、N/N−1 与完整 Integration 已通过。组合
+  DOM/Layout/Focus/Route 稳定性仍由 A20 跟踪。
 - progress 169：Agent Task 正式 API 增加由持久 Task 状态确定的
   `RETRY/REFRESH/REPLAN/WAIT/HUMAN/TERMINAL` 恢复指令；Web/Tauri 共用任务详情已展示
   当前步骤、动作、验证、失败原因和 Why Stuck/下一决策。公开基线为 240 Operations / 320
   Schemas；Java 512 项、Web 139 项、完整 Test/Lint/Build、四 SDK、N/N−1 与完整
-  PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过，待推送。
+  PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过，`a51579d` 已推送。
 - progress 168：资源策略 PATCH 增加精确 Tenant/Session 行锁和真实 PostgreSQL
   竞争回归；控制面非 local/test 环境统一默认密钥、mTLS、签名及下载检查，Node/Helper
   已同步环境判断；Vision HTTP 错误分类已修。Java/Rust/Worker 定向 Gate 和完整集成通过；

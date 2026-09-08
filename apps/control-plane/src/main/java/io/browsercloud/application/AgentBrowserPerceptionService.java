@@ -154,6 +154,9 @@ public class AgentBrowserPerceptionService {
   }
 
   private static void requireExecutable(BrowserStateView state) {
+    if (state.freshness().equals("STALE")) {
+      throw new PerceptionException("BROWSER_STATE_STALE");
+    }
     if (!Set.of("COMPLETE", "DEPTH_LIMITED").contains(state.stateQuality())
         && !(state.stateQuality().equals("DEGRADED")
             && state.nativeDialogEvidenceFresh()

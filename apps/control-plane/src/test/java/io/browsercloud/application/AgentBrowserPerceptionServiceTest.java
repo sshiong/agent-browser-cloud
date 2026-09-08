@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import io.browsercloud.api.BrowserStateView;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,6 +67,16 @@ class AgentBrowserPerceptionServiceTest {
   }
 
   @Test
+  void rejectsServerClockStaleStateBeforePlanning() {
+    when(sessions.getState("ses_1234567890abcdef", "tenant-test"))
+        .thenReturn(Optional.of(state("STALE")));
+
+    assertThatThrownBy(() -> service.snapshot("ses_1234567890abcdef", "tenant-test"))
+        .isInstanceOf(AgentBrowserPerceptionService.PerceptionException.class)
+        .hasMessage("BROWSER_STATE_STALE");
+  }
+
+  @Test
   void findDefaultsToVisibleTargetsAndCanExplainHiddenMatches() {
     var visible =
         service.find(
@@ -84,6 +95,10 @@ class AgentBrowserPerceptionServiceTest {
   }
 
   private static BrowserStateView state() {
+    return state("FRESH");
+  }
+
+  private static BrowserStateView state(String freshness) {
     return new BrowserStateView(
         "ses_1234567890abcdef",
         2,
@@ -106,7 +121,11 @@ class AgentBrowserPerceptionServiceTest {
         List.of(
             new BrowserStateView.NativeDialogView(
                 "dlg_0123456789abcdef0123", "tab-login", "PROMPT", "Enter OTP", "", false)),
-        true);
+        true,
+        Instant.parse("2026-09-07T09:00:00Z"),
+        freshness.equals("STALE") ? 31_000 : 1_000,
+        freshness,
+        "SETTLING");
   }
 
   private static BrowserStateView.InteractiveTargetView target(

@@ -1,5 +1,6 @@
 package io.browsercloud.api;
 
+import java.time.Instant;
 import java.util.List;
 
 public record BrowserStateView(
@@ -18,13 +19,21 @@ public record BrowserStateView(
     List<BrowserTabView> tabs,
     String activeTabId,
     List<NativeDialogView> nativeDialogs,
-    boolean nativeDialogEvidenceFresh) {
+    boolean nativeDialogEvidenceFresh,
+    Instant observedAt,
+    long ageMillis,
+    String freshness,
+    String pageActivity) {
 
   public BrowserStateView {
     targets = List.copyOf(targets);
     tabs = tabs == null ? List.of() : List.copyOf(tabs);
     activeTabId = activeTabId == null ? "" : activeTabId;
     nativeDialogs = nativeDialogs == null ? List.of() : List.copyOf(nativeDialogs);
+    observedAt = observedAt == null ? Instant.EPOCH : observedAt;
+    ageMillis = Math.max(0, ageMillis);
+    freshness = freshness == null ? "UNKNOWN" : freshness;
+    pageActivity = pageActivity == null ? "UNKNOWN" : pageActivity;
   }
 
   public BrowserStateView(
@@ -58,7 +67,51 @@ public record BrowserStateView(
         tabs,
         activeTabId,
         List.of(),
-        false);
+        false,
+        Instant.EPOCH,
+        0,
+        "UNKNOWN",
+        "UNKNOWN");
+  }
+
+  public BrowserStateView(
+      String sessionId,
+      long contextEpoch,
+      long stateVersion,
+      long targetRevision,
+      String url,
+      String title,
+      String stateHash,
+      String stateQuality,
+      String documentReadyState,
+      long networkQuietMillis,
+      boolean networkEvidenceFresh,
+      List<InteractiveTargetView> targets,
+      List<BrowserTabView> tabs,
+      String activeTabId,
+      List<NativeDialogView> nativeDialogs,
+      boolean nativeDialogEvidenceFresh) {
+    this(
+        sessionId,
+        contextEpoch,
+        stateVersion,
+        targetRevision,
+        url,
+        title,
+        stateHash,
+        stateQuality,
+        documentReadyState,
+        networkQuietMillis,
+        networkEvidenceFresh,
+        targets,
+        tabs,
+        activeTabId,
+        nativeDialogs,
+        nativeDialogEvidenceFresh,
+        Instant.EPOCH,
+        0,
+        "UNKNOWN",
+        "UNKNOWN");
   }
 
   public BrowserStateView(

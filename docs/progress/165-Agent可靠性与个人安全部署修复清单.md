@@ -30,7 +30,7 @@
 | A04 | Expected Outcome / Intent Verification | progress 167 已拒绝 Batch 明确失败/跳过的假成功；业务 Expected Outcome 仍待实现 |
 | A05 | Vision Canvas/图片/PDF 隐私 | 待像素级 OCR/PII、裁剪与不可验证时拒绝外发 |
 | A06 | 动态微批次 | 当前上限 20；待页面变化驱动的停顿/重采与恢复语义 |
-| A07 | Browser State 新鲜度 | 已有网络/原生 Dialog freshness；采集年龄与页面活动仍待补 |
+| A07 | Browser State 新鲜度 | progress 170 已闭环：服务端 observedAt/age/FRESH-AGING-STALE、页面活动、稳定页 15 秒受围栏心跳及 STALE 拒绝规划；完整集成通过 |
 | A08 | 统一恢复指令 | progress 169 已闭环：持久 Task 状态产生六类正式指令，API/四 SDK/UI/完整集成通过 |
 | A09 | Action Attempt Signature / Loop Detection | 待 PostgreSQL 持久账本与有界循环回归 |
 | A10 | 结构化任务记忆 | 已有 Task/Step 持久化；待跨刷新/重规划已完成工作语义核查 |

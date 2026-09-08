@@ -701,6 +701,15 @@ message BrowserStateEvent {
   bool download_evidence_fresh = 20;
 }
 
+// Payload-minimal proof that the Node resampled an unchanged page. Control Plane refreshes
+// observed_at only when all three fences exactly match its current authoritative projection.
+message BrowserStateObservedEvent {
+  string session_id = 1;
+  uint64 state_version = 2;
+  uint64 target_revision = 3;
+  string content_hash = 4;
+}
+
 // 显式 FULL Resync 的有界流式传输。Begin 声明不可变清单，Chunk 只承载状态
 // protobuf 字节，Commit 允许 Control Plane 在校验全部分块和整流 SHA-256 后原子发布。
 // 周期 State 和 Agent 动作确认仍使用 BrowserStateUpdated，保持 N/N-1 兼容。

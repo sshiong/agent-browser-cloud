@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { RecoveryGuidanceBanner } from './AutomationPage';
+import { RecoveryGuidanceBanner, StateBindingPanel } from './AutomationPage';
 
 describe('RecoveryGuidanceBanner', () => {
   it('shows the authoritative directive and automatic handling state', () => {
@@ -33,5 +33,41 @@ describe('RecoveryGuidanceBanner', () => {
 
     expect(html).toContain('bg-danger/5');
     expect(html).toContain('需要人工决策或显式重试');
+  });
+});
+
+describe('StateBindingPanel', () => {
+  it('shows server-clock age and page activity beside the state cursor', () => {
+    const html = renderToStaticMarkup(
+      <StateBindingPanel
+        isLoading={false}
+        state={{
+          sessionId: 'ses_test',
+          contextEpoch: 2,
+          stateVersion: 9,
+          targetRevision: 4,
+          url: 'https://example.test/app',
+          title: 'App',
+          stateHash: 'a'.repeat(64),
+          stateQuality: 'COMPLETE',
+          documentReadyState: 'complete',
+          networkQuietMillis: 2500,
+          networkEvidenceFresh: true,
+          observedAt: '2026-09-07T09:00:00Z',
+          ageMillis: 1200,
+          freshness: 'FRESH',
+          pageActivity: 'STABLE',
+          targets: [],
+          tabs: [],
+          activeTabId: '',
+          nativeDialogs: [],
+          nativeDialogEvidenceFresh: true,
+        }}
+      />
+    );
+
+    expect(html).toContain('FRESH');
+    expect(html).toContain('STABLE');
+    expect(html).toContain('1200ms old');
   });
 });

@@ -3008,7 +3008,7 @@ grep -Fq -- \
   "--load-extension=$repo_root/tests/integration/fixtures/extensions/jdgnleokimdbblcflcfcohbinohmmmlb" \
   "$temp_dir/fake-chromium-args.log"
 printf '%s' "$browser_state" | python3 -c \
-  'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 3; assert state["stateVersion"] >= 1; assert state["title"] == "Browser Cloud Test Page"; assert state["stateQuality"] == "COMPLETE"; assert state["documentReadyState"] == "complete"; assert isinstance(state["networkQuietMillis"], int); assert isinstance(state["networkEvidenceFresh"], bool); assert state["targets"][0]["role"] == "button"'
+  'import datetime,json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 3; assert state["stateVersion"] >= 1; assert state["title"] == "Browser Cloud Test Page"; assert state["stateQuality"] == "COMPLETE"; assert state["documentReadyState"] == "complete"; assert isinstance(state["networkQuietMillis"], int); assert isinstance(state["networkEvidenceFresh"], bool); assert state["targets"][0]["role"] == "button"; assert datetime.datetime.fromisoformat(state["observedAt"].replace("Z", "+00:00")); assert state["ageMillis"] >= 0; assert state["freshness"] in ("FRESH", "AGING"); assert state["pageActivity"] in ("CHANGING", "SETTLING", "STABLE")'
 session_event_envelope_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select
      count(*) filter (where change_type='SESSION') || ':' ||
@@ -4049,9 +4049,23 @@ if [[ "$pending_node_commands" != "0" ]]; then
   exit 1
 fi
 
-side_effect_state="$(curl -fsS \
-  "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
-  -H 'X-Tenant-Id: tenant-integration')"
+side_effect_state=""
+side_effect_freshness=""
+# This point follows a deliberate Node SIGSTOP plus two coordinator replacements. Wait for the
+# resumed Node's fenced observation to reach PostgreSQL instead of racing its adaptive collector.
+for _ in $(seq 1 120); do
+  side_effect_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  side_effect_freshness="$(printf '%s' "$side_effect_state" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["freshness"])')"
+  if [[ "$side_effect_freshness" = "FRESH" ]] || [[ "$side_effect_freshness" = "AGING" ]]; then
+    break
+  fi
+  sleep 0.25
+done
+printf '%s' "$side_effect_state" | python3 -c \
+  'import json,sys; state=json.load(sys.stdin); assert state["observedAt"]; assert state["ageMillis"] < 30000; assert state["freshness"] in ("FRESH", "AGING"), state'
 agent_browser_snapshot="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -5958,7 +5972,7 @@ done
 test "$published_commands" -ge "11"
 
 browser_states="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
-  "select count(*) from browser_states where session_id='${session_one}' and tenant_id='tenant-integration'")"
+  "select count(*) from browser_states where session_id='${session_one}' and tenant_id='tenant-integration' and observed_at is not null")"
 test "$browser_states" = "1"
 public_tables="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from information_schema.tables where table_schema='public'")"
@@ -7715,6 +7729,7 @@ printf '%s' "$reconcile_metrics" | python3 -c \
 
 printf 'challenge_visual_automation=true\n'
 printf 'agent_clipboard_bridge=true\n'
+printf 'browser_state_freshness=true\n'
 
 printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\nsession_rename=true\nsession_batch_delete=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\ncoordinator_command_routed=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ndual_node_migration=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_cold_health=true\nproxy_active_health=true\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nrelease_freeze=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nworkspace_notification_center=true\nworkspace_overview=true\nenterprise_overview_event_stream=true\nworkspace_theme_preferences=true\nruntime_validation_farm=true\nruntime_validation_worker_queue=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\nagent_reviewer=true\nreviewer_model_provider=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\nrecording_frame_redaction=true\nscreenshot_evidence=true\nobserver_manual_evidence=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \

@@ -373,7 +373,8 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   正文、Secret、Capability、工具输出或 Browser State JSON。API/四 SDK/Web/Tauri 已同步至
   240 Operations / 322 Schemas；完整 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已
   输出 `agent_task_structured_memory=true`；Java 525 项、Web 140 项、完整 `make ci`、Desktop
-  test/lint/unsigned build 均通过。A10 已关闭，但不得冒充 A04/A11 的业务 Outcome 证明。
+  test/lint/unsigned build 均通过。实现提交 `42f9901` 已推送，GitHub CI `34317007418` 与
+  Desktop `34317007425` 均成功。A10 已关闭，但不得冒充 A04/A11 的业务 Outcome 证明。
 
 - progress 171：V115 新增不含正文、Secret 或 Capability 的 Agent Action Attempt 哈希账本；
   规范化动作签名绑定执行前权威 State Hash，同一 Task/State 的第三次相同动作在 Capability 消费

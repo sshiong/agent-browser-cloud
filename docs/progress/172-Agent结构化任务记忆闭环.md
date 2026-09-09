@@ -62,3 +62,7 @@ Session 复合外键继续保证隔离。
 八个 15 秒心跳周期，但最终 API 断言仍严格要求样本年龄小于生产 30 秒阈值。第二次已到达 A10，
 暴露循环任务在阻断前还有规划器读取历史，修正为验证连续序列、先前 VERIFIED、最终失败；最终
 第三次使用完整 V116 约束重跑通过，未放宽生产 State 或动作围栏。
+
+实现提交 `42f9901` 已推送；GitHub `ci` run `34317007418`（含 Verify、供应链、完整
+Integration、Object Storage/Recording GameDay 与 Kubernetes Operator E2E）及 `desktop`
+run `34317007425`（Windows/macOS）均成功。

@@ -11,6 +11,7 @@ import type { AgentRecoveryGuidance } from './AgentRecoveryGuidance.js';
 import type { AgentReview } from './AgentReview.js';
 import type { AgentRiskClass } from './AgentRiskClass.js';
 import type { AgentStepExecution } from './AgentStepExecution.js';
+import type { AgentTaskMemory } from './AgentTaskMemory.js';
 import type { AgentToolExecutionResult } from './AgentToolExecutionResult.js';
 import type { PromptSecurityEvent } from './PromptSecurityEvent.js';
 export type AgentTask = {
@@ -50,6 +51,10 @@ export type AgentTask = {
     plan: AgentPlan;
     operationId: string | null;
     executionResults: Array<AgentToolExecutionResult>;
+    /**
+     * Data-minimized append-only execution memory. Older Control Planes may omit it during rolling upgrades.
+     */
+    memory?: AgentTaskMemory;
     lastError: string | null;
     /**
      * Authoritative next recovery decision; null while no recovery action is required. Older Control Planes may omit it during rolling upgrades.

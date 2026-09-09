@@ -536,6 +536,7 @@ type AgentTask struct {
 	Plan             AgentPlan                  `json:"plan,omitempty"`
 	OperationId      any                        `json:"operationId,omitempty"`
 	ExecutionResults []AgentToolExecutionResult `json:"executionResults,omitempty"`
+	Memory           AgentTaskMemory            `json:"memory,omitempty"`
 	LastError        any                        `json:"lastError,omitempty"`
 	RecoveryGuidance *AgentRecoveryGuidance     `json:"recoveryGuidance,omitempty"`
 	SecurityEvents   []PromptSecurityEvent      `json:"securityEvents,omitempty"`
@@ -547,6 +548,27 @@ type AgentRecoveryGuidance struct {
 	Directive  string `json:"directive,omitempty"`
 	ReasonCode string `json:"reasonCode,omitempty"`
 	Automatic  bool   `json:"automatic,omitempty"`
+}
+
+type AgentTaskMemory struct {
+	Revision         int                         `json:"revision,omitempty"`
+	ExecutionHistory []AgentExecutionMemoryEvent `json:"executionHistory,omitempty"`
+}
+
+type AgentExecutionMemoryEvent struct {
+	Sequence     int    `json:"sequence,omitempty"`
+	EventType    string `json:"eventType,omitempty"`
+	PlanIntentId any    `json:"planIntentId,omitempty"`
+	StepOrdinal  any    `json:"stepOrdinal,omitempty"`
+	StepId       any    `json:"stepId,omitempty"`
+	ToolId       any    `json:"toolId,omitempty"`
+	SemanticKey  any    `json:"semanticKey,omitempty"`
+	Status       any    `json:"status,omitempty"`
+	ResultHash   any    `json:"resultHash,omitempty"`
+	Verification any    `json:"verification,omitempty"`
+	ReasonCode   any    `json:"reasonCode,omitempty"`
+	StateVersion any    `json:"stateVersion,omitempty"`
+	CreatedAt    string `json:"createdAt,omitempty"`
 }
 
 type ClaimAgentExecutionJobRequest struct {

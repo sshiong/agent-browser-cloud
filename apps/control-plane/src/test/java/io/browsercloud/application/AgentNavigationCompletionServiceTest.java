@@ -40,6 +40,7 @@ class AgentNavigationCompletionServiceTest {
             mock(AgentExecutionService.class),
             mock(AgentControlPolicyService.class),
             mock(AgentActionAttemptService.class),
+            mock(AgentTaskMemoryService.class),
             objectMapper);
     var task =
         new AgentTaskEntity(
@@ -125,6 +126,7 @@ class AgentNavigationCompletionServiceTest {
             mock(AgentExecutionService.class),
             mock(AgentControlPolicyService.class),
             mock(AgentActionAttemptService.class),
+            mock(AgentTaskMemoryService.class),
             objectMapper);
     var task =
         new AgentTaskEntity(
@@ -254,6 +256,7 @@ class AgentNavigationCompletionServiceTest {
             executionService,
             mock(AgentControlPolicyService.class),
             mock(AgentActionAttemptService.class),
+            mock(AgentTaskMemoryService.class),
             objectMapper);
 
     var step =

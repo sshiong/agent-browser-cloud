@@ -35,6 +35,7 @@ public class AgentNavigationCompletionService {
   private final AgentExecutionService executionService;
   private final AgentControlPolicyService controlPolicies;
   private final AgentActionAttemptService actionAttempts;
+  private final AgentTaskMemoryService taskMemory;
   private final ObjectMapper objectMapper;
 
   public AgentNavigationCompletionService(
@@ -45,6 +46,7 @@ public class AgentNavigationCompletionService {
       AgentExecutionService executionService,
       AgentControlPolicyService controlPolicies,
       AgentActionAttemptService actionAttempts,
+      AgentTaskMemoryService taskMemory,
       ObjectMapper objectMapper) {
     this.taskRepository = taskRepository;
     this.sessionRepository = sessionRepository;
@@ -53,6 +55,7 @@ public class AgentNavigationCompletionService {
     this.executionService = executionService;
     this.controlPolicies = controlPolicies;
     this.actionAttempts = actionAttempts;
+    this.taskMemory = taskMemory;
     this.objectMapper = objectMapper;
   }
 
@@ -322,6 +325,15 @@ public class AgentNavigationCompletionService {
         && task.getStepDeadlineAt() != null
         && task.getStepDeadlineAt().isAfter(Instant.now())) {
       task.recordReplan(failure, Instant.now());
+      taskMemory.recordReplan(
+          task.getTenantId(),
+          task.getSessionId(),
+          task.getTaskId(),
+          plan.intentId(),
+          task.getReplanCount(),
+          failure,
+          task.getPendingStateVersion(),
+          Instant.now());
       nodeCommandGateway.send(
           NodeCommands.requestAgentStateResync(
               sessionRepository.require(event.sessionId()),

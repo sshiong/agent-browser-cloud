@@ -411,10 +411,32 @@ export interface AgentTaskView {
   };
   operationId?: string;
   executionResults: AgentToolExecutionResult[];
+  memory?: AgentTaskMemory;
   lastError?: string;
   securityEvents: AgentSecurityEvent[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AgentTaskMemory {
+  revision: number;
+  executionHistory: AgentExecutionMemoryEvent[];
+}
+
+export interface AgentExecutionMemoryEvent {
+  sequence: number;
+  eventType: 'STEP_RESULT' | 'STEP_FAILURE' | 'REPLAN';
+  planIntentId: string | null;
+  stepOrdinal: number | null;
+  stepId: string | null;
+  toolId: AgentToolId | null;
+  semanticKey: string | null;
+  status: string | null;
+  resultHash: string | null;
+  verification: string | null;
+  reasonCode: string | null;
+  stateVersion: number | null;
+  createdAt: string;
 }
 
 export interface AgentToolExecutionResult {

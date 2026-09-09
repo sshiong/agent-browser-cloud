@@ -1682,6 +1682,43 @@ function TaskInspector({
         </div>
       )}
 
+      {task.memory && task.memory.executionHistory.length > 0 && (
+        <div className="border-b border-border-subtle px-5 py-4">
+          <div className="mb-3 flex items-center justify-between gap-3 text-[9px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+            <span>Durable Execution Memory</span>
+            <span className="font-mono font-normal">
+              REV {task.memory.revision}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {task.memory.executionHistory.map((event) => (
+              <div
+                key={event.sequence}
+                className="border border-border-subtle bg-surface-elevated px-3 py-2"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-mono text-[9px] font-semibold text-text-primary">
+                    #{event.sequence} {event.eventType}
+                    {event.toolId ? ` / ${event.toolId}` : ''}
+                  </span>
+                  <span className="font-mono text-[8px] text-text-muted">
+                    {event.status ?? event.reasonCode ?? 'RECORDED'}
+                  </span>
+                </div>
+                <p className="mt-1 truncate font-mono text-[8px] text-text-muted">
+                  {event.semanticKey
+                    ? `SEMANTIC ${event.semanticKey}`
+                    : 'TASK TRANSITION'}
+                  {event.stateVersion !== null
+                    ? ` · STATE ${event.stateVersion}`
+                    : ''}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="px-5 py-4">
         <div className="mb-3 flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.12em] text-text-muted">
           <FileWarning size={11} />

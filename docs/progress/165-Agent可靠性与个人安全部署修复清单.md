@@ -33,7 +33,7 @@
 | A07 | Browser State 新鲜度 | progress 170 已闭环：服务端 observedAt/age/FRESH-AGING-STALE、页面活动、稳定页 15 秒受围栏心跳及 STALE 拒绝规划；完整集成通过 |
 | A08 | 统一恢复指令 | progress 169 已闭环：持久 Task 状态产生六类正式指令，API/四 SDK/UI/完整集成通过 |
 | A09 | Action Attempt Signature / Loop Detection | progress 171 已闭环：V115 哈希账本、Task 行锁、第三次无进展动作执行前阻断及完整 Chromium 集成通过 |
-| A10 | 结构化任务记忆 | 已有 Task/Step 持久化；待跨刷新/重规划已完成工作语义核查 |
+| A10 | 结构化任务记忆 | progress 172 已闭环：V116 分离 Browser State、可变 Task State 与 append-only Execution History，跨刷新/重规划保留最小化语义证据；完整 Chromium 集成通过 |
 | A11 | 独立 Outcome Verifier | 待与策略 Reviewer 分离并测试假成功 |
 | A12 | Reviewer 风险路由 | 待确认低风险确定性审核边界，不得降低高风险审批 |
 | A13 | Prompt Injection 来源与权限传播 | 已有 Source/Trust 枚举；待检查其执行约束而非仅关键词 |
@@ -50,8 +50,8 @@
 | A24 | LICENSE / SECURITY.md | SECURITY.md 已新增；Rust 标 MIT、TS SDK 标 UNLICENSED，统一授权须权利人确认 |
 
 不修改用户未跟踪的 `agent-browser-cloud-before-rewrite.bundle` 和 `agent-browser-cloud/`。
-progress 169 新增一个可选正式 API Schema，Protobuf 未变化；公开基线为
-240 Operations / 320 Schemas。
+progress 172 新增两个可选正式 API Schema，Protobuf 未变化；公开基线为
+240 Operations / 322 Schemas。
 progress 171 只增加内部 PostgreSQL 账本与稳定失败码，公开 API/Protobuf 未变化；A09 已关闭，
 A04/A11 的业务结果验证和 A20 的组合页面稳定性仍独立跟踪。
 

@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **240 Operations / 320 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **240 Operations / 322 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -367,6 +367,13 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - `StopRuntime` + Recording 的幂等回归保持修复，主干绿色。
 
 ## 7. 当前正在处理的任务
+
+- progress 172：V116 将 Browser State、可变 Task State 与 append-only Execution History 分离；
+  持久历史只保存规范化语义哈希、状态/验证/结果哈希、稳定原因和可选 State Version，不复制
+  正文、Secret、Capability、工具输出或 Browser State JSON。API/四 SDK/Web/Tauri 已同步至
+  240 Operations / 322 Schemas；完整 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已
+  输出 `agent_task_structured_memory=true`；Java 525 项、Web 140 项、完整 `make ci`、Desktop
+  test/lint/unsigned build 均通过。A10 已关闭，但不得冒充 A04/A11 的业务 Outcome 证明。
 
 - progress 171：V115 新增不含正文、Secret 或 Capability 的 Agent Action Attempt 哈希账本；
   规范化动作签名绑定执行前权威 State Hash，同一 Task/State 的第三次相同动作在 Capability 消费

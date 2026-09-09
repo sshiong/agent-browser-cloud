@@ -3471,6 +3471,19 @@ for _ in $(seq 1 40); do
   sleep 0.25
 done
 test "$evidence_capture_state" = "COMPLETED"
+evidence_capture_memory="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/agent-tasks/${evidence_capture_task_id}" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$evidence_capture_memory" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); memory=task["memory"]; history=memory["executionHistory"]; assert memory["revision"] == 4; assert [item["sequence"] for item in history] == [1,2,3,4]; assert all(item["eventType"] == "STEP_RESULT" and item["status"] == "VERIFIED" for item in history); assert all(len(item["semanticKey"]) == 64 for item in history); assert all("output" not in item and "contentHash" not in item and "state" not in item for item in history)'
+evidence_capture_memory_reloaded="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/agent-tasks/${evidence_capture_task_id}" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$evidence_capture_memory_reloaded" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["memory"]["revision"] == 4; assert len(task["memory"]["executionHistory"]) == 4'
+evidence_capture_memory_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) || ':' || count(distinct semantic_key) from agent_task_memory_events where task_id='${evidence_capture_task_id}'")"
+test "$evidence_capture_memory_rows" = "4:4"
 evidence_capture_count=""
 for _ in $(seq 1 40); do
   evidence_capture_count="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
@@ -4053,7 +4066,10 @@ side_effect_state=""
 side_effect_freshness=""
 # This point follows a deliberate Node SIGSTOP plus two coordinator replacements. Wait for the
 # resumed Node's fenced observation to reach PostgreSQL instead of racing its adaptive collector.
-for _ in $(seq 1 120); do
+# Keep the API assertion at the production 30-second freshness boundary; only the fixture wait is
+# relaxed so a SIGSTOP/failover run has up to eight heartbeat intervals to produce a new fenced
+# sample on a loaded local machine.
+for _ in $(seq 1 480); do
   side_effect_state="$(curl -fsS \
     "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
     -H 'X-Tenant-Id: tenant-integration')"
@@ -4428,7 +4444,7 @@ for _ in $(seq 1 40); do
 done
 test "$loop_state" = "FAILED"
 printf '%s' "$loop_execute" | python3 -c \
-  'import json,sys; task=json.load(sys.stdin); assert task["lastError"] == "AGENT_ACTION_LOOP_DETECTED"; assert task["recoveryGuidance"]["directive"] == "TERMINAL"'
+  'import json,sys; task=json.load(sys.stdin); assert task["lastError"] == "AGENT_ACTION_LOOP_DETECTED"; assert task["recoveryGuidance"]["directive"] == "TERMINAL"; memory=task["memory"]; history=memory["executionHistory"]; assert memory["revision"] == len(history); assert [event["sequence"] for event in history] == list(range(1, len(history)+1)); event=history[-1]; assert event["eventType"] == "STEP_FAILURE"; assert event["reasonCode"] == "AGENT_ACTION_LOOP_DETECTED"; assert len(event["semanticKey"]) == 64; assert all(prior["eventType"] == "STEP_RESULT" and prior["status"] == "VERIFIED" for prior in history[:-1])'
 loop_attempt_evidence="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select string_agg(status || ':' || consecutive_count, ',' order by created_at, attempt_id) from agent_action_attempts where task_id='${loop_task_id}'")"
 test "$loop_attempt_evidence" = "VERIFIED:1,VERIFIED:2,LOOP_BLOCKED:3"
@@ -4436,6 +4452,7 @@ loop_capability_uses="$(docker exec "$postgres_name" psql -U browsercloud -d bro
   "select count(*) from tool_capability_uses where task_id='${loop_task_id}' and tool_id='CLICK_TARGET'")"
 test "$loop_capability_uses" = "0"
 printf 'agent_action_loop_detection=true\n'
+printf 'agent_task_structured_memory=true\n'
 extended_action_snapshot="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
   -H 'X-Tenant-Id: tenant-integration' \

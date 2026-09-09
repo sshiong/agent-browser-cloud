@@ -36,6 +36,7 @@ public record AgentTaskView(
     PlanView plan,
     String operationId,
     List<ToolExecutionResultView> executionResults,
+    TaskMemoryView memory,
     String lastError,
     RecoveryGuidanceView recoveryGuidance,
     List<SecurityEventView> securityEvents,
@@ -143,4 +144,22 @@ public record AgentTaskView(
       java.util.Map<String, Object> output,
       String verification,
       Instant completedAt) {}
+
+  /** Data-minimized durable history; mutable Task and Browser State remain separate authorities. */
+  public record TaskMemoryView(int revision, List<ExecutionMemoryEventView> executionHistory) {}
+
+  public record ExecutionMemoryEventView(
+      int sequence,
+      String eventType,
+      String planIntentId,
+      Integer stepOrdinal,
+      String stepId,
+      ToolId toolId,
+      String semanticKey,
+      String status,
+      String resultHash,
+      String verification,
+      String reasonCode,
+      Long stateVersion,
+      Instant createdAt) {}
 }

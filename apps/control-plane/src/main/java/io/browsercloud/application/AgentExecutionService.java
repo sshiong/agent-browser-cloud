@@ -87,6 +87,7 @@ public class AgentExecutionService {
   private final AgentNavigationToolService navigationToolService;
   private final AgentActionToolService actionToolService;
   private final AgentHumanGovernanceService governanceService;
+  private final AgentTaskMemoryService taskMemory;
   private final AgentApplicationService taskService;
   private final AuditApplicationService audit;
   private final ObjectMapper objectMapper;
@@ -104,6 +105,7 @@ public class AgentExecutionService {
       AgentNavigationToolService navigationToolService,
       AgentActionToolService actionToolService,
       AgentHumanGovernanceService governanceService,
+      AgentTaskMemoryService taskMemory,
       AgentApplicationService taskService,
       AuditApplicationService audit,
       ObjectMapper objectMapper,
@@ -117,6 +119,7 @@ public class AgentExecutionService {
     this.navigationToolService = navigationToolService;
     this.actionToolService = actionToolService;
     this.governanceService = governanceService;
+    this.taskMemory = taskMemory;
     this.taskService = taskService;
     this.audit = audit;
     this.objectMapper = objectMapper;
@@ -190,6 +193,14 @@ public class AgentExecutionService {
     var results = readResults(task.getExecutionResults());
     results.add(result);
     var now = Instant.now();
+    taskMemory.recordResult(
+        tenantId,
+        task.getSessionId(),
+        taskId,
+        plan.intentId(),
+        task.getCurrentStep(),
+        plan.steps().get(task.getCurrentStep()),
+        result);
     task.checkpoint(task.getCurrentStep() + 1, write(results), executorId, leaseUntil(now), now);
     taskRepository.save(task);
     drive(task, session, operation, plan, results);
@@ -221,6 +232,15 @@ public class AgentExecutionService {
     var results = readResults(task.getExecutionResults());
     results.add(result);
     var now = Instant.now();
+    var plan = readPlan(task.getPlan());
+    taskMemory.recordResult(
+        tenantId,
+        task.getSessionId(),
+        taskId,
+        plan.intentId(),
+        task.getCurrentStep(),
+        plan.steps().get(task.getCurrentStep()),
+        result);
     operationRepository.transitionPhase(
         operation.operationId(), OperationPhase.EXECUTING, OperationPhase.COMPLETING);
     operationRepository.transition(
@@ -354,8 +374,22 @@ public class AgentExecutionService {
             operation ->
                 operationRepository.transition(
                     operation.operationId(), OperationState.ACTIVE, OperationState.ABORTED));
-    task.failExecution(
-        task.getCurrentStep(), task.getExecutionResults(), safeCode(errorCode), Instant.now());
+    var now = Instant.now();
+    var plan = readPlan(task.getPlan());
+    var failureCode = safeCode(errorCode);
+    if (task.getCurrentStep() < plan.steps().size()) {
+      taskMemory.recordFailure(
+          tenantId,
+          task.getSessionId(),
+          taskId,
+          plan.intentId(),
+          task.getCurrentStep(),
+          plan.steps().get(task.getCurrentStep()),
+          failureCode,
+          task.getPendingStateVersion(),
+          now);
+    }
+    task.failExecution(task.getCurrentStep(), task.getExecutionResults(), failureCode, now);
     taskRepository.save(task);
   }
 
@@ -481,7 +515,7 @@ public class AgentExecutionService {
           var output = new java.util.LinkedHashMap<String, Object>();
           output.put("requestId", handoff.requestId());
           output.put("expiresAt", handoff.expiresAt().toString());
-          results.add(
+          var handoffResult =
               new ToolExecutionResult(
                   step.stepId(),
                   step.toolId(),
@@ -489,7 +523,16 @@ public class AgentExecutionService {
                   PromptSecurityService.sha256(write(output)),
                   output,
                   step.verification(),
-                  now));
+                  now);
+          results.add(handoffResult);
+          taskMemory.recordResult(
+              task.getTenantId(),
+              task.getSessionId(),
+              task.getTaskId(),
+              plan.intentId(),
+              index,
+              step,
+              handoffResult);
           operationRepository.transitionPhase(
               operation.operationId(), OperationPhase.EXECUTING, OperationPhase.COMPLETING);
           operationRepository.transition(
@@ -499,7 +542,7 @@ public class AgentExecutionService {
           taskRepository.save(task);
           return;
         }
-        results.add(
+        var readResult =
             readToolService.execute(
                 task.getTenantId(),
                 session,
@@ -507,7 +550,16 @@ public class AgentExecutionService {
                 plan.intentId(),
                 step,
                 readAllowedDomains(task),
-                now));
+                now);
+        results.add(readResult);
+        taskMemory.recordResult(
+            task.getTenantId(),
+            task.getSessionId(),
+            task.getTaskId(),
+            plan.intentId(),
+            index,
+            step,
+            readResult);
         task.checkpoint(index + 1, write(results), executorId, leaseUntil(now), now);
         taskRepository.save(task);
       }
@@ -525,6 +577,18 @@ public class AgentExecutionService {
           operation.operationId(),
           failureCode,
           exception.getClass().getSimpleName());
+      if (task.getCurrentStep() < plan.steps().size()) {
+        taskMemory.recordFailure(
+            task.getTenantId(),
+            task.getSessionId(),
+            task.getTaskId(),
+            plan.intentId(),
+            task.getCurrentStep(),
+            plan.steps().get(task.getCurrentStep()),
+            failureCode,
+            task.getPendingStateVersion(),
+            Instant.now());
+      }
       operationRepository
           .findActive(session.sessionId())
           .filter(active -> active.operationId().equals(operation.operationId()))

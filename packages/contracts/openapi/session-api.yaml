@@ -7596,6 +7596,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AgentToolExecutionResult"
+        memory:
+          $ref: "#/components/schemas/AgentTaskMemory"
+          description: Data-minimized append-only execution memory. Older Control Planes may omit it during rolling upgrades.
         lastError:
           type: [string, "null"]
         recoveryGuidance:
@@ -7628,6 +7631,79 @@ components:
         automatic:
           type: boolean
           description: True when the control plane is already carrying out this recovery decision.
+    AgentTaskMemory:
+      type: object
+      additionalProperties: false
+      required: [revision, executionHistory]
+      properties:
+        revision:
+          type: integer
+          minimum: 0
+          description: Highest task-local memory sequence included in this projection.
+        executionHistory:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/AgentExecutionMemoryEvent"
+    AgentExecutionMemoryEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - sequence
+        - eventType
+        - planIntentId
+        - stepOrdinal
+        - stepId
+        - toolId
+        - semanticKey
+        - status
+        - resultHash
+        - verification
+        - reasonCode
+        - stateVersion
+        - createdAt
+      properties:
+        sequence:
+          type: integer
+          minimum: 1
+        eventType:
+          type: string
+          enum: [STEP_RESULT, STEP_FAILURE, REPLAN]
+        planIntentId:
+          type: [string, "null"]
+          maxLength: 128
+        stepOrdinal:
+          type: [integer, "null"]
+          minimum: 0
+        stepId:
+          type: [string, "null"]
+          maxLength: 128
+        toolId:
+          type: [string, "null"]
+          enum: [NAVIGATE, GET_CURRENT_STATE, CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, OPEN_TAB, SWITCH_TAB, CLOSE_TAB, ACCEPT_DIALOG, DISMISS_DIALOG, PRESS_KEY, SELECT_OPTION, DRAG_TARGET, DROP_TARGET, SWIPE_TARGET, MOUSE_MOVE, MOUSE_DOWN, MOUSE_UP, MOUSE_WHEEL, KEY_DOWN, KEY_UP, TOUCH_START, TOUCH_MOVE, TOUCH_END, EXECUTE_ACTIONS, GET_URL, GET_PAGE_SUMMARY, REQUEST_HUMAN_TAKEOVER, null]
+        semanticKey:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+          description: Stable step fingerprint excluding plaintext, sealed secrets, capability material and ephemeral IDs.
+        status:
+          type: [string, "null"]
+          maxLength: 64
+        resultHash:
+          type: [string, "null"]
+          maxLength: 128
+        verification:
+          type: [string, "null"]
+          maxLength: 128
+        reasonCode:
+          type: [string, "null"]
+          maxLength: 128
+        stateVersion:
+          type: [integer, "null"]
+          format: int64
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
     ClaimAgentExecutionJobRequest:
       type: object
       additionalProperties: false

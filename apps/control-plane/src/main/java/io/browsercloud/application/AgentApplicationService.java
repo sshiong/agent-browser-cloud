@@ -45,6 +45,7 @@ public class AgentApplicationService {
   private final AgentControlPolicyService controlPolicyService;
   private final AgentInputSecretApplicationService inputSecrets;
   private final AgentClipboardApplicationService agentClipboard;
+  private final AgentTaskMemoryService taskMemory;
   private final AuditApplicationService auditService;
   private final ObjectMapper objectMapper;
 
@@ -60,6 +61,7 @@ public class AgentApplicationService {
       AgentControlPolicyService controlPolicyService,
       AgentInputSecretApplicationService inputSecrets,
       AgentClipboardApplicationService agentClipboard,
+      AgentTaskMemoryService taskMemory,
       AuditApplicationService auditService,
       ObjectMapper objectMapper) {
     this.repository = repository;
@@ -72,8 +74,39 @@ public class AgentApplicationService {
     this.controlPolicyService = controlPolicyService;
     this.inputSecrets = inputSecrets;
     this.agentClipboard = agentClipboard;
+    this.taskMemory = taskMemory;
     this.auditService = auditService;
     this.objectMapper = objectMapper;
+  }
+
+  /** Source compatibility for isolated tests created before durable task memory existed. */
+  public AgentApplicationService(
+      AgentTaskJpaRepository repository,
+      SessionRepository sessionRepository,
+      BrowserStateRepository stateRepository,
+      IdempotencyService idempotencyService,
+      PromptSecurityService promptSecurityService,
+      AgentCapabilityTokenService capabilityTokenService,
+      AgentActionPayloadService actionPayloadService,
+      AgentControlPolicyService controlPolicyService,
+      AgentInputSecretApplicationService inputSecrets,
+      AgentClipboardApplicationService agentClipboard,
+      AuditApplicationService auditService,
+      ObjectMapper objectMapper) {
+    this(
+        repository,
+        sessionRepository,
+        stateRepository,
+        idempotencyService,
+        promptSecurityService,
+        capabilityTokenService,
+        actionPayloadService,
+        controlPolicyService,
+        inputSecrets,
+        agentClipboard,
+        null,
+        auditService,
+        objectMapper);
   }
 
   /** Source compatibility for isolated tests created before AgentClipboard existed. */
@@ -99,6 +132,7 @@ public class AgentApplicationService {
         actionPayloadService,
         controlPolicyService,
         inputSecrets,
+        null,
         null,
         auditService,
         objectMapper);
@@ -1469,6 +1503,9 @@ public class AgentApplicationService {
             plan.intentId(), stepViews, plan.maxActions(), plan.replanBudget(), plan.expiresAt()),
         entity.getOperationId(),
         executionViews,
+        taskMemory == null
+            ? new AgentTaskView.TaskMemoryView(0, List.of())
+            : taskMemory.view(entity.getTaskId(), entity.getTenantId()),
         entity.getLastError(),
         AgentRecoveryPolicy.guidance(entity),
         eventViews,

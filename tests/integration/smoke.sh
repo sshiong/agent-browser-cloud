@@ -4893,11 +4893,26 @@ test "$agent_evaluation_secret_leak" = "0"
 page_action_evaluation=""
 page_action_evaluation_id=""
 page_action_evaluation_state=""
-for page_action_attempt in $(seq 1 3); do
-  page_action_snapshot="$(curl -fsS \
-    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
-    -H 'X-Tenant-Id: tenant-integration' \
-    -H 'X-Roles: TENANT_VIEWER')"
+for page_action_attempt in $(seq 1 5); do
+  page_action_snapshot=""
+  previous_page_action_cursor=""
+  for _ in $(seq 1 12); do
+    page_action_candidate="$(curl -fsS \
+      "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+      -H 'X-Tenant-Id: tenant-integration' \
+      -H 'X-Roles: TENANT_VIEWER')"
+    page_action_candidate_cursor="$(printf '%s' "$page_action_candidate" | python3 -c \
+      'import json,sys; print(json.load(sys.stdin)["stateCursor"])')"
+    if [[ "$page_action_candidate_cursor" = "$previous_page_action_cursor" ]]; then
+      page_action_snapshot="$page_action_candidate"
+      break
+    fi
+    previous_page_action_cursor="$page_action_candidate_cursor"
+    sleep 0.25
+  done
+  if [[ -z "$page_action_snapshot" ]]; then
+    continue
+  fi
   page_action_request="$(python3 - "$page_action_snapshot" <<'PY'
 import json
 import sys

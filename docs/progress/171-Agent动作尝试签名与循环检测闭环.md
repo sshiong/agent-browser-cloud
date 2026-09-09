@@ -49,3 +49,8 @@ Operation、稳定失败码和异常类型，不记录异常正文，避免诊�
 
 完整集成第一次暴露 PostgreSQL JDBC 不能自动推断 `Instant` 参数类型；最终实现统一使用显式
 SQL Timestamp 后重跑通过。这一失败未被单元 Mock 掩盖为成功。
+
+首次 GitHub CI 的 A09 场景已通过，但随后既有 PAGE_ACTION Evaluate 在冷 Runner 上连续三次
+命中合法 `STATE_STALE`，使 Integration 失败；本地两轮完整集成未复现。集成夹具现要求连续
+两次相同 State Cursor 后才提交 PAGE_ACTION，并把仍可能发生的受围栏失败保留为五次有界重试，
+不放宽生产状态围栏。修复后的 GitHub 复验结果在通过后补记。

@@ -372,8 +372,9 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   规范化动作签名绑定执行前权威 State Hash，同一 Task/State 的第三次相同动作在 Capability 消费
   和 Node 派发前以 `AGENT_ACTION_LOOP_DETECTED` 终止。Task 行锁保证并发判定，`WAIT_FOR` 与
   派发前失败不误计；Java 523 项、Web 140 项、完整 Test/Lint/Build、Desktop、N/N−1 与
-  PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过。A09 已关闭；A04/A11 Outcome 与
-  A20 组合稳定性不得据此冒充完成。
+  PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过。首次 GitHub CI 的 A09 场景通过，
+  随后既有 PAGE_ACTION 在冷 Runner 上连续命中合法 State Stale；夹具已要求稳定 Cursor 后提交
+  并保留有界重试，远端复验中。A09 已关闭；A04/A11 Outcome 与 A20 组合稳定性不得据此冒充完成。
 
 - progress 170：V114 单独保存控制面接收最后权威 Browser State 样本的时间；API/四 SDK
   增加 age/freshness/pageActivity，STALE 状态禁止结构化规划，Web/Tauri 显示样本年龄与页面

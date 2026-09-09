@@ -29,6 +29,7 @@ class AgentBatchOutcomeVerificationTest {
             mock(NodeCommandGateway.class),
             mock(AgentExecutionService.class),
             mock(AgentControlPolicyService.class),
+            mock(AgentActionAttemptService.class),
             new ObjectMapper().findAndRegisterModules());
     var task = mock(AgentTaskEntity.class);
     when(task.getPendingStateVersion()).thenReturn(3L);
@@ -84,6 +85,7 @@ class AgentBatchOutcomeVerificationTest {
                 commands,
                 execution,
                 mock(AgentControlPolicyService.class),
+                mock(AgentActionAttemptService.class),
                 mapper));
     var task = mock(AgentTaskEntity.class);
     var step = mock(PlanStep.class);

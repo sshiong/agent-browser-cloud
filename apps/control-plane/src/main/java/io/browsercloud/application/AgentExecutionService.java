@@ -26,6 +26,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +40,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class AgentExecutionService {
+
+  private static final Logger LOG = LoggerFactory.getLogger(AgentExecutionService.class);
 
   private static final Set<ToolId> ASYNC_ACTIONS =
       Set.of(
@@ -514,6 +518,13 @@ public class AgentExecutionService {
       task.completeExecution(plan.steps().size(), write(results), Instant.now());
       taskRepository.save(task);
     } catch (RuntimeException exception) {
+      var failureCode = safeFailureCode(exception);
+      LOG.warn(
+          "Agent execution aborted task_id={} operation_id={} failure_code={} exception_type={}",
+          task.getTaskId(),
+          operation.operationId(),
+          failureCode,
+          exception.getClass().getSimpleName());
       operationRepository
           .findActive(session.sessionId())
           .filter(active -> active.operationId().equals(operation.operationId()))
@@ -521,8 +532,7 @@ public class AgentExecutionService {
               active ->
                   operationRepository.transition(
                       active.operationId(), OperationState.ACTIVE, OperationState.ABORTED));
-      task.failExecution(
-          task.getCurrentStep(), write(results), safeFailureCode(exception), Instant.now());
+      task.failExecution(task.getCurrentStep(), write(results), failureCode, Instant.now());
       taskRepository.save(task);
     }
   }
@@ -624,6 +634,7 @@ public class AgentExecutionService {
     if (exception instanceof AgentReadToolService.ToolExecutionException
         || exception instanceof AgentNavigationToolService.NavigationToolException
         || exception instanceof AgentActionToolService.ActionToolException
+        || exception instanceof AgentActionAttemptService.ActionLoopDetectedException
         || exception instanceof AgentHumanGovernanceService.HumanGovernanceException
         || exception instanceof AgentCapabilityTokenService.InvalidCapabilityTokenException
         || exception instanceof AgentExecutionRejectedException) {

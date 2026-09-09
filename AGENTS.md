@@ -1,6 +1,6 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-09-02
+> 更新日期：2026-09-09
 > 基准分支：`main`
 > 编写时基准提交：`a65c5a3 docs: record persistent environment verification and CI status`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
@@ -93,7 +93,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V114 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V115 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -367,6 +367,13 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - `StopRuntime` + Recording 的幂等回归保持修复，主干绿色。
 
 ## 7. 当前正在处理的任务
+
+- progress 171：V115 新增不含正文、Secret 或 Capability 的 Agent Action Attempt 哈希账本；
+  规范化动作签名绑定执行前权威 State Hash，同一 Task/State 的第三次相同动作在 Capability 消费
+  和 Node 派发前以 `AGENT_ACTION_LOOP_DETECTED` 终止。Task 行锁保证并发判定，`WAIT_FOR` 与
+  派发前失败不误计；Java 523 项、Web 140 项、完整 Test/Lint/Build、Desktop、N/N−1 与
+  PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过。A09 已关闭；A04/A11 Outcome 与
+  A20 组合稳定性不得据此冒充完成。
 
 - progress 170：V114 单独保存控制面接收最后权威 Browser State 样本的时间；API/四 SDK
   增加 age/freshness/pageActivity，STALE 状态禁止结构化规划，Web/Tauri 显示样本年龄与页面

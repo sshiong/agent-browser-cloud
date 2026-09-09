@@ -66,18 +66,21 @@ public class AgentActionToolService {
   private final AgentCapabilityTokenService capabilityTokens;
   private final NodeCommandGateway nodeCommandGateway;
   private final AgentControlPolicyService controlPolicies;
+  private final AgentActionAttemptService actionAttempts;
 
   public AgentActionToolService(
       BrowserStateRepository stateRepository,
       ToolCapabilityUseJpaRepository capabilityUses,
       AgentCapabilityTokenService capabilityTokens,
       NodeCommandGateway nodeCommandGateway,
-      AgentControlPolicyService controlPolicies) {
+      AgentControlPolicyService controlPolicies,
+      AgentActionAttemptService actionAttempts) {
     this.stateRepository = stateRepository;
     this.capabilityUses = capabilityUses;
     this.capabilityTokens = capabilityTokens;
     this.nodeCommandGateway = nodeCommandGateway;
     this.controlPolicies = controlPolicies;
+    this.actionAttempts = actionAttempts;
   }
 
   public PendingAction authorizeAndQueue(
@@ -117,14 +120,30 @@ public class AgentActionToolService {
             currentDomain,
             dataScope(step),
             now);
-    if (capabilityUses.claim(
-            claims.tokenId(), tenantId, session.sessionId(), taskId, step.toolId().name(), now)
-        != 1) {
-      throw new ActionToolException("CAPABILITY_TOKEN_REPLAYED");
+    var attempt =
+        actionAttempts.reserve(
+            tenantId,
+            session.sessionId(),
+            taskId,
+            operation.operationId(),
+            step,
+            state.stateVersion(),
+            state.stateHash(),
+            now);
+    try {
+      if (capabilityUses.claim(
+              claims.tokenId(), tenantId, session.sessionId(), taskId, step.toolId().name(), now)
+          != 1) {
+        throw new ActionToolException("CAPABILITY_TOKEN_REPLAYED");
+      }
+      nodeCommandGateway.send(
+          NodeCommands.agentAction(
+              session, operation, taskId, step, state.stateVersion(), state.stateHash()));
+      actionAttempts.dispatched(attempt);
+    } catch (RuntimeException exception) {
+      actionAttempts.abandoned(attempt, exception.getMessage(), Instant.now());
+      throw exception;
     }
-    nodeCommandGateway.send(
-        NodeCommands.agentAction(
-            session, operation, taskId, step, state.stateVersion(), state.stateHash()));
     return new PendingAction(
         state.stateVersion(), state.stateHash(), now.plus(COLLABORATIVE_INPUT_WAIT));
   }

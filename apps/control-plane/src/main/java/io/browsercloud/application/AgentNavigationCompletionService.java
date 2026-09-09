@@ -34,6 +34,7 @@ public class AgentNavigationCompletionService {
   private final NodeCommandGateway nodeCommandGateway;
   private final AgentExecutionService executionService;
   private final AgentControlPolicyService controlPolicies;
+  private final AgentActionAttemptService actionAttempts;
   private final ObjectMapper objectMapper;
 
   public AgentNavigationCompletionService(
@@ -43,6 +44,7 @@ public class AgentNavigationCompletionService {
       NodeCommandGateway nodeCommandGateway,
       AgentExecutionService executionService,
       AgentControlPolicyService controlPolicies,
+      AgentActionAttemptService actionAttempts,
       ObjectMapper objectMapper) {
     this.taskRepository = taskRepository;
     this.sessionRepository = sessionRepository;
@@ -50,6 +52,7 @@ public class AgentNavigationCompletionService {
     this.nodeCommandGateway = nodeCommandGateway;
     this.executionService = executionService;
     this.controlPolicies = controlPolicies;
+    this.actionAttempts = actionAttempts;
     this.objectMapper = objectMapper;
   }
 
@@ -75,6 +78,14 @@ public class AgentNavigationCompletionService {
     var step = pendingStep(task, plan);
     var failure = verifyState(task, step, state);
     if (failure != null) {
+      actionAttempts.failed(
+          task.getTaskId(),
+          operation.operationId(),
+          step.stepId(),
+          failure,
+          state.stateVersion(),
+          state.stateHash(),
+          Instant.now());
       // A completed batch can contain failed/skipped primitives when stopOnError=false.
       // New state is not success evidence, and resync must not erase a known failure.
       if (failure.equals("BATCH_ACTION_FAILED")) {
@@ -85,6 +96,13 @@ public class AgentNavigationCompletionService {
       replanOrFail(event, task, plan, operation, failure);
       return;
     }
+    actionAttempts.verified(
+        task.getTaskId(),
+        operation.operationId(),
+        step.stepId(),
+        state.stateVersion(),
+        state.stateHash(),
+        Instant.now());
     var verified = verifiedResult(step, state);
     if (challengeEventId != null && !canContinueWithPlannedSensitiveInput(task, plan)) {
       executionService.pauseAfterVerifiedStepForChallenge(
@@ -124,6 +142,14 @@ public class AgentNavigationCompletionService {
     var operation = activeOperation(event);
     var task = runningTask(failureEvent.taskId(), event.tenantId(), operation.operationId());
     requireMatchingFailure(task, failureEvent.stepId(), ToolId.NAVIGATE.name());
+    actionAttempts.failed(
+        task.getTaskId(),
+        operation.operationId(),
+        failureEvent.stepId(),
+        failureEvent.errorCode(),
+        task.getPendingStateVersion(),
+        task.getPendingContentHash(),
+        Instant.now());
     executionService.failPendingStep(
         task.getTaskId(),
         event.tenantId(),
@@ -136,6 +162,14 @@ public class AgentNavigationCompletionService {
     var operation = activeOperation(event);
     var task = runningTask(failureEvent.taskId(), event.tenantId(), operation.operationId());
     requireMatchingFailure(task, failureEvent.stepId(), failureEvent.toolId());
+    actionAttempts.failed(
+        task.getTaskId(),
+        operation.operationId(),
+        failureEvent.stepId(),
+        failureEvent.errorCode(),
+        task.getPendingStateVersion(),
+        task.getPendingContentHash(),
+        Instant.now());
     executionService.failPendingStep(
         task.getTaskId(),
         event.tenantId(),

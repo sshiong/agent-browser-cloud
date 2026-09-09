@@ -4325,6 +4325,117 @@ agent_task_summaries_other_tenant="$(curl -fsS \
   -H 'X-Tenant-Id: tenant-other')"
 printf '%s' "$agent_task_summaries_other_tenant" | python3 -c \
   'import json,sys; page=json.load(sys.stdin); assert page["total"] == 0; assert page["items"] == []; assert page["hasMore"] is False'
+loop_snapshot="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER')"
+loop_request="$(python3 - "$loop_snapshot" <<'PY'
+import json
+import sys
+
+snapshot = json.loads(sys.argv[1])
+state = snapshot["state"]
+button = next(item for item in state["targets"] if item["role"] == "button")
+print(json.dumps({
+    "goal": "Click the same unchanged control",
+    "allowedDomains": ["example.test"],
+    "maxActions": 8,
+    "replanBudget": 1,
+    "actions": [{
+        "toolId": "CLICK_TARGET",
+        "targetRef": button["elementId"],
+        "targetRevision": state["targetRevision"],
+    }],
+}, separators=(",", ":")))
+PY
+)"
+loop_task="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-tasks" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-agent-action-loop-task-001' \
+  -d "$loop_request")"
+loop_task_id="$(printf '%s' "$loop_task" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "PLANNED"; assert sum(step["toolId"] == "CLICK_TARGET" for step in task["plan"]["steps"]) == 1; print(task["taskId"])')"
+loop_attempt_fields="$(python3 - "$loop_task" "$loop_snapshot" <<'PY'
+import hashlib
+import json
+import sys
+
+task = json.loads(sys.argv[1])
+state = json.loads(sys.argv[2])["state"]
+step = next(item for item in task["plan"]["steps"] if item["toolId"] == "CLICK_TARGET")
+input_value = step["input"]
+safe_input = {
+    "targetRef": input_value.get("targetRef"),
+    "payloadHash": input_value.get("payloadHash"),
+    "payloadLength": input_value.get("payloadLength"),
+    "dataClass": input_value.get("dataClass"),
+    "scrollDeltaY": input_value.get("scrollDeltaY"),
+    "waitCondition": input_value.get("waitCondition"),
+    "timeoutMs": input_value.get("timeoutMs"),
+    "allowSensitiveTarget": input_value.get("sensitiveTargetAuthorized", False),
+    "stopOnError": input_value.get("stopOnError", True),
+    "tabId": input_value.get("tabId"),
+    "tabUrl": input_value.get("tabUrl"),
+    "dialogId": input_value.get("dialogId"),
+    "endTargetRef": None,
+    "endElementId": None,
+    "key": None,
+    "button": None,
+    "deltaX": None,
+    "deltaY": None,
+    "durationMs": None,
+    "actions": [],
+}
+descriptor = json.dumps({
+    "toolId": step["toolId"],
+    "targetUrl": step.get("targetUrl"),
+    "input": safe_input,
+}, separators=(",", ":"))
+descriptor_hash = hashlib.sha256(descriptor.encode()).hexdigest()
+signature = hashlib.sha256(f"{descriptor_hash}:{state['stateHash']}".encode()).hexdigest()
+print("|".join((step["stepId"], descriptor_hash, signature, str(state["stateVersion"]), state["stateHash"])))
+PY
+)"
+IFS='|' read -r loop_step_id loop_descriptor_hash loop_signature loop_state_version loop_state_hash <<<"$loop_attempt_fields"
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -v ON_ERROR_STOP=1 -c \
+  "INSERT INTO agent_action_attempts (
+     attempt_id, tenant_id, session_id, task_id, operation_id, step_id, tool_id,
+     action_descriptor_hash, base_state_version, base_state_hash, attempt_signature,
+     consecutive_count, status, result_state_version, result_state_hash, created_at, completed_at
+   ) VALUES
+     ('aat_loop_seed_1', 'tenant-integration', '${session_one}', '${loop_task_id}',
+      'op_loop_seed_1', 'step_loop_seed_1', 'CLICK_TARGET', '${loop_descriptor_hash}',
+      ${loop_state_version}, '${loop_state_hash}', '${loop_signature}', 1, 'VERIFIED',
+      ${loop_state_version}, '${loop_state_hash}', now() - interval '2 seconds', now() - interval '2 seconds'),
+     ('aat_loop_seed_2', 'tenant-integration', '${session_one}', '${loop_task_id}',
+      'op_loop_seed_2', 'step_loop_seed_2', 'CLICK_TARGET', '${loop_descriptor_hash}',
+      ${loop_state_version}, '${loop_state_hash}', '${loop_signature}', 2, 'VERIFIED',
+      ${loop_state_version}, '${loop_state_hash}', now() - interval '1 second', now() - interval '1 second')" >/dev/null
+loop_execute="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/agent-tasks/${loop_task_id}:execute" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-agent-action-loop-execute-001')"
+loop_state="$(printf '%s' "$loop_execute" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+for _ in $(seq 1 40); do
+  if [[ "$loop_state" = "FAILED" ]]; then break; fi
+  sleep 0.25
+  loop_execute="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/agent-tasks/${loop_task_id}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  loop_state="$(printf '%s' "$loop_execute" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+done
+test "$loop_state" = "FAILED"
+printf '%s' "$loop_execute" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["lastError"] == "AGENT_ACTION_LOOP_DETECTED"; assert task["recoveryGuidance"]["directive"] == "TERMINAL"'
+loop_attempt_evidence="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select string_agg(status || ':' || consecutive_count, ',' order by created_at, attempt_id) from agent_action_attempts where task_id='${loop_task_id}'")"
+test "$loop_attempt_evidence" = "VERIFIED:1,VERIFIED:2,LOOP_BLOCKED:3"
+loop_capability_uses="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from tool_capability_uses where task_id='${loop_task_id}' and tool_id='CLICK_TARGET'")"
+test "$loop_capability_uses" = "0"
+printf 'agent_action_loop_detection=true\n'
 extended_action_snapshot="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
   -H 'X-Tenant-Id: tenant-integration' \

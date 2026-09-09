@@ -25,16 +25,19 @@ public class AgentNavigationToolService {
   private final ToolCapabilityUseJpaRepository capabilityUses;
   private final AgentCapabilityTokenService capabilityTokens;
   private final NodeCommandGateway nodeCommandGateway;
+  private final AgentActionAttemptService actionAttempts;
 
   public AgentNavigationToolService(
       BrowserStateRepository stateRepository,
       ToolCapabilityUseJpaRepository capabilityUses,
       AgentCapabilityTokenService capabilityTokens,
-      NodeCommandGateway nodeCommandGateway) {
+      NodeCommandGateway nodeCommandGateway,
+      AgentActionAttemptService actionAttempts) {
     this.stateRepository = stateRepository;
     this.capabilityUses = capabilityUses;
     this.capabilityTokens = capabilityTokens;
     this.nodeCommandGateway = nodeCommandGateway;
+    this.actionAttempts = actionAttempts;
   }
 
   public PendingNavigation authorizeAndQueue(
@@ -51,6 +54,15 @@ public class AgentNavigationToolService {
       throw new NavigationToolException("NAVIGATION_STEP_INVALID");
     }
     var targetDomain = domainOf(step.targetUrl());
+    var state =
+        stateRepository
+            .find(session.sessionId())
+            .filter(snapshot -> snapshot.tenantId().equals(tenantId))
+            .filter(snapshot -> snapshot.contextEpoch() == session.contextEpoch())
+            .map(BrowserStateRepository.Snapshot::state)
+            .orElse(null);
+    var baseStateVersion = state == null ? 0L : state.stateVersion();
+    var baseContentHash = state == null ? "" : state.stateHash();
     var claims =
         capabilityTokens.verify(
             step.capabilityToken(),
@@ -62,23 +74,30 @@ public class AgentNavigationToolService {
             targetDomain,
             "NAVIGATION",
             now);
-    if (capabilityUses.claim(
-            claims.tokenId(), tenantId, session.sessionId(), taskId, ToolId.NAVIGATE.name(), now)
-        != 1) {
-      throw new NavigationToolException("CAPABILITY_TOKEN_REPLAYED");
+    var attempt =
+        actionAttempts.reserve(
+            tenantId,
+            session.sessionId(),
+            taskId,
+            operation.operationId(),
+            step,
+            baseStateVersion,
+            baseContentHash,
+            now);
+    try {
+      if (capabilityUses.claim(
+              claims.tokenId(), tenantId, session.sessionId(), taskId, ToolId.NAVIGATE.name(), now)
+          != 1) {
+        throw new NavigationToolException("CAPABILITY_TOKEN_REPLAYED");
+      }
+      nodeCommandGateway.send(
+          NodeCommands.agentNavigate(
+              session, operation, taskId, step.stepId(), step.targetUrl(), baseStateVersion));
+      actionAttempts.dispatched(attempt);
+    } catch (RuntimeException exception) {
+      actionAttempts.abandoned(attempt, exception.getMessage(), Instant.now());
+      throw exception;
     }
-    var state =
-        stateRepository
-            .find(session.sessionId())
-            .filter(snapshot -> snapshot.tenantId().equals(tenantId))
-            .filter(snapshot -> snapshot.contextEpoch() == session.contextEpoch())
-            .map(BrowserStateRepository.Snapshot::state)
-            .orElse(null);
-    var baseStateVersion = state == null ? 0L : state.stateVersion();
-    var baseContentHash = state == null ? "" : state.stateHash();
-    nodeCommandGateway.send(
-        NodeCommands.agentNavigate(
-            session, operation, taskId, step.stepId(), step.targetUrl(), baseStateVersion));
     return new PendingNavigation(
         baseStateVersion, baseContentHash, now.plus(COLLABORATIVE_INPUT_WAIT));
   }

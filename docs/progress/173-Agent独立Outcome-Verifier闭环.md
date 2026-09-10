@@ -45,6 +45,11 @@ Revision 不匹配都 fail-closed。失败可按有界退避重试，过期租�
   `BUSINESS_ERROR_VISIBLE`，Task 与等待 Job 最终均为 `FAILED`；同轮继续通过高级动作、Dialog、
   Evaluate、截图、文件、恢复、Profile、资源和持久 Session 全链。
 
+实现提交 `1ec2202` 推送后的首次 GitHub `ci` run `34466982871` 在代码、契约与测试完成后，
+被当天更新的 Trivy 数据库发现 Terraform Provider 间接依赖 gRPC-Go `v1.83.1` 命中
+`CVE-2026-84445`；修复版本为 `v1.83.2`。依赖已升级并由 Go race test、vet 和供应链发布检查
+复验，未豁免或忽略该漏洞；后续 GitHub 复跑结果以最新提交为准。
+
 ## 边界
 
 - A11 独立语义审核已关闭，但当前 Task 仍只提供自然语言 Goal；A04 所需的结构化 Expected

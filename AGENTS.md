@@ -376,7 +376,9 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   已同步至 245 Operations / 334 Schemas；完整 Integration 输出
   `agent_task_outcome_verification=true` 并覆盖真实三 Worker 正向链及假成功拒绝；Java 528 项、
   Web 140 项、Worker 24 项、完整 `make ci`、Desktop test/lint/unsigned build 均通过。
-  A11 仓库内代码项关闭；A04 的结构化 Expected Outcome 契约和目标模型生产准入仍独立待完成。
+  首次 GitHub CI 由新披露 `CVE-2026-84445` 阻断，Terraform Provider 的 gRPC-Go 已从
+  `v1.83.1` 升至修复版 `v1.83.2` 并通过 race/vet/供应链检查，未增加豁免。A11 仓库内代码项
+  关闭；A04 的结构化 Expected Outcome 契约和目标模型生产准入仍独立待完成。
 
 - progress 172：V116 将 Browser State、可变 Task State 与 append-only Execution History 分离；
   持久历史只保存规范化语义哈希、状态/验证/结果哈希、稳定原因和可选 State Version，不复制

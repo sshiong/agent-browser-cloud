@@ -48,7 +48,9 @@ Revision 不匹配都 fail-closed。失败可按有界退避重试，过期租�
 实现提交 `1ec2202` 推送后的首次 GitHub `ci` run `34466982871` 在代码、契约与测试完成后，
 被当天更新的 Trivy 数据库发现 Terraform Provider 间接依赖 gRPC-Go `v1.83.1` 命中
 `CVE-2026-84445`；修复版本为 `v1.83.2`。依赖已升级并由 Go race test、vet 和供应链发布检查
-复验，未豁免或忽略该漏洞；后续 GitHub 复跑结果以最新提交为准。
+复验，未豁免或忽略该漏洞。安全修复提交 `61f4a76` 已推送；GitHub `ci` run
+`34467992718`（含最新 Trivy、供应链、完整 Integration、Object Storage/Recording GameDay
+与 Kubernetes Operator E2E）和 `desktop` run `34467992747`（Windows/macOS）均成功。
 
 ## 边界
 

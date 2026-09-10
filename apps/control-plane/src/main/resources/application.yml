@@ -100,6 +100,21 @@ agent:
       claim-lease-seconds: ${AGENT_REVIEWER_CLAIM_LEASE_SECONDS:90}
       reaper-interval-ms: ${AGENT_REVIEWER_REAPER_INTERVAL_MS:15000}
       maximum-attempts: ${AGENT_REVIEWER_MAXIMUM_ATTEMPTS:3}
+  outcome-verifier:
+    minimum-confidence: ${AGENT_OUTCOME_VERIFIER_MINIMUM_CONFIDENCE:0.80}
+    deployment-id: ${AGENT_OUTCOME_VERIFIER_DEPLOYMENT_ID:outcome-local-v1}
+    provider-type: ${AGENT_OUTCOME_VERIFIER_PROVIDER_TYPE:OPENAI_RESPONSES}
+    model-name: ${AGENT_OUTCOME_VERIFIER_MODEL_NAME:outcome-local}
+    model-revision: ${AGENT_OUTCOME_VERIFIER_MODEL_REVISION:local-v1}
+    data-policy: ${AGENT_OUTCOME_VERIFIER_DATA_POLICY:REDACTED_FINAL_STATE}
+    maximum-output-tokens: ${AGENT_OUTCOME_VERIFIER_MAXIMUM_OUTPUT_TOKENS:512}
+    input-price-micros-per-million-tokens: ${AGENT_OUTCOME_VERIFIER_INPUT_PRICE_MICROS_PER_MTOK:0}
+    output-price-micros-per-million-tokens: ${AGENT_OUTCOME_VERIFIER_OUTPUT_PRICE_MICROS_PER_MTOK:0}
+    external:
+      enabled: ${AGENT_OUTCOME_VERIFIER_EXTERNAL_ENABLED:false}
+      claim-lease-seconds: ${AGENT_OUTCOME_VERIFIER_CLAIM_LEASE_SECONDS:90}
+      reaper-interval-ms: ${AGENT_OUTCOME_VERIFIER_REAPER_INTERVAL_MS:15000}
+      maximum-attempts: ${AGENT_OUTCOME_VERIFIER_MAXIMUM_ATTEMPTS:3}
 
 proxy:
   allow-direct: ${PROXY_ALLOW_DIRECT:false}

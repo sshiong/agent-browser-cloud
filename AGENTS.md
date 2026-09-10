@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **240 Operations / 322 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **245 Operations / 334 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -368,13 +368,24 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 
 ## 7. 当前正在处理的任务
 
+- progress 173：动作技术成功后先进入持久 `VERIFYING_OUTCOME`，独立
+  `OUTCOME_VERIFIER_WORKER` 以 Task Goal、最小化执行证据和新鲜、完整、稳定的最终结构化状态
+  作语义判定；V117 增加独立 Job/Event 账本、租约/Claim Epoch/模型版本/State 与 Target
+  精确围栏、失败重试和成本审计。`NOT_VERIFIED` 会以 `AGENT_OUTCOME_NOT_VERIFIED` 同时终止
+  Task 与等待中的 Agent Worker Job，不再把动作 ACK 冒充业务成功。API/四 SDK/Web/Tauri
+  已同步至 245 Operations / 334 Schemas；完整 Integration 输出
+  `agent_task_outcome_verification=true` 并覆盖真实三 Worker 正向链及假成功拒绝；Java 528 项、
+  Web 140 项、Worker 24 项、完整 `make ci`、Desktop test/lint/unsigned build 均通过。
+  A11 仓库内代码项关闭；A04 的结构化 Expected Outcome 契约和目标模型生产准入仍独立待完成。
+
 - progress 172：V116 将 Browser State、可变 Task State 与 append-only Execution History 分离；
   持久历史只保存规范化语义哈希、状态/验证/结果哈希、稳定原因和可选 State Version，不复制
   正文、Secret、Capability、工具输出或 Browser State JSON。API/四 SDK/Web/Tauri 已同步至
   240 Operations / 322 Schemas；完整 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已
   输出 `agent_task_structured_memory=true`；Java 525 项、Web 140 项、完整 `make ci`、Desktop
   test/lint/unsigned build 均通过。实现提交 `42f9901` 已推送，GitHub CI `34317007418` 与
-  Desktop `34317007425` 均成功。A10 已关闭，但不得冒充 A04/A11 的业务 Outcome 证明。
+  Desktop `34317007425` 均成功。A10 已关闭；它本身不证明业务 Outcome，A11 后由
+  progress 173 关闭，A04 仍待完成。
 
 - progress 171：V115 新增不含正文、Secret 或 Capability 的 Agent Action Attempt 哈希账本；
   规范化动作签名绑定执行前权威 State Hash，同一 Task/State 的第三次相同动作在 Capability 消费
@@ -383,7 +394,8 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过。首次 GitHub CI 的 A09 场景通过，
   随后既有 PAGE_ACTION 在冷 Runner 上连续命中合法 State Stale；夹具已要求稳定 Cursor 后提交
   并保留有界重试，未放宽生产围栏。修复提交 `8970047` 已推送，GitHub CI `34311805818` 与
-  Desktop `34311805802` 均成功。A09 已关闭；A04/A11 Outcome 与 A20 组合稳定性不得据此冒充完成。
+  Desktop `34311805802` 均成功。A09 已关闭；它本身不证明业务 Outcome，A11 后由
+  progress 173 关闭，A04 与 A20 仍待完成。
 
 - progress 170：V114 单独保存控制面接收最后权威 Browser State 样本的时间；API/四 SDK
   增加 age/freshness/pageActivity，STALE 状态禁止结构化规划，Web/Tauri 显示样本年龄与页面

@@ -1,5 +1,6 @@
 package io.browsercloud.api;
 
+import io.browsercloud.api.AgentOutcomeVerifierModels.AgentOutcomeVerificationView;
 import io.browsercloud.api.AgentReviewerModels.AgentReviewView;
 import io.browsercloud.domain.agent.AgentModels.ActionDataClass;
 import io.browsercloud.domain.agent.AgentModels.ExecutionStrategy;
@@ -32,6 +33,7 @@ public record AgentTaskView(
     HumanHandoffView humanHandoff,
     String challengeEventId,
     AgentReviewView review,
+    AgentOutcomeVerificationView outcomeVerification,
     List<String> allowedDomains,
     PlanView plan,
     String operationId,

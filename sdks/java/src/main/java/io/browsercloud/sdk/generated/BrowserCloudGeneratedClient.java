@@ -153,6 +153,11 @@ public final class BrowserCloudGeneratedClient {
     operation("heartbeatAgentReviewJob", "POST", "/api/v1/agent-review-jobs/{jobId}:heartbeat", List.of("jobId"), List.of(), List.of(), "AgentReviewJobClaimRequest", true, "AgentReviewJob"),
     operation("completeAgentReviewJob", "POST", "/api/v1/agent-review-jobs/{jobId}:complete", List.of("jobId"), List.of(), List.of(), "CompleteAgentReviewJobRequest", true, "AgentReviewJob"),
     operation("failAgentReviewJob", "POST", "/api/v1/agent-review-jobs/{jobId}:fail", List.of("jobId"), List.of(), List.of(), "FailAgentReviewJobRequest", true, "AgentReviewJob"),
+    operation("claimAgentOutcomeJob", "POST", "/api/v1/agent-outcome-jobs:claim", List.of(), List.of(), List.of(), "ClaimAgentOutcomeJobRequest", true, "AgentOutcomeJobClaim"),
+    operation("startAgentOutcomeJob", "POST", "/api/v1/agent-outcome-jobs/{jobId}:start", List.of("jobId"), List.of(), List.of(), "AgentOutcomeJobClaimRequest", true, "AgentOutcomeJob"),
+    operation("heartbeatAgentOutcomeJob", "POST", "/api/v1/agent-outcome-jobs/{jobId}:heartbeat", List.of("jobId"), List.of(), List.of(), "AgentOutcomeJobClaimRequest", true, "AgentOutcomeJob"),
+    operation("completeAgentOutcomeJob", "POST", "/api/v1/agent-outcome-jobs/{jobId}:complete", List.of("jobId"), List.of(), List.of(), "CompleteAgentOutcomeJobRequest", true, "AgentOutcomeJob"),
+    operation("failAgentOutcomeJob", "POST", "/api/v1/agent-outcome-jobs/{jobId}:fail", List.of("jobId"), List.of(), List.of(), "FailAgentOutcomeJobRequest", true, "AgentOutcomeJob"),
     operation("claimChallengeVisualJob", "POST", "/api/v1/challenge-visual-jobs:claim", List.of(), List.of(), List.of(), "ClaimChallengeVisualJobRequest", true, "ChallengeVisualJobClaim"),
     operation("startChallengeVisualJob", "POST", "/api/v1/challenge-visual-jobs/{jobId}:start", List.of("jobId"), List.of(), List.of(), "ChallengeVisualJobClaimRequest", true, "ChallengeVisualJob"),
     operation("heartbeatChallengeVisualJob", "POST", "/api/v1/challenge-visual-jobs/{jobId}:heartbeat", List.of("jobId"), List.of(), List.of(), "ChallengeVisualJobClaimRequest", true, "ChallengeVisualJob"),
@@ -425,6 +430,11 @@ public final class BrowserCloudGeneratedClient {
   public Response heartbeatAgentReviewJob(Request request) { return call("heartbeatAgentReviewJob", request); }
   public Response completeAgentReviewJob(Request request) { return call("completeAgentReviewJob", request); }
   public Response failAgentReviewJob(Request request) { return call("failAgentReviewJob", request); }
+  public Response claimAgentOutcomeJob(Request request) { return call("claimAgentOutcomeJob", request); }
+  public Response startAgentOutcomeJob(Request request) { return call("startAgentOutcomeJob", request); }
+  public Response heartbeatAgentOutcomeJob(Request request) { return call("heartbeatAgentOutcomeJob", request); }
+  public Response completeAgentOutcomeJob(Request request) { return call("completeAgentOutcomeJob", request); }
+  public Response failAgentOutcomeJob(Request request) { return call("failAgentOutcomeJob", request); }
   public Response claimChallengeVisualJob(Request request) { return call("claimChallengeVisualJob", request); }
   public Response startChallengeVisualJob(Request request) { return call("startChallengeVisualJob", request); }
   public Response heartbeatChallengeVisualJob(Request request) { return call("heartbeatChallengeVisualJob", request); }

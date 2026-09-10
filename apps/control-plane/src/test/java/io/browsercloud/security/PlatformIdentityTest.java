@@ -115,4 +115,29 @@ class PlatformIdentityTest {
                 "platform-control", "reviewer-worker-local", Set.of("REVIEWER_WORKER")));
     assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
   }
+
+  @Test
+  void localFilterAcceptsTheDedicatedOutcomeVerifierWorkerRole() throws Exception {
+    var filter = new LocalHeaderAuthenticationFilter();
+    var request = new MockHttpServletRequest("POST", "/api/v1/agent-outcome-jobs:claim");
+    request.addHeader("X-Tenant-Id", "platform-control");
+    request.addHeader("X-Actor-Id", "outcome-worker-local");
+    request.addHeader("X-Roles", "OUTCOME_VERIFIER_WORKER");
+    var response = new MockHttpServletResponse();
+    var captured = new PlatformPrincipal[1];
+
+    filter.doFilter(
+        request,
+        response,
+        (ignoredRequest, ignoredResponse) ->
+            captured[0] =
+                (PlatformPrincipal)
+                    SecurityContextHolder.getContext().getAuthentication().getPrincipal());
+
+    assertThat(captured[0])
+        .isEqualTo(
+            new PlatformPrincipal(
+                "platform-control", "outcome-worker-local", Set.of("OUTCOME_VERIFIER_WORKER")));
+    assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+  }
 }

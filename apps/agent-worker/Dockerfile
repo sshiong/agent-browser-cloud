@@ -6,6 +6,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY agent_worker.py /app/agent_worker.py
 COPY reviewer_worker.py /app/reviewer_worker.py
+COPY outcome_verifier_worker.py /app/outcome_verifier_worker.py
 COPY vision_worker.py /app/vision_worker.py
 USER 65532:65532
 ENTRYPOINT ["/usr/bin/tini", "--", "python", "/app/agent_worker.py"]

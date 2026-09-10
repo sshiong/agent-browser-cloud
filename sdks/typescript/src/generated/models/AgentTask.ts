@@ -5,6 +5,7 @@
 import type { AgentConfirmation } from './AgentConfirmation.js';
 import type { AgentExecutionWait } from './AgentExecutionWait.js';
 import type { AgentHumanHandoff } from './AgentHumanHandoff.js';
+import type { AgentOutcomeVerification } from './AgentOutcomeVerification.js';
 import type { AgentPlan } from './AgentPlan.js';
 import type { AgentPolicy } from './AgentPolicy.js';
 import type { AgentRecoveryGuidance } from './AgentRecoveryGuidance.js';
@@ -21,7 +22,7 @@ export type AgentTask = {
      * Data-minimized goal; secrets, email and phone patterns are redacted.
      */
     goal: string;
-    state: 'PLANNED' | 'QUEUED' | 'AWAITING_REVIEW' | 'AWAITING_CONFIRMATION' | 'BLOCKED' | 'RUNNING' | 'WAITING_FOR_HUMAN' | 'PAUSED_BY_RESOURCE_POLICY' | 'COMPLETED' | 'FAILED';
+    state: 'PLANNED' | 'QUEUED' | 'AWAITING_REVIEW' | 'AWAITING_CONFIRMATION' | 'BLOCKED' | 'RUNNING' | 'VERIFYING_OUTCOME' | 'WAITING_FOR_HUMAN' | 'PAUSED_BY_RESOURCE_POLICY' | 'COMPLETED' | 'FAILED';
     riskClass: AgentRiskClass;
     intentDecision: 'ALLOWED' | 'CONFIRM_REQUIRED' | 'FORBIDDEN';
     blockedReason: string | null;
@@ -47,6 +48,10 @@ export type AgentTask = {
      * Reviewer evidence. Older Control Planes may omit it during rolling upgrades.
      */
     review?: AgentReview;
+    /**
+     * Independent post-execution semantic outcome evidence. Older Control Planes may omit it during rolling upgrades.
+     */
+    outcomeVerification?: AgentOutcomeVerification;
     allowedDomains: Array<string>;
     plan: AgentPlan;
     operationId: string | null;

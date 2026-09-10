@@ -78,7 +78,7 @@ public class WorkspaceOverviewApplicationService {
               SELECT
                 count(*) FILTER (
                   WHERE state IN (
-                    'PLANNED', 'QUEUED', 'AWAITING_REVIEW', 'RUNNING', 'AWAITING_CONFIRMATION',
+                    'PLANNED', 'QUEUED', 'AWAITING_REVIEW', 'RUNNING', 'VERIFYING_OUTCOME', 'AWAITING_CONFIRMATION',
                     'WAITING_FOR_HUMAN', 'PAUSED_BY_RESOURCE_POLICY'
                   )
                 ) AS agent_active,

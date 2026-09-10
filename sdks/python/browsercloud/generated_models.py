@@ -234,7 +234,7 @@ class AgentTaskSummary(TypedDict, total=False):
     taskId: str
     sessionId: str
     goal: str
-    state: Literal['PLANNED', 'QUEUED', 'AWAITING_REVIEW', 'AWAITING_CONFIRMATION', 'BLOCKED', 'RUNNING', 'WAITING_FOR_HUMAN', 'PAUSED_BY_RESOURCE_POLICY', 'COMPLETED', 'FAILED']
+    state: Literal['PLANNED', 'QUEUED', 'AWAITING_REVIEW', 'AWAITING_CONFIRMATION', 'BLOCKED', 'RUNNING', 'VERIFYING_OUTCOME', 'WAITING_FOR_HUMAN', 'PAUSED_BY_RESOURCE_POLICY', 'COMPLETED', 'FAILED']
     riskClass: Literal['R0_READ_ONLY', 'R1_LOW_RISK_CHANGE', 'R2_DATA_CHANGE', 'R3_ACCOUNT_CHANGE', 'R4_FINANCIAL', 'R5_SECURITY']
     intentDecision: Literal['ALLOWED', 'CONFIRM_REQUIRED', 'FORBIDDEN']
     blockedReason: Any
@@ -446,7 +446,7 @@ class AgentTask(TypedDict, total=False):
     taskId: str
     sessionId: str
     goal: str
-    state: Literal['PLANNED', 'QUEUED', 'AWAITING_REVIEW', 'AWAITING_CONFIRMATION', 'BLOCKED', 'RUNNING', 'WAITING_FOR_HUMAN', 'PAUSED_BY_RESOURCE_POLICY', 'COMPLETED', 'FAILED']
+    state: Literal['PLANNED', 'QUEUED', 'AWAITING_REVIEW', 'AWAITING_CONFIRMATION', 'BLOCKED', 'RUNNING', 'VERIFYING_OUTCOME', 'WAITING_FOR_HUMAN', 'PAUSED_BY_RESOURCE_POLICY', 'COMPLETED', 'FAILED']
     riskClass: AgentRiskClass
     intentDecision: Literal['ALLOWED', 'CONFIRM_REQUIRED', 'FORBIDDEN']
     blockedReason: Any
@@ -460,6 +460,7 @@ class AgentTask(TypedDict, total=False):
     humanHandoff: AgentHumanHandoff
     challengeEventId: Any
     review: AgentReview
+    outcomeVerification: AgentOutcomeVerification
     allowedDomains: list[str]
     plan: AgentPlan
     operationId: Any
@@ -631,6 +632,133 @@ class AgentReview(TypedDict, total=False):
     decision: Literal['APPROVE', 'REJECT', None]
     reasonCodes: list[str]
     planHash: Any
+    deploymentId: Any
+    modelName: Any
+    modelRevision: Any
+    inputTokens: Any
+    outputTokens: Any
+    costMicros: Any
+    latencyMs: Any
+    failureCode: Any
+    completedAt: Any
+
+class ClaimAgentOutcomeJobRequest(TypedDict, total=False):
+    protocolVersion: str
+    capabilities: dict[str, bool]
+    deploymentId: str
+    modelRevision: str
+
+class AgentOutcomeJobClaimRequest(TypedDict, total=False):
+    claimToken: str
+
+class CompleteAgentOutcomeJobRequest(TypedDict, total=False):
+    claimToken: str
+    decision: Literal['VERIFIED', 'NOT_VERIFIED']
+    reasonCodes: list[Literal['GOAL_SATISFIED', 'GOAL_NOT_SATISFIED', 'BUSINESS_ERROR_VISIBLE', 'EXPECTED_STATE_MISSING', 'WRONG_TARGET_OUTCOME', 'STATE_STALE', 'STATE_INCOMPLETE', 'INSUFFICIENT_EVIDENCE', 'MODEL_UNCERTAIN']]
+    confidence: float
+    deploymentId: str
+    modelRevision: str
+    providerRequestId: Any
+    inputTokens: int
+    outputTokens: int
+    latencyMs: int
+    outputHash: str
+
+class FailAgentOutcomeJobRequest(TypedDict, total=False):
+    claimToken: str
+    failureCode: str
+    retryable: bool
+
+class OutcomeExecutionEvidence(TypedDict, total=False):
+    stepOrdinal: int
+    stepId: str
+    toolId: str
+    status: str
+    resultHash: str
+    verification: str
+
+class OutcomeTargetEvidence(TypedDict, total=False):
+    role: str
+    name: str
+    controlType: str
+    visible: bool
+    enabled: bool
+    checked: Any
+    selected: Any
+
+class OutcomeStateEvidence(TypedDict, total=False):
+    stateVersion: int
+    targetRevision: int
+    stateHash: str
+    url: str
+    title: str
+    stateQuality: str
+    documentReadyState: str
+    networkQuietMillis: int
+    networkEvidenceFresh: bool
+    observedAt: str
+    targets: list[OutcomeTargetEvidence]
+
+class AgentOutcomePayload(TypedDict, total=False):
+    taskId: str
+    goal: str
+    riskClass: AgentRiskClass
+    allowedDomains: list[str]
+    executionEvidence: list[OutcomeExecutionEvidence]
+    finalState: OutcomeStateEvidence
+    evidenceHash: str
+    dataPolicy: str
+
+class OutcomeModelDeployment(TypedDict, total=False):
+    deploymentId: str
+    providerType: Literal['OPENAI_RESPONSES']
+    modelName: str
+    modelRevision: str
+    dataPolicy: str
+    maximumOutputTokens: int
+
+class AgentOutcomeJob(TypedDict, total=False):
+    jobId: str
+    verificationId: str
+    taskId: str
+    protocolVersion: str
+    state: Literal['QUEUED', 'CLAIMED', 'EXECUTING', 'VERIFIED', 'NOT_VERIFIED', 'FAILED']
+    attempt: int
+    maximumAttempts: int
+    workerId: Any
+    claimEpoch: int
+    leaseExpiresAt: Any
+    availableAt: str
+    deployment: OutcomeModelDeployment
+    decision: Literal['VERIFIED', 'NOT_VERIFIED', None]
+    reasonCodes: list[str]
+    confidence: Any
+    evidenceHash: str
+    inputHash: str
+    outputHash: Any
+    providerRequestId: Any
+    inputTokens: Any
+    outputTokens: Any
+    costMicros: Any
+    latencyMs: Any
+    startedAt: Any
+    completedAt: Any
+    failureCode: Any
+    updatedAt: str
+
+class AgentOutcomeJobClaim(TypedDict, total=False):
+    claimToken: str
+    job: AgentOutcomeJob
+    outcomePayload: AgentOutcomePayload
+    leaseExpiresAt: str
+    claimEpoch: int
+
+class AgentOutcomeVerification(TypedDict, total=False):
+    verificationId: Any
+    status: Literal['NOT_REQUIRED', 'QUEUED', 'IN_REVIEW', 'VERIFIED', 'NOT_VERIFIED', 'FAILED']
+    decision: Literal['VERIFIED', 'NOT_VERIFIED', None]
+    reasonCodes: list[str]
+    evidenceHash: Any
     deploymentId: Any
     modelName: Any
     modelRevision: Any
@@ -3094,4 +3222,4 @@ class Error(TypedDict, total=False):
     requestId: str
     timestamp: str
 
-__all__ = ['WorkspaceOverview', 'WorkspaceSessionSummary', 'WorkspaceOperationSummary', 'WorkspaceBrowserNodeSummary', 'WorkspaceProxySummary', 'WorkspaceAgentSummary', 'WorkspaceCostSummary', 'WorkspaceSecuritySummary', 'SearchResourceType', 'GlobalSearchResult', 'GlobalSearchResponse', 'NotificationCategory', 'NotificationSeverity', 'WorkspaceNotification', 'WorkspaceNotificationListResponse', 'UpdateNotificationReadCursorRequest', 'WorkspaceNotificationReadState', 'ThemeMode', 'UpdateUserPreferencesRequest', 'UserPreferences', 'TenantRoute', 'RequestTenantRouteMigration', 'TenantRouteMigration', 'CreateAgentTaskRequest', 'AgentActionRequest', 'AgentBatchActionRequest', 'AgentInstructionSource', 'AgentTaskListResponse', 'AgentTaskSummaryListResponse', 'AgentTaskSummaryMetrics', 'AgentTaskSummary', 'ChallengeAutomationPolicy', 'UpdateChallengeAutomationPolicyRequest', 'CreateAgentInputSecretRequest', 'AgentInputSecret', 'ChallengeAutomationRun', 'ClaimChallengeVisualJobRequest', 'ChallengeVisualJobClaimRequest', 'ChallengeVisualAction', 'CompleteChallengeVisualJobRequest', 'FailChallengeVisualJobRequest', 'ChallengeVisualJob', 'ChallengeVisualJobClaim', 'ChallengeRegion', 'ChallengeEvent', 'ChallengeEventListResponse', 'ChallengePreview', 'AuthorizeHumanAssistRequest', 'HumanAssistIntent', 'SubmitChallengeInputResponseRequest', 'ChallengeInputResponse', 'AgentTask', 'AgentRecoveryGuidance', 'AgentTaskMemory', 'AgentExecutionMemoryEvent', 'ClaimAgentExecutionJobRequest', 'AgentExecutionJobClaimRequest', 'FailAgentExecutionJobRequest', 'AgentExecutionJob', 'AgentExecutionJobClaim', 'ClaimAgentReviewJobRequest', 'AgentReviewJobClaimRequest', 'CompleteAgentReviewJobRequest', 'FailAgentReviewJobRequest', 'AgentReviewStep', 'AgentReviewPayload', 'ReviewerModelDeployment', 'AgentReviewJob', 'AgentReviewJobClaim', 'AgentReview', 'AgentStepExecution', 'AgentExecutionWait', 'AgentConfirmation', 'AgentHumanHandoff', 'AgentPlan', 'AgentPlanStep', 'AgentStepInput', 'AgentBatchActionInput', 'AgentRiskClass', 'AgentPolicy', 'AgentToolExecutionResult', 'PromptSecurityEvent', 'CreateProfileRequest', 'CreateProfileExportGrantRequest', 'ProfileExportPurpose', 'ProfileExportGrant', 'RedeemProfileExportResponse', 'Profile', 'ProfileListResponse', 'ProfileWarmTierStatus', 'ProfileImport', 'ProfileImportListResponse', 'ProxyProvider', 'ProxyAllocation', 'ProxyOverview', 'ProxyBindingHealth', 'ProxyBindingRequest', 'ProxyBinding', 'ProxyBindingList', 'ProxyRoutingCandidateScore', 'ProxyRoutingDecision', 'ProxyRebindRequest', 'ProxyRebindOperation', 'ProxyRebind', 'SessionState', 'ResourceTemplate', 'RegisterBrowserNodeRequest', 'RecordNodePressureRequest', 'BrowserNode', 'BrowserNodeListResponse', 'UpsertExtensionProfileRequest', 'ExtensionProfile', 'RecordExtensionSampleRequest', 'ExtensionProfileListResponse', 'BrowserPlacement', 'BrowserState', 'UploadAgentBrowserFileRequest', 'AgentBrowserFileUpload', 'AgentBrowserDownload', 'AgentBrowserDownloadList', 'AgentBrowserEvaluationMode', 'CreateAgentBrowserEvaluationRequest', 'AgentBrowserEvaluation', 'AgentBrowserScreenshotMode', 'AgentBrowserScreenshotRegion', 'CaptureAgentBrowserScreenshotRequest', 'AgentBrowserScreenshot', 'AgentBrowserSnapshot', 'AgentBrowserTab', 'AgentBrowserNativeDialog', 'AgentBrowserInspectRequest', 'AgentBrowserFindRequest', 'AgentBrowserTargetList', 'StateResyncRequest', 'StateResyncResponse', 'InteractiveTarget', 'TargetBounds', 'RecoveryTargetIndicator', 'ProviderEvidenceRequirement', 'UpsertRecoveryContractRequest', 'RecoveryContract', 'RecoveryContractListResponse', 'RecoveryContractRevisionListResponse', 'RecoveryContractFieldChange', 'RecoveryContractDiff', 'RestoreRecoveryContractRevisionRequest', 'RequestRecoveryContractApprovalRequest', 'RecoveryContractApproval', 'SessionApplicationBinding', 'RebindSessionApplicationRequest', 'SessionApplicationRebind', 'BusinessRecoveryValidation', 'SubmitProviderEvidenceRequest', 'ProviderEvidence', 'ProviderEvidenceListResponse', 'ExecuteAgentBrowserActionsRequest', 'AgentClipboard', 'WriteAgentClipboardRequest', 'CreateAgentClipboardBridgeRequest', 'CompleteAgentClipboardBridgeRequest', 'AgentClipboardBridge', 'SessionIdentitySpecInput', 'SessionIdentitySpec', 'CreateSessionIdentityChangeRequest', 'SessionIdentityChangeRequest', 'CreateSessionRequest', 'CreateSessionResponse', 'UpdateSessionRequest', 'BatchDeleteSessionsRequest', 'BatchDeleteSessionsResponse', 'ResourcePolicyRequest', 'ResourcePolicy', 'ExecutionEnvironment', 'MaximumReachedPolicy', 'ResourcePolicyStatus', 'ResourceAdjustment', 'SessionResource', 'ResourceEventList', 'Evidence', 'EvidenceList', 'Recording', 'RecordingList', 'EvidencePurpose', 'CaptureEvidenceRequest', 'EvidenceCapture', 'CreateEvidenceAccessGrantRequest', 'EvidenceAccessGrant', 'RedeemEvidenceAccessResponse', 'SessionSafePoint', 'SafePointBlocker', 'CreateSafetyLeaseRequest', 'RenewSafetyLeaseRequest', 'SafetyLease', 'SafetyLeaseList', 'SessionMigration', 'BusinessRecoveryAction', 'ResourcePolicyOperation', 'SessionContext', 'SessionView', 'EnvironmentSavedViewScope', 'EnvironmentPrimaryView', 'EnvironmentSavedViewTagMatch', 'CreateEnvironmentSavedViewRequest', 'UpdateEnvironmentSavedViewRequest', 'EnvironmentSavedView', 'EnvironmentSavedViewListResponse', 'EnvironmentImportState', 'EnvironmentImportValidationState', 'EnvironmentImportExecutionState', 'EnvironmentImportSpec', 'PreviewEnvironmentImportRequest', 'CommitEnvironmentImportRequest', 'EnvironmentImportItem', 'EnvironmentImport', 'EnvironmentImportListItem', 'EnvironmentImportListResponse', 'WorkspaceGroupRequest', 'WorkspaceGroupSession', 'WorkspaceGroup', 'WorkspaceGroupListResponse', 'WorkspaceTagRequest', 'WorkspaceTagSummary', 'WorkspaceTagSession', 'WorkspaceTag', 'WorkspaceTagListResponse', 'WorkspaceBatchAction', 'WorkspaceBatchState', 'WorkspaceBatchItemState', 'WorkspaceBatchSelector', 'CreateWorkspaceBatchOperationRequest', 'CancelWorkspaceBatchOperationRequest', 'WorkspaceBatchOperationItem', 'WorkspaceBatchOperation', 'WorkspaceBatchOperationListResponse', 'WorkspaceMetadataBatchAction', 'WorkspaceMetadataBatchSelector', 'WorkspaceMetadataBatchTarget', 'CreateWorkspaceMetadataBatchOperationRequest', 'WorkspaceMetadataBatchOperationItem', 'WorkspaceMetadataBatchOperation', 'WorkspaceMetadataBatchOperationListResponse', 'WorkspaceSettingsRequest', 'WorkspaceSettings', 'SessionListResponse', 'OperationResponse', 'OperationView', 'RemoteDesktopConnection', 'RemoteDesktopParticipantList', 'RemoteDesktopParticipantHistoryPage', 'RemoteDesktopParticipant', 'AuditEvent', 'AuditEventListResponse', 'RuntimeBuild', 'RuntimeBuildListResponse', 'CreateRuntimeReleaseRequest', 'CreateRuntimeDisableRequest', 'RuntimeReleaseRequest', 'RuntimeReleaseRequestListResponse', 'CreateKeyRotationRequest', 'CompleteKeyRotationRequest', 'KeyRotationRequest', 'KeyRotationRequestListResponse', 'CreateBreakGlassRequest', 'BreakGlassRequest', 'BreakGlassRequestListResponse', 'SecureDebugSession', 'SecureDebugSessionListResponse', 'SecureDebugSnapshot', 'StartRuntimeValidationRequest', 'RuntimeValidationMatrixCellRequest', 'StartRuntimeValidationMatrixRequest', 'CompleteRuntimeValidationRequest', 'RuntimeValidation', 'RuntimeValidationJob', 'ClaimRuntimeValidationJobRequest', 'RuntimeValidationJobClaimRequest', 'RuntimeValidationJobClaim', 'CompleteRuntimeValidationJobRequest', 'FailRuntimeValidationJobRequest', 'CreateCostRateRequest', 'CostRate', 'SessionCostExplanation', 'UpsertMediaQuotaRequest', 'MediaQuota', 'UpsertSloPolicyRequest', 'RecordServiceLevelEventRequest', 'UpsertSlaExclusionRequest', 'SlaExclusion', 'ErrorBudget', 'ReleaseFreeze', 'UpsertRetentionPolicyRequest', 'RetentionPolicy', 'CreateDeletionReceiptRequest', 'DeletionReceipt', 'UpsertLicenseInventoryRequest', 'LicenseInventory', 'AuditExportManifest', 'UpsertRegionRequest', 'EnterpriseRegion', 'StartRecoveryGameDayRequest', 'RecoveryGameDayBlastRadius', 'CompleteRecoveryGameDayRequest', 'ClaimRecoveryGameDayJobRequest', 'RecoveryGameDayJobClaimRequest', 'UpdateRecoveryGameDayStageRequest', 'CompleteRecoveryGameDayJobRequest', 'FailRecoveryGameDayJobRequest', 'RecoveryGameDayJob', 'RecoveryGameDayJobClaim', 'RecoveryGameDay', 'RecoveryGameDayEvent', 'RecoveryGameDayEventPage', 'RecoveryGameDayTrend', 'RecoveryGameDayReportExport', 'UpdateRecoveryGameDayRemediationRequest', 'RecoveryGameDayRemediation', 'ComplianceSnapshot', 'EnterpriseOverview', 'EnterpriseOverviewStreamControl', 'EnterpriseOverviewStreamChange', 'BooleanMap', 'Error']
+__all__ = ['WorkspaceOverview', 'WorkspaceSessionSummary', 'WorkspaceOperationSummary', 'WorkspaceBrowserNodeSummary', 'WorkspaceProxySummary', 'WorkspaceAgentSummary', 'WorkspaceCostSummary', 'WorkspaceSecuritySummary', 'SearchResourceType', 'GlobalSearchResult', 'GlobalSearchResponse', 'NotificationCategory', 'NotificationSeverity', 'WorkspaceNotification', 'WorkspaceNotificationListResponse', 'UpdateNotificationReadCursorRequest', 'WorkspaceNotificationReadState', 'ThemeMode', 'UpdateUserPreferencesRequest', 'UserPreferences', 'TenantRoute', 'RequestTenantRouteMigration', 'TenantRouteMigration', 'CreateAgentTaskRequest', 'AgentActionRequest', 'AgentBatchActionRequest', 'AgentInstructionSource', 'AgentTaskListResponse', 'AgentTaskSummaryListResponse', 'AgentTaskSummaryMetrics', 'AgentTaskSummary', 'ChallengeAutomationPolicy', 'UpdateChallengeAutomationPolicyRequest', 'CreateAgentInputSecretRequest', 'AgentInputSecret', 'ChallengeAutomationRun', 'ClaimChallengeVisualJobRequest', 'ChallengeVisualJobClaimRequest', 'ChallengeVisualAction', 'CompleteChallengeVisualJobRequest', 'FailChallengeVisualJobRequest', 'ChallengeVisualJob', 'ChallengeVisualJobClaim', 'ChallengeRegion', 'ChallengeEvent', 'ChallengeEventListResponse', 'ChallengePreview', 'AuthorizeHumanAssistRequest', 'HumanAssistIntent', 'SubmitChallengeInputResponseRequest', 'ChallengeInputResponse', 'AgentTask', 'AgentRecoveryGuidance', 'AgentTaskMemory', 'AgentExecutionMemoryEvent', 'ClaimAgentExecutionJobRequest', 'AgentExecutionJobClaimRequest', 'FailAgentExecutionJobRequest', 'AgentExecutionJob', 'AgentExecutionJobClaim', 'ClaimAgentReviewJobRequest', 'AgentReviewJobClaimRequest', 'CompleteAgentReviewJobRequest', 'FailAgentReviewJobRequest', 'AgentReviewStep', 'AgentReviewPayload', 'ReviewerModelDeployment', 'AgentReviewJob', 'AgentReviewJobClaim', 'AgentReview', 'ClaimAgentOutcomeJobRequest', 'AgentOutcomeJobClaimRequest', 'CompleteAgentOutcomeJobRequest', 'FailAgentOutcomeJobRequest', 'OutcomeExecutionEvidence', 'OutcomeTargetEvidence', 'OutcomeStateEvidence', 'AgentOutcomePayload', 'OutcomeModelDeployment', 'AgentOutcomeJob', 'AgentOutcomeJobClaim', 'AgentOutcomeVerification', 'AgentStepExecution', 'AgentExecutionWait', 'AgentConfirmation', 'AgentHumanHandoff', 'AgentPlan', 'AgentPlanStep', 'AgentStepInput', 'AgentBatchActionInput', 'AgentRiskClass', 'AgentPolicy', 'AgentToolExecutionResult', 'PromptSecurityEvent', 'CreateProfileRequest', 'CreateProfileExportGrantRequest', 'ProfileExportPurpose', 'ProfileExportGrant', 'RedeemProfileExportResponse', 'Profile', 'ProfileListResponse', 'ProfileWarmTierStatus', 'ProfileImport', 'ProfileImportListResponse', 'ProxyProvider', 'ProxyAllocation', 'ProxyOverview', 'ProxyBindingHealth', 'ProxyBindingRequest', 'ProxyBinding', 'ProxyBindingList', 'ProxyRoutingCandidateScore', 'ProxyRoutingDecision', 'ProxyRebindRequest', 'ProxyRebindOperation', 'ProxyRebind', 'SessionState', 'ResourceTemplate', 'RegisterBrowserNodeRequest', 'RecordNodePressureRequest', 'BrowserNode', 'BrowserNodeListResponse', 'UpsertExtensionProfileRequest', 'ExtensionProfile', 'RecordExtensionSampleRequest', 'ExtensionProfileListResponse', 'BrowserPlacement', 'BrowserState', 'UploadAgentBrowserFileRequest', 'AgentBrowserFileUpload', 'AgentBrowserDownload', 'AgentBrowserDownloadList', 'AgentBrowserEvaluationMode', 'CreateAgentBrowserEvaluationRequest', 'AgentBrowserEvaluation', 'AgentBrowserScreenshotMode', 'AgentBrowserScreenshotRegion', 'CaptureAgentBrowserScreenshotRequest', 'AgentBrowserScreenshot', 'AgentBrowserSnapshot', 'AgentBrowserTab', 'AgentBrowserNativeDialog', 'AgentBrowserInspectRequest', 'AgentBrowserFindRequest', 'AgentBrowserTargetList', 'StateResyncRequest', 'StateResyncResponse', 'InteractiveTarget', 'TargetBounds', 'RecoveryTargetIndicator', 'ProviderEvidenceRequirement', 'UpsertRecoveryContractRequest', 'RecoveryContract', 'RecoveryContractListResponse', 'RecoveryContractRevisionListResponse', 'RecoveryContractFieldChange', 'RecoveryContractDiff', 'RestoreRecoveryContractRevisionRequest', 'RequestRecoveryContractApprovalRequest', 'RecoveryContractApproval', 'SessionApplicationBinding', 'RebindSessionApplicationRequest', 'SessionApplicationRebind', 'BusinessRecoveryValidation', 'SubmitProviderEvidenceRequest', 'ProviderEvidence', 'ProviderEvidenceListResponse', 'ExecuteAgentBrowserActionsRequest', 'AgentClipboard', 'WriteAgentClipboardRequest', 'CreateAgentClipboardBridgeRequest', 'CompleteAgentClipboardBridgeRequest', 'AgentClipboardBridge', 'SessionIdentitySpecInput', 'SessionIdentitySpec', 'CreateSessionIdentityChangeRequest', 'SessionIdentityChangeRequest', 'CreateSessionRequest', 'CreateSessionResponse', 'UpdateSessionRequest', 'BatchDeleteSessionsRequest', 'BatchDeleteSessionsResponse', 'ResourcePolicyRequest', 'ResourcePolicy', 'ExecutionEnvironment', 'MaximumReachedPolicy', 'ResourcePolicyStatus', 'ResourceAdjustment', 'SessionResource', 'ResourceEventList', 'Evidence', 'EvidenceList', 'Recording', 'RecordingList', 'EvidencePurpose', 'CaptureEvidenceRequest', 'EvidenceCapture', 'CreateEvidenceAccessGrantRequest', 'EvidenceAccessGrant', 'RedeemEvidenceAccessResponse', 'SessionSafePoint', 'SafePointBlocker', 'CreateSafetyLeaseRequest', 'RenewSafetyLeaseRequest', 'SafetyLease', 'SafetyLeaseList', 'SessionMigration', 'BusinessRecoveryAction', 'ResourcePolicyOperation', 'SessionContext', 'SessionView', 'EnvironmentSavedViewScope', 'EnvironmentPrimaryView', 'EnvironmentSavedViewTagMatch', 'CreateEnvironmentSavedViewRequest', 'UpdateEnvironmentSavedViewRequest', 'EnvironmentSavedView', 'EnvironmentSavedViewListResponse', 'EnvironmentImportState', 'EnvironmentImportValidationState', 'EnvironmentImportExecutionState', 'EnvironmentImportSpec', 'PreviewEnvironmentImportRequest', 'CommitEnvironmentImportRequest', 'EnvironmentImportItem', 'EnvironmentImport', 'EnvironmentImportListItem', 'EnvironmentImportListResponse', 'WorkspaceGroupRequest', 'WorkspaceGroupSession', 'WorkspaceGroup', 'WorkspaceGroupListResponse', 'WorkspaceTagRequest', 'WorkspaceTagSummary', 'WorkspaceTagSession', 'WorkspaceTag', 'WorkspaceTagListResponse', 'WorkspaceBatchAction', 'WorkspaceBatchState', 'WorkspaceBatchItemState', 'WorkspaceBatchSelector', 'CreateWorkspaceBatchOperationRequest', 'CancelWorkspaceBatchOperationRequest', 'WorkspaceBatchOperationItem', 'WorkspaceBatchOperation', 'WorkspaceBatchOperationListResponse', 'WorkspaceMetadataBatchAction', 'WorkspaceMetadataBatchSelector', 'WorkspaceMetadataBatchTarget', 'CreateWorkspaceMetadataBatchOperationRequest', 'WorkspaceMetadataBatchOperationItem', 'WorkspaceMetadataBatchOperation', 'WorkspaceMetadataBatchOperationListResponse', 'WorkspaceSettingsRequest', 'WorkspaceSettings', 'SessionListResponse', 'OperationResponse', 'OperationView', 'RemoteDesktopConnection', 'RemoteDesktopParticipantList', 'RemoteDesktopParticipantHistoryPage', 'RemoteDesktopParticipant', 'AuditEvent', 'AuditEventListResponse', 'RuntimeBuild', 'RuntimeBuildListResponse', 'CreateRuntimeReleaseRequest', 'CreateRuntimeDisableRequest', 'RuntimeReleaseRequest', 'RuntimeReleaseRequestListResponse', 'CreateKeyRotationRequest', 'CompleteKeyRotationRequest', 'KeyRotationRequest', 'KeyRotationRequestListResponse', 'CreateBreakGlassRequest', 'BreakGlassRequest', 'BreakGlassRequestListResponse', 'SecureDebugSession', 'SecureDebugSessionListResponse', 'SecureDebugSnapshot', 'StartRuntimeValidationRequest', 'RuntimeValidationMatrixCellRequest', 'StartRuntimeValidationMatrixRequest', 'CompleteRuntimeValidationRequest', 'RuntimeValidation', 'RuntimeValidationJob', 'ClaimRuntimeValidationJobRequest', 'RuntimeValidationJobClaimRequest', 'RuntimeValidationJobClaim', 'CompleteRuntimeValidationJobRequest', 'FailRuntimeValidationJobRequest', 'CreateCostRateRequest', 'CostRate', 'SessionCostExplanation', 'UpsertMediaQuotaRequest', 'MediaQuota', 'UpsertSloPolicyRequest', 'RecordServiceLevelEventRequest', 'UpsertSlaExclusionRequest', 'SlaExclusion', 'ErrorBudget', 'ReleaseFreeze', 'UpsertRetentionPolicyRequest', 'RetentionPolicy', 'CreateDeletionReceiptRequest', 'DeletionReceipt', 'UpsertLicenseInventoryRequest', 'LicenseInventory', 'AuditExportManifest', 'UpsertRegionRequest', 'EnterpriseRegion', 'StartRecoveryGameDayRequest', 'RecoveryGameDayBlastRadius', 'CompleteRecoveryGameDayRequest', 'ClaimRecoveryGameDayJobRequest', 'RecoveryGameDayJobClaimRequest', 'UpdateRecoveryGameDayStageRequest', 'CompleteRecoveryGameDayJobRequest', 'FailRecoveryGameDayJobRequest', 'RecoveryGameDayJob', 'RecoveryGameDayJobClaim', 'RecoveryGameDay', 'RecoveryGameDayEvent', 'RecoveryGameDayEventPage', 'RecoveryGameDayTrend', 'RecoveryGameDayReportExport', 'UpdateRecoveryGameDayRemediationRequest', 'RecoveryGameDayRemediation', 'ComplianceSnapshot', 'EnterpriseOverview', 'EnterpriseOverviewStreamControl', 'EnterpriseOverviewStreamChange', 'BooleanMap', 'Error']

@@ -17,6 +17,7 @@ import io.browsercloud.application.AgentExecutionWorkerApplicationService.AgentE
 import io.browsercloud.application.AgentExecutionWorkerApplicationService.AgentExecutionWorkerRejectedException;
 import io.browsercloud.application.AgentHumanGovernanceService.HumanGovernanceException;
 import io.browsercloud.application.AgentInputSecretApplicationService.AgentInputSecretRejectedException;
+import io.browsercloud.application.AgentOutcomeVerifierApplicationService.AgentOutcomeRejectedException;
 import io.browsercloud.application.AgentReviewerApplicationService.AgentReviewRejectedException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.BusinessRecoveryStateUnavailableException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.BusinessRecoveryValidationNotFoundException;
@@ -885,6 +886,17 @@ public class GlobalExceptionHandler {
         HttpStatus.CONFLICT,
         "AGENT_REVIEW_REJECTED",
         "Agent Reviewer request was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(AgentOutcomeRejectedException.class)
+  ResponseEntity<ApiError> agentOutcomeRejected(
+      AgentOutcomeRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "AGENT_OUTCOME_VERIFICATION_REJECTED",
+        "Agent Outcome Verifier request was rejected",
         Map.of("reason", exception.getMessage()),
         request);
   }

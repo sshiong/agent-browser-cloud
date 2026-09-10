@@ -6,6 +6,9 @@ import type { AgentExecutionJob } from '../models/AgentExecutionJob.js';
 import type { AgentExecutionJobClaim } from '../models/AgentExecutionJobClaim.js';
 import type { AgentExecutionJobClaimRequest } from '../models/AgentExecutionJobClaimRequest.js';
 import type { AgentInputSecret } from '../models/AgentInputSecret.js';
+import type { AgentOutcomeJob } from '../models/AgentOutcomeJob.js';
+import type { AgentOutcomeJobClaim } from '../models/AgentOutcomeJobClaim.js';
+import type { AgentOutcomeJobClaimRequest } from '../models/AgentOutcomeJobClaimRequest.js';
 import type { AgentReviewJob } from '../models/AgentReviewJob.js';
 import type { AgentReviewJobClaim } from '../models/AgentReviewJobClaim.js';
 import type { AgentReviewJobClaimRequest } from '../models/AgentReviewJobClaimRequest.js';
@@ -14,11 +17,14 @@ import type { AgentTaskListResponse } from '../models/AgentTaskListResponse.js';
 import type { AgentTaskSummaryListResponse } from '../models/AgentTaskSummaryListResponse.js';
 import type { ChallengeInputResponse } from '../models/ChallengeInputResponse.js';
 import type { ClaimAgentExecutionJobRequest } from '../models/ClaimAgentExecutionJobRequest.js';
+import type { ClaimAgentOutcomeJobRequest } from '../models/ClaimAgentOutcomeJobRequest.js';
 import type { ClaimAgentReviewJobRequest } from '../models/ClaimAgentReviewJobRequest.js';
+import type { CompleteAgentOutcomeJobRequest } from '../models/CompleteAgentOutcomeJobRequest.js';
 import type { CompleteAgentReviewJobRequest } from '../models/CompleteAgentReviewJobRequest.js';
 import type { CreateAgentInputSecretRequest } from '../models/CreateAgentInputSecretRequest.js';
 import type { CreateAgentTaskRequest } from '../models/CreateAgentTaskRequest.js';
 import type { FailAgentExecutionJobRequest } from '../models/FailAgentExecutionJobRequest.js';
+import type { FailAgentOutcomeJobRequest } from '../models/FailAgentOutcomeJobRequest.js';
 import type { FailAgentReviewJobRequest } from '../models/FailAgentReviewJobRequest.js';
 import type { SubmitChallengeInputResponseRequest } from '../models/SubmitChallengeInputResponseRequest.js';
 import type { CancelablePromise } from '../core/CancelablePromise.js';
@@ -506,6 +512,137 @@ export class AgentSafetyService {
         return this.httpRequest.request({
             method: 'POST',
             url: '/api/v1/agent-review-jobs/{jobId}:fail',
+            path: {
+                'jobId': jobId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Claim one exact post-execution semantic outcome verification with a fenced lease
+     * Requires OUTCOME_VERIFIER_WORKER. The payload excludes capabilities, secrets, values, element identifiers, raw page bodies and screenshots.
+     * @returns AgentOutcomeJobClaim Exact final-state evidence and a one-time Claim Token.
+     * @throws ApiError
+     */
+    public claimAgentOutcomeJob({
+        requestBody,
+    }: {
+        requestBody: ClaimAgentOutcomeJobRequest,
+    }): CancelablePromise<AgentOutcomeJobClaim> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-outcome-jobs:claim',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * ACK start of a claimed semantic outcome verification
+     * @returns AgentOutcomeJob Verification entered EXECUTING.
+     * @throws ApiError
+     */
+    public startAgentOutcomeJob({
+        jobId,
+        requestBody,
+    }: {
+        jobId: string,
+        requestBody: AgentOutcomeJobClaimRequest,
+    }): CancelablePromise<AgentOutcomeJob> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-outcome-jobs/{jobId}:start',
+            path: {
+                'jobId': jobId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Renew an Outcome Verifier Worker fenced lease
+     * @returns AgentOutcomeJob Lease renewed.
+     * @throws ApiError
+     */
+    public heartbeatAgentOutcomeJob({
+        jobId,
+        requestBody,
+    }: {
+        jobId: string,
+        requestBody: AgentOutcomeJobClaimRequest,
+    }): CancelablePromise<AgentOutcomeJob> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-outcome-jobs/{jobId}:heartbeat',
+            path: {
+                'jobId': jobId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Commit an independent semantic outcome verdict
+     * The Control Plane revalidates the exact state version, target revision, state hash, evidence hash, model deployment and confidence before completing the Agent task.
+     * @returns AgentOutcomeJob Outcome verified or explicitly not verified.
+     * @throws ApiError
+     */
+    public completeAgentOutcomeJob({
+        jobId,
+        requestBody,
+    }: {
+        jobId: string,
+        requestBody: CompleteAgentOutcomeJobRequest,
+    }): CancelablePromise<AgentOutcomeJob> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-outcome-jobs/{jobId}:complete',
+            path: {
+                'jobId': jobId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Retry or permanently fail a claimed outcome verification
+     * @returns AgentOutcomeJob Failure durably projected to the queue and task.
+     * @throws ApiError
+     */
+    public failAgentOutcomeJob({
+        jobId,
+        requestBody,
+    }: {
+        jobId: string,
+        requestBody: FailAgentOutcomeJobRequest,
+    }): CancelablePromise<AgentOutcomeJob> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-outcome-jobs/{jobId}:fail',
             path: {
                 'jobId': jobId,
             },

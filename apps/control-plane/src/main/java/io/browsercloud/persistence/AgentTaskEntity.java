@@ -150,6 +150,49 @@ public class AgentTaskEntity {
   @Column(name = "reviewer_failure_code")
   private String reviewerFailureCode;
 
+  @Column(name = "outcome_verification_status", nullable = false)
+  private String outcomeVerificationStatus;
+
+  @Column(name = "outcome_verification_id")
+  private String outcomeVerificationId;
+
+  @Column(name = "outcome_decision")
+  private String outcomeDecision;
+
+  @Column(name = "outcome_reason_codes", nullable = false, columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
+  private String outcomeReasonCodes;
+
+  @Column(name = "outcome_evidence_hash")
+  private String outcomeEvidenceHash;
+
+  @Column(name = "outcome_deployment_id")
+  private String outcomeDeploymentId;
+
+  @Column(name = "outcome_model_name")
+  private String outcomeModelName;
+
+  @Column(name = "outcome_model_revision")
+  private String outcomeModelRevision;
+
+  @Column(name = "outcome_input_tokens")
+  private Integer outcomeInputTokens;
+
+  @Column(name = "outcome_output_tokens")
+  private Integer outcomeOutputTokens;
+
+  @Column(name = "outcome_cost_micros")
+  private Long outcomeCostMicros;
+
+  @Column(name = "outcome_latency_ms")
+  private Integer outcomeLatencyMs;
+
+  @Column(name = "outcome_failure_code")
+  private String outcomeFailureCode;
+
+  @Column(name = "outcome_completed_at")
+  private Instant outcomeCompletedAt;
+
   @Column(name = "allowed_domains", nullable = false, columnDefinition = "jsonb")
   @JdbcTypeCode(SqlTypes.JSON)
   private String allowedDomains;
@@ -223,6 +266,8 @@ public class AgentTaskEntity {
     this.executionResults = "[]";
     this.reviewerStatus = "NOT_REQUIRED";
     this.reviewerReasonCodes = "[]";
+    this.outcomeVerificationStatus = "NOT_REQUIRED";
+    this.outcomeReasonCodes = "[]";
     this.createdAt = now;
     this.updatedAt = now;
   }
@@ -399,6 +444,62 @@ public class AgentTaskEntity {
     return reviewerFailureCode;
   }
 
+  public String getOutcomeVerificationStatus() {
+    return outcomeVerificationStatus;
+  }
+
+  public String getOutcomeVerificationId() {
+    return outcomeVerificationId;
+  }
+
+  public String getOutcomeDecision() {
+    return outcomeDecision;
+  }
+
+  public String getOutcomeReasonCodes() {
+    return outcomeReasonCodes;
+  }
+
+  public String getOutcomeEvidenceHash() {
+    return outcomeEvidenceHash;
+  }
+
+  public String getOutcomeDeploymentId() {
+    return outcomeDeploymentId;
+  }
+
+  public String getOutcomeModelName() {
+    return outcomeModelName;
+  }
+
+  public String getOutcomeModelRevision() {
+    return outcomeModelRevision;
+  }
+
+  public Integer getOutcomeInputTokens() {
+    return outcomeInputTokens;
+  }
+
+  public Integer getOutcomeOutputTokens() {
+    return outcomeOutputTokens;
+  }
+
+  public Long getOutcomeCostMicros() {
+    return outcomeCostMicros;
+  }
+
+  public Integer getOutcomeLatencyMs() {
+    return outcomeLatencyMs;
+  }
+
+  public String getOutcomeFailureCode() {
+    return outcomeFailureCode;
+  }
+
+  public Instant getOutcomeCompletedAt() {
+    return outcomeCompletedAt;
+  }
+
   public String getAllowedDomains() {
     return allowedDomains;
   }
@@ -429,6 +530,10 @@ public class AgentTaskEntity {
 
   public String getLastError() {
     return lastError;
+  }
+
+  public Instant getExecutionCompletedAt() {
+    return executionCompletedAt;
   }
 
   public String getExecutionWaitReason() {
@@ -614,6 +719,97 @@ public class AgentTaskEntity {
     clearExecutionWaitFields();
     this.executionCompletedAt = now;
     this.updatedAt = now;
+  }
+
+  public void awaitOutcomeVerification(
+      int completedSteps, String results, String verificationId, String evidenceHash, Instant now) {
+    this.state = "VERIFYING_OUTCOME";
+    this.currentStep = completedSteps;
+    this.executionResults = results;
+    this.outcomeVerificationStatus = "QUEUED";
+    this.outcomeVerificationId = verificationId;
+    this.outcomeDecision = null;
+    this.outcomeReasonCodes = "[]";
+    this.outcomeEvidenceHash = evidenceHash;
+    this.outcomeCompletedAt = null;
+    clearOutcomeAccounting();
+    clearPendingStep();
+    clearLease();
+    clearExecutionWaitFields();
+    this.updatedAt = now;
+  }
+
+  public void markOutcomeVerifierRunning(Instant now) {
+    if (!"VERIFYING_OUTCOME".equals(state)) return;
+    this.outcomeVerificationStatus = "IN_REVIEW";
+    this.updatedAt = now;
+  }
+
+  public void rebindOutcomeEvidence(String evidenceHash, Instant now) {
+    if (!"VERIFYING_OUTCOME".equals(state) || !"QUEUED".equals(outcomeVerificationStatus)) return;
+    this.outcomeEvidenceHash = evidenceHash;
+    this.updatedAt = now;
+  }
+
+  public void verifyOutcome(String reasonCodes, Instant now) {
+    if (!"VERIFYING_OUTCOME".equals(state)) return;
+    this.outcomeVerificationStatus = "VERIFIED";
+    this.outcomeDecision = "VERIFIED";
+    this.outcomeReasonCodes = reasonCodes;
+    this.outcomeCompletedAt = now;
+    completeExecution(this.currentStep, this.executionResults, now);
+  }
+
+  public void rejectOutcome(String reasonCodes, Instant now) {
+    if (!"VERIFYING_OUTCOME".equals(state)) return;
+    this.outcomeVerificationStatus = "NOT_VERIFIED";
+    this.outcomeDecision = "NOT_VERIFIED";
+    this.outcomeReasonCodes = reasonCodes;
+    this.outcomeCompletedAt = now;
+    failExecution(this.currentStep, this.executionResults, "AGENT_OUTCOME_NOT_VERIFIED", now);
+  }
+
+  public void failOutcomeVerifier(String failureCode, Instant now) {
+    if (!"VERIFYING_OUTCOME".equals(state)) return;
+    this.outcomeVerificationStatus = "FAILED";
+    this.outcomeFailureCode = failureCode;
+    this.outcomeCompletedAt = now;
+    failExecution(this.currentStep, this.executionResults, failureCode, now);
+  }
+
+  public void requeueOutcomeVerifier(Instant now) {
+    if (!"VERIFYING_OUTCOME".equals(state)) return;
+    this.outcomeVerificationStatus = "QUEUED";
+    this.updatedAt = now;
+  }
+
+  public void recordOutcomeAccounting(
+      String deploymentId,
+      String modelName,
+      String modelRevision,
+      int inputTokens,
+      int outputTokens,
+      long costMicros,
+      int latencyMs) {
+    this.outcomeDeploymentId = deploymentId;
+    this.outcomeModelName = modelName;
+    this.outcomeModelRevision = modelRevision;
+    this.outcomeInputTokens = inputTokens;
+    this.outcomeOutputTokens = outputTokens;
+    this.outcomeCostMicros = costMicros;
+    this.outcomeLatencyMs = latencyMs;
+    this.outcomeFailureCode = null;
+  }
+
+  private void clearOutcomeAccounting() {
+    this.outcomeDeploymentId = null;
+    this.outcomeModelName = null;
+    this.outcomeModelRevision = null;
+    this.outcomeInputTokens = null;
+    this.outcomeOutputTokens = null;
+    this.outcomeCostMicros = null;
+    this.outcomeLatencyMs = null;
+    this.outcomeFailureCode = null;
   }
 
   public void failExecution(int completedSteps, String results, String error, Instant now) {

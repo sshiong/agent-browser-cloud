@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 from agent_worker import PollBackoff, WorkerError, WorkerLoop, run_poll_loop
 from reviewer_worker import ReviewerLoop
+from outcome_verifier_worker import OutcomeVerifierLoop
 from vision_worker import VisionLoop
 
 
@@ -31,16 +32,20 @@ class PollBackoffTest(unittest.TestCase):
                 run_poll_loop(run_once, False, 2)
         self.assertEqual([call.args[0] for call in sleep.call_args_list], [2, 4, 2])
 
-    def test_once_never_sleeps_even_on_error(self):
+    def test_once_surfaces_error_without_sleeping(self):
         with patch("agent_worker.time.sleep") as sleep:
-            run_poll_loop(Mock(side_effect=WorkerError("UNAVAILABLE")), True, 2)
+            with self.assertRaisesRegex(WorkerError, "UNAVAILABLE"):
+                run_poll_loop(Mock(side_effect=WorkerError("UNAVAILABLE")), True, 2)
             sleep.assert_not_called()
 
-    def test_all_three_workers_use_shared_backoff(self):
-        for cls, module in ((WorkerLoop, "agent_worker"), (ReviewerLoop, "reviewer_worker"), (VisionLoop, "vision_worker")):
+    def test_all_four_workers_use_shared_backoff(self):
+        for cls in (WorkerLoop, ReviewerLoop, VisionLoop, OutcomeVerifierLoop):
             loop = cls.__new__(cls)
             loop.poll_seconds = 2
-            with patch(f"{module}.run_poll_loop") as run:
+            run = Mock()
+            # Some focused suites load worker modules through importlib. Patch the
+            # exact globals captured by the class instead of a later sys.modules alias.
+            with patch.dict(loop.run.__globals__, {"run_poll_loop": run}):
                 loop.run(True)
                 run.assert_called_once_with(loop.run_once, True, 2)
 

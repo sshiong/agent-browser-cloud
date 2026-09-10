@@ -35,8 +35,8 @@ Session 复合外键继续保证隔离。
 
 ## 边界
 
-- 本切片解决“已经做过什么”的持久、结构化证据，不证明业务目标已达成；A04 Expected Outcome
-  与 A11 独立 Outcome Verifier 仍须单独完成。
+- 本切片解决“已经做过什么”的持久、结构化证据，不证明业务目标已达成；A11 独立 Outcome
+  Verifier 后由 progress 173 关闭，A04 Expected Outcome 仍须单独完成。
 - 最多返回最近 100 条是 API 投影上限，数据库账本仍 append-only；长期归档/保留策略沿用后续
   Agent 数据治理工作，不在本切片中声称完成。
 - Human Handoff 的请求 Step 会进入执行历史；人工接受/拒绝本身仍属于独立治理与审计事件，

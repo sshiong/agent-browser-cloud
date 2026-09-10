@@ -338,6 +338,7 @@ export interface AgentTaskView {
     | 'AWAITING_CONFIRMATION'
     | 'BLOCKED'
     | 'RUNNING'
+    | 'VERIFYING_OUTCOME'
     | 'WAITING_FOR_HUMAN'
     | 'PAUSED_BY_RESOURCE_POLICY'
     | 'COMPLETED'
@@ -391,6 +392,28 @@ export interface AgentTaskView {
     decision?: 'APPROVE' | 'REJECT';
     reasonCodes: string[];
     planHash?: string;
+    deploymentId?: string;
+    modelName?: string;
+    modelRevision?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    costMicros?: number;
+    latencyMs?: number;
+    failureCode?: string;
+    completedAt?: string;
+  };
+  outcomeVerification?: {
+    verificationId?: string;
+    status:
+      | 'NOT_REQUIRED'
+      | 'QUEUED'
+      | 'IN_REVIEW'
+      | 'VERIFIED'
+      | 'NOT_VERIFIED'
+      | 'FAILED';
+    decision?: 'VERIFIED' | 'NOT_VERIFIED';
+    reasonCodes: string[];
+    evidenceHash?: string;
     deploymentId?: string;
     modelName?: string;
     modelRevision?: string;

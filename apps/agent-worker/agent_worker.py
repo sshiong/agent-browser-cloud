@@ -56,6 +56,8 @@ def run_poll_loop(run_once, once: bool, poll_seconds: float) -> None:
         try:
             worked = run_once()
         except WorkerError:
+            if once:
+                raise
             worked = False
         if once:
             return

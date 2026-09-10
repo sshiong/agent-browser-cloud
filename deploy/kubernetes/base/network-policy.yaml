@@ -98,8 +98,10 @@ metadata:
   namespace: browsercloud-system
 spec:
   podSelector:
-    matchLabels:
-      app.kubernetes.io/name: reviewer-worker
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [reviewer-worker, outcome-verifier-worker]
   policyTypes: [Ingress, Egress]
 ---
 apiVersion: networking.k8s.io/v1
@@ -109,8 +111,10 @@ metadata:
   namespace: browsercloud-system
 spec:
   podSelector:
-    matchLabels:
-      app.kubernetes.io/name: reviewer-worker
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [reviewer-worker, outcome-verifier-worker]
   policyTypes: [Egress]
   egress:
     - to:

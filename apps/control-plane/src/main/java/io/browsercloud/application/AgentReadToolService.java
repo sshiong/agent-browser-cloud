@@ -128,6 +128,9 @@ public class AgentReadToolService {
     var output = new LinkedHashMap<String, Object>();
     output.put("url", safeUrl(state.url()));
     output.put("title", AgentDataMinimizer.redact(state.title()));
+    output.put("stateVersion", state.stateVersion());
+    output.put("targetRevision", state.targetRevision());
+    output.put("stateHash", state.stateHash());
     output.put("stateQuality", state.stateQuality());
     output.put("interactiveTargetCount", state.targets().size());
     output.put("roleCounts", roleCounts);

@@ -14,4 +14,5 @@ resources:
   - gameday-worker-deployment.yaml
   - agent-worker-deployment.yaml
   - reviewer-worker-deployment.yaml
+  - outcome-verifier-worker-deployment.yaml
   - vision-worker-deployment.yaml

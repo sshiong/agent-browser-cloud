@@ -177,6 +177,11 @@ var Operations = map[string]Operation{
 	"heartbeatAgentReviewJob":                    {OperationID: "heartbeatAgentReviewJob", Method: "POST", Path: "/api/v1/agent-review-jobs/{jobId}:heartbeat", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "AgentReviewJobClaimRequest", RequestRequired: true, ResponseSchema: "AgentReviewJob"},
 	"completeAgentReviewJob":                     {OperationID: "completeAgentReviewJob", Method: "POST", Path: "/api/v1/agent-review-jobs/{jobId}:complete", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "CompleteAgentReviewJobRequest", RequestRequired: true, ResponseSchema: "AgentReviewJob"},
 	"failAgentReviewJob":                         {OperationID: "failAgentReviewJob", Method: "POST", Path: "/api/v1/agent-review-jobs/{jobId}:fail", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "FailAgentReviewJobRequest", RequestRequired: true, ResponseSchema: "AgentReviewJob"},
+	"claimAgentOutcomeJob":                       {OperationID: "claimAgentOutcomeJob", Method: "POST", Path: "/api/v1/agent-outcome-jobs:claim", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "ClaimAgentOutcomeJobRequest", RequestRequired: true, ResponseSchema: "AgentOutcomeJobClaim"},
+	"startAgentOutcomeJob":                       {OperationID: "startAgentOutcomeJob", Method: "POST", Path: "/api/v1/agent-outcome-jobs/{jobId}:start", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "AgentOutcomeJobClaimRequest", RequestRequired: true, ResponseSchema: "AgentOutcomeJob"},
+	"heartbeatAgentOutcomeJob":                   {OperationID: "heartbeatAgentOutcomeJob", Method: "POST", Path: "/api/v1/agent-outcome-jobs/{jobId}:heartbeat", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "AgentOutcomeJobClaimRequest", RequestRequired: true, ResponseSchema: "AgentOutcomeJob"},
+	"completeAgentOutcomeJob":                    {OperationID: "completeAgentOutcomeJob", Method: "POST", Path: "/api/v1/agent-outcome-jobs/{jobId}:complete", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "CompleteAgentOutcomeJobRequest", RequestRequired: true, ResponseSchema: "AgentOutcomeJob"},
+	"failAgentOutcomeJob":                        {OperationID: "failAgentOutcomeJob", Method: "POST", Path: "/api/v1/agent-outcome-jobs/{jobId}:fail", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "FailAgentOutcomeJobRequest", RequestRequired: true, ResponseSchema: "AgentOutcomeJob"},
 	"claimChallengeVisualJob":                    {OperationID: "claimChallengeVisualJob", Method: "POST", Path: "/api/v1/challenge-visual-jobs:claim", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "ClaimChallengeVisualJobRequest", RequestRequired: true, ResponseSchema: "ChallengeVisualJobClaim"},
 	"startChallengeVisualJob":                    {OperationID: "startChallengeVisualJob", Method: "POST", Path: "/api/v1/challenge-visual-jobs/{jobId}:start", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "ChallengeVisualJobClaimRequest", RequestRequired: true, ResponseSchema: "ChallengeVisualJob"},
 	"heartbeatChallengeVisualJob":                {OperationID: "heartbeatChallengeVisualJob", Method: "POST", Path: "/api/v1/challenge-visual-jobs/{jobId}:heartbeat", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "ChallengeVisualJobClaimRequest", RequestRequired: true, ResponseSchema: "ChallengeVisualJob"},
@@ -775,6 +780,21 @@ func (c *Client) CompleteAgentReviewJob(ctx context.Context, request Request) (a
 }
 func (c *Client) FailAgentReviewJob(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "failAgentReviewJob", request)
+}
+func (c *Client) ClaimAgentOutcomeJob(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "claimAgentOutcomeJob", request)
+}
+func (c *Client) StartAgentOutcomeJob(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "startAgentOutcomeJob", request)
+}
+func (c *Client) HeartbeatAgentOutcomeJob(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "heartbeatAgentOutcomeJob", request)
+}
+func (c *Client) CompleteAgentOutcomeJob(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "completeAgentOutcomeJob", request)
+}
+func (c *Client) FailAgentOutcomeJob(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "failAgentOutcomeJob", request)
 }
 func (c *Client) ClaimChallengeVisualJob(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "claimChallengeVisualJob", request)

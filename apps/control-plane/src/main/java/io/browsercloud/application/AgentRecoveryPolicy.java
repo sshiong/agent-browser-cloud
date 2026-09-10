@@ -20,6 +20,9 @@ final class AgentRecoveryPolicy {
     if ("PAUSED_BY_RESOURCE_POLICY".equals(state)) {
       return guidance("WAIT", "RESOURCE_POLICY_PAUSED", true);
     }
+    if ("VERIFYING_OUTCOME".equals(state)) {
+      return guidance("WAIT", "OUTCOME_VERIFICATION_IN_PROGRESS", true);
+    }
     if ("QUEUED".equals(state) || "AWAITING_REVIEW".equals(state)) {
       return guidance("WAIT", "WORKER_OR_REVIEW_PENDING", true);
     }

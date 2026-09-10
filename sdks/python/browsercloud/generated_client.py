@@ -163,6 +163,11 @@ OPERATIONS: dict[str, Operation] = {
     'heartbeatAgentReviewJob': Operation('heartbeatAgentReviewJob', 'POST', '/api/v1/agent-review-jobs/{jobId}:heartbeat', ('jobId',), (), (), 'AgentReviewJobClaimRequest', True, 'AgentReviewJob'),
     'completeAgentReviewJob': Operation('completeAgentReviewJob', 'POST', '/api/v1/agent-review-jobs/{jobId}:complete', ('jobId',), (), (), 'CompleteAgentReviewJobRequest', True, 'AgentReviewJob'),
     'failAgentReviewJob': Operation('failAgentReviewJob', 'POST', '/api/v1/agent-review-jobs/{jobId}:fail', ('jobId',), (), (), 'FailAgentReviewJobRequest', True, 'AgentReviewJob'),
+    'claimAgentOutcomeJob': Operation('claimAgentOutcomeJob', 'POST', '/api/v1/agent-outcome-jobs:claim', (), (), (), 'ClaimAgentOutcomeJobRequest', True, 'AgentOutcomeJobClaim'),
+    'startAgentOutcomeJob': Operation('startAgentOutcomeJob', 'POST', '/api/v1/agent-outcome-jobs/{jobId}:start', ('jobId',), (), (), 'AgentOutcomeJobClaimRequest', True, 'AgentOutcomeJob'),
+    'heartbeatAgentOutcomeJob': Operation('heartbeatAgentOutcomeJob', 'POST', '/api/v1/agent-outcome-jobs/{jobId}:heartbeat', ('jobId',), (), (), 'AgentOutcomeJobClaimRequest', True, 'AgentOutcomeJob'),
+    'completeAgentOutcomeJob': Operation('completeAgentOutcomeJob', 'POST', '/api/v1/agent-outcome-jobs/{jobId}:complete', ('jobId',), (), (), 'CompleteAgentOutcomeJobRequest', True, 'AgentOutcomeJob'),
+    'failAgentOutcomeJob': Operation('failAgentOutcomeJob', 'POST', '/api/v1/agent-outcome-jobs/{jobId}:fail', ('jobId',), (), (), 'FailAgentOutcomeJobRequest', True, 'AgentOutcomeJob'),
     'claimChallengeVisualJob': Operation('claimChallengeVisualJob', 'POST', '/api/v1/challenge-visual-jobs:claim', (), (), (), 'ClaimChallengeVisualJobRequest', True, 'ChallengeVisualJobClaim'),
     'startChallengeVisualJob': Operation('startChallengeVisualJob', 'POST', '/api/v1/challenge-visual-jobs/{jobId}:start', ('jobId',), (), (), 'ChallengeVisualJobClaimRequest', True, 'ChallengeVisualJob'),
     'heartbeatChallengeVisualJob': Operation('heartbeatChallengeVisualJob', 'POST', '/api/v1/challenge-visual-jobs/{jobId}:heartbeat', ('jobId',), (), (), 'ChallengeVisualJobClaimRequest', True, 'ChallengeVisualJob'),
@@ -716,6 +721,21 @@ class BrowserCloudGeneratedClient:
 
     def failAgentReviewJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('failAgentReviewJob', path=path, query=query, body=body, headers=headers)
+
+    def claimAgentOutcomeJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('claimAgentOutcomeJob', path=path, query=query, body=body, headers=headers)
+
+    def startAgentOutcomeJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('startAgentOutcomeJob', path=path, query=query, body=body, headers=headers)
+
+    def heartbeatAgentOutcomeJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('heartbeatAgentOutcomeJob', path=path, query=query, body=body, headers=headers)
+
+    def completeAgentOutcomeJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('completeAgentOutcomeJob', path=path, query=query, body=body, headers=headers)
+
+    def failAgentOutcomeJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('failAgentOutcomeJob', path=path, query=query, body=body, headers=headers)
 
     def claimChallengeVisualJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('claimChallengeVisualJob', path=path, query=query, body=body, headers=headers)

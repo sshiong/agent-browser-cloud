@@ -1498,6 +1498,24 @@ public class AgentApplicationService {
             entity.getReviewerLatencyMs(),
             entity.getReviewerFailureCode(),
             entity.getReviewerCompletedAt()),
+        new io.browsercloud.api.AgentOutcomeVerifierModels.AgentOutcomeVerificationView(
+            entity.getOutcomeVerificationId(),
+            entity.getOutcomeVerificationStatus(),
+            entity.getOutcomeDecision() == null
+                ? null
+                : io.browsercloud.api.AgentOutcomeVerifierModels.OutcomeDecision.valueOf(
+                    entity.getOutcomeDecision()),
+            read(entity.getOutcomeReasonCodes(), new TypeReference<List<String>>() {}),
+            entity.getOutcomeEvidenceHash(),
+            entity.getOutcomeDeploymentId(),
+            entity.getOutcomeModelName(),
+            entity.getOutcomeModelRevision(),
+            entity.getOutcomeInputTokens(),
+            entity.getOutcomeOutputTokens(),
+            entity.getOutcomeCostMicros(),
+            entity.getOutcomeLatencyMs(),
+            entity.getOutcomeFailureCode(),
+            entity.getOutcomeCompletedAt()),
         domains,
         new AgentTaskView.PlanView(
             plan.intentId(), stepViews, plan.maxActions(), plan.replanBudget(), plan.expiresAt()),

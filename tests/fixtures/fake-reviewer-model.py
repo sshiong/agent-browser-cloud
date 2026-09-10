@@ -10,7 +10,34 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 PORT = int(sys.argv[1])
 TOKEN = sys.argv[2]
 EVENT_LOG = sys.argv[3]
-FORBIDDEN = ("capabilityToken", "sealedPayload", "customerCredentials", "pageState")
+FORBIDDEN_KEYS = {
+    "capabilityToken", "sealedPayload", "customerCredentials", "pageState",
+    "elementId", "targetRef", "value", "screenshot", "pageBody",
+}
+
+
+def contains_forbidden_key(value):
+    if isinstance(value, dict):
+        return any(
+            key in FORBIDDEN_KEYS or contains_forbidden_key(item)
+            for key, item in value.items()
+        )
+    if isinstance(value, list):
+        return any(contains_forbidden_key(item) for item in value)
+    return False
+
+
+def user_payloads(request):
+    for message in request.get("input", []):
+        if not isinstance(message, dict) or message.get("role") != "user":
+            continue
+        for part in message.get("content", []):
+            if not isinstance(part, dict) or part.get("type") != "input_text":
+                continue
+            try:
+                yield json.loads(part.get("text", ""))
+            except (TypeError, json.JSONDecodeError):
+                yield {"pageBody": "invalid unstructured user payload"}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -27,8 +54,7 @@ class Handler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             self.send_error(400)
             return
-        serialized = json.dumps(request, ensure_ascii=False, sort_keys=True)
-        if any(value in serialized for value in FORBIDDEN):
+        if any(contains_forbidden_key(payload) for payload in user_payloads(request)):
             self.send_error(422)
             return
         event = {
@@ -37,13 +63,17 @@ class Handler(BaseHTTPRequestHandler):
             "hasJsonSchema": request.get("text", {}).get("format", {}).get("type") == "json_schema",
             "authorizationPresent": True,
             "forbiddenFieldsAbsent": True,
+            "schemaName": request.get("text", {}).get("format", {}).get("name"),
         }
         with open(EVENT_LOG, "a", encoding="utf-8") as handle:
             handle.write(json.dumps(event, sort_keys=True) + "\n")
-        verdict = json.dumps(
-            {"decision": "APPROVE", "reasonCodes": ["SAFE"], "confidence": 0.97},
-            separators=(",", ":"),
+        schema_name = request.get("text", {}).get("format", {}).get("name")
+        verdict_document = (
+            {"decision": "VERIFIED", "reasonCodes": ["GOAL_SATISFIED"], "confidence": 0.97}
+            if schema_name == "agent_outcome_verification"
+            else {"decision": "APPROVE", "reasonCodes": ["SAFE"], "confidence": 0.97}
         )
+        verdict = json.dumps(verdict_document, separators=(",", ":"))
         response = {
             "id": "resp_reviewer_integration",
             "model": request.get("model"),

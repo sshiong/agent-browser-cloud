@@ -80,6 +80,8 @@ def contains_forbidden_key(value) -> bool:
 
 
 class ReviewerControlPlaneClient:
+    ROLE = "REVIEWER_WORKER"
+    USER_AGENT = "agent-browser-cloud-reviewer-worker/1"
     def __init__(
         self,
         origin: str,
@@ -115,14 +117,14 @@ class ReviewerControlPlaneClient:
             "Accept": "application/json",
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.token}",
-            "User-Agent": "agent-browser-cloud-reviewer-worker/1",
+            "User-Agent": self.USER_AGENT,
         }
         if self.environment in {"local", "test"}:
             headers.update(
                 {
                     "X-Tenant-Id": "platform-control",
                     "X-Actor-Id": self.worker_id,
-                    "X-Roles": "REVIEWER_WORKER",
+                    "X-Roles": self.ROLE,
                 }
             )
         call = urllib.request.Request(self.origin + path, data=payload, headers=headers, method="POST")

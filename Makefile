@@ -35,6 +35,7 @@ build:
 	python3 -m py_compile apps/gameday-worker/gameday_runner.py
 	python3 -m py_compile apps/agent-worker/agent_worker.py
 	python3 -m py_compile apps/agent-worker/reviewer_worker.py
+	python3 -m py_compile apps/agent-worker/outcome_verifier_worker.py
 	go -C deploy/terraform/provider build -trimpath -o ../../../build/terraform-provider-browsercloud .
 
 # Build the shared Web UI and native desktop binary without producing unsigned installers.
@@ -137,7 +138,7 @@ sdk-multilang-generate:
 	pnpm --package=@redocly/cli@1.34.0 dlx redocly bundle packages/contracts/openapi/session-api.yaml --output build/sdk/session-api.json
 	python3 tools/sdk/generate_multilang_sdks.py build/sdk/session-api.json packages/contracts/openapi/session-api.yaml .
 
-# All 240 operations, 322 public schemas and generated file hashes must remain exact.
+# All 245 operations, 334 public schemas and generated file hashes must remain exact.
 sdk-multilang-check: sdk-multilang-generate
 	python3 tools/sdk/verify_multilang_sdks.py build/sdk/session-api.json packages/contracts/openapi/session-api.yaml .
 	git diff --exit-code -- sdks/python/browsercloud/generated_client.py sdks/python/browsercloud/generated_models.py sdks/go/browsercloud/generated sdks/java/src/main/java/io/browsercloud/sdk/generated sdks/generated-multilang-manifest.json

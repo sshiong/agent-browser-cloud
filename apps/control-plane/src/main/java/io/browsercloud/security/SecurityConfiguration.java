@@ -114,6 +114,7 @@ public class SecurityConfiguration {
                       || role.equals("GAMEDAY_WORKER")
                       || role.equals("AGENT_WORKER")
                       || role.equals("REVIEWER_WORKER")
+                      || role.equals("OUTCOME_VERIFIER_WORKER")
                       || role.equals("VISION_WORKER")
                       || role.equals("SECURITY_ADMIN")
                       || role.equals("PLATFORM_ADMIN"))

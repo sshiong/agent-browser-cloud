@@ -4066,6 +4066,15 @@ side_effect_state=""
 side_effect_freshness=""
 # This point follows a deliberate Node SIGSTOP plus two coordinator replacements. Wait for the
 # resumed Node's fenced observation to reach PostgreSQL instead of racing its adaptive collector.
+# Requesting a bounded FULL resync makes that evidence production-equivalent and deterministic;
+# it does not relax the public freshness threshold.
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}:resync-state" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-post-failover-freshness-resync-001' \
+  -d '{"mode":"FULL","reason":"POST_FAILOVER_FRESHNESS_PROOF"}' \
+  | python3 -c 'import json,sys; result=json.load(sys.stdin); assert result["state"] == "QUEUED"'
 # Keep the API assertion at the production 30-second freshness boundary; only the fixture wait is
 # relaxed so a SIGSTOP/failover run has up to eight heartbeat intervals to produce a new fenced
 # sample on a loaded local machine.
@@ -4806,11 +4815,32 @@ curl -fsS \
 agent_evaluation=""
 agent_evaluation_id=""
 agent_evaluation_state=""
-for agent_evaluation_attempt in $(seq 1 3); do
-  agent_evaluation_snapshot="$(curl -fsS \
-    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
-    -H 'X-Tenant-Id: tenant-integration' \
-    -H 'X-Roles: TENANT_VIEWER')"
+for agent_evaluation_attempt in $(seq 1 8); do
+  agent_evaluation_snapshot=""
+  previous_agent_evaluation_cursor=""
+  agent_evaluation_stable_samples=0
+  for _ in $(seq 1 24); do
+    agent_evaluation_candidate="$(curl -fsS \
+      "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+      -H 'X-Tenant-Id: tenant-integration' \
+      -H 'X-Roles: TENANT_VIEWER')"
+    agent_evaluation_candidate_cursor="$(printf '%s' "$agent_evaluation_candidate" | python3 -c \
+      'import json,sys; print(json.load(sys.stdin)["stateCursor"])')"
+    if [[ "$agent_evaluation_candidate_cursor" = "$previous_agent_evaluation_cursor" ]]; then
+      agent_evaluation_stable_samples=$((agent_evaluation_stable_samples + 1))
+      if [[ "$agent_evaluation_stable_samples" -ge 3 ]]; then
+        agent_evaluation_snapshot="$agent_evaluation_candidate"
+        break
+      fi
+    else
+      agent_evaluation_stable_samples=0
+    fi
+    previous_agent_evaluation_cursor="$agent_evaluation_candidate_cursor"
+    sleep 0.25
+  done
+  if [[ -z "$agent_evaluation_snapshot" ]]; then
+    continue
+  fi
   agent_evaluation_request="$(python3 - "$agent_evaluation_snapshot" <<'PY'
 import json
 import sys
@@ -4871,6 +4901,7 @@ PY
   if [[ "$agent_evaluation_reason" != "STATE_STALE" && "$agent_evaluation_reason" != "EVALUATION_EVENT_FENCE_MISMATCH" ]]; then
     break
   fi
+  sleep 1
 done
 if [[ "$agent_evaluation_state" != "COMMITTED" ]]; then
   printf '%s\n' "agent_evaluation_terminal=${agent_evaluation}" >&2
@@ -4910,10 +4941,11 @@ test "$agent_evaluation_secret_leak" = "0"
 page_action_evaluation=""
 page_action_evaluation_id=""
 page_action_evaluation_state=""
-for page_action_attempt in $(seq 1 5); do
+for page_action_attempt in $(seq 1 8); do
   page_action_snapshot=""
   previous_page_action_cursor=""
-  for _ in $(seq 1 12); do
+  page_action_stable_samples=0
+  for _ in $(seq 1 24); do
     page_action_candidate="$(curl -fsS \
       "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
       -H 'X-Tenant-Id: tenant-integration' \
@@ -4921,8 +4953,13 @@ for page_action_attempt in $(seq 1 5); do
     page_action_candidate_cursor="$(printf '%s' "$page_action_candidate" | python3 -c \
       'import json,sys; print(json.load(sys.stdin)["stateCursor"])')"
     if [[ "$page_action_candidate_cursor" = "$previous_page_action_cursor" ]]; then
-      page_action_snapshot="$page_action_candidate"
-      break
+      page_action_stable_samples=$((page_action_stable_samples + 1))
+      if [[ "$page_action_stable_samples" -ge 3 ]]; then
+        page_action_snapshot="$page_action_candidate"
+        break
+      fi
+    else
+      page_action_stable_samples=0
     fi
     previous_page_action_cursor="$page_action_candidate_cursor"
     sleep 0.25
@@ -4983,6 +5020,9 @@ PY
   if [[ "$page_action_reason" != "STATE_STALE" && "$page_action_reason" != "EVALUATION_EVENT_FENCE_MISMATCH" ]]; then
     break
   fi
+  # A failed fenced command can itself trigger a fresh observation. Let that observation settle
+  # before sampling the next exact cursor, otherwise every retry can chase the same event edge.
+  sleep 1
 done
 if [[ "$page_action_evaluation_state" != "COMMITTED" ]]; then
   printf '%s\n' "page_action_evaluation_terminal=${page_action_evaluation}" >&2
@@ -5289,9 +5329,86 @@ tool_capability_uses="$(docker exec "$postgres_name" psql -U browsercloud -d bro
   "select count(*) from tool_capability_uses where task_id='${read_agent_task_id}'")"
 test "$tool_capability_uses" = "3"
 
-# Production-mode Agent execution must cross the independent, opaque Worker queue. Keep this
-# multi-Control-Plane scenario on its own Session: advancing its Coordinator term must not mutate
-# the long-lived Session used by the crash-recovery and Node-restart scenarios below.
+# Micrometer counters are process-local. Preserve the current reconciliation sample so the final
+# certificate spans this intentional feature-gate restart instead of silently losing prior counts.
+curl -fsS "http://localhost:${control_port}/actuator/prometheus" \
+  >"$temp_dir/reconcile-metrics-before-outcome-restart.prom"
+
+# Restart the authoritative event receiver with the additive Outcome gate enabled. The Browser
+# Node has one mTLS event stream, so enabling only a second API instance would let routed execution
+# fall back to an owner that cannot enqueue semantic verification.
+kill "$control_pid" 2>/dev/null || true
+wait "$control_pid" 2>/dev/null || true
+control_pid=""
+DATABASE_URL="jdbc:postgresql://localhost:${postgres_port}/browsercloud" \
+DATABASE_USER=browsercloud \
+DATABASE_PASSWORD=browsercloud \
+REDIS_HOST=localhost \
+REDIS_PORT="$redis_port" \
+BROWSER_NODE_GRPC_TARGET="localhost:${node_port}" \
+BROWSER_DENSITY_BOOTSTRAP_LOCAL_NODE_ENABLED=false \
+CONTROL_PLANE_NODE_EVENT_PORT="$event_port" \
+GRPC_TLS_ENABLED=true \
+GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
+GRPC_TLS_CERT="$temp_dir/control-plane.crt" \
+GRPC_TLS_KEY="$temp_dir/control-plane.key" \
+BROWSER_NODE_TLS_SERVER_NAME=browser-node.internal \
+PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-config.json" \
+COORDINATOR_INSTANCE_ID=coordinator-integration-d \
+COORDINATOR_LEASE_SECONDS=3 \
+AGENT_EXECUTOR_LEASE_SECONDS=2 \
+AGENT_OUTCOME_VERIFIER_EXTERNAL_ENABLED=true \
+AGENT_OUTCOME_VERIFIER_CLAIM_LEASE_SECONDS=30 \
+AGENT_OUTCOME_VERIFIER_DEPLOYMENT_ID=outcome-integration-v1 \
+AGENT_OUTCOME_VERIFIER_MODEL_NAME=reviewer-integration-model \
+AGENT_OUTCOME_VERIFIER_MODEL_REVISION=reviewer-integration-revision-v1 \
+AGENT_OUTCOME_VERIFIER_INPUT_PRICE_MICROS_PER_MTOK=2000000 \
+AGENT_OUTCOME_VERIFIER_OUTPUT_PRICE_MICROS_PER_MTOK=8000000 \
+RESOURCE_POLICY_COST_TREND_INTERVAL_MS=1000 \
+SERVER_PORT="$control_port" \
+  "$java_bin" -jar "$control_plane_test_jar" \
+  >"$temp_dir/control-plane.log" 2>&1 &
+control_pid=$!
+gated_primary_health=""
+for _ in $(seq 1 90); do
+  gated_primary_health="$(curl -fsS \
+    "http://localhost:${control_port}/actuator/health" 2>/dev/null || true)"
+  if printf '%s' "$gated_primary_health" | grep -q '"status":"UP"'; then break; fi
+  if ! kill -0 "$control_pid" 2>/dev/null; then exit 1; fi
+  sleep 0.5
+done
+printf '%s' "$gated_primary_health" | grep -q '"status":"UP"'
+
+# Run a second Control Plane with production dispatch enabled. This proves physical queue access,
+# Claim Token fencing and all real dependency-free Worker processes against PostgreSQL authority.
+reviewer_provider_token="reviewer-provider-integration-token"
+python3 tests/fixtures/fake-reviewer-model.py \
+  "$reviewer_model_port" "$reviewer_provider_token" \
+  "$temp_dir/reviewer-model-events.jsonl" \
+  >"$temp_dir/reviewer-model.log" 2>&1 &
+reviewer_model_pid=$!
+reviewer_model_ready="false"
+for _ in $(seq 1 40); do
+  if python3 - "$reviewer_model_port" <<'PY' >/dev/null 2>&1
+import socket
+import sys
+
+with socket.create_connection(("127.0.0.1", int(sys.argv[1])), timeout=0.2):
+    pass
+PY
+  then
+    reviewer_model_ready="true"
+    break
+  fi
+  if ! kill -0 "$reviewer_model_pid" 2>/dev/null; then break; fi
+  sleep 0.1
+done
+test "$reviewer_model_ready" = "true"
+
+# Production-mode Agent execution must cross the independent, opaque Worker queues. Create this
+# dedicated Session through the authoritative event receiver before starting the API-only Worker
+# instance. This establishes live Coordinator ownership on the sole Node event target and prevents
+# the second instance from racing the initial Browser State observation lease.
 reviewer_session_request='{"tenantId":"tenant-integration","profileId":"profile-reviewer-worker","runtimeBuildId":"runtime_local_chromium","region":"local","resourcePolicy":{"mode":"AUTO"},"requestedTabs":2,"agentActionsPerMinute":60,"agentPolicy":"INTERACTIVE","metadata":{"displayName":"Reviewer worker integration"}}'
 reviewer_session_status="$(curl -sS -o "$temp_dir/reviewer-session-created.json" -w '%{http_code}' -X POST \
   "http://localhost:${control_port}/api/v1/sessions" \
@@ -5321,31 +5438,34 @@ for _ in $(seq 1 80); do
 done
 test "$reviewer_session_state" = "RUNNING"
 
-# Run a second Control Plane with production dispatch enabled. This proves physical shard routing,
-# Claim Token fencing and both real dependency-free Worker processes against PostgreSQL authority.
-reviewer_provider_token="reviewer-provider-integration-token"
-python3 tests/fixtures/fake-reviewer-model.py \
-  "$reviewer_model_port" "$reviewer_provider_token" \
-  "$temp_dir/reviewer-model-events.jsonl" \
-  >"$temp_dir/reviewer-model.log" 2>&1 &
-reviewer_model_pid=$!
-reviewer_model_ready="false"
-for _ in $(seq 1 40); do
-  if python3 - "$reviewer_model_port" <<'PY' >/dev/null 2>&1
-import socket
-import sys
-
-with socket.create_connection(("127.0.0.1", int(sys.argv[1])), timeout=0.2):
-    pass
-PY
-  then
-    reviewer_model_ready="true"
+# RUNNING confirms the Runtime lifecycle, not that the first authoritative page sample is ready.
+# The gated task intentionally has no navigation step, so wait until the fixture page is both
+# usable and stable before asking the planner to bind its current origin. An explicit FULL resync
+# is also the reconnect barrier after replacing the event-receiver process above.
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${reviewer_session}:resync-state" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-reviewer-session-initial-state-001' \
+  -d '{"mode":"FULL","reason":"OUTCOME_VERIFIER_INTEGRATION_READY"}' \
+  | python3 -c 'import json,sys; result=json.load(sys.stdin); assert result["state"] == "QUEUED"'
+reviewer_browser_state=""
+for _ in $(seq 1 240); do
+  reviewer_browser_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${reviewer_session}/state" \
+    -H 'X-Tenant-Id: tenant-integration' 2>/dev/null || true)"
+  if printf '%s' "$reviewer_browser_state" | python3 -c \
+    'import json,sys,urllib.parse; state=json.load(sys.stdin); assert urllib.parse.urlparse(state["url"]).hostname == "example.test"; assert state["stateQuality"] in ("COMPLETE", "DEPTH_LIMITED"); assert state["freshness"] in ("FRESH", "AGING"); assert state["pageActivity"] == "STABLE"' \
+    2>/dev/null; then
     break
   fi
-  if ! kill -0 "$reviewer_model_pid" 2>/dev/null; then break; fi
-  sleep 0.1
+  sleep 0.25
 done
-test "$reviewer_model_ready" = "true"
+printf '%s' "$reviewer_browser_state" | python3 -c \
+  'import json,sys,urllib.parse; state=json.load(sys.stdin); assert urllib.parse.urlparse(state["url"]).hostname == "example.test", state; assert state["stateQuality"] in ("COMPLETE", "DEPTH_LIMITED"); assert state["freshness"] in ("FRESH", "AGING"); assert state["pageActivity"] == "STABLE"'
+reviewer_session_owner="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select coordinator_owner from coordinator_ownership where session_id='${reviewer_session}'")"
+test "$reviewer_session_owner" = "coordinator-integration-d"
 
 DATABASE_URL="jdbc:postgresql://localhost:${postgres_port}/browsercloud" \
 DATABASE_USER=browsercloud \
@@ -5373,6 +5493,13 @@ AGENT_REVIEWER_MODEL_NAME=reviewer-integration-model \
 AGENT_REVIEWER_MODEL_REVISION=reviewer-integration-revision-v1 \
 AGENT_REVIEWER_INPUT_PRICE_MICROS_PER_MTOK=2000000 \
 AGENT_REVIEWER_OUTPUT_PRICE_MICROS_PER_MTOK=8000000 \
+AGENT_OUTCOME_VERIFIER_EXTERNAL_ENABLED=true \
+AGENT_OUTCOME_VERIFIER_CLAIM_LEASE_SECONDS=30 \
+AGENT_OUTCOME_VERIFIER_DEPLOYMENT_ID=outcome-integration-v1 \
+AGENT_OUTCOME_VERIFIER_MODEL_NAME=reviewer-integration-model \
+AGENT_OUTCOME_VERIFIER_MODEL_REVISION=reviewer-integration-revision-v1 \
+AGENT_OUTCOME_VERIFIER_INPUT_PRICE_MICROS_PER_MTOK=2000000 \
+AGENT_OUTCOME_VERIFIER_OUTPUT_PRICE_MICROS_PER_MTOK=8000000 \
 RESOURCE_POLICY_COST_TREND_INTERVAL_MS=1000 \
 SERVER_PORT="$control_b_port" \
   "$java_bin" -jar "$control_plane_test_jar" \
@@ -5390,13 +5517,13 @@ done
 printf '%s' "$control_b_health" | grep -q '"status":"UP"'
 
 external_agent_task="$(curl -fsS -X POST \
-  "http://localhost:${control_b_port}/api/v1/sessions/${reviewer_session}/agent-tasks" \
+  "http://localhost:${control_port}/api/v1/sessions/${reviewer_session}/agent-tasks" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-external-agent-task-001' \
   -d '{"goal":"Summarize the current page through the isolated worker","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1}')"
 external_agent_task_id="$(printf '%s' "$external_agent_task" | python3 -c \
-  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "PLANNED"; print(task["taskId"])')"
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "PLANNED", task; print(task["taskId"])')"
 external_agent_queued="$(curl -fsS -X POST \
   "http://localhost:${control_b_port}/api/v1/agent-tasks/${external_agent_task_id}:execute" \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -5502,7 +5629,61 @@ external_agent_driven="$(curl -fsS -X POST \
   -H 'X-Roles: AGENT_WORKER' \
   -d "{\"claimToken\":\"${external_agent_claim_token}\"}")"
 printf '%s' "$external_agent_driven" | python3 -c \
-  'import json,sys; job=json.load(sys.stdin); assert job["state"] == "COMMITTED"; assert job["workerId"] is None; assert job["leaseExpiresAt"] is None'
+  'import json,sys; job=json.load(sys.stdin); assert job["state"] == "WAITING", job; assert job["workerId"] is None; assert job["leaseExpiresAt"] is None'
+external_outcome_pending="$(curl -fsS \
+  "http://localhost:${control_b_port}/api/v1/agent-tasks/${external_agent_task_id}" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$external_outcome_pending" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "VERIFYING_OUTCOME"; assert task["outcomeVerification"]["status"] == "QUEUED"; assert task["recoveryGuidance"]["directive"] == "WAIT"'
+outcome_claim_forbidden="$(curl -sS -o "$temp_dir/outcome-worker-forbidden.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-outcome-jobs:claim" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -d '{"protocolVersion":"outcome-verifier-worker/v1","capabilities":{"openai-responses-v1":true},"deploymentId":"outcome-integration-v1","modelRevision":"reviewer-integration-revision-v1"}')"
+test "$outcome_claim_forbidden" = "403"
+external_outcome_claim=""
+for _ in $(seq 1 80); do
+  outcome_claim_status="$(curl -sS -o "$temp_dir/external-outcome-claim.json" -w '%{http_code}' -X POST \
+    "http://localhost:${control_b_port}/api/v1/agent-outcome-jobs:claim" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: platform-control' \
+    -H 'X-Actor-Id: outcome-worker-manual' \
+    -H 'X-Roles: OUTCOME_VERIFIER_WORKER' \
+    -d '{"protocolVersion":"outcome-verifier-worker/v1","capabilities":{"openai-responses-v1":true},"deploymentId":"outcome-integration-v1","modelRevision":"reviewer-integration-revision-v1"}')"
+  if [[ "$outcome_claim_status" = "200" ]]; then
+    external_outcome_claim="$(<"$temp_dir/external-outcome-claim.json")"
+    break
+  fi
+  if [[ "$outcome_claim_status" != "204" ]]; then
+    cat "$temp_dir/external-outcome-claim.json" >&2
+    exit 1
+  fi
+  sleep 0.25
+done
+test -n "$external_outcome_claim"
+read -r external_outcome_job_id external_outcome_claim_token < <(printf '%s' "$external_outcome_claim" | python3 -c \
+  'import json,sys; claim=json.load(sys.stdin); payload=claim["outcomePayload"]; raw=json.dumps(payload); assert claim["job"]["state"] == "CLAIMED"; assert payload["finalState"]["stateHash"] and payload["evidenceHash"] == claim["job"]["evidenceHash"]; assert "capabilityToken" not in raw and "sealedPayload" not in raw and "elementId" not in raw and "value" not in raw; print(claim["job"]["jobId"], claim["claimToken"])')
+curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-outcome-jobs/${external_outcome_job_id}:start" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: outcome-worker-manual' \
+  -H 'X-Roles: OUTCOME_VERIFIER_WORKER' \
+  -d "{\"claimToken\":\"${external_outcome_claim_token}\"}" >/dev/null
+manual_outcome_output_hash="$(printf '%s' 'manual-goal-satisfied' | shasum -a 256 | awk '{print $1}')"
+manual_outcome_completed="$(curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-outcome-jobs/${external_outcome_job_id}:complete" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: outcome-worker-manual' \
+  -H 'X-Roles: OUTCOME_VERIFIER_WORKER' \
+  -d "{\"claimToken\":\"${external_outcome_claim_token}\",\"decision\":\"VERIFIED\",\"reasonCodes\":[\"GOAL_SATISFIED\"],\"confidence\":0.96,\"deploymentId\":\"outcome-integration-v1\",\"modelRevision\":\"reviewer-integration-revision-v1\",\"providerRequestId\":\"req_manual_outcome\",\"inputTokens\":120,\"outputTokens\":20,\"latencyMs\":38,\"outputHash\":\"${manual_outcome_output_hash}\"}")"
+printf '%s' "$manual_outcome_completed" | python3 -c \
+  'import json,sys; job=json.load(sys.stdin); assert job["state"] == "VERIFIED"; assert job["decision"] == "VERIFIED"; assert job["reasonCodes"] == ["GOAL_SATISFIED"]; assert job["costMicros"] == 400'
+curl -fsS "http://localhost:${control_b_port}/api/v1/agent-tasks/${external_agent_task_id}" \
+  -H 'X-Tenant-Id: tenant-integration' | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "COMPLETED"; outcome=task["outcomeVerification"]; assert outcome["status"] == "VERIFIED"; assert outcome["decision"] == "VERIFIED"; assert outcome["costMicros"] == 400'
 
 worker_process_task="$(curl -fsS -X POST \
   "http://localhost:${control_b_port}/api/v1/sessions/${reviewer_session}/agent-tasks" \
@@ -5520,23 +5701,42 @@ curl -fsS -X POST \
 printf '%s\n' 'local-reviewer-worker-token-unused' >"$temp_dir/reviewer-worker-token"
 printf '%s\n' "$reviewer_provider_token" >"$temp_dir/reviewer-provider-token"
 chmod 600 "$temp_dir/reviewer-worker-token" "$temp_dir/reviewer-provider-token"
-python3 apps/agent-worker/reviewer_worker.py \
-  --control-plane-url="http://127.0.0.1:${control_b_port}" \
-  --control-plane-token-file="$temp_dir/reviewer-worker-token" \
-  --worker-id=reviewer-worker-process \
-  --deployment-id=reviewer-integration-v1 \
-  --model-endpoint="http://127.0.0.1:${reviewer_model_port}/v1/responses" \
-  --model-api-key-file="$temp_dir/reviewer-provider-token" \
-  --model-name=reviewer-integration-model \
-  --model-revision=reviewer-integration-revision-v1 \
-  --environment=test \
-  --heartbeat-seconds=5 \
-  --once
+reviewer_process_state=""
+for _ in $(seq 1 40); do
+  python3 apps/agent-worker/reviewer_worker.py \
+    --control-plane-url="http://127.0.0.1:${control_b_port}" \
+    --control-plane-token-file="$temp_dir/reviewer-worker-token" \
+    --worker-id=reviewer-worker-process \
+    --deployment-id=reviewer-integration-v1 \
+    --model-endpoint="http://127.0.0.1:${reviewer_model_port}/v1/responses" \
+    --model-api-key-file="$temp_dir/reviewer-provider-token" \
+    --model-name=reviewer-integration-model \
+    --model-revision=reviewer-integration-revision-v1 \
+    --environment=test \
+    --heartbeat-seconds=5 \
+    --once
+  reviewer_process_state="$(curl -fsS \
+    "http://localhost:${control_b_port}/api/v1/agent-tasks/${worker_process_task_id}" \
+    -H 'X-Tenant-Id: tenant-integration' | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$reviewer_process_state" = "QUEUED" ]]; then break; fi
+  sleep 0.25
+done
+if [[ "$reviewer_process_state" != "QUEUED" ]]; then
+  curl -fsS \
+    "http://localhost:${control_b_port}/api/v1/agent-tasks/${worker_process_task_id}" \
+    -H 'X-Tenant-Id: tenant-integration' >&2 || true
+  docker exec "$postgres_container" psql -U browsercloud -d browsercloud -x -c \
+    "SELECT * FROM agent_review_jobs WHERE task_id = '${worker_process_task_id}'" >&2 || true
+  docker exec "$postgres_container" psql -U browsercloud -d browsercloud -x -c \
+    "SELECT * FROM agent_review_events WHERE task_id = '${worker_process_task_id}' ORDER BY created_at" >&2 || true
+  sed -n '1,200p' "$temp_dir/reviewer-model-events.jsonl" >&2 || true
+  exit 1
+fi
 reviewer_process_result="$(curl -fsS \
   "http://localhost:${control_b_port}/api/v1/agent-tasks/${worker_process_task_id}" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$reviewer_process_result" | python3 -c \
-  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "QUEUED"; review=task["review"]; assert review["status"] == "APPROVED"; assert review["inputTokens"] == 144; assert review["outputTokens"] == 19; assert review["costMicros"] == 440; assert review["reasonCodes"] == ["SAFE"]'
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "QUEUED", task; review=task["review"]; assert review["status"] == "APPROVED", task; assert review["inputTokens"] == 144, task; assert review["outputTokens"] == 19, task; assert review["costMicros"] == 440, task; assert review["reasonCodes"] == ["SAFE"], task'
 python3 - "$temp_dir/reviewer-model-events.jsonl" <<'PY'
 import json
 import sys
@@ -5551,21 +5751,142 @@ assert events[0]["forbiddenFieldsAbsent"] is True
 PY
 printf '%s\n' 'local-agent-worker-token-unused' >"$temp_dir/agent-worker-token"
 chmod 600 "$temp_dir/agent-worker-token"
+agent_process_state=""
+for _ in $(seq 1 40); do
+  python3 apps/agent-worker/agent_worker.py \
+    --control-plane-url="http://127.0.0.1:${control_b_port}" \
+    --control-plane-token-file="$temp_dir/agent-worker-token" \
+    --worker-id=agent-worker-process \
+    --environment=test \
+    --heartbeat-seconds=5 \
+    --once
+  agent_process_state="$(curl -fsS \
+    "http://localhost:${control_b_port}/api/v1/agent-tasks/${worker_process_task_id}" \
+    -H 'X-Tenant-Id: tenant-integration' | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$agent_process_state" = "VERIFYING_OUTCOME" ]]; then break; fi
+  sleep 0.25
+done
+test "$agent_process_state" = "VERIFYING_OUTCOME"
+printf '%s\n' 'local-outcome-worker-token-unused' >"$temp_dir/outcome-worker-token"
+chmod 600 "$temp_dir/outcome-worker-token"
+worker_process_state=""
+for _ in $(seq 1 80); do
+  python3 apps/agent-worker/outcome_verifier_worker.py \
+    --control-plane-url="http://127.0.0.1:${control_b_port}" \
+    --control-plane-token-file="$temp_dir/outcome-worker-token" \
+    --worker-id=outcome-worker-process \
+    --deployment-id=outcome-integration-v1 \
+    --model-endpoint="http://127.0.0.1:${reviewer_model_port}/v1/responses" \
+    --model-api-key-file="$temp_dir/reviewer-provider-token" \
+    --model-name=reviewer-integration-model \
+    --model-revision=reviewer-integration-revision-v1 \
+    --environment=test \
+    --heartbeat-seconds=5 \
+    --once
+  worker_process_state="$(curl -fsS \
+    "http://localhost:${control_b_port}/api/v1/agent-tasks/${worker_process_task_id}" \
+    -H 'X-Tenant-Id: tenant-integration' | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$worker_process_state" = "COMPLETED" ]]; then break; fi
+  sleep 0.25
+done
+test "$worker_process_state" = "COMPLETED"
+worker_process_result="$(curl -fsS \
+  "http://localhost:${control_b_port}/api/v1/agent-tasks/${worker_process_task_id}" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$worker_process_result" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "COMPLETED"; assert len(task["executionResults"]) == 3; outcome=task["outcomeVerification"]; assert outcome["status"] == "VERIFIED"; assert outcome["reasonCodes"] == ["GOAL_SATISFIED"]'
+python3 - "$temp_dir/reviewer-model-events.jsonl" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    events = [json.loads(line) for line in handle if line.strip()]
+assert [event["schemaName"] for event in events] == [
+    "agent_plan_review", "agent_outcome_verification"
+]
+assert all(event["forbiddenFieldsAbsent"] for event in events)
+PY
+
+# Technical tool success must not imply business success. A separate verdict can reject the exact
+# final state, and the durable Task plus waiting Agent Worker job must converge to FAILED.
+false_success_task="$(curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/sessions/${reviewer_session}/agent-tasks" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-outcome-false-success-task-001' \
+  -d '{"goal":"Verify that a technically successful action did not satisfy the business goal","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1}')"
+false_success_task_id="$(printf '%s' "$false_success_task" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["taskId"])')"
+curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-tasks/${false_success_task_id}:execute" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-outcome-false-success-execute-001' >/dev/null
+python3 apps/agent-worker/reviewer_worker.py \
+  --control-plane-url="http://127.0.0.1:${control_b_port}" \
+  --control-plane-token-file="$temp_dir/reviewer-worker-token" \
+  --worker-id=reviewer-worker-false-success \
+  --deployment-id=reviewer-integration-v1 \
+  --model-endpoint="http://127.0.0.1:${reviewer_model_port}/v1/responses" \
+  --model-api-key-file="$temp_dir/reviewer-provider-token" \
+  --model-name=reviewer-integration-model \
+  --model-revision=reviewer-integration-revision-v1 \
+  --environment=test --heartbeat-seconds=5 --once
 python3 apps/agent-worker/agent_worker.py \
   --control-plane-url="http://127.0.0.1:${control_b_port}" \
   --control-plane-token-file="$temp_dir/agent-worker-token" \
-  --worker-id=agent-worker-process \
-  --environment=test \
-  --heartbeat-seconds=5 \
-  --once
-worker_process_result="$(curl -fsS \
-  "http://localhost:${control_port}/api/v1/agent-tasks/${worker_process_task_id}" \
-  -H 'X-Tenant-Id: tenant-integration')"
-printf '%s' "$worker_process_result" | python3 -c \
-  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "COMPLETED"; assert len(task["executionResults"]) == 3'
+  --worker-id=agent-worker-false-success \
+  --environment=test --heartbeat-seconds=5 --once
+false_outcome_claim=""
+for _ in $(seq 1 80); do
+  false_outcome_claim_status="$(curl -sS -o "$temp_dir/false-outcome-claim.json" -w '%{http_code}' -X POST \
+    "http://localhost:${control_b_port}/api/v1/agent-outcome-jobs:claim" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: platform-control' \
+    -H 'X-Actor-Id: outcome-worker-false-success' \
+    -H 'X-Roles: OUTCOME_VERIFIER_WORKER' \
+    -d '{"protocolVersion":"outcome-verifier-worker/v1","capabilities":{"openai-responses-v1":true},"deploymentId":"outcome-integration-v1","modelRevision":"reviewer-integration-revision-v1"}')"
+  if [[ "$false_outcome_claim_status" = "200" ]]; then
+    false_outcome_claim="$(<"$temp_dir/false-outcome-claim.json")"
+    break
+  fi
+  if [[ "$false_outcome_claim_status" != "204" ]]; then
+    cat "$temp_dir/false-outcome-claim.json" >&2
+    exit 1
+  fi
+  sleep 0.25
+done
+test -n "$false_outcome_claim"
+read -r false_outcome_job_id false_outcome_token < <(printf '%s' "$false_outcome_claim" | python3 -c \
+  'import json,sys; claim=json.load(sys.stdin); print(claim["job"]["jobId"], claim["claimToken"])')
+curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-outcome-jobs/${false_outcome_job_id}:start" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: outcome-worker-false-success' \
+  -H 'X-Roles: OUTCOME_VERIFIER_WORKER' \
+  -d "{\"claimToken\":\"${false_outcome_token}\"}" >/dev/null
+false_outcome_hash="$(printf '%s' 'business-error-visible' | shasum -a 256 | awk '{print $1}')"
+curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-outcome-jobs/${false_outcome_job_id}:complete" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: outcome-worker-false-success' \
+  -H 'X-Roles: OUTCOME_VERIFIER_WORKER' \
+  -d "{\"claimToken\":\"${false_outcome_token}\",\"decision\":\"NOT_VERIFIED\",\"reasonCodes\":[\"BUSINESS_ERROR_VISIBLE\"],\"confidence\":0.98,\"deploymentId\":\"outcome-integration-v1\",\"modelRevision\":\"reviewer-integration-revision-v1\",\"providerRequestId\":\"req_false_success\",\"inputTokens\":90,\"outputTokens\":18,\"latencyMs\":30,\"outputHash\":\"${false_outcome_hash}\"}" >/dev/null
+curl -fsS "http://localhost:${control_b_port}/api/v1/agent-tasks/${false_success_task_id}" \
+  -H 'X-Tenant-Id: tenant-integration' | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "FAILED"; assert task["lastError"] == "AGENT_OUTCOME_NOT_VERIFIED"; outcome=task["outcomeVerification"]; assert outcome["status"] == "NOT_VERIFIED"; assert outcome["reasonCodes"] == ["BUSINESS_ERROR_VISIBLE"]'
+false_execution_job_state=""
+for _ in $(seq 1 80); do
+  false_execution_job_state="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select state from agent_execution_jobs where task_id='${false_success_task_id}'")"
+  if [[ "$false_execution_job_state" = "FAILED" ]]; then break; fi
+  sleep 0.25
+done
+test "$false_execution_job_state" = "FAILED"
 external_worker_audit="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select string_agg(event_type, ',' order by event_id) from agent_execution_job_events where job_id='${external_agent_job_id}'")"
-test "$external_worker_audit" = "ENQUEUED,CLAIMED,STARTED,COMMITTED"
+test "$external_worker_audit" = "ENQUEUED,CLAIMED,STARTED,WAITING,COMMITTED"
 external_worker_secret_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from agent_execution_jobs where claim_token_hash is not null or worker_id is not null")"
 test "$external_worker_secret_rows" = "0"
@@ -5577,7 +5898,20 @@ reviewer_secret_rows="$(docker exec "$postgres_name" psql -U browsercloud -d bro
 test "$reviewer_secret_rows" = "0"
 reviewer_committed_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from agent_review_jobs where state='APPROVED' and output_hash ~ '^[a-f0-9]{64}$' and input_hash ~ '^[a-f0-9]{64}$' and input_tokens is not null and cost_micros is not null")"
-test "$reviewer_committed_rows" = "2"
+test "$reviewer_committed_rows" = "3"
+external_outcome_audit="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select string_agg(event_type, ',' order by event_id) from agent_outcome_verification_events where job_id='${external_outcome_job_id}'")"
+test "$external_outcome_audit" = "ENQUEUED,CLAIMED,STARTED,VERIFIED"
+outcome_secret_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from agent_outcome_verification_jobs where claim_token_hash is not null or worker_id is not null")"
+test "$outcome_secret_rows" = "0"
+outcome_committed_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from agent_outcome_verification_jobs where state='VERIFIED' and output_hash ~ '^[a-f0-9]{64}$' and evidence_hash ~ '^[a-f0-9]{64}$' and input_hash ~ '^[a-f0-9]{64}$' and input_tokens is not null and cost_micros is not null")"
+test "$outcome_committed_rows" = "2"
+outcome_rejected_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from agent_outcome_verification_jobs where state='NOT_VERIFIED' and decision='NOT_VERIFIED' and reason_codes='[\"BUSINESS_ERROR_VISIBLE\"]'::jsonb")"
+test "$outcome_rejected_rows" = "1"
+echo "agent_task_outcome_verification=true"
 
 curl -fsS -X POST \
   "http://localhost:${control_b_port}/api/v1/sessions/${reviewer_session}:terminate" \
@@ -7866,9 +8200,9 @@ user_preferences_rows="$(docker exec "$postgres_name" psql -U browsercloud -d br
   "select count(*) from workspace_user_preferences where tenant_id='tenant-a' and actor_id='theme-reader-a' and theme_mode='LIGHT' and version=1")"
 test "$user_preferences_rows" = "1"
 
-reconcile_metrics="$(curl -fsS "http://localhost:${control_port}/actuator/prometheus")"
+reconcile_metrics="$(cat "$temp_dir/reconcile-metrics-before-outcome-restart.prom"; curl -fsS "http://localhost:${control_port}/actuator/prometheus")"
 printf '%s' "$reconcile_metrics" | python3 -c \
-  'import re,sys; text=sys.stdin.read(); value=lambda name: float(re.search(r"^"+re.escape(name)+r"(?:\\{[^}]*\\})? ([0-9.eE+-]+)$", text, re.M).group(1)); assert value("browsercloud_coordinator_reconcile_duration_seconds_count") >= 1; assert value("browsercloud_coordinator_reconcile_stale_operations_aborted_total") >= 1; assert value("browsercloud_coordinator_reconcile_cleanup_started_total") == 0; assert value("browsercloud_coordinator_reconcile_cleanup_failures_total") == 0'
+  'import re,sys; text=sys.stdin.read(); value=lambda name: sum(map(float,re.findall(r"^"+re.escape(name)+r"(?:\\{[^}]*\\})? ([0-9.eE+-]+)$", text, re.M))); assert value("browsercloud_coordinator_reconcile_duration_seconds_count") >= 1; assert value("browsercloud_coordinator_reconcile_stale_operations_aborted_total") >= 1; assert value("browsercloud_coordinator_reconcile_cleanup_started_total") == 0; assert value("browsercloud_coordinator_reconcile_cleanup_failures_total") == 0'
 
 printf 'challenge_visual_automation=true\n'
 printf 'agent_clipboard_bridge=true\n'

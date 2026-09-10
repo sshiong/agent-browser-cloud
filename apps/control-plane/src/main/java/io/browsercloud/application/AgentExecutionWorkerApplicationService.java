@@ -80,7 +80,8 @@ public class AgentExecutionWorkerApplicationService {
         tasks
             .findForUpdate(taskId, tenantId)
             .orElseThrow(AgentApplicationService.AgentTaskNotFoundException::new);
-    if (List.of("RUNNING", "WAITING_FOR_HUMAN", "COMPLETED", "FAILED").contains(task.getState())) {
+    if (List.of("RUNNING", "VERIFYING_OUTCOME", "WAITING_FOR_HUMAN", "COMPLETED", "FAILED")
+        .contains(task.getState())) {
       return taskService.get(taskId, tenantId);
     }
     if ("QUEUED".equals(task.getState())) {
@@ -367,7 +368,8 @@ public class AgentExecutionWorkerApplicationService {
       var job = requireJob(jobId);
       var task = tasks.findById(job.taskId()).orElse(null);
       if (task != null
-          && List.of("RUNNING", "WAITING_FOR_HUMAN", "PAUSED_BY_RESOURCE_POLICY")
+          && List.of(
+                  "RUNNING", "VERIFYING_OUTCOME", "WAITING_FOR_HUMAN", "PAUSED_BY_RESOURCE_POLICY")
               .contains(task.getState())) {
         moveToWaiting(job, now);
       } else if (task != null && "COMPLETED".equals(task.getState())) {
@@ -391,7 +393,7 @@ public class AgentExecutionWorkerApplicationService {
     switch (task.state()) {
       case COMPLETED -> completeJob(requireJob(jobId), "COMMITTED", null, now);
       case FAILED -> completeJob(requireJob(jobId), "FAILED", task.lastError(), now);
-      case RUNNING, WAITING_FOR_HUMAN, PAUSED_BY_RESOURCE_POLICY ->
+      case RUNNING, VERIFYING_OUTCOME, WAITING_FOR_HUMAN, PAUSED_BY_RESOURCE_POLICY ->
           moveToWaiting(requireJob(jobId), now);
       default -> throw new AgentExecutionWorkerRejectedException("AGENT_TASK_DRIVE_NOT_ACCEPTED");
     }

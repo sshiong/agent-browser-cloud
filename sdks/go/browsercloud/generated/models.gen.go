@@ -515,33 +515,34 @@ type ChallengeInputResponse struct {
 }
 
 type AgentTask struct {
-	TaskId           string                     `json:"taskId,omitempty"`
-	SessionId        string                     `json:"sessionId,omitempty"`
-	Goal             string                     `json:"goal,omitempty"`
-	State            string                     `json:"state,omitempty"`
-	RiskClass        AgentRiskClass             `json:"riskClass,omitempty"`
-	IntentDecision   string                     `json:"intentDecision,omitempty"`
-	BlockedReason    any                        `json:"blockedReason,omitempty"`
-	AgentPolicy      AgentPolicy                `json:"agentPolicy,omitempty"`
-	CurrentStep      int                        `json:"currentStep,omitempty"`
-	TotalSteps       int                        `json:"totalSteps,omitempty"`
-	ReplanCount      int                        `json:"replanCount,omitempty"`
-	StepExecution    AgentStepExecution         `json:"stepExecution,omitempty"`
-	ExecutionWait    AgentExecutionWait         `json:"executionWait,omitempty"`
-	Confirmation     AgentConfirmation          `json:"confirmation,omitempty"`
-	HumanHandoff     AgentHumanHandoff          `json:"humanHandoff,omitempty"`
-	ChallengeEventId any                        `json:"challengeEventId,omitempty"`
-	Review           AgentReview                `json:"review,omitempty"`
-	AllowedDomains   []string                   `json:"allowedDomains,omitempty"`
-	Plan             AgentPlan                  `json:"plan,omitempty"`
-	OperationId      any                        `json:"operationId,omitempty"`
-	ExecutionResults []AgentToolExecutionResult `json:"executionResults,omitempty"`
-	Memory           AgentTaskMemory            `json:"memory,omitempty"`
-	LastError        any                        `json:"lastError,omitempty"`
-	RecoveryGuidance *AgentRecoveryGuidance     `json:"recoveryGuidance,omitempty"`
-	SecurityEvents   []PromptSecurityEvent      `json:"securityEvents,omitempty"`
-	CreatedAt        string                     `json:"createdAt,omitempty"`
-	UpdatedAt        string                     `json:"updatedAt,omitempty"`
+	TaskId              string                     `json:"taskId,omitempty"`
+	SessionId           string                     `json:"sessionId,omitempty"`
+	Goal                string                     `json:"goal,omitempty"`
+	State               string                     `json:"state,omitempty"`
+	RiskClass           AgentRiskClass             `json:"riskClass,omitempty"`
+	IntentDecision      string                     `json:"intentDecision,omitempty"`
+	BlockedReason       any                        `json:"blockedReason,omitempty"`
+	AgentPolicy         AgentPolicy                `json:"agentPolicy,omitempty"`
+	CurrentStep         int                        `json:"currentStep,omitempty"`
+	TotalSteps          int                        `json:"totalSteps,omitempty"`
+	ReplanCount         int                        `json:"replanCount,omitempty"`
+	StepExecution       AgentStepExecution         `json:"stepExecution,omitempty"`
+	ExecutionWait       AgentExecutionWait         `json:"executionWait,omitempty"`
+	Confirmation        AgentConfirmation          `json:"confirmation,omitempty"`
+	HumanHandoff        AgentHumanHandoff          `json:"humanHandoff,omitempty"`
+	ChallengeEventId    any                        `json:"challengeEventId,omitempty"`
+	Review              AgentReview                `json:"review,omitempty"`
+	OutcomeVerification AgentOutcomeVerification   `json:"outcomeVerification,omitempty"`
+	AllowedDomains      []string                   `json:"allowedDomains,omitempty"`
+	Plan                AgentPlan                  `json:"plan,omitempty"`
+	OperationId         any                        `json:"operationId,omitempty"`
+	ExecutionResults    []AgentToolExecutionResult `json:"executionResults,omitempty"`
+	Memory              AgentTaskMemory            `json:"memory,omitempty"`
+	LastError           any                        `json:"lastError,omitempty"`
+	RecoveryGuidance    *AgentRecoveryGuidance     `json:"recoveryGuidance,omitempty"`
+	SecurityEvents      []PromptSecurityEvent      `json:"securityEvents,omitempty"`
+	CreatedAt           string                     `json:"createdAt,omitempty"`
+	UpdatedAt           string                     `json:"updatedAt,omitempty"`
 }
 
 type AgentRecoveryGuidance struct {
@@ -730,6 +731,145 @@ type AgentReview struct {
 	LatencyMs     any      `json:"latencyMs,omitempty"`
 	FailureCode   any      `json:"failureCode,omitempty"`
 	CompletedAt   any      `json:"completedAt,omitempty"`
+}
+
+type ClaimAgentOutcomeJobRequest struct {
+	ProtocolVersion string          `json:"protocolVersion,omitempty"`
+	Capabilities    map[string]bool `json:"capabilities,omitempty"`
+	DeploymentId    string          `json:"deploymentId,omitempty"`
+	ModelRevision   string          `json:"modelRevision,omitempty"`
+}
+
+type AgentOutcomeJobClaimRequest struct {
+	ClaimToken string `json:"claimToken,omitempty"`
+}
+
+type CompleteAgentOutcomeJobRequest struct {
+	ClaimToken        string   `json:"claimToken,omitempty"`
+	Decision          string   `json:"decision,omitempty"`
+	ReasonCodes       []string `json:"reasonCodes,omitempty"`
+	Confidence        float64  `json:"confidence,omitempty"`
+	DeploymentId      string   `json:"deploymentId,omitempty"`
+	ModelRevision     string   `json:"modelRevision,omitempty"`
+	ProviderRequestId any      `json:"providerRequestId,omitempty"`
+	InputTokens       int      `json:"inputTokens,omitempty"`
+	OutputTokens      int      `json:"outputTokens,omitempty"`
+	LatencyMs         int      `json:"latencyMs,omitempty"`
+	OutputHash        string   `json:"outputHash,omitempty"`
+}
+
+type FailAgentOutcomeJobRequest struct {
+	ClaimToken  string `json:"claimToken,omitempty"`
+	FailureCode string `json:"failureCode,omitempty"`
+	Retryable   bool   `json:"retryable,omitempty"`
+}
+
+type OutcomeExecutionEvidence struct {
+	StepOrdinal  int    `json:"stepOrdinal,omitempty"`
+	StepId       string `json:"stepId,omitempty"`
+	ToolId       string `json:"toolId,omitempty"`
+	Status       string `json:"status,omitempty"`
+	ResultHash   string `json:"resultHash,omitempty"`
+	Verification string `json:"verification,omitempty"`
+}
+
+type OutcomeTargetEvidence struct {
+	Role        string `json:"role,omitempty"`
+	Name        string `json:"name,omitempty"`
+	ControlType string `json:"controlType,omitempty"`
+	Visible     bool   `json:"visible,omitempty"`
+	Enabled     bool   `json:"enabled,omitempty"`
+	Checked     any    `json:"checked,omitempty"`
+	Selected    any    `json:"selected,omitempty"`
+}
+
+type OutcomeStateEvidence struct {
+	StateVersion         int64                   `json:"stateVersion,omitempty"`
+	TargetRevision       int64                   `json:"targetRevision,omitempty"`
+	StateHash            string                  `json:"stateHash,omitempty"`
+	Url                  string                  `json:"url,omitempty"`
+	Title                string                  `json:"title,omitempty"`
+	StateQuality         string                  `json:"stateQuality,omitempty"`
+	DocumentReadyState   string                  `json:"documentReadyState,omitempty"`
+	NetworkQuietMillis   int64                   `json:"networkQuietMillis,omitempty"`
+	NetworkEvidenceFresh bool                    `json:"networkEvidenceFresh,omitempty"`
+	ObservedAt           string                  `json:"observedAt,omitempty"`
+	Targets              []OutcomeTargetEvidence `json:"targets,omitempty"`
+}
+
+type AgentOutcomePayload struct {
+	TaskId            string                     `json:"taskId,omitempty"`
+	Goal              string                     `json:"goal,omitempty"`
+	RiskClass         AgentRiskClass             `json:"riskClass,omitempty"`
+	AllowedDomains    []string                   `json:"allowedDomains,omitempty"`
+	ExecutionEvidence []OutcomeExecutionEvidence `json:"executionEvidence,omitempty"`
+	FinalState        OutcomeStateEvidence       `json:"finalState,omitempty"`
+	EvidenceHash      string                     `json:"evidenceHash,omitempty"`
+	DataPolicy        string                     `json:"dataPolicy,omitempty"`
+}
+
+type OutcomeModelDeployment struct {
+	DeploymentId        string `json:"deploymentId,omitempty"`
+	ProviderType        string `json:"providerType,omitempty"`
+	ModelName           string `json:"modelName,omitempty"`
+	ModelRevision       string `json:"modelRevision,omitempty"`
+	DataPolicy          string `json:"dataPolicy,omitempty"`
+	MaximumOutputTokens int    `json:"maximumOutputTokens,omitempty"`
+}
+
+type AgentOutcomeJob struct {
+	JobId             string                 `json:"jobId,omitempty"`
+	VerificationId    string                 `json:"verificationId,omitempty"`
+	TaskId            string                 `json:"taskId,omitempty"`
+	ProtocolVersion   string                 `json:"protocolVersion,omitempty"`
+	State             string                 `json:"state,omitempty"`
+	Attempt           int                    `json:"attempt,omitempty"`
+	MaximumAttempts   int                    `json:"maximumAttempts,omitempty"`
+	WorkerId          any                    `json:"workerId,omitempty"`
+	ClaimEpoch        int64                  `json:"claimEpoch,omitempty"`
+	LeaseExpiresAt    any                    `json:"leaseExpiresAt,omitempty"`
+	AvailableAt       string                 `json:"availableAt,omitempty"`
+	Deployment        OutcomeModelDeployment `json:"deployment,omitempty"`
+	Decision          any                    `json:"decision,omitempty"`
+	ReasonCodes       []string               `json:"reasonCodes,omitempty"`
+	Confidence        any                    `json:"confidence,omitempty"`
+	EvidenceHash      string                 `json:"evidenceHash,omitempty"`
+	InputHash         string                 `json:"inputHash,omitempty"`
+	OutputHash        any                    `json:"outputHash,omitempty"`
+	ProviderRequestId any                    `json:"providerRequestId,omitempty"`
+	InputTokens       any                    `json:"inputTokens,omitempty"`
+	OutputTokens      any                    `json:"outputTokens,omitempty"`
+	CostMicros        any                    `json:"costMicros,omitempty"`
+	LatencyMs         any                    `json:"latencyMs,omitempty"`
+	StartedAt         any                    `json:"startedAt,omitempty"`
+	CompletedAt       any                    `json:"completedAt,omitempty"`
+	FailureCode       any                    `json:"failureCode,omitempty"`
+	UpdatedAt         string                 `json:"updatedAt,omitempty"`
+}
+
+type AgentOutcomeJobClaim struct {
+	ClaimToken     string              `json:"claimToken,omitempty"`
+	Job            AgentOutcomeJob     `json:"job,omitempty"`
+	OutcomePayload AgentOutcomePayload `json:"outcomePayload,omitempty"`
+	LeaseExpiresAt string              `json:"leaseExpiresAt,omitempty"`
+	ClaimEpoch     int64               `json:"claimEpoch,omitempty"`
+}
+
+type AgentOutcomeVerification struct {
+	VerificationId any      `json:"verificationId,omitempty"`
+	Status         string   `json:"status,omitempty"`
+	Decision       any      `json:"decision,omitempty"`
+	ReasonCodes    []string `json:"reasonCodes,omitempty"`
+	EvidenceHash   any      `json:"evidenceHash,omitempty"`
+	DeploymentId   any      `json:"deploymentId,omitempty"`
+	ModelName      any      `json:"modelName,omitempty"`
+	ModelRevision  any      `json:"modelRevision,omitempty"`
+	InputTokens    any      `json:"inputTokens,omitempty"`
+	OutputTokens   any      `json:"outputTokens,omitempty"`
+	CostMicros     any      `json:"costMicros,omitempty"`
+	LatencyMs      any      `json:"latencyMs,omitempty"`
+	FailureCode    any      `json:"failureCode,omitempty"`
+	CompletedAt    any      `json:"completedAt,omitempty"`
 }
 
 type AgentStepExecution struct {

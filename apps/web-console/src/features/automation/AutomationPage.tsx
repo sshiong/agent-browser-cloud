@@ -1184,6 +1184,7 @@ function TaskRow({
   const waiting =
     task.state === 'AWAITING_REVIEW' ||
     task.state === 'AWAITING_CONFIRMATION' ||
+    task.state === 'VERIFYING_OUTCOME' ||
     task.state === 'WAITING_FOR_HUMAN' ||
     task.state === 'PAUSED_BY_RESOURCE_POLICY';
   const running = task.state === 'RUNNING' || task.state === 'QUEUED';
@@ -1282,12 +1283,17 @@ function TaskInspector({
   const completed = task.state === 'COMPLETED';
   const awaitingConfirmation = task.state === 'AWAITING_CONFIRMATION';
   const awaitingReview = task.state === 'AWAITING_REVIEW';
+  const verifyingOutcome = task.state === 'VERIFYING_OUTCOME';
   const waitingForHuman = task.state === 'WAITING_FOR_HUMAN';
   const queued = task.state === 'QUEUED';
   const resourcePaused = task.state === 'PAUSED_BY_RESOURCE_POLICY';
   const humanInputWaiting =
     task.executionWait?.reason === 'HUMAN_INPUT_PRIORITY';
   const review = task.review ?? { status: 'NOT_REQUIRED', reasonCodes: [] };
+  const outcome = task.outcomeVerification ?? {
+    status: 'NOT_REQUIRED',
+    reasonCodes: [],
+  };
   const expiry = useMemo(
     () =>
       new Date(task.plan.expiresAt).toLocaleString('zh-CN', {
@@ -1306,6 +1312,7 @@ function TaskInspector({
               blocked
                 ? 'bg-danger/12 text-danger'
                 : awaitingReview ||
+                    verifyingOutcome ||
                     awaitingConfirmation ||
                     waitingForHuman ||
                     resourcePaused
@@ -1412,6 +1419,49 @@ function TaskInspector({
             )}
           </div>
         )}
+
+      {verifyingOutcome && (
+        <div className="border-b border-warning/20 bg-warning/5 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <LoaderCircle
+              className="mt-0.5 shrink-0 animate-spin text-warning"
+              size={15}
+            />
+            <div>
+              <p className="text-[11px] font-semibold text-warning">
+                独立 Outcome Verifier 正在验证任务结果
+              </p>
+              <p className="mt-1 text-[9px] leading-4 text-text-secondary">
+                动作成功不等于目标达成。Verifier 正在依据精确绑定的最终 Browser
+                State 检查业务结果。
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {outcome.status !== 'NOT_REQUIRED' && !verifyingOutcome && (
+        <div className="border-b border-border-subtle bg-surface-2/40 px-5 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+              Outcome {outcome.status}
+            </p>
+            <span className="font-mono text-[9px] text-text-muted">
+              {outcome.modelRevision ?? outcome.deploymentId ?? '—'}
+            </span>
+          </div>
+          <p className="mt-1 font-mono text-[9px] text-text-secondary">
+            {(outcome.reasonCodes ?? []).join(' · ') ||
+              outcome.failureCode ||
+              '等待结果证据'}
+          </p>
+          {outcome.evidenceHash && (
+            <p className="mt-2 truncate font-mono text-[8px] text-text-muted">
+              EVIDENCE {outcome.evidenceHash}
+            </p>
+          )}
+        </div>
+      )}
 
       {resourcePaused && (
         <div className="border-b border-warning/20 bg-warning/5 px-5 py-4">

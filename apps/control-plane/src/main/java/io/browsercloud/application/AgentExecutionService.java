@@ -88,6 +88,7 @@ public class AgentExecutionService {
   private final AgentActionToolService actionToolService;
   private final AgentHumanGovernanceService governanceService;
   private final AgentTaskMemoryService taskMemory;
+  private final AgentOutcomeVerifierApplicationService outcomeVerifier;
   private final AgentApplicationService taskService;
   private final AuditApplicationService audit;
   private final ObjectMapper objectMapper;
@@ -106,6 +107,7 @@ public class AgentExecutionService {
       AgentActionToolService actionToolService,
       AgentHumanGovernanceService governanceService,
       AgentTaskMemoryService taskMemory,
+      AgentOutcomeVerifierApplicationService outcomeVerifier,
       AgentApplicationService taskService,
       AuditApplicationService audit,
       ObjectMapper objectMapper,
@@ -120,6 +122,7 @@ public class AgentExecutionService {
     this.actionToolService = actionToolService;
     this.governanceService = governanceService;
     this.taskMemory = taskMemory;
+    this.outcomeVerifier = outcomeVerifier;
     this.taskService = taskService;
     this.audit = audit;
     this.objectMapper = objectMapper;
@@ -567,7 +570,12 @@ public class AgentExecutionService {
           operation.operationId(), OperationPhase.EXECUTING, OperationPhase.COMPLETING);
       operationRepository.transition(
           operation.operationId(), OperationState.ACTIVE, OperationState.COMMITTED);
-      task.completeExecution(plan.steps().size(), write(results), Instant.now());
+      var completedAt = Instant.now();
+      if (outcomeVerifier.enabled()) {
+        outcomeVerifier.enqueue(task, results, completedAt);
+      } else {
+        task.completeExecution(plan.steps().size(), write(results), completedAt);
+      }
       taskRepository.save(task);
     } catch (RuntimeException exception) {
       var failureCode = safeFailureCode(exception);

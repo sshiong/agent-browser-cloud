@@ -17,6 +17,7 @@ class AgentRecoveryPolicyTest {
     assertDirective("RUNNING", null, null, null, "TARGET_SEMANTICS_CHANGED", "REPLAN", true);
     assertDirective("RUNNING", null, null, "HUMAN_INPUT_PRIORITY", null, "WAIT", true);
     assertDirective("WAITING_FOR_HUMAN", null, "OTP_REQUIRED", null, null, "HUMAN", false);
+    assertDirective("VERIFYING_OUTCOME", null, null, null, null, "WAIT", true);
     assertDirective("FAILED", null, null, null, null, "TERMINAL", false);
   }
 

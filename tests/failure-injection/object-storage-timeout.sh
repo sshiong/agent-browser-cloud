@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-minio_image="${MINIO_IMAGE:-minio/minio:RELEASE.2025-04-22T22-12-26Z}"
-mc_image="${MINIO_MC_IMAGE:-minio/mc:RELEASE.2025-04-16T18-13-26Z}"
+minio_image="${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z}"
+mc_image="${MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z}"
 container_name="browsercloud-minio-$RANDOM-$$"
 network_name="${container_name}-network"
 access_key="browsercloud-test"

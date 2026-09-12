@@ -201,7 +201,7 @@ docker run -d --name "$minio_name" \
   -p 127.0.0.1::9000 \
   -e "MINIO_ROOT_USER=${minio_access_key}" \
   -e "MINIO_ROOT_PASSWORD=${minio_secret_key}" \
-  minio/minio:RELEASE.2025-04-22T22-12-26Z server /data >/dev/null
+  quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z server /data >/dev/null
 
 postgres_port="$(docker port "$postgres_name" 5432/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 redis_port="$(docker port "$redis_name" 6379/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
@@ -527,7 +527,7 @@ for _ in $(seq 1 80); do
 done
 test "$minio_ready" = "true"
 docker run --rm --network "$minio_network" --entrypoint /bin/sh \
-  minio/mc:RELEASE.2025-04-16T18-13-26Z \
+  quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z \
   -c "mc alias set integration http://${minio_name}:9000 '${minio_access_key}' '${minio_secret_key}' >/dev/null && mc mb integration/${minio_bucket} >/dev/null"
 
 {

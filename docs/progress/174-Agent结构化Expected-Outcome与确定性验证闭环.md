@@ -38,7 +38,13 @@ Web/Tauri 共用 Automation 页面可声明、校验和删除 Expected Outcome�
   无原始匹配值；最终标题确定性不匹配时，测试故意让模型提交 `VERIFIED`，控制面仍把 Outcome
   Job、Task 和等待中的执行 Job 收敛为未验证/失败；同轮其余 Agent Browser、Profile、资源、
   恢复和持久 Session 主链继续通过；
-- 完整 `make ci` 与 Desktop test/lint/unsigned build 在提交前复验，GitHub 结果在推送后记录。
+- 完整 `make ci` 与 Desktop test/lint/unsigned build 在提交前复验。功能提交 `153f077` 的首次
+  GitHub CI `34681195902` 仅因 Docker Hub 已无法拉取固定 MinIO 镜像而失败，Verify、构建、
+  四个 Worker 镜像、供应链扫描和 Operator E2E 均已成功；未将外部依赖失败冒充产品通过；
+- 固定 MinIO Server/Client 版本保持不变，只将官方来源迁移至 Quay，并以真实对象存储
+  GameDay 验证正常写入、500 ms 超时及本地 Checkpoint 可重试。修复提交 `172f6d3` 的 GitHub
+  CI `34681675184`（含完整 Integration、供应链、对象存储/录制 GameDay 与 Operator E2E）和
+  Desktop `34681675198`（Windows/macOS）均成功。
 
 ## 边界
 

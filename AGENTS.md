@@ -374,7 +374,9 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   即使模型提交 `VERIFIED` 也强制收敛为 `NOT_VERIFIED`。API/四 SDK/Web/Tauri 已同步至
   245 Operations / 338 Schemas；完整 Integration 输出 `agent_task_expected_outcomes=true`，
   覆盖原文不落库与模型假成功拒绝。A04 仓库内通用代码项关闭；站点领域 Validator、A03、
-  A05、A06 与 A20 仍独立待完成。
+  A05、A06 与 A20 仍独立待完成。功能提交 `153f077` 后 Docker Hub 固定 MinIO 镜像下架导致
+  首次 CI 非产品失败；保持版本不变迁移至官方 Quay 的修复提交 `172f6d3` 已通过 GitHub CI
+  `34681675184` 与 Desktop `34681675198`（Windows/macOS）。
 
 - progress 173：动作技术成功后先进入持久 `VERIFYING_OUTCOME`，独立
   `OUTCOME_VERIFIER_WORKER` 以 Task Goal、最小化执行证据和新鲜、完整、稳定的最终结构化状态

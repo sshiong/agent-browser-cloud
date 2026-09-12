@@ -199,13 +199,49 @@ type TenantRouteMigration struct {
 }
 
 type CreateAgentTaskRequest struct {
-	Goal           string                   `json:"goal,omitempty"`
-	StartUrl       string                   `json:"startUrl,omitempty"`
-	AllowedDomains []string                 `json:"allowedDomains,omitempty"`
-	MaxActions     int                      `json:"maxActions,omitempty"`
-	ReplanBudget   int                      `json:"replanBudget,omitempty"`
-	ContextSources []AgentInstructionSource `json:"contextSources,omitempty"`
-	Actions        []AgentActionRequest     `json:"actions,omitempty"`
+	Goal             string                   `json:"goal,omitempty"`
+	StartUrl         string                   `json:"startUrl,omitempty"`
+	AllowedDomains   []string                 `json:"allowedDomains,omitempty"`
+	MaxActions       int                      `json:"maxActions,omitempty"`
+	ReplanBudget     int                      `json:"replanBudget,omitempty"`
+	ContextSources   []AgentInstructionSource `json:"contextSources,omitempty"`
+	Actions          []AgentActionRequest     `json:"actions,omitempty"`
+	ExpectedOutcomes []ExpectedOutcomeRequest `json:"expectedOutcomes,omitempty"`
+}
+
+type ExpectedOutcomeRequest struct {
+	OutcomeId  string              `json:"outcomeId,omitempty"`
+	Type       ExpectedOutcomeType `json:"type,omitempty"`
+	Role       any                 `json:"role,omitempty"`
+	MatchValue string              `json:"matchValue,omitempty"`
+}
+
+type ExpectedOutcomeType string
+
+const (
+	ExpectedOutcomeTypeFINALURLEQUALS   ExpectedOutcomeType = "FINAL_URL_EQUALS"
+	ExpectedOutcomeTypePAGETITLEEQUALS  ExpectedOutcomeType = "PAGE_TITLE_EQUALS"
+	ExpectedOutcomeTypeTARGETPRESENT    ExpectedOutcomeType = "TARGET_PRESENT"
+	ExpectedOutcomeTypeTARGETABSENT     ExpectedOutcomeType = "TARGET_ABSENT"
+	ExpectedOutcomeTypeTARGETCHECKED    ExpectedOutcomeType = "TARGET_CHECKED"
+	ExpectedOutcomeTypeTARGETUNCHECKED  ExpectedOutcomeType = "TARGET_UNCHECKED"
+	ExpectedOutcomeTypeTARGETSELECTED   ExpectedOutcomeType = "TARGET_SELECTED"
+	ExpectedOutcomeTypeTARGETUNSELECTED ExpectedOutcomeType = "TARGET_UNSELECTED"
+)
+
+type ExpectedOutcomeDefinition struct {
+	OutcomeId         string              `json:"outcomeId,omitempty"`
+	Type              ExpectedOutcomeType `json:"type,omitempty"`
+	Role              any                 `json:"role,omitempty"`
+	ExpectedValueHash string              `json:"expectedValueHash,omitempty"`
+}
+
+type ExpectedOutcomeEvaluation struct {
+	OutcomeId         string              `json:"outcomeId,omitempty"`
+	Type              ExpectedOutcomeType `json:"type,omitempty"`
+	Status            string              `json:"status,omitempty"`
+	ReasonCode        string              `json:"reasonCode,omitempty"`
+	ObservedValueHash any                 `json:"observedValueHash,omitempty"`
 }
 
 type AgentActionRequest struct {
@@ -515,34 +551,35 @@ type ChallengeInputResponse struct {
 }
 
 type AgentTask struct {
-	TaskId              string                     `json:"taskId,omitempty"`
-	SessionId           string                     `json:"sessionId,omitempty"`
-	Goal                string                     `json:"goal,omitempty"`
-	State               string                     `json:"state,omitempty"`
-	RiskClass           AgentRiskClass             `json:"riskClass,omitempty"`
-	IntentDecision      string                     `json:"intentDecision,omitempty"`
-	BlockedReason       any                        `json:"blockedReason,omitempty"`
-	AgentPolicy         AgentPolicy                `json:"agentPolicy,omitempty"`
-	CurrentStep         int                        `json:"currentStep,omitempty"`
-	TotalSteps          int                        `json:"totalSteps,omitempty"`
-	ReplanCount         int                        `json:"replanCount,omitempty"`
-	StepExecution       AgentStepExecution         `json:"stepExecution,omitempty"`
-	ExecutionWait       AgentExecutionWait         `json:"executionWait,omitempty"`
-	Confirmation        AgentConfirmation          `json:"confirmation,omitempty"`
-	HumanHandoff        AgentHumanHandoff          `json:"humanHandoff,omitempty"`
-	ChallengeEventId    any                        `json:"challengeEventId,omitempty"`
-	Review              AgentReview                `json:"review,omitempty"`
-	OutcomeVerification AgentOutcomeVerification   `json:"outcomeVerification,omitempty"`
-	AllowedDomains      []string                   `json:"allowedDomains,omitempty"`
-	Plan                AgentPlan                  `json:"plan,omitempty"`
-	OperationId         any                        `json:"operationId,omitempty"`
-	ExecutionResults    []AgentToolExecutionResult `json:"executionResults,omitempty"`
-	Memory              AgentTaskMemory            `json:"memory,omitempty"`
-	LastError           any                        `json:"lastError,omitempty"`
-	RecoveryGuidance    *AgentRecoveryGuidance     `json:"recoveryGuidance,omitempty"`
-	SecurityEvents      []PromptSecurityEvent      `json:"securityEvents,omitempty"`
-	CreatedAt           string                     `json:"createdAt,omitempty"`
-	UpdatedAt           string                     `json:"updatedAt,omitempty"`
+	TaskId              string                      `json:"taskId,omitempty"`
+	SessionId           string                      `json:"sessionId,omitempty"`
+	Goal                string                      `json:"goal,omitempty"`
+	State               string                      `json:"state,omitempty"`
+	RiskClass           AgentRiskClass              `json:"riskClass,omitempty"`
+	IntentDecision      string                      `json:"intentDecision,omitempty"`
+	BlockedReason       any                         `json:"blockedReason,omitempty"`
+	AgentPolicy         AgentPolicy                 `json:"agentPolicy,omitempty"`
+	CurrentStep         int                         `json:"currentStep,omitempty"`
+	TotalSteps          int                         `json:"totalSteps,omitempty"`
+	ReplanCount         int                         `json:"replanCount,omitempty"`
+	StepExecution       AgentStepExecution          `json:"stepExecution,omitempty"`
+	ExecutionWait       AgentExecutionWait          `json:"executionWait,omitempty"`
+	Confirmation        AgentConfirmation           `json:"confirmation,omitempty"`
+	HumanHandoff        AgentHumanHandoff           `json:"humanHandoff,omitempty"`
+	ChallengeEventId    any                         `json:"challengeEventId,omitempty"`
+	Review              AgentReview                 `json:"review,omitempty"`
+	OutcomeVerification AgentOutcomeVerification    `json:"outcomeVerification,omitempty"`
+	ExpectedOutcomes    []ExpectedOutcomeDefinition `json:"expectedOutcomes,omitempty"`
+	AllowedDomains      []string                    `json:"allowedDomains,omitempty"`
+	Plan                AgentPlan                   `json:"plan,omitempty"`
+	OperationId         any                         `json:"operationId,omitempty"`
+	ExecutionResults    []AgentToolExecutionResult  `json:"executionResults,omitempty"`
+	Memory              AgentTaskMemory             `json:"memory,omitempty"`
+	LastError           any                         `json:"lastError,omitempty"`
+	RecoveryGuidance    *AgentRecoveryGuidance      `json:"recoveryGuidance,omitempty"`
+	SecurityEvents      []PromptSecurityEvent       `json:"securityEvents,omitempty"`
+	CreatedAt           string                      `json:"createdAt,omitempty"`
+	UpdatedAt           string                      `json:"updatedAt,omitempty"`
 }
 
 type AgentRecoveryGuidance struct {
@@ -798,14 +835,16 @@ type OutcomeStateEvidence struct {
 }
 
 type AgentOutcomePayload struct {
-	TaskId            string                     `json:"taskId,omitempty"`
-	Goal              string                     `json:"goal,omitempty"`
-	RiskClass         AgentRiskClass             `json:"riskClass,omitempty"`
-	AllowedDomains    []string                   `json:"allowedDomains,omitempty"`
-	ExecutionEvidence []OutcomeExecutionEvidence `json:"executionEvidence,omitempty"`
-	FinalState        OutcomeStateEvidence       `json:"finalState,omitempty"`
-	EvidenceHash      string                     `json:"evidenceHash,omitempty"`
-	DataPolicy        string                     `json:"dataPolicy,omitempty"`
+	TaskId                     string                      `json:"taskId,omitempty"`
+	Goal                       string                      `json:"goal,omitempty"`
+	RiskClass                  AgentRiskClass              `json:"riskClass,omitempty"`
+	AllowedDomains             []string                    `json:"allowedDomains,omitempty"`
+	ExpectedOutcomes           []ExpectedOutcomeDefinition `json:"expectedOutcomes,omitempty"`
+	ExpectedOutcomeEvaluations []ExpectedOutcomeEvaluation `json:"expectedOutcomeEvaluations,omitempty"`
+	ExecutionEvidence          []OutcomeExecutionEvidence  `json:"executionEvidence,omitempty"`
+	FinalState                 OutcomeStateEvidence        `json:"finalState,omitempty"`
+	EvidenceHash               string                      `json:"evidenceHash,omitempty"`
+	DataPolicy                 string                      `json:"dataPolicy,omitempty"`
 }
 
 type OutcomeModelDeployment struct {
@@ -856,20 +895,21 @@ type AgentOutcomeJobClaim struct {
 }
 
 type AgentOutcomeVerification struct {
-	VerificationId any      `json:"verificationId,omitempty"`
-	Status         string   `json:"status,omitempty"`
-	Decision       any      `json:"decision,omitempty"`
-	ReasonCodes    []string `json:"reasonCodes,omitempty"`
-	EvidenceHash   any      `json:"evidenceHash,omitempty"`
-	DeploymentId   any      `json:"deploymentId,omitempty"`
-	ModelName      any      `json:"modelName,omitempty"`
-	ModelRevision  any      `json:"modelRevision,omitempty"`
-	InputTokens    any      `json:"inputTokens,omitempty"`
-	OutputTokens   any      `json:"outputTokens,omitempty"`
-	CostMicros     any      `json:"costMicros,omitempty"`
-	LatencyMs      any      `json:"latencyMs,omitempty"`
-	FailureCode    any      `json:"failureCode,omitempty"`
-	CompletedAt    any      `json:"completedAt,omitempty"`
+	VerificationId             any                         `json:"verificationId,omitempty"`
+	Status                     string                      `json:"status,omitempty"`
+	Decision                   any                         `json:"decision,omitempty"`
+	ReasonCodes                []string                    `json:"reasonCodes,omitempty"`
+	ExpectedOutcomeEvaluations []ExpectedOutcomeEvaluation `json:"expectedOutcomeEvaluations,omitempty"`
+	EvidenceHash               any                         `json:"evidenceHash,omitempty"`
+	DeploymentId               any                         `json:"deploymentId,omitempty"`
+	ModelName                  any                         `json:"modelName,omitempty"`
+	ModelRevision              any                         `json:"modelRevision,omitempty"`
+	InputTokens                any                         `json:"inputTokens,omitempty"`
+	OutputTokens               any                         `json:"outputTokens,omitempty"`
+	CostMicros                 any                         `json:"costMicros,omitempty"`
+	LatencyMs                  any                         `json:"latencyMs,omitempty"`
+	FailureCode                any                         `json:"failureCode,omitempty"`
+	CompletedAt                any                         `json:"completedAt,omitempty"`
 }
 
 type AgentStepExecution struct {

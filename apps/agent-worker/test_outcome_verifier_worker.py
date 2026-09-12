@@ -49,6 +49,19 @@ class ControlPlaneFixture(BaseHTTPRequestHandler):
                     "goal": "save settings",
                     "riskClass": "R2_DATA_CHANGE",
                     "allowedDomains": ["example.com"],
+                    "expectedOutcomes": [{
+                        "outcomeId": "saved-status",
+                        "type": "TARGET_PRESENT",
+                        "role": "status",
+                        "expectedValueHash": "e" * 64,
+                    }],
+                    "expectedOutcomeEvaluations": [{
+                        "outcomeId": "saved-status",
+                        "type": "TARGET_PRESENT",
+                        "status": "SATISFIED",
+                        "reasonCode": "EXPECTED_TARGET_PRESENT",
+                        "observedValueHash": None,
+                    }],
                     "executionEvidence": [{
                         "stepOrdinal": 0,
                         "stepId": "step_123",
@@ -156,7 +169,9 @@ class OutcomeVerifierWorkerTest(unittest.TestCase):
         request = ModelFixture.requests[-1]
         self.assertEqual(request["text"]["format"]["name"], "agent_outcome_verification")
         serialized = json.dumps(request)
-        for forbidden in ("capabilityToken", "sealedPayload", "elementId", "provider-secret"):
+        for forbidden in (
+            "capabilityToken", "sealedPayload", "elementId", "matchValue", "provider-secret"
+        ):
             self.assertNotIn(forbidden, serialized)
         completion = ControlPlaneFixture.requests[-1]["body"]
         self.assertEqual(completion["decision"], "VERIFIED")

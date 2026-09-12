@@ -116,6 +116,53 @@ describe('agent API', () => {
     );
   });
 
+  it('submits raw expected outcomes only in the task creation request', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          taskId: 'agt_1234567890abcdef',
+          expectedOutcomes: [
+            {
+              outcomeId: 'saved',
+              type: 'TARGET_PRESENT',
+              role: 'status',
+              expectedValueHash: 'a'.repeat(64),
+            },
+          ],
+        }),
+        { status: 201, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+    const request = {
+      goal: 'Save changes',
+      allowedDomains: ['example.com'],
+      expectedOutcomes: [
+        {
+          outcomeId: 'saved',
+          type: 'TARGET_PRESENT' as const,
+          role: 'status',
+          matchValue: 'Changes saved',
+        },
+      ],
+    };
+
+    const response = await createAgentTask(
+      'ses_1234567890abcdef',
+      request,
+      'idem-agent-outcome-1',
+      'tenant-test'
+    );
+
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
+    );
+    expect(body.expectedOutcomes[0].matchValue).toBe('Changes saved');
+    expect(response.expectedOutcomes?.[0]).toEqual(
+      expect.objectContaining({ expectedValueHash: 'a'.repeat(64) })
+    );
+    expect(response.expectedOutcomes?.[0]).not.toHaveProperty('matchValue');
+  });
+
   it('executes a task with a separate idempotency key', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ state: 'COMPLETED' }), {

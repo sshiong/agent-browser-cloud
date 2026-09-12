@@ -1,5 +1,7 @@
 package io.browsercloud.api;
 
+import io.browsercloud.api.AgentExpectedOutcomeModels.ExpectedOutcomeDefinition;
+import io.browsercloud.api.AgentExpectedOutcomeModels.ExpectedOutcomeEvaluation;
 import io.browsercloud.domain.agent.AgentModels.RiskClass;
 import io.browsercloud.domain.agent.AgentModels.ToolId;
 import jakarta.validation.constraints.DecimalMax;
@@ -92,6 +94,8 @@ public final class AgentOutcomeVerifierModels {
       String goal,
       RiskClass riskClass,
       List<String> allowedDomains,
+      List<ExpectedOutcomeDefinition> expectedOutcomes,
+      List<ExpectedOutcomeEvaluation> expectedOutcomeEvaluations,
       List<OutcomeExecutionEvidence> executionEvidence,
       OutcomeStateEvidence finalState,
       String evidenceHash,
@@ -146,6 +150,7 @@ public final class AgentOutcomeVerifierModels {
       String status,
       OutcomeDecision decision,
       List<String> reasonCodes,
+      List<ExpectedOutcomeEvaluation> expectedOutcomeEvaluations,
       String evidenceHash,
       String deploymentId,
       String modelName,

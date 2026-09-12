@@ -1,5 +1,6 @@
 package io.browsercloud.api;
 
+import io.browsercloud.api.AgentExpectedOutcomeModels.ExpectedOutcomeRequest;
 import io.browsercloud.domain.agent.AgentModels.ActionDataClass;
 import io.browsercloud.domain.agent.AgentModels.InstructionSourceType;
 import io.browsercloud.domain.agent.AgentModels.ToolId;
@@ -22,7 +23,27 @@ public record CreateAgentTaskRequest(
     @Min(1) @Max(23) Integer maxActions,
     @Min(0) @Max(3) Integer replanBudget,
     @Valid @Size(max = 20) List<InstructionSourceRequest> contextSources,
-    @Valid @Size(max = 10) List<ActionRequest> actions) {
+    @Valid @Size(max = 10) List<ActionRequest> actions,
+    @Valid @Size(max = 10) List<ExpectedOutcomeRequest> expectedOutcomes) {
+
+  public CreateAgentTaskRequest(
+      String goal,
+      String startUrl,
+      List<String> allowedDomains,
+      Integer maxActions,
+      Integer replanBudget,
+      List<InstructionSourceRequest> contextSources,
+      List<ActionRequest> actions) {
+    this(
+        goal,
+        startUrl,
+        allowedDomains,
+        maxActions,
+        replanBudget,
+        contextSources,
+        actions,
+        List.of());
+  }
 
   public record InstructionSourceRequest(
       @NotBlank @Size(max = 128) String sourceId,

@@ -45,6 +45,8 @@ import {
 import { cn } from '@/shared/lib/utils';
 import type {
   AgentRiskClass,
+  AgentExpectedOutcomeRequest,
+  AgentExpectedOutcomeType,
   AgentTaskSummary,
   CreateAgentActionRequest,
   AgentTaskView,
@@ -81,6 +83,23 @@ const sourceOptions: Array<{
 ];
 
 type DraftAction = CreateAgentActionRequest & { clientId: string };
+type DraftExpectedOutcome = Omit<AgentExpectedOutcomeRequest, 'outcomeId'> & {
+  clientId: string;
+};
+
+const expectedOutcomeOptions: Array<{
+  value: AgentExpectedOutcomeType;
+  label: string;
+}> = [
+  { value: 'FINAL_URL_EQUALS', label: '最终 URL 等于' },
+  { value: 'PAGE_TITLE_EQUALS', label: '页面标题等于' },
+  { value: 'TARGET_PRESENT', label: '语义目标存在' },
+  { value: 'TARGET_ABSENT', label: '语义目标不存在' },
+  { value: 'TARGET_CHECKED', label: '目标已勾选' },
+  { value: 'TARGET_UNCHECKED', label: '目标未勾选' },
+  { value: 'TARGET_SELECTED', label: '目标已选择' },
+  { value: 'TARGET_UNSELECTED', label: '目标未选择' },
+];
 
 const actionOptions: Array<{
   value: DraftAction['toolId'];
@@ -130,6 +149,9 @@ export function AutomationPage() {
   const [sourceType, setSourceType] =
     useState<InstructionSourceType>('WEB_CONTENT');
   const [actions, setActions] = useState<DraftAction[]>([]);
+  const [expectedOutcomes, setExpectedOutcomes] = useState<
+    DraftExpectedOutcome[]
+  >([]);
   const [bindingError, setBindingError] = useState('');
   const browserState = useBrowserState(sessionId, Boolean(sessionId));
   useSessionResourceStream(sessionId, Boolean(sessionId));
@@ -191,6 +213,11 @@ export function AutomationPage() {
   const actionsValid = actions.every((action) =>
     isActionComplete(action, browserState.data?.targetRevision)
   );
+  const expectedOutcomesValid = expectedOutcomes.every(
+    (outcome) =>
+      outcome.matchValue.trim() &&
+      (!outcome.type.startsWith('TARGET_') || outcome.role?.trim())
+  );
   const endsWithHandoff = actions.at(-1)?.toolId === 'REQUEST_HUMAN_TAKEOVER';
   const requiredActionBudget =
     (startUrl.trim() ? 4 : 3) + actions.length - (endsWithHandoff ? 2 : 0);
@@ -223,7 +250,9 @@ export function AutomationPage() {
               ? policyConflict
               : !actionsValid
                 ? '结构化动作尚未完整绑定'
-                : '';
+                : !expectedOutcomesValid
+                  ? 'Expected Outcome 尚未完整声明'
+                  : '';
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -281,12 +310,21 @@ export function AutomationPage() {
             ]
           : [],
         actions: submittedActions.map(toActionRequest),
+        expectedOutcomes: expectedOutcomes.map((outcome, index) => ({
+          outcomeId: `expected-${index + 1}`,
+          type: outcome.type,
+          role: outcome.type.startsWith('TARGET_')
+            ? outcome.role?.trim()
+            : undefined,
+          matchValue: outcome.matchValue.trim(),
+        })),
       },
     });
     setSelectedTaskId(task.taskId);
     setGoal('');
     setExternalContent('');
     setActions([]);
+    setExpectedOutcomes([]);
   }
 
   return (
@@ -516,6 +554,145 @@ export function AutomationPage() {
               isLoading={browserState.isLoading}
               state={browserState.data}
             />
+
+            <div className="border-t border-border-subtle pt-4">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-text-muted">
+                    Expected Outcome
+                  </p>
+                  <p className="mt-1 text-[10px] leading-4 text-text-muted">
+                    声明任务完成后必须成立的确定性条件；匹配正文仅在提交时使用，服务端只保存哈希。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={expectedOutcomes.length >= 10}
+                  onClick={() =>
+                    setExpectedOutcomes((current) => [
+                      ...current,
+                      {
+                        clientId: crypto.randomUUID(),
+                        type: 'TARGET_PRESENT',
+                        role: 'status',
+                        matchValue: '',
+                      },
+                    ])
+                  }
+                  className="inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] border border-border-default px-2 text-[10px] text-text-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  <Plus size={11} />
+                  添加
+                </button>
+              </div>
+
+              {expectedOutcomes.length === 0 ? (
+                <div className="border border-dashed border-border-default bg-surface-2/40 px-3 py-4 text-center text-[10px] text-text-muted">
+                  未声明确定性结果；任务仍会经过独立语义 Outcome Verifier。
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {expectedOutcomes.map((outcome, index) => {
+                    const targetOutcome = outcome.type.startsWith('TARGET_');
+                    return (
+                      <div
+                        key={outcome.clientId}
+                        className="grid gap-2 border border-border-subtle bg-surface-2/45 p-3 sm:grid-cols-[1fr_0.7fr_1.4fr_auto]"
+                      >
+                        <select
+                          value={outcome.type}
+                          onChange={(event) =>
+                            setExpectedOutcomes((current) =>
+                              current.map((item) =>
+                                item.clientId === outcome.clientId
+                                  ? {
+                                      ...item,
+                                      type: event.target
+                                        .value as AgentExpectedOutcomeType,
+                                      role: event.target.value.startsWith(
+                                        'TARGET_'
+                                      )
+                                        ? item.role || 'status'
+                                        : undefined,
+                                    }
+                                  : item
+                              )
+                            )
+                          }
+                          className={inputClass}
+                          aria-label={`Expected Outcome ${index + 1} 类型`}
+                        >
+                          {expectedOutcomeOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          value={outcome.role ?? ''}
+                          onChange={(event) =>
+                            setExpectedOutcomes((current) =>
+                              current.map((item) =>
+                                item.clientId === outcome.clientId
+                                  ? { ...item, role: event.target.value }
+                                  : item
+                              )
+                            )
+                          }
+                          disabled={!targetOutcome}
+                          maxLength={64}
+                          placeholder={
+                            targetOutcome ? 'role，例如 status' : '无需 role'
+                          }
+                          className={cn(
+                            inputClass,
+                            'font-mono disabled:opacity-40'
+                          )}
+                          aria-label={`Expected Outcome ${index + 1} role`}
+                        />
+                        <input
+                          value={outcome.matchValue}
+                          onChange={(event) =>
+                            setExpectedOutcomes((current) =>
+                              current.map((item) =>
+                                item.clientId === outcome.clientId
+                                  ? { ...item, matchValue: event.target.value }
+                                  : item
+                              )
+                            )
+                          }
+                          required
+                          maxLength={512}
+                          placeholder={
+                            outcome.type === 'FINAL_URL_EQUALS'
+                              ? 'https://example.com/saved'
+                              : outcome.type === 'PAGE_TITLE_EQUALS'
+                                ? '保存成功'
+                                : '目标可访问名称，例如 Changes saved'
+                          }
+                          className={inputClass}
+                          aria-label={`Expected Outcome ${index + 1} 匹配值`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpectedOutcomes((current) =>
+                              current.filter(
+                                (item) => item.clientId !== outcome.clientId
+                              )
+                            )
+                          }
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-[6px] border border-border-default text-text-muted hover:border-danger/40 hover:text-danger"
+                          aria-label={`移除 Expected Outcome ${index + 1}`}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             <div className="border-t border-border-subtle pt-4">
               <div className="mb-3 flex items-start justify-between gap-3">
@@ -1341,6 +1518,10 @@ function TaskInspector({
           <Meta label="过期时间" value={expiry} />
           <Meta label="授权域名" value={task.allowedDomains.join(', ')} mono />
           <Meta
+            label="Expected Outcomes"
+            value={String(task.expectedOutcomes?.length ?? 0)}
+          />
+          <Meta
             label="Step 进度"
             value={`${task.currentStep} / ${task.totalSteps}`}
             mono
@@ -1459,6 +1640,31 @@ function TaskInspector({
             <p className="mt-2 truncate font-mono text-[8px] text-text-muted">
               EVIDENCE {outcome.evidenceHash}
             </p>
+          )}
+          {(outcome.expectedOutcomeEvaluations ?? []).length > 0 && (
+            <div className="mt-3 space-y-1 border-t border-border-subtle pt-2">
+              {(outcome.expectedOutcomeEvaluations ?? []).map((item) => (
+                <div
+                  key={item.outcomeId}
+                  className="flex items-center justify-between gap-3 font-mono text-[8px]"
+                >
+                  <span className="truncate text-text-secondary">
+                    {item.outcomeId} · {item.type}
+                  </span>
+                  <span
+                    className={cn(
+                      item.status === 'SATISFIED'
+                        ? 'text-success'
+                        : item.status === 'NOT_SATISFIED'
+                          ? 'text-danger'
+                          : 'text-warning'
+                    )}
+                  >
+                    {item.status} · {item.reasonCode}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}

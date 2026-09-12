@@ -53,7 +53,15 @@ public final class Models {
 
   public record TenantRouteMigration(String migrationId, String tenantId, Long sourceRouteEpoch, Long targetRouteEpoch, Integer sourceVirtualPartitions, Integer targetVirtualPartitions, String state, Integer totalSessions, Integer migratedSessions, Integer blockedSessions, String requestedBy, String requestId, Object failureCode, String createdAt, String updatedAt, Object completedAt) {}
 
-  public record CreateAgentTaskRequest(String goal, String startUrl, List<String> allowedDomains, Integer maxActions, Integer replanBudget, List<AgentInstructionSource> contextSources, List<AgentActionRequest> actions) {}
+  public record CreateAgentTaskRequest(String goal, String startUrl, List<String> allowedDomains, Integer maxActions, Integer replanBudget, List<AgentInstructionSource> contextSources, List<AgentActionRequest> actions, List<ExpectedOutcomeRequest> expectedOutcomes) {}
+
+  public record ExpectedOutcomeRequest(String outcomeId, ExpectedOutcomeType type, Object role, String matchValue) {}
+
+  public enum ExpectedOutcomeType { FINALURLEQUALS, PAGETITLEEQUALS, TARGETPRESENT, TARGETABSENT, TARGETCHECKED, TARGETUNCHECKED, TARGETSELECTED, TARGETUNSELECTED }
+
+  public record ExpectedOutcomeDefinition(String outcomeId, ExpectedOutcomeType type, Object role, String expectedValueHash) {}
+
+  public record ExpectedOutcomeEvaluation(String outcomeId, ExpectedOutcomeType type, String status, String reasonCode, Object observedValueHash) {}
 
   public record AgentActionRequest(String toolId, String targetRef, Long targetRevision, String value, String secretId, String dataClass, Integer scrollDeltaY, String waitCondition, Integer timeoutMs, String tabId, String tabUrl, String dialogId, String endTargetRef, String key, Integer button, Integer deltaX, Integer deltaY, Integer durationMs, List<AgentBatchActionRequest> actions, Boolean stopOnError) {}
 
@@ -109,7 +117,7 @@ public final class Models {
 
   public record ChallengeInputResponse(String intentId, String challengeEventId, String sessionId, String taskId, String purpose, String state, Integer maximumAttempts, String operationId, String expiresAt, String createdAt, Object completedAt, Object errorCode) {}
 
-  public record AgentTask(String taskId, String sessionId, String goal, String state, AgentRiskClass riskClass, String intentDecision, Object blockedReason, AgentPolicy agentPolicy, Integer currentStep, Integer totalSteps, Integer replanCount, AgentStepExecution stepExecution, AgentExecutionWait executionWait, AgentConfirmation confirmation, AgentHumanHandoff humanHandoff, Object challengeEventId, AgentReview review, AgentOutcomeVerification outcomeVerification, List<String> allowedDomains, AgentPlan plan, Object operationId, List<AgentToolExecutionResult> executionResults, AgentTaskMemory memory, Object lastError, AgentRecoveryGuidance recoveryGuidance, List<PromptSecurityEvent> securityEvents, String createdAt, String updatedAt) {}
+  public record AgentTask(String taskId, String sessionId, String goal, String state, AgentRiskClass riskClass, String intentDecision, Object blockedReason, AgentPolicy agentPolicy, Integer currentStep, Integer totalSteps, Integer replanCount, AgentStepExecution stepExecution, AgentExecutionWait executionWait, AgentConfirmation confirmation, AgentHumanHandoff humanHandoff, Object challengeEventId, AgentReview review, AgentOutcomeVerification outcomeVerification, List<ExpectedOutcomeDefinition> expectedOutcomes, List<String> allowedDomains, AgentPlan plan, Object operationId, List<AgentToolExecutionResult> executionResults, AgentTaskMemory memory, Object lastError, AgentRecoveryGuidance recoveryGuidance, List<PromptSecurityEvent> securityEvents, String createdAt, String updatedAt) {}
 
   public record AgentRecoveryGuidance(String directive, String reasonCode, Boolean automatic) {}
 
@@ -161,7 +169,7 @@ public final class Models {
 
   public record OutcomeStateEvidence(Long stateVersion, Long targetRevision, String stateHash, String url, String title, String stateQuality, String documentReadyState, Long networkQuietMillis, Boolean networkEvidenceFresh, String observedAt, List<OutcomeTargetEvidence> targets) {}
 
-  public record AgentOutcomePayload(String taskId, String goal, AgentRiskClass riskClass, List<String> allowedDomains, List<OutcomeExecutionEvidence> executionEvidence, OutcomeStateEvidence finalState, String evidenceHash, String dataPolicy) {}
+  public record AgentOutcomePayload(String taskId, String goal, AgentRiskClass riskClass, List<String> allowedDomains, List<ExpectedOutcomeDefinition> expectedOutcomes, List<ExpectedOutcomeEvaluation> expectedOutcomeEvaluations, List<OutcomeExecutionEvidence> executionEvidence, OutcomeStateEvidence finalState, String evidenceHash, String dataPolicy) {}
 
   public record OutcomeModelDeployment(String deploymentId, String providerType, String modelName, String modelRevision, String dataPolicy, Integer maximumOutputTokens) {}
 
@@ -169,7 +177,7 @@ public final class Models {
 
   public record AgentOutcomeJobClaim(String claimToken, AgentOutcomeJob job, AgentOutcomePayload outcomePayload, String leaseExpiresAt, Long claimEpoch) {}
 
-  public record AgentOutcomeVerification(Object verificationId, String status, Object decision, List<String> reasonCodes, Object evidenceHash, Object deploymentId, Object modelName, Object modelRevision, Object inputTokens, Object outputTokens, Object costMicros, Object latencyMs, Object failureCode, Object completedAt) {}
+  public record AgentOutcomeVerification(Object verificationId, String status, Object decision, List<String> reasonCodes, List<ExpectedOutcomeEvaluation> expectedOutcomeEvaluations, Object evidenceHash, Object deploymentId, Object modelName, Object modelRevision, Object inputTokens, Object outputTokens, Object costMicros, Object latencyMs, Object failureCode, Object completedAt) {}
 
   public record AgentStepExecution(Object pendingStepId, Object pendingToolId, Object baseStateVersion, Object baseContentHash, Object deadline, Object leaseUntil, Object replanReason) {}
 

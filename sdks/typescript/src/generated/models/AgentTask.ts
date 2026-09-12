@@ -14,6 +14,7 @@ import type { AgentRiskClass } from './AgentRiskClass.js';
 import type { AgentStepExecution } from './AgentStepExecution.js';
 import type { AgentTaskMemory } from './AgentTaskMemory.js';
 import type { AgentToolExecutionResult } from './AgentToolExecutionResult.js';
+import type { ExpectedOutcomeDefinition } from './ExpectedOutcomeDefinition.js';
 import type { PromptSecurityEvent } from './PromptSecurityEvent.js';
 export type AgentTask = {
     taskId: string;
@@ -52,6 +53,10 @@ export type AgentTask = {
      * Independent post-execution semantic outcome evidence. Older Control Planes may omit it during rolling upgrades.
      */
     outcomeVerification?: AgentOutcomeVerification;
+    /**
+     * Canonical declarations containing hashes only. Older Control Planes may omit them during rolling upgrades.
+     */
+    expectedOutcomes?: Array<ExpectedOutcomeDefinition>;
     allowedDomains: Array<string>;
     plan: AgentPlan;
     operationId: string | null;

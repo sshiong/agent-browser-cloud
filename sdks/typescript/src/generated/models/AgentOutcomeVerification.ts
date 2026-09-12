@@ -2,11 +2,13 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ExpectedOutcomeEvaluation } from './ExpectedOutcomeEvaluation.js';
 export type AgentOutcomeVerification = {
     verificationId: string | null;
     status: 'NOT_REQUIRED' | 'QUEUED' | 'IN_REVIEW' | 'VERIFIED' | 'NOT_VERIFIED' | 'FAILED';
     decision: 'VERIFIED' | 'NOT_VERIFIED';
     reasonCodes: Array<string>;
+    expectedOutcomeEvaluations: Array<ExpectedOutcomeEvaluation>;
     evidenceHash: string | null;
     deploymentId: string | null;
     modelName: string | null;

@@ -319,6 +319,39 @@ export interface CreateAgentTaskRequest {
     content: string;
   }>;
   actions?: CreateAgentActionRequest[];
+  expectedOutcomes?: AgentExpectedOutcomeRequest[];
+}
+
+export type AgentExpectedOutcomeType =
+  | 'FINAL_URL_EQUALS'
+  | 'PAGE_TITLE_EQUALS'
+  | 'TARGET_PRESENT'
+  | 'TARGET_ABSENT'
+  | 'TARGET_CHECKED'
+  | 'TARGET_UNCHECKED'
+  | 'TARGET_SELECTED'
+  | 'TARGET_UNSELECTED';
+
+export interface AgentExpectedOutcomeRequest {
+  outcomeId: string;
+  type: AgentExpectedOutcomeType;
+  role?: string;
+  matchValue: string;
+}
+
+export interface AgentExpectedOutcomeDefinition {
+  outcomeId: string;
+  type: AgentExpectedOutcomeType;
+  role?: string;
+  expectedValueHash: string;
+}
+
+export interface AgentExpectedOutcomeEvaluation {
+  outcomeId: string;
+  type: AgentExpectedOutcomeType;
+  status: 'SATISFIED' | 'NOT_SATISFIED' | 'INDETERMINATE';
+  reasonCode: string;
+  observedValueHash?: string;
 }
 
 export interface AgentRecoveryGuidance {
@@ -402,6 +435,7 @@ export interface AgentTaskView {
     failureCode?: string;
     completedAt?: string;
   };
+  expectedOutcomes?: AgentExpectedOutcomeDefinition[];
   outcomeVerification?: {
     verificationId?: string;
     status:
@@ -413,6 +447,7 @@ export interface AgentTaskView {
       | 'FAILED';
     decision?: 'VERIFIED' | 'NOT_VERIFIED';
     reasonCodes: string[];
+    expectedOutcomeEvaluations?: AgentExpectedOutcomeEvaluation[];
     evidenceHash?: string;
     deploymentId?: string;
     modelName?: string;

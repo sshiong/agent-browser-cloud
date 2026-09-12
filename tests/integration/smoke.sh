@@ -5814,9 +5814,9 @@ false_success_task="$(curl -fsS -X POST \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-outcome-false-success-task-001' \
-  -d '{"goal":"Verify that a technically successful action did not satisfy the business goal","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1}')"
+  -d '{"goal":"Verify that a technically successful action did not satisfy the business goal","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1,"expectedOutcomes":[{"outcomeId":"impossible-final-title","type":"PAGE_TITLE_EQUALS","matchValue":"Intent verification must reject this title"}]}')"
 false_success_task_id="$(printf '%s' "$false_success_task" | python3 -c \
-  'import json,sys; print(json.load(sys.stdin)["taskId"])')"
+  'import json,sys; task=json.load(sys.stdin); expected=task["expectedOutcomes"]; assert len(expected) == 1; assert expected[0]["outcomeId"] == "impossible-final-title"; assert expected[0]["type"] == "PAGE_TITLE_EQUALS"; assert expected[0]["role"] is None; assert len(expected[0]["expectedValueHash"]) == 64; assert "matchValue" not in expected[0]; print(task["taskId"])')"
 curl -fsS -X POST \
   "http://localhost:${control_b_port}/api/v1/agent-tasks/${false_success_task_id}:execute" \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -5872,10 +5872,11 @@ curl -fsS -X POST \
   -H 'X-Tenant-Id: platform-control' \
   -H 'X-Actor-Id: outcome-worker-false-success' \
   -H 'X-Roles: OUTCOME_VERIFIER_WORKER' \
-  -d "{\"claimToken\":\"${false_outcome_token}\",\"decision\":\"NOT_VERIFIED\",\"reasonCodes\":[\"BUSINESS_ERROR_VISIBLE\"],\"confidence\":0.98,\"deploymentId\":\"outcome-integration-v1\",\"modelRevision\":\"reviewer-integration-revision-v1\",\"providerRequestId\":\"req_false_success\",\"inputTokens\":90,\"outputTokens\":18,\"latencyMs\":30,\"outputHash\":\"${false_outcome_hash}\"}" >/dev/null
+  -d "{\"claimToken\":\"${false_outcome_token}\",\"decision\":\"VERIFIED\",\"reasonCodes\":[\"GOAL_SATISFIED\"],\"confidence\":0.98,\"deploymentId\":\"outcome-integration-v1\",\"modelRevision\":\"reviewer-integration-revision-v1\",\"providerRequestId\":\"req_false_success\",\"inputTokens\":90,\"outputTokens\":18,\"latencyMs\":30,\"outputHash\":\"${false_outcome_hash}\"}" | python3 -c \
+  'import json,sys; job=json.load(sys.stdin); assert job["state"] == "NOT_VERIFIED"; assert job["decision"] == "NOT_VERIFIED"; assert job["reasonCodes"] == ["EXPECTED_OUTCOME_NOT_MET"]'
 curl -fsS "http://localhost:${control_b_port}/api/v1/agent-tasks/${false_success_task_id}" \
   -H 'X-Tenant-Id: tenant-integration' | python3 -c \
-  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "FAILED"; assert task["lastError"] == "AGENT_OUTCOME_NOT_VERIFIED"; outcome=task["outcomeVerification"]; assert outcome["status"] == "NOT_VERIFIED"; assert outcome["reasonCodes"] == ["BUSINESS_ERROR_VISIBLE"]'
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "FAILED"; assert task["lastError"] == "AGENT_OUTCOME_NOT_VERIFIED"; outcome=task["outcomeVerification"]; assert outcome["status"] == "NOT_VERIFIED"; assert outcome["reasonCodes"] == ["EXPECTED_OUTCOME_NOT_MET"]; results=outcome["expectedOutcomeEvaluations"]; assert len(results) == 1; assert results[0]["outcomeId"] == "impossible-final-title"; assert results[0]["status"] == "NOT_SATISFIED"; assert results[0]["reasonCode"] == "EXPECTED_PAGE_TITLE_MISMATCH"; assert len(results[0]["observedValueHash"]) == 64'
 false_execution_job_state=""
 for _ in $(seq 1 80); do
   false_execution_job_state="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
@@ -5909,9 +5910,13 @@ outcome_committed_rows="$(docker exec "$postgres_name" psql -U browsercloud -d b
   "select count(*) from agent_outcome_verification_jobs where state='VERIFIED' and output_hash ~ '^[a-f0-9]{64}$' and evidence_hash ~ '^[a-f0-9]{64}$' and input_hash ~ '^[a-f0-9]{64}$' and input_tokens is not null and cost_micros is not null")"
 test "$outcome_committed_rows" = "2"
 outcome_rejected_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
-  "select count(*) from agent_outcome_verification_jobs where state='NOT_VERIFIED' and decision='NOT_VERIFIED' and reason_codes='[\"BUSINESS_ERROR_VISIBLE\"]'::jsonb")"
+  "select count(*) from agent_outcome_verification_jobs where state='NOT_VERIFIED' and decision='NOT_VERIFIED' and reason_codes='[\"EXPECTED_OUTCOME_NOT_MET\"]'::jsonb")"
 test "$outcome_rejected_rows" = "1"
+expected_outcome_secret_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from agent_tasks where task_id='${false_success_task_id}' and (expected_outcomes::text like '%Intent verification must reject this title%' or outcome_expected_results::text like '%Intent verification must reject this title%')")"
+test "$expected_outcome_secret_rows" = "0"
 echo "agent_task_outcome_verification=true"
+echo "agent_task_expected_outcomes=true"
 
 curl -fsS -X POST \
   "http://localhost:${control_b_port}/api/v1/sessions/${reviewer_session}:terminate" \

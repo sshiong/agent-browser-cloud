@@ -59,6 +59,8 @@ public class AgentOutcomeVerifierApplicationService {
           "STATE_STALE",
           "STATE_INCOMPLETE",
           "INSUFFICIENT_EVIDENCE",
+          "EXPECTED_OUTCOME_NOT_MET",
+          "EXPECTED_OUTCOME_INDETERMINATE",
           "MODEL_UNCERTAIN");
 
   private final JdbcTemplate jdbc;
@@ -337,9 +339,14 @@ public class AgentOutcomeVerifierApplicationService {
       throw new AgentOutcomeRejectedException("OUTCOME_MODEL_OUTPUT_BUDGET_EXCEEDED");
     }
     var task = requireTask(job.taskId(), job.tenantId());
-    requireExactPayload(job, task);
+    var exactPayload = requireExactPayload(job, task);
     var reasons = normalizedReasons(request.reasonCodes());
-    var outcome = policyDecision(request.decision(), reasons, request.confidence());
+    var outcome =
+        policyDecision(
+            request.decision(),
+            reasons,
+            request.confidence(),
+            exactPayload.expectedOutcomeEvaluations());
     var cost =
         tokenCost(request.inputTokens(), job.inputPriceMicros())
             + tokenCost(request.outputTokens(), job.outputPriceMicros());
@@ -382,6 +389,7 @@ public class AgentOutcomeVerifierApplicationService {
         request.outputTokens(),
         cost,
         request.latencyMs());
+    task.recordExpectedOutcomeResults(write(exactPayload.expectedOutcomeEvaluations()), now);
     if (outcome.decision() == OutcomeDecision.VERIFIED) {
       task.verifyOutcome(write(outcome.reasons()), now);
     } else {
@@ -412,7 +420,8 @@ public class AgentOutcomeVerifierApplicationService {
             "inputTokens", request.inputTokens(),
             "outputTokens", request.outputTokens(),
             "costMicros", cost,
-            "latencyMs", request.latencyMs()));
+            "latencyMs", request.latencyMs(),
+            "expectedOutcomeEvaluations", exactPayload.expectedOutcomeEvaluations()));
     return toView(requireJob(jobId));
   }
 
@@ -611,6 +620,14 @@ public class AgentOutcomeVerifierApplicationService {
       BrowserStateRepository.Snapshot snapshot,
       String evidenceHash) {
     var state = snapshot.state();
+    var expectedOutcomes =
+        read(
+            task.getExpectedOutcomes(),
+            new TypeReference<
+                List<
+                    io.browsercloud.api.AgentExpectedOutcomeModels
+                        .ExpectedOutcomeDefinition>>() {});
+    var expectedOutcomeEvaluations = AgentExpectedOutcomePolicy.evaluate(expectedOutcomes, state);
     var execution =
         java.util.stream.IntStream.range(0, results.size())
             .mapToObj(
@@ -658,6 +675,8 @@ public class AgentOutcomeVerifierApplicationService {
         AgentDataMinimizer.redact(task.getGoal()),
         RiskClass.valueOf(task.getRiskClass()),
         read(task.getAllowedDomains(), new TypeReference<List<String>>() {}),
+        expectedOutcomes,
+        expectedOutcomeEvaluations,
         execution,
         finalState,
         evidenceHash,
@@ -665,7 +684,28 @@ public class AgentOutcomeVerifierApplicationService {
   }
 
   private OutcomePolicy policyDecision(
-      OutcomeDecision requested, List<String> reasons, BigDecimal confidence) {
+      OutcomeDecision requested,
+      List<String> reasons,
+      BigDecimal confidence,
+      List<io.browsercloud.api.AgentExpectedOutcomeModels.ExpectedOutcomeEvaluation>
+          expectedOutcomeEvaluations) {
+    if (expectedOutcomeEvaluations.stream()
+        .anyMatch(
+            result ->
+                result.status()
+                    == io.browsercloud.api.AgentExpectedOutcomeModels.ExpectedOutcomeStatus
+                        .INDETERMINATE)) {
+      return new OutcomePolicy(
+          OutcomeDecision.NOT_VERIFIED, List.of("EXPECTED_OUTCOME_INDETERMINATE"));
+    }
+    if (expectedOutcomeEvaluations.stream()
+        .anyMatch(
+            result ->
+                result.status()
+                    == io.browsercloud.api.AgentExpectedOutcomeModels.ExpectedOutcomeStatus
+                        .NOT_SATISFIED)) {
+      return new OutcomePolicy(OutcomeDecision.NOT_VERIFIED, List.of("EXPECTED_OUTCOME_NOT_MET"));
+    }
     if (confidence.compareTo(minimumConfidence) < 0) {
       return new OutcomePolicy(OutcomeDecision.NOT_VERIFIED, List.of("MODEL_UNCERTAIN"));
     }

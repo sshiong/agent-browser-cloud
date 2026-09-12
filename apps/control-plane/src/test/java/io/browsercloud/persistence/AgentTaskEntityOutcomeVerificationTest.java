@@ -35,12 +35,15 @@ class AgentTaskEntityOutcomeVerificationTest {
     var task = runningTask();
     var now = Instant.parse("2026-09-09T08:00:02Z");
     task.awaitOutcomeVerification(2, "[]", "out_1234567890abcdefghij", "b".repeat(64), now);
+    task.recordExpectedOutcomeResults(
+        "[{\"outcomeId\":\"saved\",\"status\":\"NOT_SATISFIED\"}]", now);
 
-    task.rejectOutcome("[\"BUSINESS_ERROR_VISIBLE\"]", now.plusSeconds(1));
+    task.rejectOutcome("[\"EXPECTED_OUTCOME_NOT_MET\"]", now.plusSeconds(1));
 
     assertThat(task.getState()).isEqualTo("FAILED");
     assertThat(task.getOutcomeVerificationStatus()).isEqualTo("NOT_VERIFIED");
     assertThat(task.getOutcomeDecision()).isEqualTo("NOT_VERIFIED");
+    assertThat(task.getOutcomeExpectedResults()).contains("NOT_SATISFIED");
     assertThat(task.getLastError()).isEqualTo("AGENT_OUTCOME_NOT_VERIFIED");
   }
 

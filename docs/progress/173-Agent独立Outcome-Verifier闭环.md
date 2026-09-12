@@ -60,3 +60,7 @@ Revision 不匹配都 fail-closed。失败可按有界退避重试，过期租�
   模型准入、质量评估、成本预算与长期稳定性仍属于生产 Gate。
 - Outcome Verifier 当前为可配置外部 Gate；关闭时保留既有完成语义，不能把未启用环境声称为
   已具备独立 Outcome 验证。
+
+后续：A04 的通用结构化 Expected Outcome 与确定性 Intent Verification 已由
+[progress 174](174-Agent结构化Expected-Outcome与确定性验证闭环.md)关闭；站点领域 Validator
+与真实客户 Replay 仍是生产 Gate。

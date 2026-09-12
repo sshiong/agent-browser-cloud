@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **245 Operations / 334 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **245 Operations / 338 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -93,7 +93,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V115 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V118 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -367,6 +367,14 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - `StopRuntime` + Recording 的幂等回归保持修复，主干绿色。
 
 ## 7. 当前正在处理的任务
+
+- progress 174：V118 为 Task 增加最多十条结构化 Expected Outcome，覆盖最终 URL/标题、语义
+  目标存在性与 checked/selected 状态；创建时原始匹配值规范化后只持久化 SHA-256。控制面对
+  Outcome Verifier 的同一精确最终 State 先做确定性判定，完整状态失败或深度受限不确定时，
+  即使模型提交 `VERIFIED` 也强制收敛为 `NOT_VERIFIED`。API/四 SDK/Web/Tauri 已同步至
+  245 Operations / 338 Schemas；完整 Integration 输出 `agent_task_expected_outcomes=true`，
+  覆盖原文不落库与模型假成功拒绝。A04 仓库内通用代码项关闭；站点领域 Validator、A03、
+  A05、A06 与 A20 仍独立待完成。
 
 - progress 173：动作技术成功后先进入持久 `VERIFYING_OUTCOME`，独立
   `OUTCOME_VERIFIER_WORKER` 以 Task Goal、最小化执行证据和新鲜、完整、稳定的最终结构化状态

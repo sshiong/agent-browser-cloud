@@ -6660,6 +6660,66 @@ components:
           maxItems: 10
           items:
             $ref: "#/components/schemas/AgentActionRequest"
+        expectedOutcomes:
+          type: array
+          maxItems: 10
+          description: Structured final-state expectations. Raw matchValue is normalized and only its SHA-256 is persisted.
+          items:
+            $ref: "#/components/schemas/ExpectedOutcomeRequest"
+    ExpectedOutcomeRequest:
+      type: object
+      additionalProperties: false
+      required: [outcomeId, type, matchValue]
+      properties:
+        outcomeId:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+        type:
+          $ref: "#/components/schemas/ExpectedOutcomeType"
+        role:
+          type: [string, "null"]
+          pattern: "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+          description: Required only for TARGET_* expectations.
+        matchValue:
+          type: string
+          minLength: 1
+          maxLength: 512
+          writeOnly: true
+          description: Exact URL, title or accessible target name; never persisted or returned.
+    ExpectedOutcomeType:
+      type: string
+      enum: [FINAL_URL_EQUALS, PAGE_TITLE_EQUALS, TARGET_PRESENT, TARGET_ABSENT, TARGET_CHECKED, TARGET_UNCHECKED, TARGET_SELECTED, TARGET_UNSELECTED]
+    ExpectedOutcomeDefinition:
+      type: object
+      additionalProperties: false
+      required: [outcomeId, type, role, expectedValueHash]
+      properties:
+        outcomeId:
+          type: string
+        type:
+          $ref: "#/components/schemas/ExpectedOutcomeType"
+        role:
+          type: [string, "null"]
+        expectedValueHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+    ExpectedOutcomeEvaluation:
+      type: object
+      additionalProperties: false
+      required: [outcomeId, type, status, reasonCode, observedValueHash]
+      properties:
+        outcomeId:
+          type: string
+        type:
+          $ref: "#/components/schemas/ExpectedOutcomeType"
+        status:
+          type: string
+          enum: [SATISFIED, NOT_SATISFIED, INDETERMINATE]
+        reasonCode:
+          type: string
+        observedValueHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
     AgentActionRequest:
       type: object
       additionalProperties: false
@@ -7725,6 +7785,12 @@ components:
         outcomeVerification:
           $ref: "#/components/schemas/AgentOutcomeVerification"
           description: Independent post-execution semantic outcome evidence. Older Control Planes may omit it during rolling upgrades.
+        expectedOutcomes:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/ExpectedOutcomeDefinition"
+          description: Canonical declarations containing hashes only. Older Control Planes may omit them during rolling upgrades.
         allowedDomains:
           type: array
           items:
@@ -8475,7 +8541,7 @@ components:
     AgentOutcomePayload:
       type: object
       additionalProperties: false
-      required: [taskId, goal, riskClass, allowedDomains, executionEvidence, finalState, evidenceHash, dataPolicy]
+      required: [taskId, goal, riskClass, allowedDomains, expectedOutcomes, expectedOutcomeEvaluations, executionEvidence, finalState, evidenceHash, dataPolicy]
       properties:
         taskId:
           type: string
@@ -8490,6 +8556,16 @@ components:
           maxItems: 20
           items:
             type: string
+        expectedOutcomes:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/ExpectedOutcomeDefinition"
+        expectedOutcomeEvaluations:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/ExpectedOutcomeEvaluation"
         executionEvidence:
           type: array
           maxItems: 23
@@ -8633,7 +8709,7 @@ components:
     AgentOutcomeVerification:
       type: object
       additionalProperties: false
-      required: [verificationId, status, decision, reasonCodes, evidenceHash, deploymentId, modelName, modelRevision, inputTokens, outputTokens, costMicros, latencyMs, failureCode, completedAt]
+      required: [verificationId, status, decision, reasonCodes, expectedOutcomeEvaluations, evidenceHash, deploymentId, modelName, modelRevision, inputTokens, outputTokens, costMicros, latencyMs, failureCode, completedAt]
       properties:
         verificationId:
           type: [string, "null"]
@@ -8647,6 +8723,11 @@ components:
           type: array
           items:
             type: string
+        expectedOutcomeEvaluations:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/ExpectedOutcomeEvaluation"
         evidenceHash:
           type: [string, "null"]
           pattern: "^[a-f0-9]{64}$"

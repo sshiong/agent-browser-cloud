@@ -160,6 +160,8 @@ public class AgentApplicationService {
         promptSecurityService.evaluate(
             request.goal(), request.contextSources(), controlPolicy.mode());
     var allowedDomains = normalizeDomains(request.allowedDomains());
+    var expectedOutcomes =
+        AgentExpectedOutcomePolicy.normalize(request.expectedOutcomes(), allowedDomains);
     // PostgreSQL stores Instant-backed timestamps at microsecond precision. Normalize before
     // constructing the first response so an idempotent replay loaded from the database is
     // semantically identical on hosts whose clock exposes nanoseconds.
@@ -242,6 +244,7 @@ public class AgentApplicationService {
             write(plan),
             write(securityEvents),
             now);
+    entity.defineExpectedOutcomes(write(expectedOutcomes), now);
     if (state == TaskState.AWAITING_CONFIRMATION) {
       entity.awaitConfirmation(newId("cnf_"), now.plus(5, ChronoUnit.MINUTES), now);
     }
@@ -1498,6 +1501,12 @@ public class AgentApplicationService {
             entity.getReviewerLatencyMs(),
             entity.getReviewerFailureCode(),
             entity.getReviewerCompletedAt()),
+        read(
+            entity.getExpectedOutcomes(),
+            new TypeReference<
+                List<
+                    io.browsercloud.api.AgentExpectedOutcomeModels
+                        .ExpectedOutcomeDefinition>>() {}),
         new io.browsercloud.api.AgentOutcomeVerifierModels.AgentOutcomeVerificationView(
             entity.getOutcomeVerificationId(),
             entity.getOutcomeVerificationStatus(),
@@ -1506,6 +1515,12 @@ public class AgentApplicationService {
                 : io.browsercloud.api.AgentOutcomeVerifierModels.OutcomeDecision.valueOf(
                     entity.getOutcomeDecision()),
             read(entity.getOutcomeReasonCodes(), new TypeReference<List<String>>() {}),
+            read(
+                entity.getOutcomeExpectedResults(),
+                new TypeReference<
+                    List<
+                        io.browsercloud.api.AgentExpectedOutcomeModels
+                            .ExpectedOutcomeEvaluation>>() {}),
             entity.getOutcomeEvidenceHash(),
             entity.getOutcomeDeploymentId(),
             entity.getOutcomeModelName(),

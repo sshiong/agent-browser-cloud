@@ -193,6 +193,14 @@ public class AgentTaskEntity {
   @Column(name = "outcome_completed_at")
   private Instant outcomeCompletedAt;
 
+  @Column(name = "expected_outcomes", nullable = false, columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
+  private String expectedOutcomes;
+
+  @Column(name = "outcome_expected_results", nullable = false, columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
+  private String outcomeExpectedResults;
+
   @Column(name = "allowed_domains", nullable = false, columnDefinition = "jsonb")
   @JdbcTypeCode(SqlTypes.JSON)
   private String allowedDomains;
@@ -268,6 +276,8 @@ public class AgentTaskEntity {
     this.reviewerReasonCodes = "[]";
     this.outcomeVerificationStatus = "NOT_REQUIRED";
     this.outcomeReasonCodes = "[]";
+    this.expectedOutcomes = "[]";
+    this.outcomeExpectedResults = "[]";
     this.createdAt = now;
     this.updatedAt = now;
   }
@@ -500,6 +510,14 @@ public class AgentTaskEntity {
     return outcomeCompletedAt;
   }
 
+  public String getExpectedOutcomes() {
+    return expectedOutcomes;
+  }
+
+  public String getOutcomeExpectedResults() {
+    return outcomeExpectedResults;
+  }
+
   public String getAllowedDomains() {
     return allowedDomains;
   }
@@ -730,6 +748,7 @@ public class AgentTaskEntity {
     this.outcomeVerificationId = verificationId;
     this.outcomeDecision = null;
     this.outcomeReasonCodes = "[]";
+    this.outcomeExpectedResults = "[]";
     this.outcomeEvidenceHash = evidenceHash;
     this.outcomeCompletedAt = null;
     clearOutcomeAccounting();
@@ -799,6 +818,17 @@ public class AgentTaskEntity {
     this.outcomeCostMicros = costMicros;
     this.outcomeLatencyMs = latencyMs;
     this.outcomeFailureCode = null;
+  }
+
+  public void defineExpectedOutcomes(String definitions, Instant now) {
+    this.expectedOutcomes = definitions;
+    this.updatedAt = now;
+  }
+
+  public void recordExpectedOutcomeResults(String results, Instant now) {
+    if (!"VERIFYING_OUTCOME".equals(state)) return;
+    this.outcomeExpectedResults = results;
+    this.updatedAt = now;
   }
 
   private void clearOutcomeAccounting() {

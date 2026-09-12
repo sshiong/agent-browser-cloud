@@ -27,7 +27,7 @@ const MAX_NETWORK_QUIET_POLICY_MILLIS: u64 = 30_000;
 pub struct InteractiveTarget {
     /// 目标引用
     pub target_ref: String,
-    /// 结构/语义身份不变时跨 Revision 稳定；角色、名称或控件用途变化后必须重新查找。
+    /// 结构/语义/最近业务实体不变时跨 Revision 稳定；任一变化后必须重新查找。
     pub element_id: String,
     /// 角色
     pub role: String,
@@ -394,6 +394,12 @@ struct EvaluatedTarget {
     path: String,
     role: String,
     name: Option<String>,
+    /// Ephemeral nearest business-entity context returned by the page probe. It is sealed into a
+    /// hash before state hashing/registry publication and must never be serialized or exposed.
+    #[serde(default, rename = "semanticContext", skip_serializing)]
+    semantic_context: Option<String>,
+    #[serde(default, rename = "semanticContextHash")]
+    semantic_context_hash: Option<String>,
     #[serde(default)]
     value: Option<String>,
     #[serde(default, rename = "controlType")]
@@ -1936,6 +1942,32 @@ impl CdpStateCollector {
                   || autocomplete.split(/\s+/).some((token) => sensitiveAutocomplete.has(token))
                   || sensitiveIdentity.test(identity);
               };
+              const normalizeContext = (value) => String(value || '')
+                .replace(/\s+/g, ' ').trim().slice(0, 512);
+              const semanticContextFor = (element) => {
+                const entityRoles = new Set(['row', 'listitem', 'treeitem']);
+                const explicitKeys = [
+                  'data-agent-entity-id', 'data-entity-id', 'data-row-key',
+                  'data-item-key', 'data-key'
+                ];
+                let current = element.parentElement;
+                for (let depth = 0; current && depth < 12; depth += 1) {
+                  for (const attribute of explicitKeys) {
+                    const key = normalizeContext(current.getAttribute(attribute));
+                    if (key) return `key:${attribute}:${key}`;
+                  }
+                  const role = normalizeContext(current.getAttribute('role')).toLowerCase();
+                  const tag = current.tagName.toLowerCase();
+                  if (entityRoles.has(role) || tag === 'tr' || tag === 'li') {
+                    const label = normalizeContext(
+                      current.getAttribute('aria-label') || current.innerText || current.textContent
+                    );
+                    if (label) return `container:${role || tag}:${label}`;
+                  }
+                  current = current.parentElement;
+                }
+                return null;
+              };
               const pathFor = (element) => {
                 const parts = [];
                 let current = element;
@@ -2072,6 +2104,7 @@ impl CdpStateCollector {
                     path,
                     role: roleFor(element),
                     name: sensitive ? null : nameFor(element),
+                    semanticContext: semanticContextFor(element),
                     value: rawValue || null,
                     controlType: (element.getAttribute('type') || element.type || '').slice(0, 64) || null,
                     bounds: rect.width > 0 && rect.height > 0 ? visibility.global : null,
@@ -2628,6 +2661,7 @@ impl CdpStateCollector {
             target.role,
             target.control_type,
             target.sensitive,
+            target.semantic_context_hash,
             if target.sensitive {
                 None
             } else {
@@ -2635,6 +2669,21 @@ impl CdpStateCollector {
             },
         ]);
         format!("e{}", &hex_sha256(identity.to_string().as_bytes())[..24])
+    }
+
+    fn seal_semantic_context(target: &mut EvaluatedTarget) {
+        target.semantic_context_hash = target.semantic_context.take().and_then(|context| {
+            let normalized = context
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+                .chars()
+                .take(512)
+                .collect::<String>();
+            (!normalized.is_empty()).then(|| {
+                hex_sha256(format!("agent-target-semantic-context-v1\n{normalized}").as_bytes())
+            })
+        });
     }
 
     fn registered_target(
@@ -2923,6 +2972,9 @@ impl CdpStateCollector {
         }
         page.targets
             .sort_by(|left, right| left.path.cmp(&right.path));
+        page.targets
+            .iter_mut()
+            .for_each(Self::seal_semantic_context);
         let network_observation = self.browser_safety_observation(session_id).await;
         let network_quiet_millis = network_observation.network_quiet_millis();
         let network_readiness_hash_bucket =
@@ -3126,6 +3178,9 @@ impl CdpStateCollector {
         );
         page.targets
             .sort_by(|left, right| left.path.cmp(&right.path));
+        page.targets
+            .iter_mut()
+            .for_each(Self::seal_semantic_context);
 
         registry.targets.retain(|_, target| {
             target.evaluated.path != root_path
@@ -3598,6 +3653,39 @@ mod tests {
         sensitive.name = Some("123456".into());
         sensitive.value = Some("secret".into());
         assert_eq!(original, CdpStateCollector::element_id(&sensitive));
+    }
+
+    #[test]
+    fn semantic_identity_binds_same_named_actions_to_their_business_entity() {
+        let mut first_entity = semantic_test_target();
+        first_entity.semantic_context_hash = Some(hex_sha256(
+            b"agent-target-semantic-context-v1\nkey:data-row-key:customer-a",
+        ));
+        let mut second_entity = first_entity.clone();
+        second_entity.semantic_context_hash = Some(hex_sha256(
+            b"agent-target-semantic-context-v1\nkey:data-row-key:customer-b",
+        ));
+        assert_ne!(
+            CdpStateCollector::element_id(&first_entity),
+            CdpStateCollector::element_id(&second_entity)
+        );
+    }
+
+    #[test]
+    fn semantic_business_context_is_hash_only_before_state_publication() {
+        let mut target = semantic_test_target();
+        target.semantic_context = Some("  customer@example.test   Account 42  ".into());
+        CdpStateCollector::seal_semantic_context(&mut target);
+        assert!(target.semantic_context.is_none());
+        assert_eq!(
+            target.semantic_context_hash.as_deref().map(str::len),
+            Some(64)
+        );
+        let serialized = serde_json::to_string(&target).unwrap();
+        assert!(!serialized.contains("customer@example.test"));
+        assert!(!serialized.contains("Account 42"));
+        assert!(!serialized.contains("semanticContext\""));
+        assert!(serialized.contains("semanticContextHash"));
     }
 
     #[tokio::test]
@@ -4641,6 +4729,8 @@ mod tests {
             path: "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(1)".to_owned(),
             role: "button".to_owned(),
             name: Some("Upload".to_owned()),
+            semantic_context: None,
+            semantic_context_hash: None,
             value: None,
             control_type: Some("file".to_owned()),
             bounds: None,
@@ -4800,7 +4890,7 @@ mod tests {
                 tokio::spawn(async move {
                     let mut request = vec![0_u8; 4096];
                     let _ = stream.read(&mut request).await;
-                    let body = "<!doctype html><html><head><title>Runtime Gate</title></head><body><button aria-label=\"执行验收\">Run</button><input placeholder=\"Name\"></body></html>";
+                    let body = "<!doctype html><html><head><title>Runtime Gate</title></head><body><div role=\"row\" data-row-key=\"customer-a\"><span>Alice</span><button aria-label=\"执行验收\">Run</button></div><input placeholder=\"Name\"></body></html>";
                     let response = format!(
                         "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                         body.len(),
@@ -4948,6 +5038,45 @@ mod tests {
                 "ses_real_chromium",
                 &new_button.element_id,
                 changed.target_revision
+            )
+            .await
+            .is_ok());
+
+        CdpStateCollector::cdp_command_with_params(
+            &websocket,
+            "Runtime.evaluate",
+            991,
+            serde_json::json!({
+                "expression": "const row = document.querySelector('[role=row]'); row.setAttribute('data-row-key', 'customer-b'); row.querySelector('span').textContent = 'Bob'; true",
+                "returnByValue": true
+            }),
+        )
+        .await
+        .unwrap();
+        let reused_row = collector
+            .collect_current_state("ses_real_chromium")
+            .await
+            .unwrap();
+        let reused_row_button = reused_row
+            .targets
+            .iter()
+            .find(|target| target.role == "button")
+            .unwrap();
+        assert_eq!(reused_row_button.name.as_deref(), Some("Delete"));
+        assert_ne!(new_button.element_id, reused_row_button.element_id);
+        assert!(collector
+            .resolve_target(
+                "ses_real_chromium",
+                &new_button.element_id,
+                reused_row.target_revision
+            )
+            .await
+            .is_err());
+        assert!(collector
+            .resolve_target(
+                "ses_real_chromium",
+                &reused_row_button.element_id,
+                reused_row.target_revision
             )
             .await
             .is_ok());

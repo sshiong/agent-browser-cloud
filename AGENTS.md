@@ -368,6 +368,14 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 
 ## 7. 当前正在处理的任务
 
+- progress 175：State Collector 将最近显式业务实体键或 `row/listitem/treeitem/tr/li` 规范化
+  行语义以 Node 内 hash-only 指纹绑定 Element ID；原文在 State Hash/Registry 前清除，不进入
+  Browser State/API/Audit。真实 Chrome 在同一 DOM 槽位保持同名按钮、只替换业务行后验证旧
+  ID 拒绝与新 ID 可解析。A03 仓库内通用代码项关闭；无业务键且可见语义完全相同的站点需由
+  Adapter 提供实体属性，A06/A20 的动态微批次与组合稳定性仍独立待完成。Rust Workspace、
+  完整 `make ci` 与 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过，公开契约保持
+  245 Operations / 338 Schemas。
+
 - progress 174：V118 为 Task 增加最多十条结构化 Expected Outcome，覆盖最终 URL/标题、语义
   目标存在性与 checked/selected 状态；创建时原始匹配值规范化后只持久化 SHA-256。控制面对
   Outcome Verifier 的同一精确最终 State 先做确定性判定，完整状态失败或深度受限不确定时，
@@ -435,9 +443,9 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   语义目标/Outcome、像素隐私、动态微批次、取消、加密和 Personal Secure 验收。
   不得把 Worker 心跳修复冒充已完成浏览器长操作取消。仓库许可证元数据 MIT/UNLICENSED
   不一致，未经权利人选择不得擅自对整个仓库授予新许可证。
-- progress 167：Element ID/target_ref 新增名称/角色/控件类型/Route/Tab 语义围栏，
-  可变输入值/焦点/勾选/位置不参与；真实 Chrome 改名拒绝旧 ID 的专项通过。同名业务行
-  的实体级绑定仍待补。控制面不再把包含 FAILED/SKIPPED 的 Batch 判为 VERIFIED，已知
+- progress 167/175：Element ID/target_ref 新增名称/角色/控件类型/Route/Tab 及最近业务实体
+  hash-only 语义围栏，可变输入值/焦点/勾选/位置不参与；真实 Chrome 已覆盖改名及同路径同名
+  业务行替换后拒绝旧 ID，A03 仓库内代码项关闭。控制面不再把包含 FAILED/SKIPPED 的 Batch 判为 VERIFIED，已知
   失败直接结束该 Step，不以 Resync 洗白；这不替代业务 Expected Outcome 验证。
 
 ### Agent Browser 结构化感知与低延迟执行（高级 Action Primitive 已闭环）

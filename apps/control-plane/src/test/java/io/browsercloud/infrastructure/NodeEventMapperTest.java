@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.google.protobuf.ByteString;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.proto.node.v1.AgentActionFailedEvent;
+import io.browsercloud.proto.node.v1.AgentActionOutcome;
 import io.browsercloud.proto.node.v1.AgentBrowserEvaluationCompletedEvent;
 import io.browsercloud.proto.node.v1.AgentFileUploadFailedEvent;
 import io.browsercloud.proto.node.v1.AgentNavigationFailedEvent;
@@ -828,6 +829,14 @@ class NodeEventMapperTest {
                     .setStartedAtMs(1_786_400_000_000L)
                     .setUpdatedAtMs(1_786_400_001_000L))
             .setDownloadEvidenceFresh(true)
+            .addActionOutcomes(
+                AgentActionOutcome.newBuilder()
+                    .setActionId("action_1")
+                    .setStatus("SUCCEEDED")
+                    .setStateVersion(7)
+                    .setTargetRevision(6)
+                    .setMicroBatchIndex(1)
+                    .setBoundaryReason("CONTENT_CHANGED"))
             .addTargets(
                 InteractiveTargetState.newBuilder()
                     .setTargetRef("target:7:0")
@@ -886,10 +895,50 @@ class NodeEventMapperTest {
                         assertThat(dialog.tabId()).isEqualTo("tab-main");
                       });
               assertThat(state.targets()).hasSize(1);
+              assertThat(state.actionOutcomes())
+                  .singleElement()
+                  .satisfies(
+                      outcome -> {
+                        assertThat(outcome.microBatchIndex()).isEqualTo(1);
+                        assertThat(outcome.boundaryReason()).isEqualTo("CONTENT_CHANGED");
+                      });
               assertThat(state.targets().getFirst().role()).isEqualTo("button");
               assertThat(state.targets().getFirst().bounds().width()).isEqualTo(80);
               assertThat(state.targets().getFirst().sensitive()).isTrue();
             });
+  }
+
+  @Test
+  void shouldRejectInvalidAgentMicroBatchMetadata() {
+    var payload =
+        BrowserStateEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setStateVersion(7)
+            .setTargetRevision(6)
+            .setUrl("https://example.test")
+            .setContentHash("hash-7")
+            .setStateQuality("COMPLETE")
+            .addActionOutcomes(
+                AgentActionOutcome.newBuilder()
+                    .setActionId("action_1")
+                    .setStatus("SKIPPED")
+                    .setErrorCode("DYNAMIC_PAGE_UNSTABLE")
+                    .setMicroBatchIndex(2)
+                    .setBoundaryReason("UNTRUSTED_REASON"))
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_state_invalid_micro_batch")
+            .setEventType(NodeEventMapper.BROWSER_STATE_UPDATED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(2)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThatThrownBy(() -> mapper.toCommand(envelope))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("micro-batch metadata");
   }
 
   @Test

@@ -70,6 +70,10 @@ const STATE_SNAPSHOT_CHUNK_BYTES: usize = 16 * 1024;
 const STATE_SNAPSHOT_MAX_CHUNKS: usize = 32;
 const STATE_SNAPSHOT_MAX_BYTES: usize = STATE_SNAPSHOT_CHUNK_BYTES * STATE_SNAPSHOT_MAX_CHUNKS;
 const STATE_OBSERVATION_HEARTBEAT: Duration = Duration::from_secs(15);
+const MAX_STABLE_ACTIONS_PER_MICRO_BATCH: usize = 4;
+const MICRO_BATCH_SETTLE_TIMEOUT: Duration = Duration::from_secs(5);
+const MICRO_BATCH_SETTLE_POLL: Duration = Duration::from_millis(100);
+const MICRO_BATCH_NETWORK_QUIET: u64 = 250;
 
 fn rebound_action_target(
     action: &AgentActionPrimitive,
@@ -91,6 +95,49 @@ fn rebound_action_end_target(
     } else {
         (action.end_element_id.clone(), current_target_revision)
     }
+}
+
+fn dynamic_micro_batch_boundary(
+    before: &CurrentState,
+    after: &CurrentState,
+    actions_in_micro_batch: usize,
+) -> Option<&'static str> {
+    if before.url != after.url || before.active_tab_id != after.active_tab_id {
+        Some("ROUTE_OR_TAB_CHANGED")
+    } else if before.native_dialogs != after.native_dialogs {
+        Some("NATIVE_DIALOG_CHANGED")
+    } else if after.document_ready_state != "complete"
+        || !after.network_evidence_fresh
+        || after.network_quiet_millis < MICRO_BATCH_NETWORK_QUIET
+    {
+        Some("PAGE_UNSETTLED")
+    } else if before.target_revision != after.target_revision
+        && before.content_hash != after.content_hash
+    {
+        Some("STRUCTURE_AND_CONTENT_CHANGED")
+    } else if before.content_hash != after.content_hash {
+        Some("CONTENT_CHANGED")
+    } else if before.target_revision != after.target_revision {
+        Some("TARGET_SET_CHANGED")
+    } else if actions_in_micro_batch >= MAX_STABLE_ACTIONS_PER_MICRO_BATCH {
+        Some("STABLE_ACTION_LIMIT")
+    } else {
+        None
+    }
+}
+
+fn micro_batch_state_is_settled(previous: &CurrentState, current: &CurrentState) -> bool {
+    matches!(
+        current.quality,
+        StateQuality::Complete | StateQuality::DepthLimited
+    ) && current.document_ready_state == "complete"
+        && current.network_evidence_fresh
+        && current.network_quiet_millis >= MICRO_BATCH_NETWORK_QUIET
+        && previous.url == current.url
+        && previous.active_tab_id == current.active_tab_id
+        && previous.native_dialogs == current.native_dialogs
+        && previous.target_revision == current.target_revision
+        && previous.content_hash == current.content_hash
 }
 
 fn bounded_input_key(value: &str) -> anyhow::Result<InputKey> {
@@ -3646,7 +3693,9 @@ impl NodeControlService {
             "agent action batch state cursor is stale"
         );
         let mut outcomes = Vec::with_capacity(payload.actions.len());
-        for action in &payload.actions {
+        let mut micro_batch_index = 1_u32;
+        let mut actions_in_micro_batch = 0_usize;
+        for (action_index, action) in payload.actions.iter().enumerate() {
             anyhow::ensure!(
                 action.action_id.starts_with("action_")
                     && action.action_id.len() <= 32
@@ -3731,16 +3780,73 @@ impl NodeControlService {
                 delta_y: action.delta_y,
                 duration_ms: action.duration_ms,
             };
+            let before = current.clone();
             match Box::pin(self.execute_agent_action(&single)).await {
                 Ok(state) => {
                     current = state;
+                    actions_in_micro_batch += 1;
+                    let mut boundary_reason = "";
+                    let mut completed_boundary = false;
+                    if action_index + 1 < payload.actions.len() {
+                        if let Some(reason) =
+                            dynamic_micro_batch_boundary(&before, &current, actions_in_micro_batch)
+                        {
+                            match self
+                                .settle_after_dynamic_micro_batch(&payload.session_id, &current)
+                                .await
+                            {
+                                Ok(settled) => {
+                                    current = settled;
+                                    boundary_reason = reason;
+                                    completed_boundary = true;
+                                }
+                                Err(error) => {
+                                    tracing::warn!(
+                                        task_id = payload.task_id,
+                                        step_id = payload.step_id,
+                                        action_id = action.action_id,
+                                        boundary_reason = reason,
+                                        error = %error,
+                                        "Dynamic page did not settle at an Agent micro-batch boundary"
+                                    );
+                                    outcomes.push(AgentActionOutcome {
+                                        action_id: action.action_id.clone(),
+                                        status: "SUCCEEDED".to_owned(),
+                                        error_code: String::new(),
+                                        state_version: current.state_version,
+                                        target_revision: current.target_revision,
+                                        micro_batch_index,
+                                        boundary_reason: "PAGE_UNSTABLE_TIMEOUT".to_owned(),
+                                    });
+                                    for skipped in payload.actions.iter().skip(action_index + 1) {
+                                        outcomes.push(AgentActionOutcome {
+                                            action_id: skipped.action_id.clone(),
+                                            status: "SKIPPED".to_owned(),
+                                            error_code: "DYNAMIC_PAGE_UNSTABLE".to_owned(),
+                                            state_version: current.state_version,
+                                            target_revision: current.target_revision,
+                                            micro_batch_index: micro_batch_index + 1,
+                                            boundary_reason: String::new(),
+                                        });
+                                    }
+                                    return Ok((current, outcomes));
+                                }
+                            }
+                        }
+                    }
                     outcomes.push(AgentActionOutcome {
                         action_id: action.action_id.clone(),
                         status: "SUCCEEDED".to_owned(),
                         error_code: String::new(),
                         state_version: current.state_version,
                         target_revision: current.target_revision,
+                        micro_batch_index,
+                        boundary_reason: boundary_reason.to_owned(),
                     });
+                    if completed_boundary {
+                        micro_batch_index += 1;
+                        actions_in_micro_batch = 0;
+                    }
                 }
                 Err(error) => {
                     let error_code = if error.to_string().contains("target")
@@ -3758,6 +3864,8 @@ impl NodeControlService {
                         error_code: error_code.to_owned(),
                         state_version: current.state_version,
                         target_revision: current.target_revision,
+                        micro_batch_index,
+                        boundary_reason: String::new(),
                     });
                     if payload.stop_on_error {
                         return Err(error.context(format!(
@@ -3769,6 +3877,30 @@ impl NodeControlService {
             }
         }
         Ok((current, outcomes))
+    }
+
+    async fn settle_after_dynamic_micro_batch(
+        &self,
+        session_id: &str,
+        current: &CurrentState,
+    ) -> anyhow::Result<CurrentState> {
+        let deadline = tokio::time::Instant::now() + MICRO_BATCH_SETTLE_TIMEOUT;
+        let mut previous = current.clone();
+        loop {
+            anyhow::ensure!(
+                tokio::time::Instant::now() < deadline,
+                "dynamic page did not settle before micro-batch deadline"
+            );
+            tokio::time::sleep(MICRO_BATCH_SETTLE_POLL).await;
+            let next = self
+                .state_collector
+                .collect_current_state(session_id)
+                .await?;
+            if micro_batch_state_is_settled(&previous, &next) {
+                return Ok(next);
+            }
+            previous = next;
+        }
     }
 
     async fn execute_agent_action(
@@ -9940,6 +10072,72 @@ mod tests {
     };
     use std::time::{SystemTime, UNIX_EPOCH};
     use tokio::sync::mpsc;
+
+    fn micro_batch_state() -> CurrentState {
+        CurrentState {
+            session_id: "ses_micro_batch".to_owned(),
+            state_version: 10,
+            target_revision: 3,
+            url: "https://example.test/app".to_owned(),
+            title: "Example".to_owned(),
+            tabs: vec![state_collector::BrowserTab {
+                tab_id: "tab-main".to_owned(),
+                url: "https://example.test/app".to_owned(),
+                title: "Example".to_owned(),
+                active: true,
+            }],
+            active_tab_id: "tab-main".to_owned(),
+            native_dialogs: Vec::new(),
+            native_dialog_evidence_fresh: true,
+            downloads: Vec::new(),
+            download_evidence_fresh: true,
+            targets: Vec::new(),
+            quality: StateQuality::Complete,
+            content_hash: "content-10".to_owned(),
+            document_ready_state: "complete".to_owned(),
+            network_quiet_millis: 1_000,
+            network_evidence_fresh: true,
+        }
+    }
+
+    #[test]
+    fn dynamic_micro_batch_closes_on_page_change_or_stable_action_limit() {
+        let before = micro_batch_state();
+        let mut after = before.clone();
+        after.state_version += 1;
+
+        assert_eq!(dynamic_micro_batch_boundary(&before, &after, 3), None);
+        assert_eq!(
+            dynamic_micro_batch_boundary(&before, &after, 4),
+            Some("STABLE_ACTION_LIMIT")
+        );
+
+        after.content_hash = "content-11".to_owned();
+        assert_eq!(
+            dynamic_micro_batch_boundary(&before, &after, 1),
+            Some("CONTENT_CHANGED")
+        );
+
+        after.document_ready_state = "loading".to_owned();
+        assert_eq!(
+            dynamic_micro_batch_boundary(&before, &after, 1),
+            Some("PAGE_UNSETTLED")
+        );
+    }
+
+    #[test]
+    fn micro_batch_requires_two_equal_fresh_settled_samples() {
+        let previous = micro_batch_state();
+        let mut current = previous.clone();
+        current.state_version += 1;
+        assert!(micro_batch_state_is_settled(&previous, &current));
+
+        current.target_revision += 1;
+        assert!(!micro_batch_state_is_settled(&previous, &current));
+        current.target_revision = previous.target_revision;
+        current.network_quiet_millis = 0;
+        assert!(!micro_batch_state_is_settled(&previous, &current));
+    }
 
     #[test]
     fn batch_primitive_rebinds_stable_element_to_latest_target_revision() {

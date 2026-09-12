@@ -301,7 +301,9 @@ public class AgentNavigationCompletionService {
                           "status", action.status(),
                           "errorCode", action.errorCode(),
                           "stateVersion", action.stateVersion(),
-                          "targetRevision", action.targetRevision()))
+                          "targetRevision", action.targetRevision(),
+                          "microBatchIndex", action.microBatchIndex(),
+                          "boundaryReason", action.boundaryReason()))
               .toList());
       output.put(
           "completedActions",

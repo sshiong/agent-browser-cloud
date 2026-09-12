@@ -838,6 +838,13 @@ for field_name, field_tag in (
     assert re.search(
         rf"\b{field_name}\s*=\s*{field_tag}\s*;", agent_action_primitive_contract
     ), f"AgentActionPrimitive lacks additive advanced input {field_name} tag {field_tag}"
+agent_action_outcome_contract = node_contract.split(
+    "message AgentActionOutcome {", 1
+)[1].split("}", 1)[0]
+for field_name, field_tag in (("micro_batch_index", 6), ("boundary_reason", 7)):
+    assert re.search(
+        rf"\b{field_name}\s*=\s*{field_tag}\s*;", agent_action_outcome_contract
+    ), f"AgentActionOutcome lacks additive micro-batch {field_name} tag {field_tag}"
 agent_batch_action_input_contract = read("packages/contracts/openapi/session-api.yaml").split(
     "    AgentBatchActionInput:", 1
 )[1].split(

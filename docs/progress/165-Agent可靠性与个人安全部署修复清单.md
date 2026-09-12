@@ -29,7 +29,7 @@
 | A03 | DOM 复用后的语义目标稳定性 | progress 175 已闭环：最近业务实体键/行语义 hash-only 绑定 Element ID，同路径同名虚拟行复用旧 ID 拒绝，真实 Chrome 通过 |
 | A04 | Expected Outcome / Intent Verification | progress 174 已闭环：V118 结构化结果声明、hash-only 持久化、精确最终 State 确定性判定及模型假成功覆盖均通过完整 Integration |
 | A05 | Vision Canvas/图片/PDF 隐私 | progress 176 已闭环：精确状态围栏 Challenge Region、本地 OCR/PII 像素遮罩、二次复核、能力/证明契约及不可验证时 Human Handoff 均通过完整 Integration |
-| A06 | 动态微批次 | 当前上限 20；待页面变化驱动的停顿/重采与恢复语义 |
+| A06 | 动态微批次 | progress 177 已闭环：同一 Batch 按 Route/Tab/Dialog/DOM/Network 变化或四动作上限切段，连续稳定后续行；超时跳过剩余动作且不重放副作用 |
 | A07 | Browser State 新鲜度 | progress 170 已闭环：服务端 observedAt/age/FRESH-AGING-STALE、页面活动、稳定页 15 秒受围栏心跳及 STALE 拒绝规划；完整集成通过 |
 | A08 | 统一恢复指令 | progress 169 已闭环：持久 Task 状态产生六类正式指令，API/四 SDK/UI/完整集成通过 |
 | A09 | Action Attempt Signature / Loop Detection | progress 171 已闭环：V115 哈希账本、Task 行锁、第三次无进展动作执行前阻断及完整 Chromium 集成通过 |

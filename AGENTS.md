@@ -371,6 +371,16 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 
 ## 7. 当前正在处理的任务
 
+- progress 177：Browser Node 在同一持久 `execute-actions` Batch 内按 Route/Active Tab、Native
+  Dialog、Document/Network、Target Revision、Content Hash 变化或四动作稳定上限动态切段；边界
+  取得连续两份相同且 Network Fresh/Quiet 的可执行状态后才续行。动作结果通过 additive
+  Protobuf 字段携带微批次索引和有界边界原因；5 秒内无法稳定时保留已完成动作、将剩余动作标记
+  SKIPPED 并终止 Step，不自动 Replan 重放副作用。公开 API 保持 245 Operations / 338 Schemas；
+  Control Plane 541 项、Web 141 项、Worker 30 项、Rust、Desktop、N/N−1、完整 `make ci` 与
+  PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过，输出
+  `agent_browser_dynamic_micro_batches=true`。A06 仓库内通用代码项关闭；A20 的 Layout/Focus/
+  动画帧级组合稳定性仍独立待完成。
+
 - progress 176：V119 增加 `CHALLENGE_SCREENSHOT` 与 nullable、整组约束的捕获范围/隐私证明；
   Control Plane 与 Node 在截图前后精确围栏 State Version/Hash、Target Revision、Active Tab 和
   有界 Region，Vision Worker 在外部模型前本地 OCR/PII 遮罩并二次复核，OCR 原文不进入
@@ -384,7 +394,7 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   行语义以 Node 内 hash-only 指纹绑定 Element ID；原文在 State Hash/Registry 前清除，不进入
   Browser State/API/Audit。真实 Chrome 在同一 DOM 槽位保持同名按钮、只替换业务行后验证旧
   ID 拒绝与新 ID 可解析。A03 仓库内通用代码项关闭；无业务键且可见语义完全相同的站点需由
-  Adapter 提供实体属性，A06/A20 的动态微批次与组合稳定性仍独立待完成。Rust Workspace、
+  Adapter 提供实体属性，A06 后由 progress 177 关闭；A20 的组合稳定性仍独立待完成。Rust Workspace、
   完整 `make ci` 与 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过，公开契约保持
   245 Operations / 338 Schemas。功能提交 `4cbfd99` 的 GitHub CI `34682995669` 与 Desktop
   `34682995642`（Windows/macOS）均成功。
@@ -394,8 +404,8 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   Outcome Verifier 的同一精确最终 State 先做确定性判定，完整状态失败或深度受限不确定时，
   即使模型提交 `VERIFIED` 也强制收敛为 `NOT_VERIFIED`。API/四 SDK/Web/Tauri 已同步至
   245 Operations / 338 Schemas；完整 Integration 输出 `agent_task_expected_outcomes=true`，
-  覆盖原文不落库与模型假成功拒绝。A04 仓库内通用代码项关闭；站点领域 Validator、A06 与
-  A20 仍独立待完成，A03/A05 已由 progress 175/176 关闭。功能提交 `153f077` 后 Docker Hub 固定 MinIO 镜像下架导致
+  覆盖原文不落库与模型假成功拒绝。A04 仓库内通用代码项关闭；站点领域 Validator 与 A20 仍
+  独立待完成，A03/A05 已由 progress 175/176 关闭。功能提交 `153f077` 后 Docker Hub 固定 MinIO 镜像下架导致
   首次 CI 非产品失败；保持版本不变迁移至官方 Quay 的修复提交 `172f6d3` 已通过 GitHub CI
   `34681675184` 与 Desktop `34681675198`（Windows/macOS）。
 
@@ -453,7 +463,7 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   `docs/progress/165-Agent可靠性与个人安全部署修复清单.md` 的 A01—A24 为实施账本。
   第一切片已加三 Worker 有界退避、Vision lease-lost 主流程阻断和 finally 心跳清理；
   Local Header 仅允许显式 local/test，其他环境进入 OIDC 链。语义目标、Expected Outcome 和
-  Challenge 像素隐私已由 progress 175、174、176 关闭；后续仍须完整 Compose、动态微批次、
+  Challenge 像素隐私及动态微批次已由 progress 175、174、176、177 关闭；后续仍须完整 Compose、
   取消、加密和 Personal Secure 验收。
   不得把 Worker 心跳修复冒充已完成浏览器长操作取消。仓库许可证元数据 MIT/UNLICENSED
   不一致，未经权利人选择不得擅自对整个仓库授予新许可证。

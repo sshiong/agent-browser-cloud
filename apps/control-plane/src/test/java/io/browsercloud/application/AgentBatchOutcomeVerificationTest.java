@@ -71,6 +71,11 @@ class AgentBatchOutcomeVerificationTest {
   }
 
   @Test
+  void dynamicallySkippedPrimitiveIsTerminalAndCannotBeReplanned() {
+    assertThat(verifyOutcome("SKIPPED", "DYNAMIC_PAGE_UNSTABLE")).isEqualTo("BATCH_ACTION_FAILED");
+  }
+
+  @Test
   void knownFailureIsTerminalForThisAttemptAndCannotBecomeSuccessAfterResync() throws Exception {
     var tasks = mock(AgentTaskJpaRepository.class);
     var operations = mock(OperationRepository.class);

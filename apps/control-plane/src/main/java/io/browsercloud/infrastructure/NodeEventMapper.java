@@ -1058,15 +1058,38 @@ public class NodeEventMapper {
                   if (!outcome.getActionId().matches("^action_[1-9][0-9]?$")) {
                     throw new IllegalArgumentException("Agent action outcome ID is invalid");
                   }
-                  if (!java.util.Set.of("SUCCEEDED", "FAILED").contains(outcome.getStatus())) {
+                  if (!java.util.Set.of("SUCCEEDED", "FAILED", "SKIPPED")
+                      .contains(outcome.getStatus())) {
                     throw new IllegalArgumentException("Agent action outcome status is invalid");
+                  }
+                  if (outcome.getMicroBatchIndex() > 20
+                      || (!outcome.getBoundaryReason().isEmpty()
+                          && outcome.getMicroBatchIndex() == 0)
+                      || !java.util.Set.of(
+                              "",
+                              "ROUTE_OR_TAB_CHANGED",
+                              "NATIVE_DIALOG_CHANGED",
+                              "PAGE_UNSETTLED",
+                              "STRUCTURE_AND_CONTENT_CHANGED",
+                              "CONTENT_CHANGED",
+                              "TARGET_SET_CHANGED",
+                              "STABLE_ACTION_LIMIT",
+                              "PAGE_UNSTABLE_TIMEOUT")
+                          .contains(outcome.getBoundaryReason())
+                      || (outcome.getStatus().equals("SKIPPED")
+                          && (outcome.getMicroBatchIndex() == 0
+                              || !outcome.getErrorCode().equals("DYNAMIC_PAGE_UNSTABLE")))) {
+                    throw new IllegalArgumentException(
+                        "Agent action micro-batch metadata is invalid");
                   }
                   return new NodeEvent.AgentActionOutcome(
                       outcome.getActionId(),
                       outcome.getStatus(),
                       outcome.getErrorCode(),
                       outcome.getStateVersion(),
-                      outcome.getTargetRevision());
+                      outcome.getTargetRevision(),
+                      outcome.getMicroBatchIndex(),
+                      outcome.getBoundaryReason());
                 })
             .toList();
     validateReadinessEvidence(payload.getDocumentReadyState(), payload.getNetworkQuietMillis());

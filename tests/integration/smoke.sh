@@ -4564,13 +4564,14 @@ for _ in $(seq 1 80); do
 done
 test "$extended_action_state" = "COMPLETED"
 printf '%s' "$extended_action_task" | python3 -c \
-  'import json,sys; task=json.load(sys.stdin); batch=next(item for item in task["executionResults"] if item["toolId"] == "EXECUTE_ACTIONS"); assert batch["output"]["completedActions"] == 19; assert [item["actionId"] for item in batch["output"]["actions"]] == [f"action_{index}" for index in range(1, 20)]; assert all(item["status"] == "SUCCEEDED" and item["errorCode"] == "" for item in batch["output"]["actions"])'
+  'import json,sys; task=json.load(sys.stdin); batch=next(item for item in task["executionResults"] if item["toolId"] == "EXECUTE_ACTIONS"); actions=batch["output"]["actions"]; assert batch["output"]["completedActions"] == 19; assert [item["actionId"] for item in actions] == [f"action_{index}" for index in range(1, 20)]; assert all(item["status"] == "SUCCEEDED" and item["errorCode"] == "" for item in actions); indexes=[item["microBatchIndex"] for item in actions]; assert indexes == sorted(indexes) and indexes[0] == 1 and indexes[-1] >= 5; boundaries=[item["boundaryReason"] for item in actions if item["boundaryReason"]]; assert "STABLE_ACTION_LIMIT" in boundaries; assert all(reason in {"ROUTE_OR_TAB_CHANGED","NATIVE_DIALOG_CHANGED","PAGE_UNSETTLED","STRUCTURE_AND_CONTENT_CHANGED","CONTENT_CHANGED","TARGET_SET_CHANGED","STABLE_ACTION_LIMIT"} for reason in boundaries)'
 curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Roles: TENANT_VIEWER' | python3 -c \
   'import json,sys; state=json.load(sys.stdin)["state"]; textbox=next(item for item in state["targets"] if item["role"] == "textbox" and not item["sensitive"]); checkbox=next(item for item in state["targets"] if item["role"] == "checkbox"); select=next(item for item in state["targets"] if item["role"] == "combobox"); assert textbox["value"] == ""; assert checkbox["checked"] is False; assert select["value"] == "beta"'
 printf 'agent_browser_advanced_actions=true\n'
+printf 'agent_browser_dynamic_micro_batches=true\n'
 tab_session_created="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \

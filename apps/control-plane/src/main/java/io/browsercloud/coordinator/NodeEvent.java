@@ -516,7 +516,18 @@ public sealed interface NodeEvent
       java.time.Instant updatedAt) {}
 
   record AgentActionOutcome(
-      String actionId, String status, String errorCode, long stateVersion, long targetRevision) {}
+      String actionId,
+      String status,
+      String errorCode,
+      long stateVersion,
+      long targetRevision,
+      int microBatchIndex,
+      String boundaryReason) {
+    public AgentActionOutcome(
+        String actionId, String status, String errorCode, long stateVersion, long targetRevision) {
+      this(actionId, status, errorCode, stateVersion, targetRevision, 0, "");
+    }
+  }
 
   record StateSnapshotBegin(
       String sessionId,

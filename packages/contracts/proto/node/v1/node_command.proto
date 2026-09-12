@@ -851,6 +851,9 @@ message AgentActionOutcome {
   string error_code = 3;
   uint64 state_version = 4;
   uint64 target_revision = 5;
+  // Additive pacing trace. N-1 Nodes leave both fields at zero/empty.
+  uint32 micro_batch_index = 6;
+  string boundary_reason = 7;
 }
 
 message AgentActionFailedEvent {

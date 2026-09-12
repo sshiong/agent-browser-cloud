@@ -386,6 +386,10 @@ struct EvidenceRequest {
     task_id: String,
     step_id: String,
     mandatory: bool,
+    capture_options: Option<ScreenshotCaptureOptions>,
+    captured_state_version: u64,
+    captured_target_revision: u64,
+    captured_state_hash: String,
 }
 
 /// Session-scoped actuator for optional successful command traces.
@@ -1110,11 +1114,35 @@ impl NodeControlService {
             }
             let payload =
                 CaptureObserverScreenshotCommand::decode(command.payload.as_slice()).ok()?;
+            let scoped = payload.capture_mode == "CHALLENGE_REGION";
             return Some(EvidenceRequest {
-                evidence_kind: "OBSERVER_MANUAL",
+                evidence_kind: if scoped {
+                    "CHALLENGE_SCREENSHOT"
+                } else {
+                    "OBSERVER_MANUAL"
+                },
                 task_id: payload.capture_id,
-                step_id: "observer".to_owned(),
+                step_id: if scoped {
+                    "challenge-screenshot".to_owned()
+                } else {
+                    "observer".to_owned()
+                },
                 mandatory: true,
+                capture_options: scoped.then_some(ScreenshotCaptureOptions {
+                    evidence_id: payload.evidence_id,
+                    captured_at_ms: payload.captured_at_ms as u64,
+                    active_tab_id: payload.active_tab_id,
+                    capture_mode: payload.capture_mode,
+                    clip: Some(ScreenshotClip {
+                        x: payload.region_x,
+                        y: payload.region_y,
+                        width: payload.region_width,
+                        height: payload.region_height,
+                    }),
+                }),
+                captured_state_version: payload.base_state_version,
+                captured_target_revision: payload.target_revision,
+                captured_state_hash: payload.base_content_hash,
             });
         }
         let event_type = result.event.as_ref()?.event_type.as_str();
@@ -1132,6 +1160,10 @@ impl NodeControlService {
                     task_id: payload.task_id,
                     step_id: payload.step_id,
                     mandatory: event_type == "AgentActionFailed",
+                    capture_options: None,
+                    captured_state_version: 0,
+                    captured_target_revision: 0,
+                    captured_state_hash: String::new(),
                 })
             }
             "AgentNavigate" => {
@@ -1147,6 +1179,10 @@ impl NodeControlService {
                     task_id: payload.task_id,
                     step_id: payload.step_id,
                     mandatory: event_type == "AgentNavigationFailed",
+                    capture_options: None,
+                    captured_state_version: 0,
+                    captured_target_revision: 0,
+                    captured_state_hash: String::new(),
                 })
             }
             _ => None,
@@ -1160,11 +1196,12 @@ impl NodeControlService {
     ) -> anyhow::Result<()> {
         let capture = self
             .session_evidence
-            .capture(
+            .capture_with_options(
                 &command.session_id,
                 &command.message_id,
                 request.evidence_kind,
                 request.mandatory,
+                request.capture_options.clone(),
             )
             .await;
         let (
@@ -1177,6 +1214,7 @@ impl NodeControlService {
             error_code,
             redaction_state,
             redacted_region_count,
+            screenshot_metadata,
         ) = match capture {
             Ok(EvidenceCapture::Skipped { .. }) => return Ok(()),
             Ok(EvidenceCapture::Committed(summary)) => {
@@ -1191,6 +1229,7 @@ impl NodeControlService {
                     String::new(),
                     summary.redaction_state,
                     summary.redacted_region_count,
+                    summary.screenshot_metadata,
                 )
             }
             Err(error) => {
@@ -1220,9 +1259,38 @@ impl NodeControlService {
                     error_code.to_owned(),
                     "FAILED_CLOSED".to_owned(),
                     0,
+                    None,
                 )
             }
         };
+        let capture_mode = screenshot_metadata
+            .as_ref()
+            .map(|value| value.capture_mode.clone())
+            .unwrap_or_default();
+        let captured_active_tab_id = screenshot_metadata
+            .as_ref()
+            .map(|value| value.active_tab_id.clone())
+            .unwrap_or_default();
+        let viewport_width = screenshot_metadata
+            .as_ref()
+            .map(|value| value.viewport_width)
+            .unwrap_or_default();
+        let viewport_height = screenshot_metadata
+            .as_ref()
+            .map(|value| value.viewport_height)
+            .unwrap_or_default();
+        let device_scale_factor = screenshot_metadata
+            .as_ref()
+            .map(|value| value.device_scale_factor)
+            .unwrap_or_default();
+        let captured_region = screenshot_metadata
+            .as_ref()
+            .map(|value| value.region.clone());
+        let coordinate_space = screenshot_metadata
+            .as_ref()
+            .map(|value| value.coordinate_space.clone())
+            .unwrap_or_default();
+        let committed_scoped = result == "COMMITTED" && screenshot_metadata.is_some();
         self.record_and_publish_background_event(
             &command.tenant_id,
             &command.session_id,
@@ -1245,19 +1313,43 @@ impl NodeControlService {
                 error_code,
                 redaction_state,
                 redacted_region_count,
-                capture_mode: String::new(),
-                captured_state_version: 0,
-                captured_target_revision: 0,
-                captured_state_hash: String::new(),
-                captured_active_tab_id: String::new(),
-                viewport_width: 0.0,
-                viewport_height: 0.0,
-                device_scale_factor: 0.0,
-                captured_region_x: 0.0,
-                captured_region_y: 0.0,
-                captured_region_width: 0.0,
-                captured_region_height: 0.0,
-                coordinate_space: String::new(),
+                capture_mode,
+                captured_state_version: if committed_scoped {
+                    request.captured_state_version
+                } else {
+                    0
+                },
+                captured_target_revision: if committed_scoped {
+                    request.captured_target_revision
+                } else {
+                    0
+                },
+                captured_state_hash: if committed_scoped {
+                    request.captured_state_hash
+                } else {
+                    String::new()
+                },
+                captured_active_tab_id,
+                viewport_width,
+                viewport_height,
+                device_scale_factor,
+                captured_region_x: captured_region
+                    .as_ref()
+                    .map(|value| value.x)
+                    .unwrap_or_default(),
+                captured_region_y: captured_region
+                    .as_ref()
+                    .map(|value| value.y)
+                    .unwrap_or_default(),
+                captured_region_width: captured_region
+                    .as_ref()
+                    .map(|value| value.width)
+                    .unwrap_or_default(),
+                captured_region_height: captured_region
+                    .as_ref()
+                    .map(|value| value.height)
+                    .unwrap_or_default(),
+                coordinate_space,
             },
         )
         .await
@@ -6843,6 +6935,97 @@ impl NodeControlService {
                                 ),
                                 None,
                             );
+                        }
+                        if payload.capture_mode.is_empty() {
+                            if payload.base_state_version != 0
+                                || payload.target_revision != 0
+                                || !payload.base_content_hash.is_empty()
+                                || !payload.active_tab_id.is_empty()
+                                || payload.region_x != 0.0
+                                || payload.region_y != 0.0
+                                || payload.region_width != 0.0
+                                || payload.region_height != 0.0
+                                || !payload.evidence_id.is_empty()
+                                || payload.captured_at_ms != 0
+                            {
+                                return self.failed(
+                                    command,
+                                    anyhow::anyhow!(
+                                        "Legacy Observer screenshot contains scoped capture fields"
+                                    ),
+                                );
+                            }
+                        } else {
+                            if payload.capture_mode != "CHALLENGE_REGION"
+                                || payload.base_state_version == 0
+                                || payload.target_revision == 0
+                                || payload.base_content_hash.len() != 64
+                                || !payload.base_content_hash.bytes().all(|value| {
+                                    value.is_ascii_hexdigit() && !value.is_ascii_uppercase()
+                                })
+                                || payload.active_tab_id.is_empty()
+                                || payload.active_tab_id.len() > 128
+                                || payload.region_x < 0.0
+                                || payload.region_y < 0.0
+                                || payload.region_width < 1.0
+                                || payload.region_height < 1.0
+                                || payload.region_width > 2048.0
+                                || payload.region_height > 2048.0
+                                || payload.region_width * payload.region_height > 2_097_152.0
+                                || !payload.region_x.is_finite()
+                                || !payload.region_y.is_finite()
+                                || !payload.region_width.is_finite()
+                                || !payload.region_height.is_finite()
+                                || !payload.evidence_id.starts_with("evd_")
+                                || payload.evidence_id.len() != 36
+                                || !payload.evidence_id[4..]
+                                    .bytes()
+                                    .all(|value| value.is_ascii_hexdigit())
+                                || payload.captured_at_ms <= 0
+                            {
+                                return self.failed(
+                                    command,
+                                    anyhow::anyhow!(
+                                        "Challenge screenshot privacy scope is invalid"
+                                    ),
+                                );
+                            }
+                            let current = match self
+                                .state_collector
+                                .collect_current_state(&command.session_id)
+                                .await
+                            {
+                                Ok(state) => state,
+                                Err(_) => {
+                                    return Self::result(
+                                        Self::ack(
+                                            &command.message_id,
+                                            false,
+                                            "CURRENT_STATE_UNAVAILABLE",
+                                            "Challenge screenshot state is unavailable",
+                                        ),
+                                        None,
+                                    )
+                                }
+                            };
+                            if !matches!(
+                                current.quality,
+                                StateQuality::Complete | StateQuality::DepthLimited
+                            ) || current.state_version != payload.base_state_version
+                                || current.target_revision != payload.target_revision
+                                || current.content_hash != payload.base_content_hash
+                                || current.active_tab_id != payload.active_tab_id
+                            {
+                                return Self::result(
+                                    Self::ack(
+                                        &command.message_id,
+                                        false,
+                                        "STATE_STALE",
+                                        "Challenge screenshot is fenced to a stale Browser State",
+                                    ),
+                                    None,
+                                );
+                            }
                         }
                         Self::result(Self::ack(&command.message_id, true, "", ""), None)
                     }

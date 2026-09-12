@@ -127,6 +127,115 @@ public class SessionEvidenceGovernanceService {
             () -> new EvidenceGovernanceRejectedException("EVIDENCE_CAPTURE_STATE_UNAVAILABLE"));
   }
 
+  @Transactional
+  public EvidenceCaptureView captureChallengeRegion(
+      String sessionId,
+      String tenantId,
+      String actorId,
+      String idempotencyKey,
+      String requestId,
+      long stateVersion,
+      long targetRevision,
+      String stateHash,
+      String activeTabId,
+      io.browsercloud.coordinator.NodeEvent.Bounds region) {
+    var session = sessions.requireForUpdate(sessionId);
+    requireTenant(session.tenantId(), tenantId, sessionId);
+    if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
+      throw new EvidenceGovernanceRejectedException("SESSION_NOT_RUNNING");
+    }
+    if (session.nodeId() == null
+        || !capacity.nodeHasCapability(session.nodeId(), "observerEvidence", "cdp-s3-v1")) {
+      throw new EvidenceGovernanceRejectedException("OBSERVER_EVIDENCE_UNAVAILABLE");
+    }
+    if (operations
+        .findActive(sessionId)
+        .filter(operation -> operation.mode() == OperationMode.HUMAN_TAKEOVER)
+        .isPresent()) {
+      throw new EvidenceGovernanceRejectedException("HUMAN_TAKEOVER_ACTIVE");
+    }
+    if (stateVersion < 1
+        || targetRevision < 1
+        || stateHash == null
+        || !stateHash.matches("^[a-f0-9]{64}$")
+        || activeTabId == null
+        || activeTabId.isBlank()
+        || region == null
+        || !validRegion(region)) {
+      throw new EvidenceGovernanceRejectedException("CHALLENGE_CAPTURE_SCOPE_INVALID");
+    }
+
+    var existing = store.findCaptureByIdempotency(tenantId, actorId, idempotencyKey);
+    if (existing.isPresent()) {
+      requireSameCapture(existing.orElseThrow(), sessionId, EvidencePurpose.CHANGE_VALIDATION);
+      return existing.orElseThrow();
+    }
+    var now = Instant.now();
+    var captureId = newId("cap_");
+    var commandId = newId("cmd_");
+    var inserted =
+        store.insertCapture(
+            captureId,
+            tenantId,
+            sessionId,
+            actorId,
+            EvidencePurpose.CHANGE_VALIDATION,
+            idempotencyKey,
+            commandId,
+            requestId,
+            now);
+    if (!inserted) {
+      var raced =
+          store
+              .findCaptureByIdempotency(tenantId, actorId, idempotencyKey)
+              .orElseThrow(
+                  () ->
+                      new EvidenceGovernanceRejectedException(
+                          "EVIDENCE_CAPTURE_IDEMPOTENCY_CONFLICT"));
+      requireSameCapture(raced, sessionId, EvidencePurpose.CHANGE_VALIDATION);
+      return raced;
+    }
+    commands.send(
+        NodeCommands.captureChallengeScreenshot(
+            session,
+            captureId,
+            commandId,
+            stateVersion,
+            targetRevision,
+            stateHash,
+            activeTabId,
+            region,
+            now.toEpochMilli()));
+    audit.append(
+        auditRecord(
+            tenantId,
+            sessionId,
+            actorId,
+            captureId,
+            "CHALLENGE_REGION_CAPTURE_REQUESTED",
+            "ACCEPTED",
+            EvidencePurpose.CHANGE_VALIDATION,
+            requestId));
+    return store
+        .findCapture(tenantId, sessionId, captureId)
+        .orElseThrow(
+            () -> new EvidenceGovernanceRejectedException("EVIDENCE_CAPTURE_STATE_UNAVAILABLE"));
+  }
+
+  private static boolean validRegion(io.browsercloud.coordinator.NodeEvent.Bounds region) {
+    return Double.isFinite(region.x())
+        && Double.isFinite(region.y())
+        && Double.isFinite(region.width())
+        && Double.isFinite(region.height())
+        && region.x() >= 0
+        && region.y() >= 0
+        && region.width() >= 1
+        && region.height() >= 1
+        && region.width() <= 2048
+        && region.height() <= 2048
+        && region.width() * region.height() <= 2_097_152;
+  }
+
   @Transactional(readOnly = true)
   public EvidenceCaptureView getCapture(String sessionId, String captureId, String tenantId) {
     requireTenant(sessions.require(sessionId).tenantId(), tenantId, sessionId);

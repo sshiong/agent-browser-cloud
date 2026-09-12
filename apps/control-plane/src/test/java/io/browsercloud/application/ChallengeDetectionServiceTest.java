@@ -70,6 +70,29 @@ class ChallengeDetectionServiceTest {
     assertThat(captured.getValue().getTargetSummary()).isEqualTo("验证码需要人工提供或自行填写");
   }
 
+  @Test
+  void bindsVisualChallengeToABoundedNonSensitiveRegionOrLeavesItForHumanFallback() {
+    var service = new ChallengeDetectionService(events, new ObjectMapper(), audit);
+    var target =
+        new NodeEvent.InteractiveTarget(
+            "target:7:visual",
+            "button",
+            "Select every image with a bicycle",
+            new NodeEvent.Bounds(40, 60, 640, 480),
+            true,
+            true,
+            false);
+
+    assertThat(service.observe(envelope(), state("Verify", List.of(target)))).isPresent();
+
+    var captured = ArgumentCaptor.forClass(ChallengeEventEntity.class);
+    verify(events).save(captured.capture());
+    assertThat(captured.getValue().getSuspectedType()).isEqualTo("IMAGE_SELECTION");
+    assertThat(captured.getValue().getTargetRef()).isEqualTo("target:7:visual");
+    assertThat(captured.getValue().getVisualAnchorHash()).hasSize(64);
+    assertThat(captured.getValue().getStatus()).isEqualTo("TAKEOVER_REQUIRED");
+  }
+
   private static NodeEventReceived envelope() {
     return new NodeEventReceived(
         "evt-test", "tenant-test", "ses-test", 1, 2, 3, 4, state("", List.of()));

@@ -8,7 +8,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.browsercloud.coordinator.NodeCommand;
 import io.browsercloud.coordinator.NodeCommandGateway;
+import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.domain.session.ResourceClass;
@@ -18,6 +20,7 @@ import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class SessionEvidenceGovernanceServiceTest {
 
@@ -92,6 +95,59 @@ class SessionEvidenceGovernanceServiceTest {
     verify(store).insertCapture(any(), any(), any(), any(), any(), any(), any(), any(), any());
     verify(commands).send(any());
     verify(audit).append(any());
+  }
+
+  @Test
+  void challengeCaptureIsBoundedAndStateFencedBeforeDispatch() throws Exception {
+    var session = runningSession();
+    var view =
+        new EvidenceCaptureView(
+            "cap_1234567890abcdefghij",
+            session.sessionId(),
+            EvidencePurpose.CHANGE_VALIDATION,
+            "EXECUTING",
+            null,
+            null,
+            "cmd_1234567890abcdefghij",
+            "request-test",
+            Instant.now(),
+            null);
+    when(sessions.requireForUpdate(session.sessionId())).thenReturn(session);
+    when(operations.findActive(session.sessionId())).thenReturn(Optional.empty());
+    when(capacity.nodeHasCapability(session.nodeId(), "observerEvidence", "cdp-s3-v1"))
+        .thenReturn(true);
+    when(store.findCaptureByIdempotency("tenant-test", "challenge-automation", "capture-key"))
+        .thenReturn(Optional.empty());
+    when(store.insertCapture(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(true);
+    when(store.findCapture(eq("tenant-test"), eq(session.sessionId()), any()))
+        .thenReturn(Optional.of(view));
+
+    service.captureChallengeRegion(
+        session.sessionId(),
+        "tenant-test",
+        "challenge-automation",
+        "capture-key",
+        "request-test",
+        9,
+        4,
+        "a".repeat(64),
+        "tab-challenge",
+        new NodeEvent.Bounds(10, 20, 300, 180));
+
+    var command = ArgumentCaptor.forClass(NodeCommand.class);
+    verify(commands).send(command.capture());
+    var payload =
+        io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand.parseFrom(
+            command.getValue().payload());
+    assertThat(payload.getCaptureMode()).isEqualTo("CHALLENGE_REGION");
+    assertThat(payload.getBaseStateVersion()).isEqualTo(9);
+    assertThat(payload.getTargetRevision()).isEqualTo(4);
+    assertThat(payload.getBaseContentHash()).isEqualTo("a".repeat(64));
+    assertThat(payload.getActiveTabId()).isEqualTo("tab-challenge");
+    assertThat(payload.getRegionWidth()).isEqualTo(300);
+    assertThat(payload.getRegionHeight()).isEqualTo(180);
+    assertThat(command.getValue().idempotencyKey()).startsWith("challenge-evidence:");
   }
 
   @Test

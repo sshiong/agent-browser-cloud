@@ -93,11 +93,11 @@ public final class Models {
 
   public record ChallengeVisualAction(String actionType, Double x, Double y, Object endX, Object endY, Integer repeatCount) {}
 
-  public record CompleteChallengeVisualJobRequest(String claimToken, String decision, List<ChallengeVisualAction> actions, Double confidence, String deploymentId, String modelRevision, Object providerRequestId, Integer inputTokens, Integer outputTokens, Integer latencyMs, String outputHash) {}
+  public record CompleteChallengeVisualJobRequest(String claimToken, String decision, List<ChallengeVisualAction> actions, Double confidence, String deploymentId, String modelRevision, Object providerRequestId, Integer inputTokens, Integer outputTokens, Integer latencyMs, String outputHash, String privacyScanVersion, String ocrTextHash, Integer detectedSensitivePatternCount, Integer piiRedactedRegionCount, Integer remainingSensitivePatternCount) {}
 
   public record FailChallengeVisualJobRequest(String claimToken, String failureCode, Boolean retryable) {}
 
-  public record ChallengeVisualJob(String jobId, String runId, String challengeEventId, String state, Integer attemptNumber, Integer maximumAttempts, Object workerId, Long claimEpoch, Object leaseExpiresAt, Object decision, List<ChallengeVisualAction> actions, Object confidence, Object failureCode, String updatedAt) {}
+  public record ChallengeVisualJob(String jobId, String runId, String challengeEventId, String state, Integer attemptNumber, Integer maximumAttempts, Object workerId, Long claimEpoch, Object leaseExpiresAt, Object decision, List<ChallengeVisualAction> actions, Object confidence, Object privacyScanVersion, Object ocrTextHash, Object detectedSensitivePatternCount, Object piiRedactedRegionCount, Object remainingSensitivePatternCount, Object failureCode, String updatedAt) {}
 
   public record ChallengeVisualJobClaim(String claimToken, ChallengeVisualJob job, String screenshotUrl, String screenshotExpiresAt, String challengeType, String targetSummary, Boolean allowMultiClick, Boolean allowSlide, Double minimumConfidence) {}
 

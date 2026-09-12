@@ -131,7 +131,12 @@ public final class ChallengeAutomationModels {
       @Min(0) @Max(1_000_000) int inputTokens,
       @Min(0) @Max(100_000) int outputTokens,
       @Min(0) @Max(600_000) int latencyMs,
-      @NotBlank @Pattern(regexp = "^[a-f0-9]{64}$") String outputHash) {}
+      @NotBlank @Pattern(regexp = "^[a-f0-9]{64}$") String outputHash,
+      @NotBlank @Pattern(regexp = "^tesseract-pii-v1$") String privacyScanVersion,
+      @NotBlank @Pattern(regexp = "^[a-f0-9]{64}$") String ocrTextHash,
+      @Min(0) @Max(1_000) int detectedSensitivePatternCount,
+      @Min(0) @Max(1_000) int piiRedactedRegionCount,
+      @Min(0) @Max(0) int remainingSensitivePatternCount) {}
 
   public record FailChallengeVisualJobRequest(
       @NotBlank @Pattern(regexp = "^[A-Za-z0-9_-]{43}$") String claimToken,
@@ -151,6 +156,11 @@ public final class ChallengeAutomationModels {
       VisualDecision decision,
       List<ChallengeVisualAction> actions,
       BigDecimal confidence,
+      String privacyScanVersion,
+      String ocrTextHash,
+      Integer detectedSensitivePatternCount,
+      Integer piiRedactedRegionCount,
+      Integer remainingSensitivePatternCount,
       String failureCode,
       Instant updatedAt) {}
 

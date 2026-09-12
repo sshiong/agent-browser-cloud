@@ -186,7 +186,14 @@ public class ChallengeDetectionService {
     }
     if (IMAGE_OR_PUZZLE.matcher(text).find()) {
       var type = text.matches("(?is).*(puzzle|drag|拼图).*") ? "PUZZLE" : "IMAGE_SELECTION";
-      return takeover(type, "MULTI_STEP_VISUAL_SIGNAL", "多步骤视觉挑战需要人工接管");
+      var visualTarget =
+          state.targets().stream()
+              .filter(this::eligibleVisualChallengeTarget)
+              .filter(target -> IMAGE_OR_PUZZLE.matcher(normalize(target.name())).find())
+              .findFirst()
+              .orElse(null);
+      return new Classification(
+          type, "MULTI_STEP_VISUAL_SIGNAL", "多步骤视觉挑战需要受限视觉处理", 0.98, visualTarget, false);
     }
     if (DEVICE.matcher(text).find()) {
       return takeover("DEVICE_CONFIRMATION", "DEVICE_CONFIRMATION_SIGNAL", "设备确认需要人工接管");
@@ -218,6 +225,21 @@ public class ChallengeDetectionService {
         && target.bounds().width() > 0
         && target.bounds().height() > 0
         && java.util.Set.of("button", "checkbox").contains(target.role().toLowerCase(Locale.ROOT));
+  }
+
+  private boolean eligibleVisualChallengeTarget(NodeEvent.InteractiveTarget target) {
+    return target.visible()
+        && target.enabled()
+        && !target.sensitive()
+        && target.name() != null
+        && target.bounds() != null
+        && target.bounds().x() >= 0
+        && target.bounds().y() >= 0
+        && target.bounds().width() >= 1
+        && target.bounds().height() >= 1
+        && target.bounds().width() <= 2048
+        && target.bounds().height() <= 2048
+        && target.bounds().width() * target.bounds().height() <= 2_097_152;
   }
 
   private static Classification takeover(String type, String signal, String summary) {

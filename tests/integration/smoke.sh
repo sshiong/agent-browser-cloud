@@ -1841,15 +1841,38 @@ challenge_visual_viewer_claim="$(curl -sS -o "$temp_dir/challenge-visual-viewer-
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Roles: TENANT_VIEWER' \
-  -d '{"protocolVersion":"challenge-vision-worker/v1","capabilities":{"screenshot-ocr-actions-v1":true},"deploymentId":"challenge-vision-default","modelRevision":"challenge-vision-v1"}')"
+  -d '{"protocolVersion":"challenge-vision-worker/v1","capabilities":{"screenshot-ocr-actions-v1":true,"local-ocr-pii-gate-v1":true},"deploymentId":"challenge-vision-default","modelRevision":"challenge-vision-v1"}')"
 test "$challenge_visual_viewer_claim" = "403"
-challenge_visual_worker_claim="$(curl -sS -o "$temp_dir/challenge-visual-worker-claim.json" -w '%{http_code}' \
+challenge_visual_privacy_capability_missing="$(curl -sS -o "$temp_dir/challenge-visual-privacy-capability-missing.json" -w '%{http_code}' \
   -X POST "http://localhost:${control_port}/api/v1/challenge-visual-jobs:claim" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: platform-control' \
   -H 'X-Actor-Id: vision-worker-integration' \
   -H 'X-Roles: VISION_WORKER' \
   -d '{"protocolVersion":"challenge-vision-worker/v1","capabilities":{"screenshot-ocr-actions-v1":true},"deploymentId":"challenge-vision-default","modelRevision":"challenge-vision-v1"}')"
+if [ "$challenge_visual_privacy_capability_missing" != "409" ]; then
+  echo "challenge_visual_privacy_capability_missing_status=${challenge_visual_privacy_capability_missing}" >&2
+  python3 - "$temp_dir/challenge-visual-privacy-capability-missing.json" <<'PY' >&2
+from pathlib import Path
+import sys
+print(Path(sys.argv[1]).read_text(encoding="utf-8"))
+PY
+  exit 1
+fi
+python3 - "$temp_dir/challenge-visual-privacy-capability-missing.json" <<'PY'
+import json
+import sys
+with open(sys.argv[1], encoding="utf-8") as source:
+    payload = json.load(source)
+assert payload["code"] == "VISION_PRIVACY_CAPABILITY_MISSING", payload
+PY
+challenge_visual_worker_claim="$(curl -sS -o "$temp_dir/challenge-visual-worker-claim.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/challenge-visual-jobs:claim" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: vision-worker-integration' \
+  -H 'X-Roles: VISION_WORKER' \
+  -d '{"protocolVersion":"challenge-vision-worker/v1","capabilities":{"screenshot-ocr-actions-v1":true,"local-ocr-pii-gate-v1":true},"deploymentId":"challenge-vision-default","modelRevision":"challenge-vision-v1"}')"
 test "$challenge_visual_worker_claim" = "204"
 
 # Terminal VNC participant history is a distinct, bounded keyset projection. Non-terminal rows
@@ -8210,6 +8233,7 @@ printf '%s' "$reconcile_metrics" | python3 -c \
   'import re,sys; text=sys.stdin.read(); value=lambda name: sum(map(float,re.findall(r"^"+re.escape(name)+r"(?:\\{[^}]*\\})? ([0-9.eE+-]+)$", text, re.M))); assert value("browsercloud_coordinator_reconcile_duration_seconds_count") >= 1; assert value("browsercloud_coordinator_reconcile_stale_operations_aborted_total") >= 1; assert value("browsercloud_coordinator_reconcile_cleanup_started_total") == 0; assert value("browsercloud_coordinator_reconcile_cleanup_failures_total") == 0'
 
 printf 'challenge_visual_automation=true\n'
+printf 'challenge_visual_pixel_privacy=true\n'
 printf 'agent_clipboard_bridge=true\n'
 printf 'browser_state_freshness=true\n'
 

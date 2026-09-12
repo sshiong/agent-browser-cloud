@@ -7233,6 +7233,7 @@ components:
           type: object
           minProperties: 1
           maxProperties: 16
+          description: Must include screenshot-ocr-actions-v1 and local-ocr-pii-gate-v1.
           additionalProperties:
             type: boolean
         deploymentId:
@@ -7281,7 +7282,7 @@ components:
     CompleteChallengeVisualJobRequest:
       type: object
       additionalProperties: false
-      required: [claimToken, decision, actions, confidence, deploymentId, modelRevision, inputTokens, outputTokens, latencyMs, outputHash]
+      required: [claimToken, decision, actions, confidence, deploymentId, modelRevision, inputTokens, outputTokens, latencyMs, outputHash, privacyScanVersion, ocrTextHash, detectedSensitivePatternCount, piiRedactedRegionCount, remainingSensitivePatternCount]
       properties:
         claimToken:
           type: string
@@ -7320,6 +7321,28 @@ components:
         outputHash:
           type: string
           pattern: "^[a-f0-9]{64}$"
+        privacyScanVersion:
+          type: string
+          const: tesseract-pii-v1
+        ocrTextHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+          description: SHA-256 of normalized local OCR output; OCR plaintext is never submitted.
+        detectedSensitivePatternCount:
+          type: integer
+          minimum: 0
+          maximum: 1000
+          description: Sensitive PII pattern classes detected before local pixel redaction.
+        piiRedactedRegionCount:
+          type: integer
+          minimum: 0
+          maximum: 1000
+          description: OCR line regions masked in local memory before model access.
+        remainingSensitivePatternCount:
+          type: integer
+          minimum: 0
+          maximum: 0
+          description: Must be zero after the mandatory second local OCR pass.
     FailChallengeVisualJobRequest:
       type: object
       additionalProperties: false
@@ -7337,7 +7360,7 @@ components:
     ChallengeVisualJob:
       type: object
       additionalProperties: false
-      required: [jobId, runId, challengeEventId, state, attemptNumber, maximumAttempts, claimEpoch, actions, updatedAt]
+      required: [jobId, runId, challengeEventId, state, attemptNumber, maximumAttempts, claimEpoch, actions, privacyScanVersion, ocrTextHash, detectedSensitivePatternCount, piiRedactedRegionCount, remainingSensitivePatternCount, updatedAt]
       properties:
         jobId:
           type: string
@@ -7380,6 +7403,24 @@ components:
           type: [number, "null"]
           minimum: 0
           maximum: 1
+        privacyScanVersion:
+          type: [string, "null"]
+          pattern: "^tesseract-pii-v1$"
+        ocrTextHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+        detectedSensitivePatternCount:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 1000
+        piiRedactedRegionCount:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 1000
+        remainingSensitivePatternCount:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 0
         failureCode:
           type: [string, "null"]
         updatedAt:

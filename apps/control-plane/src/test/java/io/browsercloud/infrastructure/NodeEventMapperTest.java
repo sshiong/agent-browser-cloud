@@ -1149,6 +1149,61 @@ class NodeEventMapperTest {
   }
 
   @Test
+  void shouldMapOnlyABoundedStateFencedChallengeScreenshot() {
+    var payload =
+        SessionEvidenceCapturedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setEvidenceId("evd_1234567890abcdef")
+            .setEvidenceKind("CHALLENGE_SCREENSHOT")
+            .setTaskId("cap_1234567890abcdefghij")
+            .setStepId("challenge-screenshot")
+            .setCommandId("cmd_1234567890abcdefghij")
+            .setContentSha256("a".repeat(64))
+            .setContentBytes(2048)
+            .setObjectKey(
+                "tenants/tenant-test/profiles/profile-test/sessions/ses_test/evidence/"
+                    + "evd_1234567890abcdef/screenshot.jpeg")
+            .setCapturedAtMs(1_785_283_200_000L)
+            .setMandatory(true)
+            .setResult("COMMITTED")
+            .setRedactionState("MASKED")
+            .setRedactedRegionCount(1)
+            .setCaptureMode("CHALLENGE_REGION")
+            .setCapturedStateVersion(9)
+            .setCapturedTargetRevision(4)
+            .setCapturedStateHash("b".repeat(64))
+            .setCapturedActiveTabId("tab-challenge")
+            .setViewportWidth(1280)
+            .setViewportHeight(720)
+            .setDeviceScaleFactor(2)
+            .setCapturedRegionX(10)
+            .setCapturedRegionY(20)
+            .setCapturedRegionWidth(300)
+            .setCapturedRegionHeight(180)
+            .setCoordinateSpace("VIEWPORT")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_challenge_screenshot")
+            .setEventType(NodeEventMapper.SESSION_EVIDENCE_CAPTURED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(5)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.EvidenceCaptured.class,
+            evidence -> {
+              assertThat(evidence.evidenceKind()).isEqualTo("CHALLENGE_SCREENSHOT");
+              assertThat(evidence.captureMode()).isEqualTo("CHALLENGE_REGION");
+              assertThat(evidence.capturedStateVersion()).isEqualTo(9);
+              assertThat(evidence.capturedRegionWidth()).isEqualTo(300);
+            });
+  }
+
+  @Test
   void shouldRejectScreenshotMetadataOnOrdinaryEvidence() {
     var payload =
         SessionEvidenceCapturedEvent.newBuilder()

@@ -351,6 +351,11 @@ class CompleteChallengeVisualJobRequest(TypedDict, total=False):
     outputTokens: int
     latencyMs: int
     outputHash: str
+    privacyScanVersion: str
+    ocrTextHash: str
+    detectedSensitivePatternCount: int
+    piiRedactedRegionCount: int
+    remainingSensitivePatternCount: int
 
 class FailChallengeVisualJobRequest(TypedDict, total=False):
     claimToken: str
@@ -370,6 +375,11 @@ class ChallengeVisualJob(TypedDict, total=False):
     decision: Literal['ACT', 'ESCALATE', None]
     actions: list[ChallengeVisualAction]
     confidence: Any
+    privacyScanVersion: Any
+    ocrTextHash: Any
+    detectedSensitivePatternCount: Any
+    piiRedactedRegionCount: Any
+    remainingSensitivePatternCount: Any
     failureCode: Any
     updatedAt: str
 

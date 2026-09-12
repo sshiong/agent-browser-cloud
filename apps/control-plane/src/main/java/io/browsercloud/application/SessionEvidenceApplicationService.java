@@ -61,7 +61,8 @@ public class SessionEvidenceApplicationService {
         Timestamp.from(Instant.ofEpochMilli(evidence.capturedAtMs())),
         evidence.redactionState(),
         evidence.redactedRegionCount());
-    if ("OBSERVER_MANUAL".equals(evidence.evidenceKind())) {
+    if (java.util.Set.of("OBSERVER_MANUAL", "CHALLENGE_SCREENSHOT")
+        .contains(evidence.evidenceKind())) {
       governance.completeCaptureFromEvidence(
           tenantId,
           evidence.sessionId(),

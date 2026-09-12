@@ -1,7 +1,7 @@
 ARG PYTHON_BASE_IMAGE=python:3.13-slim-bookworm
 FROM ${PYTHON_BASE_IMAGE}
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y ca-certificates tini \
+    && apt-get install --no-install-recommends -y ca-certificates imagemagick tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-eng tini \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY agent_worker.py /app/agent_worker.py

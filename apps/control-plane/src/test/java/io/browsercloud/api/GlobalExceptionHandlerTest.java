@@ -2,6 +2,7 @@ package io.browsercloud.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.browsercloud.application.ChallengeAutomationApplicationService.ChallengeAutomationRejectedException;
 import io.browsercloud.application.StateResyncAdmissionService.StateResyncBudgetExceededException;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -63,5 +64,22 @@ class GlobalExceptionHandlerTest {
         .containsEntry("scope", "AUTOMATIC_CIRCUIT")
         .containsEntry("retryAfterSeconds", 60);
     assertThat(response.getBody().requestId()).isEqualTo("req_resync_budget");
+  }
+
+  @Test
+  void mapsChallengeAutomationRejectionsToTheirStableMachineCode() {
+    var request = new MockHttpServletRequest();
+    request.setAttribute(ApiRequestContextFilter.REQUEST_ID_ATTRIBUTE, "req_challenge_privacy");
+
+    var response =
+        handler.challengeAutomationRejected(
+            new ChallengeAutomationRejectedException("VISION_PRIVACY_CAPABILITY_MISSING"), request);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().code()).isEqualTo("VISION_PRIVACY_CAPABILITY_MISSING");
+    assertThat(response.getBody().message()).isEqualTo("Challenge automation request was rejected");
+    assertThat(response.getBody().details()).isEmpty();
+    assertThat(response.getBody().requestId()).isEqualTo("req_challenge_privacy");
   }
 }

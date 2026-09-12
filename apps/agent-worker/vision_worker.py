@@ -1,24 +1,29 @@
 #!/usr/bin/env python3
 """Bounded screenshot OCR/vision worker for low-risk browser challenges.
 
-The Control Plane supplies a redacted screenshot through a one-time, purpose-bound grant. The
-worker can return only normalized CLICK/SLIDE actions; it never receives browser credentials or a
-general browser-control capability.
+The Control Plane supplies a state-fenced challenge crop through a one-time, purpose-bound grant.
+The worker locally masks OCR-visible PII before any external model call and can return only
+normalized CLICK/SLIDE actions; it never receives browser credentials or a general browser-control
+capability.
 """
 
 from __future__ import annotations
 
 import argparse
 import base64
+import csv
 import hashlib
+import io
 import json
 import re
 import ssl
+import subprocess
 import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from typing import NamedTuple
 
 from agent_worker import NoRedirect, WorkerError, control_plane_origin, read_secret, run_poll_loop
 from reviewer_worker import OpenAIResponsesReviewer, fixed_model_endpoint
@@ -29,6 +34,197 @@ MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024
 JOB_ID = re.compile(r"^cvj_[A-Za-z0-9]{20}$")
 WORKER_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 MODEL_ID = re.compile(r"^[A-Za-z0-9._:/-]{1,200}$")
+OCR_OUTPUT_BYTES = 256 * 1024
+PRIVACY_SCAN_VERSION = "tesseract-pii-v1"
+TESSERACT_PATH = "/usr/bin/tesseract"
+IMAGE_REDACTOR_PATH = "/usr/bin/convert"
+
+PII_PATTERNS = (
+    re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"),
+    re.compile(r"(?<!\d)(?:\+?\d[\s().-]*){10,15}(?!\d)"),
+    re.compile(r"(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)"),
+    re.compile(r"(?i)\b(?:bearer\s+)?(?:api[_ -]?key|secret|token)\s*[:=]\s*[A-Z0-9._/-]{8,}\b"),
+    re.compile(r"(?i)\b(?:otp|one[ -]?time|verification)[^\n\d]{0,24}\d{4,10}\b"),
+    re.compile(r"\beyJ[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b"),
+)
+
+
+def _luhn_valid(value: str) -> bool:
+    digits = [int(character) for character in value if character.isdigit()]
+    if not 13 <= len(digits) <= 19 or len(set(digits)) == 1:
+        return False
+    total = 0
+    parity = len(digits) % 2
+    for index, digit in enumerate(digits):
+        if index % 2 == parity:
+            digit *= 2
+            if digit > 9:
+                digit -= 9
+        total += digit
+    return total % 10 == 0
+
+
+def sensitive_ocr_signal_count(text: str) -> int:
+    signals = sum(1 for pattern in PII_PATTERNS if pattern.search(text))
+    card_candidates = re.findall(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)", text)
+    return signals + int(any(_luhn_valid(candidate) for candidate in card_candidates))
+
+
+class LocalScreenshotPrivacyScanner:
+    """Locally detects, masks, and rechecks OCR-visible PII before external model access."""
+
+    def __init__(
+        self,
+        command: str = TESSERACT_PATH,
+        image_redactor: str = IMAGE_REDACTOR_PATH,
+        languages: str = "eng+chi_sim",
+        timeout_seconds: int = 20,
+    ):
+        if (
+            not command.startswith("/")
+            or not image_redactor.startswith("/")
+            or not re.fullmatch(r"[a-z0-9_]+(?:\+[a-z0-9_]+){0,3}", languages)
+            or timeout_seconds < 1
+            or timeout_seconds > 30
+        ):
+            raise ValueError("privacy scanner configuration is invalid")
+        self.command = command
+        self.image_redactor = image_redactor
+        self.languages = languages
+        self.timeout_seconds = timeout_seconds
+
+    def _ocr_rows(self, screenshot: bytes) -> tuple[str, list[dict[str, str]]]:
+        try:
+            completed = subprocess.run(
+                [self.command, "stdin", "stdout", "-l", self.languages, "--psm", "11", "tsv"],
+                input=screenshot,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=self.timeout_seconds,
+                check=False,
+                close_fds=True,
+                env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"},
+            )
+        except (OSError, subprocess.SubprocessError) as error:
+            raise WorkerError("SCREENSHOT_PRIVACY_SCAN_FAILED", retryable=False) from error
+        if completed.returncode != 0 or len(completed.stdout) > OCR_OUTPUT_BYTES:
+            raise WorkerError("SCREENSHOT_PRIVACY_SCAN_FAILED", retryable=False)
+        try:
+            document = completed.stdout.decode("utf-8")
+            reader = csv.DictReader(io.StringIO(document), delimiter="\t")
+            required = {"page_num", "block_num", "par_num", "line_num", "left", "top", "width", "height", "text"}
+            if reader.fieldnames is None or not required.issubset(reader.fieldnames):
+                raise csv.Error("Tesseract TSV columns are incomplete")
+            rows = list(reader)
+            words = [row.get("text", "").strip() for row in rows if row.get("text", "").strip()]
+            normalized = " ".join(" ".join(words).split())
+        except (UnicodeError, csv.Error) as error:
+            raise WorkerError("SCREENSHOT_PRIVACY_SCAN_FAILED", retryable=False) from error
+        return normalized, rows
+
+    @staticmethod
+    def _sensitive_regions(
+        rows: list[dict[str, str]], total_signals: int
+    ) -> list[tuple[int, int, int, int]]:
+        lines: dict[tuple[str, str, str, str], list[dict[str, str]]] = {}
+        for row in rows:
+            text = row.get("text", "").strip()
+            if not text:
+                continue
+            key = tuple(
+                row.get(name, "")
+                for name in ("page_num", "block_num", "par_num", "line_num")
+            )
+            lines.setdefault(key, []).append(row)
+        sensitive = []
+        for words in lines.values():
+            text = " ".join(row.get("text", "").strip() for row in words)
+            if sensitive_ocr_signal_count(text) == 0:
+                continue
+            try:
+                left = min(int(row["left"]) for row in words)
+                top = min(int(row["top"]) for row in words)
+                right = max(int(row["left"]) + int(row["width"]) for row in words)
+                bottom = max(int(row["top"]) + int(row["height"]) for row in words)
+            except (KeyError, TypeError, ValueError) as error:
+                raise WorkerError("SCREENSHOT_PRIVACY_SCAN_FAILED", retryable=False) from error
+            if (
+                left < 0
+                or top < 0
+                or right <= left
+                or bottom <= top
+                or right > 16_384
+                or bottom > 16_384
+                or len(sensitive) >= 1_000
+            ):
+                raise WorkerError("SCREENSHOT_PRIVACY_SCAN_FAILED", retryable=False)
+            sensitive.append((left, top, right, bottom))
+        if total_signals and not sensitive:
+            raise WorkerError("SCREENSHOT_PRIVACY_SCAN_FAILED", retryable=False)
+        return sensitive
+
+    def _mask(self, screenshot: bytes, regions: list[tuple[int, int, int, int]]) -> bytes:
+        draw = " ".join(
+            f"rectangle {max(0, left - 3)},{max(0, top - 3)} {right + 3},{bottom + 3}"
+            for left, top, right, bottom in regions
+        )
+        command = [
+            self.image_redactor,
+            "-limit",
+            "memory",
+            "64MiB",
+            "-limit",
+            "map",
+            "128MiB",
+            "-limit",
+            "area",
+            "32MP",
+            "jpeg:-",
+        ]
+        if draw:
+            command.extend(["-fill", "#000000", "-draw", draw])
+        command.extend(["-strip", "-quality", "70", "jpeg:-"])
+        try:
+            completed = subprocess.run(
+                command,
+                input=screenshot,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=self.timeout_seconds,
+                check=False,
+                close_fds=True,
+                env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"},
+            )
+        except (OSError, subprocess.SubprocessError) as error:
+            raise WorkerError("SCREENSHOT_PRIVACY_REDACTION_FAILED", retryable=False) from error
+        masked = completed.stdout
+        if completed.returncode != 0:
+            raise WorkerError("SCREENSHOT_PRIVACY_REDACTION_FAILED", retryable=False)
+        if not masked.startswith(b"\xff\xd8\xff") or len(masked) > MAX_SCREENSHOT_BYTES:
+            raise WorkerError("SCREENSHOT_PRIVACY_REDACTION_FAILED", retryable=False)
+        return masked
+
+    def scan(self, screenshot: bytes) -> "PrivacyScanResult":
+        normalized, rows = self._ocr_rows(screenshot)
+        detected = sensitive_ocr_signal_count(normalized)
+        regions = self._sensitive_regions(rows, detected)
+        sanitized = self._mask(screenshot, regions)
+        final_text, _ = self._ocr_rows(sanitized)
+        remaining = sensitive_ocr_signal_count(final_text)
+        if remaining:
+            raise WorkerError("SCREENSHOT_PII_REDACTION_INCOMPLETE", retryable=False)
+        return PrivacyScanResult(sanitized, {
+            "privacyScanVersion": PRIVACY_SCAN_VERSION,
+            "ocrTextHash": hashlib.sha256(final_text.encode()).hexdigest(),
+            "detectedSensitivePatternCount": detected,
+            "piiRedactedRegionCount": len(regions),
+            "remainingSensitivePatternCount": 0,
+        })
+
+
+class PrivacyScanResult(NamedTuple):
+    screenshot: bytes
+    attestation: dict
 
 
 def validate_screenshot_url(value: str, environment: str, allowed_hosts: list[str]) -> str:
@@ -107,7 +303,10 @@ class VisionControlPlaneClient:
     def claim(self) -> dict | None:
         claim = self.request("/api/v1/challenge-visual-jobs:claim", {
             "protocolVersion": "challenge-vision-worker/v1",
-            "capabilities": {"screenshot-ocr-actions-v1": True},
+            "capabilities": {
+                "screenshot-ocr-actions-v1": True,
+                "local-ocr-pii-gate-v1": True,
+            },
             "deploymentId": self.deployment_id,
             "modelRevision": self.model_revision,
         })
@@ -248,9 +447,10 @@ class ScreenshotVisionProvider:
 
 
 class VisionLoop:
-    def __init__(self, client, provider, environment, screenshot_hosts, poll_seconds, heartbeat_seconds):
+    def __init__(self, client, provider, privacy_scanner, environment, screenshot_hosts, poll_seconds, heartbeat_seconds):
         self.client = client
         self.provider = provider
+        self.privacy_scanner = privacy_scanner
         self.environment = environment
         self.screenshot_hosts = screenshot_hosts
         self.poll_seconds = max(0.1, min(poll_seconds, 60))
@@ -279,7 +479,11 @@ class VisionLoop:
             screenshot = self.provider.download(claim["screenshotUrl"], self.environment, self.screenshot_hosts)
             if lease_lost.is_set():
                 raise WorkerError("CHALLENGE_VISION_LEASE_LOST")
-            verdict = self.provider.analyze(claim, screenshot)
+            privacy = self.privacy_scanner.scan(screenshot)
+            if lease_lost.is_set():
+                raise WorkerError("CHALLENGE_VISION_LEASE_LOST")
+            verdict = self.provider.analyze(claim, privacy.screenshot)
+            verdict.update(privacy.attestation)
             verdict["deploymentId"] = self.client.deployment_id
             if lease_lost.is_set():
                 raise WorkerError("CHALLENGE_VISION_LEASE_LOST")
@@ -334,7 +538,8 @@ def main() -> int:
         read_secret(args.model_api_key_file), args.model_ca_file, args.model_name,
         args.model_revision, args.maximum_output_tokens,
     )
-    VisionLoop(client, provider, args.environment, args.allowed_screenshot_host,
+    privacy_scanner = LocalScreenshotPrivacyScanner()
+    VisionLoop(client, provider, privacy_scanner, args.environment, args.allowed_screenshot_host,
                args.poll_seconds, args.heartbeat_seconds).run(args.once)
     return 0
 

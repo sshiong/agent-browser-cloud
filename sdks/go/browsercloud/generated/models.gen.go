@@ -414,17 +414,22 @@ type ChallengeVisualAction struct {
 }
 
 type CompleteChallengeVisualJobRequest struct {
-	ClaimToken        string                  `json:"claimToken,omitempty"`
-	Decision          string                  `json:"decision,omitempty"`
-	Actions           []ChallengeVisualAction `json:"actions,omitempty"`
-	Confidence        float64                 `json:"confidence,omitempty"`
-	DeploymentId      string                  `json:"deploymentId,omitempty"`
-	ModelRevision     string                  `json:"modelRevision,omitempty"`
-	ProviderRequestId any                     `json:"providerRequestId,omitempty"`
-	InputTokens       int                     `json:"inputTokens,omitempty"`
-	OutputTokens      int                     `json:"outputTokens,omitempty"`
-	LatencyMs         int                     `json:"latencyMs,omitempty"`
-	OutputHash        string                  `json:"outputHash,omitempty"`
+	ClaimToken                     string                  `json:"claimToken,omitempty"`
+	Decision                       string                  `json:"decision,omitempty"`
+	Actions                        []ChallengeVisualAction `json:"actions,omitempty"`
+	Confidence                     float64                 `json:"confidence,omitempty"`
+	DeploymentId                   string                  `json:"deploymentId,omitempty"`
+	ModelRevision                  string                  `json:"modelRevision,omitempty"`
+	ProviderRequestId              any                     `json:"providerRequestId,omitempty"`
+	InputTokens                    int                     `json:"inputTokens,omitempty"`
+	OutputTokens                   int                     `json:"outputTokens,omitempty"`
+	LatencyMs                      int                     `json:"latencyMs,omitempty"`
+	OutputHash                     string                  `json:"outputHash,omitempty"`
+	PrivacyScanVersion             string                  `json:"privacyScanVersion,omitempty"`
+	OcrTextHash                    string                  `json:"ocrTextHash,omitempty"`
+	DetectedSensitivePatternCount  int                     `json:"detectedSensitivePatternCount,omitempty"`
+	PiiRedactedRegionCount         int                     `json:"piiRedactedRegionCount,omitempty"`
+	RemainingSensitivePatternCount int                     `json:"remainingSensitivePatternCount,omitempty"`
 }
 
 type FailChallengeVisualJobRequest struct {
@@ -434,20 +439,25 @@ type FailChallengeVisualJobRequest struct {
 }
 
 type ChallengeVisualJob struct {
-	JobId            string                  `json:"jobId,omitempty"`
-	RunId            string                  `json:"runId,omitempty"`
-	ChallengeEventId string                  `json:"challengeEventId,omitempty"`
-	State            string                  `json:"state,omitempty"`
-	AttemptNumber    int                     `json:"attemptNumber,omitempty"`
-	MaximumAttempts  int                     `json:"maximumAttempts,omitempty"`
-	WorkerId         any                     `json:"workerId,omitempty"`
-	ClaimEpoch       int64                   `json:"claimEpoch,omitempty"`
-	LeaseExpiresAt   any                     `json:"leaseExpiresAt,omitempty"`
-	Decision         any                     `json:"decision,omitempty"`
-	Actions          []ChallengeVisualAction `json:"actions,omitempty"`
-	Confidence       any                     `json:"confidence,omitempty"`
-	FailureCode      any                     `json:"failureCode,omitempty"`
-	UpdatedAt        string                  `json:"updatedAt,omitempty"`
+	JobId                          string                  `json:"jobId,omitempty"`
+	RunId                          string                  `json:"runId,omitempty"`
+	ChallengeEventId               string                  `json:"challengeEventId,omitempty"`
+	State                          string                  `json:"state,omitempty"`
+	AttemptNumber                  int                     `json:"attemptNumber,omitempty"`
+	MaximumAttempts                int                     `json:"maximumAttempts,omitempty"`
+	WorkerId                       any                     `json:"workerId,omitempty"`
+	ClaimEpoch                     int64                   `json:"claimEpoch,omitempty"`
+	LeaseExpiresAt                 any                     `json:"leaseExpiresAt,omitempty"`
+	Decision                       any                     `json:"decision,omitempty"`
+	Actions                        []ChallengeVisualAction `json:"actions,omitempty"`
+	Confidence                     any                     `json:"confidence,omitempty"`
+	PrivacyScanVersion             any                     `json:"privacyScanVersion,omitempty"`
+	OcrTextHash                    any                     `json:"ocrTextHash,omitempty"`
+	DetectedSensitivePatternCount  any                     `json:"detectedSensitivePatternCount,omitempty"`
+	PiiRedactedRegionCount         any                     `json:"piiRedactedRegionCount,omitempty"`
+	RemainingSensitivePatternCount any                     `json:"remainingSensitivePatternCount,omitempty"`
+	FailureCode                    any                     `json:"failureCode,omitempty"`
+	UpdatedAt                      string                  `json:"updatedAt,omitempty"`
 }
 
 type ChallengeVisualJobClaim struct {

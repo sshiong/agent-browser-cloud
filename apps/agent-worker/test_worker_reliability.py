@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 from agent_worker import PollBackoff, WorkerError, WorkerLoop, run_poll_loop
 from reviewer_worker import ReviewerLoop
 from outcome_verifier_worker import OutcomeVerifierLoop
-from vision_worker import VisionLoop
+from vision_worker import PrivacyScanResult, VisionLoop
 
 
 class PollBackoffTest(unittest.TestCase):
@@ -72,7 +72,18 @@ class VisionLeaseTest(unittest.TestCase):
         provider.download.return_value = b"redacted"
         provider.analyze.return_value = {}
         getattr(provider, lose_during).side_effect = wait_for_failure
-        loop = VisionLoop(client, provider, "test", [], 2, 1)
+        privacy_scanner = Mock()
+        privacy_scanner.scan.return_value = PrivacyScanResult(
+            b"redacted",
+            {
+                "privacyScanVersion": "tesseract-pii-v1",
+                "ocrTextHash": "0" * 64,
+                "detectedSensitivePatternCount": 0,
+                "piiRedactedRegionCount": 0,
+                "remainingSensitivePatternCount": 0,
+            },
+        )
+        loop = VisionLoop(client, provider, privacy_scanner, "test", [], 2, 1)
         loop.heartbeat_seconds = 0.01
         return loop, client, provider
 
@@ -96,7 +107,7 @@ class VisionLeaseTest(unittest.TestCase):
         provider.download.side_effect = ValueError("invalid provider result")
         before = set(threading.enumerate())
         with self.assertRaises(ValueError):
-            VisionLoop(client, provider, "test", [], 2, 1).run_once()
+            VisionLoop(client, provider, Mock(), "test", [], 2, 1).run_once()
         self.assertEqual(set(threading.enumerate()), before)
 
 

@@ -16,6 +16,11 @@ export type ChallengeVisualJob = {
     decision?: 'ACT' | 'ESCALATE';
     actions: Array<ChallengeVisualAction>;
     confidence?: number | null;
+    privacyScanVersion: string | null;
+    ocrTextHash: string | null;
+    detectedSensitivePatternCount: number | null;
+    piiRedactedRegionCount: number | null;
+    remainingSensitivePatternCount: number | null;
     failureCode?: string | null;
     updatedAt: string;
 };

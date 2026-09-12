@@ -1016,6 +1016,7 @@ fn valid_evidence_kind(value: &str) -> bool {
             | "AGENT_NAVIGATION_FAILURE"
             | "OBSERVER_MANUAL"
             | "AGENT_SCREENSHOT"
+            | "CHALLENGE_SCREENSHOT"
     )
 }
 
@@ -1186,8 +1187,9 @@ mod tests {
     static TEST_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
     #[test]
-    fn evidence_kind_allowlist_includes_state_fenced_agent_screenshots_only() {
+    fn evidence_kind_allowlist_includes_only_governed_screenshot_types() {
         assert!(valid_evidence_kind("AGENT_SCREENSHOT"));
+        assert!(valid_evidence_kind("CHALLENGE_SCREENSHOT"));
         assert!(valid_evidence_kind("OBSERVER_MANUAL"));
         assert!(!valid_evidence_kind("ARBITRARY_SCREENSHOT"));
     }

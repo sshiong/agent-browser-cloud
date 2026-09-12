@@ -4,6 +4,9 @@
 /* eslint-disable */
 export type ClaimChallengeVisualJobRequest = {
     protocolVersion: string;
+    /**
+     * Must include screenshot-ocr-actions-v1 and local-ocr-pii-gate-v1.
+     */
     capabilities: Record<string, boolean>;
     deploymentId: string;
     modelRevision: string;

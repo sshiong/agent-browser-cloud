@@ -93,7 +93,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V118 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V119 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -152,6 +152,9 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - [已确认] 多参与者、单上游 RFB Fan-out、慢消费者隔离、每 Actor 带宽/FPS/成本、在线列表、精准撤销和历史治理已实现。
 - [已确认] 低风险 `SINGLE_CLICK/IMAGE_SELECTION/PUZZLE/MULTI_ROUND` Challenge 支持脱敏截图 OCR/视觉定位，默认三次且可按 Session 调整，并可执行点击、连续点击和滑动；AUTONOMOUS 只有在自动路径耗尽后才写一次人工协助通知，原 Task 保持可续行。
 - [已确认] Vision Worker 只有 Purpose-bound 一次性截图读取和结构化动作输出权限；Browser Node 在 State Hash/Version、Operation Epoch、八次动作预算及真人输入优先级下重新校验，不接受键盘、文本、Secret 或任意 CDP。
+- [已确认] Challenge Vision 只接受精确 State/Target/Active Tab 围栏的有界 Region；隔离 Worker
+  在外部模型调用前执行本地 Tesseract OCR/PII 检测、ImageMagick 像素遮罩和二次 OCR 零残留
+  复核。无安全 Target、能力或证明时 fail-closed/Human Handoff，见 progress 176。
 - [已确认] Session 默认 `SAFE`，操作员可一次切换 `AUTONOMOUS`；后者允许 Agent 通过租户/Session/用途绑定的一次性 AES-GCM API 输入账号、密码和 OTP，默认三次输入代理重试且可调 1—10 次，不逐动作索要人工确认。
 - [已确认] 密文引用只能由一次 `TYPE_TEXT` Step 事务消费；Plan/API/审计/Agent Worker/Vision Worker 不含明文或低熵 OTP Hash。若已有密文计划则登录/OTP Challenge 直接续行；确需人工时只通知一次，操作员可发送 OTP 由 Agent 有界重试代填并恢复原 Task，也可自愿进入协作自行填写，系统不强迫接管。
 - 支付、转账、购买、修改密码、删除账号等决策仍需独立高风险确认；自动登录不等于绕过安全门禁。人工 VNC 是随时可加入的协作能力，不是 Agent 的必经步骤。
@@ -368,6 +371,15 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 
 ## 7. 当前正在处理的任务
 
+- progress 176：V119 增加 `CHALLENGE_SCREENSHOT` 与 nullable、整组约束的捕获范围/隐私证明；
+  Control Plane 与 Node 在截图前后精确围栏 State Version/Hash、Target Revision、Active Tab 和
+  有界 Region，Vision Worker 在外部模型前本地 OCR/PII 遮罩并二次复核，OCR 原文不进入
+  PostgreSQL/API/Audit/模型。无安全 Target 的 Canvas/图片/PDF 不回退整页 Vision。API/四 SDK
+  保持 245 Operations / 338 Schemas；Control Plane 539 项、Web 141 项、Worker 30 项、Rust、
+  Desktop、N/N−1、完整 `make ci` 与 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过，
+  输出 `challenge_visual_pixel_privacy=true`。A05 仓库内通用代码项关闭；Recording 全帧 OCR、
+  非文本视觉分类、A19 Opaque Frame 与目标模型生产准入仍独立待完成。
+
 - progress 175：State Collector 将最近显式业务实体键或 `row/listitem/treeitem/tr/li` 规范化
   行语义以 Node 内 hash-only 指纹绑定 Element ID；原文在 State Hash/Registry 前清除，不进入
   Browser State/API/Audit。真实 Chrome 在同一 DOM 槽位保持同名按钮、只替换业务行后验证旧
@@ -382,8 +394,8 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   Outcome Verifier 的同一精确最终 State 先做确定性判定，完整状态失败或深度受限不确定时，
   即使模型提交 `VERIFIED` 也强制收敛为 `NOT_VERIFIED`。API/四 SDK/Web/Tauri 已同步至
   245 Operations / 338 Schemas；完整 Integration 输出 `agent_task_expected_outcomes=true`，
-  覆盖原文不落库与模型假成功拒绝。A04 仓库内通用代码项关闭；站点领域 Validator、A03、
-  A05、A06 与 A20 仍独立待完成。功能提交 `153f077` 后 Docker Hub 固定 MinIO 镜像下架导致
+  覆盖原文不落库与模型假成功拒绝。A04 仓库内通用代码项关闭；站点领域 Validator、A06 与
+  A20 仍独立待完成，A03/A05 已由 progress 175/176 关闭。功能提交 `153f077` 后 Docker Hub 固定 MinIO 镜像下架导致
   首次 CI 非产品失败；保持版本不变迁移至官方 Quay 的修复提交 `172f6d3` 已通过 GitHub CI
   `34681675184` 与 Desktop `34681675198`（Windows/macOS）。
 
@@ -440,8 +452,9 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - 2026-09-03 用户要求逐项修复 Agent 可靠性、安全部署和治理问题并验证推送；当前以
   `docs/progress/165-Agent可靠性与个人安全部署修复清单.md` 的 A01—A24 为实施账本。
   第一切片已加三 Worker 有界退避、Vision lease-lost 主流程阻断和 finally 心跳清理；
-  Local Header 仅允许显式 local/test，其他环境进入 OIDC 链。后续仍须完整 Compose、
-  语义目标/Outcome、像素隐私、动态微批次、取消、加密和 Personal Secure 验收。
+  Local Header 仅允许显式 local/test，其他环境进入 OIDC 链。语义目标、Expected Outcome 和
+  Challenge 像素隐私已由 progress 175、174、176 关闭；后续仍须完整 Compose、动态微批次、
+  取消、加密和 Personal Secure 验收。
   不得把 Worker 心跳修复冒充已完成浏览器长操作取消。仓库许可证元数据 MIT/UNLICENSED
   不一致，未经权利人选择不得擅自对整个仓库授予新许可证。
 - progress 167/175：Element ID/target_ref 新增名称/角色/控件类型/Route/Tab 及最近业务实体

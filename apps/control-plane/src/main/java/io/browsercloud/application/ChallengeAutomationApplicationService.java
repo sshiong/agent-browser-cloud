@@ -331,13 +331,40 @@ public class ChallengeAutomationApplicationService {
       failAttempt(job, safeCode(captured.errorCode(), "CHALLENGE_SCREENSHOT_FAILED"));
       return;
     }
+    var challenge = challenges.findForUpdate(job.challengeEventId(), job.tenantId()).orElse(null);
+    if (challenge == null
+        || !"CHALLENGE_REGION".equals(captured.captureMode())
+        || captured.capturedStateVersion() != challenge.getStateVersion()
+        || captured.capturedTargetRevision() != challenge.getTargetRevision()
+        || !captured.capturedStateHash().matches("^[a-f0-9]{64}$")
+        || captured.capturedActiveTabId().isBlank()
+        || captured.capturedRegionWidth() < 1
+        || captured.capturedRegionHeight() < 1
+        || !"VIEWPORT".equals(captured.coordinateSpace())) {
+      failAttempt(job, "CHALLENGE_SCREENSHOT_SCOPE_INVALID");
+      return;
+    }
     jdbc.update(
         """
         UPDATE challenge_visual_jobs
-        SET evidence_id = ?, state = 'READY', available_at = now(), updated_at = now(), version = version + 1
+        SET evidence_id = ?, capture_viewport_width=?, capture_viewport_height=?,
+            capture_region_x=?, capture_region_y=?, capture_region_width=?, capture_region_height=?,
+            captured_state_version=?, captured_target_revision=?, captured_state_hash=?,
+            captured_active_tab_id=?,
+            state = 'READY', available_at = now(), updated_at = now(), version = version + 1
         WHERE job_id = ? AND state = 'CAPTURING'
         """,
         captured.evidenceId(),
+        captured.viewportWidth(),
+        captured.viewportHeight(),
+        captured.capturedRegionX(),
+        captured.capturedRegionY(),
+        captured.capturedRegionWidth(),
+        captured.capturedRegionHeight(),
+        captured.capturedStateVersion(),
+        captured.capturedTargetRevision(),
+        captured.capturedStateHash(),
+        captured.capturedActiveTabId(),
         job.jobId());
     jdbc.update(
         "UPDATE challenge_automation_runs SET state = 'ANALYZING', updated_at = now(), version = version + 1 WHERE run_id = ?",
@@ -347,9 +374,7 @@ public class ChallengeAutomationApplicationService {
   @Transactional
   public Optional<ChallengeVisualJobClaimView> claim(
       ClaimChallengeVisualJobRequest request, String workerId) {
-    if (!Boolean.TRUE.equals(request.capabilities().get("screenshot-ocr-actions-v1"))) {
-      throw new ChallengeAutomationRejectedException("VISION_WORKER_CAPABILITY_MISSING");
-    }
+    validateVisionCapabilities(request.capabilities());
     if (!deploymentId.equals(request.deploymentId())
         || !modelRevision.equals(request.modelRevision())) {
       throw new ChallengeAutomationRejectedException("VISION_MODEL_REVISION_MISMATCH");
@@ -420,12 +445,20 @@ public class ChallengeAutomationApplicationService {
         || !modelRevision.equals(request.modelRevision())) {
       throw new ChallengeAutomationRejectedException("VISION_MODEL_REVISION_MISMATCH");
     }
+    validatePrivacyAttestation(
+        request.privacyScanVersion(),
+        request.ocrTextHash(),
+        request.detectedSensitivePatternCount(),
+        request.piiRedactedRegionCount(),
+        request.remainingSensitivePatternCount());
     validateDecision(request, run);
     jdbc.update(
         """
         UPDATE challenge_visual_jobs
         SET decision=?, actions=?::jsonb, confidence=?, provider_request_id=?, input_tokens=?,
-            output_tokens=?, latency_ms=?, output_hash=?, updated_at=now(), version=version+1
+            output_tokens=?, latency_ms=?, output_hash=?, privacy_scan_version=?,
+            ocr_text_hash=?, detected_sensitive_pattern_count=?, pii_redacted_region_count=?,
+            remaining_sensitive_pattern_count=?, updated_at=now(), version=version+1
         WHERE job_id=?
         """,
         request.decision().name(),
@@ -436,6 +469,11 @@ public class ChallengeAutomationApplicationService {
         request.outputTokens(),
         request.latencyMs(),
         request.outputHash(),
+        request.privacyScanVersion(),
+        request.ocrTextHash(),
+        request.detectedSensitivePatternCount(),
+        request.piiRedactedRegionCount(),
+        request.remainingSensitivePatternCount(),
         jobId);
     if (request.decision() == VisualDecision.ESCALATE
         || request.confidence().compareTo(run.minimumConfidence()) < 0) {
@@ -456,6 +494,16 @@ public class ChallengeAutomationApplicationService {
             .filter(value -> value.contextEpoch() == session.contextEpoch())
             .orElseThrow(
                 () -> new ChallengeAutomationRejectedException("CURRENT_STATE_UNAVAILABLE"));
+    if (job.capturedStateVersion() == null
+        || job.capturedTargetRevision() == null
+        || job.capturedStateHash() == null
+        || job.capturedActiveTabId() == null
+        || snapshot.state().stateVersion() != job.capturedStateVersion()
+        || snapshot.state().targetRevision() != job.capturedTargetRevision()
+        || !snapshot.state().stateHash().equals(job.capturedStateHash())
+        || !snapshot.state().activeTabId().equals(job.capturedActiveTabId())) {
+      throw new ChallengeAutomationRejectedException("STALE_CHALLENGE_SCREENSHOT");
+    }
     var operation =
         OperationFactory.challengeAutomation(
             session, run.runId(), operations.nextOperationEpoch(session.sessionId()));
@@ -468,6 +516,7 @@ public class ChallengeAutomationApplicationService {
         "UPDATE challenge_automation_runs SET state='EXECUTING', last_action=?, updated_at=now(), version=version+1 WHERE run_id=?",
         actionSummary(request.actions()),
         run.runId());
+    var executionActions = viewportActions(request.actions(), job);
     commands.send(
         NodeCommands.challengeAutomationAction(
             session,
@@ -478,7 +527,7 @@ public class ChallengeAutomationApplicationService {
             job.attemptNumber(),
             snapshot.state().stateVersion(),
             snapshot.state().stateHash(),
-            request.actions(),
+            executionActions,
             run.motionMinimumSteps(),
             run.motionMaximumSteps(),
             run.motionMinimumDelayMs(),
@@ -602,14 +651,24 @@ public class ChallengeAutomationApplicationService {
       exhaust(run, "ATTEMPT_BUDGET_EXHAUSTED");
       return;
     }
+    var challenge = challenges.findForUpdate(challengeEventId, run.tenantId()).orElse(null);
+    var scope = challenge == null ? null : challengeCaptureScope(challenge);
+    if (scope == null) {
+      exhaust(run, "CHALLENGE_PRIVACY_SAFE_REGION_UNAVAILABLE");
+      return;
+    }
     var capture =
-        evidence.capture(
+        evidence.captureChallengeRegion(
             run.sessionId(),
             run.tenantId(),
             SYSTEM_ACTOR,
             "challenge-capture-" + run.runId() + "-" + nextAttempt,
             run.runId(),
-            new CaptureEvidenceRequest(EvidencePurpose.CHANGE_VALIDATION));
+            scope.stateVersion(),
+            scope.targetRevision(),
+            scope.stateHash(),
+            scope.activeTabId(),
+            scope.region());
     var now = Instant.now();
     jdbc.update(
         """
@@ -637,6 +696,53 @@ public class ChallengeAutomationApplicationService {
         nextAttempt,
         challengeEventId,
         run.runId());
+  }
+
+  private ChallengeCaptureScope challengeCaptureScope(
+      io.browsercloud.persistence.ChallengeEventEntity challenge) {
+    var snapshot = states.find(challenge.getSessionId()).orElse(null);
+    if (snapshot == null
+        || !snapshot.tenantId().equals(challenge.getTenantId())
+        || snapshot.contextEpoch() != challenge.getContextEpoch()) return null;
+    var state = snapshot.state();
+    if (state.stateVersion() != challenge.getStateVersion()
+        || state.targetRevision() != challenge.getTargetRevision()
+        || !java.util.Set.of("COMPLETE", "DEPTH_LIMITED").contains(state.stateQuality())
+        || state.stateHash() == null
+        || !state.stateHash().matches("^[a-f0-9]{64}$")
+        || state.activeTabId() == null
+        || state.activeTabId().isBlank()
+        || challenge.getTargetRef() == null
+        || challenge.getVisualAnchorHash() == null) return null;
+    var target =
+        state.targets().stream()
+            .filter(value -> challenge.getTargetRef().equals(value.targetRef()))
+            .filter(value -> value.visible() && value.enabled() && !value.sensitive())
+            .filter(value -> value.bounds() != null)
+            .findFirst()
+            .orElse(null);
+    if (target == null
+        || !challenge
+            .getVisualAnchorHash()
+            .equals(ChallengeDetectionService.visualAnchor(state, target))) return null;
+    var bounds = target.bounds();
+    if (!Double.isFinite(bounds.x())
+        || !Double.isFinite(bounds.y())
+        || !Double.isFinite(bounds.width())
+        || !Double.isFinite(bounds.height())
+        || bounds.x() < 0
+        || bounds.y() < 0
+        || bounds.width() < 1
+        || bounds.height() < 1
+        || bounds.width() > 2048
+        || bounds.height() > 2048
+        || bounds.width() * bounds.height() > 2_097_152) return null;
+    return new ChallengeCaptureScope(
+        state.stateVersion(),
+        state.targetRevision(),
+        state.stateHash(),
+        state.activeTabId(),
+        bounds);
   }
 
   private void failAttempt(Job job, String code) {
@@ -878,6 +984,21 @@ public class ChallengeAutomationApplicationService {
         result.getString("decision"),
         result.getString("actions"),
         result.getBigDecimal("confidence"),
+        result.getString("privacy_scan_version"),
+        result.getString("ocr_text_hash"),
+        (Integer) result.getObject("detected_sensitive_pattern_count"),
+        (Integer) result.getObject("pii_redacted_region_count"),
+        (Integer) result.getObject("remaining_sensitive_pattern_count"),
+        (Double) result.getObject("capture_viewport_width"),
+        (Double) result.getObject("capture_viewport_height"),
+        (Double) result.getObject("capture_region_x"),
+        (Double) result.getObject("capture_region_y"),
+        (Double) result.getObject("capture_region_width"),
+        (Double) result.getObject("capture_region_height"),
+        (Long) result.getObject("captured_state_version"),
+        (Long) result.getObject("captured_target_revision"),
+        result.getString("captured_state_hash"),
+        result.getString("captured_active_tab_id"),
         result.getString("failure_code"),
         instant(result, "updated_at"));
   }
@@ -910,6 +1031,11 @@ public class ChallengeAutomationApplicationService {
         job.decision() == null ? null : VisualDecision.valueOf(job.decision()),
         readActions(job.actions()),
         job.confidence(),
+        job.privacyScanVersion(),
+        job.ocrTextHash(),
+        job.detectedSensitivePatternCount(),
+        job.piiRedactedRegionCount(),
+        job.remainingSensitivePatternCount(),
         job.failureCode(),
         job.updatedAt());
   }
@@ -965,6 +1091,47 @@ public class ChallengeAutomationApplicationService {
         .orElse("NONE");
   }
 
+  private static List<ChallengeVisualAction> viewportActions(
+      List<ChallengeVisualAction> actions, Job job) {
+    if (job.captureViewportWidth() == null
+        || job.captureViewportHeight() == null
+        || job.captureRegionX() == null
+        || job.captureRegionY() == null
+        || job.captureRegionWidth() == null
+        || job.captureRegionHeight() == null) {
+      throw new ChallengeAutomationRejectedException("CHALLENGE_SCREENSHOT_SCOPE_UNAVAILABLE");
+    }
+    var maxX = Math.max(1.0, job.captureViewportWidth() - 1.0);
+    var maxY = Math.max(1.0, job.captureViewportHeight() - 1.0);
+    return actions.stream()
+        .map(
+            action ->
+                new ChallengeVisualAction(
+                    action.actionType(),
+                    normalizedViewportCoordinate(
+                        job.captureRegionX(), job.captureRegionWidth(), action.x(), maxX),
+                    normalizedViewportCoordinate(
+                        job.captureRegionY(), job.captureRegionHeight(), action.y(), maxY),
+                    action.endX() == null
+                        ? null
+                        : normalizedViewportCoordinate(
+                            job.captureRegionX(), job.captureRegionWidth(), action.endX(), maxX),
+                    action.endY() == null
+                        ? null
+                        : normalizedViewportCoordinate(
+                            job.captureRegionY(), job.captureRegionHeight(), action.endY(), maxY),
+                    action.repeatCount()))
+        .toList();
+  }
+
+  static BigDecimal normalizedViewportCoordinate(
+      double origin, double extent, BigDecimal cropCoordinate, double viewportMaximum) {
+    return BigDecimal.valueOf(
+        Math.max(
+            0.0,
+            Math.min(1.0, (origin + cropCoordinate.doubleValue() * extent) / viewportMaximum)));
+  }
+
   private static String token() {
     var bytes = new byte[32];
     RANDOM.nextBytes(bytes);
@@ -978,6 +1145,34 @@ public class ChallengeAutomationApplicationService {
               MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
     } catch (java.security.NoSuchAlgorithmException exception) {
       throw new IllegalStateException(exception);
+    }
+  }
+
+  static void validateVisionCapabilities(Map<String, Boolean> capabilities) {
+    if (!Boolean.TRUE.equals(capabilities.get("screenshot-ocr-actions-v1"))) {
+      throw new ChallengeAutomationRejectedException("VISION_WORKER_CAPABILITY_MISSING");
+    }
+    if (!Boolean.TRUE.equals(capabilities.get("local-ocr-pii-gate-v1"))) {
+      throw new ChallengeAutomationRejectedException("VISION_PRIVACY_CAPABILITY_MISSING");
+    }
+  }
+
+  static void validatePrivacyAttestation(
+      String version,
+      String ocrTextHash,
+      int detectedSignalCount,
+      int redactedRegionCount,
+      int remainingSignalCount) {
+    if (!"tesseract-pii-v1".equals(version)
+        || ocrTextHash == null
+        || !ocrTextHash.matches("^[a-f0-9]{64}$")
+        || detectedSignalCount < 0
+        || detectedSignalCount > 1_000
+        || redactedRegionCount < 0
+        || redactedRegionCount > 1_000
+        || remainingSignalCount != 0
+        || ((detectedSignalCount == 0) != (redactedRegionCount == 0))) {
+      throw new ChallengeAutomationRejectedException("VISION_PRIVACY_ATTESTATION_INVALID");
     }
   }
 
@@ -1016,6 +1211,13 @@ public class ChallengeAutomationApplicationService {
       Instant updatedAt,
       Instant completedAt) {}
 
+  private record ChallengeCaptureScope(
+      long stateVersion,
+      long targetRevision,
+      String stateHash,
+      String activeTabId,
+      io.browsercloud.coordinator.NodeEvent.Bounds region) {}
+
   private record Job(
       String jobId,
       String runId,
@@ -1033,6 +1235,21 @@ public class ChallengeAutomationApplicationService {
       String decision,
       String actions,
       BigDecimal confidence,
+      String privacyScanVersion,
+      String ocrTextHash,
+      Integer detectedSensitivePatternCount,
+      Integer piiRedactedRegionCount,
+      Integer remainingSensitivePatternCount,
+      Double captureViewportWidth,
+      Double captureViewportHeight,
+      Double captureRegionX,
+      Double captureRegionY,
+      Double captureRegionWidth,
+      Double captureRegionHeight,
+      Long capturedStateVersion,
+      Long capturedTargetRevision,
+      String capturedStateHash,
+      String capturedActiveTabId,
       String failureCode,
       Instant updatedAt) {}
 

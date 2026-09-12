@@ -762,7 +762,8 @@ public class NodeEventMapper {
                   "AGENT_NAVIGATION_SUCCESS",
                   "AGENT_NAVIGATION_FAILURE",
                   "OBSERVER_MANUAL",
-                  "AGENT_SCREENSHOT")
+                  "AGENT_SCREENSHOT",
+                  "CHALLENGE_SCREENSHOT")
               .contains(payload.getEvidenceKind())) {
             throw new IllegalArgumentException("unsupported evidence_kind");
           }
@@ -817,13 +818,22 @@ public class NodeEventMapper {
             throw new IllegalArgumentException("unsupported evidence result");
           }
           var agentScreenshot = payload.getEvidenceKind().equals("AGENT_SCREENSHOT");
-          if (agentScreenshot) {
-            if (!payload.getTaskId().matches("^shot_[A-Za-z0-9]{20}$")
-                || !payload.getStepId().equals("agent-screenshot")
-                || !java.util.Set.of(
-                        "VIEWPORT", "FULL_PAGE", "ELEMENT", "REGION", "CHALLENGE_REGION")
-                    .contains(payload.getCaptureMode())) {
+          var challengeScreenshot = payload.getEvidenceKind().equals("CHALLENGE_SCREENSHOT");
+          var scopedScreenshot = agentScreenshot || challengeScreenshot;
+          if (scopedScreenshot) {
+            if (agentScreenshot
+                && (!payload.getTaskId().matches("^shot_[A-Za-z0-9]{20}$")
+                    || !payload.getStepId().equals("agent-screenshot")
+                    || !java.util.Set.of(
+                            "VIEWPORT", "FULL_PAGE", "ELEMENT", "REGION", "CHALLENGE_REGION")
+                        .contains(payload.getCaptureMode()))) {
               throw new IllegalArgumentException("Agent screenshot identity is invalid");
+            }
+            if (challengeScreenshot
+                && (!payload.getTaskId().matches("^cap_[A-Za-z0-9]{20}$")
+                    || !payload.getStepId().equals("challenge-screenshot")
+                    || !payload.getCaptureMode().equals("CHALLENGE_REGION"))) {
+              throw new IllegalArgumentException("Challenge screenshot identity is invalid");
             }
             if (payload.getResult().equals("COMMITTED")) {
               var expectedCoordinateSpace =
@@ -842,7 +852,7 @@ public class NodeEventMapper {
                   || !finiteBetween(payload.getCapturedRegionHeight(), 1, 16384)
                   || !payload.getCoordinateSpace().equals(expectedCoordinateSpace)) {
                 throw new IllegalArgumentException(
-                    "committed Agent screenshot metadata is invalid");
+                    "committed scoped screenshot metadata is invalid");
               }
             } else if (payload.getCapturedStateVersion() != 0
                 || payload.getCapturedTargetRevision() != 0
@@ -857,7 +867,7 @@ public class NodeEventMapper {
                 || payload.getCapturedRegionHeight() != 0
                 || !payload.getCoordinateSpace().isBlank()) {
               throw new IllegalArgumentException(
-                  "failed Agent screenshot contains capture metadata");
+                  "failed scoped screenshot contains capture metadata");
             }
           } else if (!payload.getCaptureMode().isBlank()
               || payload.getCapturedStateVersion() != 0

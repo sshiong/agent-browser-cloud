@@ -50,7 +50,7 @@ Web/Tauri 共用 Automation 页面可声明、校验和删除 Expected Outcome�
 
 - A04 的仓库内通用结构化 Expected Outcome/Intent Verification 已关闭；站点专用的订单、CRM、
   支付等领域 Validator 与真实客户 Replay 仍属于目标业务接入 Gate，不由通用 DOM 状态断言冒充；
-- A03 的虚拟列表同名业务实体绑定、A05 像素隐私、A06 动态微批次与 A20 组合页面稳定性仍是
-  独立问题；本切片没有提前关闭它们；
+- A03 的虚拟列表同名业务实体绑定已由 progress 175 关闭，A05 像素隐私已由 progress 176
+  关闭；A06 动态微批次与 A20 组合页面稳定性仍是独立问题；
 - 未声明 Expected Outcome 的旧 Task 仍由 A11 独立语义 Outcome Verifier 审核，滚动升级期间
   保持兼容；生产部署仍必须启用并验收该 Worker，不能以空声明绕过结果审核。

@@ -949,6 +949,19 @@ message ChallengeAutomationFailedEvent {
 message CaptureObserverScreenshotCommand {
   string session_id = 1;
   string capture_id = 2;
+  // Optional only for legacy/manual Observer captures. Challenge automation must provide every
+  // field below so the Node captures one bounded region from one exact Browser State.
+  string capture_mode = 3;
+  uint64 base_state_version = 4;
+  uint64 target_revision = 5;
+  string base_content_hash = 6;
+  string active_tab_id = 7;
+  double region_x = 8;
+  double region_y = 9;
+  double region_width = 10;
+  double region_height = 11;
+  string evidence_id = 12;
+  int64 captured_at_ms = 13;
 }
 
 // Coarse, state-fenced Agent screenshot. The Node selects the authoritative active Page Target;
@@ -1032,7 +1045,7 @@ message SessionEvidenceCapturedEvent {
   // Empty is reserved for N-1 Nodes and is persisted as LEGACY_UNVERIFIED.
   string redaction_state = 14;
   uint32 redacted_region_count = 15;
-  // Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+  // Present only for AGENT_SCREENSHOT or CHALLENGE_SCREENSHOT. These fields bind pixels to one exact Browser State and
   // provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
   string capture_mode = 16;
   uint64 captured_state_version = 17;

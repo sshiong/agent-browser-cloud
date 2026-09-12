@@ -36,6 +36,7 @@ build:
 	python3 -m py_compile apps/agent-worker/agent_worker.py
 	python3 -m py_compile apps/agent-worker/reviewer_worker.py
 	python3 -m py_compile apps/agent-worker/outcome_verifier_worker.py
+	python3 -m py_compile apps/agent-worker/vision_worker.py
 	go -C deploy/terraform/provider build -trimpath -o ../../../build/terraform-provider-browsercloud .
 
 # Build the shared Web UI and native desktop binary without producing unsigned installers.

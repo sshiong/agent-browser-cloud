@@ -492,6 +492,46 @@ public final class NodeCommands {
         payload);
   }
 
+  public static NodeCommand captureChallengeScreenshot(
+      SessionContext session,
+      String captureId,
+      String commandId,
+      long stateVersion,
+      long targetRevision,
+      String stateHash,
+      String activeTabId,
+      NodeEvent.Bounds region,
+      long capturedAtMs) {
+    var payload =
+        CaptureObserverScreenshotCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setCaptureId(captureId)
+            .setCaptureMode("CHALLENGE_REGION")
+            .setBaseStateVersion(stateVersion)
+            .setTargetRevision(targetRevision)
+            .setBaseContentHash(stateHash)
+            .setActiveTabId(activeTabId)
+            .setRegionX(region.x())
+            .setRegionY(region.y())
+            .setRegionWidth(region.width())
+            .setRegionHeight(region.height())
+            .setEvidenceId(newId("evd_"))
+            .setCapturedAtMs(capturedAtMs)
+            .build()
+            .toByteArray();
+    return new NodeCommand(
+        commandId,
+        "CaptureObserverScreenshot",
+        session.nodeId(),
+        session.sessionId(),
+        session.tenantId(),
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        0,
+        "challenge-evidence:" + captureId,
+        payload);
+  }
+
   public static NodeCommand captureAgentScreenshot(
       SessionContext session,
       String screenshotId,

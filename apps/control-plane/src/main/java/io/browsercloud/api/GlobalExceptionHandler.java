@@ -35,6 +35,7 @@ import io.browsercloud.application.BrowserCapacityApplicationService.BrowserCapa
 import io.browsercloud.application.BrowserCapacityApplicationService.BrowserNodeNotFoundException;
 import io.browsercloud.application.BrowserCapacityApplicationService.BrowserPlacementNotFoundException;
 import io.browsercloud.application.BrowserCapacityApplicationService.ExtensionProfileRejectedException;
+import io.browsercloud.application.ChallengeAutomationApplicationService.ChallengeAutomationRejectedException;
 import io.browsercloud.application.ChallengeInputApplicationService.ChallengeInputRejectedException;
 import io.browsercloud.application.CoordinatorCommandRoutingService.RoutedCoordinatorCommandException;
 import io.browsercloud.application.EnterpriseOperationsApplicationService.EnterpriseResourceNotFoundException;
@@ -329,6 +330,17 @@ public class GlobalExceptionHandler {
         "CHALLENGE_INPUT_REJECTED",
         "Challenge input response was rejected",
         Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(ChallengeAutomationRejectedException.class)
+  ResponseEntity<ApiError> challengeAutomationRejected(
+      ChallengeAutomationRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        exception.getReason(),
+        "Challenge automation request was rejected",
+        Map.of(),
         request);
   }
 

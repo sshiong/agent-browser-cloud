@@ -374,7 +374,8 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   ID 拒绝与新 ID 可解析。A03 仓库内通用代码项关闭；无业务键且可见语义完全相同的站点需由
   Adapter 提供实体属性，A06/A20 的动态微批次与组合稳定性仍独立待完成。Rust Workspace、
   完整 `make ci` 与 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过，公开契约保持
-  245 Operations / 338 Schemas。
+  245 Operations / 338 Schemas。功能提交 `4cbfd99` 的 GitHub CI `34682995669` 与 Desktop
+  `34682995642`（Windows/macOS）均成功。
 
 - progress 174：V118 为 Task 增加最多十条结构化 Expected Outcome，覆盖最终 URL/标题、语义
   目标存在性与 checked/selected 状态；创建时原始匹配值规范化后只持久化 SHA-256。控制面对

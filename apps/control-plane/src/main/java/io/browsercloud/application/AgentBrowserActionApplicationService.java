@@ -90,7 +90,7 @@ public class AgentBrowserActionApplicationService {
     }
     var executeKey = idempotencyKey + ":execute";
     if (reviewer.enabled()) {
-      reviewer.enqueueForExecution(task.taskId(), tenantId, executeKey);
+      reviewer.routeForExecution(task.taskId(), tenantId, executeKey);
       return tasks.get(task.taskId(), tenantId);
     }
     if (externalWorker.enabled()) {

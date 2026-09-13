@@ -599,6 +599,13 @@ public class AgentTaskEntity {
     this.lastError = null;
   }
 
+  public void markReviewerNotRequired(String reasonCodes, Instant now) {
+    if (!"PLANNED".equals(state) || !"NOT_REQUIRED".equals(reviewerStatus)) return;
+    this.reviewerReasonCodes = reasonCodes;
+    clearReviewerAccounting();
+    this.updatedAt = now;
+  }
+
   public void markReviewerRunning(Instant now) {
     if (!"AWAITING_REVIEW".equals(state)) return;
     this.reviewerStatus = "IN_REVIEW";

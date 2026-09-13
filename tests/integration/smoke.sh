@@ -5545,7 +5545,7 @@ external_agent_task="$(curl -fsS -X POST \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-external-agent-task-001' \
-  -d '{"goal":"Summarize the current page through the isolated worker","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1}')"
+  -d '{"goal":"Update the page summary through the isolated worker","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1}')"
 external_agent_task_id="$(printf '%s' "$external_agent_task" | python3 -c \
   'import json,sys; task=json.load(sys.stdin); assert task["state"] == "PLANNED", task; print(task["taskId"])')"
 external_agent_queued="$(curl -fsS -X POST \
@@ -5714,7 +5714,7 @@ worker_process_task="$(curl -fsS -X POST \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-agent-worker-process-task-001' \
-  -d '{"goal":"Read the page through the real worker process","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1}')"
+  -d '{"goal":"Update the page summary through the real worker process","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1}')"
 worker_process_task_id="$(printf '%s' "$worker_process_task" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["taskId"])')"
 curl -fsS -X POST \
@@ -5838,7 +5838,7 @@ false_success_task="$(curl -fsS -X POST \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-outcome-false-success-task-001' \
-  -d '{"goal":"Verify that a technically successful action did not satisfy the business goal","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1,"expectedOutcomes":[{"outcomeId":"impossible-final-title","type":"PAGE_TITLE_EQUALS","matchValue":"Intent verification must reject this title"}]}')"
+  -d '{"goal":"Update the page and verify that a technically successful action did not satisfy the business goal","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1,"expectedOutcomes":[{"outcomeId":"impossible-final-title","type":"PAGE_TITLE_EQUALS","matchValue":"Intent verification must reject this title"}]}')"
 false_success_task_id="$(printf '%s' "$false_success_task" | python3 -c \
   'import json,sys; task=json.load(sys.stdin); expected=task["expectedOutcomes"]; assert len(expected) == 1; assert expected[0]["outcomeId"] == "impossible-final-title"; assert expected[0]["type"] == "PAGE_TITLE_EQUALS"; assert expected[0]["role"] is None; assert len(expected[0]["expectedValueHash"]) == 64; assert "matchValue" not in expected[0]; print(task["taskId"])')"
 curl -fsS -X POST \
@@ -5909,6 +5909,32 @@ for _ in $(seq 1 80); do
   sleep 0.25
 done
 test "$false_execution_job_state" = "FAILED"
+
+# Reviewer routing is risk-tiered: a trusted R0 plan skips model cost but still enters the same
+# durable Agent Worker queue. The bypass decision remains explicit in Task state and Audit.
+low_risk_task="$(curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/sessions/${reviewer_session}/agent-tasks" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-low-risk-review-routing-task-001' \
+  -d '{"goal":"Summarize the current page without changing it","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1}')"
+low_risk_task_id="$(printf '%s' "$low_risk_task" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "PLANNED"; assert task["riskClass"] == "R0_READ_ONLY"; print(task["taskId"])')"
+low_risk_queued="$(curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-tasks/${low_risk_task_id}:execute" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-low-risk-review-routing-execute-001')"
+printf '%s' "$low_risk_queued" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); review=task["review"]; assert task["state"] == "QUEUED", task; assert review["status"] == "NOT_REQUIRED", task; assert review["reasonCodes"] == ["DETERMINISTIC_LOW_RISK_BYPASS"], task; assert review["costMicros"] is None and review["modelRevision"] is None, task'
+low_risk_review_jobs="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from agent_review_jobs where task_id='${low_risk_task_id}'")"
+test "$low_risk_review_jobs" = "0"
+low_risk_execution_jobs="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from agent_execution_jobs where task_id='${low_risk_task_id}' and state='QUEUED'")"
+test "$low_risk_execution_jobs" = "1"
+low_risk_review_audit="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from audit_events where resource_id='${low_risk_task_id}' and event_type='AGENT_REVIEW_BYPASSED' and result='NOT_REQUIRED' and details->>'routingPolicyRevision'='risk-tier-v1'")"
+test "$low_risk_review_audit" = "1"
 external_worker_audit="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select string_agg(event_type, ',' order by event_id) from agent_execution_job_events where job_id='${external_agent_job_id}'")"
 test "$external_worker_audit" = "ENQUEUED,CLAIMED,STARTED,WAITING,COMMITTED"
@@ -5941,6 +5967,7 @@ expected_outcome_secret_rows="$(docker exec "$postgres_name" psql -U browserclou
 test "$expected_outcome_secret_rows" = "0"
 echo "agent_task_outcome_verification=true"
 echo "agent_task_expected_outcomes=true"
+echo "agent_reviewer_risk_routing=true"
 
 curl -fsS -X POST \
   "http://localhost:${control_b_port}/api/v1/sessions/${reviewer_session}:terminate" \

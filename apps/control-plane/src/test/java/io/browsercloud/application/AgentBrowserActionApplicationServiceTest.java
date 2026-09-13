@@ -81,7 +81,7 @@ class AgentBrowserActionApplicationServiceTest {
     org.assertj.core.api.Assertions.assertThat(create.getValue().actions().getFirst().toolId())
         .isEqualTo(ToolId.EXECUTE_ACTIONS);
     org.assertj.core.api.Assertions.assertThat(create.getValue().maxActions()).isEqualTo(4);
-    verify(reviewer).enqueueForExecution("agt_1234567890abcdef", "tenant-test", "idem:execute");
+    verify(reviewer).routeForExecution("agt_1234567890abcdef", "tenant-test", "idem:execute");
   }
 
   @Test

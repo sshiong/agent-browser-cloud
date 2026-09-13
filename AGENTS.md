@@ -371,6 +371,15 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 
 ## 7. 当前正在处理的任务
 
+- progress 178：Reviewer 开启时，正式执行入口统一按风险分流；仅 Intent ALLOWED、计划未过期、
+  来源可信、无 taint/确认/敏感输入，且 Task/全部 Step 均不高于 R1 的计划以 `risk-tier-v1`
+  确定性策略直接进入持久 Agent Worker 队列。Task 明确记录 `NOT_REQUIRED` 和旁路原因，模型、
+  Token、Latency、Cost 为空并写版本化 Audit；R2+、风险低报、未知工具或解析异常仍强制 Reviewer。
+  公开 API 保持 245 Operations / 338 Schemas；Control Plane 544 项、完整 `make ci`、Desktop、
+  N/N−1 与 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过，输出
+  `agent_reviewer_risk_routing=true`。A12 仓库内代码项关闭；A13、客户 Replay 和目标模型生产准入
+  仍独立待完成。
+
 - progress 177：Browser Node 在同一持久 `execute-actions` Batch 内按 Route/Active Tab、Native
   Dialog、Document/Network、Target Revision、Content Hash 变化或四动作稳定上限动态切段；边界
   取得连续两份相同且 Network Fresh/Quiet 的可执行状态后才续行。动作结果通过 additive
@@ -463,7 +472,8 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   `docs/progress/165-Agent可靠性与个人安全部署修复清单.md` 的 A01—A24 为实施账本。
   第一切片已加三 Worker 有界退避、Vision lease-lost 主流程阻断和 finally 心跳清理；
   Local Header 仅允许显式 local/test，其他环境进入 OIDC 链。语义目标、Expected Outcome 和
-  Challenge 像素隐私及动态微批次已由 progress 175、174、176、177 关闭；后续仍须完整 Compose、
+  Challenge 像素隐私、动态微批次及 Reviewer 风险路由已由 progress 175、174、176、177、178
+  关闭；后续仍须完整 Compose、
   取消、加密和 Personal Secure 验收。
   不得把 Worker 心跳修复冒充已完成浏览器长操作取消。仓库许可证元数据 MIT/UNLICENSED
   不一致，未经权利人选择不得擅自对整个仓库授予新许可证。

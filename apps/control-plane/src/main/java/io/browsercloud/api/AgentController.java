@@ -100,7 +100,7 @@ public class AgentController {
       @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey) {
     var principal = identity.current();
     if (reviewer.enabled()) {
-      reviewer.enqueueForExecution(taskId, principal.tenantId(), idempotencyKey);
+      reviewer.routeForExecution(taskId, principal.tenantId(), idempotencyKey);
       return service.get(taskId, principal.tenantId());
     }
     if (externalWorker.enabled()) {

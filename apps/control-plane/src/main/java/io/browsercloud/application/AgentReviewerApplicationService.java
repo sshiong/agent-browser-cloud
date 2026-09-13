@@ -6,7 +6,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.domain.agent.AgentModels.AgentPlan;
+import io.browsercloud.domain.agent.AgentModels.RiskClass;
 import io.browsercloud.domain.agent.AgentModels.TaskState;
+import io.browsercloud.domain.agent.AgentModels.ToolId;
+import io.browsercloud.domain.agent.AgentModels.TrustLevel;
 import io.browsercloud.persistence.AgentTaskEntity;
 import io.browsercloud.persistence.AgentTaskJpaRepository;
 import java.math.BigDecimal;
@@ -49,6 +52,42 @@ import org.springframework.transaction.annotation.Transactional;
 public class AgentReviewerApplicationService {
 
   private static final SecureRandom RANDOM = new SecureRandom();
+  private static final String ROUTING_POLICY_REVISION = "risk-tier-v1";
+  private static final String LOW_RISK_BYPASS_REASON = "DETERMINISTIC_LOW_RISK_BYPASS";
+  private static final Set<String> LOW_RISK_TRUSTED_SOURCES =
+      Set.of("user_goal", "platform_policy");
+  private static final Set<ToolId> LOW_RISK_TOOLS =
+      Set.of(
+          ToolId.NAVIGATE,
+          ToolId.GET_CURRENT_STATE,
+          ToolId.CLICK_TARGET,
+          ToolId.DOUBLE_CLICK_TARGET,
+          ToolId.RIGHT_CLICK_TARGET,
+          ToolId.HOVER_TARGET,
+          ToolId.CHECK_TARGET,
+          ToolId.UNCHECK_TARGET,
+          ToolId.SCROLL,
+          ToolId.WAIT_FOR,
+          ToolId.OPEN_TAB,
+          ToolId.SWITCH_TAB,
+          ToolId.DISMISS_DIALOG,
+          ToolId.PRESS_KEY,
+          ToolId.DRAG_TARGET,
+          ToolId.DROP_TARGET,
+          ToolId.SWIPE_TARGET,
+          ToolId.MOUSE_MOVE,
+          ToolId.MOUSE_DOWN,
+          ToolId.MOUSE_UP,
+          ToolId.MOUSE_WHEEL,
+          ToolId.KEY_DOWN,
+          ToolId.KEY_UP,
+          ToolId.TOUCH_START,
+          ToolId.TOUCH_MOVE,
+          ToolId.TOUCH_END,
+          ToolId.EXECUTE_ACTIONS,
+          ToolId.GET_URL,
+          ToolId.GET_PAGE_SUMMARY,
+          ToolId.REQUEST_HUMAN_TAKEOVER);
   private static final Set<String> REVIEW_REASON_CODES =
       Set.of(
           "SAFE",
@@ -136,16 +175,51 @@ public class AgentReviewerApplicationService {
     return enabled;
   }
 
+  /**
+   * Route a planned task through deterministic low-risk governance or the independent model
+   * Reviewer. Ambiguous or malformed plans always take the model-review path.
+   */
+  @Transactional
+  public void routeForExecution(String taskId, String tenantId, String idempotencyKey) {
+    requireEnabledWorker();
+    var task = requireTask(taskId, tenantId);
+    if (isTerminal(task)
+        || TaskState.QUEUED.name().equals(task.getState())
+        || TaskState.AWAITING_REVIEW.name().equals(task.getState())) {
+      return;
+    }
+    if (!TaskState.PLANNED.name().equals(task.getState())) {
+      throw new AgentReviewRejectedException("AGENT_TASK_NOT_PLANNED");
+    }
+    var now = Instant.now();
+    if ("NOT_REQUIRED".equals(task.getReviewerStatus())
+        && reviewRoutingDecision(task, now) == ReviewRoutingDecision.DETERMINISTIC_BYPASS) {
+      task.markReviewerNotRequired(write(List.of(LOW_RISK_BYPASS_REASON)), now);
+      tasks.save(task);
+      appendAudit(
+          task,
+          task.getTaskId(),
+          "AGENT_REVIEW_BYPASSED",
+          "NOT_REQUIRED",
+          Map.of(
+              "riskClass", task.getRiskClass(),
+              "reasonCode", LOW_RISK_BYPASS_REASON,
+              "routingPolicyRevision", ROUTING_POLICY_REVISION));
+      executionWorker.enqueue(taskId, tenantId, idempotencyKey);
+      return;
+    }
+    enqueueForExecutionLocked(task, idempotencyKey);
+  }
+
   /** Queue one exact plan for independent review before any execution job becomes visible. */
   @Transactional
   public void enqueueForExecution(String taskId, String tenantId, String idempotencyKey) {
-    if (!enabled) {
-      throw new AgentReviewRejectedException("AGENT_REVIEWER_NOT_ENABLED");
-    }
-    if (!executionWorker.enabled()) {
-      throw new AgentReviewRejectedException("AGENT_REVIEWER_REQUIRES_EXTERNAL_EXECUTION_WORKER");
-    }
+    requireEnabledWorker();
     var task = requireTask(taskId, tenantId);
+    enqueueForExecutionLocked(task, idempotencyKey);
+  }
+
+  private void enqueueForExecutionLocked(AgentTaskEntity task, String idempotencyKey) {
     if (isTerminal(task) || TaskState.QUEUED.name().equals(task.getState())) {
       return;
     }
@@ -159,14 +233,14 @@ public class AgentReviewerApplicationService {
     var planHash = payload.planHash();
     if ("APPROVED".equals(task.getReviewerStatus())
         && planHash.equals(task.getReviewedPlanHash())) {
-      executionWorker.enqueue(taskId, tenantId, idempotencyKey);
+      executionWorker.enqueue(task.getTaskId(), task.getTenantId(), idempotencyKey);
       return;
     }
     var now = Instant.now();
     var reviewId = id("rev_");
     var jobId = id("rjob_");
     var inputHash = sha256(write(payload));
-    var existing = findByTaskId(taskId);
+    var existing = findByTaskId(task.getTaskId());
     if (existing.isPresent()) {
       var job = existing.orElseThrow();
       if (!Set.of("FAILED", "REJECTED").contains(job.state()) || !job.planHash().equals(planHash)) {
@@ -218,8 +292,8 @@ public class AgentReviewerApplicationService {
           """,
           jobId,
           reviewId,
-          taskId,
-          tenantId,
+          task.getTaskId(),
+          task.getTenantId(),
           task.getSessionId(),
           idempotencyKey,
           planHash,
@@ -241,6 +315,101 @@ public class AgentReviewerApplicationService {
     task.queueForReviewer(reviewId, now);
     tasks.save(task);
     appendAudit(task, reviewId, "AGENT_REVIEW_QUEUED", "QUEUED", Map.of("planHash", planHash));
+  }
+
+  ReviewRoutingDecision reviewRoutingDecision(AgentTaskEntity task, Instant now) {
+    try {
+      var taskRisk = RiskClass.valueOf(task.getRiskClass());
+      if (!"ALLOWED".equals(task.getIntentDecision())
+          || taskRisk.ordinal() > RiskClass.R1_LOW_RISK_CHANGE.ordinal()) {
+        return ReviewRoutingDecision.MODEL_REVIEW_REQUIRED;
+      }
+      var allowedDomains = read(task.getAllowedDomains(), new TypeReference<List<String>>() {});
+      var allowedDomainSet = Set.copyOf(allowedDomains);
+      var plan = read(task.getPlan(), AgentPlan.class);
+      if (allowedDomains.isEmpty()
+          || plan.expiresAt() == null
+          || !plan.expiresAt().isAfter(now)
+          || plan.steps() == null
+          || plan.steps().isEmpty()) {
+        return ReviewRoutingDecision.MODEL_REVIEW_REQUIRED;
+      }
+      for (var step : plan.steps()) {
+        if (step == null
+            || step.riskClass() == null
+            || step.riskClass().ordinal() > taskRisk.ordinal()
+            || step.riskClass().ordinal() > RiskClass.R1_LOW_RISK_CHANGE.ordinal()
+            || !LOW_RISK_TOOLS.contains(step.toolId())
+            || step.requiredConfirmation()
+            || step.trustFloor() != TrustLevel.TRUSTED
+            || step.supportingSources() == null
+            || !Set.copyOf(step.supportingSources()).equals(LOW_RISK_TRUSTED_SOURCES)
+            || step.taintLabels() == null
+            || !step.taintLabels().isEmpty()
+            || !allowedTargetUrl(step.targetUrl(), allowedDomainSet)
+            || containsSensitiveOrElevatedInput(step.input(), allowedDomainSet)) {
+          return ReviewRoutingDecision.MODEL_REVIEW_REQUIRED;
+        }
+      }
+      return ReviewRoutingDecision.DETERMINISTIC_BYPASS;
+    } catch (RuntimeException exception) {
+      return ReviewRoutingDecision.MODEL_REVIEW_REQUIRED;
+    }
+  }
+
+  private static boolean containsSensitiveOrElevatedInput(
+      io.browsercloud.domain.agent.AgentModels.StepInput input, Set<String> allowedDomains) {
+    if (input == null) return false;
+    if (input.sealedPayload() != null
+        || input.payloadHash() != null
+        || input.payloadLength() != null
+        || input.allowSensitiveTarget()
+        || (input.dataClass() != null
+            && input.dataClass() != io.browsercloud.domain.agent.AgentModels.ActionDataClass.PUBLIC)
+        || !allowedTargetUrl(input.tabUrl(), allowedDomains)) {
+      return true;
+    }
+    if (input.actions() == null) return false;
+    return input.actions().stream()
+        .anyMatch(
+            action ->
+                action == null
+                    || !LOW_RISK_TOOLS.contains(action.toolId())
+                    || action.sealedPayload() != null
+                    || action.payloadHash() != null
+                    || action.payloadLength() != null
+                    || action.allowSensitiveTarget()
+                    || (action.dataClass() != null
+                        && action.dataClass()
+                            != io.browsercloud.domain.agent.AgentModels.ActionDataClass.PUBLIC)
+                    || !allowedTargetUrl(action.tabUrl(), allowedDomains));
+  }
+
+  private static boolean allowedTargetUrl(String value, Set<String> allowedDomains) {
+    if (value == null || value.isBlank()) return true;
+    try {
+      var uri = URI.create(value);
+      if (uri.getHost() == null || uri.getUserInfo() != null) return false;
+      if (!Set.of("http", "https").contains(uri.getScheme().toLowerCase(Locale.ROOT))) return false;
+      var host = IDN.toASCII(uri.getHost(), IDN.USE_STD3_ASCII_RULES).toLowerCase(Locale.ROOT);
+      return allowedDomains.contains(host);
+    } catch (IllegalArgumentException exception) {
+      return false;
+    }
+  }
+
+  private void requireEnabledWorker() {
+    if (!enabled) {
+      throw new AgentReviewRejectedException("AGENT_REVIEWER_NOT_ENABLED");
+    }
+    if (!executionWorker.enabled()) {
+      throw new AgentReviewRejectedException("AGENT_REVIEWER_REQUIRES_EXTERNAL_EXECUTION_WORKER");
+    }
+  }
+
+  enum ReviewRoutingDecision {
+    DETERMINISTIC_BYPASS,
+    MODEL_REVIEW_REQUIRED
   }
 
   @Transactional

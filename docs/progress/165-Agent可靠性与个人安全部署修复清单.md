@@ -35,7 +35,7 @@
 | A09 | Action Attempt Signature / Loop Detection | progress 171 已闭环：V115 哈希账本、Task 行锁、第三次无进展动作执行前阻断及完整 Chromium 集成通过 |
 | A10 | 结构化任务记忆 | progress 172 已闭环：V116 分离 Browser State、可变 Task State 与 append-only Execution History，跨刷新/重规划保留最小化语义证据；完整 Chromium 集成通过 |
 | A11 | 独立 Outcome Verifier | progress 173 已闭环：独立权限/队列/Worker、最终状态精确围栏、假成功拒绝及完整 Chromium Integration 通过 |
-| A12 | Reviewer 风险路由 | 待确认低风险确定性审核边界，不得降低高风险审批 |
+| A12 | Reviewer 风险路由 | progress 178 已闭环：仅可信、无 taint/敏感输入/确认且 Task/Step 均为 R0/R1 的计划确定性旁路；R2+、风险低报或解析异常仍强制模型审核 |
 | A13 | Prompt Injection 来源与权限传播 | 已有 Source/Trust 枚举；待检查其执行约束而非仅关键词 |
 | A14 | Worker 空轮询 | 第一切片已实现三 Worker backoff+jitter；更低延迟唤醒为后续优化 |
 | A15 | 取消/Lease/Epoch | Vision lease-lost 已修复；Browser Node 长操作取消仍待验证 |

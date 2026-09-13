@@ -1028,12 +1028,20 @@ export class AgentService {
      */
     public claimAgentExecutionJob({
         requestBody,
+        waitSeconds,
     }: {
         requestBody: ClaimAgentExecutionJobRequest,
+        /**
+         * Bounded server wait for a PostgreSQL queue notification before returning 204. Defaults to immediate N-1-compatible behavior.
+         */
+        waitSeconds?: number,
     }): CancelablePromise<AgentExecutionJobClaim> {
         return this.httpRequest.request({
             method: 'POST',
             url: '/api/v1/agent-worker-jobs:claim',
+            query: {
+                'waitSeconds': waitSeconds,
+            },
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -1159,12 +1167,20 @@ export class AgentService {
      */
     public claimAgentReviewJob({
         requestBody,
+        waitSeconds,
     }: {
         requestBody: ClaimAgentReviewJobRequest,
+        /**
+         * Bounded server wait for a PostgreSQL queue notification before returning 204. Defaults to immediate N-1-compatible behavior.
+         */
+        waitSeconds?: number,
     }): CancelablePromise<AgentReviewJobClaim> {
         return this.httpRequest.request({
             method: 'POST',
             url: '/api/v1/agent-review-jobs:claim',
+            query: {
+                'waitSeconds': waitSeconds,
+            },
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -1290,12 +1306,20 @@ export class AgentService {
      */
     public claimAgentOutcomeJob({
         requestBody,
+        waitSeconds,
     }: {
         requestBody: ClaimAgentOutcomeJobRequest,
+        /**
+         * Bounded server wait for a PostgreSQL queue notification before returning 204. Defaults to immediate N-1-compatible behavior.
+         */
+        waitSeconds?: number,
     }): CancelablePromise<AgentOutcomeJobClaim> {
         return this.httpRequest.request({
             method: 'POST',
             url: '/api/v1/agent-outcome-jobs:claim',
+            query: {
+                'waitSeconds': waitSeconds,
+            },
             body: requestBody,
             mediaType: 'application/json',
             errors: {

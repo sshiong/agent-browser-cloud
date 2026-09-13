@@ -63,6 +63,7 @@ enterprise_overview_stream_pid=""
 notification_stream_pid=""
 audit_stream_pid=""
 dual_node_safety_pid=""
+external_review_long_poll_pid=""
 
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 \
   -subj '/CN=BrowserCloud Integration CA' \
@@ -122,6 +123,9 @@ cleanup() {
   fi
   if [[ -n "$dual_node_safety_pid" ]]; then
     kill "$dual_node_safety_pid" 2>/dev/null || true
+  fi
+  if [[ -n "$external_review_long_poll_pid" ]]; then
+    kill "$external_review_long_poll_pid" 2>/dev/null || true
   fi
   if [[ "$exit_code" -ne 0 ]]; then
     if [[ -f "$temp_dir/resource-stream-live.sse" ]]; then
@@ -2524,6 +2528,18 @@ for _ in $(seq 1 90); do
   sleep 0.5
 done
 printf '%s' "$control_b_health" | grep -q '"status":"UP"'
+
+worker_queue_notify_trigger_count="$(docker exec "$postgres_name" \
+  psql -qAt -U browsercloud -d browsercloud -c \
+  "select count(*) from pg_trigger where not tgisinternal and tgname in (
+    'trg_agent_execution_job_ready_notify',
+    'trg_agent_review_job_ready_notify',
+    'trg_agent_outcome_job_ready_notify',
+    'trg_challenge_visual_job_ready_notify',
+    'trg_runtime_validation_job_ready_notify',
+    'trg_recovery_gameday_job_ready_notify'
+  )")"
+test "$worker_queue_notify_trigger_count" = "6"
 
 active_coordinator_workers=""
 for _ in $(seq 1 40); do
@@ -5540,6 +5556,19 @@ for _ in $(seq 1 90); do
 done
 printf '%s' "$control_b_health" | grep -q '"status":"UP"'
 
+long_poll_started_at="$(date +%s)"
+curl -fsS --max-time 20 -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-review-jobs:claim?waitSeconds=15" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: reviewer-worker-manual' \
+  -H 'X-Roles: REVIEWER_WORKER' \
+  -d '{"protocolVersion":"reviewer-worker/v1","capabilities":{"openai-responses-v1":true},"deploymentId":"reviewer-integration-v1","modelRevision":"reviewer-integration-revision-v1"}' \
+  >"$temp_dir/external-review-long-poll.json" &
+external_review_long_poll_pid=$!
+sleep 1
+kill -0 "$external_review_long_poll_pid"
+
 external_agent_task="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${reviewer_session}/agent-tasks" \
   -H 'Content-Type: application/json' \
@@ -5561,13 +5590,11 @@ reviewer_claim_forbidden="$(curl -sS -o "$temp_dir/reviewer-worker-forbidden.jso
   -H 'X-Roles: TENANT_OPERATOR' \
   -d '{"protocolVersion":"reviewer-worker/v1","capabilities":{"openai-responses-v1":true},"deploymentId":"reviewer-integration-v1","modelRevision":"reviewer-integration-revision-v1"}')"
 test "$reviewer_claim_forbidden" = "403"
-external_review_claim="$(curl -fsS -X POST \
-  "http://localhost:${control_b_port}/api/v1/agent-review-jobs:claim" \
-  -H 'Content-Type: application/json' \
-  -H 'X-Tenant-Id: platform-control' \
-  -H 'X-Actor-Id: reviewer-worker-manual' \
-  -H 'X-Roles: REVIEWER_WORKER' \
-  -d '{"protocolVersion":"reviewer-worker/v1","capabilities":{"openai-responses-v1":true},"deploymentId":"reviewer-integration-v1","modelRevision":"reviewer-integration-revision-v1"}')"
+wait "$external_review_long_poll_pid"
+external_review_long_poll_pid=""
+external_review_claim="$(cat "$temp_dir/external-review-long-poll.json")"
+long_poll_elapsed="$(( $(date +%s) - long_poll_started_at ))"
+test "$long_poll_elapsed" -lt 10
 read -r external_review_job_id external_review_claim_token < <(printf '%s' "$external_review_claim" | python3 -c \
   'import json,sys; claim=json.load(sys.stdin); payload=claim["reviewPayload"]; raw=json.dumps(payload); assert claim["job"]["state"] == "CLAIMED"; assert payload["taskId"].startswith("agt_"); assert payload["planHash"] == claim["job"]["inputHash"] or len(payload["planHash"]) == 64; assert "capabilityToken" not in raw and "sealedPayload" not in raw and "pageState" not in raw; assert all("targetUrl" not in step for step in payload["steps"]); print(claim["job"]["jobId"], claim["claimToken"])')
 bad_reviewer_token="$(printf 'z%.0s' {1..43})"
@@ -8265,6 +8292,7 @@ printf 'challenge_visual_pixel_privacy=true\n'
 printf 'agent_clipboard_bridge=true\n'
 printf 'browser_state_freshness=true\n'
 printf 'prompt_injection_source_authority=true\n'
+printf 'worker_queue_long_poll_notify=true\n'
 
 printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\nsession_rename=true\nsession_batch_delete=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\ncoordinator_command_routed=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ndual_node_migration=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_cold_health=true\nproxy_active_health=true\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nrelease_freeze=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nworkspace_notification_center=true\nworkspace_overview=true\nenterprise_overview_event_stream=true\nworkspace_theme_preferences=true\nruntime_validation_farm=true\nruntime_validation_worker_queue=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\nagent_reviewer=true\nreviewer_model_provider=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\nrecording_frame_redaction=true\nscreenshot_evidence=true\nobserver_manual_evidence=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \

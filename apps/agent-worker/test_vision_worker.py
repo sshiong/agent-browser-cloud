@@ -20,6 +20,23 @@ class VisionWorkerTest(unittest.TestCase):
     def jpeg():
         return b"\xff\xd8\xfffixture"
 
+    def test_claim_uses_bounded_notification_wait(self):
+        client = vision_worker.VisionControlPlaneClient(
+            "http://127.0.0.1:8080",
+            "fixture-token",
+            None,
+            "test",
+            "vision-fixture",
+            "vision-v1",
+            "model-v1",
+        )
+        with patch.object(client, "request", return_value=None) as request:
+            self.assertIsNone(client.claim())
+        self.assertEqual(
+            request.call_args.args[0],
+            "/api/v1/challenge-visual-jobs:claim?waitSeconds=15",
+        )
+
     @staticmethod
     def tsv(text):
         header = "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n"

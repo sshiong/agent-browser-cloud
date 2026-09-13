@@ -9,6 +9,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -37,7 +38,7 @@ class FixtureHandler(BaseHTTPRequestHandler):
                 "roles": self.headers.get("X-Roles"),
             }
         )
-        if self.path.endswith(":claim"):
+        if urllib.parse.urlsplit(self.path).path.endswith(":claim"):
             if not self.__class__.claim_available:
                 self.send_response(204)
                 self.end_headers()
@@ -117,8 +118,15 @@ class AgentWorkerTest(unittest.TestCase):
         loop = worker.WorkerLoop(self.client, poll_seconds=0.1, heartbeat_seconds=5)
         self.assertTrue(loop.run_once())
         self.assertEqual(
-            [entry["path"].rsplit(":", 1)[-1] for entry in FixtureHandler.requests],
+            [
+                urllib.parse.urlsplit(entry["path"]).path.rsplit(":", 1)[-1]
+                for entry in FixtureHandler.requests
+            ],
             ["claim", "start", "drive"],
+        )
+        self.assertEqual(
+            urllib.parse.parse_qs(urllib.parse.urlsplit(FixtureHandler.requests[0]["path"]).query),
+            {"waitSeconds": ["15"]},
         )
         for entry in FixtureHandler.requests:
             self.assertNotIn("plan", entry["body"])

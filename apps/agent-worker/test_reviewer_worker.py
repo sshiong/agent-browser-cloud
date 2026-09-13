@@ -6,6 +6,7 @@ import pathlib
 import sys
 import threading
 import unittest
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -33,7 +34,7 @@ class ControlPlaneFixture(BaseHTTPRequestHandler):
                 "roles": self.headers.get("X-Roles"),
             }
         )
-        if self.path.endswith(":claim"):
+        if urllib.parse.urlsplit(self.path).path.endswith(":claim"):
             document = {
                 "claimToken": "a" * 43,
                 "claimEpoch": 1,
@@ -203,8 +204,17 @@ class ReviewerWorkerTest(unittest.TestCase):
         loop = reviewer.ReviewerLoop(self.client, self.provider, 0.1, 5)
         self.assertTrue(loop.run_once())
         self.assertEqual(
-            [entry["path"].rsplit(":", 1)[-1] for entry in ControlPlaneFixture.requests],
+            [
+                urllib.parse.urlsplit(entry["path"]).path.rsplit(":", 1)[-1]
+                for entry in ControlPlaneFixture.requests
+            ],
             ["claim", "start", "complete"],
+        )
+        self.assertEqual(
+            urllib.parse.parse_qs(
+                urllib.parse.urlsplit(ControlPlaneFixture.requests[0]["path"]).query
+            ),
+            {"waitSeconds": ["15"]},
         )
         model_request = ModelFixture.requests[-1]
         self.assertEqual(model_request["path"], "/v1/responses")

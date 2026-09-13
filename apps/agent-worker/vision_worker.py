@@ -25,7 +25,14 @@ import urllib.parse
 import urllib.request
 from typing import NamedTuple
 
-from agent_worker import NoRedirect, WorkerError, control_plane_origin, read_secret, run_poll_loop
+from agent_worker import (
+    CLAIM_WAIT_SECONDS,
+    NoRedirect,
+    WorkerError,
+    control_plane_origin,
+    read_secret,
+    run_poll_loop,
+)
 from reviewer_worker import OpenAIResponsesReviewer, fixed_model_endpoint
 
 
@@ -301,7 +308,7 @@ class VisionControlPlaneClient:
             return document
 
     def claim(self) -> dict | None:
-        claim = self.request("/api/v1/challenge-visual-jobs:claim", {
+        claim = self.request(f"/api/v1/challenge-visual-jobs:claim?waitSeconds={CLAIM_WAIT_SECONDS}", {
             "protocolVersion": "challenge-vision-worker/v1",
             "capabilities": {
                 "screenshot-ocr-actions-v1": True,

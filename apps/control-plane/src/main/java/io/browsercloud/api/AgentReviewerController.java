@@ -3,9 +3,14 @@ package io.browsercloud.api;
 import static io.browsercloud.api.AgentReviewerModels.*;
 
 import io.browsercloud.application.AgentReviewerApplicationService;
+import io.browsercloud.application.WorkerQueueWakeupService;
 import io.browsercloud.security.PlatformIdentity;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.annotation.Validated;
@@ -13,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Fixed model-review IPC surface available only to the isolated Reviewer Worker role. */
@@ -22,21 +28,35 @@ import org.springframework.web.bind.annotation.RestController;
 public class AgentReviewerController {
 
   private final AgentReviewerApplicationService service;
+  private final WorkerQueueWakeupService wakeups;
   private final PlatformIdentity identity;
 
   public AgentReviewerController(
-      AgentReviewerApplicationService service, PlatformIdentity identity) {
+      AgentReviewerApplicationService service,
+      WorkerQueueWakeupService wakeups,
+      PlatformIdentity identity) {
     this.service = service;
+    this.wakeups = wakeups;
     this.identity = identity;
   }
 
   @PostMapping("/agent-review-jobs:claim")
-  public ResponseEntity<AgentReviewJobClaimView> claim(
-      @Valid @RequestBody ClaimAgentReviewJobRequest request) {
-    return service
-        .claim(request, requireReviewerActor())
-        .map(ResponseEntity::ok)
-        .orElseGet(() -> ResponseEntity.noContent().build());
+  public CompletableFuture<ResponseEntity<AgentReviewJobClaimView>> claim(
+      @Valid @RequestBody ClaimAgentReviewJobRequest request,
+      @RequestParam(defaultValue = "0") @Min(0) @Max(WorkerQueueWakeupService.MAX_WAIT_SECONDS)
+          int waitSeconds) {
+    var actorId = requireReviewerActor();
+    return wakeups
+        .claim(
+            WorkerQueueWakeupService.AGENT_REVIEW,
+            waitSeconds,
+            () -> service.claim(request, actorId),
+            Optional::isPresent)
+        .thenApply(
+            claimed ->
+                claimed
+                    .map(ResponseEntity::ok)
+                    .orElseGet(() -> ResponseEntity.noContent().build()));
   }
 
   @PostMapping("/agent-review-jobs/{jobId}:start")

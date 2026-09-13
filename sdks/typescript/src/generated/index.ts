@@ -334,6 +334,7 @@ export type { UpsertSlaExclusionRequest } from './models/UpsertSlaExclusionReque
 export type { UpsertSloPolicyRequest } from './models/UpsertSloPolicyRequest.js';
 export type { UserPreferences } from './models/UserPreferences.js';
 export type { ValidationId } from './models/ValidationId.js';
+export type { WorkerClaimWaitSeconds } from './models/WorkerClaimWaitSeconds.js';
 export type { WorkspaceAgentSummary } from './models/WorkspaceAgentSummary.js';
 export type { WorkspaceBatchAction } from './models/WorkspaceBatchAction.js';
 export type { WorkspaceBatchItemState } from './models/WorkspaceBatchItemState.js';

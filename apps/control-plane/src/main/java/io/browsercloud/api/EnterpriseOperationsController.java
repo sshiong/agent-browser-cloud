@@ -7,6 +7,7 @@ import io.browsercloud.application.EnterpriseOverviewEventStreamService;
 import io.browsercloud.application.RecoveryGameDayGovernanceApplicationService;
 import io.browsercloud.application.RecoveryGameDayQueueApplicationService;
 import io.browsercloud.application.RuntimeValidationQueueApplicationService;
+import io.browsercloud.application.WorkerQueueWakeupService;
 import io.browsercloud.security.PlatformIdentity;
 import io.browsercloud.security.PlatformRoles;
 import jakarta.validation.Valid;
@@ -15,6 +16,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -40,6 +43,7 @@ public class EnterpriseOperationsController {
   private final RuntimeValidationQueueApplicationService validationQueue;
   private final RecoveryGameDayQueueApplicationService gameDayQueue;
   private final RecoveryGameDayGovernanceApplicationService gameDayGovernance;
+  private final WorkerQueueWakeupService wakeups;
   private final PlatformIdentity identity;
 
   public EnterpriseOperationsController(
@@ -48,12 +52,14 @@ public class EnterpriseOperationsController {
       RuntimeValidationQueueApplicationService validationQueue,
       RecoveryGameDayQueueApplicationService gameDayQueue,
       RecoveryGameDayGovernanceApplicationService gameDayGovernance,
+      WorkerQueueWakeupService wakeups,
       PlatformIdentity identity) {
     this.service = service;
     this.overviewEventStream = overviewEventStream;
     this.validationQueue = validationQueue;
     this.gameDayQueue = gameDayQueue;
     this.gameDayGovernance = gameDayGovernance;
+    this.wakeups = wakeups;
     this.identity = identity;
   }
 
@@ -100,12 +106,22 @@ public class EnterpriseOperationsController {
 
   @PostMapping("/runtime-validation-jobs:claim")
   @PreAuthorize(PlatformRoles.VALIDATION_WORKER)
-  public ResponseEntity<RuntimeValidationJobClaimView> claimValidationJob(
-      @Valid @RequestBody ClaimRuntimeValidationJobRequest request) {
-    return validationQueue
-        .claim(request, identity.current().actorId())
-        .map(ResponseEntity::ok)
-        .orElseGet(() -> ResponseEntity.noContent().build());
+  public CompletableFuture<ResponseEntity<RuntimeValidationJobClaimView>> claimValidationJob(
+      @Valid @RequestBody ClaimRuntimeValidationJobRequest request,
+      @RequestParam(defaultValue = "0") @Min(0) @Max(WorkerQueueWakeupService.MAX_WAIT_SECONDS)
+          int waitSeconds) {
+    var actorId = identity.current().actorId();
+    return wakeups
+        .claim(
+            WorkerQueueWakeupService.RUNTIME_VALIDATION,
+            waitSeconds,
+            () -> validationQueue.claim(request, actorId),
+            Optional::isPresent)
+        .thenApply(
+            claimed ->
+                claimed
+                    .map(ResponseEntity::ok)
+                    .orElseGet(() -> ResponseEntity.noContent().build()));
   }
 
   @PostMapping("/runtime-validation-jobs/{validationId}:start")
@@ -357,12 +373,22 @@ public class EnterpriseOperationsController {
 
   @PostMapping("/recovery-gameday-jobs:claim")
   @PreAuthorize(PlatformRoles.GAMEDAY_WORKER)
-  public ResponseEntity<RecoveryGameDayJobClaimView> claimGameDayJob(
-      @Valid @RequestBody ClaimRecoveryGameDayJobRequest request) {
-    return gameDayQueue
-        .claim(request, identity.current().actorId())
-        .map(ResponseEntity::ok)
-        .orElseGet(() -> ResponseEntity.noContent().build());
+  public CompletableFuture<ResponseEntity<RecoveryGameDayJobClaimView>> claimGameDayJob(
+      @Valid @RequestBody ClaimRecoveryGameDayJobRequest request,
+      @RequestParam(defaultValue = "0") @Min(0) @Max(WorkerQueueWakeupService.MAX_WAIT_SECONDS)
+          int waitSeconds) {
+    var actorId = identity.current().actorId();
+    return wakeups
+        .claim(
+            WorkerQueueWakeupService.RECOVERY_GAMEDAY,
+            waitSeconds,
+            () -> gameDayQueue.claim(request, actorId),
+            Optional::isPresent)
+        .thenApply(
+            claimed ->
+                claimed
+                    .map(ResponseEntity::ok)
+                    .orElseGet(() -> ResponseEntity.noContent().build()));
   }
 
   @PostMapping("/recovery-gameday-jobs/{gameDayId}:start")

@@ -17,7 +17,13 @@ import time
 import urllib.error
 import urllib.request
 
-from agent_worker import WorkerError, control_plane_origin, read_secret, run_poll_loop
+from agent_worker import (
+    CLAIM_WAIT_SECONDS,
+    WorkerError,
+    control_plane_origin,
+    read_secret,
+    run_poll_loop,
+)
 from reviewer_worker import (
     MAX_RESPONSE_BYTES,
     MODEL_ID,
@@ -73,7 +79,7 @@ class OutcomeControlPlaneClient(ReviewerControlPlaneClient):
 
     def claim(self) -> dict | None:
         claim = self.request(
-            "/api/v1/agent-outcome-jobs:claim",
+            f"/api/v1/agent-outcome-jobs:claim?waitSeconds={CLAIM_WAIT_SECONDS}",
             {
                 "protocolVersion": "outcome-verifier-worker/v1",
                 "capabilities": {"openai-responses-v1": True},

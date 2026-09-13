@@ -19,7 +19,14 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from agent_worker import NoRedirect, WorkerError, control_plane_origin, read_secret, run_poll_loop
+from agent_worker import (
+    CLAIM_WAIT_SECONDS,
+    NoRedirect,
+    WorkerError,
+    control_plane_origin,
+    read_secret,
+    run_poll_loop,
+)
 
 
 MAX_RESPONSE_BYTES = 1024 * 1024
@@ -159,7 +166,7 @@ class ReviewerControlPlaneClient:
 
     def claim(self) -> dict | None:
         claim = self.request(
-            "/api/v1/agent-review-jobs:claim",
+            f"/api/v1/agent-review-jobs:claim?waitSeconds={CLAIM_WAIT_SECONDS}",
             {
                 "protocolVersion": "reviewer-worker/v1",
                 "capabilities": {"openai-responses-v1": True},

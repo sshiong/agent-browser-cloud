@@ -3,9 +3,14 @@ package io.browsercloud.api;
 import static io.browsercloud.api.AgentOutcomeVerifierModels.*;
 
 import io.browsercloud.application.AgentOutcomeVerifierApplicationService;
+import io.browsercloud.application.WorkerQueueWakeupService;
 import io.browsercloud.security.PlatformIdentity;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.annotation.Validated;
@@ -13,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** IPC surface available only to the isolated semantic Outcome Verifier Worker role. */
@@ -22,21 +28,35 @@ import org.springframework.web.bind.annotation.RestController;
 public class AgentOutcomeVerifierController {
 
   private final AgentOutcomeVerifierApplicationService service;
+  private final WorkerQueueWakeupService wakeups;
   private final PlatformIdentity identity;
 
   public AgentOutcomeVerifierController(
-      AgentOutcomeVerifierApplicationService service, PlatformIdentity identity) {
+      AgentOutcomeVerifierApplicationService service,
+      WorkerQueueWakeupService wakeups,
+      PlatformIdentity identity) {
     this.service = service;
+    this.wakeups = wakeups;
     this.identity = identity;
   }
 
   @PostMapping("/agent-outcome-jobs:claim")
-  public ResponseEntity<AgentOutcomeJobClaimView> claim(
-      @Valid @RequestBody ClaimAgentOutcomeJobRequest request) {
-    return service
-        .claim(request, requireWorkerActor())
-        .map(ResponseEntity::ok)
-        .orElseGet(() -> ResponseEntity.noContent().build());
+  public CompletableFuture<ResponseEntity<AgentOutcomeJobClaimView>> claim(
+      @Valid @RequestBody ClaimAgentOutcomeJobRequest request,
+      @RequestParam(defaultValue = "0") @Min(0) @Max(WorkerQueueWakeupService.MAX_WAIT_SECONDS)
+          int waitSeconds) {
+    var actorId = requireWorkerActor();
+    return wakeups
+        .claim(
+            WorkerQueueWakeupService.AGENT_OUTCOME,
+            waitSeconds,
+            () -> service.claim(request, actorId),
+            Optional::isPresent)
+        .thenApply(
+            claimed ->
+                claimed
+                    .map(ResponseEntity::ok)
+                    .orElseGet(() -> ResponseEntity.noContent().build()));
   }
 
   @PostMapping("/agent-outcome-jobs/{jobId}:start")

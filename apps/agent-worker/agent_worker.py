@@ -25,6 +25,7 @@ import urllib.request
 
 
 MAX_RESPONSE_BYTES = 1024 * 1024
+CLAIM_WAIT_SECONDS = 15
 JOB_ID = re.compile(r"^ajob_[A-Za-z0-9]{20}$")
 TASK_ID = re.compile(r"^agt_[A-Za-z0-9]{16,}$")
 WORKER_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
@@ -188,7 +189,7 @@ class ControlPlaneClient:
 
     def claim(self) -> dict | None:
         claim = self.request(
-            "/api/v1/agent-worker-jobs:claim",
+            f"/api/v1/agent-worker-jobs:claim?waitSeconds={CLAIM_WAIT_SECONDS}",
             {"protocolVersion": "agent-worker/v1", "capabilities": {"task-drive-v1": True}},
         )
         if claim is None:

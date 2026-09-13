@@ -9,6 +9,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -47,7 +48,7 @@ class FixtureHandler(BaseHTTPRequestHandler):
                 "authorization": self.headers.get("Authorization"),
             }
         )
-        if self.path.endswith("runtime-validation-jobs:claim"):
+        if urllib.parse.urlsplit(self.path).path.endswith("runtime-validation-jobs:claim"):
             if not self.__class__.claim_available:
                 self.send_response(204)
                 self.end_headers()
@@ -166,10 +167,19 @@ class ValidationWorkerTest(unittest.TestCase):
                 os.environ.pop("CONTROL_PLANE_TOKEN", None)
         # Cold/loaded runners legitimately renew the lease while the subprocess is running.
         # Verify business transitions independently of wall-clock-dependent heartbeat count.
-        transitions = [request["path"].rsplit(":", 1)[-1] for request in FixtureHandler.requests]
+        transitions = [
+            urllib.parse.urlsplit(request["path"]).path.rsplit(":", 1)[-1]
+            for request in FixtureHandler.requests
+        ]
         self.assertEqual([action for action in transitions if action != "heartbeat"],
                          ["claim", "start", "complete"])
         self.assertEqual(transitions[:2], ["claim", "start"])
+        self.assertEqual(
+            urllib.parse.parse_qs(
+                urllib.parse.urlsplit(FixtureHandler.requests[0]["path"]).query
+            ),
+            {"waitSeconds": ["15"]},
+        )
         for request in FixtureHandler.requests:
             if request["path"].endswith(":heartbeat"):
                 self.assertEqual(request["body"]["claimToken"], "a" * 43)

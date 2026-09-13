@@ -315,12 +315,20 @@ export class RuntimeService {
      */
     public claimRuntimeValidationJob({
         requestBody,
+        waitSeconds,
     }: {
         requestBody: ClaimRuntimeValidationJobRequest,
+        /**
+         * Bounded server wait for a PostgreSQL queue notification before returning 204. Defaults to immediate N-1-compatible behavior.
+         */
+        waitSeconds?: number,
     }): CancelablePromise<RuntimeValidationJobClaim> {
         return this.httpRequest.request({
             method: 'POST',
             url: '/api/v1/enterprise/runtime-validation-jobs:claim',
+            query: {
+                'waitSeconds': waitSeconds,
+            },
             body: requestBody,
             mediaType: 'application/json',
             errors: {

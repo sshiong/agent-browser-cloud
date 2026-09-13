@@ -5,6 +5,7 @@ import pathlib
 import sys
 import threading
 import unittest
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -24,7 +25,7 @@ class ControlPlaneFixture(BaseHTTPRequestHandler):
         self.__class__.requests.append(
             {"path": self.path, "body": body, "roles": self.headers.get("X-Roles")}
         )
-        if self.path.endswith(":claim"):
+        if urllib.parse.urlsplit(self.path).path.endswith(":claim"):
             document = {
                 "claimToken": "a" * 43,
                 "claimEpoch": 1,
@@ -163,8 +164,17 @@ class OutcomeVerifierWorkerTest(unittest.TestCase):
         self.assertTrue(outcome.OutcomeVerifierLoop(self.client, self.provider, 0.1, 5).run_once())
         self.assertEqual(ControlPlaneFixture.requests[0]["roles"], "OUTCOME_VERIFIER_WORKER")
         self.assertEqual(
-            [entry["path"].rsplit(":", 1)[-1] for entry in ControlPlaneFixture.requests],
+            [
+                urllib.parse.urlsplit(entry["path"]).path.rsplit(":", 1)[-1]
+                for entry in ControlPlaneFixture.requests
+            ],
             ["claim", "start", "complete"],
+        )
+        self.assertEqual(
+            urllib.parse.parse_qs(
+                urllib.parse.urlsplit(ControlPlaneFixture.requests[0]["path"]).query
+            ),
+            {"waitSeconds": ["15"]},
         )
         request = ModelFixture.requests[-1]
         self.assertEqual(request["text"]["format"]["name"], "agent_outcome_verification")

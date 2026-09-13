@@ -10,6 +10,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -107,7 +108,7 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
                 "authorization": self.headers.get("Authorization"),
             }
         )
-        if self.path.endswith("recovery-gameday-jobs:claim"):
+        if urllib.parse.urlsplit(self.path).path.endswith("recovery-gameday-jobs:claim"):
             if not self.__class__.claim_available:
                 self.respond(204)
                 return
@@ -287,8 +288,17 @@ class GameDayWorkerTest(unittest.TestCase):
         self.assertEqual(claim["roles"], "GAMEDAY_WORKER")
         self.assertEqual(claim["authorization"], "Bearer control-secret")
         self.assertEqual(claim["body"]["scenarioCodes"], ["OBJECT_STORAGE_UNAVAILABLE"])
-        actions = [request["path"].rsplit(":", 1)[-1] for request in ControlPlaneHandler.requests]
+        actions = [
+            urllib.parse.urlsplit(request["path"]).path.rsplit(":", 1)[-1]
+            for request in ControlPlaneHandler.requests
+        ]
         self.assertEqual(actions[:2], ["claim", "start"])
+        self.assertEqual(
+            urllib.parse.parse_qs(
+                urllib.parse.urlsplit(ControlPlaneHandler.requests[0]["path"]).query
+            ),
+            {"waitSeconds": ["15"]},
+        )
         self.assertIn("heartbeat", actions)
         self.assertEqual(actions[-1], "complete")
         stages = [

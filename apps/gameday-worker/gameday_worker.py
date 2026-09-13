@@ -23,6 +23,7 @@ import urllib.request
 
 MAX_RESPONSE_BYTES = 1024 * 1024
 MAX_RUNNER_OUTPUT_BYTES = 1024 * 1024
+CLAIM_WAIT_SECONDS = 15
 IDENTIFIER = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 
 
@@ -418,7 +419,7 @@ def main() -> int:
     while True:
         status, claim = client.request(
             "POST",
-            "/api/v1/enterprise/recovery-gameday-jobs:claim",
+            f"/api/v1/enterprise/recovery-gameday-jobs:claim?waitSeconds={CLAIM_WAIT_SECONDS}",
             {
                 "environments": environments,
                 "scenarioCodes": scenario_codes,

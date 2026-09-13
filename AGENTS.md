@@ -1,8 +1,8 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-09-09
+> 更新日期：2026-09-14
 > 基准分支：`main`
-> 编写时基准提交：`a65c5a3 docs: record persistent environment verification and CI status`
+> 编写时基准提交：`fa18356 feat: enforce agent instruction source authority`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -93,7 +93,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V119 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V120 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -370,6 +370,14 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - `StopRuntime` + Recording 的幂等回归保持修复，主干绿色。
 
 ## 7. 当前正在处理的任务
+
+- progress 180：Agent Executor、Reviewer、Outcome Verifier、Vision、Runtime Validation 与
+  Recovery GameDay 六类 Worker Claim 已使用 V120 PostgreSQL 事务通知与 15 秒有界长轮询；
+  Control Plane 每实例一个专用 LISTEN 连接，以 generation 关闭注册竞态、单通知只唤醒一个本实例
+  等待者，并在通知/超时后重查权威队列。断线保留 backoff+jitter，默认 `waitSeconds=0` 保持 N−1。
+  公开 API 保持 245 Operations / 338 Schemas；Control Plane 553 项、Worker 43 项、完整
+  `make ci`、Desktop、N/N−1 与 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过，输出
+  `worker_queue_long_poll_notify=true`。A14 仓库内代码项关闭；GameDay UI timeline 轮询仍独立跟踪。
 
 - progress 179：外部 Application/Web/Email/Document/Widget 来源不论内容或自报分类均永久
   data-only，保留/重复 Source ID 在任务创建期阻断；首次执行、异步 Step 续行、人工协助续行和

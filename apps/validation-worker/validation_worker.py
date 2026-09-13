@@ -32,6 +32,7 @@ from typing import Any
 MAX_SECRET_BYTES = 16 * 1024
 MAX_RESPONSE_BYTES = 1024 * 1024
 MAX_RUNNER_OUTPUT_BYTES = 1024 * 1024
+CLAIM_WAIT_SECONDS = 15
 VALIDATION_ID = re.compile(r"^val_[A-Za-z0-9]{20}$")
 
 
@@ -218,7 +219,8 @@ class ControlPlaneClient:
 
     def claim(self) -> ClaimedJob | None:
         document = self._post(
-            "/api/v1/enterprise/runtime-validation-jobs:claim", self.capabilities.payload()
+            f"/api/v1/enterprise/runtime-validation-jobs:claim?waitSeconds={CLAIM_WAIT_SECONDS}",
+            self.capabilities.payload(),
         )
         if document is None:
             return None
@@ -501,7 +503,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--runner-timeout-seconds", type=int, default=1800)
     parser.add_argument("--heartbeat-seconds", type=float, default=20)
     parser.add_argument("--idle-seconds", type=float, default=5)
-    parser.add_argument("--http-timeout-seconds", type=float, default=10)
+    parser.add_argument("--http-timeout-seconds", type=float, default=30)
     parser.add_argument("--allow-insecure-http", action="store_true")
     parser.add_argument("--local-tenant-id")
     return parser

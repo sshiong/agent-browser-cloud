@@ -2991,6 +2991,8 @@ paths:
       summary: Claim one opaque Agent execution job with a fenced lease
       description: Requires the dedicated AGENT_WORKER role. No prompt, plan, page data, capability token, or customer credential crosses this boundary.
       tags: [Agent, AgentSafety]
+      parameters:
+        - $ref: "#/components/parameters/WorkerClaimWaitSeconds"
       requestBody:
         required: true
         content:
@@ -3121,6 +3123,8 @@ paths:
       summary: Claim one capability-free Agent plan review with a fenced lease
       description: Requires REVIEWER_WORKER. The payload excludes capability tokens, sealed values, page state, raw context sources and customer credentials.
       tags: [Agent, AgentSafety]
+      parameters:
+        - $ref: "#/components/parameters/WorkerClaimWaitSeconds"
       requestBody:
         required: true
         content:
@@ -3251,6 +3255,8 @@ paths:
       summary: Claim one exact post-execution semantic outcome verification with a fenced lease
       description: Requires OUTCOME_VERIFIER_WORKER. The payload excludes capabilities, secrets, values, element identifiers, raw page bodies and screenshots.
       tags: [Agent, AgentSafety]
+      parameters:
+        - $ref: "#/components/parameters/WorkerClaimWaitSeconds"
       requestBody:
         required: true
         content:
@@ -3381,6 +3387,8 @@ paths:
       summary: Claim one redacted screenshot analysis job with a fenced lease
       description: Requires VISION_WORKER; the grant is purpose-bound and one-time.
       tags: [Challenge, HumanAssist]
+      parameters:
+        - $ref: "#/components/parameters/WorkerClaimWaitSeconds"
       requestBody:
         required: true
         content:
@@ -4416,6 +4424,8 @@ paths:
       summary: Claim one compatible Runtime Validation job with a fenced lease
       description: Requires the dedicated VALIDATION_WORKER role. A claim token is returned only once.
       tags: [Enterprise, Runtime]
+      parameters:
+        - $ref: "#/components/parameters/WorkerClaimWaitSeconds"
       requestBody:
         required: true
         content:
@@ -5193,6 +5203,8 @@ paths:
       operationId: claimRecoveryGameDayJob
       summary: Claim a capability-matched GameDay job with an opaque fenced lease token
       tags: [Enterprise, DR]
+      parameters:
+        - $ref: "#/components/parameters/WorkerClaimWaitSeconds"
       requestBody:
         required: true
         content:
@@ -6050,6 +6062,16 @@ components:
       bearerFormat: JWT
       description: Production authentication. Tenant and actor are derived from validated JWT claims.
   parameters:
+    WorkerClaimWaitSeconds:
+      name: waitSeconds
+      in: query
+      required: false
+      description: Bounded server wait for a PostgreSQL queue notification before returning 204. Defaults to immediate N-1-compatible behavior.
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 25
+        default: 0
     ChallengeEventId:
       name: eventId
       in: path

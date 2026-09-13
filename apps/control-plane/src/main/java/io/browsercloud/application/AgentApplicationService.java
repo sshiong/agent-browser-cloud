@@ -973,7 +973,9 @@ public class AgentApplicationService {
         targetUrl,
         input,
         rationale,
-        List.of("user_goal", "platform_policy"),
+        List.of(
+            AgentInstructionAuthorityPolicy.USER_GOAL_SOURCE,
+            AgentInstructionAuthorityPolicy.PLATFORM_POLICY_SOURCE),
         TrustLevel.TRUSTED,
         List.of(),
         false,
@@ -1060,7 +1062,9 @@ public class AgentApplicationService {
         null,
         input,
         rationale(request.toolId()),
-        List.of("user_goal", "platform_policy"),
+        List.of(
+            AgentInstructionAuthorityPolicy.USER_GOAL_SOURCE,
+            AgentInstructionAuthorityPolicy.PLATFORM_POLICY_SOURCE),
         TrustLevel.TRUSTED,
         List.of(),
         false,

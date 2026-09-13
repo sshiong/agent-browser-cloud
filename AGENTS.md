@@ -371,14 +371,23 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 
 ## 7. 当前正在处理的任务
 
+- progress 179：外部 Application/Web/Email/Document/Widget 来源不论内容或自报分类均永久
+  data-only，保留/重复 Source ID 在任务创建期阻断；首次执行、异步 Step 续行、人工协助续行和
+  lease 恢复的共同入口逐 Step 要求来源精确等于 `user_goal + platform_policy`、Trust Floor 为
+  `TRUSTED` 且 taint 为空。Reviewer 批准不能提升网页内容权限，关键词检测只保留为遥测。
+  公开 API 保持 245 Operations / 338 Schemas；Control Plane 549 项、完整 `make ci`、Desktop、
+  N/N−1 与 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过，输出
+  `prompt_injection_source_authority=true`。A13 仓库内代码项关闭；客户 Replay、目标模型生产准入
+  和组织 Threat Review 仍独立待完成。
+
 - progress 178：Reviewer 开启时，正式执行入口统一按风险分流；仅 Intent ALLOWED、计划未过期、
   来源可信、无 taint/确认/敏感输入，且 Task/全部 Step 均不高于 R1 的计划以 `risk-tier-v1`
   确定性策略直接进入持久 Agent Worker 队列。Task 明确记录 `NOT_REQUIRED` 和旁路原因，模型、
   Token、Latency、Cost 为空并写版本化 Audit；R2+、风险低报、未知工具或解析异常仍强制 Reviewer。
   公开 API 保持 245 Operations / 338 Schemas；Control Plane 544 项、完整 `make ci`、Desktop、
   N/N−1 与 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过，输出
-  `agent_reviewer_risk_routing=true`。A12 仓库内代码项关闭；A13、客户 Replay 和目标模型生产准入
-  仍独立待完成。
+  `agent_reviewer_risk_routing=true`。A12 仓库内代码项关闭；A13 后由 progress 179 关闭，客户
+  Replay 和目标模型生产准入仍独立待完成。
 
 - progress 177：Browser Node 在同一持久 `execute-actions` Batch 内按 Route/Active Tab、Native
   Dialog、Document/Network、Target Revision、Content Hash 变化或四动作稳定上限动态切段；边界

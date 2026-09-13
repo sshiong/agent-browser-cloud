@@ -8,6 +8,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
@@ -64,7 +65,7 @@ public final class PromptSecurityService {
     var goalHash = sha256(goal);
     sources.add(
         new InstructionSource(
-            "user_goal",
+            AgentInstructionAuthorityPolicy.USER_GOAL_SOURCE,
             InstructionSourceType.USER_REQUEST,
             TrustLevel.TRUSTED,
             "USER_INPUT",
@@ -103,11 +104,24 @@ public final class PromptSecurityService {
       risk = RiskClass.R2_DATA_CHANGE;
     }
 
+    var observedSourceIds =
+        new HashSet<String>(
+            Set.of(
+                AgentInstructionAuthorityPolicy.USER_GOAL_SOURCE,
+                AgentInstructionAuthorityPolicy.PLATFORM_POLICY_SOURCE));
     for (var requested :
         requestedSources == null ? List.<InstructionSourceRequest>of() : requestedSources) {
-      var contentHash = sha256(requested.content());
+      var content = requested.content() == null ? "" : requested.content();
+      var contentHash = sha256(content);
       var sourceType = requested.sourceType();
-      if (!EXTERNAL_SOURCE_TYPES.contains(sourceType)) {
+      var canonicalSourceId =
+          AgentInstructionAuthorityPolicy.canonicalSourceId(requested.sourceId());
+      var sourceAuthorityInvalid =
+          canonicalSourceId.isBlank()
+              || AgentInstructionAuthorityPolicy.isReservedSourceId(canonicalSourceId)
+              || !observedSourceIds.add(canonicalSourceId)
+              || !EXTERNAL_SOURCE_TYPES.contains(sourceType);
+      if (sourceAuthorityInvalid) {
         events.add(
             event(
                 "SOURCE_AUTHORITY_SPOOF",
@@ -123,12 +137,12 @@ public final class PromptSecurityService {
       }
       var trust = trustFor(sourceType);
       var taints = new ArrayList<String>();
+      taints.add(AgentInstructionAuthorityPolicy.NON_EXECUTABLE_CONTEXT_TAINT);
       if (trust == TrustLevel.UNTRUSTED) {
         taints.add("EXTERNAL_UNTRUSTED");
       }
       var injection =
-          INJECTION_SIGNALS.stream()
-              .anyMatch(pattern -> pattern.matcher(requested.content()).find());
+          INJECTION_SIGNALS.stream().anyMatch(pattern -> pattern.matcher(content).find());
       if (injection) {
         taints.add("PROMPT_INJECTION");
         events.add(
@@ -141,12 +155,25 @@ public final class PromptSecurityService {
                 contentHash,
                 now));
       }
+      if (!sourceAuthorityInvalid && EXTERNAL_SOURCE_TYPES.contains(sourceType)) {
+        events.add(
+            event(
+                "INSTRUCTION_SOURCE_CLASSIFIED",
+                "INFO",
+                "DATA_ONLY",
+                "EXTERNAL_SOURCE_DATA_ONLY",
+                sourceType,
+                contentHash,
+                now));
+      }
       sources.add(
           new InstructionSource(
               requested.sourceId(),
               sourceType,
               trust,
-              requested.classification().toUpperCase(Locale.ROOT),
+              requested.classification() == null
+                  ? "UNCLASSIFIED"
+                  : requested.classification().toUpperCase(Locale.ROOT),
               contentHash,
               false,
               List.copyOf(taints)));
@@ -157,6 +184,7 @@ public final class PromptSecurityService {
   }
 
   private static TrustLevel trustFor(InstructionSourceType sourceType) {
+    if (sourceType == null) return TrustLevel.UNTRUSTED;
     return switch (sourceType) {
       case APPLICATION_DATA -> TrustLevel.RESTRICTED;
       case EMAIL, DOCUMENT, WEB_CONTENT, THIRD_PARTY_WIDGET -> TrustLevel.UNTRUSTED;

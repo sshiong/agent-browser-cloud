@@ -628,6 +628,7 @@ public class AgentExecutionService {
 
   private void validatePlan(
       AgentPlan plan, AgentTaskEntity task, SessionDescriptor sessionDescriptor) {
+    AgentInstructionAuthorityPolicy.requireExecutablePlan(plan);
     var now = Instant.now();
     var policy = sessionDescriptor.agentPolicy();
     if (policy == AgentPolicy.DISABLED) {

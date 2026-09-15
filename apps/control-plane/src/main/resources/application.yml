@@ -2,6 +2,10 @@ server:
   port: 8080
 
 spring:
+  task:
+    scheduling:
+      pool:
+        size: ${CONTROL_PLANE_SCHEDULER_POOL_SIZE:4}
   servlet:
     multipart:
       max-file-size: ${PROFILE_IMPORT_MAX_FILE_SIZE:256MB}
@@ -62,6 +66,7 @@ management:
 browser-node:
   grpc-target: ${BROWSER_NODE_GRPC_TARGET:localhost:9090}
   dispatch-interval-ms: ${BROWSER_NODE_DISPATCH_INTERVAL_MS:250}
+  cancellation-dispatch-interval-ms: ${BROWSER_NODE_CANCELLATION_DISPATCH_INTERVAL_MS:50}
   default-runtime-build-id: ${BROWSER_NODE_DEFAULT_RUNTIME_BUILD_ID:runtime_local_chromium}
   freshness-threshold-ms: ${BROWSER_NODE_FRESHNESS_THRESHOLD_MS:60000}
   freshness-projection-interval-ms: ${BROWSER_NODE_FRESHNESS_PROJECTION_INTERVAL_MS:5000}
@@ -166,6 +171,7 @@ coordinator:
   dispatch-lease-seconds: ${COORDINATOR_DISPATCH_LEASE_SECONDS:6}
   dispatch-worker-lease-seconds: ${COORDINATOR_DISPATCH_WORKER_LEASE_SECONDS:3}
   command-dispatch-interval-ms: ${COORDINATOR_COMMAND_DISPATCH_INTERVAL_MS:100}
+  cancellation-dispatch-interval-ms: ${COORDINATOR_CANCELLATION_DISPATCH_INTERVAL_MS:25}
   command-claim-lease-seconds: ${COORDINATOR_COMMAND_CLAIM_LEASE_SECONDS:30}
   command-api-deadline-seconds: ${COORDINATOR_COMMAND_API_DEADLINE_SECONDS:30}
   command-api-wait-seconds: ${COORDINATOR_COMMAND_API_WAIT_SECONDS:20}

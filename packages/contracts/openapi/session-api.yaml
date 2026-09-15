@@ -2985,6 +2985,34 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/agent-tasks/{taskId}:cancel:
+    post:
+      operationId: cancelAgentTask
+      summary: Cancel an Agent task and interrupt its in-flight browser action
+      description: Persists a task terminal state and a Node-side cancellation fence bound to the current Context and Operation epochs. Repeated requests are idempotent.
+      tags: [Agent, AgentSafety]
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^agt_[a-zA-Z0-9]{16,}$"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Cancelled or previously terminal Agent task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTask"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/agent-worker-jobs:claim:
     post:
       operationId: claimAgentExecutionJob

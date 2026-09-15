@@ -21,9 +21,9 @@ import io.grpc.ManagedChannel;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +59,7 @@ public class NodeCommandOutboxDispatcher {
   private final BrowserNodeJpaRepository browserNodeRepository;
   private final GrpcTransportFactory transportFactory;
   private final String legacyGrpcTarget;
-  private final Map<String, NodeChannel> nodeChannels = new HashMap<>();
+  private final Map<String, NodeChannel> nodeChannels = new ConcurrentHashMap<>();
 
   public NodeCommandOutboxDispatcher(
       OutboxEventJpaRepository outboxRepository,
@@ -92,7 +92,17 @@ public class NodeCommandOutboxDispatcher {
 
   @Scheduled(fixedDelayString = "${browser-node.dispatch-interval-ms:250}")
   public void dispatchPending() {
-    var eventIds = claimService.claimReady(Instant.now());
+    dispatch(claimService.claimReady(Instant.now()));
+  }
+
+  @Scheduled(
+      fixedDelayString = "${browser-node.cancellation-dispatch-interval-ms:50}",
+      scheduler = "agentCancellationTaskScheduler")
+  public void dispatchCancellations() {
+    dispatch(claimService.claimReadyCancellations(Instant.now()));
+  }
+
+  private void dispatch(java.util.List<String> eventIds) {
     for (var eventId : eventIds) {
       var event = outboxRepository.findById(eventId).orElse(null);
       if (event == null || !claimService.workerId().equals(event.getDispatchOwner())) {
@@ -173,7 +183,7 @@ public class NodeCommandOutboxDispatcher {
     return channelForTarget(nodeId, node.getGrpcTarget());
   }
 
-  private ManagedChannel channelForTarget(String channelKey, String target) {
+  private synchronized ManagedChannel channelForTarget(String channelKey, String target) {
     var existing = nodeChannels.get(channelKey);
     if (existing != null && existing.target().equals(target) && !existing.channel().isShutdown()) {
       return existing.channel();

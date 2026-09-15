@@ -1021,6 +1021,41 @@ export class AgentService {
         });
     }
     /**
+     * Cancel an Agent task and interrupt its in-flight browser action
+     * Persists a task terminal state and a Node-side cancellation fence bound to the current Context and Operation epochs. Repeated requests are idempotent.
+     * @returns AgentTask Cancelled or previously terminal Agent task.
+     * @throws ApiError
+     */
+    public cancelAgentTask({
+        taskId,
+        idempotencyKey,
+        xTenantId,
+    }: {
+        taskId: string,
+        idempotencyKey: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentTask> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-tasks/{taskId}:cancel',
+            path: {
+                'taskId': taskId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'Idempotency-Key': idempotencyKey,
+            },
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
      * Claim one opaque Agent execution job with a fenced lease
      * Requires the dedicated AGENT_WORKER role. No prompt, plan, page data, capability token, or customer credential crosses this boundary.
      * @returns AgentExecutionJobClaim Opaque execution job claimed; the single-use Claim Token is returned only once.

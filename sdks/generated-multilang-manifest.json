@@ -1,16 +1,16 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "e44e5fb0fb6888104917b79d77e0bcad12cb5fdea09e5c19b855c74b5a138d56",
+  "contractSha256": "576a4adfd425fc1666761320edefa99bdee97f13ddef05ce1c33fb361ecd4be2",
   "files": {
-    "go/browsercloud/generated/client.gen.go": "cb832ae9e85743578f70c108b00b845c7352e62a19fb023cdb72712312df395a",
+    "go/browsercloud/generated/client.gen.go": "00629f7760a55360612b17be275195ca820360696c7c705e7db375a5e79fb246",
     "go/browsercloud/generated/models.gen.go": "a4e2f7863fa0930641d332d5743edf65608b59d37e43484934f0e5ca7098d9a4",
-    "java/src/main/java/io/browsercloud/sdk/generated/BrowserCloudGeneratedClient.java": "c2e9a30d2b35acad9ec4bfbf44f96f610c434445378f520976df47f88fc06b3d",
+    "java/src/main/java/io/browsercloud/sdk/generated/BrowserCloudGeneratedClient.java": "69952d7f4d63ef8428a30f6d9a72d2edce2d3c213c86a7c498031b0bf3dc1b98",
     "java/src/main/java/io/browsercloud/sdk/generated/Models.java": "0908c7aa0c16f9f0487a94a98c6ad0fa62acc99692b461b5c399456f1600a4bb",
-    "python/browsercloud/generated_client.py": "736c7e3e5cca4075a34228dd0a653b3c3eb8cca4a9a96283622b459ee7c33fd6",
+    "python/browsercloud/generated_client.py": "092b715051ea8b625356fed1a048c3435c143b03e06c5cc92ac904524d061398",
     "python/browsercloud/generated_models.py": "5962cddfcd28c1ea86460bc6e1fc0a206e1ef1178bdd1daa854215a9d7b8ef72"
   },
   "formatVersion": 1,
   "generator": "browsercloud-multilang-generator@1",
-  "operationCount": 245,
+  "operationCount": 246,
   "schemaCount": 338
 }

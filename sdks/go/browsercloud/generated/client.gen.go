@@ -167,6 +167,7 @@ var Operations = map[string]Operation{
 	"listAgentTaskSummaries":                     {OperationID: "listAgentTaskSummaries", Method: "GET", Path: "/api/v1/agent-task-summaries", PathParameters: nil, QueryParameters: []string{"cursor", "limit"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTaskSummaryListResponse"},
 	"getAgentTask":                               {OperationID: "getAgentTask", Method: "GET", Path: "/api/v1/agent-tasks/{taskId}", PathParameters: []string{"taskId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTask"},
 	"executeAgentTask":                           {OperationID: "executeAgentTask", Method: "POST", Path: "/api/v1/agent-tasks/{taskId}:execute", PathParameters: []string{"taskId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTask"},
+	"cancelAgentTask":                            {OperationID: "cancelAgentTask", Method: "POST", Path: "/api/v1/agent-tasks/{taskId}:cancel", PathParameters: []string{"taskId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTask"},
 	"claimAgentExecutionJob":                     {OperationID: "claimAgentExecutionJob", Method: "POST", Path: "/api/v1/agent-worker-jobs:claim", PathParameters: nil, QueryParameters: []string{"waitSeconds"}, HeaderParameters: nil, RequestSchema: "ClaimAgentExecutionJobRequest", RequestRequired: true, ResponseSchema: "AgentExecutionJobClaim"},
 	"startAgentExecutionJob":                     {OperationID: "startAgentExecutionJob", Method: "POST", Path: "/api/v1/agent-worker-jobs/{jobId}:start", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "AgentExecutionJobClaimRequest", RequestRequired: true, ResponseSchema: "AgentExecutionJob"},
 	"heartbeatAgentExecutionJob":                 {OperationID: "heartbeatAgentExecutionJob", Method: "POST", Path: "/api/v1/agent-worker-jobs/{jobId}:heartbeat", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "AgentExecutionJobClaimRequest", RequestRequired: true, ResponseSchema: "AgentExecutionJob"},
@@ -750,6 +751,9 @@ func (c *Client) GetAgentTask(ctx context.Context, request Request) (any, *http.
 }
 func (c *Client) ExecuteAgentTask(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "executeAgentTask", request)
+}
+func (c *Client) CancelAgentTask(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "cancelAgentTask", request)
 }
 func (c *Client) ClaimAgentExecutionJob(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "claimAgentExecutionJob", request)

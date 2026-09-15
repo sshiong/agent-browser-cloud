@@ -371,6 +371,16 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 
 ## 7. 当前正在处理的任务
 
+- progress 181：幂等 Agent Task cancel API 在终止 Task/Operation 前先持久化精确
+  `CancelAgentAction`；Step 失败、Operation 丢失/过期和权威 Epoch 前进复用同一终止语义。
+  Coordinator 与 Node 取消命令走独立双线程高优先级调度链；Node 以 Task/Context/Operation/
+  Term/Route 栅栏、注册竞态 tombstone 和 watch 中断长动作并 release-all。迟到失败事件以
+  `STALE_AGENT_OPERATION` 终态排空，不能复活任务；旧 Node 缺少取消能力时动作前 fail-closed。
+  公开 API 为 246 Operations / 338 Schemas；
+  Control Plane 553 项、Rust、完整 `make ci`、Desktop、N/N−1 与 PostgreSQL/Redis/MinIO/mTLS/
+  Chromium Integration 均通过，输出 `agent_action_fast_cancellation=true`。A15 仓库内代码项关闭；
+  外部 HTTP/模型传输取消、目标云网络时延与副作用补偿仍是独立生产边界。
+
 - progress 180：Agent Executor、Reviewer、Outcome Verifier、Vision、Runtime Validation 与
   Recovery GameDay 六类 Worker Claim 已使用 V120 PostgreSQL 事务通知与 15 秒有界长轮询；
   Control Plane 每实例一个专用 LISTEN 连接，以 generation 关闭注册竞态、单通知只唤醒一个本实例

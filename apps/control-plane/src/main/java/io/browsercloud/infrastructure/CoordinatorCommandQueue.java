@@ -83,6 +83,15 @@ public class CoordinatorCommandQueue {
 
   @Transactional
   public List<String> claimReady(Instant now) {
+    return claimReady(now, false);
+  }
+
+  @Transactional
+  public List<String> claimReadyCancellations(Instant now) {
+    return claimReady(now, true);
+  }
+
+  private List<String> claimReady(Instant now, boolean cancellationsOnly) {
     workerMembership.heartbeatWorker(now);
     jdbc.update(
         """
@@ -110,6 +119,10 @@ public class CoordinatorCommandQueue {
              AND route.route_epoch = command.route_epoch
              AND route.shard_id = command.coordinator_shard_id
            WHERE command.state = 'PENDING'
+             AND (
+               (:cancellationsOnly = TRUE AND command.command_type = :cancelCommandType)
+               OR (:cancellationsOnly = FALSE AND command.command_type <> :cancelCommandType)
+             )
              AND command.next_attempt_at <= :now
              AND command.deadline_at > :now
              AND (
@@ -160,6 +173,10 @@ public class CoordinatorCommandQueue {
             workerMembership.workerId(),
             "leaseUntil",
             Timestamp.from(now.plus(claimLease)),
+            "cancellationsOnly",
+            cancellationsOnly,
+            "cancelCommandType",
+            "AGENT_CANCEL_V1",
             "batchSize",
             CLAIM_BATCH_SIZE),
         (resultSet, rowNumber) -> resultSet.getString("command_id"));

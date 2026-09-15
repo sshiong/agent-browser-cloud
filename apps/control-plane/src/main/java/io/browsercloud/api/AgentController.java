@@ -117,6 +117,23 @@ public class AgentController {
         () -> executionService.execute(taskId, principal.tenantId(), idempotencyKey));
   }
 
+  @PostMapping("/agent-tasks/{taskId}:cancel")
+  @PreAuthorize(PlatformRoles.OPERATE)
+  public AgentTaskView cancel(
+      @PathVariable @Pattern(regexp = "^agt_[a-zA-Z0-9]{16,}$") String taskId,
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey) {
+    var principal = identity.current();
+    var task = service.get(taskId, principal.tenantId());
+    return commandRouting.execute(
+        task.sessionId(),
+        principal.tenantId(),
+        AGENT_CANCEL,
+        idempotencyKey,
+        new AgentCancel(principal.tenantId(), taskId, principal.actorId()),
+        AgentTaskView.class,
+        () -> executionService.cancel(taskId, principal.tenantId(), principal.actorId()));
+  }
+
   @PostMapping("/agent-tasks/{taskId}:approve")
   @PreAuthorize(PlatformRoles.OPERATE)
   public AgentTaskView approve(

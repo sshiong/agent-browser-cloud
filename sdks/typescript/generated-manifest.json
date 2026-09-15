@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "e44e5fb0fb6888104917b79d77e0bcad12cb5fdea09e5c19b855c74b5a138d56",
+  "contractSha256": "576a4adfd425fc1666761320edefa99bdee97f13ddef05ce1c33fb361ecd4be2",
   "files": {
     "BrowserCloudGeneratedClient.ts": "9af238a7342b4202ace30c93c8fac304d101b48a600224c76ce2d59908979c4c",
     "core/ApiError.ts": "1340dca2bdae61fcf8c1d1a52004c43fb070eb6f084a20c56423ee00f9d3a798",
@@ -374,8 +374,8 @@
     "models/WorkspaceTagSummary.ts": "deba7fdba6568ec5fc7e559946d07c48e53718697f5ef6451dfe7ff5acccdb62",
     "models/WriteAgentClipboardRequest.ts": "3097443a905765fabf5487e2a35beb9f1ae271526a7ea3ce8c48a41735195d45",
     "services/AdministrationService.ts": "6cd3269b2b1dc736ba6a49c8e0260c1c4b7920ece26191baed9e2906d15753e6",
-    "services/AgentSafetyService.ts": "b60699b627bb963b085310cda33a5afe6ee96e32390616aadd9c42bff2601e34",
-    "services/AgentService.ts": "3d513e7ec24e5813849c4f95ee3afc6a67bd8950722ee94635017c4e4e03ddd4",
+    "services/AgentSafetyService.ts": "0de28e81d55ab747f84a0bde7b4fd1d5ac9323a6e3698a24c6a658901edbe8ca",
+    "services/AgentService.ts": "a782b4838ec8ec3998ee9055ec43337ec9e2a995c73c2c75932c909884847f7d",
     "services/AgentToolService.ts": "529421b2038d536254729c59cf0b91baf55b911209162a787bca6771af0a6cf3",
     "services/AuditService.ts": "7d8232371f96bfd508c5a9de97b27f406c100ccf1e140b6e09d674f5df7c466e",
     "services/BusinessRecoveryService.ts": "8549251ae6f2b16012e421740944f9c4d20909f3af8f1a06274d488ae1c440c1",

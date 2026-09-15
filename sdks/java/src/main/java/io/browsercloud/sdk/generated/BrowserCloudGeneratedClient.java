@@ -143,6 +143,7 @@ public final class BrowserCloudGeneratedClient {
     operation("listAgentTaskSummaries", "GET", "/api/v1/agent-task-summaries", List.of(), List.of("cursor", "limit"), List.of("X-Tenant-Id"), "", false, "AgentTaskSummaryListResponse"),
     operation("getAgentTask", "GET", "/api/v1/agent-tasks/{taskId}", List.of("taskId"), List.of(), List.of("X-Tenant-Id"), "", false, "AgentTask"),
     operation("executeAgentTask", "POST", "/api/v1/agent-tasks/{taskId}:execute", List.of("taskId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "", false, "AgentTask"),
+    operation("cancelAgentTask", "POST", "/api/v1/agent-tasks/{taskId}:cancel", List.of("taskId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "", false, "AgentTask"),
     operation("claimAgentExecutionJob", "POST", "/api/v1/agent-worker-jobs:claim", List.of(), List.of("waitSeconds"), List.of(), "ClaimAgentExecutionJobRequest", true, "AgentExecutionJobClaim"),
     operation("startAgentExecutionJob", "POST", "/api/v1/agent-worker-jobs/{jobId}:start", List.of("jobId"), List.of(), List.of(), "AgentExecutionJobClaimRequest", true, "AgentExecutionJob"),
     operation("heartbeatAgentExecutionJob", "POST", "/api/v1/agent-worker-jobs/{jobId}:heartbeat", List.of("jobId"), List.of(), List.of(), "AgentExecutionJobClaimRequest", true, "AgentExecutionJob"),
@@ -420,6 +421,7 @@ public final class BrowserCloudGeneratedClient {
   public Response listAgentTaskSummaries(Request request) { return call("listAgentTaskSummaries", request); }
   public Response getAgentTask(Request request) { return call("getAgentTask", request); }
   public Response executeAgentTask(Request request) { return call("executeAgentTask", request); }
+  public Response cancelAgentTask(Request request) { return call("cancelAgentTask", request); }
   public Response claimAgentExecutionJob(Request request) { return call("claimAgentExecutionJob", request); }
   public Response startAgentExecutionJob(Request request) { return call("startAgentExecutionJob", request); }
   public Response heartbeatAgentExecutionJob(Request request) { return call("heartbeatAgentExecutionJob", request); }

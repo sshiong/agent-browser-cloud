@@ -4349,6 +4349,72 @@ printf '%s' "$navigate_completed" | python3 -c \
 navigate_capability_uses="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from tool_capability_uses where task_id='${agent_task_id}'")"
 test "$navigate_capability_uses" = "4"
+
+# A long Node-side wait must be interrupted by the independent cancellation lane instead of
+# finishing its ten-second timeout. The task and Operation become terminal in the same transaction;
+# both the original action and durable cancellation must then be journaled promptly.
+cancel_task="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-tasks" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-agent-cancel-task-001' \
+  -d '{"goal":"Wait for a browser state change","allowedDomains":["example.test"],"maxActions":4,"replanBudget":0,"actions":[{"toolId":"WAIT_FOR","waitCondition":"STATE_CHANGED","timeoutMs":10000}]}')"
+cancel_task_id="$(printf '%s' "$cancel_task" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "PLANNED"; assert any(step["toolId"] == "WAIT_FOR" for step in task["plan"]["steps"]); print(task["taskId"])')"
+cancel_execute="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/agent-tasks/${cancel_task_id}:execute" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-agent-cancel-execute-001')"
+cancel_operation_id="$(printf '%s' "$cancel_execute" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "RUNNING"; print(task["operationId"])')"
+cancel_action_command_id=""
+for _ in $(seq 1 40); do
+  cancel_action_command_id="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select payload->>'messageId' from outbox_events where event_type='node.command.requested' and payload->>'commandType'='AgentAction' and payload->>'idempotencyKey'='${cancel_operation_id}' and dispatch_owner is not null")"
+  if [[ -n "$cancel_action_command_id" ]]; then break; fi
+  sleep 0.05
+done
+test -n "$cancel_action_command_id"
+sleep 0.2
+cancel_started_ms="$(python3 -c 'import time; print(time.time_ns() // 1000000)')"
+cancel_result="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/agent-tasks/${cancel_task_id}:cancel" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: cancel-integration-user' \
+  -H 'Idempotency-Key: smoke-agent-cancel-command-001')"
+printf '%s' "$cancel_result" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "FAILED"; assert task["lastError"] == "AGENT_TASK_CANCELLED"'
+cancel_command_id=""
+cancel_action_journaled_ms=""
+for _ in $(seq 1 60); do
+  cancel_command_id="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select payload->>'messageId' from outbox_events where event_type='node.command.requested' and payload->>'idempotencyKey'='${cancel_operation_id}' and payload->>'commandType'='CancelAgentAction' and published_at is not null")"
+  cancel_action_journaled_ms="$(sqlite3 -cmd '.timeout 5000' "$temp_dir/runtime/node-journal.sqlite3" \
+    "select created_at_ms from command_results where message_id='${cancel_action_command_id}' and accepted=1 and event_delivered=1 and instr(event_payload, CAST('ACTION_CANCELLED' AS BLOB)) > 0" \
+    2>/dev/null || true)"
+  if [[ -n "$cancel_command_id" && -n "$cancel_action_journaled_ms" ]]; then break; fi
+  sleep 0.05
+done
+test -n "$cancel_command_id"
+test -n "$cancel_action_journaled_ms"
+cancel_command_journaled="$(sqlite3 -cmd '.timeout 5000' "$temp_dir/runtime/node-journal.sqlite3" \
+  "select count(*) from command_results where message_id='${cancel_command_id}' and accepted=1 and event_id is null")"
+test "$cancel_command_journaled" = "1"
+test "$((cancel_action_journaled_ms - cancel_started_ms))" -lt 3000
+cancel_operation_state="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select state from exclusive_operations where operation_id='${cancel_operation_id}'")"
+test "$cancel_operation_state" = "ABORTED"
+cancel_audit_count="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from audit_events where resource_id='${cancel_task_id}' and event_type='AGENT_TASK_CANCELLED' and result='SUCCEEDED'")"
+test "$cancel_audit_count" = "1"
+cancel_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/agent-tasks/${cancel_task_id}:cancel" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: cancel-integration-user' \
+  -H 'Idempotency-Key: smoke-agent-cancel-command-001')"
+test "$cancel_result" = "$cancel_replay"
+printf 'agent_action_fast_cancellation=true\n'
+
 blocked_agent_task="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-tasks" \
   -H 'Content-Type: application/json' \
@@ -4361,12 +4427,12 @@ agent_tasks="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/agent-tasks?limit=10&offset=0" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$agent_tasks" | python3 -c \
-  'import json,sys; tasks=json.load(sys.stdin); assert tasks["total"] == 5; assert len(tasks["items"]) == 5'
+  'import json,sys; tasks=json.load(sys.stdin); assert tasks["total"] == 6; assert len(tasks["items"]) == 6'
 agent_task_summaries_page_one="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/agent-task-summaries?limit=2" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$agent_task_summaries_page_one" | python3 -c \
-  'import json,sys; page=json.load(sys.stdin); assert page["total"] == 5; assert page["limit"] == 2; assert page["hasMore"] is True; assert page["nextCursor"]; assert len(page["items"]) == 2; assert set(page["metrics"]) == {"planned", "completed", "blocked"}; forbidden={"plan", "allowedDomains", "executionResults", "securityEvents"}; assert all(not forbidden.intersection(item) for item in page["items"]); assert page["metrics"]["blocked"] >= 1'
+  'import json,sys; page=json.load(sys.stdin); assert page["total"] == 6; assert page["limit"] == 2; assert page["hasMore"] is True; assert page["nextCursor"]; assert len(page["items"]) == 2; assert set(page["metrics"]) == {"planned", "completed", "blocked"}; forbidden={"plan", "allowedDomains", "executionResults", "securityEvents"}; assert all(not forbidden.intersection(item) for item in page["items"]); assert page["metrics"]["blocked"] >= 1'
 agent_task_summary_cursor="$(printf '%s' "$agent_task_summaries_page_one" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["nextCursor"])')"
 agent_task_summaries_page_two="$(curl -fsS \

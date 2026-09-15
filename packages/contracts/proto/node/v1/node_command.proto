@@ -864,6 +864,15 @@ message AgentActionFailedEvent {
   string error_code = 5;
 }
 
+// Idempotent cancellation fence for one in-flight Agent action. The envelope carries the
+// authoritative Context/Operation/Coordinator epochs; task_id prevents an old task cancellation
+// from stopping a different task that later reuses the same Session.
+message CancelAgentActionCommand {
+  string session_id = 1;
+  string task_id = 2;
+  string reason = 3;
+}
+
 // Journaled consumption of a previously streamed, Session-bound staging file. No arbitrary path
 // crosses the Control Plane/Node contract.
 message AgentFileUploadCommand {

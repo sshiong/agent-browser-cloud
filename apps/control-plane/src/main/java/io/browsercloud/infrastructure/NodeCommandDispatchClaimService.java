@@ -54,6 +54,16 @@ public class NodeCommandDispatchClaimService implements CoordinatorShardLocality
 
   @Transactional
   public List<String> claimReady(Instant now) {
+    return claimReady(now, false);
+  }
+
+  /** Claims only high-priority cancellation rows for the independent fast interrupt lane. */
+  @Transactional
+  public List<String> claimReadyCancellations(Instant now) {
+    return claimReady(now, true);
+  }
+
+  private List<String> claimReady(Instant now, boolean cancellationsOnly) {
     heartbeat(now);
     var parameters =
         Map.<String, Object>of(
@@ -65,6 +75,10 @@ public class NodeCommandDispatchClaimService implements CoordinatorShardLocality
             Timestamp.from(now.plus(dispatchLeaseDuration)),
             "workerId",
             workerId,
+            "cancelCommandType",
+            "CancelAgentAction",
+            "cancellationsOnly",
+            cancellationsOnly,
             "batchSize",
             BATCH_SIZE);
     return jdbc.query(
@@ -75,6 +89,10 @@ public class NodeCommandDispatchClaimService implements CoordinatorShardLocality
            WHERE published_at IS NULL
              AND dead_lettered_at IS NULL
              AND event_type = :eventType
+             AND (
+               (:cancellationsOnly = TRUE AND payload ->> 'commandType' = :cancelCommandType)
+               OR (:cancellationsOnly = FALSE AND payload ->> 'commandType' <> :cancelCommandType)
+             )
              AND next_attempt_at <= :now
              AND (dispatch_lease_until IS NULL OR dispatch_lease_until < :now)
              AND (

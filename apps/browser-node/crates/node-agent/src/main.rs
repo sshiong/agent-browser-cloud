@@ -17,7 +17,7 @@ use node_contracts::proto::{
     BrowserNativeDialogState, BrowserStateDiffEvent, BrowserStateEvent, BrowserStateObservedEvent,
     BrowserStateSnapshotBeginEvent, BrowserStateSnapshotChunkEvent,
     BrowserStateSnapshotCommitEvent, BrowserTabState, BusinessRecoveryActionCommand,
-    CaptureAgentScreenshotCommand, CaptureObserverScreenshotCommand,
+    CancelAgentActionCommand, CaptureAgentScreenshotCommand, CaptureObserverScreenshotCommand,
     ChallengeAutomationActionCommand, ChallengeAutomationFailedEvent, ChallengeVisualAction,
     CommandAck, CommandEnvelope, DiffTruncatedEvent, DispatchRequest, DispatchResponse,
     EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand, ExtensionBackgroundPolicy,
@@ -60,7 +60,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::sync::{mpsc, Mutex, Semaphore};
+use tokio::sync::{mpsc, watch, Mutex, Semaphore};
 use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 use tonic::{Request, Response, Status};
 use tracing_subscriber::EnvFilter;
@@ -185,7 +185,13 @@ fn agent_file_cursor_is_current(
 
 fn agent_action_error_code(tool_id: &str, error: &anyhow::Error) -> &'static str {
     let message = error.to_string().to_ascii_lowercase();
-    if matches!(tool_id, "ACCEPT_DIALOG" | "DISMISS_DIALOG")
+    if message.contains("action_cancelled")
+        || message.contains("agent_task_cancelled")
+        || message.contains("runtime_stopped")
+        || message.contains("action_authority_superseded")
+    {
+        "ACTION_CANCELLED"
+    } else if matches!(tool_id, "ACCEPT_DIALOG" | "DISMISS_DIALOG")
         && message.contains("evidence is stale")
     {
         "DIALOG_STATE_STALE"
@@ -285,6 +291,62 @@ fn state_observation_due(elapsed_since_event: Option<Duration>) -> bool {
     elapsed_since_event.is_none_or(|elapsed| elapsed >= STATE_OBSERVATION_HEARTBEAT)
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct AgentActionAuthority {
+    task_id: String,
+    context_epoch: i64,
+    operation_epoch: i64,
+    coordinator_term: i64,
+    route_epoch: i64,
+}
+
+impl AgentActionAuthority {
+    fn from_command(task_id: String, command: &CommandEnvelope) -> Self {
+        Self {
+            task_id,
+            context_epoch: command.context_epoch,
+            operation_epoch: command.operation_epoch,
+            coordinator_term: command.coordinator_term,
+            route_epoch: command.route_epoch,
+        }
+    }
+
+    fn superseded_by(&self, command: &CommandEnvelope) -> bool {
+        (
+            command.context_epoch,
+            command.operation_epoch,
+            command.coordinator_term,
+            command.route_epoch,
+        ) > self.fence_tuple()
+    }
+
+    fn matches_explicit_cancel(&self, cancel: &Self) -> bool {
+        self.task_id == cancel.task_id
+            && self.context_epoch == cancel.context_epoch
+            && self.operation_epoch == cancel.operation_epoch
+    }
+
+    fn fenced_by(&self, fence: &Self) -> bool {
+        self.matches_explicit_cancel(fence) || self.fence_tuple() < fence.fence_tuple()
+    }
+
+    fn fence_tuple(&self) -> (i64, i64, i64, i64) {
+        (
+            self.context_epoch,
+            self.operation_epoch,
+            self.coordinator_term,
+            self.route_epoch,
+        )
+    }
+}
+
+#[derive(Clone)]
+struct ActiveAgentAction {
+    authority: AgentActionAuthority,
+    message_id: String,
+    cancellation: watch::Sender<Option<String>>,
+}
+
 #[derive(Clone)]
 struct NodeControlService {
     node_id: String,
@@ -307,6 +369,8 @@ struct NodeControlService {
     journal: Arc<SqliteNodeJournal>,
     require_route_epoch: bool,
     inflight: Arc<Mutex<HashSet<String>>>,
+    active_agent_actions: Arc<Mutex<HashMap<String, ActiveAgentAction>>>,
+    agent_action_cancellations: Arc<Mutex<HashMap<String, AgentActionAuthority>>>,
     event_delivery_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
     runtime_monitors: Arc<Mutex<HashMap<String, String>>>,
     resource_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
@@ -778,6 +842,10 @@ impl NodeCapacityReporter {
         );
         labels.insert("agentBrowserFiles".to_owned(), "cdp-file-v1".to_owned());
         labels.insert(
+            "agentActionCancellation".to_owned(),
+            "authority-watch-v1".to_owned(),
+        );
+        labels.insert(
             "agentJavascriptEvaluate".to_owned(),
             "state-fenced-bounded-v1".to_owned(),
         );
@@ -1119,6 +1187,109 @@ struct AgentEvaluationCompletion<'a> {
 }
 
 impl NodeControlService {
+    async fn apply_agent_action_fence(&self, command: &CommandEnvelope) {
+        let explicit = if command.command_type == "CancelAgentAction" {
+            CancelAgentActionCommand::decode(command.payload.as_slice())
+                .ok()
+                .filter(|payload| payload.session_id == command.session_id)
+                .map(|payload| AgentActionAuthority::from_command(payload.task_id, command))
+        } else {
+            None
+        };
+
+        let active = self
+            .active_agent_actions
+            .lock()
+            .await
+            .get(&command.session_id)
+            .cloned();
+        let should_cancel = active.as_ref().is_some_and(|active| {
+            command.command_type == "StopRuntime"
+                || active.authority.superseded_by(command)
+                || explicit
+                    .as_ref()
+                    .is_some_and(|cancel| active.authority.matches_explicit_cancel(cancel))
+        });
+        if let Some(active) = active.filter(|_| should_cancel) {
+            let reason = if command.command_type == "CancelAgentAction" {
+                "AGENT_TASK_CANCELLED"
+            } else if command.command_type == "StopRuntime" {
+                "RUNTIME_STOPPED"
+            } else {
+                "ACTION_AUTHORITY_SUPERSEDED"
+            };
+            let _ = active.cancellation.send(Some(reason.to_owned()));
+        }
+
+        let fence =
+            explicit.unwrap_or_else(|| AgentActionAuthority::from_command(String::new(), command));
+        let mut fences = self.agent_action_cancellations.lock().await;
+        let replace = fences.get(&command.session_id).is_none_or(|current| {
+            current.superseded_by(command)
+                || (command.command_type == "CancelAgentAction" && current.task_id != fence.task_id)
+        });
+        if replace {
+            fences.insert(command.session_id.clone(), fence);
+        }
+    }
+
+    async fn register_agent_action(
+        &self,
+        command: &CommandEnvelope,
+        task_id: &str,
+    ) -> anyhow::Result<watch::Receiver<Option<String>>> {
+        let authority = AgentActionAuthority::from_command(task_id.to_owned(), command);
+        if self
+            .agent_action_cancellations
+            .lock()
+            .await
+            .get(&command.session_id)
+            .is_some_and(|fence| authority.fenced_by(fence))
+        {
+            anyhow::bail!("ACTION_CANCELLED");
+        }
+        let (sender, receiver) = watch::channel(None);
+        self.active_agent_actions.lock().await.insert(
+            command.session_id.clone(),
+            ActiveAgentAction {
+                authority: authority.clone(),
+                message_id: command.message_id.clone(),
+                cancellation: sender.clone(),
+            },
+        );
+        // Close the check/register race: a cancellation may have committed after the first fence
+        // read but before this action became visible in the active registry.
+        if self
+            .agent_action_cancellations
+            .lock()
+            .await
+            .get(&command.session_id)
+            .is_some_and(|fence| authority.fenced_by(fence))
+        {
+            let _ = sender.send(Some("ACTION_CANCELLED".to_owned()));
+        }
+        Ok(receiver)
+    }
+
+    async fn unregister_agent_action(&self, session_id: &str, message_id: &str) {
+        let mut active = self.active_agent_actions.lock().await;
+        if active
+            .get(session_id)
+            .is_some_and(|value| value.message_id == message_id)
+        {
+            active.remove(session_id);
+        }
+    }
+
+    async fn release_agent_input(&self, session_id: &str) {
+        let input = self.input_brokers.lock().await.get(session_id).cloned();
+        if let Some(input) = input {
+            if let Err(error) = input.release_all().await {
+                tracing::warn!(session_id, error = %error, "Failed to release cancelled Agent input");
+            }
+        }
+    }
+
     fn recording_finalized_event(
         &self,
         command: &CommandEnvelope,
@@ -3249,6 +3420,7 @@ impl NodeControlService {
         matches!(
             error_code,
             "STALE_HUMAN_TAKEOVER"
+                | "STALE_AGENT_OPERATION"
                 | "STALE_COORDINATOR_TERM"
                 | "STALE_COORDINATOR_LEASE"
                 | "STALE_BROWSER_STATE_OBSERVATION"
@@ -6312,12 +6484,36 @@ impl NodeControlService {
                         return Self::defer_for_human_input(command);
                     }
                     let action_started = Instant::now();
-                    let action_result = if payload.tool_id == "EXECUTE_ACTIONS" {
-                        self.execute_agent_action_batch(&payload).await
-                    } else {
-                        self.execute_agent_action(&payload)
-                            .await
-                            .map(|state| (state, Vec::new()))
+                    let action_result = match self
+                        .register_agent_action(command, &payload.task_id)
+                        .await
+                    {
+                        Ok(mut cancellation) => {
+                            let result = tokio::select! {
+                                result = async {
+                                    if payload.tool_id == "EXECUTE_ACTIONS" {
+                                        self.execute_agent_action_batch(&payload).await
+                                    } else {
+                                        self.execute_agent_action(&payload)
+                                            .await
+                                            .map(|state| (state, Vec::new()))
+                                    }
+                                } => result,
+                                changed = cancellation.changed() => {
+                                    self.release_agent_input(&command.session_id).await;
+                                    let reason = if changed.is_ok() {
+                                        cancellation.borrow().clone().unwrap_or_else(|| "ACTION_CANCELLED".to_owned())
+                                    } else {
+                                        "ACTION_CANCELLED".to_owned()
+                                    };
+                                    Err(anyhow::anyhow!(reason))
+                                }
+                            };
+                            self.unregister_agent_action(&command.session_id, &command.message_id)
+                                .await;
+                            result
+                        }
+                        Err(error) => Err(error),
                     };
                     self.agent_action_latencies
                         .lock()
@@ -6353,6 +6549,24 @@ impl NodeControlService {
                 }
                 Err(error) => self.failed(command, error.into()),
             },
+            "CancelAgentAction" => {
+                match CancelAgentActionCommand::decode(command.payload.as_slice()) {
+                    Ok(payload)
+                        if payload.session_id == command.session_id
+                            && payload.task_id.starts_with("agt_")
+                            && payload.task_id.chars().count() <= 128
+                            && !payload.reason.is_empty()
+                            && payload.reason.chars().count() <= 128 =>
+                    {
+                        Self::result(Self::ack(&command.message_id, true, "", ""), None)
+                    }
+                    Ok(_) => self.failed(
+                        command,
+                        anyhow::anyhow!("cancel agent action payload is invalid"),
+                    ),
+                    Err(error) => self.failed(command, error.into()),
+                }
+            }
             "AgentFileUpload" => match AgentFileUploadCommand::decode(command.payload.as_slice()) {
                 Ok(payload) => {
                     if payload.session_id != command.session_id
@@ -8445,6 +8659,8 @@ impl NodeControlService {
             }
         }
 
+        self.apply_agent_action_fence(&command).await;
+
         {
             let mut inflight = self.inflight.lock().await;
             if !inflight.insert(command.message_id.clone()) {
@@ -9909,6 +10125,8 @@ async fn main() -> Result<()> {
         journal,
         require_route_epoch,
         inflight: Arc::new(Mutex::new(HashSet::new())),
+        active_agent_actions: Arc::new(Mutex::new(HashMap::new())),
+        agent_action_cancellations: Arc::new(Mutex::new(HashMap::new())),
         event_delivery_locks: Arc::new(Mutex::new(HashMap::new())),
         runtime_monitors: Arc::new(Mutex::new(HashMap::new())),
         resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
@@ -10332,6 +10550,10 @@ mod tests {
     #[test]
     fn agent_action_errors_use_stable_machine_codes() {
         assert_eq!(
+            agent_action_error_code("WAIT_FOR", &anyhow::anyhow!("AGENT_TASK_CANCELLED")),
+            "ACTION_CANCELLED"
+        );
+        assert_eq!(
             agent_action_error_code("CLICK_TARGET", &anyhow::anyhow!("target is occluded")),
             "ELEMENT_OCCLUDED"
         );
@@ -10361,6 +10583,46 @@ mod tests {
             ),
             "DIALOG_NOT_FOUND"
         );
+    }
+
+    #[test]
+    fn agent_action_authority_only_accepts_exact_or_newer_cancellation_fences() {
+        let active = AgentActionAuthority {
+            task_id: "agt_1234567890123456".to_owned(),
+            context_epoch: 7,
+            operation_epoch: 12,
+            coordinator_term: 4,
+            route_epoch: 9,
+        };
+        let mut incoming = CommandEnvelope {
+            session_id: "ses_1234567890123456".to_owned(),
+            context_epoch: 7,
+            operation_epoch: 12,
+            coordinator_term: 4,
+            route_epoch: 9,
+            ..Default::default()
+        };
+        assert!(!active.superseded_by(&incoming));
+        assert!(
+            active.matches_explicit_cancel(&AgentActionAuthority::from_command(
+                active.task_id.clone(),
+                &incoming,
+            ))
+        );
+        assert!(
+            !active.matches_explicit_cancel(&AgentActionAuthority::from_command(
+                "agt_abcdefghijklmnop".to_owned(),
+                &incoming,
+            ))
+        );
+
+        incoming.operation_epoch += 1;
+        assert!(active.superseded_by(&incoming));
+        incoming.operation_epoch -= 2;
+        assert!(!active.superseded_by(&incoming));
+        incoming.operation_epoch += 1;
+        incoming.route_epoch += 1;
+        assert!(active.superseded_by(&incoming));
     }
 
     #[test]
@@ -10433,6 +10695,9 @@ mod tests {
         ));
         assert!(NodeControlService::is_terminal_event_rejection(
             "STALE_HUMAN_TAKEOVER"
+        ));
+        assert!(NodeControlService::is_terminal_event_rejection(
+            "STALE_AGENT_OPERATION"
         ));
         assert!(!NodeControlService::is_terminal_event_rejection(
             "EVENT_PROCESSING_FAILED"
@@ -10670,6 +10935,8 @@ mod tests {
             journal: reopened.clone(),
             require_route_epoch: false,
             inflight: Arc::new(Mutex::new(HashSet::new())),
+            active_agent_actions: Arc::new(Mutex::new(HashMap::new())),
+            agent_action_cancellations: Arc::new(Mutex::new(HashMap::new())),
             event_delivery_locks: Arc::new(Mutex::new(HashMap::new())),
             runtime_monitors: Arc::new(Mutex::new(HashMap::new())),
             resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),

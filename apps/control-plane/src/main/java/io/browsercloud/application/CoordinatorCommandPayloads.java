@@ -12,6 +12,7 @@ public final class CoordinatorCommandPayloads {
   public static final String SESSION_TAKEOVER = "SESSION_TAKEOVER_V1";
   public static final String SESSION_RELEASE_TAKEOVER = "SESSION_RELEASE_TAKEOVER_V1";
   public static final String AGENT_EXECUTE = "AGENT_EXECUTE_V1";
+  public static final String AGENT_CANCEL = "AGENT_CANCEL_V1";
   public static final String AGENT_ACCEPT_HANDOFF = "AGENT_ACCEPT_HANDOFF_V1";
   public static final String OPERATION_TIMEOUT = "OPERATION_TIMEOUT_V1";
   public static final String WORKFLOW_TIMEOUT = "WORKFLOW_TIMEOUT_V1";
@@ -26,6 +27,8 @@ public final class CoordinatorCommandPayloads {
   public record SessionActor(String tenantId, String actorId) {}
 
   public record AgentExecute(String tenantId, String taskId, String idempotencyKey) {}
+
+  public record AgentCancel(String tenantId, String taskId, String actorId) {}
 
   public record AgentHandoff(String tenantId, String taskId, String actorId) {}
 

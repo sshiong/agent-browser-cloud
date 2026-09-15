@@ -13,6 +13,7 @@ import io.browsercloud.proto.node.v1.AgentFileUploadCommand;
 import io.browsercloud.proto.node.v1.AgentNavigateCommand;
 import io.browsercloud.proto.node.v1.BeginHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand;
+import io.browsercloud.proto.node.v1.CancelAgentActionCommand;
 import io.browsercloud.proto.node.v1.CaptureAgentScreenshotCommand;
 import io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand;
 import io.browsercloud.proto.node.v1.ChallengeAutomationActionCommand;
@@ -767,6 +768,18 @@ public final class NodeCommands {
     }
     var payload = builder.build().toByteArray();
     return command(session, operation, "AgentAction", payload);
+  }
+
+  public static NodeCommand cancelAgentAction(
+      SessionContext session, ExclusiveOperation operation, String taskId, String reason) {
+    var payload =
+        CancelAgentActionCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setTaskId(taskId)
+            .setReason(reason)
+            .build()
+            .toByteArray();
+    return command(session, operation, "CancelAgentAction", payload);
   }
 
   public static NodeCommand agentFileUpload(

@@ -27,7 +27,18 @@ public class RoutedCoordinatorCommandWorker {
   public void dispatch() {
     var now = Instant.now();
     queue.failExpired(now);
-    for (var commandId : queue.claimReady(now)) {
+    dispatch(queue.claimReady(now));
+  }
+
+  @Scheduled(
+      fixedDelayString = "${coordinator.cancellation-dispatch-interval-ms:25}",
+      scheduler = "agentCancellationTaskScheduler")
+  public void dispatchCancellations() {
+    dispatch(queue.claimReadyCancellations(Instant.now()));
+  }
+
+  private void dispatch(java.util.List<String> commandIds) {
+    for (var commandId : commandIds) {
       try {
         processor.process(commandId);
       } catch (RuntimeException exception) {

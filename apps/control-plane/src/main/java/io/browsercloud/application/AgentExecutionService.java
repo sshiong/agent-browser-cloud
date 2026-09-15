@@ -24,6 +24,7 @@ import io.browsercloud.persistence.AgentTaskJpaRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -166,6 +167,66 @@ public class AgentExecutionService {
     task.startExecution(operation.operationId(), executorId, leaseUntil(now), now);
     taskRepository.save(task);
     drive(task, session, operation, plan, new ArrayList<>());
+    return taskService.get(taskId, tenantId);
+  }
+
+  /**
+   * Cancels both the PostgreSQL-authoritative task and any Node action still running for its exact
+   * Operation epoch. The durable Node command is written before the Operation becomes terminal, so
+   * retries remain fenced even when cancellation and the original action are delivered out of
+   * order.
+   */
+  @Transactional
+  public AgentTaskView cancel(String taskId, String tenantId, String actorId) {
+    var task = requireTask(taskId, tenantId);
+    if (isTerminal(task)) {
+      return taskService.get(taskId, tenantId);
+    }
+    var session = sessionRepository.require(task.getSessionId());
+    if (!session.tenantId().equals(tenantId)) {
+      throw new TenantAccessDeniedException(session.sessionId());
+    }
+    var activeOperation =
+        operationRepository
+            .findActive(task.getSessionId())
+            .filter(operation -> operation.operationId().equals(task.getOperationId()));
+    var nodeCancellationQueued =
+        task.getPendingStepId() != null
+            && session.state() == SessionState.RUNNING
+            && session.nodeId() != null
+            && task.getOperationId() != null
+            && operationRepository
+                .findByIds(List.of(task.getOperationId()))
+                .containsKey(task.getOperationId());
+    if (nodeCancellationQueued) {
+      cancelPendingNodeAction(task, "AGENT_TASK_CANCELLED");
+    }
+    activeOperation.ifPresent(
+        operation -> {
+          operationRepository.transition(
+              operation.operationId(), OperationState.ACTIVE, OperationState.ABORTED);
+        });
+    var now = Instant.now();
+    task.failExecution(
+        task.getCurrentStep(), task.getExecutionResults(), "AGENT_TASK_CANCELLED", now);
+    taskRepository.save(task);
+    audit.append(
+        new AuditApplicationService.AuditRecord(
+            tenantId,
+            task.getSessionId(),
+            "AGENT_TASK_CANCELLED",
+            "USER",
+            actorId,
+            "AGENT_TASK",
+            taskId,
+            "CANCEL",
+            "SUCCEEDED",
+            Map.of(
+                "operationId",
+                task.getOperationId() == null ? "" : task.getOperationId(),
+                "nodeCancellationQueued",
+                nodeCancellationQueued),
+            taskId));
     return taskService.get(taskId, tenantId);
   }
 
@@ -370,6 +431,7 @@ public class AgentExecutionService {
         || !expectedStepId.equals(task.getPendingStepId())) {
       throw new AgentExecutionRejectedException("STALE_AGENT_STEP");
     }
+    cancelPendingNodeAction(task, "AGENT_STEP_TERMINATED");
     operationRepository
         .findActive(task.getSessionId())
         .filter(value -> value.operationId().equals(operationId))
@@ -409,6 +471,7 @@ public class AgentExecutionService {
             .findActive(task.getSessionId())
             .filter(value -> value.operationId().equals(task.getOperationId()));
     if (currentOperation.isEmpty()) {
+      cancelPendingNodeAction(task, "OPERATION_LEASE_LOST");
       task.failExecution(
           task.getCurrentStep(), task.getExecutionResults(), "COORDINATOR_FAILOVER_ABORTED", now);
       taskRepository.save(task);
@@ -430,6 +493,7 @@ public class AgentExecutionService {
     }
     var operation = currentOperation.orElseThrow();
     if (operation == null || operation.isExpired(now)) {
+      cancelPendingNodeAction(task, "AGENT_OPERATION_EXPIRED");
       task.failExecution(
           task.getCurrentStep(), task.getExecutionResults(), "AGENT_OPERATION_EXPIRED", now);
       taskRepository.save(task);
@@ -597,6 +661,7 @@ public class AgentExecutionService {
             task.getPendingStateVersion(),
             Instant.now());
       }
+      cancelPendingNodeAction(task, failureCode);
       operationRepository
           .findActive(session.sessionId())
           .filter(active -> active.operationId().equals(operation.operationId()))
@@ -613,6 +678,21 @@ public class AgentExecutionService {
     return taskRepository
         .findForUpdate(taskId, tenantId)
         .orElseThrow(AgentApplicationService.AgentTaskNotFoundException::new);
+  }
+
+  private void cancelPendingNodeAction(AgentTaskEntity task, String reason) {
+    if (task.getPendingStepId() == null || task.getOperationId() == null) {
+      return;
+    }
+    var session = sessionRepository.require(task.getSessionId());
+    if (session.state() != SessionState.RUNNING || session.nodeId() == null) {
+      return;
+    }
+    var operation =
+        operationRepository.findByIds(List.of(task.getOperationId())).get(task.getOperationId());
+    if (operation != null) {
+      actionToolService.cancelInFlight(session, operation, task.getTaskId(), safeCode(reason));
+    }
   }
 
   private SessionContext requireRunningSession(AgentTaskEntity task, String tenantId) {

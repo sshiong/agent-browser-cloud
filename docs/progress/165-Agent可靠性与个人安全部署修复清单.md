@@ -38,7 +38,7 @@
 | A12 | Reviewer 风险路由 | progress 178 已闭环：仅可信、无 taint/敏感输入/确认且 Task/Step 均为 R0/R1 的计划确定性旁路；R2+、风险低报或解析异常仍强制模型审核 |
 | A13 | Prompt Injection 来源与权限传播 | progress 179 已闭环：外部来源永久 data-only，保留/重复 ID 拒绝，创建与每次执行按精确可信来源/Trust/taint 双重 fail-closed |
 | A14 | Worker 空轮询 | progress 180 已闭环：六类 Worker 使用 V120 事务通知与 15 秒有界长轮询，丢通知/断线由权威重查及 backoff+jitter 兜底 |
-| A15 | 取消/Lease/Epoch | Vision lease-lost 已修复；Browser Node 长操作取消仍待验证 |
+| A15 | 取消/Lease/Epoch | progress 181 已闭环：人工取消、Operation 丢失/过期及权威 Epoch 前进会通过独立高优先级链快速终止 Node 动作、释放输入并终态排空迟到事件 |
 | A16 | Agent Trace / Why Stuck | progress 169 已闭环：Web/Tauri 统一展示持久步骤/动作/验证/失败/下一决策，完整集成通过 |
 | A17 | Profile 应用层加密 | 待检查现有对象存储与 restore 链后实施 |
 | A18 | 网站 Session Health / Reauth | 待独立于 Profile 恢复状态建模 |

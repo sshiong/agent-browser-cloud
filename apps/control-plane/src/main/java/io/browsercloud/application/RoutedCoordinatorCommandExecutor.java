@@ -67,6 +67,10 @@ public class RoutedCoordinatorCommandExecutor {
         yield agentExecution.execute(
             command.taskId(), command.tenantId(), command.idempotencyKey());
       }
+      case AGENT_CANCEL -> {
+        var command = read(payload, AgentCancel.class);
+        yield agentExecution.cancel(command.taskId(), command.tenantId(), command.actorId());
+      }
       case AGENT_ACCEPT_HANDOFF -> {
         var command = read(payload, AgentHandoff.class);
         yield governance.acceptHandoff(command.taskId(), command.tenantId(), command.actorId());

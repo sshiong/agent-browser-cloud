@@ -67,6 +67,7 @@ public class AgentActionToolService {
   private final NodeCommandGateway nodeCommandGateway;
   private final AgentControlPolicyService controlPolicies;
   private final AgentActionAttemptService actionAttempts;
+  private final BrowserCapacityApplicationService browserCapacity;
 
   public AgentActionToolService(
       BrowserStateRepository stateRepository,
@@ -74,13 +75,15 @@ public class AgentActionToolService {
       AgentCapabilityTokenService capabilityTokens,
       NodeCommandGateway nodeCommandGateway,
       AgentControlPolicyService controlPolicies,
-      AgentActionAttemptService actionAttempts) {
+      AgentActionAttemptService actionAttempts,
+      BrowserCapacityApplicationService browserCapacity) {
     this.stateRepository = stateRepository;
     this.capabilityUses = capabilityUses;
     this.capabilityTokens = capabilityTokens;
     this.nodeCommandGateway = nodeCommandGateway;
     this.controlPolicies = controlPolicies;
     this.actionAttempts = actionAttempts;
+    this.browserCapacity = browserCapacity;
   }
 
   public PendingAction authorizeAndQueue(
@@ -93,6 +96,11 @@ public class AgentActionToolService {
       Instant now) {
     if (!SUPPORTED.contains(step.toolId()) || step.input() == null) {
       throw new ActionToolException("ACTION_STEP_INVALID");
+    }
+    if (session.nodeId() == null
+        || !browserCapacity.nodeHasCapability(
+            session.nodeId(), "agentActionCancellation", "authority-watch-v1")) {
+      throw new ActionToolException("AGENT_ACTION_CANCELLATION_UNAVAILABLE");
     }
     var snapshot =
         stateRepository
@@ -146,6 +154,12 @@ public class AgentActionToolService {
     }
     return new PendingAction(
         state.stateVersion(), state.stateHash(), now.plus(COLLABORATIVE_INPUT_WAIT));
+  }
+
+  /** Persists an idempotent Node-side fence before the authoritative task operation is aborted. */
+  public void cancelInFlight(
+      SessionContext session, ExclusiveOperation operation, String taskId, String reason) {
+    nodeCommandGateway.send(NodeCommands.cancelAgentAction(session, operation, taskId, reason));
   }
 
   private static void validateInput(

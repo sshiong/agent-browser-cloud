@@ -153,6 +153,7 @@ OPERATIONS: dict[str, Operation] = {
     'listAgentTaskSummaries': Operation('listAgentTaskSummaries', 'GET', '/api/v1/agent-task-summaries', (), ('cursor', 'limit'), ('X-Tenant-Id',), '', False, 'AgentTaskSummaryListResponse'),
     'getAgentTask': Operation('getAgentTask', 'GET', '/api/v1/agent-tasks/{taskId}', ('taskId',), (), ('X-Tenant-Id',), '', False, 'AgentTask'),
     'executeAgentTask': Operation('executeAgentTask', 'POST', '/api/v1/agent-tasks/{taskId}:execute', ('taskId',), (), ('Idempotency-Key', 'X-Tenant-Id'), '', False, 'AgentTask'),
+    'cancelAgentTask': Operation('cancelAgentTask', 'POST', '/api/v1/agent-tasks/{taskId}:cancel', ('taskId',), (), ('Idempotency-Key', 'X-Tenant-Id'), '', False, 'AgentTask'),
     'claimAgentExecutionJob': Operation('claimAgentExecutionJob', 'POST', '/api/v1/agent-worker-jobs:claim', (), ('waitSeconds',), (), 'ClaimAgentExecutionJobRequest', True, 'AgentExecutionJobClaim'),
     'startAgentExecutionJob': Operation('startAgentExecutionJob', 'POST', '/api/v1/agent-worker-jobs/{jobId}:start', ('jobId',), (), (), 'AgentExecutionJobClaimRequest', True, 'AgentExecutionJob'),
     'heartbeatAgentExecutionJob': Operation('heartbeatAgentExecutionJob', 'POST', '/api/v1/agent-worker-jobs/{jobId}:heartbeat', ('jobId',), (), (), 'AgentExecutionJobClaimRequest', True, 'AgentExecutionJob'),
@@ -691,6 +692,9 @@ class BrowserCloudGeneratedClient:
 
     def executeAgentTask(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('executeAgentTask', path=path, query=query, body=body, headers=headers)
+
+    def cancelAgentTask(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('cancelAgentTask', path=path, query=query, body=body, headers=headers)
 
     def claimAgentExecutionJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('claimAgentExecutionJob', path=path, query=query, body=body, headers=headers)

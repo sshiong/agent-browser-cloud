@@ -379,6 +379,7 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   公开 API 为 246 Operations / 338 Schemas；
   Control Plane 553 项、Rust、完整 `make ci`、Desktop、N/N−1 与 PostgreSQL/Redis/MinIO/mTLS/
   Chromium Integration 均通过，输出 `agent_action_fast_cancellation=true`。A15 仓库内代码项关闭；
+  实现提交 `2695153` 的 GitHub `ci` run `34939222987` 与 `desktop` run `34939222878` 均成功。
   外部 HTTP/模型传输取消、目标云网络时延与副作用补偿仍是独立生产边界。
 
 - progress 180：Agent Executor、Reviewer、Outcome Verifier、Vision、Runtime Validation 与

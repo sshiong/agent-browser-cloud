@@ -48,7 +48,10 @@ Step 失败以及 Context/Operation/Coordinator/Route Epoch 前进统一投影�
 - 完整 PostgreSQL/Redis/MinIO/mTLS/真实 Chromium Integration 以 10 秒 `WAIT_FOR STATE_CHANGED`
   动作为探针：待原动作被真实 Node Claim 后调用取消 API，Node Journal 权威时间证明 3 秒内产生并
   投递 `ACTION_CANCELLED`；Task 为 FAILED、Operation 为 ABORTED、Audit 仅一条、取消重放相同，输出
-  `agent_action_fast_cancellation=true`。
+  `agent_action_fast_cancellation=true`；
+- 实现提交 `2695153` 已推送；GitHub `ci` run `34939222987`（含 Verify、供应链、完整 Integration、
+  Object Storage/Recording GameDay 与 Kubernetes Operator E2E）和 `desktop` run `34939222878`
+  （Windows/macOS）均成功。
 
 ## 边界
 

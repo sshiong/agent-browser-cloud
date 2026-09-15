@@ -177,10 +177,16 @@ public class AgentExecutionService {
    * order.
    */
   @Transactional
-  public AgentTaskView cancel(String taskId, String tenantId, String actorId) {
+  public AgentTaskView cancel(
+      String taskId, String tenantId, String actorId, String idempotencyKey) {
+    var cancellation =
+        idempotencyService.claimAgentCancellation(tenantId, taskId, actorId, idempotencyKey);
+    if (!cancellation.owner()) {
+      return readCancellationResponse(cancellation.responsePayload());
+    }
     var task = requireTask(taskId, tenantId);
     if (isTerminal(task)) {
-      return taskService.get(taskId, tenantId);
+      return completeCancellationResponse(taskId, tenantId, idempotencyKey);
     }
     var session = sessionRepository.require(task.getSessionId());
     if (!session.tenantId().equals(tenantId)) {
@@ -227,7 +233,7 @@ public class AgentExecutionService {
                 "nodeCancellationQueued",
                 nodeCancellationQueued),
             taskId));
-    return taskService.get(taskId, tenantId);
+    return completeCancellationResponse(taskId, tenantId, idempotencyKey);
   }
 
   /** Node 回调完成当前异步 Step 后继续执行。expectedStepId 使重复或乱序事件保持幂等并 fail-closed。 */
@@ -771,6 +777,21 @@ public class AgentExecutionService {
       return objectMapper.writeValueAsString(value);
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("Failed to persist Tool results", exception);
+    }
+  }
+
+  private AgentTaskView completeCancellationResponse(
+      String taskId, String tenantId, String idempotencyKey) {
+    var response = taskService.get(taskId, tenantId);
+    idempotencyService.completeAgentCancellation(tenantId, taskId, idempotencyKey, write(response));
+    return response;
+  }
+
+  private AgentTaskView readCancellationResponse(String value) {
+    try {
+      return objectMapper.readValue(value, AgentTaskView.class);
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("Failed to read idempotent cancellation response", exception);
     }
   }
 

@@ -84,6 +84,51 @@ public class IdempotencyService {
         candidateOperationId);
   }
 
+  AgentCancellationClaim claimAgentCancellation(
+      String tenantId, String taskId, String actorId, String idempotencyKey) {
+    var operationType = agentCancellationOperationType(taskId);
+    var requestHash = hashRequest(new AgentCancellationRequest(taskId, actorId));
+    int claimed =
+        repository.claim(
+            newId("idem_"),
+            tenantId,
+            operationType,
+            idempotencyKey,
+            requestHash,
+            taskId,
+            Instant.now());
+    if (claimed == 1) {
+      return new AgentCancellationClaim(true, null);
+    }
+    return repository
+        .findByTenantIdAndOperationTypeAndIdempotencyKey(tenantId, operationType, idempotencyKey)
+        .map(
+            record -> {
+              if (!record.getRequestHash().equals(requestHash)) {
+                throw new IdempotencyConflictException();
+              }
+              if (record.getResponsePayload() == null) {
+                throw new IllegalStateException("Idempotent cancellation response is incomplete");
+              }
+              return new AgentCancellationClaim(false, record.getResponsePayload());
+            })
+        .orElseThrow(() -> new IllegalStateException("Idempotency claim disappeared"));
+  }
+
+  void completeAgentCancellation(
+      String tenantId, String taskId, String idempotencyKey, String responsePayload) {
+    int completed =
+        repository.completeResponse(
+            tenantId,
+            agentCancellationOperationType(taskId),
+            idempotencyKey,
+            taskId,
+            responsePayload);
+    if (completed != 1) {
+      throw new IllegalStateException("Failed to complete idempotent cancellation response");
+    }
+  }
+
   String claimResourcePolicy(
       String tenantId,
       String sessionId,
@@ -385,4 +430,12 @@ public class IdempotencyService {
   private static String newId(String prefix) {
     return prefix + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
   }
+
+  private static String agentCancellationOperationType(String taskId) {
+    return "CANCEL_AGENT_TASK:" + taskId;
+  }
+
+  record AgentCancellationClaim(boolean owner, String responsePayload) {}
+
+  private record AgentCancellationRequest(String taskId, String actorId) {}
 }

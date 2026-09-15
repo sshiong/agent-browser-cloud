@@ -129,9 +129,11 @@ public class AgentController {
         principal.tenantId(),
         AGENT_CANCEL,
         idempotencyKey,
-        new AgentCancel(principal.tenantId(), taskId, principal.actorId()),
+        new AgentCancel(principal.tenantId(), taskId, principal.actorId(), idempotencyKey),
         AgentTaskView.class,
-        () -> executionService.cancel(taskId, principal.tenantId(), principal.actorId()));
+        () ->
+            executionService.cancel(
+                taskId, principal.tenantId(), principal.actorId(), idempotencyKey));
   }
 
   @PostMapping("/agent-tasks/{taskId}:approve")

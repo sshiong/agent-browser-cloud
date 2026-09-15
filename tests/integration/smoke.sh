@@ -4407,6 +4407,9 @@ test "$cancel_operation_state" = "ABORTED"
 cancel_audit_count="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from audit_events where resource_id='${cancel_task_id}' and event_type='AGENT_TASK_CANCELLED' and result='SUCCEEDED'")"
 test "$cancel_audit_count" = "1"
+cancel_response_snapshot_count="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from api_idempotency_records where tenant_id='tenant-integration' and operation_type='CANCEL_AGENT_TASK:${cancel_task_id}' and idempotency_key='smoke-agent-cancel-command-001' and response_payload is not null")"
+test "$cancel_response_snapshot_count" = "1"
 cancel_replay="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/agent-tasks/${cancel_task_id}:cancel" \
   -H 'X-Tenant-Id: tenant-integration' \

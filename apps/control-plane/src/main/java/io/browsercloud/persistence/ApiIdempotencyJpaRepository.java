@@ -36,4 +36,24 @@ public interface ApiIdempotencyJpaRepository extends JpaRepository<ApiIdempotenc
 
   Optional<ApiIdempotencyEntity> findByTenantIdAndOperationTypeAndIdempotencyKey(
       String tenantId, String operationType, String idempotencyKey);
+
+  @Modifying
+  @Query(
+      value =
+          """
+          UPDATE api_idempotency_records
+             SET response_payload = :responsePayload
+           WHERE tenant_id = :tenantId
+             AND operation_type = :operationType
+             AND idempotency_key = :idempotencyKey
+             AND resource_id = :resourceId
+             AND response_payload IS NULL
+          """,
+      nativeQuery = true)
+  int completeResponse(
+      @Param("tenantId") String tenantId,
+      @Param("operationType") String operationType,
+      @Param("idempotencyKey") String idempotencyKey,
+      @Param("resourceId") String resourceId,
+      @Param("responsePayload") String responsePayload);
 }

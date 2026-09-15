@@ -69,7 +69,13 @@ public class RoutedCoordinatorCommandExecutor {
       }
       case AGENT_CANCEL -> {
         var command = read(payload, AgentCancel.class);
-        yield agentExecution.cancel(command.taskId(), command.tenantId(), command.actorId());
+        yield agentExecution.cancel(
+            command.taskId(),
+            command.tenantId(),
+            command.actorId(),
+            command.idempotencyKey() == null || command.idempotencyKey().isBlank()
+                ? "legacy-routed-agent-cancel"
+                : command.idempotencyKey());
       }
       case AGENT_ACCEPT_HANDOFF -> {
         var command = read(payload, AgentHandoff.class);

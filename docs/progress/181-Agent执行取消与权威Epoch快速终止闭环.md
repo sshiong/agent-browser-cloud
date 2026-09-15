@@ -8,7 +8,9 @@ Step 失败以及 Context/Operation/Coordinator/Route Epoch 前进统一投影�
 
 - 新增幂等 `POST /api/v1/agent-tasks/{taskId}:cancel`。控制面先在同一 PostgreSQL 事务中写入
   `CancelAgentAction` Outbox，再将当前 Exclusive Operation 原子转为 `ABORTED`、Task 转为
-  `FAILED/AGENT_TASK_CANCELLED` 并追加一次 Audit；同一 Idempotency-Key 重放返回同一终态；
+  `FAILED/AGENT_TASK_CANCELLED` 并追加一次 Audit；V121 在通用 API 幂等记录中保存首次提交的
+  `AgentTaskView` 响应快照，本地或远程 Coordinator 路由的同一 Idempotency-Key 都精确重放该快照，
+  即使迟到 Node 事件随后更新 Task 时间或失败证据也不会改变重放结果；
 - Step 失败、执行异常、恢复时发现 Operation 已丢失，以及 Operation deadline 过期也走同一
   `cancelPendingNodeAction` 入口。外部 Worker 自己的短 Lease 丢失仍由既有 Token/Epoch 拒绝迟到提交；
   只有控制面确认权威 Operation 不再有效时才终止已派发的浏览器动作，避免瞬时 Worker 重领误杀；
@@ -35,13 +37,14 @@ Step 失败以及 Context/Operation/Coordinator/Route Epoch 前进统一投影�
   要求该能力；因此滚动升级必须先升级 Node，版本顺序错误会以
   `AGENT_ACTION_CANCELLATION_UNAVAILABLE` 在副作用前 fail-closed。公开 API 只新增一个取消 Operation，
   基线为 246 Operations / 338 Schemas，四语言 SDK 与生成 Manifest 已同步；
-- 本切片不新增数据库迁移。回滚应用时既有 Outbox/Coordinator 行仍保留原幂等与 deadline 语义；
-  应先停止新版本流量并排空 `CancelAgentAction`，再回滚到不识别该命令的 Node，避免把安全取消降级成
-  `UNSUPPORTED_COMMAND`。
+- V121 只向既有 `api_idempotency_records` 增加 nullable `response_payload TEXT`，不回填、不扫描或改写
+  历史行；旧应用可忽略该列。新应用继续兼容升级前已入队、尚无 payload 幂等键字段的
+  `AGENT_CANCEL_V1`，以 Task 范围内的确定性 legacy key 收敛。回滚应用时应先停止新版本流量并排空
+  `CancelAgentAction`，再回滚到不识别该命令的 Node，避免把安全取消降级成 `UNSUPPORTED_COMMAND`。
 
 ## 验证
 
-- Control Plane 553 项测试通过；Rust Workspace、Clippy 和 Node 定向测试覆盖显式 Task 取消、
+- Control Plane 555 项测试通过；Rust Workspace、Clippy 和 Node 定向测试覆盖显式 Task 取消、
   Context/Operation/Term/Route 前进、取消先到与稳定错误码；
 - OpenAPI 校验、四语言 SDK 生成/漂移检查、完整 `make ci`、Desktop test/lint/unsigned build 与
   N/N−1 Gate 通过；

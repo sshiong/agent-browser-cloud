@@ -28,7 +28,8 @@ public final class CoordinatorCommandPayloads {
 
   public record AgentExecute(String tenantId, String taskId, String idempotencyKey) {}
 
-  public record AgentCancel(String tenantId, String taskId, String actorId) {}
+  public record AgentCancel(
+      String tenantId, String taskId, String actorId, String idempotencyKey) {}
 
   public record AgentHandoff(String tenantId, String taskId, String actorId) {}
 

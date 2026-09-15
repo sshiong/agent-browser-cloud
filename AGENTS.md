@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **245 Operations / 338 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **246 Operations / 338 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -93,7 +93,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V120 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V121 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -376,8 +376,10 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   Coordinator 与 Node 取消命令走独立双线程高优先级调度链；Node 以 Task/Context/Operation/
   Term/Route 栅栏、注册竞态 tombstone 和 watch 中断长动作并 release-all。迟到失败事件以
   `STALE_AGENT_OPERATION` 终态排空，不能复活任务；旧 Node 缺少取消能力时动作前 fail-closed。
+  V121 在通用 API 幂等账本增加可选响应快照；本地与远程路由都按同一取消幂等键返回首次提交的
+  `AgentTaskView`，不会因迟到 Node 事件继续更新 Task 投影而产生不同重放响应。
   公开 API 为 246 Operations / 338 Schemas；
-  Control Plane 553 项、Rust、完整 `make ci`、Desktop、N/N−1 与 PostgreSQL/Redis/MinIO/mTLS/
+  Control Plane 555 项、Rust、完整 `make ci`、Desktop、N/N−1 与 PostgreSQL/Redis/MinIO/mTLS/
   Chromium Integration 均通过，输出 `agent_action_fast_cancellation=true`。A15 仓库内代码项关闭；
   实现提交 `2695153` 的 GitHub `ci` run `34939222987` 与 `desktop` run `34939222878` 均成功。
   外部 HTTP/模型传输取消、目标云网络时延与副作用补偿仍是独立生产边界。

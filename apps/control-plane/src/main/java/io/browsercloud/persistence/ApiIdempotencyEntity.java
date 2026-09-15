@@ -30,6 +30,9 @@ public class ApiIdempotencyEntity {
   @Column(name = "resource_id", nullable = false)
   private String resourceId;
 
+  @Column(name = "response_payload")
+  private String responsePayload;
+
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
 
@@ -81,6 +84,14 @@ public class ApiIdempotencyEntity {
 
   public void setResourceId(String resourceId) {
     this.resourceId = resourceId;
+  }
+
+  public String getResponsePayload() {
+    return responsePayload;
+  }
+
+  public void setResponsePayload(String responsePayload) {
+    this.responsePayload = responsePayload;
   }
 
   public Instant getCreatedAt() {

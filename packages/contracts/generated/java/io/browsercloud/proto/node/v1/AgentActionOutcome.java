@@ -20,6 +20,7 @@ public final class AgentActionOutcome extends com.google.protobuf.GeneratedMessa
     actionId_ = "";
     status_ = "";
     errorCode_ = "";
+    boundaryReason_ = "";
   }
 
   @java.lang.Override
@@ -192,6 +193,66 @@ public final class AgentActionOutcome extends com.google.protobuf.GeneratedMessa
     return targetRevision_;
   }
 
+  public static final int MICRO_BATCH_INDEX_FIELD_NUMBER = 6;
+  private int microBatchIndex_ = 0;
+
+  /**
+   *
+   *
+   * <pre>
+   * Additive pacing trace. N-1 Nodes leave both fields at zero/empty.
+   * </pre>
+   *
+   * <code>uint32 micro_batch_index = 6 [json_name = "microBatchIndex"];</code>
+   *
+   * @return The microBatchIndex.
+   */
+  @java.lang.Override
+  public int getMicroBatchIndex() {
+    return microBatchIndex_;
+  }
+
+  public static final int BOUNDARY_REASON_FIELD_NUMBER = 7;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object boundaryReason_ = "";
+
+  /**
+   * <code>string boundary_reason = 7 [json_name = "boundaryReason"];</code>
+   *
+   * @return The boundaryReason.
+   */
+  @java.lang.Override
+  public java.lang.String getBoundaryReason() {
+    java.lang.Object ref = boundaryReason_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      boundaryReason_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string boundary_reason = 7 [json_name = "boundaryReason"];</code>
+   *
+   * @return The bytes for boundaryReason.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getBoundaryReasonBytes() {
+    java.lang.Object ref = boundaryReason_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      boundaryReason_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
 
   @java.lang.Override
@@ -221,6 +282,12 @@ public final class AgentActionOutcome extends com.google.protobuf.GeneratedMessa
     if (targetRevision_ != 0L) {
       output.writeUInt64(5, targetRevision_);
     }
+    if (microBatchIndex_ != 0) {
+      output.writeUInt32(6, microBatchIndex_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(boundaryReason_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 7, boundaryReason_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -245,6 +312,12 @@ public final class AgentActionOutcome extends com.google.protobuf.GeneratedMessa
     if (targetRevision_ != 0L) {
       size += com.google.protobuf.CodedOutputStream.computeUInt64Size(5, targetRevision_);
     }
+    if (microBatchIndex_ != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(6, microBatchIndex_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(boundaryReason_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, boundaryReason_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -266,6 +339,8 @@ public final class AgentActionOutcome extends com.google.protobuf.GeneratedMessa
     if (!getErrorCode().equals(other.getErrorCode())) return false;
     if (getStateVersion() != other.getStateVersion()) return false;
     if (getTargetRevision() != other.getTargetRevision()) return false;
+    if (getMicroBatchIndex() != other.getMicroBatchIndex()) return false;
+    if (!getBoundaryReason().equals(other.getBoundaryReason())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -287,6 +362,10 @@ public final class AgentActionOutcome extends com.google.protobuf.GeneratedMessa
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getStateVersion());
     hash = (37 * hash) + TARGET_REVISION_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getTargetRevision());
+    hash = (37 * hash) + MICRO_BATCH_INDEX_FIELD_NUMBER;
+    hash = (53 * hash) + getMicroBatchIndex();
+    hash = (37 * hash) + BOUNDARY_REASON_FIELD_NUMBER;
+    hash = (53 * hash) + getBoundaryReason().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -424,6 +503,8 @@ public final class AgentActionOutcome extends com.google.protobuf.GeneratedMessa
       errorCode_ = "";
       stateVersion_ = 0L;
       targetRevision_ = 0L;
+      microBatchIndex_ = 0;
+      boundaryReason_ = "";
       return this;
     }
 
@@ -474,6 +555,12 @@ public final class AgentActionOutcome extends com.google.protobuf.GeneratedMessa
       }
       if (((from_bitField0_ & 0x00000010) != 0)) {
         result.targetRevision_ = targetRevision_;
+      }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.microBatchIndex_ = microBatchIndex_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.boundaryReason_ = boundaryReason_;
       }
     }
 
@@ -544,6 +631,14 @@ public final class AgentActionOutcome extends com.google.protobuf.GeneratedMessa
       if (other.getTargetRevision() != 0L) {
         setTargetRevision(other.getTargetRevision());
       }
+      if (other.getMicroBatchIndex() != 0) {
+        setMicroBatchIndex(other.getMicroBatchIndex());
+      }
+      if (!other.getBoundaryReason().isEmpty()) {
+        boundaryReason_ = other.boundaryReason_;
+        bitField0_ |= 0x00000040;
+        onChanged();
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -600,6 +695,18 @@ public final class AgentActionOutcome extends com.google.protobuf.GeneratedMessa
                 bitField0_ |= 0x00000010;
                 break;
               } // case 40
+            case 48:
+              {
+                microBatchIndex_ = input.readUInt32();
+                bitField0_ |= 0x00000020;
+                break;
+              } // case 48
+            case 58:
+              {
+                boundaryReason_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000040;
+                break;
+              } // case 58
             default:
               {
                 if (!super.parseUnknownField(input, extensionRegistry, tag)) {
@@ -934,6 +1041,143 @@ public final class AgentActionOutcome extends com.google.protobuf.GeneratedMessa
     public Builder clearTargetRevision() {
       bitField0_ = (bitField0_ & ~0x00000010);
       targetRevision_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private int microBatchIndex_;
+
+    /**
+     *
+     *
+     * <pre>
+     * Additive pacing trace. N-1 Nodes leave both fields at zero/empty.
+     * </pre>
+     *
+     * <code>uint32 micro_batch_index = 6 [json_name = "microBatchIndex"];</code>
+     *
+     * @return The microBatchIndex.
+     */
+    @java.lang.Override
+    public int getMicroBatchIndex() {
+      return microBatchIndex_;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Additive pacing trace. N-1 Nodes leave both fields at zero/empty.
+     * </pre>
+     *
+     * <code>uint32 micro_batch_index = 6 [json_name = "microBatchIndex"];</code>
+     *
+     * @param value The microBatchIndex to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMicroBatchIndex(int value) {
+
+      microBatchIndex_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Additive pacing trace. N-1 Nodes leave both fields at zero/empty.
+     * </pre>
+     *
+     * <code>uint32 micro_batch_index = 6 [json_name = "microBatchIndex"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearMicroBatchIndex() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      microBatchIndex_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object boundaryReason_ = "";
+
+    /**
+     * <code>string boundary_reason = 7 [json_name = "boundaryReason"];</code>
+     *
+     * @return The boundaryReason.
+     */
+    public java.lang.String getBoundaryReason() {
+      java.lang.Object ref = boundaryReason_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        boundaryReason_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string boundary_reason = 7 [json_name = "boundaryReason"];</code>
+     *
+     * @return The bytes for boundaryReason.
+     */
+    public com.google.protobuf.ByteString getBoundaryReasonBytes() {
+      java.lang.Object ref = boundaryReason_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        boundaryReason_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string boundary_reason = 7 [json_name = "boundaryReason"];</code>
+     *
+     * @param value The boundaryReason to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBoundaryReason(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      boundaryReason_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string boundary_reason = 7 [json_name = "boundaryReason"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearBoundaryReason() {
+      boundaryReason_ = getDefaultInstance().getBoundaryReason();
+      bitField0_ = (bitField0_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string boundary_reason = 7 [json_name = "boundaryReason"];</code>
+     *
+     * @param value The bytes for boundaryReason to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBoundaryReasonBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      boundaryReason_ = value;
+      bitField0_ |= 0x00000040;
       onChanged();
       return this;
     }

@@ -64,4 +64,31 @@ public interface AgentActionOutcomeOrBuilder
    * @return The targetRevision.
    */
   long getTargetRevision();
+
+  /**
+   *
+   *
+   * <pre>
+   * Additive pacing trace. N-1 Nodes leave both fields at zero/empty.
+   * </pre>
+   *
+   * <code>uint32 micro_batch_index = 6 [json_name = "microBatchIndex"];</code>
+   *
+   * @return The microBatchIndex.
+   */
+  int getMicroBatchIndex();
+
+  /**
+   * <code>string boundary_reason = 7 [json_name = "boundaryReason"];</code>
+   *
+   * @return The boundaryReason.
+   */
+  java.lang.String getBoundaryReason();
+
+  /**
+   * <code>string boundary_reason = 7 [json_name = "boundaryReason"];</code>
+   *
+   * @return The bytes for boundaryReason.
+   */
+  com.google.protobuf.ByteString getBoundaryReasonBytes();
 }

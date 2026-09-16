@@ -6717,6 +6717,7 @@ impl NodeControlService {
             "ChallengeAutomationAction" => {
                 match ChallengeAutomationActionCommand::decode(command.payload.as_slice()) {
                     Ok(payload) => {
+                        let structural_click = !payload.target_ref.is_empty();
                         let legacy_motion = payload.motion_min_steps == 0
                             && payload.motion_max_steps == 0
                             && payload.motion_min_delay_ms == 0
@@ -6760,8 +6761,28 @@ impl NodeControlService {
                             || !payload.base_content_hash.bytes().all(|value| {
                                 value.is_ascii_hexdigit() && !value.is_ascii_uppercase()
                             })
-                            || payload.actions.is_empty()
                             || payload.actions.len() > 8
+                            || (structural_click
+                                && (!payload.actions.is_empty()
+                                    || payload.target_ref.chars().count() > 256
+                                    || payload.target_revision == 0
+                                    || payload.visual_anchor_hash.len() != 64
+                                    || !payload.visual_anchor_hash.bytes().all(|value| {
+                                        value.is_ascii_hexdigit() && !value.is_ascii_uppercase()
+                                    })
+                                    || ![
+                                        payload.expected_x,
+                                        payload.expected_y,
+                                        payload.expected_width,
+                                        payload.expected_height,
+                                    ]
+                                    .iter()
+                                    .all(|value| value.is_finite())
+                                    || payload.expected_x < 0.0
+                                    || payload.expected_y < 0.0
+                                    || payload.expected_width <= 0.0
+                                    || payload.expected_height <= 0.0))
+                            || (!structural_click && payload.actions.is_empty())
                             || !(4..=32).contains(&motion_min_steps)
                             || !(motion_min_steps..=40).contains(&motion_max_steps)
                             || !(5..=100).contains(&motion_min_delay_ms)
@@ -6774,7 +6795,9 @@ impl NodeControlService {
                                 anyhow::anyhow!("Challenge automation payload is invalid"),
                             );
                         }
-                        if challenge_visual_action_budget(&payload.actions).is_none() {
+                        if !structural_click
+                            && challenge_visual_action_budget(&payload.actions).is_none()
+                        {
                             return self
                                 .challenge_automation_failed(
                                     command,
@@ -6835,6 +6858,139 @@ impl NodeControlService {
                                     "STALE_CHALLENGE_SCREENSHOT",
                                 )
                                 .await;
+                        }
+                        if structural_click {
+                            if current.target_revision != payload.target_revision {
+                                return self
+                                    .challenge_automation_failed(
+                                        command,
+                                        &payload,
+                                        "STALE_CHALLENGE_TARGET",
+                                    )
+                                    .await;
+                            }
+                            let target = match self
+                                .state_collector
+                                .resolve_target(
+                                    &command.session_id,
+                                    &payload.target_ref,
+                                    payload.target_revision,
+                                )
+                                .await
+                            {
+                                Ok(target) => target,
+                                Err(_) => {
+                                    return self
+                                        .challenge_automation_failed(
+                                            command,
+                                            &payload,
+                                            "CHALLENGE_TARGET_UNAVAILABLE",
+                                        )
+                                        .await
+                                }
+                            };
+                            let expected = [
+                                payload.expected_x,
+                                payload.expected_y,
+                                payload.expected_width,
+                                payload.expected_height,
+                            ];
+                            let actual = [
+                                target.bounds.x,
+                                target.bounds.y,
+                                target.bounds.width,
+                                target.bounds.height,
+                            ];
+                            if !target.visible
+                                || !target.enabled
+                                || target.sensitive
+                                || !matches!(target.role.as_str(), "button" | "checkbox")
+                                || expected
+                                    .iter()
+                                    .zip(actual.iter())
+                                    .any(|(expected, actual)| (expected - actual).abs() > 0.01)
+                                || Self::human_assist_anchor(
+                                    &payload.target_ref,
+                                    &target.role,
+                                    target.bounds.x,
+                                    target.bounds.y,
+                                    target.bounds.width,
+                                    target.bounds.height,
+                                ) != payload.visual_anchor_hash
+                            {
+                                return self
+                                    .challenge_automation_failed(
+                                        command,
+                                        &payload,
+                                        "VISUAL_ANCHOR_MISMATCH",
+                                    )
+                                    .await;
+                            }
+                            let click = AgentActionCommand {
+                                session_id: payload.session_id.clone(),
+                                task_id: "agt_challenge000000000".to_owned(),
+                                step_id: "step_challenge_once".to_owned(),
+                                tool_id: "CLICK_TARGET".to_owned(),
+                                target_ref: payload.target_ref.clone(),
+                                target_revision: payload.target_revision,
+                                sealed_text: String::new(),
+                                text: String::new(),
+                                scroll_delta_y: 0,
+                                wait_condition: String::new(),
+                                timeout_ms: 0,
+                                base_state_version: current.state_version,
+                                base_content_hash: current.content_hash,
+                                allow_sensitive_target: false,
+                                maximum_attempts: 1,
+                                actions: Vec::new(),
+                                stop_on_error: true,
+                                tab_id: String::new(),
+                                tab_url: String::new(),
+                                dialog_id: String::new(),
+                                end_target_ref: String::new(),
+                                key: String::new(),
+                                button: 0,
+                                delta_x: 0,
+                                delta_y: 0,
+                                duration_ms: 0,
+                            };
+                            let state = match self.execute_agent_action(&click).await {
+                                Ok(state) => state,
+                                Err(error) => {
+                                    tracing::warn!(
+                                        run_id = payload.run_id,
+                                        job_id = payload.job_id,
+                                        error = %error,
+                                        "Structural Challenge click failed"
+                                    );
+                                    return self
+                                        .challenge_automation_failed(
+                                            command,
+                                            &payload,
+                                            "CHALLENGE_AUTOMATION_INPUT_FAILED",
+                                        )
+                                        .await;
+                                }
+                            };
+                            let sequence = match self.next_event_sequence(&command.session_id).await
+                            {
+                                Ok(sequence) => sequence,
+                                Err(error) => return self.failed(command, error),
+                            };
+                            let mut state_payload = Self::browser_state_payload(state.clone());
+                            state_payload.snapshot_kind = "CHALLENGE_AUTOMATION".to_owned();
+                            state_payload.requested_root_ref = payload.job_id;
+                            let event = Self::event(
+                                command,
+                                "BrowserStateUpdated",
+                                sequence,
+                                state_payload,
+                            );
+                            return Self::state_result(
+                                Self::ack(&command.message_id, true, "", ""),
+                                event,
+                                state,
+                            );
                         }
                         let (viewport_width, viewport_height) = match self
                             .state_collector

@@ -158,4 +158,83 @@ public interface ChallengeAutomationActionCommandOrBuilder
    * @return The targetOffsetRatio.
    */
   double getTargetOffsetRatio();
+
+  /**
+   *
+   *
+   * <pre>
+   * Optional exact structural target for a deterministic SINGLE_CLICK Challenge. When set,
+   * actions must be empty. N-1 Nodes ignore these fields and reject the empty action list before
+   * input, so rolling upgrades fail closed rather than treating this as a viewport click.
+   * </pre>
+   *
+   * <code>string target_ref = 14 [json_name = "targetRef"];</code>
+   *
+   * @return The targetRef.
+   */
+  java.lang.String getTargetRef();
+
+  /**
+   *
+   *
+   * <pre>
+   * Optional exact structural target for a deterministic SINGLE_CLICK Challenge. When set,
+   * actions must be empty. N-1 Nodes ignore these fields and reject the empty action list before
+   * input, so rolling upgrades fail closed rather than treating this as a viewport click.
+   * </pre>
+   *
+   * <code>string target_ref = 14 [json_name = "targetRef"];</code>
+   *
+   * @return The bytes for targetRef.
+   */
+  com.google.protobuf.ByteString getTargetRefBytes();
+
+  /**
+   * <code>uint64 target_revision = 15 [json_name = "targetRevision"];</code>
+   *
+   * @return The targetRevision.
+   */
+  long getTargetRevision();
+
+  /**
+   * <code>double expected_x = 16 [json_name = "expectedX"];</code>
+   *
+   * @return The expectedX.
+   */
+  double getExpectedX();
+
+  /**
+   * <code>double expected_y = 17 [json_name = "expectedY"];</code>
+   *
+   * @return The expectedY.
+   */
+  double getExpectedY();
+
+  /**
+   * <code>double expected_width = 18 [json_name = "expectedWidth"];</code>
+   *
+   * @return The expectedWidth.
+   */
+  double getExpectedWidth();
+
+  /**
+   * <code>double expected_height = 19 [json_name = "expectedHeight"];</code>
+   *
+   * @return The expectedHeight.
+   */
+  double getExpectedHeight();
+
+  /**
+   * <code>string visual_anchor_hash = 20 [json_name = "visualAnchorHash"];</code>
+   *
+   * @return The visualAnchorHash.
+   */
+  java.lang.String getVisualAnchorHash();
+
+  /**
+   * <code>string visual_anchor_hash = 20 [json_name = "visualAnchorHash"];</code>
+   *
+   * @return The bytes for visualAnchorHash.
+   */
+  com.google.protobuf.ByteString getVisualAnchorHashBytes();
 }

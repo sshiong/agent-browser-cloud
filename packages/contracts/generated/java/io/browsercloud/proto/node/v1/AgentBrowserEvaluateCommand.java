@@ -8,52 +8,53 @@ package io.browsercloud.proto.node.v1;
  *
  *
  * <pre>
- * Administrator-requested, read-only Observer screenshot. The request contains no arbitrary CDP
- * method or Object Storage coordinate.
+ * Governed Runtime.evaluate. The durable Outbox stores only sealed_expression; the dispatcher
+ * materializes expression immediately before mTLS delivery and clears the sealed field. The Node
+ * selects the authoritative active Page target and never accepts a caller-supplied CDP endpoint.
  * </pre>
  *
- * Protobuf type {@code browsercloud.node.v1.CaptureObserverScreenshotCommand}
+ * Protobuf type {@code browsercloud.node.v1.AgentBrowserEvaluateCommand}
  */
-public final class CaptureObserverScreenshotCommand extends com.google.protobuf.GeneratedMessageV3
+public final class AgentBrowserEvaluateCommand extends com.google.protobuf.GeneratedMessageV3
     implements
-    // @@protoc_insertion_point(message_implements:browsercloud.node.v1.CaptureObserverScreenshotCommand)
-    CaptureObserverScreenshotCommandOrBuilder {
+    // @@protoc_insertion_point(message_implements:browsercloud.node.v1.AgentBrowserEvaluateCommand)
+    AgentBrowserEvaluateCommandOrBuilder {
   private static final long serialVersionUID = 0L;
 
-  // Use CaptureObserverScreenshotCommand.newBuilder() to construct.
-  private CaptureObserverScreenshotCommand(
-      com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  // Use AgentBrowserEvaluateCommand.newBuilder() to construct.
+  private AgentBrowserEvaluateCommand(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
 
-  private CaptureObserverScreenshotCommand() {
+  private AgentBrowserEvaluateCommand() {
     sessionId_ = "";
-    captureId_ = "";
-    captureMode_ = "";
+    evaluationId_ = "";
+    evaluationMode_ = "";
     baseContentHash_ = "";
     activeTabId_ = "";
-    evidenceId_ = "";
+    sealedExpression_ = "";
+    expression_ = "";
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
   protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
-    return new CaptureObserverScreenshotCommand();
+    return new AgentBrowserEvaluateCommand();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
     return io.browsercloud.proto.node.v1.NodeCommand
-        .internal_static_browsercloud_node_v1_CaptureObserverScreenshotCommand_descriptor;
+        .internal_static_browsercloud_node_v1_AgentBrowserEvaluateCommand_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
     return io.browsercloud.proto.node.v1.NodeCommand
-        .internal_static_browsercloud_node_v1_CaptureObserverScreenshotCommand_fieldAccessorTable
+        .internal_static_browsercloud_node_v1_AgentBrowserEvaluateCommand_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand.class,
-            io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand.Builder.class);
+            io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand.class,
+            io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand.Builder.class);
   }
 
   public static final int SESSION_ID_FIELD_NUMBER = 1;
@@ -97,96 +98,82 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
     }
   }
 
-  public static final int CAPTURE_ID_FIELD_NUMBER = 2;
+  public static final int EVALUATION_ID_FIELD_NUMBER = 2;
 
   @SuppressWarnings("serial")
-  private volatile java.lang.Object captureId_ = "";
+  private volatile java.lang.Object evaluationId_ = "";
 
   /**
-   * <code>string capture_id = 2 [json_name = "captureId"];</code>
+   * <code>string evaluation_id = 2 [json_name = "evaluationId"];</code>
    *
-   * @return The captureId.
+   * @return The evaluationId.
    */
   @java.lang.Override
-  public java.lang.String getCaptureId() {
-    java.lang.Object ref = captureId_;
+  public java.lang.String getEvaluationId() {
+    java.lang.Object ref = evaluationId_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      captureId_ = s;
+      evaluationId_ = s;
       return s;
     }
   }
 
   /**
-   * <code>string capture_id = 2 [json_name = "captureId"];</code>
+   * <code>string evaluation_id = 2 [json_name = "evaluationId"];</code>
    *
-   * @return The bytes for captureId.
+   * @return The bytes for evaluationId.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString getCaptureIdBytes() {
-    java.lang.Object ref = captureId_;
+  public com.google.protobuf.ByteString getEvaluationIdBytes() {
+    java.lang.Object ref = evaluationId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
-      captureId_ = b;
+      evaluationId_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
     }
   }
 
-  public static final int CAPTURE_MODE_FIELD_NUMBER = 3;
+  public static final int EVALUATION_MODE_FIELD_NUMBER = 3;
 
   @SuppressWarnings("serial")
-  private volatile java.lang.Object captureMode_ = "";
+  private volatile java.lang.Object evaluationMode_ = "";
 
   /**
+   * <code>string evaluation_mode = 3 [json_name = "evaluationMode"];</code>
    *
-   *
-   * <pre>
-   * Optional only for legacy/manual Observer captures. Challenge automation must provide every
-   * field below so the Node captures one bounded region from one exact Browser State.
-   * </pre>
-   *
-   * <code>string capture_mode = 3 [json_name = "captureMode"];</code>
-   *
-   * @return The captureMode.
+   * @return The evaluationMode.
    */
   @java.lang.Override
-  public java.lang.String getCaptureMode() {
-    java.lang.Object ref = captureMode_;
+  public java.lang.String getEvaluationMode() {
+    java.lang.Object ref = evaluationMode_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      captureMode_ = s;
+      evaluationMode_ = s;
       return s;
     }
   }
 
   /**
+   * <code>string evaluation_mode = 3 [json_name = "evaluationMode"];</code>
    *
-   *
-   * <pre>
-   * Optional only for legacy/manual Observer captures. Challenge automation must provide every
-   * field below so the Node captures one bounded region from one exact Browser State.
-   * </pre>
-   *
-   * <code>string capture_mode = 3 [json_name = "captureMode"];</code>
-   *
-   * @return The bytes for captureMode.
+   * @return The bytes for evaluationMode.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString getCaptureModeBytes() {
-    java.lang.Object ref = captureMode_;
+  public com.google.protobuf.ByteString getEvaluationModeBytes() {
+    java.lang.Object ref = evaluationMode_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
-      captureMode_ = b;
+      evaluationMode_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
@@ -301,110 +288,125 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
     }
   }
 
-  public static final int REGION_X_FIELD_NUMBER = 8;
-  private double regionX_ = 0D;
-
-  /**
-   * <code>double region_x = 8 [json_name = "regionX"];</code>
-   *
-   * @return The regionX.
-   */
-  @java.lang.Override
-  public double getRegionX() {
-    return regionX_;
-  }
-
-  public static final int REGION_Y_FIELD_NUMBER = 9;
-  private double regionY_ = 0D;
-
-  /**
-   * <code>double region_y = 9 [json_name = "regionY"];</code>
-   *
-   * @return The regionY.
-   */
-  @java.lang.Override
-  public double getRegionY() {
-    return regionY_;
-  }
-
-  public static final int REGION_WIDTH_FIELD_NUMBER = 10;
-  private double regionWidth_ = 0D;
-
-  /**
-   * <code>double region_width = 10 [json_name = "regionWidth"];</code>
-   *
-   * @return The regionWidth.
-   */
-  @java.lang.Override
-  public double getRegionWidth() {
-    return regionWidth_;
-  }
-
-  public static final int REGION_HEIGHT_FIELD_NUMBER = 11;
-  private double regionHeight_ = 0D;
-
-  /**
-   * <code>double region_height = 11 [json_name = "regionHeight"];</code>
-   *
-   * @return The regionHeight.
-   */
-  @java.lang.Override
-  public double getRegionHeight() {
-    return regionHeight_;
-  }
-
-  public static final int EVIDENCE_ID_FIELD_NUMBER = 12;
+  public static final int SEALED_EXPRESSION_FIELD_NUMBER = 8;
 
   @SuppressWarnings("serial")
-  private volatile java.lang.Object evidenceId_ = "";
+  private volatile java.lang.Object sealedExpression_ = "";
 
   /**
-   * <code>string evidence_id = 12 [json_name = "evidenceId"];</code>
+   * <code>string sealed_expression = 8 [json_name = "sealedExpression"];</code>
    *
-   * @return The evidenceId.
+   * @return The sealedExpression.
    */
   @java.lang.Override
-  public java.lang.String getEvidenceId() {
-    java.lang.Object ref = evidenceId_;
+  public java.lang.String getSealedExpression() {
+    java.lang.Object ref = sealedExpression_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      evidenceId_ = s;
+      sealedExpression_ = s;
       return s;
     }
   }
 
   /**
-   * <code>string evidence_id = 12 [json_name = "evidenceId"];</code>
+   * <code>string sealed_expression = 8 [json_name = "sealedExpression"];</code>
    *
-   * @return The bytes for evidenceId.
+   * @return The bytes for sealedExpression.
    */
   @java.lang.Override
-  public com.google.protobuf.ByteString getEvidenceIdBytes() {
-    java.lang.Object ref = evidenceId_;
+  public com.google.protobuf.ByteString getSealedExpressionBytes() {
+    java.lang.Object ref = sealedExpression_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
-      evidenceId_ = b;
+      sealedExpression_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
     }
   }
 
-  public static final int CAPTURED_AT_MS_FIELD_NUMBER = 13;
-  private long capturedAtMs_ = 0L;
+  public static final int EXPRESSION_FIELD_NUMBER = 9;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object expression_ = "";
 
   /**
-   * <code>int64 captured_at_ms = 13 [json_name = "capturedAtMs"];</code>
+   * <code>string expression = 9 [json_name = "expression"];</code>
    *
-   * @return The capturedAtMs.
+   * @return The expression.
    */
   @java.lang.Override
-  public long getCapturedAtMs() {
-    return capturedAtMs_;
+  public java.lang.String getExpression() {
+    java.lang.Object ref = expression_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      expression_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string expression = 9 [json_name = "expression"];</code>
+   *
+   * @return The bytes for expression.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getExpressionBytes() {
+    java.lang.Object ref = expression_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      expression_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int AWAIT_PROMISE_FIELD_NUMBER = 10;
+  private boolean awaitPromise_ = false;
+
+  /**
+   * <code>bool await_promise = 10 [json_name = "awaitPromise"];</code>
+   *
+   * @return The awaitPromise.
+   */
+  @java.lang.Override
+  public boolean getAwaitPromise() {
+    return awaitPromise_;
+  }
+
+  public static final int TIMEOUT_MS_FIELD_NUMBER = 11;
+  private int timeoutMs_ = 0;
+
+  /**
+   * <code>uint32 timeout_ms = 11 [json_name = "timeoutMs"];</code>
+   *
+   * @return The timeoutMs.
+   */
+  @java.lang.Override
+  public int getTimeoutMs() {
+    return timeoutMs_;
+  }
+
+  public static final int MAXIMUM_RESULT_BYTES_FIELD_NUMBER = 12;
+  private int maximumResultBytes_ = 0;
+
+  /**
+   * <code>uint32 maximum_result_bytes = 12 [json_name = "maximumResultBytes"];</code>
+   *
+   * @return The maximumResultBytes.
+   */
+  @java.lang.Override
+  public int getMaximumResultBytes() {
+    return maximumResultBytes_;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -424,11 +426,11 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(sessionId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 1, sessionId_);
     }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(captureId_)) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 2, captureId_);
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(evaluationId_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 2, evaluationId_);
     }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(captureMode_)) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 3, captureMode_);
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(evaluationMode_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 3, evaluationMode_);
     }
     if (baseStateVersion_ != 0L) {
       output.writeUInt64(4, baseStateVersion_);
@@ -442,23 +444,20 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(activeTabId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 7, activeTabId_);
     }
-    if (java.lang.Double.doubleToRawLongBits(regionX_) != 0) {
-      output.writeDouble(8, regionX_);
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(sealedExpression_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 8, sealedExpression_);
     }
-    if (java.lang.Double.doubleToRawLongBits(regionY_) != 0) {
-      output.writeDouble(9, regionY_);
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(expression_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 9, expression_);
     }
-    if (java.lang.Double.doubleToRawLongBits(regionWidth_) != 0) {
-      output.writeDouble(10, regionWidth_);
+    if (awaitPromise_ != false) {
+      output.writeBool(10, awaitPromise_);
     }
-    if (java.lang.Double.doubleToRawLongBits(regionHeight_) != 0) {
-      output.writeDouble(11, regionHeight_);
+    if (timeoutMs_ != 0) {
+      output.writeUInt32(11, timeoutMs_);
     }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(evidenceId_)) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 12, evidenceId_);
-    }
-    if (capturedAtMs_ != 0L) {
-      output.writeInt64(13, capturedAtMs_);
+    if (maximumResultBytes_ != 0) {
+      output.writeUInt32(12, maximumResultBytes_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -472,11 +471,11 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(sessionId_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, sessionId_);
     }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(captureId_)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, captureId_);
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(evaluationId_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, evaluationId_);
     }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(captureMode_)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, captureMode_);
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(evaluationMode_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, evaluationMode_);
     }
     if (baseStateVersion_ != 0L) {
       size += com.google.protobuf.CodedOutputStream.computeUInt64Size(4, baseStateVersion_);
@@ -490,23 +489,20 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(activeTabId_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, activeTabId_);
     }
-    if (java.lang.Double.doubleToRawLongBits(regionX_) != 0) {
-      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(8, regionX_);
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(sealedExpression_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(8, sealedExpression_);
     }
-    if (java.lang.Double.doubleToRawLongBits(regionY_) != 0) {
-      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(9, regionY_);
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(expression_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, expression_);
     }
-    if (java.lang.Double.doubleToRawLongBits(regionWidth_) != 0) {
-      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(10, regionWidth_);
+    if (awaitPromise_ != false) {
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(10, awaitPromise_);
     }
-    if (java.lang.Double.doubleToRawLongBits(regionHeight_) != 0) {
-      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(11, regionHeight_);
+    if (timeoutMs_ != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(11, timeoutMs_);
     }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(evidenceId_)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(12, evidenceId_);
-    }
-    if (capturedAtMs_ != 0L) {
-      size += com.google.protobuf.CodedOutputStream.computeInt64Size(13, capturedAtMs_);
+    if (maximumResultBytes_ != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(12, maximumResultBytes_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -518,29 +514,24 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
     if (obj == this) {
       return true;
     }
-    if (!(obj instanceof io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand)) {
+    if (!(obj instanceof io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand)) {
       return super.equals(obj);
     }
-    io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand other =
-        (io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand) obj;
+    io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand other =
+        (io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand) obj;
 
     if (!getSessionId().equals(other.getSessionId())) return false;
-    if (!getCaptureId().equals(other.getCaptureId())) return false;
-    if (!getCaptureMode().equals(other.getCaptureMode())) return false;
+    if (!getEvaluationId().equals(other.getEvaluationId())) return false;
+    if (!getEvaluationMode().equals(other.getEvaluationMode())) return false;
     if (getBaseStateVersion() != other.getBaseStateVersion()) return false;
     if (getTargetRevision() != other.getTargetRevision()) return false;
     if (!getBaseContentHash().equals(other.getBaseContentHash())) return false;
     if (!getActiveTabId().equals(other.getActiveTabId())) return false;
-    if (java.lang.Double.doubleToLongBits(getRegionX())
-        != java.lang.Double.doubleToLongBits(other.getRegionX())) return false;
-    if (java.lang.Double.doubleToLongBits(getRegionY())
-        != java.lang.Double.doubleToLongBits(other.getRegionY())) return false;
-    if (java.lang.Double.doubleToLongBits(getRegionWidth())
-        != java.lang.Double.doubleToLongBits(other.getRegionWidth())) return false;
-    if (java.lang.Double.doubleToLongBits(getRegionHeight())
-        != java.lang.Double.doubleToLongBits(other.getRegionHeight())) return false;
-    if (!getEvidenceId().equals(other.getEvidenceId())) return false;
-    if (getCapturedAtMs() != other.getCapturedAtMs()) return false;
+    if (!getSealedExpression().equals(other.getSealedExpression())) return false;
+    if (!getExpression().equals(other.getExpression())) return false;
+    if (getAwaitPromise() != other.getAwaitPromise()) return false;
+    if (getTimeoutMs() != other.getTimeoutMs()) return false;
+    if (getMaximumResultBytes() != other.getMaximumResultBytes()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -554,10 +545,10 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
     hash = (19 * hash) + getDescriptor().hashCode();
     hash = (37 * hash) + SESSION_ID_FIELD_NUMBER;
     hash = (53 * hash) + getSessionId().hashCode();
-    hash = (37 * hash) + CAPTURE_ID_FIELD_NUMBER;
-    hash = (53 * hash) + getCaptureId().hashCode();
-    hash = (37 * hash) + CAPTURE_MODE_FIELD_NUMBER;
-    hash = (53 * hash) + getCaptureMode().hashCode();
+    hash = (37 * hash) + EVALUATION_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getEvaluationId().hashCode();
+    hash = (37 * hash) + EVALUATION_MODE_FIELD_NUMBER;
+    hash = (53 * hash) + getEvaluationMode().hashCode();
     hash = (37 * hash) + BASE_STATE_VERSION_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getBaseStateVersion());
     hash = (37 * hash) + TARGET_REVISION_FIELD_NUMBER;
@@ -566,100 +557,86 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
     hash = (53 * hash) + getBaseContentHash().hashCode();
     hash = (37 * hash) + ACTIVE_TAB_ID_FIELD_NUMBER;
     hash = (53 * hash) + getActiveTabId().hashCode();
-    hash = (37 * hash) + REGION_X_FIELD_NUMBER;
-    hash =
-        (53 * hash)
-            + com.google.protobuf.Internal.hashLong(
-                java.lang.Double.doubleToLongBits(getRegionX()));
-    hash = (37 * hash) + REGION_Y_FIELD_NUMBER;
-    hash =
-        (53 * hash)
-            + com.google.protobuf.Internal.hashLong(
-                java.lang.Double.doubleToLongBits(getRegionY()));
-    hash = (37 * hash) + REGION_WIDTH_FIELD_NUMBER;
-    hash =
-        (53 * hash)
-            + com.google.protobuf.Internal.hashLong(
-                java.lang.Double.doubleToLongBits(getRegionWidth()));
-    hash = (37 * hash) + REGION_HEIGHT_FIELD_NUMBER;
-    hash =
-        (53 * hash)
-            + com.google.protobuf.Internal.hashLong(
-                java.lang.Double.doubleToLongBits(getRegionHeight()));
-    hash = (37 * hash) + EVIDENCE_ID_FIELD_NUMBER;
-    hash = (53 * hash) + getEvidenceId().hashCode();
-    hash = (37 * hash) + CAPTURED_AT_MS_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getCapturedAtMs());
+    hash = (37 * hash) + SEALED_EXPRESSION_FIELD_NUMBER;
+    hash = (53 * hash) + getSealedExpression().hashCode();
+    hash = (37 * hash) + EXPRESSION_FIELD_NUMBER;
+    hash = (53 * hash) + getExpression().hashCode();
+    hash = (37 * hash) + AWAIT_PROMISE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getAwaitPromise());
+    hash = (37 * hash) + TIMEOUT_MS_FIELD_NUMBER;
+    hash = (53 * hash) + getTimeoutMs();
+    hash = (37 * hash) + MAXIMUM_RESULT_BYTES_FIELD_NUMBER;
+    hash = (53 * hash) + getMaximumResultBytes();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
   }
 
-  public static io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand parseFrom(
       java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
 
-  public static io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand parseFrom(
       java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
 
-  public static io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
 
-  public static io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
 
-  public static io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand parseFrom(
-      byte[] data) throws com.google.protobuf.InvalidProtocolBufferException {
+  public static io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand parseFrom(byte[] data)
+      throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
 
-  public static io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand parseFrom(
       byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
 
-  public static io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand parseFrom(
       java.io.InputStream input) throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand parseFrom(
       java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
         PARSER, input, extensionRegistry);
   }
 
-  public static io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand parseDelimitedFrom(
+  public static io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand parseDelimitedFrom(
       java.io.InputStream input) throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand parseDelimitedFrom(
+  public static io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand parseDelimitedFrom(
       java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
         PARSER, input, extensionRegistry);
   }
 
-  public static io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand parseFrom(
       com.google.protobuf.CodedInputStream input) throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -677,7 +654,7 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
   }
 
   public static Builder newBuilder(
-      io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand prototype) {
+      io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
 
@@ -696,32 +673,33 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
    *
    *
    * <pre>
-   * Administrator-requested, read-only Observer screenshot. The request contains no arbitrary CDP
-   * method or Object Storage coordinate.
+   * Governed Runtime.evaluate. The durable Outbox stores only sealed_expression; the dispatcher
+   * materializes expression immediately before mTLS delivery and clears the sealed field. The Node
+   * selects the authoritative active Page target and never accepts a caller-supplied CDP endpoint.
    * </pre>
    *
-   * Protobuf type {@code browsercloud.node.v1.CaptureObserverScreenshotCommand}
+   * Protobuf type {@code browsercloud.node.v1.AgentBrowserEvaluateCommand}
    */
   public static final class Builder extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
       implements
-      // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.CaptureObserverScreenshotCommand)
-      io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommandOrBuilder {
+      // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.AgentBrowserEvaluateCommand)
+      io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommandOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
       return io.browsercloud.proto.node.v1.NodeCommand
-          .internal_static_browsercloud_node_v1_CaptureObserverScreenshotCommand_descriptor;
+          .internal_static_browsercloud_node_v1_AgentBrowserEvaluateCommand_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return io.browsercloud.proto.node.v1.NodeCommand
-          .internal_static_browsercloud_node_v1_CaptureObserverScreenshotCommand_fieldAccessorTable
+          .internal_static_browsercloud_node_v1_AgentBrowserEvaluateCommand_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand.class,
-              io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand.Builder.class);
+              io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand.class,
+              io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand.Builder.class);
     }
 
-    // Construct using io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand.newBuilder()
+    // Construct using io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand.newBuilder()
     private Builder() {}
 
     private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
@@ -733,36 +711,34 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
       super.clear();
       bitField0_ = 0;
       sessionId_ = "";
-      captureId_ = "";
-      captureMode_ = "";
+      evaluationId_ = "";
+      evaluationMode_ = "";
       baseStateVersion_ = 0L;
       targetRevision_ = 0L;
       baseContentHash_ = "";
       activeTabId_ = "";
-      regionX_ = 0D;
-      regionY_ = 0D;
-      regionWidth_ = 0D;
-      regionHeight_ = 0D;
-      evidenceId_ = "";
-      capturedAtMs_ = 0L;
+      sealedExpression_ = "";
+      expression_ = "";
+      awaitPromise_ = false;
+      timeoutMs_ = 0;
+      maximumResultBytes_ = 0;
       return this;
     }
 
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
       return io.browsercloud.proto.node.v1.NodeCommand
-          .internal_static_browsercloud_node_v1_CaptureObserverScreenshotCommand_descriptor;
+          .internal_static_browsercloud_node_v1_AgentBrowserEvaluateCommand_descriptor;
     }
 
     @java.lang.Override
-    public io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand
-        getDefaultInstanceForType() {
-      return io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand.getDefaultInstance();
+    public io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand getDefaultInstanceForType() {
+      return io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand.getDefaultInstance();
     }
 
     @java.lang.Override
-    public io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand build() {
-      io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand result = buildPartial();
+    public io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand build() {
+      io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -770,9 +746,9 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
     }
 
     @java.lang.Override
-    public io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand buildPartial() {
-      io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand result =
-          new io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand(this);
+    public io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand buildPartial() {
+      io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand result =
+          new io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand(this);
       if (bitField0_ != 0) {
         buildPartial0(result);
       }
@@ -780,17 +756,16 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
       return result;
     }
 
-    private void buildPartial0(
-        io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand result) {
+    private void buildPartial0(io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand result) {
       int from_bitField0_ = bitField0_;
       if (((from_bitField0_ & 0x00000001) != 0)) {
         result.sessionId_ = sessionId_;
       }
       if (((from_bitField0_ & 0x00000002) != 0)) {
-        result.captureId_ = captureId_;
+        result.evaluationId_ = evaluationId_;
       }
       if (((from_bitField0_ & 0x00000004) != 0)) {
-        result.captureMode_ = captureMode_;
+        result.evaluationMode_ = evaluationMode_;
       }
       if (((from_bitField0_ & 0x00000008) != 0)) {
         result.baseStateVersion_ = baseStateVersion_;
@@ -805,22 +780,19 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
         result.activeTabId_ = activeTabId_;
       }
       if (((from_bitField0_ & 0x00000080) != 0)) {
-        result.regionX_ = regionX_;
+        result.sealedExpression_ = sealedExpression_;
       }
       if (((from_bitField0_ & 0x00000100) != 0)) {
-        result.regionY_ = regionY_;
+        result.expression_ = expression_;
       }
       if (((from_bitField0_ & 0x00000200) != 0)) {
-        result.regionWidth_ = regionWidth_;
+        result.awaitPromise_ = awaitPromise_;
       }
       if (((from_bitField0_ & 0x00000400) != 0)) {
-        result.regionHeight_ = regionHeight_;
+        result.timeoutMs_ = timeoutMs_;
       }
       if (((from_bitField0_ & 0x00000800) != 0)) {
-        result.evidenceId_ = evidenceId_;
-      }
-      if (((from_bitField0_ & 0x00001000) != 0)) {
-        result.capturedAtMs_ = capturedAtMs_;
+        result.maximumResultBytes_ = maximumResultBytes_;
       }
     }
 
@@ -859,30 +831,29 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
 
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand) {
-        return mergeFrom((io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand) other);
+      if (other instanceof io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand) {
+        return mergeFrom((io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand) other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand other) {
-      if (other
-          == io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand.getDefaultInstance())
+    public Builder mergeFrom(io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand other) {
+      if (other == io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand.getDefaultInstance())
         return this;
       if (!other.getSessionId().isEmpty()) {
         sessionId_ = other.sessionId_;
         bitField0_ |= 0x00000001;
         onChanged();
       }
-      if (!other.getCaptureId().isEmpty()) {
-        captureId_ = other.captureId_;
+      if (!other.getEvaluationId().isEmpty()) {
+        evaluationId_ = other.evaluationId_;
         bitField0_ |= 0x00000002;
         onChanged();
       }
-      if (!other.getCaptureMode().isEmpty()) {
-        captureMode_ = other.captureMode_;
+      if (!other.getEvaluationMode().isEmpty()) {
+        evaluationMode_ = other.evaluationMode_;
         bitField0_ |= 0x00000004;
         onChanged();
       }
@@ -902,25 +873,24 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
         bitField0_ |= 0x00000040;
         onChanged();
       }
-      if (other.getRegionX() != 0D) {
-        setRegionX(other.getRegionX());
-      }
-      if (other.getRegionY() != 0D) {
-        setRegionY(other.getRegionY());
-      }
-      if (other.getRegionWidth() != 0D) {
-        setRegionWidth(other.getRegionWidth());
-      }
-      if (other.getRegionHeight() != 0D) {
-        setRegionHeight(other.getRegionHeight());
-      }
-      if (!other.getEvidenceId().isEmpty()) {
-        evidenceId_ = other.evidenceId_;
-        bitField0_ |= 0x00000800;
+      if (!other.getSealedExpression().isEmpty()) {
+        sealedExpression_ = other.sealedExpression_;
+        bitField0_ |= 0x00000080;
         onChanged();
       }
-      if (other.getCapturedAtMs() != 0L) {
-        setCapturedAtMs(other.getCapturedAtMs());
+      if (!other.getExpression().isEmpty()) {
+        expression_ = other.expression_;
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
+      if (other.getAwaitPromise() != false) {
+        setAwaitPromise(other.getAwaitPromise());
+      }
+      if (other.getTimeoutMs() != 0) {
+        setTimeoutMs(other.getTimeoutMs());
+      }
+      if (other.getMaximumResultBytes() != 0) {
+        setMaximumResultBytes(other.getMaximumResultBytes());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -956,13 +926,13 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
               } // case 10
             case 18:
               {
-                captureId_ = input.readStringRequireUtf8();
+                evaluationId_ = input.readStringRequireUtf8();
                 bitField0_ |= 0x00000002;
                 break;
               } // case 18
             case 26:
               {
-                captureMode_ = input.readStringRequireUtf8();
+                evaluationMode_ = input.readStringRequireUtf8();
                 bitField0_ |= 0x00000004;
                 break;
               } // case 26
@@ -990,42 +960,36 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
                 bitField0_ |= 0x00000040;
                 break;
               } // case 58
-            case 65:
+            case 66:
               {
-                regionX_ = input.readDouble();
+                sealedExpression_ = input.readStringRequireUtf8();
                 bitField0_ |= 0x00000080;
                 break;
-              } // case 65
-            case 73:
+              } // case 66
+            case 74:
               {
-                regionY_ = input.readDouble();
+                expression_ = input.readStringRequireUtf8();
                 bitField0_ |= 0x00000100;
                 break;
-              } // case 73
-            case 81:
+              } // case 74
+            case 80:
               {
-                regionWidth_ = input.readDouble();
+                awaitPromise_ = input.readBool();
                 bitField0_ |= 0x00000200;
                 break;
-              } // case 81
-            case 89:
+              } // case 80
+            case 88:
               {
-                regionHeight_ = input.readDouble();
+                timeoutMs_ = input.readUInt32();
                 bitField0_ |= 0x00000400;
                 break;
-              } // case 89
-            case 98:
+              } // case 88
+            case 96:
               {
-                evidenceId_ = input.readStringRequireUtf8();
+                maximumResultBytes_ = input.readUInt32();
                 bitField0_ |= 0x00000800;
                 break;
-              } // case 98
-            case 104:
-              {
-                capturedAtMs_ = input.readInt64();
-                bitField0_ |= 0x00001000;
-                break;
-              } // case 104
+              } // case 96
             default:
               {
                 if (!super.parseUnknownField(input, extensionRegistry, tag)) {
@@ -1126,19 +1090,19 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
       return this;
     }
 
-    private java.lang.Object captureId_ = "";
+    private java.lang.Object evaluationId_ = "";
 
     /**
-     * <code>string capture_id = 2 [json_name = "captureId"];</code>
+     * <code>string evaluation_id = 2 [json_name = "evaluationId"];</code>
      *
-     * @return The captureId.
+     * @return The evaluationId.
      */
-    public java.lang.String getCaptureId() {
-      java.lang.Object ref = captureId_;
+    public java.lang.String getEvaluationId() {
+      java.lang.Object ref = evaluationId_;
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        captureId_ = s;
+        evaluationId_ = s;
         return s;
       } else {
         return (java.lang.String) ref;
@@ -1146,16 +1110,16 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
     }
 
     /**
-     * <code>string capture_id = 2 [json_name = "captureId"];</code>
+     * <code>string evaluation_id = 2 [json_name = "evaluationId"];</code>
      *
-     * @return The bytes for captureId.
+     * @return The bytes for evaluationId.
      */
-    public com.google.protobuf.ByteString getCaptureIdBytes() {
-      java.lang.Object ref = captureId_;
+    public com.google.protobuf.ByteString getEvaluationIdBytes() {
+      java.lang.Object ref = evaluationId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
-        captureId_ = b;
+        evaluationId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -1163,70 +1127,63 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
     }
 
     /**
-     * <code>string capture_id = 2 [json_name = "captureId"];</code>
+     * <code>string evaluation_id = 2 [json_name = "evaluationId"];</code>
      *
-     * @param value The captureId to set.
+     * @param value The evaluationId to set.
      * @return This builder for chaining.
      */
-    public Builder setCaptureId(java.lang.String value) {
+    public Builder setEvaluationId(java.lang.String value) {
       if (value == null) {
         throw new NullPointerException();
       }
-      captureId_ = value;
+      evaluationId_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
 
     /**
-     * <code>string capture_id = 2 [json_name = "captureId"];</code>
+     * <code>string evaluation_id = 2 [json_name = "evaluationId"];</code>
      *
      * @return This builder for chaining.
      */
-    public Builder clearCaptureId() {
-      captureId_ = getDefaultInstance().getCaptureId();
+    public Builder clearEvaluationId() {
+      evaluationId_ = getDefaultInstance().getEvaluationId();
       bitField0_ = (bitField0_ & ~0x00000002);
       onChanged();
       return this;
     }
 
     /**
-     * <code>string capture_id = 2 [json_name = "captureId"];</code>
+     * <code>string evaluation_id = 2 [json_name = "evaluationId"];</code>
      *
-     * @param value The bytes for captureId to set.
+     * @param value The bytes for evaluationId to set.
      * @return This builder for chaining.
      */
-    public Builder setCaptureIdBytes(com.google.protobuf.ByteString value) {
+    public Builder setEvaluationIdBytes(com.google.protobuf.ByteString value) {
       if (value == null) {
         throw new NullPointerException();
       }
       checkByteStringIsUtf8(value);
-      captureId_ = value;
+      evaluationId_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
 
-    private java.lang.Object captureMode_ = "";
+    private java.lang.Object evaluationMode_ = "";
 
     /**
+     * <code>string evaluation_mode = 3 [json_name = "evaluationMode"];</code>
      *
-     *
-     * <pre>
-     * Optional only for legacy/manual Observer captures. Challenge automation must provide every
-     * field below so the Node captures one bounded region from one exact Browser State.
-     * </pre>
-     *
-     * <code>string capture_mode = 3 [json_name = "captureMode"];</code>
-     *
-     * @return The captureMode.
+     * @return The evaluationMode.
      */
-    public java.lang.String getCaptureMode() {
-      java.lang.Object ref = captureMode_;
+    public java.lang.String getEvaluationMode() {
+      java.lang.Object ref = evaluationMode_;
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        captureMode_ = s;
+        evaluationMode_ = s;
         return s;
       } else {
         return (java.lang.String) ref;
@@ -1234,23 +1191,16 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
     }
 
     /**
+     * <code>string evaluation_mode = 3 [json_name = "evaluationMode"];</code>
      *
-     *
-     * <pre>
-     * Optional only for legacy/manual Observer captures. Challenge automation must provide every
-     * field below so the Node captures one bounded region from one exact Browser State.
-     * </pre>
-     *
-     * <code>string capture_mode = 3 [json_name = "captureMode"];</code>
-     *
-     * @return The bytes for captureMode.
+     * @return The bytes for evaluationMode.
      */
-    public com.google.protobuf.ByteString getCaptureModeBytes() {
-      java.lang.Object ref = captureMode_;
+    public com.google.protobuf.ByteString getEvaluationModeBytes() {
+      java.lang.Object ref = evaluationMode_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
-        captureMode_ = b;
+        evaluationMode_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -1258,66 +1208,45 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
     }
 
     /**
+     * <code>string evaluation_mode = 3 [json_name = "evaluationMode"];</code>
      *
-     *
-     * <pre>
-     * Optional only for legacy/manual Observer captures. Challenge automation must provide every
-     * field below so the Node captures one bounded region from one exact Browser State.
-     * </pre>
-     *
-     * <code>string capture_mode = 3 [json_name = "captureMode"];</code>
-     *
-     * @param value The captureMode to set.
+     * @param value The evaluationMode to set.
      * @return This builder for chaining.
      */
-    public Builder setCaptureMode(java.lang.String value) {
+    public Builder setEvaluationMode(java.lang.String value) {
       if (value == null) {
         throw new NullPointerException();
       }
-      captureMode_ = value;
+      evaluationMode_ = value;
       bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
 
     /**
-     *
-     *
-     * <pre>
-     * Optional only for legacy/manual Observer captures. Challenge automation must provide every
-     * field below so the Node captures one bounded region from one exact Browser State.
-     * </pre>
-     *
-     * <code>string capture_mode = 3 [json_name = "captureMode"];</code>
+     * <code>string evaluation_mode = 3 [json_name = "evaluationMode"];</code>
      *
      * @return This builder for chaining.
      */
-    public Builder clearCaptureMode() {
-      captureMode_ = getDefaultInstance().getCaptureMode();
+    public Builder clearEvaluationMode() {
+      evaluationMode_ = getDefaultInstance().getEvaluationMode();
       bitField0_ = (bitField0_ & ~0x00000004);
       onChanged();
       return this;
     }
 
     /**
+     * <code>string evaluation_mode = 3 [json_name = "evaluationMode"];</code>
      *
-     *
-     * <pre>
-     * Optional only for legacy/manual Observer captures. Challenge automation must provide every
-     * field below so the Node captures one bounded region from one exact Browser State.
-     * </pre>
-     *
-     * <code>string capture_mode = 3 [json_name = "captureMode"];</code>
-     *
-     * @param value The bytes for captureMode to set.
+     * @param value The bytes for evaluationMode to set.
      * @return This builder for chaining.
      */
-    public Builder setCaptureModeBytes(com.google.protobuf.ByteString value) {
+    public Builder setEvaluationModeBytes(com.google.protobuf.ByteString value) {
       if (value == null) {
         throw new NullPointerException();
       }
       checkByteStringIsUtf8(value);
-      captureMode_ = value;
+      evaluationMode_ = value;
       bitField0_ |= 0x00000004;
       onChanged();
       return this;
@@ -1561,171 +1490,19 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
       return this;
     }
 
-    private double regionX_;
+    private java.lang.Object sealedExpression_ = "";
 
     /**
-     * <code>double region_x = 8 [json_name = "regionX"];</code>
+     * <code>string sealed_expression = 8 [json_name = "sealedExpression"];</code>
      *
-     * @return The regionX.
+     * @return The sealedExpression.
      */
-    @java.lang.Override
-    public double getRegionX() {
-      return regionX_;
-    }
-
-    /**
-     * <code>double region_x = 8 [json_name = "regionX"];</code>
-     *
-     * @param value The regionX to set.
-     * @return This builder for chaining.
-     */
-    public Builder setRegionX(double value) {
-
-      regionX_ = value;
-      bitField0_ |= 0x00000080;
-      onChanged();
-      return this;
-    }
-
-    /**
-     * <code>double region_x = 8 [json_name = "regionX"];</code>
-     *
-     * @return This builder for chaining.
-     */
-    public Builder clearRegionX() {
-      bitField0_ = (bitField0_ & ~0x00000080);
-      regionX_ = 0D;
-      onChanged();
-      return this;
-    }
-
-    private double regionY_;
-
-    /**
-     * <code>double region_y = 9 [json_name = "regionY"];</code>
-     *
-     * @return The regionY.
-     */
-    @java.lang.Override
-    public double getRegionY() {
-      return regionY_;
-    }
-
-    /**
-     * <code>double region_y = 9 [json_name = "regionY"];</code>
-     *
-     * @param value The regionY to set.
-     * @return This builder for chaining.
-     */
-    public Builder setRegionY(double value) {
-
-      regionY_ = value;
-      bitField0_ |= 0x00000100;
-      onChanged();
-      return this;
-    }
-
-    /**
-     * <code>double region_y = 9 [json_name = "regionY"];</code>
-     *
-     * @return This builder for chaining.
-     */
-    public Builder clearRegionY() {
-      bitField0_ = (bitField0_ & ~0x00000100);
-      regionY_ = 0D;
-      onChanged();
-      return this;
-    }
-
-    private double regionWidth_;
-
-    /**
-     * <code>double region_width = 10 [json_name = "regionWidth"];</code>
-     *
-     * @return The regionWidth.
-     */
-    @java.lang.Override
-    public double getRegionWidth() {
-      return regionWidth_;
-    }
-
-    /**
-     * <code>double region_width = 10 [json_name = "regionWidth"];</code>
-     *
-     * @param value The regionWidth to set.
-     * @return This builder for chaining.
-     */
-    public Builder setRegionWidth(double value) {
-
-      regionWidth_ = value;
-      bitField0_ |= 0x00000200;
-      onChanged();
-      return this;
-    }
-
-    /**
-     * <code>double region_width = 10 [json_name = "regionWidth"];</code>
-     *
-     * @return This builder for chaining.
-     */
-    public Builder clearRegionWidth() {
-      bitField0_ = (bitField0_ & ~0x00000200);
-      regionWidth_ = 0D;
-      onChanged();
-      return this;
-    }
-
-    private double regionHeight_;
-
-    /**
-     * <code>double region_height = 11 [json_name = "regionHeight"];</code>
-     *
-     * @return The regionHeight.
-     */
-    @java.lang.Override
-    public double getRegionHeight() {
-      return regionHeight_;
-    }
-
-    /**
-     * <code>double region_height = 11 [json_name = "regionHeight"];</code>
-     *
-     * @param value The regionHeight to set.
-     * @return This builder for chaining.
-     */
-    public Builder setRegionHeight(double value) {
-
-      regionHeight_ = value;
-      bitField0_ |= 0x00000400;
-      onChanged();
-      return this;
-    }
-
-    /**
-     * <code>double region_height = 11 [json_name = "regionHeight"];</code>
-     *
-     * @return This builder for chaining.
-     */
-    public Builder clearRegionHeight() {
-      bitField0_ = (bitField0_ & ~0x00000400);
-      regionHeight_ = 0D;
-      onChanged();
-      return this;
-    }
-
-    private java.lang.Object evidenceId_ = "";
-
-    /**
-     * <code>string evidence_id = 12 [json_name = "evidenceId"];</code>
-     *
-     * @return The evidenceId.
-     */
-    public java.lang.String getEvidenceId() {
-      java.lang.Object ref = evidenceId_;
+    public java.lang.String getSealedExpression() {
+      java.lang.Object ref = sealedExpression_;
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        evidenceId_ = s;
+        sealedExpression_ = s;
         return s;
       } else {
         return (java.lang.String) ref;
@@ -1733,16 +1510,16 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
     }
 
     /**
-     * <code>string evidence_id = 12 [json_name = "evidenceId"];</code>
+     * <code>string sealed_expression = 8 [json_name = "sealedExpression"];</code>
      *
-     * @return The bytes for evidenceId.
+     * @return The bytes for sealedExpression.
      */
-    public com.google.protobuf.ByteString getEvidenceIdBytes() {
-      java.lang.Object ref = evidenceId_;
+    public com.google.protobuf.ByteString getSealedExpressionBytes() {
+      java.lang.Object ref = sealedExpression_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
-        evidenceId_ = b;
+        sealedExpression_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -1750,84 +1527,241 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
     }
 
     /**
-     * <code>string evidence_id = 12 [json_name = "evidenceId"];</code>
+     * <code>string sealed_expression = 8 [json_name = "sealedExpression"];</code>
      *
-     * @param value The evidenceId to set.
+     * @param value The sealedExpression to set.
      * @return This builder for chaining.
      */
-    public Builder setEvidenceId(java.lang.String value) {
+    public Builder setSealedExpression(java.lang.String value) {
       if (value == null) {
         throw new NullPointerException();
       }
-      evidenceId_ = value;
-      bitField0_ |= 0x00000800;
+      sealedExpression_ = value;
+      bitField0_ |= 0x00000080;
       onChanged();
       return this;
     }
 
     /**
-     * <code>string evidence_id = 12 [json_name = "evidenceId"];</code>
+     * <code>string sealed_expression = 8 [json_name = "sealedExpression"];</code>
      *
      * @return This builder for chaining.
      */
-    public Builder clearEvidenceId() {
-      evidenceId_ = getDefaultInstance().getEvidenceId();
-      bitField0_ = (bitField0_ & ~0x00000800);
+    public Builder clearSealedExpression() {
+      sealedExpression_ = getDefaultInstance().getSealedExpression();
+      bitField0_ = (bitField0_ & ~0x00000080);
       onChanged();
       return this;
     }
 
     /**
-     * <code>string evidence_id = 12 [json_name = "evidenceId"];</code>
+     * <code>string sealed_expression = 8 [json_name = "sealedExpression"];</code>
      *
-     * @param value The bytes for evidenceId to set.
+     * @param value The bytes for sealedExpression to set.
      * @return This builder for chaining.
      */
-    public Builder setEvidenceIdBytes(com.google.protobuf.ByteString value) {
+    public Builder setSealedExpressionBytes(com.google.protobuf.ByteString value) {
       if (value == null) {
         throw new NullPointerException();
       }
       checkByteStringIsUtf8(value);
-      evidenceId_ = value;
+      sealedExpression_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object expression_ = "";
+
+    /**
+     * <code>string expression = 9 [json_name = "expression"];</code>
+     *
+     * @return The expression.
+     */
+    public java.lang.String getExpression() {
+      java.lang.Object ref = expression_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        expression_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string expression = 9 [json_name = "expression"];</code>
+     *
+     * @return The bytes for expression.
+     */
+    public com.google.protobuf.ByteString getExpressionBytes() {
+      java.lang.Object ref = expression_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        expression_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string expression = 9 [json_name = "expression"];</code>
+     *
+     * @param value The expression to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExpression(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      expression_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string expression = 9 [json_name = "expression"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearExpression() {
+      expression_ = getDefaultInstance().getExpression();
+      bitField0_ = (bitField0_ & ~0x00000100);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string expression = 9 [json_name = "expression"];</code>
+     *
+     * @param value The bytes for expression to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExpressionBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      expression_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+
+    private boolean awaitPromise_;
+
+    /**
+     * <code>bool await_promise = 10 [json_name = "awaitPromise"];</code>
+     *
+     * @return The awaitPromise.
+     */
+    @java.lang.Override
+    public boolean getAwaitPromise() {
+      return awaitPromise_;
+    }
+
+    /**
+     * <code>bool await_promise = 10 [json_name = "awaitPromise"];</code>
+     *
+     * @param value The awaitPromise to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAwaitPromise(boolean value) {
+
+      awaitPromise_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>bool await_promise = 10 [json_name = "awaitPromise"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearAwaitPromise() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      awaitPromise_ = false;
+      onChanged();
+      return this;
+    }
+
+    private int timeoutMs_;
+
+    /**
+     * <code>uint32 timeout_ms = 11 [json_name = "timeoutMs"];</code>
+     *
+     * @return The timeoutMs.
+     */
+    @java.lang.Override
+    public int getTimeoutMs() {
+      return timeoutMs_;
+    }
+
+    /**
+     * <code>uint32 timeout_ms = 11 [json_name = "timeoutMs"];</code>
+     *
+     * @param value The timeoutMs to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTimeoutMs(int value) {
+
+      timeoutMs_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>uint32 timeout_ms = 11 [json_name = "timeoutMs"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearTimeoutMs() {
+      bitField0_ = (bitField0_ & ~0x00000400);
+      timeoutMs_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int maximumResultBytes_;
+
+    /**
+     * <code>uint32 maximum_result_bytes = 12 [json_name = "maximumResultBytes"];</code>
+     *
+     * @return The maximumResultBytes.
+     */
+    @java.lang.Override
+    public int getMaximumResultBytes() {
+      return maximumResultBytes_;
+    }
+
+    /**
+     * <code>uint32 maximum_result_bytes = 12 [json_name = "maximumResultBytes"];</code>
+     *
+     * @param value The maximumResultBytes to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMaximumResultBytes(int value) {
+
+      maximumResultBytes_ = value;
       bitField0_ |= 0x00000800;
       onChanged();
       return this;
     }
 
-    private long capturedAtMs_;
-
     /**
-     * <code>int64 captured_at_ms = 13 [json_name = "capturedAtMs"];</code>
-     *
-     * @return The capturedAtMs.
-     */
-    @java.lang.Override
-    public long getCapturedAtMs() {
-      return capturedAtMs_;
-    }
-
-    /**
-     * <code>int64 captured_at_ms = 13 [json_name = "capturedAtMs"];</code>
-     *
-     * @param value The capturedAtMs to set.
-     * @return This builder for chaining.
-     */
-    public Builder setCapturedAtMs(long value) {
-
-      capturedAtMs_ = value;
-      bitField0_ |= 0x00001000;
-      onChanged();
-      return this;
-    }
-
-    /**
-     * <code>int64 captured_at_ms = 13 [json_name = "capturedAtMs"];</code>
+     * <code>uint32 maximum_result_bytes = 12 [json_name = "maximumResultBytes"];</code>
      *
      * @return This builder for chaining.
      */
-    public Builder clearCapturedAtMs() {
-      bitField0_ = (bitField0_ & ~0x00001000);
-      capturedAtMs_ = 0L;
+    public Builder clearMaximumResultBytes() {
+      bitField0_ = (bitField0_ & ~0x00000800);
+      maximumResultBytes_ = 0;
       onChanged();
       return this;
     }
@@ -1843,26 +1777,24 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
       return super.mergeUnknownFields(unknownFields);
     }
 
-    // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.CaptureObserverScreenshotCommand)
+    // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.AgentBrowserEvaluateCommand)
   }
 
-  // @@protoc_insertion_point(class_scope:browsercloud.node.v1.CaptureObserverScreenshotCommand)
-  private static final io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand
-      DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:browsercloud.node.v1.AgentBrowserEvaluateCommand)
+  private static final io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand DEFAULT_INSTANCE;
 
   static {
-    DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand();
+    DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand();
   }
 
-  public static io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand
-      getDefaultInstance() {
+  public static io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<CaptureObserverScreenshotCommand> PARSER =
-      new com.google.protobuf.AbstractParser<CaptureObserverScreenshotCommand>() {
+  private static final com.google.protobuf.Parser<AgentBrowserEvaluateCommand> PARSER =
+      new com.google.protobuf.AbstractParser<AgentBrowserEvaluateCommand>() {
         @java.lang.Override
-        public CaptureObserverScreenshotCommand parsePartialFrom(
+        public AgentBrowserEvaluateCommand parsePartialFrom(
             com.google.protobuf.CodedInputStream input,
             com.google.protobuf.ExtensionRegistryLite extensionRegistry)
             throws com.google.protobuf.InvalidProtocolBufferException {
@@ -1881,18 +1813,17 @@ public final class CaptureObserverScreenshotCommand extends com.google.protobuf.
         }
       };
 
-  public static com.google.protobuf.Parser<CaptureObserverScreenshotCommand> parser() {
+  public static com.google.protobuf.Parser<AgentBrowserEvaluateCommand> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<CaptureObserverScreenshotCommand> getParserForType() {
+  public com.google.protobuf.Parser<AgentBrowserEvaluateCommand> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand
-      getDefaultInstanceForType() {
+  public io.browsercloud.proto.node.v1.AgentBrowserEvaluateCommand getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 }

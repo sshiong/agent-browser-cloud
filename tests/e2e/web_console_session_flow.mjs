@@ -467,7 +467,9 @@ try {
   await expect(
     page.getByRole("heading", { name: "Challenge / Human Assist" }),
   ).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText("当前没有待处理挑战", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("当前没有待处理挑战", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "打开远程桌面" })).toBeEnabled({
     timeout: 15_000,
   });
@@ -484,9 +486,11 @@ try {
     page.getByText("VIEW ONLY / AGENT CONTINUES", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "协作控制" }).click();
-  await expect(page.getByText("· SHARED CONTROL", { exact: true })).toBeVisible({
-    timeout: 15_000,
-  });
+  await expect(page.getByText("· SHARED CONTROL", { exact: true })).toBeVisible(
+    {
+      timeout: 15_000,
+    },
+  );
   const sharedObserverContext = await browser.newContext({
     viewport: { width: 1024, height: 768 },
   });
@@ -568,9 +572,11 @@ try {
     timeout: 15_000,
   });
   await page.getByRole("button", { name: "协作控制" }).click();
-  await expect(page.getByText("· SHARED CONTROL", { exact: true })).toBeVisible({
-    timeout: 15_000,
-  });
+  await expect(page.getByText("· SHARED CONTROL", { exact: true })).toBeVisible(
+    {
+      timeout: 15_000,
+    },
+  );
   const disconnectCanvas = page
     .getByLabel("实时远程桌面画面")
     .locator("canvas");
@@ -791,18 +797,18 @@ try {
     .getByLabel("用户目标")
     .fill("点击运行、填写公开备注、滚动并等待状态稳定");
   await page.getByLabel("起始 URL").fill("");
-  await page.getByRole("button", { name: "添加" }).click();
+  await page.getByRole("button", { name: "添加结构化动作" }).click();
   const clickTargetSelect = page.getByLabel("动作 1 目标");
   await clickTargetSelect.selectOption({ label: "button · Run integration" });
-  await page.getByRole("button", { name: "添加" }).click();
+  await page.getByRole("button", { name: "添加结构化动作" }).click();
   await page.getByLabel("动作 2 类型").selectOption("TYPE_TEXT");
   await page
     .getByLabel("动作 2 目标")
     .selectOption({ label: "textbox · Public note" });
   await page.getByPlaceholder("明确授权的非凭证文本").fill("E2E public note");
-  await page.getByRole("button", { name: "添加" }).click();
+  await page.getByRole("button", { name: "添加结构化动作" }).click();
   await page.getByLabel("动作 3 类型").selectOption("SCROLL");
-  await page.getByRole("button", { name: "添加" }).click();
+  await page.getByRole("button", { name: "添加结构化动作" }).click();
   await page.getByLabel("动作 4 类型").selectOption("WAIT_FOR");
   // State collection can advance the target revision while the action editor is open.
   // Reconfirm exact targets; submit also performs an authoritative just-in-time rebind.
@@ -873,7 +879,7 @@ try {
   );
 
   await page.getByLabel("用户目标").fill("请求人工继续处理当前页面");
-  await page.getByRole("button", { name: "添加" }).click();
+  await page.getByRole("button", { name: "添加结构化动作" }).click();
   await page.getByLabel("动作 1 类型").selectOption("REQUEST_HUMAN_TAKEOVER");
   const [handoffTaskResponse] = await Promise.all([
     page.waitForResponse(
@@ -1241,9 +1247,10 @@ try {
     page.locator("main").getByText("已创建", { exact: true }).last(),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "启动", exact: true }).click();
-  await expect(page.locator("main").getByText("运行中", { exact: true }).last())
-    .toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "启动 Session", exact: true }).click();
+  await expect(
+    page.locator("main").getByText("运行中", { exact: true }).last(),
+  ).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "停止", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "是否停止运行？" }),

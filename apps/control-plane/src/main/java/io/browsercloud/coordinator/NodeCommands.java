@@ -664,6 +664,40 @@ public final class NodeCommands {
     return command(session, operation, "ChallengeAutomationAction", payload.build().toByteArray());
   }
 
+  public static NodeCommand challengeStructuralClick(
+      SessionContext session,
+      ExclusiveOperation operation,
+      String runId,
+      String jobId,
+      String challengeEventId,
+      int attemptNumber,
+      String targetRef,
+      long targetRevision,
+      long baseStateVersion,
+      String baseContentHash,
+      NodeEvent.Bounds bounds,
+      String visualAnchorHash) {
+    var payload =
+        ChallengeAutomationActionCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setRunId(runId)
+            .setJobId(jobId)
+            .setChallengeEventId(challengeEventId)
+            .setAttemptNumber(attemptNumber)
+            .setBaseStateVersion(baseStateVersion)
+            .setBaseContentHash(baseContentHash)
+            .setTargetRef(targetRef)
+            .setTargetRevision(targetRevision)
+            .setExpectedX(bounds.x())
+            .setExpectedY(bounds.y())
+            .setExpectedWidth(bounds.width())
+            .setExpectedHeight(bounds.height())
+            .setVisualAnchorHash(visualAnchorHash)
+            .build()
+            .toByteArray();
+    return command(session, operation, "ChallengeAutomationAction", payload);
+  }
+
   public static NodeCommand requestAgentStateResync(
       SessionContext session,
       ExclusiveOperation operation,

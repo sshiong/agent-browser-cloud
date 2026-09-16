@@ -209,7 +209,7 @@ public interface SessionEvidenceCapturedEventOrBuilder
    *
    *
    * <pre>
-   * Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+   * Present only for AGENT_SCREENSHOT or CHALLENGE_SCREENSHOT. These fields bind pixels to one exact Browser State and
    * provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
    * </pre>
    *
@@ -223,7 +223,7 @@ public interface SessionEvidenceCapturedEventOrBuilder
    *
    *
    * <pre>
-   * Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+   * Present only for AGENT_SCREENSHOT or CHALLENGE_SCREENSHOT. These fields bind pixels to one exact Browser State and
    * provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
    * </pre>
    *

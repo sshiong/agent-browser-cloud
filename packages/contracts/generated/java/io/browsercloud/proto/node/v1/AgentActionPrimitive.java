@@ -27,6 +27,9 @@ public final class AgentActionPrimitive extends com.google.protobuf.GeneratedMes
     tabId_ = "";
     tabUrl_ = "";
     dialogId_ = "";
+    endTargetRef_ = "";
+    endElementId_ = "";
+    key_ = "";
   }
 
   @java.lang.Override
@@ -541,6 +544,181 @@ public final class AgentActionPrimitive extends com.google.protobuf.GeneratedMes
     }
   }
 
+  public static final int END_TARGET_REF_FIELD_NUMBER = 16;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object endTargetRef_ = "";
+
+  /**
+   * <code>string end_target_ref = 16 [json_name = "endTargetRef"];</code>
+   *
+   * @return The endTargetRef.
+   */
+  @java.lang.Override
+  public java.lang.String getEndTargetRef() {
+    java.lang.Object ref = endTargetRef_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      endTargetRef_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string end_target_ref = 16 [json_name = "endTargetRef"];</code>
+   *
+   * @return The bytes for endTargetRef.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getEndTargetRefBytes() {
+    java.lang.Object ref = endTargetRef_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      endTargetRef_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int END_ELEMENT_ID_FIELD_NUMBER = 17;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object endElementId_ = "";
+
+  /**
+   * <code>string end_element_id = 17 [json_name = "endElementId"];</code>
+   *
+   * @return The endElementId.
+   */
+  @java.lang.Override
+  public java.lang.String getEndElementId() {
+    java.lang.Object ref = endElementId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      endElementId_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string end_element_id = 17 [json_name = "endElementId"];</code>
+   *
+   * @return The bytes for endElementId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getEndElementIdBytes() {
+    java.lang.Object ref = endElementId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      endElementId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int KEY_FIELD_NUMBER = 18;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object key_ = "";
+
+  /**
+   * <code>string key = 18 [json_name = "key"];</code>
+   *
+   * @return The key.
+   */
+  @java.lang.Override
+  public java.lang.String getKey() {
+    java.lang.Object ref = key_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      key_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string key = 18 [json_name = "key"];</code>
+   *
+   * @return The bytes for key.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getKeyBytes() {
+    java.lang.Object ref = key_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      key_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int BUTTON_FIELD_NUMBER = 19;
+  private int button_ = 0;
+
+  /**
+   * <code>uint32 button = 19 [json_name = "button"];</code>
+   *
+   * @return The button.
+   */
+  @java.lang.Override
+  public int getButton() {
+    return button_;
+  }
+
+  public static final int DELTA_X_FIELD_NUMBER = 20;
+  private int deltaX_ = 0;
+
+  /**
+   * <code>int32 delta_x = 20 [json_name = "deltaX"];</code>
+   *
+   * @return The deltaX.
+   */
+  @java.lang.Override
+  public int getDeltaX() {
+    return deltaX_;
+  }
+
+  public static final int DELTA_Y_FIELD_NUMBER = 21;
+  private int deltaY_ = 0;
+
+  /**
+   * <code>int32 delta_y = 21 [json_name = "deltaY"];</code>
+   *
+   * @return The deltaY.
+   */
+  @java.lang.Override
+  public int getDeltaY() {
+    return deltaY_;
+  }
+
+  public static final int DURATION_MS_FIELD_NUMBER = 22;
+  private int durationMs_ = 0;
+
+  /**
+   * <code>uint32 duration_ms = 22 [json_name = "durationMs"];</code>
+   *
+   * @return The durationMs.
+   */
+  @java.lang.Override
+  public int getDurationMs() {
+    return durationMs_;
+  }
+
   private byte memoizedIsInitialized = -1;
 
   @java.lang.Override
@@ -600,6 +778,27 @@ public final class AgentActionPrimitive extends com.google.protobuf.GeneratedMes
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(dialogId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 15, dialogId_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(endTargetRef_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 16, endTargetRef_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(endElementId_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 17, endElementId_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(key_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 18, key_);
+    }
+    if (button_ != 0) {
+      output.writeUInt32(19, button_);
+    }
+    if (deltaX_ != 0) {
+      output.writeInt32(20, deltaX_);
+    }
+    if (deltaY_ != 0) {
+      output.writeInt32(21, deltaY_);
+    }
+    if (durationMs_ != 0) {
+      output.writeUInt32(22, durationMs_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -654,6 +853,27 @@ public final class AgentActionPrimitive extends com.google.protobuf.GeneratedMes
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(dialogId_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(15, dialogId_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(endTargetRef_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(16, endTargetRef_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(endElementId_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(17, endElementId_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(key_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(18, key_);
+    }
+    if (button_ != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(19, button_);
+    }
+    if (deltaX_ != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeInt32Size(20, deltaX_);
+    }
+    if (deltaY_ != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeInt32Size(21, deltaY_);
+    }
+    if (durationMs_ != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(22, durationMs_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -685,6 +905,13 @@ public final class AgentActionPrimitive extends com.google.protobuf.GeneratedMes
     if (!getTabId().equals(other.getTabId())) return false;
     if (!getTabUrl().equals(other.getTabUrl())) return false;
     if (!getDialogId().equals(other.getDialogId())) return false;
+    if (!getEndTargetRef().equals(other.getEndTargetRef())) return false;
+    if (!getEndElementId().equals(other.getEndElementId())) return false;
+    if (!getKey().equals(other.getKey())) return false;
+    if (getButton() != other.getButton()) return false;
+    if (getDeltaX() != other.getDeltaX()) return false;
+    if (getDeltaY() != other.getDeltaY()) return false;
+    if (getDurationMs() != other.getDurationMs()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -726,6 +953,20 @@ public final class AgentActionPrimitive extends com.google.protobuf.GeneratedMes
     hash = (53 * hash) + getTabUrl().hashCode();
     hash = (37 * hash) + DIALOG_ID_FIELD_NUMBER;
     hash = (53 * hash) + getDialogId().hashCode();
+    hash = (37 * hash) + END_TARGET_REF_FIELD_NUMBER;
+    hash = (53 * hash) + getEndTargetRef().hashCode();
+    hash = (37 * hash) + END_ELEMENT_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getEndElementId().hashCode();
+    hash = (37 * hash) + KEY_FIELD_NUMBER;
+    hash = (53 * hash) + getKey().hashCode();
+    hash = (37 * hash) + BUTTON_FIELD_NUMBER;
+    hash = (53 * hash) + getButton();
+    hash = (37 * hash) + DELTA_X_FIELD_NUMBER;
+    hash = (53 * hash) + getDeltaX();
+    hash = (37 * hash) + DELTA_Y_FIELD_NUMBER;
+    hash = (53 * hash) + getDeltaY();
+    hash = (37 * hash) + DURATION_MS_FIELD_NUMBER;
+    hash = (53 * hash) + getDurationMs();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -873,6 +1114,13 @@ public final class AgentActionPrimitive extends com.google.protobuf.GeneratedMes
       tabId_ = "";
       tabUrl_ = "";
       dialogId_ = "";
+      endTargetRef_ = "";
+      endElementId_ = "";
+      key_ = "";
+      button_ = 0;
+      deltaX_ = 0;
+      deltaY_ = 0;
+      durationMs_ = 0;
       return this;
     }
 
@@ -953,6 +1201,27 @@ public final class AgentActionPrimitive extends com.google.protobuf.GeneratedMes
       }
       if (((from_bitField0_ & 0x00004000) != 0)) {
         result.dialogId_ = dialogId_;
+      }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.endTargetRef_ = endTargetRef_;
+      }
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.endElementId_ = endElementId_;
+      }
+      if (((from_bitField0_ & 0x00020000) != 0)) {
+        result.key_ = key_;
+      }
+      if (((from_bitField0_ & 0x00040000) != 0)) {
+        result.button_ = button_;
+      }
+      if (((from_bitField0_ & 0x00080000) != 0)) {
+        result.deltaX_ = deltaX_;
+      }
+      if (((from_bitField0_ & 0x00100000) != 0)) {
+        result.deltaY_ = deltaY_;
+      }
+      if (((from_bitField0_ & 0x00200000) != 0)) {
+        result.durationMs_ = durationMs_;
       }
     }
 
@@ -1066,6 +1335,33 @@ public final class AgentActionPrimitive extends com.google.protobuf.GeneratedMes
         dialogId_ = other.dialogId_;
         bitField0_ |= 0x00004000;
         onChanged();
+      }
+      if (!other.getEndTargetRef().isEmpty()) {
+        endTargetRef_ = other.endTargetRef_;
+        bitField0_ |= 0x00008000;
+        onChanged();
+      }
+      if (!other.getEndElementId().isEmpty()) {
+        endElementId_ = other.endElementId_;
+        bitField0_ |= 0x00010000;
+        onChanged();
+      }
+      if (!other.getKey().isEmpty()) {
+        key_ = other.key_;
+        bitField0_ |= 0x00020000;
+        onChanged();
+      }
+      if (other.getButton() != 0) {
+        setButton(other.getButton());
+      }
+      if (other.getDeltaX() != 0) {
+        setDeltaX(other.getDeltaX());
+      }
+      if (other.getDeltaY() != 0) {
+        setDeltaY(other.getDeltaY());
+      }
+      if (other.getDurationMs() != 0) {
+        setDurationMs(other.getDurationMs());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1183,6 +1479,48 @@ public final class AgentActionPrimitive extends com.google.protobuf.GeneratedMes
                 bitField0_ |= 0x00004000;
                 break;
               } // case 122
+            case 130:
+              {
+                endTargetRef_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00008000;
+                break;
+              } // case 130
+            case 138:
+              {
+                endElementId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00010000;
+                break;
+              } // case 138
+            case 146:
+              {
+                key_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00020000;
+                break;
+              } // case 146
+            case 152:
+              {
+                button_ = input.readUInt32();
+                bitField0_ |= 0x00040000;
+                break;
+              } // case 152
+            case 160:
+              {
+                deltaX_ = input.readInt32();
+                bitField0_ |= 0x00080000;
+                break;
+              } // case 160
+            case 168:
+              {
+                deltaY_ = input.readInt32();
+                bitField0_ |= 0x00100000;
+                break;
+              } // case 168
+            case 176:
+              {
+                durationMs_ = input.readUInt32();
+                bitField0_ |= 0x00200000;
+                break;
+              } // case 176
             default:
               {
                 if (!super.parseUnknownField(input, extensionRegistry, tag)) {
@@ -2238,6 +2576,401 @@ public final class AgentActionPrimitive extends com.google.protobuf.GeneratedMes
       checkByteStringIsUtf8(value);
       dialogId_ = value;
       bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object endTargetRef_ = "";
+
+    /**
+     * <code>string end_target_ref = 16 [json_name = "endTargetRef"];</code>
+     *
+     * @return The endTargetRef.
+     */
+    public java.lang.String getEndTargetRef() {
+      java.lang.Object ref = endTargetRef_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        endTargetRef_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string end_target_ref = 16 [json_name = "endTargetRef"];</code>
+     *
+     * @return The bytes for endTargetRef.
+     */
+    public com.google.protobuf.ByteString getEndTargetRefBytes() {
+      java.lang.Object ref = endTargetRef_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        endTargetRef_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string end_target_ref = 16 [json_name = "endTargetRef"];</code>
+     *
+     * @param value The endTargetRef to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEndTargetRef(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      endTargetRef_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string end_target_ref = 16 [json_name = "endTargetRef"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearEndTargetRef() {
+      endTargetRef_ = getDefaultInstance().getEndTargetRef();
+      bitField0_ = (bitField0_ & ~0x00008000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string end_target_ref = 16 [json_name = "endTargetRef"];</code>
+     *
+     * @param value The bytes for endTargetRef to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEndTargetRefBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      endTargetRef_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object endElementId_ = "";
+
+    /**
+     * <code>string end_element_id = 17 [json_name = "endElementId"];</code>
+     *
+     * @return The endElementId.
+     */
+    public java.lang.String getEndElementId() {
+      java.lang.Object ref = endElementId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        endElementId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string end_element_id = 17 [json_name = "endElementId"];</code>
+     *
+     * @return The bytes for endElementId.
+     */
+    public com.google.protobuf.ByteString getEndElementIdBytes() {
+      java.lang.Object ref = endElementId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        endElementId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string end_element_id = 17 [json_name = "endElementId"];</code>
+     *
+     * @param value The endElementId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEndElementId(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      endElementId_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string end_element_id = 17 [json_name = "endElementId"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearEndElementId() {
+      endElementId_ = getDefaultInstance().getEndElementId();
+      bitField0_ = (bitField0_ & ~0x00010000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string end_element_id = 17 [json_name = "endElementId"];</code>
+     *
+     * @param value The bytes for endElementId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEndElementIdBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      endElementId_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object key_ = "";
+
+    /**
+     * <code>string key = 18 [json_name = "key"];</code>
+     *
+     * @return The key.
+     */
+    public java.lang.String getKey() {
+      java.lang.Object ref = key_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        key_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string key = 18 [json_name = "key"];</code>
+     *
+     * @return The bytes for key.
+     */
+    public com.google.protobuf.ByteString getKeyBytes() {
+      java.lang.Object ref = key_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        key_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string key = 18 [json_name = "key"];</code>
+     *
+     * @param value The key to set.
+     * @return This builder for chaining.
+     */
+    public Builder setKey(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      key_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string key = 18 [json_name = "key"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearKey() {
+      key_ = getDefaultInstance().getKey();
+      bitField0_ = (bitField0_ & ~0x00020000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string key = 18 [json_name = "key"];</code>
+     *
+     * @param value The bytes for key to set.
+     * @return This builder for chaining.
+     */
+    public Builder setKeyBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      key_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+
+    private int button_;
+
+    /**
+     * <code>uint32 button = 19 [json_name = "button"];</code>
+     *
+     * @return The button.
+     */
+    @java.lang.Override
+    public int getButton() {
+      return button_;
+    }
+
+    /**
+     * <code>uint32 button = 19 [json_name = "button"];</code>
+     *
+     * @param value The button to set.
+     * @return This builder for chaining.
+     */
+    public Builder setButton(int value) {
+
+      button_ = value;
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>uint32 button = 19 [json_name = "button"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearButton() {
+      bitField0_ = (bitField0_ & ~0x00040000);
+      button_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int deltaX_;
+
+    /**
+     * <code>int32 delta_x = 20 [json_name = "deltaX"];</code>
+     *
+     * @return The deltaX.
+     */
+    @java.lang.Override
+    public int getDeltaX() {
+      return deltaX_;
+    }
+
+    /**
+     * <code>int32 delta_x = 20 [json_name = "deltaX"];</code>
+     *
+     * @param value The deltaX to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDeltaX(int value) {
+
+      deltaX_ = value;
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>int32 delta_x = 20 [json_name = "deltaX"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearDeltaX() {
+      bitField0_ = (bitField0_ & ~0x00080000);
+      deltaX_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int deltaY_;
+
+    /**
+     * <code>int32 delta_y = 21 [json_name = "deltaY"];</code>
+     *
+     * @return The deltaY.
+     */
+    @java.lang.Override
+    public int getDeltaY() {
+      return deltaY_;
+    }
+
+    /**
+     * <code>int32 delta_y = 21 [json_name = "deltaY"];</code>
+     *
+     * @param value The deltaY to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDeltaY(int value) {
+
+      deltaY_ = value;
+      bitField0_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>int32 delta_y = 21 [json_name = "deltaY"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearDeltaY() {
+      bitField0_ = (bitField0_ & ~0x00100000);
+      deltaY_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int durationMs_;
+
+    /**
+     * <code>uint32 duration_ms = 22 [json_name = "durationMs"];</code>
+     *
+     * @return The durationMs.
+     */
+    @java.lang.Override
+    public int getDurationMs() {
+      return durationMs_;
+    }
+
+    /**
+     * <code>uint32 duration_ms = 22 [json_name = "durationMs"];</code>
+     *
+     * @param value The durationMs to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDurationMs(int value) {
+
+      durationMs_ = value;
+      bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>uint32 duration_ms = 22 [json_name = "durationMs"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearDurationMs() {
+      bitField0_ = (bitField0_ & ~0x00200000);
+      durationMs_ = 0;
       onChanged();
       return this;
     }

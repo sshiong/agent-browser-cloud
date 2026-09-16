@@ -113,7 +113,7 @@ event_port="$(free_port)"
 desktop_port="$(free_port)"
 proxy_port="$(free_port)"
 
-PROXY_ALLOWED_HOSTS="example.com,www.w3.org,agent-controls.invalid" \
+PROXY_ALLOWED_HOSTS="example.com,www.w3.org,www.cloudflare.com,agent-controls.invalid" \
 PROXY_EVENT_LOG="$temp_dir/proxy-events.jsonl" \
   python3 "$repo_root/tests/fixtures/allowlist-forward-proxy.py" "$proxy_port" \
   >"$temp_dir/proxy.log" 2>&1 &
@@ -227,6 +227,7 @@ python3 "$repo_root/tests/compatibility/real_url_agent_matrix.py" \
 
 grep -q '"event": "connect_allowed".*"host": "example.com"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "www.w3.org"' "$temp_dir/proxy-events.jsonl"
+grep -q '"event": "connect_allowed".*"host": "www.cloudflare.com"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "control_fixture".*"host": "agent-controls.invalid"' "$temp_dir/proxy-events.jsonl"
 grep -Eq '"event": "connect_denied".*"target": "(www\\.)?iana.org:443"' "$temp_dir/proxy-events.jsonl"
 

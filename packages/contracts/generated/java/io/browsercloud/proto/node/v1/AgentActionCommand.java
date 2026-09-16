@@ -39,6 +39,8 @@ public final class AgentActionCommand extends com.google.protobuf.GeneratedMessa
     tabId_ = "";
     tabUrl_ = "";
     dialogId_ = "";
+    endTargetRef_ = "";
+    key_ = "";
   }
 
   @java.lang.Override
@@ -739,6 +741,154 @@ public final class AgentActionCommand extends com.google.protobuf.GeneratedMessa
     }
   }
 
+  public static final int END_TARGET_REF_FIELD_NUMBER = 21;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object endTargetRef_ = "";
+
+  /**
+   *
+   *
+   * <pre>
+   * Additive target-bound advanced input fields. Coordinates remain relative to an
+   * authoritative target; the public gateway never exposes arbitrary desktop coordinates.
+   * </pre>
+   *
+   * <code>string end_target_ref = 21 [json_name = "endTargetRef"];</code>
+   *
+   * @return The endTargetRef.
+   */
+  @java.lang.Override
+  public java.lang.String getEndTargetRef() {
+    java.lang.Object ref = endTargetRef_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      endTargetRef_ = s;
+      return s;
+    }
+  }
+
+  /**
+   *
+   *
+   * <pre>
+   * Additive target-bound advanced input fields. Coordinates remain relative to an
+   * authoritative target; the public gateway never exposes arbitrary desktop coordinates.
+   * </pre>
+   *
+   * <code>string end_target_ref = 21 [json_name = "endTargetRef"];</code>
+   *
+   * @return The bytes for endTargetRef.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getEndTargetRefBytes() {
+    java.lang.Object ref = endTargetRef_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      endTargetRef_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int KEY_FIELD_NUMBER = 22;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object key_ = "";
+
+  /**
+   * <code>string key = 22 [json_name = "key"];</code>
+   *
+   * @return The key.
+   */
+  @java.lang.Override
+  public java.lang.String getKey() {
+    java.lang.Object ref = key_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      key_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string key = 22 [json_name = "key"];</code>
+   *
+   * @return The bytes for key.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getKeyBytes() {
+    java.lang.Object ref = key_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      key_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int BUTTON_FIELD_NUMBER = 23;
+  private int button_ = 0;
+
+  /**
+   * <code>uint32 button = 23 [json_name = "button"];</code>
+   *
+   * @return The button.
+   */
+  @java.lang.Override
+  public int getButton() {
+    return button_;
+  }
+
+  public static final int DELTA_X_FIELD_NUMBER = 24;
+  private int deltaX_ = 0;
+
+  /**
+   * <code>int32 delta_x = 24 [json_name = "deltaX"];</code>
+   *
+   * @return The deltaX.
+   */
+  @java.lang.Override
+  public int getDeltaX() {
+    return deltaX_;
+  }
+
+  public static final int DELTA_Y_FIELD_NUMBER = 25;
+  private int deltaY_ = 0;
+
+  /**
+   * <code>int32 delta_y = 25 [json_name = "deltaY"];</code>
+   *
+   * @return The deltaY.
+   */
+  @java.lang.Override
+  public int getDeltaY() {
+    return deltaY_;
+  }
+
+  public static final int DURATION_MS_FIELD_NUMBER = 26;
+  private int durationMs_ = 0;
+
+  /**
+   * <code>uint32 duration_ms = 26 [json_name = "durationMs"];</code>
+   *
+   * @return The durationMs.
+   */
+  @java.lang.Override
+  public int getDurationMs() {
+    return durationMs_;
+  }
+
   private byte memoizedIsInitialized = -1;
 
   @java.lang.Override
@@ -813,6 +963,24 @@ public final class AgentActionCommand extends com.google.protobuf.GeneratedMessa
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(dialogId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 20, dialogId_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(endTargetRef_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 21, endTargetRef_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(key_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 22, key_);
+    }
+    if (button_ != 0) {
+      output.writeUInt32(23, button_);
+    }
+    if (deltaX_ != 0) {
+      output.writeInt32(24, deltaX_);
+    }
+    if (deltaY_ != 0) {
+      output.writeInt32(25, deltaY_);
+    }
+    if (durationMs_ != 0) {
+      output.writeUInt32(26, durationMs_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -882,6 +1050,24 @@ public final class AgentActionCommand extends com.google.protobuf.GeneratedMessa
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(dialogId_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(20, dialogId_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(endTargetRef_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(21, endTargetRef_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(key_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(22, key_);
+    }
+    if (button_ != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(23, button_);
+    }
+    if (deltaX_ != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeInt32Size(24, deltaX_);
+    }
+    if (deltaY_ != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeInt32Size(25, deltaY_);
+    }
+    if (durationMs_ != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(26, durationMs_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -918,6 +1104,12 @@ public final class AgentActionCommand extends com.google.protobuf.GeneratedMessa
     if (!getTabId().equals(other.getTabId())) return false;
     if (!getTabUrl().equals(other.getTabUrl())) return false;
     if (!getDialogId().equals(other.getDialogId())) return false;
+    if (!getEndTargetRef().equals(other.getEndTargetRef())) return false;
+    if (!getKey().equals(other.getKey())) return false;
+    if (getButton() != other.getButton()) return false;
+    if (getDeltaX() != other.getDeltaX()) return false;
+    if (getDeltaY() != other.getDeltaY()) return false;
+    if (getDurationMs() != other.getDurationMs()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -971,6 +1163,18 @@ public final class AgentActionCommand extends com.google.protobuf.GeneratedMessa
     hash = (53 * hash) + getTabUrl().hashCode();
     hash = (37 * hash) + DIALOG_ID_FIELD_NUMBER;
     hash = (53 * hash) + getDialogId().hashCode();
+    hash = (37 * hash) + END_TARGET_REF_FIELD_NUMBER;
+    hash = (53 * hash) + getEndTargetRef().hashCode();
+    hash = (37 * hash) + KEY_FIELD_NUMBER;
+    hash = (53 * hash) + getKey().hashCode();
+    hash = (37 * hash) + BUTTON_FIELD_NUMBER;
+    hash = (53 * hash) + getButton();
+    hash = (37 * hash) + DELTA_X_FIELD_NUMBER;
+    hash = (53 * hash) + getDeltaX();
+    hash = (37 * hash) + DELTA_Y_FIELD_NUMBER;
+    hash = (53 * hash) + getDeltaY();
+    hash = (37 * hash) + DURATION_MS_FIELD_NUMBER;
+    hash = (53 * hash) + getDurationMs();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1138,6 +1342,12 @@ public final class AgentActionCommand extends com.google.protobuf.GeneratedMessa
       tabId_ = "";
       tabUrl_ = "";
       dialogId_ = "";
+      endTargetRef_ = "";
+      key_ = "";
+      button_ = 0;
+      deltaX_ = 0;
+      deltaY_ = 0;
+      durationMs_ = 0;
       return this;
     }
 
@@ -1244,6 +1454,24 @@ public final class AgentActionCommand extends com.google.protobuf.GeneratedMessa
       }
       if (((from_bitField0_ & 0x00080000) != 0)) {
         result.dialogId_ = dialogId_;
+      }
+      if (((from_bitField0_ & 0x00100000) != 0)) {
+        result.endTargetRef_ = endTargetRef_;
+      }
+      if (((from_bitField0_ & 0x00200000) != 0)) {
+        result.key_ = key_;
+      }
+      if (((from_bitField0_ & 0x00400000) != 0)) {
+        result.button_ = button_;
+      }
+      if (((from_bitField0_ & 0x00800000) != 0)) {
+        result.deltaX_ = deltaX_;
+      }
+      if (((from_bitField0_ & 0x01000000) != 0)) {
+        result.deltaY_ = deltaY_;
+      }
+      if (((from_bitField0_ & 0x02000000) != 0)) {
+        result.durationMs_ = durationMs_;
       }
     }
 
@@ -1401,6 +1629,28 @@ public final class AgentActionCommand extends com.google.protobuf.GeneratedMessa
         bitField0_ |= 0x00080000;
         onChanged();
       }
+      if (!other.getEndTargetRef().isEmpty()) {
+        endTargetRef_ = other.endTargetRef_;
+        bitField0_ |= 0x00100000;
+        onChanged();
+      }
+      if (!other.getKey().isEmpty()) {
+        key_ = other.key_;
+        bitField0_ |= 0x00200000;
+        onChanged();
+      }
+      if (other.getButton() != 0) {
+        setButton(other.getButton());
+      }
+      if (other.getDeltaX() != 0) {
+        setDeltaX(other.getDeltaX());
+      }
+      if (other.getDeltaY() != 0) {
+        setDeltaY(other.getDeltaY());
+      }
+      if (other.getDurationMs() != 0) {
+        setDurationMs(other.getDurationMs());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1555,6 +1805,42 @@ public final class AgentActionCommand extends com.google.protobuf.GeneratedMessa
                 bitField0_ |= 0x00080000;
                 break;
               } // case 162
+            case 170:
+              {
+                endTargetRef_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00100000;
+                break;
+              } // case 170
+            case 178:
+              {
+                key_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00200000;
+                break;
+              } // case 178
+            case 184:
+              {
+                button_ = input.readUInt32();
+                bitField0_ |= 0x00400000;
+                break;
+              } // case 184
+            case 192:
+              {
+                deltaX_ = input.readInt32();
+                bitField0_ |= 0x00800000;
+                break;
+              } // case 192
+            case 200:
+              {
+                deltaY_ = input.readInt32();
+                bitField0_ |= 0x01000000;
+                break;
+              } // case 200
+            case 208:
+              {
+                durationMs_ = input.readUInt32();
+                bitField0_ |= 0x02000000;
+                break;
+              } // case 208
             default:
               {
                 if (!super.parseUnknownField(input, extensionRegistry, tag)) {
@@ -3250,6 +3536,355 @@ public final class AgentActionCommand extends com.google.protobuf.GeneratedMessa
       checkByteStringIsUtf8(value);
       dialogId_ = value;
       bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object endTargetRef_ = "";
+
+    /**
+     *
+     *
+     * <pre>
+     * Additive target-bound advanced input fields. Coordinates remain relative to an
+     * authoritative target; the public gateway never exposes arbitrary desktop coordinates.
+     * </pre>
+     *
+     * <code>string end_target_ref = 21 [json_name = "endTargetRef"];</code>
+     *
+     * @return The endTargetRef.
+     */
+    public java.lang.String getEndTargetRef() {
+      java.lang.Object ref = endTargetRef_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        endTargetRef_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Additive target-bound advanced input fields. Coordinates remain relative to an
+     * authoritative target; the public gateway never exposes arbitrary desktop coordinates.
+     * </pre>
+     *
+     * <code>string end_target_ref = 21 [json_name = "endTargetRef"];</code>
+     *
+     * @return The bytes for endTargetRef.
+     */
+    public com.google.protobuf.ByteString getEndTargetRefBytes() {
+      java.lang.Object ref = endTargetRef_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        endTargetRef_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Additive target-bound advanced input fields. Coordinates remain relative to an
+     * authoritative target; the public gateway never exposes arbitrary desktop coordinates.
+     * </pre>
+     *
+     * <code>string end_target_ref = 21 [json_name = "endTargetRef"];</code>
+     *
+     * @param value The endTargetRef to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEndTargetRef(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      endTargetRef_ = value;
+      bitField0_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Additive target-bound advanced input fields. Coordinates remain relative to an
+     * authoritative target; the public gateway never exposes arbitrary desktop coordinates.
+     * </pre>
+     *
+     * <code>string end_target_ref = 21 [json_name = "endTargetRef"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearEndTargetRef() {
+      endTargetRef_ = getDefaultInstance().getEndTargetRef();
+      bitField0_ = (bitField0_ & ~0x00100000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Additive target-bound advanced input fields. Coordinates remain relative to an
+     * authoritative target; the public gateway never exposes arbitrary desktop coordinates.
+     * </pre>
+     *
+     * <code>string end_target_ref = 21 [json_name = "endTargetRef"];</code>
+     *
+     * @param value The bytes for endTargetRef to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEndTargetRefBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      endTargetRef_ = value;
+      bitField0_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object key_ = "";
+
+    /**
+     * <code>string key = 22 [json_name = "key"];</code>
+     *
+     * @return The key.
+     */
+    public java.lang.String getKey() {
+      java.lang.Object ref = key_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        key_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string key = 22 [json_name = "key"];</code>
+     *
+     * @return The bytes for key.
+     */
+    public com.google.protobuf.ByteString getKeyBytes() {
+      java.lang.Object ref = key_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        key_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string key = 22 [json_name = "key"];</code>
+     *
+     * @param value The key to set.
+     * @return This builder for chaining.
+     */
+    public Builder setKey(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      key_ = value;
+      bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string key = 22 [json_name = "key"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearKey() {
+      key_ = getDefaultInstance().getKey();
+      bitField0_ = (bitField0_ & ~0x00200000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string key = 22 [json_name = "key"];</code>
+     *
+     * @param value The bytes for key to set.
+     * @return This builder for chaining.
+     */
+    public Builder setKeyBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      key_ = value;
+      bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+
+    private int button_;
+
+    /**
+     * <code>uint32 button = 23 [json_name = "button"];</code>
+     *
+     * @return The button.
+     */
+    @java.lang.Override
+    public int getButton() {
+      return button_;
+    }
+
+    /**
+     * <code>uint32 button = 23 [json_name = "button"];</code>
+     *
+     * @param value The button to set.
+     * @return This builder for chaining.
+     */
+    public Builder setButton(int value) {
+
+      button_ = value;
+      bitField0_ |= 0x00400000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>uint32 button = 23 [json_name = "button"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearButton() {
+      bitField0_ = (bitField0_ & ~0x00400000);
+      button_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int deltaX_;
+
+    /**
+     * <code>int32 delta_x = 24 [json_name = "deltaX"];</code>
+     *
+     * @return The deltaX.
+     */
+    @java.lang.Override
+    public int getDeltaX() {
+      return deltaX_;
+    }
+
+    /**
+     * <code>int32 delta_x = 24 [json_name = "deltaX"];</code>
+     *
+     * @param value The deltaX to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDeltaX(int value) {
+
+      deltaX_ = value;
+      bitField0_ |= 0x00800000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>int32 delta_x = 24 [json_name = "deltaX"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearDeltaX() {
+      bitField0_ = (bitField0_ & ~0x00800000);
+      deltaX_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int deltaY_;
+
+    /**
+     * <code>int32 delta_y = 25 [json_name = "deltaY"];</code>
+     *
+     * @return The deltaY.
+     */
+    @java.lang.Override
+    public int getDeltaY() {
+      return deltaY_;
+    }
+
+    /**
+     * <code>int32 delta_y = 25 [json_name = "deltaY"];</code>
+     *
+     * @param value The deltaY to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDeltaY(int value) {
+
+      deltaY_ = value;
+      bitField0_ |= 0x01000000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>int32 delta_y = 25 [json_name = "deltaY"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearDeltaY() {
+      bitField0_ = (bitField0_ & ~0x01000000);
+      deltaY_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int durationMs_;
+
+    /**
+     * <code>uint32 duration_ms = 26 [json_name = "durationMs"];</code>
+     *
+     * @return The durationMs.
+     */
+    @java.lang.Override
+    public int getDurationMs() {
+      return durationMs_;
+    }
+
+    /**
+     * <code>uint32 duration_ms = 26 [json_name = "durationMs"];</code>
+     *
+     * @param value The durationMs to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDurationMs(int value) {
+
+      durationMs_ = value;
+      bitField0_ |= 0x02000000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>uint32 duration_ms = 26 [json_name = "durationMs"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearDurationMs() {
+      bitField0_ = (bitField0_ & ~0x02000000);
+      durationMs_ = 0;
       onChanged();
       return this;
     }

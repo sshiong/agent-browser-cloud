@@ -36,4 +36,123 @@ public interface CaptureObserverScreenshotCommandOrBuilder
    * @return The bytes for captureId.
    */
   com.google.protobuf.ByteString getCaptureIdBytes();
+
+  /**
+   *
+   *
+   * <pre>
+   * Optional only for legacy/manual Observer captures. Challenge automation must provide every
+   * field below so the Node captures one bounded region from one exact Browser State.
+   * </pre>
+   *
+   * <code>string capture_mode = 3 [json_name = "captureMode"];</code>
+   *
+   * @return The captureMode.
+   */
+  java.lang.String getCaptureMode();
+
+  /**
+   *
+   *
+   * <pre>
+   * Optional only for legacy/manual Observer captures. Challenge automation must provide every
+   * field below so the Node captures one bounded region from one exact Browser State.
+   * </pre>
+   *
+   * <code>string capture_mode = 3 [json_name = "captureMode"];</code>
+   *
+   * @return The bytes for captureMode.
+   */
+  com.google.protobuf.ByteString getCaptureModeBytes();
+
+  /**
+   * <code>uint64 base_state_version = 4 [json_name = "baseStateVersion"];</code>
+   *
+   * @return The baseStateVersion.
+   */
+  long getBaseStateVersion();
+
+  /**
+   * <code>uint64 target_revision = 5 [json_name = "targetRevision"];</code>
+   *
+   * @return The targetRevision.
+   */
+  long getTargetRevision();
+
+  /**
+   * <code>string base_content_hash = 6 [json_name = "baseContentHash"];</code>
+   *
+   * @return The baseContentHash.
+   */
+  java.lang.String getBaseContentHash();
+
+  /**
+   * <code>string base_content_hash = 6 [json_name = "baseContentHash"];</code>
+   *
+   * @return The bytes for baseContentHash.
+   */
+  com.google.protobuf.ByteString getBaseContentHashBytes();
+
+  /**
+   * <code>string active_tab_id = 7 [json_name = "activeTabId"];</code>
+   *
+   * @return The activeTabId.
+   */
+  java.lang.String getActiveTabId();
+
+  /**
+   * <code>string active_tab_id = 7 [json_name = "activeTabId"];</code>
+   *
+   * @return The bytes for activeTabId.
+   */
+  com.google.protobuf.ByteString getActiveTabIdBytes();
+
+  /**
+   * <code>double region_x = 8 [json_name = "regionX"];</code>
+   *
+   * @return The regionX.
+   */
+  double getRegionX();
+
+  /**
+   * <code>double region_y = 9 [json_name = "regionY"];</code>
+   *
+   * @return The regionY.
+   */
+  double getRegionY();
+
+  /**
+   * <code>double region_width = 10 [json_name = "regionWidth"];</code>
+   *
+   * @return The regionWidth.
+   */
+  double getRegionWidth();
+
+  /**
+   * <code>double region_height = 11 [json_name = "regionHeight"];</code>
+   *
+   * @return The regionHeight.
+   */
+  double getRegionHeight();
+
+  /**
+   * <code>string evidence_id = 12 [json_name = "evidenceId"];</code>
+   *
+   * @return The evidenceId.
+   */
+  java.lang.String getEvidenceId();
+
+  /**
+   * <code>string evidence_id = 12 [json_name = "evidenceId"];</code>
+   *
+   * @return The bytes for evidenceId.
+   */
+  com.google.protobuf.ByteString getEvidenceIdBytes();
+
+  /**
+   * <code>int64 captured_at_ms = 13 [json_name = "capturedAtMs"];</code>
+   *
+   * @return The capturedAtMs.
+   */
+  long getCapturedAtMs();
 }

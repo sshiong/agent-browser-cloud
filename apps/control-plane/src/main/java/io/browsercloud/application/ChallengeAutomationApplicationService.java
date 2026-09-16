@@ -304,7 +304,7 @@ public class ChallengeAutomationApplicationService {
             policy.maximumAttempts(),
             "challengeType",
             challenge.getSuspectedType()));
-    scheduleCapture(requireRun(runId), challengeEventId);
+    scheduleAttempt(requireRun(runId), challengeEventId);
   }
 
   /** Binds an asynchronously committed, redacted screenshot to its durable vision job. */
@@ -483,6 +483,12 @@ public class ChallengeAutomationApplicationService {
           request.decision() == VisualDecision.ESCALATE ? "MODEL_ESCALATED" : "LOW_CONFIDENCE");
       return view(requireJob(jobId), requireRun(run.runId()));
     }
+    dispatchActions(requireJob(jobId), run, request.actions(), "VISION_MODEL");
+    return view(requireJob(jobId), requireRun(run.runId()));
+  }
+
+  private void dispatchActions(
+      Job job, Run run, List<ChallengeVisualAction> actions, String decisionSource) {
     var session = sessions.requireForUpdate(job.sessionId());
     if (!job.tenantId().equals(session.tenantId()))
       throw new SessionNotFoundException(job.sessionId());
@@ -508,15 +514,16 @@ public class ChallengeAutomationApplicationService {
         OperationFactory.challengeAutomation(
             session, run.runId(), operations.nextOperationEpoch(session.sessionId()));
     operations.insert(operation);
+    requirePersistedOperation(operation);
     jdbc.update(
         "UPDATE challenge_visual_jobs SET state='EXECUTING', operation_id=?, updated_at=now(), version=version+1 WHERE job_id=?",
         operation.operationId(),
-        jobId);
+        job.jobId());
     jdbc.update(
         "UPDATE challenge_automation_runs SET state='EXECUTING', last_action=?, updated_at=now(), version=version+1 WHERE run_id=?",
-        actionSummary(request.actions()),
+        actionSummary(actions),
         run.runId());
-    var executionActions = viewportActions(request.actions(), job);
+    var executionActions = viewportActions(actions, job);
     commands.send(
         NodeCommands.challengeAutomationAction(
             session,
@@ -533,7 +540,16 @@ public class ChallengeAutomationApplicationService {
             run.motionMinimumDelayMs(),
             run.motionMaximumDelayMs(),
             run.targetOffsetRatio()));
-    return view(requireJob(jobId), requireRun(run.runId()));
+    appendAudit(
+        run.tenantId(),
+        run.sessionId(),
+        run.runId(),
+        "AGENT_CHALLENGE_AUTOMATION_ACTION_DISPATCHED",
+        "ACCEPTED",
+        Map.of(
+            "attemptNumber", job.attemptNumber(),
+            "actionCount", actions.size(),
+            "decisionSource", decisionSource));
   }
 
   @Transactional
@@ -595,7 +611,7 @@ public class ChallengeAutomationApplicationService {
     if (run.attemptCount() >= run.maximumAttempts()) {
       exhaust(requireRun(run.runId()), "ATTEMPT_BUDGET_EXHAUSTED");
     } else {
-      scheduleCapture(requireRun(run.runId()), nextChallengeEventId);
+      scheduleAttempt(requireRun(run.runId()), nextChallengeEventId);
     }
   }
 
@@ -698,6 +714,102 @@ public class ChallengeAutomationApplicationService {
         run.runId());
   }
 
+  private void scheduleAttempt(Run run, String challengeEventId) {
+    var challenge = challenges.findForUpdate(challengeEventId, run.tenantId()).orElse(null);
+    if (challenge != null && "SINGLE_CLICK".equals(challenge.getSuspectedType())) {
+      scheduleStructuralClick(run, challenge);
+      return;
+    }
+    scheduleCapture(run, challengeEventId);
+  }
+
+  private void scheduleStructuralClick(
+      Run run, io.browsercloud.persistence.ChallengeEventEntity challenge) {
+    var nextAttempt = run.attemptCount() + 1;
+    if (nextAttempt > run.maximumAttempts()) {
+      exhaust(run, "ATTEMPT_BUDGET_EXHAUSTED");
+      return;
+    }
+    var scope = challengeStructuralScope(challenge);
+    if (scope == null) {
+      exhaust(run, "CHALLENGE_STRUCTURAL_TARGET_UNAVAILABLE");
+      return;
+    }
+    var session = sessions.requireForUpdate(run.sessionId());
+    if (!run.tenantId().equals(session.tenantId())) {
+      throw new SessionNotFoundException(run.sessionId());
+    }
+    operations.ensureNoActiveOperation(run.sessionId());
+    var operation =
+        OperationFactory.challengeAutomation(
+            session, run.runId(), operations.nextOperationEpoch(session.sessionId()));
+    operations.insert(operation);
+    requirePersistedOperation(operation);
+    var jobId = id("cvj_");
+    var now = Instant.now();
+    jdbc.update(
+        """
+        INSERT INTO challenge_visual_jobs(
+            job_id, run_id, tenant_id, session_id, challenge_event_id, attempt_number,
+            capture_id, execution_kind, state, available_at, operation_id, decision,
+            actions, confidence, provider_request_id, input_tokens, output_tokens,
+            latency_ms, output_hash, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, NULL, 'STRUCTURAL_CLICK', 'EXECUTING', ?, ?, 'ACT',
+                '[]'::jsonb, 1.0, 'STRUCTURAL_SINGLE_CLICK', 0, 0, 0, ?, ?, ?)
+        """,
+        jobId,
+        run.runId(),
+        run.tenantId(),
+        run.sessionId(),
+        challenge.getChallengeEventId(),
+        nextAttempt,
+        Timestamp.from(now),
+        operation.operationId(),
+        sha256(
+            String.join(
+                "\n",
+                "STRUCTURAL_SINGLE_CLICK",
+                challenge.getChallengeEventId(),
+                challenge.getVisualAnchorHash())),
+        Timestamp.from(now),
+        Timestamp.from(now));
+    jdbc.update(
+        """
+        UPDATE challenge_automation_runs
+        SET state='EXECUTING', attempt_count=?, current_challenge_event_id=?,
+            last_action='CLICKx1', updated_at=now(), version=version+1
+        WHERE run_id=?
+        """,
+        nextAttempt,
+        challenge.getChallengeEventId(),
+        run.runId());
+    commands.send(
+        NodeCommands.challengeStructuralClick(
+            session,
+            operation,
+            run.runId(),
+            jobId,
+            challenge.getChallengeEventId(),
+            nextAttempt,
+            scope.targetRef(),
+            scope.targetRevision(),
+            scope.stateVersion(),
+            scope.stateHash(),
+            scope.bounds(),
+            scope.visualAnchorHash()));
+    appendAudit(
+        run.tenantId(),
+        run.sessionId(),
+        run.runId(),
+        "AGENT_CHALLENGE_STRUCTURAL_CLICK_DISPATCHED",
+        "ACCEPTED",
+        Map.of(
+            "challengeEventId", challenge.getChallengeEventId(),
+            "stateVersion", scope.stateVersion(),
+            "targetRevision", scope.targetRevision(),
+            "externalModelUsed", false));
+  }
+
   private ChallengeCaptureScope challengeCaptureScope(
       io.browsercloud.persistence.ChallengeEventEntity challenge) {
     var snapshot = states.find(challenge.getSessionId()).orElse(null);
@@ -745,6 +857,32 @@ public class ChallengeAutomationApplicationService {
         bounds);
   }
 
+  private ChallengeStructuralScope challengeStructuralScope(
+      io.browsercloud.persistence.ChallengeEventEntity challenge) {
+    var captureScope = challengeCaptureScope(challenge);
+    if (captureScope == null) return null;
+    var snapshot = states.find(challenge.getSessionId()).orElse(null);
+    if (snapshot == null) return null;
+    var target =
+        snapshot.state().targets().stream()
+            .filter(value -> challenge.getTargetRef().equals(value.targetRef()))
+            .filter(
+                value ->
+                    value.role() != null
+                        && java.util.Set.of("button", "checkbox")
+                            .contains(value.role().toLowerCase(java.util.Locale.ROOT)))
+            .findFirst()
+            .orElse(null);
+    if (target == null) return null;
+    return new ChallengeStructuralScope(
+        captureScope.stateVersion(),
+        captureScope.targetRevision(),
+        captureScope.stateHash(),
+        challenge.getTargetRef(),
+        captureScope.region(),
+        challenge.getVisualAnchorHash());
+  }
+
   private void failAttempt(Job job, String code) {
     jdbc.update(
         """
@@ -758,7 +896,7 @@ public class ChallengeAutomationApplicationService {
     if (run.attemptCount() >= run.maximumAttempts()) {
       exhaust(run, safeCode(code, "ATTEMPT_BUDGET_EXHAUSTED"));
     } else {
-      scheduleCapture(run, run.currentChallengeEventId());
+      scheduleAttempt(run, run.currentChallengeEventId());
     }
   }
 
@@ -974,6 +1112,7 @@ public class ChallengeAutomationApplicationService {
         result.getString("session_id"),
         result.getString("challenge_event_id"),
         result.getInt("attempt_number"),
+        result.getString("execution_kind"),
         result.getString("evidence_id"),
         result.getString("state"),
         result.getString("worker_id"),
@@ -1060,6 +1199,17 @@ public class ChallengeAutomationApplicationService {
             result,
             details,
             runId));
+  }
+
+  private void requirePersistedOperation(
+      io.browsercloud.domain.operation.ExclusiveOperation operation) {
+    operations
+        .findActive(operation.sessionId())
+        .filter(value -> value.operationId().equals(operation.operationId()))
+        .orElseThrow(
+            () ->
+                new ChallengeAutomationRejectedException(
+                    "CHALLENGE_AUTOMATION_OPERATION_NOT_PERSISTED"));
   }
 
   private void requireTenant(String sessionId, String tenantId) {
@@ -1218,6 +1368,14 @@ public class ChallengeAutomationApplicationService {
       String activeTabId,
       io.browsercloud.coordinator.NodeEvent.Bounds region) {}
 
+  private record ChallengeStructuralScope(
+      long stateVersion,
+      long targetRevision,
+      String stateHash,
+      String targetRef,
+      io.browsercloud.coordinator.NodeEvent.Bounds bounds,
+      String visualAnchorHash) {}
+
   private record Job(
       String jobId,
       String runId,
@@ -1225,6 +1383,7 @@ public class ChallengeAutomationApplicationService {
       String sessionId,
       String challengeEventId,
       int attemptNumber,
+      String executionKind,
       String evidenceId,
       String state,
       String workerId,

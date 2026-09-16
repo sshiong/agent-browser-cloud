@@ -283,6 +283,54 @@ scrolled = create_execute_task(
 )
 require_verified(scrolled, ["GET_CURRENT_STATE", "SCROLL", "GET_URL", "GET_PAGE_SUMMARY"])
 
+challenge_url = "http://agent-controls.invalid/challenge"
+challenge_task = create_execute_task(
+    session_id,
+    {
+        "goal": "Open the authorized simple challenge and continue after automatic verification",
+        "startUrl": challenge_url,
+        "allowedDomains": ["agent-controls.invalid"],
+        "maxActions": 8,
+        "replanBudget": 1,
+    },
+    "simple-challenge",
+)
+require_verified(
+    challenge_task, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"]
+)
+challenge_run = wait_for(
+    f"/api/v1/sessions/{session_id}/challenge-automation/current",
+    lambda run: run["state"] == "COMPLETED",
+)
+if (
+    challenge_run["attemptCount"] != 1
+    or challenge_run["lastAction"] != "CLICKx1"
+    or challenge_task.get("challengeEventId") is not None
+):
+    raise AssertionError(
+        f"simple Challenge did not complete through bounded Agent automation: {challenge_run} {challenge_task}"
+    )
+challenge_events = require_status(
+    request("GET", f"/api/v1/sessions/{session_id}/challenges"),
+    200,
+    "read simple Challenge timeline",
+)
+simple_challenge = next(
+    (
+        item
+        for item in challenge_events["items"]
+        if item["suspectedType"] == "SINGLE_CLICK"
+    ),
+    None,
+)
+if simple_challenge is None or simple_challenge["status"] == "AUTHORIZED":
+    raise AssertionError(
+        f"simple Challenge required a manual authorization: {challenge_events}"
+    )
+challenge_state = current_state(session_id)
+if challenge_state["title"] != "Challenge passed":
+    raise AssertionError(f"simple Challenge outcome was not observed: {challenge_state}")
+
 example_task = create_execute_task(
     session_id,
     {
@@ -485,7 +533,14 @@ print(
             "sessionId": session_id,
             "publicUrls": [url for _, url, _ in sites],
             "controlFixture": control_url,
-            "verifiedControls": ["NAVIGATE", "READ", "TYPE_TEXT", "SCROLL"],
+            "challengeFixture": challenge_url,
+            "verifiedControls": [
+                "NAVIGATE",
+                "READ",
+                "TYPE_TEXT",
+                "SCROLL",
+                "AUTOMATIC_SINGLE_CLICK_CHALLENGE",
+            ],
             "failClosed": ["CROSS_DOMAIN_CLICK", "NON_ALLOWLISTED_PLAN"],
         },
         sort_keys=True,

@@ -211,7 +211,7 @@ export function AutomationPage() {
   );
   const navigationConflict = Boolean(startUrl.trim() && actions.length);
   const actionsValid = actions.every((action) =>
-    isActionComplete(action, browserState.data?.targetRevision)
+    isActionComplete(action, browserState.data)
   );
   const expectedOutcomesValid = expectedOutcomes.every(
     (outcome) =>
@@ -567,6 +567,7 @@ export function AutomationPage() {
                 </div>
                 <button
                   type="button"
+                  aria-label="添加 Expected Outcome"
                   disabled={expectedOutcomes.length >= 10}
                   onClick={() =>
                     setExpectedOutcomes((current) => [
@@ -706,6 +707,7 @@ export function AutomationPage() {
                 </div>
                 <button
                   type="button"
+                  aria-label="添加结构化动作"
                   disabled={
                     permittedActionOptions.length === 0 ||
                     requiredActionBudget + 1 > policyBudget.maximumMaxActions ||
@@ -1173,20 +1175,29 @@ function ActionEditor({
   );
 }
 
-function isActionComplete(action: DraftAction, currentTargetRevision?: number) {
+function isActionComplete(
+  action: DraftAction,
+  currentState?: BrowserStateView | null
+) {
+  const currentTarget = action.targetRef
+    ? currentState?.targets.find(
+        (target) =>
+          target.targetRef === action.targetRef &&
+          target.visible &&
+          target.enabled &&
+          target.bounds
+      )
+    : undefined;
   switch (action.toolId) {
     case 'CLICK_TARGET':
-      return Boolean(
-        action.targetRef &&
-        currentTargetRevision &&
-        action.targetRevision === currentTargetRevision
-      );
+      return Boolean(action.targetRevision && currentTarget);
     case 'TYPE_TEXT':
       return Boolean(
-        action.targetRef &&
         action.value?.trim() &&
-        currentTargetRevision &&
-        action.targetRevision === currentTargetRevision
+        action.targetRevision &&
+        currentTarget &&
+        !currentTarget.sensitive &&
+        ['textbox', 'combobox'].includes(currentTarget.role)
       );
     case 'SCROLL':
       return Boolean(

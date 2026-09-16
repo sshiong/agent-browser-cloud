@@ -25,11 +25,25 @@
       "requiredTools": ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"]
     },
     {
+      "caseId": "public-cloudflare-trace",
+      "kind": "PUBLIC_PAGE",
+      "url": "https://www.cloudflare.com/cdn-cgi/trace",
+      "allowedDomains": ["www.cloudflare.com"],
+      "requiredTools": ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"]
+    },
+    {
       "caseId": "synthetic-form-controls",
       "kind": "SYNTHETIC_CONTROL",
       "url": "http://agent-controls.invalid/form",
       "allowedDomains": ["agent-controls.invalid"],
       "requiredControls": ["NAVIGATE", "TYPE_TEXT", "SCROLL"]
+    },
+    {
+      "caseId": "synthetic-simple-challenge",
+      "kind": "SYNTHETIC_CHALLENGE",
+      "url": "http://agent-controls.invalid/challenge",
+      "allowedDomains": ["agent-controls.invalid"],
+      "requiredControls": ["NAVIGATE", "AUTOMATIC_SINGLE_CLICK", "READ"]
     },
     {
       "caseId": "cross-domain-fail-closed",

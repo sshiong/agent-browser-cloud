@@ -4171,6 +4171,64 @@ export class BrowserStateEvent extends Message<BrowserStateEvent> {
 }
 
 /**
+ * Payload-minimal proof that the Node resampled an unchanged page. Control Plane refreshes
+ * observed_at only when all three fences exactly match its current authoritative projection.
+ *
+ * @generated from message browsercloud.node.v1.BrowserStateObservedEvent
+ */
+export class BrowserStateObservedEvent extends Message<BrowserStateObservedEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: uint64 state_version = 2;
+   */
+  stateVersion = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 target_revision = 3;
+   */
+  targetRevision = protoInt64.zero;
+
+  /**
+   * @generated from field: string content_hash = 4;
+   */
+  contentHash = "";
+
+  constructor(data?: PartialMessage<BrowserStateObservedEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.BrowserStateObservedEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "state_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 3, name: "target_revision", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 4, name: "content_hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BrowserStateObservedEvent {
+    return new BrowserStateObservedEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): BrowserStateObservedEvent {
+    return new BrowserStateObservedEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): BrowserStateObservedEvent {
+    return new BrowserStateObservedEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: BrowserStateObservedEvent | PlainMessage<BrowserStateObservedEvent> | undefined, b: BrowserStateObservedEvent | PlainMessage<BrowserStateObservedEvent> | undefined): boolean {
+    return proto3.util.equals(BrowserStateObservedEvent, a, b);
+  }
+}
+
+/**
  * 显式 FULL Resync 的有界流式传输。Begin 声明不可变清单，Chunk 只承载状态
  * protobuf 字节，Commit 允许 Control Plane 在校验全部分块和整流 SHA-256 后原子发布。
  * 周期 State 和 Agent 动作确认仍使用 BrowserStateUpdated，保持 N/N-1 兼容。
@@ -4750,6 +4808,39 @@ export class AgentActionCommand extends Message<AgentActionCommand> {
    */
   dialogId = "";
 
+  /**
+   * Additive target-bound advanced input fields. Coordinates remain relative to an
+   * authoritative target; the public gateway never exposes arbitrary desktop coordinates.
+   *
+   * @generated from field: string end_target_ref = 21;
+   */
+  endTargetRef = "";
+
+  /**
+   * @generated from field: string key = 22;
+   */
+  key = "";
+
+  /**
+   * @generated from field: uint32 button = 23;
+   */
+  button = 0;
+
+  /**
+   * @generated from field: int32 delta_x = 24;
+   */
+  deltaX = 0;
+
+  /**
+   * @generated from field: int32 delta_y = 25;
+   */
+  deltaY = 0;
+
+  /**
+   * @generated from field: uint32 duration_ms = 26;
+   */
+  durationMs = 0;
+
   constructor(data?: PartialMessage<AgentActionCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -4778,6 +4869,12 @@ export class AgentActionCommand extends Message<AgentActionCommand> {
     { no: 18, name: "tab_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 19, name: "tab_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 20, name: "dialog_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 21, name: "end_target_ref", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 22, name: "key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 23, name: "button", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 24, name: "delta_x", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 25, name: "delta_y", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 26, name: "duration_ms", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AgentActionCommand {
@@ -4880,6 +4977,41 @@ export class AgentActionPrimitive extends Message<AgentActionPrimitive> {
    */
   dialogId = "";
 
+  /**
+   * @generated from field: string end_target_ref = 16;
+   */
+  endTargetRef = "";
+
+  /**
+   * @generated from field: string end_element_id = 17;
+   */
+  endElementId = "";
+
+  /**
+   * @generated from field: string key = 18;
+   */
+  key = "";
+
+  /**
+   * @generated from field: uint32 button = 19;
+   */
+  button = 0;
+
+  /**
+   * @generated from field: int32 delta_x = 20;
+   */
+  deltaX = 0;
+
+  /**
+   * @generated from field: int32 delta_y = 21;
+   */
+  deltaY = 0;
+
+  /**
+   * @generated from field: uint32 duration_ms = 22;
+   */
+  durationMs = 0;
+
   constructor(data?: PartialMessage<AgentActionPrimitive>) {
     super();
     proto3.util.initPartial(data, this);
@@ -4903,6 +5035,13 @@ export class AgentActionPrimitive extends Message<AgentActionPrimitive> {
     { no: 13, name: "tab_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 14, name: "tab_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 15, name: "dialog_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 16, name: "end_target_ref", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 17, name: "end_element_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 18, name: "key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 19, name: "button", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 20, name: "delta_x", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 21, name: "delta_y", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 22, name: "duration_ms", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AgentActionPrimitive {
@@ -4951,6 +5090,18 @@ export class AgentActionOutcome extends Message<AgentActionOutcome> {
    */
   targetRevision = protoInt64.zero;
 
+  /**
+   * Additive pacing trace. N-1 Nodes leave both fields at zero/empty.
+   *
+   * @generated from field: uint32 micro_batch_index = 6;
+   */
+  microBatchIndex = 0;
+
+  /**
+   * @generated from field: string boundary_reason = 7;
+   */
+  boundaryReason = "";
+
   constructor(data?: PartialMessage<AgentActionOutcome>) {
     super();
     proto3.util.initPartial(data, this);
@@ -4964,6 +5115,8 @@ export class AgentActionOutcome extends Message<AgentActionOutcome> {
     { no: 3, name: "error_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 4, name: "state_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
     { no: 5, name: "target_revision", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 6, name: "micro_batch_index", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 7, name: "boundary_reason", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AgentActionOutcome {
@@ -5041,6 +5194,59 @@ export class AgentActionFailedEvent extends Message<AgentActionFailedEvent> {
 
   static equals(a: AgentActionFailedEvent | PlainMessage<AgentActionFailedEvent> | undefined, b: AgentActionFailedEvent | PlainMessage<AgentActionFailedEvent> | undefined): boolean {
     return proto3.util.equals(AgentActionFailedEvent, a, b);
+  }
+}
+
+/**
+ * Idempotent cancellation fence for one in-flight Agent action. The envelope carries the
+ * authoritative Context/Operation/Coordinator epochs; task_id prevents an old task cancellation
+ * from stopping a different task that later reuses the same Session.
+ *
+ * @generated from message browsercloud.node.v1.CancelAgentActionCommand
+ */
+export class CancelAgentActionCommand extends Message<CancelAgentActionCommand> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string task_id = 2;
+   */
+  taskId = "";
+
+  /**
+   * @generated from field: string reason = 3;
+   */
+  reason = "";
+
+  constructor(data?: PartialMessage<CancelAgentActionCommand>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.CancelAgentActionCommand";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "task_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "reason", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CancelAgentActionCommand {
+    return new CancelAgentActionCommand().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): CancelAgentActionCommand {
+    return new CancelAgentActionCommand().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): CancelAgentActionCommand {
+    return new CancelAgentActionCommand().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: CancelAgentActionCommand | PlainMessage<CancelAgentActionCommand> | undefined, b: CancelAgentActionCommand | PlainMessage<CancelAgentActionCommand> | undefined): boolean {
+    return proto3.util.equals(CancelAgentActionCommand, a, b);
   }
 }
 
@@ -5494,6 +5700,45 @@ export class ChallengeAutomationActionCommand extends Message<ChallengeAutomatio
    */
   targetOffsetRatio = 0;
 
+  /**
+   * Optional exact structural target for a deterministic SINGLE_CLICK Challenge. When set,
+   * actions must be empty. N-1 Nodes ignore these fields and reject the empty action list before
+   * input, so rolling upgrades fail closed rather than treating this as a viewport click.
+   *
+   * @generated from field: string target_ref = 14;
+   */
+  targetRef = "";
+
+  /**
+   * @generated from field: uint64 target_revision = 15;
+   */
+  targetRevision = protoInt64.zero;
+
+  /**
+   * @generated from field: double expected_x = 16;
+   */
+  expectedX = 0;
+
+  /**
+   * @generated from field: double expected_y = 17;
+   */
+  expectedY = 0;
+
+  /**
+   * @generated from field: double expected_width = 18;
+   */
+  expectedWidth = 0;
+
+  /**
+   * @generated from field: double expected_height = 19;
+   */
+  expectedHeight = 0;
+
+  /**
+   * @generated from field: string visual_anchor_hash = 20;
+   */
+  visualAnchorHash = "";
+
   constructor(data?: PartialMessage<ChallengeAutomationActionCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -5515,6 +5760,13 @@ export class ChallengeAutomationActionCommand extends Message<ChallengeAutomatio
     { no: 11, name: "motion_min_delay_ms", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
     { no: 12, name: "motion_max_delay_ms", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
     { no: 13, name: "target_offset_ratio", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 14, name: "target_ref", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 15, name: "target_revision", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 16, name: "expected_x", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 17, name: "expected_y", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 18, name: "expected_width", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 19, name: "expected_height", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 20, name: "visual_anchor_hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ChallengeAutomationActionCommand {
@@ -5618,6 +5870,64 @@ export class CaptureObserverScreenshotCommand extends Message<CaptureObserverScr
    */
   captureId = "";
 
+  /**
+   * Optional only for legacy/manual Observer captures. Challenge automation must provide every
+   * field below so the Node captures one bounded region from one exact Browser State.
+   *
+   * @generated from field: string capture_mode = 3;
+   */
+  captureMode = "";
+
+  /**
+   * @generated from field: uint64 base_state_version = 4;
+   */
+  baseStateVersion = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 target_revision = 5;
+   */
+  targetRevision = protoInt64.zero;
+
+  /**
+   * @generated from field: string base_content_hash = 6;
+   */
+  baseContentHash = "";
+
+  /**
+   * @generated from field: string active_tab_id = 7;
+   */
+  activeTabId = "";
+
+  /**
+   * @generated from field: double region_x = 8;
+   */
+  regionX = 0;
+
+  /**
+   * @generated from field: double region_y = 9;
+   */
+  regionY = 0;
+
+  /**
+   * @generated from field: double region_width = 10;
+   */
+  regionWidth = 0;
+
+  /**
+   * @generated from field: double region_height = 11;
+   */
+  regionHeight = 0;
+
+  /**
+   * @generated from field: string evidence_id = 12;
+   */
+  evidenceId = "";
+
+  /**
+   * @generated from field: int64 captured_at_ms = 13;
+   */
+  capturedAtMs = protoInt64.zero;
+
   constructor(data?: PartialMessage<CaptureObserverScreenshotCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -5628,6 +5938,17 @@ export class CaptureObserverScreenshotCommand extends Message<CaptureObserverScr
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "capture_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "capture_mode", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "base_state_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 5, name: "target_revision", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 6, name: "base_content_hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "active_tab_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "region_x", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 9, name: "region_y", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 10, name: "region_width", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 11, name: "region_height", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 12, name: "evidence_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 13, name: "captured_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CaptureObserverScreenshotCommand {
@@ -5766,6 +6087,261 @@ export class CaptureAgentScreenshotCommand extends Message<CaptureAgentScreensho
 }
 
 /**
+ * Governed Runtime.evaluate. The durable Outbox stores only sealed_expression; the dispatcher
+ * materializes expression immediately before mTLS delivery and clears the sealed field. The Node
+ * selects the authoritative active Page target and never accepts a caller-supplied CDP endpoint.
+ *
+ * @generated from message browsercloud.node.v1.AgentBrowserEvaluateCommand
+ */
+export class AgentBrowserEvaluateCommand extends Message<AgentBrowserEvaluateCommand> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string evaluation_id = 2;
+   */
+  evaluationId = "";
+
+  /**
+   * @generated from field: string evaluation_mode = 3;
+   */
+  evaluationMode = "";
+
+  /**
+   * @generated from field: uint64 base_state_version = 4;
+   */
+  baseStateVersion = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 target_revision = 5;
+   */
+  targetRevision = protoInt64.zero;
+
+  /**
+   * @generated from field: string base_content_hash = 6;
+   */
+  baseContentHash = "";
+
+  /**
+   * @generated from field: string active_tab_id = 7;
+   */
+  activeTabId = "";
+
+  /**
+   * @generated from field: string sealed_expression = 8;
+   */
+  sealedExpression = "";
+
+  /**
+   * @generated from field: string expression = 9;
+   */
+  expression = "";
+
+  /**
+   * @generated from field: bool await_promise = 10;
+   */
+  awaitPromise = false;
+
+  /**
+   * @generated from field: uint32 timeout_ms = 11;
+   */
+  timeoutMs = 0;
+
+  /**
+   * @generated from field: uint32 maximum_result_bytes = 12;
+   */
+  maximumResultBytes = 0;
+
+  constructor(data?: PartialMessage<AgentBrowserEvaluateCommand>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.AgentBrowserEvaluateCommand";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "evaluation_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "evaluation_mode", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "base_state_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 5, name: "target_revision", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 6, name: "base_content_hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "active_tab_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "sealed_expression", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 9, name: "expression", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 10, name: "await_promise", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 11, name: "timeout_ms", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 12, name: "maximum_result_bytes", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AgentBrowserEvaluateCommand {
+    return new AgentBrowserEvaluateCommand().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): AgentBrowserEvaluateCommand {
+    return new AgentBrowserEvaluateCommand().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): AgentBrowserEvaluateCommand {
+    return new AgentBrowserEvaluateCommand().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: AgentBrowserEvaluateCommand | PlainMessage<AgentBrowserEvaluateCommand> | undefined, b: AgentBrowserEvaluateCommand | PlainMessage<AgentBrowserEvaluateCommand> | undefined): boolean {
+    return proto3.util.equals(AgentBrowserEvaluateCommand, a, b);
+  }
+}
+
+/**
+ * Bounded result metadata. Script source is never echoed and ordinary Node-event audit records
+ * only hashes/sizes from the PostgreSQL evaluation ledger, not result_json or exception text.
+ *
+ * @generated from message browsercloud.node.v1.AgentBrowserEvaluationCompletedEvent
+ */
+export class AgentBrowserEvaluationCompletedEvent extends Message<AgentBrowserEvaluationCompletedEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string evaluation_id = 2;
+   */
+  evaluationId = "";
+
+  /**
+   * @generated from field: string evaluation_mode = 3;
+   */
+  evaluationMode = "";
+
+  /**
+   * @generated from field: string result_type = 4;
+   */
+  resultType = "";
+
+  /**
+   * @generated from field: string result_json = 5;
+   */
+  resultJson = "";
+
+  /**
+   * @generated from field: uint32 result_bytes = 6;
+   */
+  resultBytes = 0;
+
+  /**
+   * @generated from field: uint32 redacted_value_count = 7;
+   */
+  redactedValueCount = 0;
+
+  /**
+   * @generated from field: string exception_class = 8;
+   */
+  exceptionClass = "";
+
+  /**
+   * @generated from field: string exception_message = 9;
+   */
+  exceptionMessage = "";
+
+  /**
+   * @generated from field: string error_code = 10;
+   */
+  errorCode = "";
+
+  /**
+   * @generated from field: uint64 state_version_before = 11;
+   */
+  stateVersionBefore = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 target_revision_before = 12;
+   */
+  targetRevisionBefore = protoInt64.zero;
+
+  /**
+   * @generated from field: string state_hash_before = 13;
+   */
+  stateHashBefore = "";
+
+  /**
+   * @generated from field: string active_tab_id_before = 14;
+   */
+  activeTabIdBefore = "";
+
+  /**
+   * @generated from field: uint64 state_version_after = 15;
+   */
+  stateVersionAfter = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 target_revision_after = 16;
+   */
+  targetRevisionAfter = protoInt64.zero;
+
+  /**
+   * @generated from field: string state_hash_after = 17;
+   */
+  stateHashAfter = "";
+
+  /**
+   * @generated from field: string active_tab_id_after = 18;
+   */
+  activeTabIdAfter = "";
+
+  /**
+   * @generated from field: uint32 duration_ms = 19;
+   */
+  durationMs = 0;
+
+  constructor(data?: PartialMessage<AgentBrowserEvaluationCompletedEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.AgentBrowserEvaluationCompletedEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "evaluation_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "evaluation_mode", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "result_type", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "result_json", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "result_bytes", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 7, name: "redacted_value_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 8, name: "exception_class", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 9, name: "exception_message", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 10, name: "error_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 11, name: "state_version_before", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 12, name: "target_revision_before", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 13, name: "state_hash_before", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 14, name: "active_tab_id_before", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 15, name: "state_version_after", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 16, name: "target_revision_after", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 17, name: "state_hash_after", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 18, name: "active_tab_id_after", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 19, name: "duration_ms", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AgentBrowserEvaluationCompletedEvent {
+    return new AgentBrowserEvaluationCompletedEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): AgentBrowserEvaluationCompletedEvent {
+    return new AgentBrowserEvaluationCompletedEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): AgentBrowserEvaluationCompletedEvent {
+    return new AgentBrowserEvaluationCompletedEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: AgentBrowserEvaluationCompletedEvent | PlainMessage<AgentBrowserEvaluationCompletedEvent> | undefined, b: AgentBrowserEvaluationCompletedEvent | PlainMessage<AgentBrowserEvaluationCompletedEvent> | undefined): boolean {
+    return proto3.util.equals(AgentBrowserEvaluationCompletedEvent, a, b);
+  }
+}
+
+/**
  * Agent 动作完成后由独立 CDP 截图数据面产生。对象由 Storage Helper 提交，
  * Node 不持有 Bucket 凭据；失败事件也会持久化，避免把缺失证据伪装成成功。
  *
@@ -5851,7 +6427,7 @@ export class SessionEvidenceCapturedEvent extends Message<SessionEvidenceCapture
   redactedRegionCount = 0;
 
   /**
-   * Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+   * Present only for AGENT_SCREENSHOT or CHALLENGE_SCREENSHOT. These fields bind pixels to one exact Browser State and
    * provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
    *
    * @generated from field: string capture_mode = 16;

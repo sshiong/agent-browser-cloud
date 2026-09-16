@@ -945,6 +945,16 @@ message ChallengeAutomationActionCommand {
   uint32 motion_min_delay_ms = 11;
   uint32 motion_max_delay_ms = 12;
   double target_offset_ratio = 13;
+  // Optional exact structural target for a deterministic SINGLE_CLICK Challenge. When set,
+  // actions must be empty. N-1 Nodes ignore these fields and reject the empty action list before
+  // input, so rolling upgrades fail closed rather than treating this as a viewport click.
+  string target_ref = 14;
+  uint64 target_revision = 15;
+  double expected_x = 16;
+  double expected_y = 17;
+  double expected_width = 18;
+  double expected_height = 19;
+  string visual_anchor_hash = 20;
 }
 
 message ChallengeAutomationFailedEvent {

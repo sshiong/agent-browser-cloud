@@ -199,4 +199,74 @@ public interface AgentActionPrimitiveOrBuilder
    * @return The bytes for dialogId.
    */
   com.google.protobuf.ByteString getDialogIdBytes();
+
+  /**
+   * <code>string end_target_ref = 16 [json_name = "endTargetRef"];</code>
+   *
+   * @return The endTargetRef.
+   */
+  java.lang.String getEndTargetRef();
+
+  /**
+   * <code>string end_target_ref = 16 [json_name = "endTargetRef"];</code>
+   *
+   * @return The bytes for endTargetRef.
+   */
+  com.google.protobuf.ByteString getEndTargetRefBytes();
+
+  /**
+   * <code>string end_element_id = 17 [json_name = "endElementId"];</code>
+   *
+   * @return The endElementId.
+   */
+  java.lang.String getEndElementId();
+
+  /**
+   * <code>string end_element_id = 17 [json_name = "endElementId"];</code>
+   *
+   * @return The bytes for endElementId.
+   */
+  com.google.protobuf.ByteString getEndElementIdBytes();
+
+  /**
+   * <code>string key = 18 [json_name = "key"];</code>
+   *
+   * @return The key.
+   */
+  java.lang.String getKey();
+
+  /**
+   * <code>string key = 18 [json_name = "key"];</code>
+   *
+   * @return The bytes for key.
+   */
+  com.google.protobuf.ByteString getKeyBytes();
+
+  /**
+   * <code>uint32 button = 19 [json_name = "button"];</code>
+   *
+   * @return The button.
+   */
+  int getButton();
+
+  /**
+   * <code>int32 delta_x = 20 [json_name = "deltaX"];</code>
+   *
+   * @return The deltaX.
+   */
+  int getDeltaX();
+
+  /**
+   * <code>int32 delta_y = 21 [json_name = "deltaY"];</code>
+   *
+   * @return The deltaY.
+   */
+  int getDeltaY();
+
+  /**
+   * <code>uint32 duration_ms = 22 [json_name = "durationMs"];</code>
+   *
+   * @return The durationMs.
+   */
+  int getDurationMs();
 }

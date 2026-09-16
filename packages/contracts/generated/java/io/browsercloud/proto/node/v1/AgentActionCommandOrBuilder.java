@@ -298,4 +298,74 @@ public interface AgentActionCommandOrBuilder
    * @return The bytes for dialogId.
    */
   com.google.protobuf.ByteString getDialogIdBytes();
+
+  /**
+   *
+   *
+   * <pre>
+   * Additive target-bound advanced input fields. Coordinates remain relative to an
+   * authoritative target; the public gateway never exposes arbitrary desktop coordinates.
+   * </pre>
+   *
+   * <code>string end_target_ref = 21 [json_name = "endTargetRef"];</code>
+   *
+   * @return The endTargetRef.
+   */
+  java.lang.String getEndTargetRef();
+
+  /**
+   *
+   *
+   * <pre>
+   * Additive target-bound advanced input fields. Coordinates remain relative to an
+   * authoritative target; the public gateway never exposes arbitrary desktop coordinates.
+   * </pre>
+   *
+   * <code>string end_target_ref = 21 [json_name = "endTargetRef"];</code>
+   *
+   * @return The bytes for endTargetRef.
+   */
+  com.google.protobuf.ByteString getEndTargetRefBytes();
+
+  /**
+   * <code>string key = 22 [json_name = "key"];</code>
+   *
+   * @return The key.
+   */
+  java.lang.String getKey();
+
+  /**
+   * <code>string key = 22 [json_name = "key"];</code>
+   *
+   * @return The bytes for key.
+   */
+  com.google.protobuf.ByteString getKeyBytes();
+
+  /**
+   * <code>uint32 button = 23 [json_name = "button"];</code>
+   *
+   * @return The button.
+   */
+  int getButton();
+
+  /**
+   * <code>int32 delta_x = 24 [json_name = "deltaX"];</code>
+   *
+   * @return The deltaX.
+   */
+  int getDeltaX();
+
+  /**
+   * <code>int32 delta_y = 25 [json_name = "deltaY"];</code>
+   *
+   * @return The deltaY.
+   */
+  int getDeltaY();
+
+  /**
+   * <code>uint32 duration_ms = 26 [json_name = "durationMs"];</code>
+   *
+   * @return The durationMs.
+   */
+  int getDurationMs();
 }

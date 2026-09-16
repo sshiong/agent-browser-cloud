@@ -132,7 +132,15 @@ class ProxyHandler(BaseHTTPRequestHandler):
             return
         if host == CONTROL_FIXTURE_HOST:
             require_allowed_host(host)
-            body = b"""<!doctype html>
+            if parsed.path == "/challenge":
+                body = b"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Authorized Simple Challenge</title>
+<style>body{font-family:sans-serif;padding:32px}button{width:240px;height:56px}</style></head>
+<body><main><h1>Simple challenge fixture</h1>
+<button id="verify" type="button" onclick="document.title='Challenge passed';this.remove();document.querySelector('main').insertAdjacentHTML('beforeend','<p role=status>Challenge passed</p>')">Verify you are human</button>
+</main></body></html>"""
+            else:
+                body = b"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Agent Control Fixture</title>
 <style>body{font-family:sans-serif;min-height:2400px;padding:32px}label,input{display:block}
 input{width:360px;height:36px;margin:8px 0 24px}</style></head>

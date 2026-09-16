@@ -1309,6 +1309,20 @@ pub struct AgentActionCommand {
     pub tab_url: ::prost::alloc::string::String,
     #[prost(string, tag="20")]
     pub dialog_id: ::prost::alloc::string::String,
+    /// Additive target-bound advanced input fields. Coordinates remain relative to an
+    /// authoritative target; the public gateway never exposes arbitrary desktop coordinates.
+    #[prost(string, tag="21")]
+    pub end_target_ref: ::prost::alloc::string::String,
+    #[prost(string, tag="22")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(uint32, tag="23")]
+    pub button: u32,
+    #[prost(int32, tag="24")]
+    pub delta_x: i32,
+    #[prost(int32, tag="25")]
+    pub delta_y: i32,
+    #[prost(uint32, tag="26")]
+    pub duration_ms: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1346,6 +1360,20 @@ pub struct AgentActionPrimitive {
     pub tab_url: ::prost::alloc::string::String,
     #[prost(string, tag="15")]
     pub dialog_id: ::prost::alloc::string::String,
+    #[prost(string, tag="16")]
+    pub end_target_ref: ::prost::alloc::string::String,
+    #[prost(string, tag="17")]
+    pub end_element_id: ::prost::alloc::string::String,
+    #[prost(string, tag="18")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(uint32, tag="19")]
+    pub button: u32,
+    #[prost(int32, tag="20")]
+    pub delta_x: i32,
+    #[prost(int32, tag="21")]
+    pub delta_y: i32,
+    #[prost(uint32, tag="22")]
+    pub duration_ms: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1360,6 +1388,11 @@ pub struct AgentActionOutcome {
     pub state_version: u64,
     #[prost(uint64, tag="5")]
     pub target_revision: u64,
+    /// Additive pacing trace. N-1 Nodes leave both fields at zero/empty.
+    #[prost(uint32, tag="6")]
+    pub micro_batch_index: u32,
+    #[prost(string, tag="7")]
+    pub boundary_reason: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1374,6 +1407,19 @@ pub struct AgentActionFailedEvent {
     pub tool_id: ::prost::alloc::string::String,
     #[prost(string, tag="5")]
     pub error_code: ::prost::alloc::string::String,
+}
+/// Idempotent cancellation fence for one in-flight Agent action. The envelope carries the
+/// authoritative Context/Operation/Coordinator epochs; task_id prevents an old task cancellation
+/// from stopping a different task that later reuses the same Session.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CancelAgentActionCommand {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub task_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub reason: ::prost::alloc::string::String,
 }
 /// Journaled consumption of a previously streamed, Session-bound staging file. No arbitrary path
 /// crosses the Control Plane/Node contract.
@@ -1503,6 +1549,23 @@ pub struct ChallengeAutomationActionCommand {
     pub motion_max_delay_ms: u32,
     #[prost(double, tag="13")]
     pub target_offset_ratio: f64,
+    /// Optional exact structural target for a deterministic SINGLE_CLICK Challenge. When set,
+    /// actions must be empty. N-1 Nodes ignore these fields and reject the empty action list before
+    /// input, so rolling upgrades fail closed rather than treating this as a viewport click.
+    #[prost(string, tag="14")]
+    pub target_ref: ::prost::alloc::string::String,
+    #[prost(uint64, tag="15")]
+    pub target_revision: u64,
+    #[prost(double, tag="16")]
+    pub expected_x: f64,
+    #[prost(double, tag="17")]
+    pub expected_y: f64,
+    #[prost(double, tag="18")]
+    pub expected_width: f64,
+    #[prost(double, tag="19")]
+    pub expected_height: f64,
+    #[prost(string, tag="20")]
+    pub visual_anchor_hash: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1529,6 +1592,30 @@ pub struct CaptureObserverScreenshotCommand {
     pub session_id: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub capture_id: ::prost::alloc::string::String,
+    /// Optional only for legacy/manual Observer captures. Challenge automation must provide every
+    /// field below so the Node captures one bounded region from one exact Browser State.
+    #[prost(string, tag="3")]
+    pub capture_mode: ::prost::alloc::string::String,
+    #[prost(uint64, tag="4")]
+    pub base_state_version: u64,
+    #[prost(uint64, tag="5")]
+    pub target_revision: u64,
+    #[prost(string, tag="6")]
+    pub base_content_hash: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub active_tab_id: ::prost::alloc::string::String,
+    #[prost(double, tag="8")]
+    pub region_x: f64,
+    #[prost(double, tag="9")]
+    pub region_y: f64,
+    #[prost(double, tag="10")]
+    pub region_width: f64,
+    #[prost(double, tag="11")]
+    pub region_height: f64,
+    #[prost(string, tag="12")]
+    pub evidence_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="13")]
+    pub captured_at_ms: i64,
 }
 /// Coarse, state-fenced Agent screenshot. The Node selects the authoritative active Page Target;
 /// callers cannot provide a CDP endpoint, Object Storage coordinate or arbitrary CDP method.
@@ -1563,6 +1650,81 @@ pub struct CaptureAgentScreenshotCommand {
     pub evidence_id: ::prost::alloc::string::String,
     #[prost(int64, tag="14")]
     pub captured_at_ms: i64,
+}
+/// Governed Runtime.evaluate. The durable Outbox stores only sealed_expression; the dispatcher
+/// materializes expression immediately before mTLS delivery and clears the sealed field. The Node
+/// selects the authoritative active Page target and never accepts a caller-supplied CDP endpoint.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentBrowserEvaluateCommand {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub evaluation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub evaluation_mode: ::prost::alloc::string::String,
+    #[prost(uint64, tag="4")]
+    pub base_state_version: u64,
+    #[prost(uint64, tag="5")]
+    pub target_revision: u64,
+    #[prost(string, tag="6")]
+    pub base_content_hash: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub active_tab_id: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub sealed_expression: ::prost::alloc::string::String,
+    #[prost(string, tag="9")]
+    pub expression: ::prost::alloc::string::String,
+    #[prost(bool, tag="10")]
+    pub await_promise: bool,
+    #[prost(uint32, tag="11")]
+    pub timeout_ms: u32,
+    #[prost(uint32, tag="12")]
+    pub maximum_result_bytes: u32,
+}
+/// Bounded result metadata. Script source is never echoed and ordinary Node-event audit records
+/// only hashes/sizes from the PostgreSQL evaluation ledger, not result_json or exception text.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentBrowserEvaluationCompletedEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub evaluation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub evaluation_mode: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub result_type: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub result_json: ::prost::alloc::string::String,
+    #[prost(uint32, tag="6")]
+    pub result_bytes: u32,
+    #[prost(uint32, tag="7")]
+    pub redacted_value_count: u32,
+    #[prost(string, tag="8")]
+    pub exception_class: ::prost::alloc::string::String,
+    #[prost(string, tag="9")]
+    pub exception_message: ::prost::alloc::string::String,
+    #[prost(string, tag="10")]
+    pub error_code: ::prost::alloc::string::String,
+    #[prost(uint64, tag="11")]
+    pub state_version_before: u64,
+    #[prost(uint64, tag="12")]
+    pub target_revision_before: u64,
+    #[prost(string, tag="13")]
+    pub state_hash_before: ::prost::alloc::string::String,
+    #[prost(string, tag="14")]
+    pub active_tab_id_before: ::prost::alloc::string::String,
+    #[prost(uint64, tag="15")]
+    pub state_version_after: u64,
+    #[prost(uint64, tag="16")]
+    pub target_revision_after: u64,
+    #[prost(string, tag="17")]
+    pub state_hash_after: ::prost::alloc::string::String,
+    #[prost(string, tag="18")]
+    pub active_tab_id_after: ::prost::alloc::string::String,
+    #[prost(uint32, tag="19")]
+    pub duration_ms: u32,
 }
 /// Agent 动作完成后由独立 CDP 截图数据面产生。对象由 Storage Helper 提交，
 /// Node 不持有 Bucket 凭据；失败事件也会持久化，避免把缺失证据伪装成成功。
@@ -1601,7 +1763,7 @@ pub struct SessionEvidenceCapturedEvent {
     pub redaction_state: ::prost::alloc::string::String,
     #[prost(uint32, tag="15")]
     pub redacted_region_count: u32,
-    /// Present only for AGENT_SCREENSHOT. These fields bind pixels to one exact Browser State and
+    /// Present only for AGENT_SCREENSHOT or CHALLENGE_SCREENSHOT. These fields bind pixels to one exact Browser State and
     /// provide enough geometry to map cropped image coordinates back to CSS browser coordinates.
     #[prost(string, tag="16")]
     pub capture_mode: ::prost::alloc::string::String,

@@ -371,6 +371,14 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 
 ## 7. 当前正在处理的任务
 
+- progress 182：Real-URL Agent Matrix 已在隔离 Docker 服务和真实 Chromium 中实际访问
+  Cloudflare 公共 trace 页面；该证据不冒充 Cloudflare 托管 CAPTCHA 绕过。安全可绑定 Target 的
+  `SINGLE_CLICK` 改走 V122 `STRUCTURAL_CLICK`，Node 在输入前重验 State/Target/Bounds/Visual
+  Anchor，不依赖截图、对象存储、模型或人工确认；仓库自有授权 Fixture 已验证一次 CLICK 完成且
+  Challenge Event 未人工授权。Web Console 两个“添加”按钮已有唯一可访问名称，提交前继续 JIT
+  Rebind；真实 Web E2E、Viewer RBAC E2E、完整 `make ci`、Desktop 和完整 PostgreSQL/Redis/
+  MinIO/mTLS/Chromium Integration 均通过。
+
 - progress 181：幂等 Agent Task cancel API 在终止 Task/Operation 前先持久化精确
   `CancelAgentAction`；Step 失败、Operation 丢失/过期和权威 Epoch 前进复用同一终止语义。
   Coordinator 与 Node 取消命令走独立双线程高优先级调度链；Node 以 Task/Context/Operation/

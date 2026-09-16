@@ -24,6 +24,8 @@ public final class ChallengeAutomationActionCommand extends com.google.protobuf.
     challengeEventId_ = "";
     baseContentHash_ = "";
     actions_ = java.util.Collections.emptyList();
+    targetRef_ = "";
+    visualAnchorHash_ = "";
   }
 
   @java.lang.Override
@@ -395,6 +397,169 @@ public final class ChallengeAutomationActionCommand extends com.google.protobuf.
     return targetOffsetRatio_;
   }
 
+  public static final int TARGET_REF_FIELD_NUMBER = 14;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object targetRef_ = "";
+
+  /**
+   *
+   *
+   * <pre>
+   * Optional exact structural target for a deterministic SINGLE_CLICK Challenge. When set,
+   * actions must be empty. N-1 Nodes ignore these fields and reject the empty action list before
+   * input, so rolling upgrades fail closed rather than treating this as a viewport click.
+   * </pre>
+   *
+   * <code>string target_ref = 14 [json_name = "targetRef"];</code>
+   *
+   * @return The targetRef.
+   */
+  @java.lang.Override
+  public java.lang.String getTargetRef() {
+    java.lang.Object ref = targetRef_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      targetRef_ = s;
+      return s;
+    }
+  }
+
+  /**
+   *
+   *
+   * <pre>
+   * Optional exact structural target for a deterministic SINGLE_CLICK Challenge. When set,
+   * actions must be empty. N-1 Nodes ignore these fields and reject the empty action list before
+   * input, so rolling upgrades fail closed rather than treating this as a viewport click.
+   * </pre>
+   *
+   * <code>string target_ref = 14 [json_name = "targetRef"];</code>
+   *
+   * @return The bytes for targetRef.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getTargetRefBytes() {
+    java.lang.Object ref = targetRef_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      targetRef_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int TARGET_REVISION_FIELD_NUMBER = 15;
+  private long targetRevision_ = 0L;
+
+  /**
+   * <code>uint64 target_revision = 15 [json_name = "targetRevision"];</code>
+   *
+   * @return The targetRevision.
+   */
+  @java.lang.Override
+  public long getTargetRevision() {
+    return targetRevision_;
+  }
+
+  public static final int EXPECTED_X_FIELD_NUMBER = 16;
+  private double expectedX_ = 0D;
+
+  /**
+   * <code>double expected_x = 16 [json_name = "expectedX"];</code>
+   *
+   * @return The expectedX.
+   */
+  @java.lang.Override
+  public double getExpectedX() {
+    return expectedX_;
+  }
+
+  public static final int EXPECTED_Y_FIELD_NUMBER = 17;
+  private double expectedY_ = 0D;
+
+  /**
+   * <code>double expected_y = 17 [json_name = "expectedY"];</code>
+   *
+   * @return The expectedY.
+   */
+  @java.lang.Override
+  public double getExpectedY() {
+    return expectedY_;
+  }
+
+  public static final int EXPECTED_WIDTH_FIELD_NUMBER = 18;
+  private double expectedWidth_ = 0D;
+
+  /**
+   * <code>double expected_width = 18 [json_name = "expectedWidth"];</code>
+   *
+   * @return The expectedWidth.
+   */
+  @java.lang.Override
+  public double getExpectedWidth() {
+    return expectedWidth_;
+  }
+
+  public static final int EXPECTED_HEIGHT_FIELD_NUMBER = 19;
+  private double expectedHeight_ = 0D;
+
+  /**
+   * <code>double expected_height = 19 [json_name = "expectedHeight"];</code>
+   *
+   * @return The expectedHeight.
+   */
+  @java.lang.Override
+  public double getExpectedHeight() {
+    return expectedHeight_;
+  }
+
+  public static final int VISUAL_ANCHOR_HASH_FIELD_NUMBER = 20;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object visualAnchorHash_ = "";
+
+  /**
+   * <code>string visual_anchor_hash = 20 [json_name = "visualAnchorHash"];</code>
+   *
+   * @return The visualAnchorHash.
+   */
+  @java.lang.Override
+  public java.lang.String getVisualAnchorHash() {
+    java.lang.Object ref = visualAnchorHash_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      visualAnchorHash_ = s;
+      return s;
+    }
+  }
+
+  /**
+   * <code>string visual_anchor_hash = 20 [json_name = "visualAnchorHash"];</code>
+   *
+   * @return The bytes for visualAnchorHash.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getVisualAnchorHashBytes() {
+    java.lang.Object ref = visualAnchorHash_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      visualAnchorHash_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
 
   @java.lang.Override
@@ -448,6 +613,27 @@ public final class ChallengeAutomationActionCommand extends com.google.protobuf.
     if (java.lang.Double.doubleToRawLongBits(targetOffsetRatio_) != 0) {
       output.writeDouble(13, targetOffsetRatio_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(targetRef_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 14, targetRef_);
+    }
+    if (targetRevision_ != 0L) {
+      output.writeUInt64(15, targetRevision_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(expectedX_) != 0) {
+      output.writeDouble(16, expectedX_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(expectedY_) != 0) {
+      output.writeDouble(17, expectedY_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(expectedWidth_) != 0) {
+      output.writeDouble(18, expectedWidth_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(expectedHeight_) != 0) {
+      output.writeDouble(19, expectedHeight_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(visualAnchorHash_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 20, visualAnchorHash_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -496,6 +682,27 @@ public final class ChallengeAutomationActionCommand extends com.google.protobuf.
     if (java.lang.Double.doubleToRawLongBits(targetOffsetRatio_) != 0) {
       size += com.google.protobuf.CodedOutputStream.computeDoubleSize(13, targetOffsetRatio_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(targetRef_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(14, targetRef_);
+    }
+    if (targetRevision_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt64Size(15, targetRevision_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(expectedX_) != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(16, expectedX_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(expectedY_) != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(17, expectedY_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(expectedWidth_) != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(18, expectedWidth_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(expectedHeight_) != 0) {
+      size += com.google.protobuf.CodedOutputStream.computeDoubleSize(19, expectedHeight_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(visualAnchorHash_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(20, visualAnchorHash_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -526,6 +733,17 @@ public final class ChallengeAutomationActionCommand extends com.google.protobuf.
     if (getMotionMaxDelayMs() != other.getMotionMaxDelayMs()) return false;
     if (java.lang.Double.doubleToLongBits(getTargetOffsetRatio())
         != java.lang.Double.doubleToLongBits(other.getTargetOffsetRatio())) return false;
+    if (!getTargetRef().equals(other.getTargetRef())) return false;
+    if (getTargetRevision() != other.getTargetRevision()) return false;
+    if (java.lang.Double.doubleToLongBits(getExpectedX())
+        != java.lang.Double.doubleToLongBits(other.getExpectedX())) return false;
+    if (java.lang.Double.doubleToLongBits(getExpectedY())
+        != java.lang.Double.doubleToLongBits(other.getExpectedY())) return false;
+    if (java.lang.Double.doubleToLongBits(getExpectedWidth())
+        != java.lang.Double.doubleToLongBits(other.getExpectedWidth())) return false;
+    if (java.lang.Double.doubleToLongBits(getExpectedHeight())
+        != java.lang.Double.doubleToLongBits(other.getExpectedHeight())) return false;
+    if (!getVisualAnchorHash().equals(other.getVisualAnchorHash())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -568,6 +786,32 @@ public final class ChallengeAutomationActionCommand extends com.google.protobuf.
         (53 * hash)
             + com.google.protobuf.Internal.hashLong(
                 java.lang.Double.doubleToLongBits(getTargetOffsetRatio()));
+    hash = (37 * hash) + TARGET_REF_FIELD_NUMBER;
+    hash = (53 * hash) + getTargetRef().hashCode();
+    hash = (37 * hash) + TARGET_REVISION_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getTargetRevision());
+    hash = (37 * hash) + EXPECTED_X_FIELD_NUMBER;
+    hash =
+        (53 * hash)
+            + com.google.protobuf.Internal.hashLong(
+                java.lang.Double.doubleToLongBits(getExpectedX()));
+    hash = (37 * hash) + EXPECTED_Y_FIELD_NUMBER;
+    hash =
+        (53 * hash)
+            + com.google.protobuf.Internal.hashLong(
+                java.lang.Double.doubleToLongBits(getExpectedY()));
+    hash = (37 * hash) + EXPECTED_WIDTH_FIELD_NUMBER;
+    hash =
+        (53 * hash)
+            + com.google.protobuf.Internal.hashLong(
+                java.lang.Double.doubleToLongBits(getExpectedWidth()));
+    hash = (37 * hash) + EXPECTED_HEIGHT_FIELD_NUMBER;
+    hash =
+        (53 * hash)
+            + com.google.protobuf.Internal.hashLong(
+                java.lang.Double.doubleToLongBits(getExpectedHeight()));
+    hash = (37 * hash) + VISUAL_ANCHOR_HASH_FIELD_NUMBER;
+    hash = (53 * hash) + getVisualAnchorHash().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -720,6 +964,13 @@ public final class ChallengeAutomationActionCommand extends com.google.protobuf.
       motionMinDelayMs_ = 0;
       motionMaxDelayMs_ = 0;
       targetOffsetRatio_ = 0D;
+      targetRef_ = "";
+      targetRevision_ = 0L;
+      expectedX_ = 0D;
+      expectedY_ = 0D;
+      expectedWidth_ = 0D;
+      expectedHeight_ = 0D;
+      visualAnchorHash_ = "";
       return this;
     }
 
@@ -807,6 +1058,27 @@ public final class ChallengeAutomationActionCommand extends com.google.protobuf.
       }
       if (((from_bitField0_ & 0x00001000) != 0)) {
         result.targetOffsetRatio_ = targetOffsetRatio_;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        result.targetRef_ = targetRef_;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.targetRevision_ = targetRevision_;
+      }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.expectedX_ = expectedX_;
+      }
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.expectedY_ = expectedY_;
+      }
+      if (((from_bitField0_ & 0x00020000) != 0)) {
+        result.expectedWidth_ = expectedWidth_;
+      }
+      if (((from_bitField0_ & 0x00040000) != 0)) {
+        result.expectedHeight_ = expectedHeight_;
+      }
+      if (((from_bitField0_ & 0x00080000) != 0)) {
+        result.visualAnchorHash_ = visualAnchorHash_;
       }
     }
 
@@ -930,6 +1202,31 @@ public final class ChallengeAutomationActionCommand extends com.google.protobuf.
       if (other.getTargetOffsetRatio() != 0D) {
         setTargetOffsetRatio(other.getTargetOffsetRatio());
       }
+      if (!other.getTargetRef().isEmpty()) {
+        targetRef_ = other.targetRef_;
+        bitField0_ |= 0x00002000;
+        onChanged();
+      }
+      if (other.getTargetRevision() != 0L) {
+        setTargetRevision(other.getTargetRevision());
+      }
+      if (other.getExpectedX() != 0D) {
+        setExpectedX(other.getExpectedX());
+      }
+      if (other.getExpectedY() != 0D) {
+        setExpectedY(other.getExpectedY());
+      }
+      if (other.getExpectedWidth() != 0D) {
+        setExpectedWidth(other.getExpectedWidth());
+      }
+      if (other.getExpectedHeight() != 0D) {
+        setExpectedHeight(other.getExpectedHeight());
+      }
+      if (!other.getVisualAnchorHash().isEmpty()) {
+        visualAnchorHash_ = other.visualAnchorHash_;
+        bitField0_ |= 0x00080000;
+        onChanged();
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1042,6 +1339,48 @@ public final class ChallengeAutomationActionCommand extends com.google.protobuf.
                 bitField0_ |= 0x00001000;
                 break;
               } // case 105
+            case 114:
+              {
+                targetRef_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00002000;
+                break;
+              } // case 114
+            case 120:
+              {
+                targetRevision_ = input.readUInt64();
+                bitField0_ |= 0x00004000;
+                break;
+              } // case 120
+            case 129:
+              {
+                expectedX_ = input.readDouble();
+                bitField0_ |= 0x00008000;
+                break;
+              } // case 129
+            case 137:
+              {
+                expectedY_ = input.readDouble();
+                bitField0_ |= 0x00010000;
+                break;
+              } // case 137
+            case 145:
+              {
+                expectedWidth_ = input.readDouble();
+                bitField0_ |= 0x00020000;
+                break;
+              } // case 145
+            case 153:
+              {
+                expectedHeight_ = input.readDouble();
+                bitField0_ |= 0x00040000;
+                break;
+              } // case 153
+            case 162:
+              {
+                visualAnchorHash_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00080000;
+                break;
+              } // case 162
             default:
               {
                 if (!super.parseUnknownField(input, extensionRegistry, tag)) {
@@ -2030,6 +2369,398 @@ public final class ChallengeAutomationActionCommand extends com.google.protobuf.
     public Builder clearTargetOffsetRatio() {
       bitField0_ = (bitField0_ & ~0x00001000);
       targetOffsetRatio_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object targetRef_ = "";
+
+    /**
+     *
+     *
+     * <pre>
+     * Optional exact structural target for a deterministic SINGLE_CLICK Challenge. When set,
+     * actions must be empty. N-1 Nodes ignore these fields and reject the empty action list before
+     * input, so rolling upgrades fail closed rather than treating this as a viewport click.
+     * </pre>
+     *
+     * <code>string target_ref = 14 [json_name = "targetRef"];</code>
+     *
+     * @return The targetRef.
+     */
+    public java.lang.String getTargetRef() {
+      java.lang.Object ref = targetRef_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        targetRef_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Optional exact structural target for a deterministic SINGLE_CLICK Challenge. When set,
+     * actions must be empty. N-1 Nodes ignore these fields and reject the empty action list before
+     * input, so rolling upgrades fail closed rather than treating this as a viewport click.
+     * </pre>
+     *
+     * <code>string target_ref = 14 [json_name = "targetRef"];</code>
+     *
+     * @return The bytes for targetRef.
+     */
+    public com.google.protobuf.ByteString getTargetRefBytes() {
+      java.lang.Object ref = targetRef_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        targetRef_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Optional exact structural target for a deterministic SINGLE_CLICK Challenge. When set,
+     * actions must be empty. N-1 Nodes ignore these fields and reject the empty action list before
+     * input, so rolling upgrades fail closed rather than treating this as a viewport click.
+     * </pre>
+     *
+     * <code>string target_ref = 14 [json_name = "targetRef"];</code>
+     *
+     * @param value The targetRef to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTargetRef(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      targetRef_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Optional exact structural target for a deterministic SINGLE_CLICK Challenge. When set,
+     * actions must be empty. N-1 Nodes ignore these fields and reject the empty action list before
+     * input, so rolling upgrades fail closed rather than treating this as a viewport click.
+     * </pre>
+     *
+     * <code>string target_ref = 14 [json_name = "targetRef"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearTargetRef() {
+      targetRef_ = getDefaultInstance().getTargetRef();
+      bitField0_ = (bitField0_ & ~0x00002000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Optional exact structural target for a deterministic SINGLE_CLICK Challenge. When set,
+     * actions must be empty. N-1 Nodes ignore these fields and reject the empty action list before
+     * input, so rolling upgrades fail closed rather than treating this as a viewport click.
+     * </pre>
+     *
+     * <code>string target_ref = 14 [json_name = "targetRef"];</code>
+     *
+     * @param value The bytes for targetRef to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTargetRefBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      targetRef_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+
+    private long targetRevision_;
+
+    /**
+     * <code>uint64 target_revision = 15 [json_name = "targetRevision"];</code>
+     *
+     * @return The targetRevision.
+     */
+    @java.lang.Override
+    public long getTargetRevision() {
+      return targetRevision_;
+    }
+
+    /**
+     * <code>uint64 target_revision = 15 [json_name = "targetRevision"];</code>
+     *
+     * @param value The targetRevision to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTargetRevision(long value) {
+
+      targetRevision_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>uint64 target_revision = 15 [json_name = "targetRevision"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearTargetRevision() {
+      bitField0_ = (bitField0_ & ~0x00004000);
+      targetRevision_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private double expectedX_;
+
+    /**
+     * <code>double expected_x = 16 [json_name = "expectedX"];</code>
+     *
+     * @return The expectedX.
+     */
+    @java.lang.Override
+    public double getExpectedX() {
+      return expectedX_;
+    }
+
+    /**
+     * <code>double expected_x = 16 [json_name = "expectedX"];</code>
+     *
+     * @param value The expectedX to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExpectedX(double value) {
+
+      expectedX_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>double expected_x = 16 [json_name = "expectedX"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearExpectedX() {
+      bitField0_ = (bitField0_ & ~0x00008000);
+      expectedX_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double expectedY_;
+
+    /**
+     * <code>double expected_y = 17 [json_name = "expectedY"];</code>
+     *
+     * @return The expectedY.
+     */
+    @java.lang.Override
+    public double getExpectedY() {
+      return expectedY_;
+    }
+
+    /**
+     * <code>double expected_y = 17 [json_name = "expectedY"];</code>
+     *
+     * @param value The expectedY to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExpectedY(double value) {
+
+      expectedY_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>double expected_y = 17 [json_name = "expectedY"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearExpectedY() {
+      bitField0_ = (bitField0_ & ~0x00010000);
+      expectedY_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double expectedWidth_;
+
+    /**
+     * <code>double expected_width = 18 [json_name = "expectedWidth"];</code>
+     *
+     * @return The expectedWidth.
+     */
+    @java.lang.Override
+    public double getExpectedWidth() {
+      return expectedWidth_;
+    }
+
+    /**
+     * <code>double expected_width = 18 [json_name = "expectedWidth"];</code>
+     *
+     * @param value The expectedWidth to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExpectedWidth(double value) {
+
+      expectedWidth_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>double expected_width = 18 [json_name = "expectedWidth"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearExpectedWidth() {
+      bitField0_ = (bitField0_ & ~0x00020000);
+      expectedWidth_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double expectedHeight_;
+
+    /**
+     * <code>double expected_height = 19 [json_name = "expectedHeight"];</code>
+     *
+     * @return The expectedHeight.
+     */
+    @java.lang.Override
+    public double getExpectedHeight() {
+      return expectedHeight_;
+    }
+
+    /**
+     * <code>double expected_height = 19 [json_name = "expectedHeight"];</code>
+     *
+     * @param value The expectedHeight to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExpectedHeight(double value) {
+
+      expectedHeight_ = value;
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>double expected_height = 19 [json_name = "expectedHeight"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearExpectedHeight() {
+      bitField0_ = (bitField0_ & ~0x00040000);
+      expectedHeight_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object visualAnchorHash_ = "";
+
+    /**
+     * <code>string visual_anchor_hash = 20 [json_name = "visualAnchorHash"];</code>
+     *
+     * @return The visualAnchorHash.
+     */
+    public java.lang.String getVisualAnchorHash() {
+      java.lang.Object ref = visualAnchorHash_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        visualAnchorHash_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     * <code>string visual_anchor_hash = 20 [json_name = "visualAnchorHash"];</code>
+     *
+     * @return The bytes for visualAnchorHash.
+     */
+    public com.google.protobuf.ByteString getVisualAnchorHashBytes() {
+      java.lang.Object ref = visualAnchorHash_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        visualAnchorHash_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     * <code>string visual_anchor_hash = 20 [json_name = "visualAnchorHash"];</code>
+     *
+     * @param value The visualAnchorHash to set.
+     * @return This builder for chaining.
+     */
+    public Builder setVisualAnchorHash(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      visualAnchorHash_ = value;
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string visual_anchor_hash = 20 [json_name = "visualAnchorHash"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearVisualAnchorHash() {
+      visualAnchorHash_ = getDefaultInstance().getVisualAnchorHash();
+      bitField0_ = (bitField0_ & ~0x00080000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>string visual_anchor_hash = 20 [json_name = "visualAnchorHash"];</code>
+     *
+     * @param value The bytes for visualAnchorHash to set.
+     * @return This builder for chaining.
+     */
+    public Builder setVisualAnchorHashBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      visualAnchorHash_ = value;
+      bitField0_ |= 0x00080000;
       onChanged();
       return this;
     }

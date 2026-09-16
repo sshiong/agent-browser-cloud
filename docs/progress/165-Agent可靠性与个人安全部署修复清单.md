@@ -42,7 +42,7 @@
 | A16 | Agent Trace / Why Stuck | progress 169 已闭环：Web/Tauri 统一展示持久步骤/动作/验证/失败/下一决策，完整集成通过 |
 | A17 | Profile 应用层加密 | progress 183 已闭环：新 checkpoint 使用版本化 KEK + 随机 DEK 的 AES-256-GCM Envelope；旧明文恢复/导出时原地迁移，导出保持密文、导入先认证解密，N−1 Node 按能力 fail-closed |
 | A18 | 网站 Session Health / Reauth | progress 184 已闭环：按 Profile × 网站独立保存有围栏和新鲜度的登录健康；Reauth/降级持续到可信 READY，技术恢复不再冒充登录有效 |
-| A19 | Opaque Cross-Origin Frame | 待显式感知边界与受治理 Vision/Handoff 策略 |
+| A19 | Opaque Cross-Origin Frame | progress 185 已闭环：显式 Origin-only Opaque Frame、freshness/State/Tab/Bounds 双重围栏的脱敏观察；Frame 永不成为可执行 Target，输入固定 Human Handoff |
 | A20 | DOM/Layout/Network/Focus/Route 稳定性 | 网络观察已有实现；待组合稳定性与动态页面验证 |
 | A21 | 高层 Agent 操作接口 | snapshot/find/inspect/execute-actions 已有；待 wait/handoff 整合 |
 | A22 | Personal Secure 一键部署 | 待实现，不能复用开发身份后声称安全公网部署 |

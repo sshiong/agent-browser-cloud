@@ -457,4 +457,54 @@ public interface BrowserStateEventOrBuilder
    * @return The downloadEvidenceFresh.
    */
   boolean getDownloadEvidenceFresh();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+   * </code>
+   */
+  java.util.List<io.browsercloud.proto.node.v1.OpaqueFrameState> getOpaqueFramesList();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.OpaqueFrameState getOpaqueFrames(int index);
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+   * </code>
+   */
+  int getOpaqueFramesCount();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+   * </code>
+   */
+  java.util.List<? extends io.browsercloud.proto.node.v1.OpaqueFrameStateOrBuilder>
+      getOpaqueFramesOrBuilderList();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.OpaqueFrameStateOrBuilder getOpaqueFramesOrBuilder(int index);
+
+  /**
+   *
+   *
+   * <pre>
+   * N-1 Nodes and samples blocked by a native dialog leave this false. Consumers may display the
+   * last projection but must not use stale geometry for a bounded screenshot.
+   * </pre>
+   *
+   * <code>bool opaque_frame_evidence_fresh = 22 [json_name = "opaqueFrameEvidenceFresh"];</code>
+   *
+   * @return The opaqueFrameEvidenceFresh.
+   */
+  boolean getOpaqueFrameEvidenceFresh();
 }

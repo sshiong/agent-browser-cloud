@@ -332,7 +332,8 @@ public class AgentBrowserScreenshotStore {
 
   private static ScreenshotRegion requestedRegion(String mode, java.sql.ResultSet result)
       throws java.sql.SQLException {
-    if (!mode.equals("REGION") && !mode.equals("CHALLENGE_REGION")) return null;
+    if (!mode.equals("REGION") && !mode.equals("CHALLENGE_REGION") && !mode.equals("OPAQUE_FRAME"))
+      return null;
     return new ScreenshotRegion(
         result.getDouble("requested_region_x"),
         result.getDouble("requested_region_y"),

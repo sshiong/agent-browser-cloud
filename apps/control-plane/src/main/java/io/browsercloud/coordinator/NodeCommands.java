@@ -565,6 +565,7 @@ public final class NodeCommands {
             .setRegionHeight(regionHeight == null ? 0 : regionHeight)
             .setEvidenceId(evidenceId)
             .setCapturedAtMs(capturedAtMs)
+            .setOpaqueFrameRef(mode.equals("OPAQUE_FRAME") ? elementId : "")
             .build()
             .toByteArray();
     return new NodeCommand(

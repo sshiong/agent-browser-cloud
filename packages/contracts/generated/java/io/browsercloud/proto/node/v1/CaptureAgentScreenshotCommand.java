@@ -33,6 +33,7 @@ public final class CaptureAgentScreenshotCommand extends com.google.protobuf.Gen
     activeTabId_ = "";
     elementId_ = "";
     evidenceId_ = "";
+    opaqueFrameRef_ = "";
   }
 
   @java.lang.Override
@@ -434,6 +435,61 @@ public final class CaptureAgentScreenshotCommand extends com.google.protobuf.Gen
     return capturedAtMs_;
   }
 
+  public static final int OPAQUE_FRAME_REF_FIELD_NUMBER = 15;
+
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object opaqueFrameRef_ = "";
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for OPAQUE_FRAME. The Node re-resolves this boundary from the exact current
+   * State/Tab/Hash fence and compares its current bounds before capture.
+   * </pre>
+   *
+   * <code>string opaque_frame_ref = 15 [json_name = "opaqueFrameRef"];</code>
+   *
+   * @return The opaqueFrameRef.
+   */
+  @java.lang.Override
+  public java.lang.String getOpaqueFrameRef() {
+    java.lang.Object ref = opaqueFrameRef_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      opaqueFrameRef_ = s;
+      return s;
+    }
+  }
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for OPAQUE_FRAME. The Node re-resolves this boundary from the exact current
+   * State/Tab/Hash fence and compares its current bounds before capture.
+   * </pre>
+   *
+   * <code>string opaque_frame_ref = 15 [json_name = "opaqueFrameRef"];</code>
+   *
+   * @return The bytes for opaqueFrameRef.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getOpaqueFrameRefBytes() {
+    java.lang.Object ref = opaqueFrameRef_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+      opaqueFrameRef_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
 
   @java.lang.Override
@@ -490,6 +546,9 @@ public final class CaptureAgentScreenshotCommand extends com.google.protobuf.Gen
     if (capturedAtMs_ != 0L) {
       output.writeInt64(14, capturedAtMs_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(opaqueFrameRef_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 15, opaqueFrameRef_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -541,6 +600,9 @@ public final class CaptureAgentScreenshotCommand extends com.google.protobuf.Gen
     if (capturedAtMs_ != 0L) {
       size += com.google.protobuf.CodedOutputStream.computeInt64Size(14, capturedAtMs_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(opaqueFrameRef_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(15, opaqueFrameRef_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -575,6 +637,7 @@ public final class CaptureAgentScreenshotCommand extends com.google.protobuf.Gen
         != java.lang.Double.doubleToLongBits(other.getRegionHeight())) return false;
     if (!getEvidenceId().equals(other.getEvidenceId())) return false;
     if (getCapturedAtMs() != other.getCapturedAtMs()) return false;
+    if (!getOpaqueFrameRef().equals(other.getOpaqueFrameRef())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -626,6 +689,8 @@ public final class CaptureAgentScreenshotCommand extends com.google.protobuf.Gen
     hash = (53 * hash) + getEvidenceId().hashCode();
     hash = (37 * hash) + CAPTURED_AT_MS_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(getCapturedAtMs());
+    hash = (37 * hash) + OPAQUE_FRAME_REF_FIELD_NUMBER;
+    hash = (53 * hash) + getOpaqueFrameRef().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -782,6 +847,7 @@ public final class CaptureAgentScreenshotCommand extends com.google.protobuf.Gen
       regionHeight_ = 0D;
       evidenceId_ = "";
       capturedAtMs_ = 0L;
+      opaqueFrameRef_ = "";
       return this;
     }
 
@@ -859,6 +925,9 @@ public final class CaptureAgentScreenshotCommand extends com.google.protobuf.Gen
       }
       if (((from_bitField0_ & 0x00002000) != 0)) {
         result.capturedAtMs_ = capturedAtMs_;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.opaqueFrameRef_ = opaqueFrameRef_;
       }
     }
 
@@ -963,6 +1032,11 @@ public final class CaptureAgentScreenshotCommand extends com.google.protobuf.Gen
       }
       if (other.getCapturedAtMs() != 0L) {
         setCapturedAtMs(other.getCapturedAtMs());
+      }
+      if (!other.getOpaqueFrameRef().isEmpty()) {
+        opaqueFrameRef_ = other.opaqueFrameRef_;
+        bitField0_ |= 0x00004000;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1074,6 +1148,12 @@ public final class CaptureAgentScreenshotCommand extends com.google.protobuf.Gen
                 bitField0_ |= 0x00002000;
                 break;
               } // case 112
+            case 122:
+              {
+                opaqueFrameRef_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00004000;
+                break;
+              } // case 122
             default:
               {
                 if (!super.parseUnknownField(input, extensionRegistry, tag)) {
@@ -1922,6 +2002,122 @@ public final class CaptureAgentScreenshotCommand extends com.google.protobuf.Gen
     public Builder clearCapturedAtMs() {
       bitField0_ = (bitField0_ & ~0x00002000);
       capturedAtMs_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object opaqueFrameRef_ = "";
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for OPAQUE_FRAME. The Node re-resolves this boundary from the exact current
+     * State/Tab/Hash fence and compares its current bounds before capture.
+     * </pre>
+     *
+     * <code>string opaque_frame_ref = 15 [json_name = "opaqueFrameRef"];</code>
+     *
+     * @return The opaqueFrameRef.
+     */
+    public java.lang.String getOpaqueFrameRef() {
+      java.lang.Object ref = opaqueFrameRef_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        opaqueFrameRef_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for OPAQUE_FRAME. The Node re-resolves this boundary from the exact current
+     * State/Tab/Hash fence and compares its current bounds before capture.
+     * </pre>
+     *
+     * <code>string opaque_frame_ref = 15 [json_name = "opaqueFrameRef"];</code>
+     *
+     * @return The bytes for opaqueFrameRef.
+     */
+    public com.google.protobuf.ByteString getOpaqueFrameRefBytes() {
+      java.lang.Object ref = opaqueFrameRef_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        opaqueFrameRef_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for OPAQUE_FRAME. The Node re-resolves this boundary from the exact current
+     * State/Tab/Hash fence and compares its current bounds before capture.
+     * </pre>
+     *
+     * <code>string opaque_frame_ref = 15 [json_name = "opaqueFrameRef"];</code>
+     *
+     * @param value The opaqueFrameRef to set.
+     * @return This builder for chaining.
+     */
+    public Builder setOpaqueFrameRef(java.lang.String value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      opaqueFrameRef_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for OPAQUE_FRAME. The Node re-resolves this boundary from the exact current
+     * State/Tab/Hash fence and compares its current bounds before capture.
+     * </pre>
+     *
+     * <code>string opaque_frame_ref = 15 [json_name = "opaqueFrameRef"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearOpaqueFrameRef() {
+      opaqueFrameRef_ = getDefaultInstance().getOpaqueFrameRef();
+      bitField0_ = (bitField0_ & ~0x00004000);
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Present only for OPAQUE_FRAME. The Node re-resolves this boundary from the exact current
+     * State/Tab/Hash fence and compares its current bounds before capture.
+     * </pre>
+     *
+     * <code>string opaque_frame_ref = 15 [json_name = "opaqueFrameRef"];</code>
+     *
+     * @param value The bytes for opaqueFrameRef to set.
+     * @return This builder for chaining.
+     */
+    public Builder setOpaqueFrameRefBytes(com.google.protobuf.ByteString value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      checkByteStringIsUtf8(value);
+      opaqueFrameRef_ = value;
+      bitField0_ |= 0x00004000;
       onChanged();
       return this;
     }

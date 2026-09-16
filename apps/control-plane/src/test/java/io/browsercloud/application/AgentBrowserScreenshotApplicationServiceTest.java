@@ -131,6 +131,80 @@ class AgentBrowserScreenshotApplicationServiceTest {
     verifyNoInteractions(store, commands, audit);
   }
 
+  @Test
+  void derivesOpaqueFrameRegionFromFreshStateAndDispatchesObservationOnlyCapture()
+      throws Exception {
+    var session = runningSession();
+    var view = mock(ScreenshotView.class);
+    when(sessions.requireForUpdate(SESSION_ID)).thenReturn(session);
+    when(capacity.nodeHasCapability("node-test", "agentScreenshot", "state-fenced-region-v1"))
+        .thenReturn(true);
+    var base = snapshot(false).state();
+    var framedState =
+        new BrowserStateView(
+            base.sessionId(),
+            base.contextEpoch(),
+            base.stateVersion(),
+            base.targetRevision(),
+            base.url(),
+            base.title(),
+            base.stateHash(),
+            base.stateQuality(),
+            base.documentReadyState(),
+            base.networkQuietMillis(),
+            base.networkEvidenceFresh(),
+            base.targets(),
+            base.tabs(),
+            base.activeTabId(),
+            base.nativeDialogs(),
+            base.nativeDialogEvidenceFresh(),
+            base.observedAt(),
+            base.ageMillis(),
+            base.freshness(),
+            base.pageActivity(),
+            List.of(
+                new BrowserStateView.OpaqueFrameView(
+                    "ofr_0123456789abcdef0123",
+                    "main",
+                    "https://verify.example",
+                    new BrowserStateView.BoundsView(30, 40, 320, 180),
+                    "CROSS_ORIGIN",
+                    true,
+                    true,
+                    false,
+                    null,
+                    "BOUNDED_VISION_THEN_HUMAN_HANDOFF")),
+            true);
+    when(perception.snapshot(SESSION_ID, "tenant-test"))
+        .thenReturn(new SnapshotView(CURSOR, framedState));
+    when(store.findIdentityByIdempotency("tenant-test", "agent-worker", "idem-frame-1"))
+        .thenReturn(Optional.empty());
+    when(store.insert(any())).thenReturn(true);
+    when(store.find(eq("tenant-test"), eq(SESSION_ID), anyString(), eq("agent-worker")))
+        .thenReturn(Optional.of(view));
+
+    service.capture(
+        SESSION_ID,
+        "tenant-test",
+        "agent-worker",
+        "idem-frame-1",
+        "request-test",
+        new CaptureScreenshotRequest(
+            ScreenshotMode.OPAQUE_FRAME, CURSOR, "ofr_0123456789abcdef0123", null));
+
+    var persisted = ArgumentCaptor.forClass(AgentBrowserScreenshotStore.RequestRecord.class);
+    verify(store).insert(persisted.capture());
+    assertThat(persisted.getValue().elementId()).isEqualTo("ofr_0123456789abcdef0123");
+    assertThat(persisted.getValue().region()).isEqualTo(new ScreenshotRegion(30, 40, 320, 180));
+    var sent = ArgumentCaptor.forClass(NodeCommand.class);
+    verify(commands).send(sent.capture());
+    var payload = CaptureAgentScreenshotCommand.parseFrom(sent.getValue().payload());
+    assertThat(payload.getCaptureMode()).isEqualTo("OPAQUE_FRAME");
+    assertThat(payload.getOpaqueFrameRef()).isEqualTo("ofr_0123456789abcdef0123");
+    assertThat(payload.getRegionX()).isEqualTo(30);
+    assertThat(payload.getRegionWidth()).isEqualTo(320);
+  }
+
   private static SnapshotView snapshot(boolean occluded) {
     var state =
         new BrowserStateView(

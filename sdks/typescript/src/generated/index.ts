@@ -193,6 +193,7 @@ export type { MaximumReachedPolicy } from './models/MaximumReachedPolicy.js';
 export type { MediaQuota } from './models/MediaQuota.js';
 export type { NotificationCategory } from './models/NotificationCategory.js';
 export type { NotificationSeverity } from './models/NotificationSeverity.js';
+export type { OpaqueFrame } from './models/OpaqueFrame.js';
 export type { OperationResponse } from './models/OperationResponse.js';
 export type { OperationView } from './models/OperationView.js';
 export type { OutcomeExecutionEvidence } from './models/OutcomeExecutionEvidence.js';

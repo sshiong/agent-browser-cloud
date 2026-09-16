@@ -1076,6 +1076,32 @@ pub struct BrowserDownloadState {
     #[prost(int64, tag="9")]
     pub updated_at_ms: i64,
 }
+/// Explicit boundary for an iframe whose document is not inspectable from the active Page context.
+/// The full URL, path/query, DOM content and executable target are deliberately absent.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OpaqueFrameState {
+    #[prost(string, tag="1")]
+    pub frame_ref: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub parent_frame_id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="3")]
+    pub origin: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="4")]
+    pub bounds: ::core::option::Option<TargetBounds>,
+    #[prost(string, tag="5")]
+    pub boundary_reason: ::prost::alloc::string::String,
+    #[prost(bool, tag="6")]
+    pub visible: bool,
+    #[prost(bool, tag="7")]
+    pub in_viewport: bool,
+    #[prost(bool, tag="8")]
+    pub occluded: bool,
+    #[prost(string, optional, tag="9")]
+    pub visibility_reason: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="10")]
+    pub interaction_strategy: ::prost::alloc::string::String,
+}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BrowserStateEvent {
@@ -1129,6 +1155,12 @@ pub struct BrowserStateEvent {
     /// as completed until a new Runtime establishes a continuous source.
     #[prost(bool, tag="20")]
     pub download_evidence_fresh: bool,
+    #[prost(message, repeated, tag="21")]
+    pub opaque_frames: ::prost::alloc::vec::Vec<OpaqueFrameState>,
+    /// N-1 Nodes and samples blocked by a native dialog leave this false. Consumers may display the
+    /// last projection but must not use stale geometry for a bounded screenshot.
+    #[prost(bool, tag="22")]
+    pub opaque_frame_evidence_fresh: bool,
 }
 /// Payload-minimal proof that the Node resampled an unchanged page. Control Plane refreshes
 /// observed_at only when all three fences exactly match its current authoritative projection.
@@ -1650,6 +1682,10 @@ pub struct CaptureAgentScreenshotCommand {
     pub evidence_id: ::prost::alloc::string::String,
     #[prost(int64, tag="14")]
     pub captured_at_ms: i64,
+    /// Present only for OPAQUE_FRAME. The Node re-resolves this boundary from the exact current
+    /// State/Tab/Hash fence and compares its current bounds before capture.
+    #[prost(string, tag="15")]
+    pub opaque_frame_ref: ::prost::alloc::string::String,
 }
 /// Governed Runtime.evaluate. The durable Outbox stores only sealed_expression; the dispatcher
 /// materializes expression immediately before mTLS delivery and clears the sealed field. The Node
@@ -1878,6 +1914,10 @@ pub struct BrowserStateDiffEvent {
     pub downloads: ::prost::alloc::vec::Vec<BrowserDownloadState>,
     #[prost(bool, tag="23")]
     pub download_evidence_fresh: bool,
+    #[prost(message, repeated, tag="24")]
+    pub opaque_frames: ::prost::alloc::vec::Vec<OpaqueFrameState>,
+    #[prost(bool, tag="25")]
+    pub opaque_frame_evidence_fresh: bool,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

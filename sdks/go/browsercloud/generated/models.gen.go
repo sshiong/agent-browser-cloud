@@ -1568,6 +1568,8 @@ type BrowserState struct {
 	Freshness                 string                     `json:"freshness,omitempty"`
 	PageActivity              string                     `json:"pageActivity,omitempty"`
 	Targets                   []InteractiveTarget        `json:"targets,omitempty"`
+	OpaqueFrames              []OpaqueFrame              `json:"opaqueFrames,omitempty"`
+	OpaqueFrameEvidenceFresh  bool                       `json:"opaqueFrameEvidenceFresh,omitempty"`
 	Tabs                      []AgentBrowserTab          `json:"tabs,omitempty"`
 	ActiveTabId               string                     `json:"activeTabId,omitempty"`
 	NativeDialogs             []AgentBrowserNativeDialog `json:"nativeDialogs,omitempty"`
@@ -1673,6 +1675,7 @@ const (
 	AgentBrowserScreenshotModeVIEWPORT        AgentBrowserScreenshotMode = "VIEWPORT"
 	AgentBrowserScreenshotModeFULLPAGE        AgentBrowserScreenshotMode = "FULL_PAGE"
 	AgentBrowserScreenshotModeELEMENT         AgentBrowserScreenshotMode = "ELEMENT"
+	AgentBrowserScreenshotModeOPAQUEFRAME     AgentBrowserScreenshotMode = "OPAQUE_FRAME"
 	AgentBrowserScreenshotModeREGION          AgentBrowserScreenshotMode = "REGION"
 	AgentBrowserScreenshotModeCHALLENGEREGION AgentBrowserScreenshotMode = "CHALLENGE_REGION"
 )
@@ -1800,6 +1803,19 @@ type InteractiveTarget struct {
 	InViewport       bool          `json:"inViewport,omitempty"`
 	Occluded         bool          `json:"occluded,omitempty"`
 	VisibilityReason any           `json:"visibilityReason,omitempty"`
+}
+
+type OpaqueFrame struct {
+	FrameRef            string        `json:"frameRef,omitempty"`
+	ParentFrameId       string        `json:"parentFrameId,omitempty"`
+	Origin              any           `json:"origin,omitempty"`
+	Bounds              *TargetBounds `json:"bounds,omitempty"`
+	BoundaryReason      string        `json:"boundaryReason,omitempty"`
+	Visible             bool          `json:"visible,omitempty"`
+	InViewport          bool          `json:"inViewport,omitempty"`
+	Occluded            bool          `json:"occluded,omitempty"`
+	VisibilityReason    any           `json:"visibilityReason,omitempty"`
+	InteractionStrategy string        `json:"interactionStrategy,omitempty"`
 }
 
 type TargetBounds struct {

@@ -61,7 +61,10 @@ public class AgentBrowserPerceptionService {
             .toList();
     var visionRecommended =
         state.stateQuality().equals("DEPTH_LIMITED")
-            || state.targets().stream().anyMatch(target -> target.visible() && target.occluded());
+            || state.targets().stream().anyMatch(target -> target.visible() && target.occluded())
+            || (state.opaqueFrameEvidenceFresh()
+                && state.opaqueFrames().stream()
+                    .anyMatch(frame -> frame.visible() && frame.inViewport()));
     var tabs =
         state.tabs().stream()
             .map(tab -> new TabView(tab.tabId(), tab.url(), tab.title(), tab.active()))

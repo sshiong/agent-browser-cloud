@@ -23,7 +23,9 @@ public record BrowserStateView(
     Instant observedAt,
     long ageMillis,
     String freshness,
-    String pageActivity) {
+    String pageActivity,
+    List<OpaqueFrameView> opaqueFrames,
+    boolean opaqueFrameEvidenceFresh) {
 
   public BrowserStateView {
     targets = List.copyOf(targets);
@@ -34,6 +36,54 @@ public record BrowserStateView(
     ageMillis = Math.max(0, ageMillis);
     freshness = freshness == null ? "UNKNOWN" : freshness;
     pageActivity = pageActivity == null ? "UNKNOWN" : pageActivity;
+    opaqueFrames = opaqueFrames == null ? List.of() : List.copyOf(opaqueFrames);
+  }
+
+  /** Additive constructor retained for N/N-1 callers created before opaque-frame projection. */
+  public BrowserStateView(
+      String sessionId,
+      long contextEpoch,
+      long stateVersion,
+      long targetRevision,
+      String url,
+      String title,
+      String stateHash,
+      String stateQuality,
+      String documentReadyState,
+      long networkQuietMillis,
+      boolean networkEvidenceFresh,
+      List<InteractiveTargetView> targets,
+      List<BrowserTabView> tabs,
+      String activeTabId,
+      List<NativeDialogView> nativeDialogs,
+      boolean nativeDialogEvidenceFresh,
+      Instant observedAt,
+      long ageMillis,
+      String freshness,
+      String pageActivity) {
+    this(
+        sessionId,
+        contextEpoch,
+        stateVersion,
+        targetRevision,
+        url,
+        title,
+        stateHash,
+        stateQuality,
+        documentReadyState,
+        networkQuietMillis,
+        networkEvidenceFresh,
+        targets,
+        tabs,
+        activeTabId,
+        nativeDialogs,
+        nativeDialogEvidenceFresh,
+        observedAt,
+        ageMillis,
+        freshness,
+        pageActivity,
+        List.of(),
+        false);
   }
 
   public BrowserStateView(
@@ -153,6 +203,18 @@ public record BrowserStateView(
       String message,
       String defaultPrompt,
       boolean hasBrowserHandler) {}
+
+  public record OpaqueFrameView(
+      String frameRef,
+      String parentFrameId,
+      String origin,
+      BoundsView bounds,
+      String boundaryReason,
+      boolean visible,
+      boolean inViewport,
+      boolean occluded,
+      String visibilityReason,
+      String interactionStrategy) {}
 
   public record InteractiveTargetView(
       String targetRef,

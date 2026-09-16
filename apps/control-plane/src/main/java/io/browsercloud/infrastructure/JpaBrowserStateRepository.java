@@ -88,7 +88,9 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
             diff.nativeDialogEvidenceFresh() ? diff.nativeDialogs() : previous.nativeDialogs(),
             diff.nativeDialogEvidenceFresh(),
             mergeDownloads(previous.downloads(), diff.downloads(), diff.downloadEvidenceFresh()),
-            diff.downloadEvidenceFresh());
+            diff.downloadEvidenceFresh(),
+            diff.opaqueFrameEvidenceFresh() ? diff.opaqueFrames() : previous.opaqueFrames(),
+            diff.opaqueFrameEvidenceFresh());
     entity.setStateVersion(diff.stateVersion());
     entity.setStateJson(write(updated));
     var now = Instant.now();
@@ -129,6 +131,8 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
                       previous.nativeDialogs(),
                       false,
                       previous.downloads(),
+                      false,
+                      previous.opaqueFrames(),
                       false);
               entity.setStateVersion(invalid.stateVersion());
               entity.setStateJson(write(invalid));
@@ -167,6 +171,8 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
                       previous.nativeDialogs(),
                       false,
                       previous.downloads(),
+                      false,
+                      previous.opaqueFrames(),
                       false);
               entity.setStateJson(write(resyncing));
               entity.setUpdatedAt(Instant.now());
@@ -184,7 +190,7 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
       return;
     }
     var persistedState = state;
-    if (!state.nativeDialogEvidenceFresh()
+    if ((!state.nativeDialogEvidenceFresh() || !state.opaqueFrameEvidenceFresh())
         && existing.getSessionId() != null
         && existing.getTenantId().equals(tenantId)
         && existing.getContextEpoch() == contextEpoch) {
@@ -199,7 +205,9 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
               state.tabs(),
               state.activeTabId(),
               state.stateHash(),
-              previous.nativeDialogs().isEmpty() ? state.stateQuality() : "DEGRADED",
+              previous.nativeDialogs().isEmpty() && previous.opaqueFrames().isEmpty()
+                  ? state.stateQuality()
+                  : "DEGRADED",
               state.targets(),
               state.documentReadyState(),
               state.networkQuietMillis(),
@@ -207,11 +215,13 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
               state.snapshotKind(),
               state.requestedRootRef(),
               state.actionOutcomes(),
-              previous.nativeDialogs(),
-              false,
+              state.nativeDialogEvidenceFresh() ? state.nativeDialogs() : previous.nativeDialogs(),
+              state.nativeDialogEvidenceFresh(),
               mergeDownloads(
                   previous.downloads(), state.downloads(), state.downloadEvidenceFresh()),
-              state.downloadEvidenceFresh());
+              state.downloadEvidenceFresh(),
+              state.opaqueFrameEvidenceFresh() ? state.opaqueFrames() : previous.opaqueFrames(),
+              state.opaqueFrameEvidenceFresh());
     } else if (existing.getSessionId() != null && existing.getTenantId().equals(tenantId)) {
       var previous = read(existing.getStateJson());
       persistedState =
@@ -236,7 +246,9 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
               state.nativeDialogEvidenceFresh(),
               mergeDownloads(
                   previous.downloads(), state.downloads(), state.downloadEvidenceFresh()),
-              state.downloadEvidenceFresh());
+              state.downloadEvidenceFresh(),
+              state.opaqueFrames(),
+              state.opaqueFrameEvidenceFresh());
     }
     existing.setSessionId(state.sessionId());
     existing.setTenantId(tenantId);

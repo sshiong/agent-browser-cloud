@@ -22,7 +22,7 @@ use node_contracts::proto::{
     CommandAck, CommandEnvelope, DiffTruncatedEvent, DispatchRequest, DispatchResponse,
     EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand, ExtensionBackgroundPolicy,
     HumanAssistClickCommand, HumanAssistFailedEvent, HumanTakeoverEndedEvent,
-    HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest, PingResponse,
+    HumanTakeoverReadyEvent, InteractiveTargetState, OpaqueFrameState, PingRequest, PingResponse,
     PresignEvidenceDownloadRequest, PresignEvidenceDownloadResponse,
     PresignProfileExportDownloadRequest, PresignProfileExportDownloadResponse,
     ProbeProxyBindingRequest, ProbeProxyBindingResponse, ProfileWarmTierSyncedEvent,
@@ -138,6 +138,40 @@ fn micro_batch_state_is_settled(previous: &CurrentState, current: &CurrentState)
         && previous.native_dialogs == current.native_dialogs
         && previous.target_revision == current.target_revision
         && previous.content_hash == current.content_hash
+}
+
+fn opaque_frame_screenshot_clip(
+    current: &CurrentState,
+    frame_ref: &str,
+    expected: [f64; 4],
+) -> Result<ScreenshotClip, &'static str> {
+    let frame = current
+        .opaque_frames
+        .iter()
+        .find(|frame| frame.frame_ref == frame_ref)
+        .ok_or("OPAQUE_FRAME_NOT_FOUND")?;
+    let bounds = frame
+        .bounds
+        .as_ref()
+        .ok_or("OPAQUE_FRAME_LAYOUT_UNAVAILABLE")?;
+    let actual = [bounds.x, bounds.y, bounds.width, bounds.height];
+    if !current.opaque_frame_evidence_fresh
+        || !frame.visible
+        || !frame.in_viewport
+        || frame.occluded
+        || expected
+            .iter()
+            .zip(actual.iter())
+            .any(|(expected, actual)| (expected - actual).abs() > 0.01)
+    {
+        return Err("OPAQUE_FRAME_FENCE_MISMATCH");
+    }
+    Ok(ScreenshotClip {
+        x: bounds.x,
+        y: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
+    })
 }
 
 fn bounded_input_key(value: &str) -> anyhow::Result<InputKey> {
@@ -2211,6 +2245,8 @@ impl NodeControlService {
                     quality: StateQuality::Invalid,
                     content_hash: payload.base_content_hash.clone(),
                     targets: Vec::new(),
+                    opaque_frames: Vec::new(),
+                    opaque_frame_evidence_fresh: false,
                     document_ready_state: String::new(),
                     network_quiet_millis: 0,
                     network_evidence_fresh: false,
@@ -2407,6 +2443,22 @@ impl NodeControlService {
                     width: target.bounds.width,
                     height: target.bounds.height,
                 })
+            }
+            "OPAQUE_FRAME" => {
+                let expected = [
+                    payload.region_x,
+                    payload.region_y,
+                    payload.region_width,
+                    payload.region_height,
+                ];
+                match opaque_frame_screenshot_clip(&current, &payload.opaque_frame_ref, expected) {
+                    Ok(clip) => Some(clip),
+                    Err(error_code) => {
+                        return self
+                            .agent_screenshot_failed(command, payload, error_code)
+                            .await
+                    }
+                }
             }
             "REGION" | "CHALLENGE_REGION" => Some(ScreenshotClip {
                 x: payload.region_x,
@@ -2638,6 +2690,32 @@ impl NodeControlService {
                 })
                 .collect(),
             download_evidence_fresh: state.download_evidence_fresh,
+            opaque_frames: state
+                .opaque_frames
+                .into_iter()
+                .map(Self::opaque_frame_payload)
+                .collect(),
+            opaque_frame_evidence_fresh: state.opaque_frame_evidence_fresh,
+        }
+    }
+
+    fn opaque_frame_payload(frame: state_collector::OpaqueFrame) -> OpaqueFrameState {
+        OpaqueFrameState {
+            frame_ref: frame.frame_ref,
+            parent_frame_id: frame.parent_frame_id,
+            origin: frame.origin,
+            bounds: frame.bounds.map(|bounds| TargetBounds {
+                x: bounds.x,
+                y: bounds.y,
+                width: bounds.width,
+                height: bounds.height,
+            }),
+            boundary_reason: frame.boundary_reason,
+            visible: frame.visible,
+            in_viewport: frame.in_viewport,
+            occluded: frame.occluded,
+            visibility_reason: frame.visibility_reason,
+            interaction_strategy: frame.interaction_strategy,
         }
     }
 
@@ -2741,6 +2819,12 @@ impl NodeControlService {
                 })
                 .collect(),
             download_evidence_fresh: diff.download_evidence_fresh,
+            opaque_frames: diff
+                .opaque_frames
+                .into_iter()
+                .map(Self::opaque_frame_payload)
+                .collect(),
+            opaque_frame_evidence_fresh: diff.opaque_frame_evidence_fresh,
         }
     }
 
@@ -7603,15 +7687,31 @@ impl NodeControlService {
                             && (1.0..=7680.0).contains(&payload.region_width)
                             && (1.0..=4320.0).contains(&payload.region_height);
                         let valid_mode_input = match payload.capture_mode.as_str() {
-                            "VIEWPORT" | "FULL_PAGE" => payload.element_id.is_empty() && no_region,
+                            "VIEWPORT" | "FULL_PAGE" => {
+                                payload.element_id.is_empty()
+                                    && payload.opaque_frame_ref.is_empty()
+                                    && no_region
+                            }
                             "ELEMENT" => {
                                 !payload.element_id.is_empty()
                                     && payload.element_id.len() <= 256
                                     && !payload.element_id.chars().any(char::is_control)
                                     && no_region
+                                    && payload.opaque_frame_ref.is_empty()
+                            }
+                            "OPAQUE_FRAME" => {
+                                payload.element_id == payload.opaque_frame_ref
+                                    && payload.opaque_frame_ref.starts_with("ofr_")
+                                    && payload.opaque_frame_ref.len() == 24
+                                    && payload.opaque_frame_ref[4..].bytes().all(|value| {
+                                        value.is_ascii_hexdigit() && !value.is_ascii_uppercase()
+                                    })
+                                    && valid_region
                             }
                             "REGION" | "CHALLENGE_REGION" => {
-                                payload.element_id.is_empty() && valid_region
+                                payload.element_id.is_empty()
+                                    && payload.opaque_frame_ref.is_empty()
+                                    && valid_region
                             }
                             _ => false,
                         };
@@ -10478,6 +10578,8 @@ mod tests {
             downloads: Vec::new(),
             download_evidence_fresh: true,
             targets: Vec::new(),
+            opaque_frames: Vec::new(),
+            opaque_frame_evidence_fresh: true,
             quality: StateQuality::Complete,
             content_hash: "content-10".to_owned(),
             document_ready_state: "complete".to_owned(),
@@ -10508,6 +10610,51 @@ mod tests {
         assert_eq!(
             dynamic_micro_batch_boundary(&before, &after, 1),
             Some("PAGE_UNSETTLED")
+        );
+    }
+
+    #[test]
+    fn opaque_frame_screenshot_requires_fresh_exact_non_occluded_boundary() {
+        let mut state = micro_batch_state();
+        state.opaque_frames = vec![state_collector::OpaqueFrame {
+            frame_ref: "ofr_0123456789abcdef0123".to_owned(),
+            parent_frame_id: "main".to_owned(),
+            origin: Some("https://verify.example".to_owned()),
+            bounds: Some(state_collector::Bounds {
+                x: 30.0,
+                y: 40.0,
+                width: 320.0,
+                height: 180.0,
+            }),
+            boundary_reason: "CROSS_ORIGIN".to_owned(),
+            visible: true,
+            in_viewport: true,
+            occluded: false,
+            visibility_reason: None,
+            interaction_strategy: "BOUNDED_VISION_THEN_HUMAN_HANDOFF".to_owned(),
+        }];
+        let expected = [30.0, 40.0, 320.0, 180.0];
+        assert_eq!(
+            opaque_frame_screenshot_clip(&state, "ofr_0123456789abcdef0123", expected).unwrap(),
+            ScreenshotClip {
+                x: 30.0,
+                y: 40.0,
+                width: 320.0,
+                height: 180.0,
+            }
+        );
+        assert_eq!(
+            opaque_frame_screenshot_clip(
+                &state,
+                "ofr_0123456789abcdef0123",
+                [30.0, 40.0, 319.0, 180.0]
+            ),
+            Err("OPAQUE_FRAME_FENCE_MISMATCH")
+        );
+        state.opaque_frame_evidence_fresh = false;
+        assert_eq!(
+            opaque_frame_screenshot_clip(&state, "ofr_0123456789abcdef0123", expected),
+            Err("OPAQUE_FRAME_FENCE_MISMATCH")
         );
     }
 
@@ -10813,6 +10960,8 @@ mod tests {
             downloads: Vec::new(),
             download_evidence_fresh: true,
             targets: Vec::new(),
+            opaque_frames: Vec::new(),
+            opaque_frame_evidence_fresh: true,
             quality: StateQuality::Complete,
             content_hash: format!("hash-{version}"),
             document_ready_state: "complete".to_owned(),

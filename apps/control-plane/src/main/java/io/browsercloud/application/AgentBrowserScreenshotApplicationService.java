@@ -75,8 +75,8 @@ public class AgentBrowserScreenshotApplicationService {
     if (snapshot.activeTab() == null || snapshot.activeTab().tabId().isBlank()) {
       throw new AgentBrowserScreenshotException("ACTIVE_TAB_UNAVAILABLE");
     }
-    validateTarget(request, snapshot);
-    var requestHash = requestHash(sessionId, request);
+    var resolvedRegion = validateTarget(request, snapshot);
+    var requestHash = requestHash(sessionId, request, resolvedRegion);
     var existing = store.findIdentityByIdempotency(tenantId, actorId, idempotencyKey);
     if (existing.isPresent()) {
       var identity = existing.orElseThrow();
@@ -114,8 +114,11 @@ public class AgentBrowserScreenshotApplicationService {
             cursor.targetRevision(),
             cursor.stateHash(),
             snapshot.activeTab().tabId(),
-            request.mode() == ScreenshotMode.ELEMENT ? normalizedElementId(request) : null,
-            request.region(),
+            java.util.Set.of(ScreenshotMode.ELEMENT, ScreenshotMode.OPAQUE_FRAME)
+                    .contains(request.mode())
+                ? normalizedElementId(request)
+                : null,
+            resolvedRegion,
             now);
     if (!store.insert(record)) {
       var raced =
@@ -130,7 +133,7 @@ public class AgentBrowserScreenshotApplicationService {
           .find(tenantId, sessionId, raced.screenshotId(), actorId)
           .orElseThrow(() -> new AgentBrowserScreenshotException("SCREENSHOT_STATE_UNAVAILABLE"));
     }
-    var region = request.region();
+    var region = resolvedRegion;
     commands.send(
         NodeCommands.captureAgentScreenshot(
             session,
@@ -207,9 +210,29 @@ public class AgentBrowserScreenshotApplicationService {
         sessionId, claim.accessGrantId(), tenantId, actorId, requestId, AGENT_PERCEPTION);
   }
 
-  private static void validateTarget(
+  private static ScreenshotRegion validateTarget(
       CaptureScreenshotRequest request, AgentBrowserPerceptionModels.SnapshotView snapshot) {
-    if (request.mode() != ScreenshotMode.ELEMENT) return;
+    if (request.mode() == ScreenshotMode.OPAQUE_FRAME) {
+      if (!snapshot.state().opaqueFrameEvidenceFresh()) {
+        throw new AgentBrowserScreenshotException("OPAQUE_FRAME_STATE_STALE");
+      }
+      var frame =
+          snapshot.state().opaqueFrames().stream()
+              .filter(candidate -> candidate.frameRef().equals(normalizedElementId(request)))
+              .findFirst()
+              .orElseThrow(() -> new AgentBrowserScreenshotException("OPAQUE_FRAME_NOT_FOUND"));
+      if (!frame.visible()) throw new AgentBrowserScreenshotException("OPAQUE_FRAME_NOT_VISIBLE");
+      if (!frame.inViewport()) {
+        throw new AgentBrowserScreenshotException("OPAQUE_FRAME_OUTSIDE_VIEWPORT");
+      }
+      if (frame.occluded()) throw new AgentBrowserScreenshotException("OPAQUE_FRAME_OCCLUDED");
+      if (frame.bounds() == null || frame.bounds().width() < 1 || frame.bounds().height() < 1) {
+        throw new AgentBrowserScreenshotException("OPAQUE_FRAME_LAYOUT_UNAVAILABLE");
+      }
+      return new ScreenshotRegion(
+          frame.bounds().x(), frame.bounds().y(), frame.bounds().width(), frame.bounds().height());
+    }
+    if (request.mode() != ScreenshotMode.ELEMENT) return request.region();
     var elementId = normalizedElementId(request);
     var target =
         snapshot.state().targets().stream()
@@ -227,10 +250,11 @@ public class AgentBrowserScreenshotApplicationService {
     if (target.bounds() == null || target.bounds().width() < 1 || target.bounds().height() < 1) {
       throw new AgentBrowserScreenshotException("ELEMENT_LAYOUT_UNAVAILABLE");
     }
+    return null;
   }
 
-  private static String requestHash(String sessionId, CaptureScreenshotRequest request) {
-    var region = request.region();
+  private static String requestHash(
+      String sessionId, CaptureScreenshotRequest request, ScreenshotRegion region) {
     return PromptSecurityService.sha256(
         String.join(
             "|",

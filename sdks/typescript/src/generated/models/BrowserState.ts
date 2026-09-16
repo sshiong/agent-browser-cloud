@@ -5,6 +5,7 @@
 import type { AgentBrowserNativeDialog } from './AgentBrowserNativeDialog.js';
 import type { AgentBrowserTab } from './AgentBrowserTab.js';
 import type { InteractiveTarget } from './InteractiveTarget.js';
+import type { OpaqueFrame } from './OpaqueFrame.js';
 export type BrowserState = {
     sessionId: string;
     contextEpoch: number;
@@ -43,6 +44,14 @@ export type BrowserState = {
      */
     pageActivity?: 'CHANGING' | 'SETTLING' | 'STABLE' | 'UNKNOWN';
     targets: Array<InteractiveTarget>;
+    /**
+     * Explicit cross-origin, sandboxed, or otherwise inaccessible iframe boundaries. These are never executable targets.
+     */
+    opaqueFrames: Array<OpaqueFrame>;
+    /**
+     * True only when opaque-frame geometry was sampled from the current active Page. Stale geometry must not authorize a bounded screenshot.
+     */
+    opaqueFrameEvidenceFresh: boolean;
     /**
      * Browser-level Page Targets. Empty only while an N-1 Browser Node has not projected tab authority.
      */

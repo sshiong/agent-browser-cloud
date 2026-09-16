@@ -275,7 +275,7 @@ public final class Models {
 
   public record BrowserPlacement(String sessionId, String tenantId, String nodeId, ResourceTemplate requestedTemplate, ResourceTemplate resolvedTemplate, List<String> extensionIds, Integer unknownExtensionCount, Integer cpuMillis, Integer memoryRequestMib, Integer memoryLimitMib, Integer pidLimit, Integer tabBudget, Integer stateCollectorBudgetPercent, Integer remoteDesktopBitrateKbps, Integer extensionCpuWeight, Boolean requiresDesktop, Boolean requiresGpu, Boolean requiresNativeOs, Boolean requiresIsolation, Boolean requiresMedia, Integer mediaSlots, Integer mediaEncoderSlots, Boolean backgroundTabsFrozen, Boolean newTabsBlocked, List<String> pausedExtensionIds, Integer successTraceSamplePercent, Integer successScreenshotSamplePercent, Integer observerFrameRateFps, Boolean videoRecordingRequested, Boolean videoRecordingEnabled, Integer mediaBitrateKbps, Integer placementScore, String state, List<String> reasonCodes, String reservedAt, Object activatedAt, Object releasedAt) {}
 
-  public record BrowserState(String sessionId, Long contextEpoch, Long stateVersion, Long targetRevision, String url, String title, String stateHash, String stateQuality, String documentReadyState, Long networkQuietMillis, Boolean networkEvidenceFresh, String observedAt, Long ageMillis, String freshness, String pageActivity, List<InteractiveTarget> targets, List<AgentBrowserTab> tabs, String activeTabId, List<AgentBrowserNativeDialog> nativeDialogs, Boolean nativeDialogEvidenceFresh) {}
+  public record BrowserState(String sessionId, Long contextEpoch, Long stateVersion, Long targetRevision, String url, String title, String stateHash, String stateQuality, String documentReadyState, Long networkQuietMillis, Boolean networkEvidenceFresh, String observedAt, Long ageMillis, String freshness, String pageActivity, List<InteractiveTarget> targets, List<OpaqueFrame> opaqueFrames, Boolean opaqueFrameEvidenceFresh, List<AgentBrowserTab> tabs, String activeTabId, List<AgentBrowserNativeDialog> nativeDialogs, Boolean nativeDialogEvidenceFresh) {}
 
   public record UploadAgentBrowserFileRequest(String targetRef, Long targetRevision, Long baseStateVersion, String baseContentHash, String filename, String mimeType, String contentSha256, String file) {}
 
@@ -291,7 +291,7 @@ public final class Models {
 
   public record AgentBrowserEvaluation(String evaluationId, String sessionId, AgentBrowserEvaluationMode mode, String state, String expectedStateCursor, Object stateCursorAfter, String activeTabId, Object activeTabIdAfter, String expressionSha256, Integer expressionBytes, Boolean awaitPromise, Integer timeoutMs, Integer maximumResultBytes, Object resultType, Object result, Object resultBytes, Object redactedValueCount, Object exceptionClass, Object exceptionMessage, Object errorCode, Object durationMs, String requestId, String createdAt, String updatedAt, Object completedAt) {}
 
-  public enum AgentBrowserScreenshotMode { VIEWPORT, FULLPAGE, ELEMENT, REGION, CHALLENGEREGION }
+  public enum AgentBrowserScreenshotMode { VIEWPORT, FULLPAGE, ELEMENT, OPAQUEFRAME, REGION, CHALLENGEREGION }
 
   public record AgentBrowserScreenshotRegion(Double x, Double y, Double width, Double height) {}
 
@@ -316,6 +316,8 @@ public final class Models {
   public record StateResyncResponse(String requestId, String mode, String state) {}
 
   public record InteractiveTarget(String targetRef, String elementId, String role, Object name, Object value, Object controlType, TargetBounds bounds, Boolean enabled, Boolean visible, Boolean sensitive, Boolean focused, Object checked, Object selected, Boolean interactive, String frameId, Boolean inViewport, Boolean occluded, Object visibilityReason) {}
+
+  public record OpaqueFrame(String frameRef, String parentFrameId, Object origin, TargetBounds bounds, String boundaryReason, Boolean visible, Boolean inViewport, Boolean occluded, Object visibilityReason, String interactionStrategy) {}
 
   public record TargetBounds(Double x, Double y, Double width, Double height) {}
 

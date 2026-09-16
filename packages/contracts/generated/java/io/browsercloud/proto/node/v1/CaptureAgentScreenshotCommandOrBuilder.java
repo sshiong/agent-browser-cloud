@@ -155,4 +155,32 @@ public interface CaptureAgentScreenshotCommandOrBuilder
    * @return The capturedAtMs.
    */
   long getCapturedAtMs();
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for OPAQUE_FRAME. The Node re-resolves this boundary from the exact current
+   * State/Tab/Hash fence and compares its current bounds before capture.
+   * </pre>
+   *
+   * <code>string opaque_frame_ref = 15 [json_name = "opaqueFrameRef"];</code>
+   *
+   * @return The opaqueFrameRef.
+   */
+  java.lang.String getOpaqueFrameRef();
+
+  /**
+   *
+   *
+   * <pre>
+   * Present only for OPAQUE_FRAME. The Node re-resolves this boundary from the exact current
+   * State/Tab/Hash fence and compares its current bounds before capture.
+   * </pre>
+   *
+   * <code>string opaque_frame_ref = 15 [json_name = "opaqueFrameRef"];</code>
+   *
+   * @return The bytes for opaqueFrameRef.
+   */
+  com.google.protobuf.ByteString getOpaqueFrameRefBytes();
 }

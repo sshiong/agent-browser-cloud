@@ -393,4 +393,47 @@ public interface BrowserStateDiffEventOrBuilder
    * @return The downloadEvidenceFresh.
    */
   boolean getDownloadEvidenceFresh();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 24 [json_name = "opaqueFrames"];
+   * </code>
+   */
+  java.util.List<io.browsercloud.proto.node.v1.OpaqueFrameState> getOpaqueFramesList();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 24 [json_name = "opaqueFrames"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.OpaqueFrameState getOpaqueFrames(int index);
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 24 [json_name = "opaqueFrames"];
+   * </code>
+   */
+  int getOpaqueFramesCount();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 24 [json_name = "opaqueFrames"];
+   * </code>
+   */
+  java.util.List<? extends io.browsercloud.proto.node.v1.OpaqueFrameStateOrBuilder>
+      getOpaqueFramesOrBuilderList();
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 24 [json_name = "opaqueFrames"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.OpaqueFrameStateOrBuilder getOpaqueFramesOrBuilder(int index);
+
+  /**
+   * <code>bool opaque_frame_evidence_fresh = 25 [json_name = "opaqueFrameEvidenceFresh"];</code>
+   *
+   * @return The opaqueFrameEvidenceFresh.
+   */
+  boolean getOpaqueFrameEvidenceFresh();
 }

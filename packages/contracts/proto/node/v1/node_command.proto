@@ -668,6 +668,21 @@ message BrowserDownloadState {
   int64 updated_at_ms = 9;
 }
 
+// Explicit boundary for an iframe whose document is not inspectable from the active Page context.
+// The full URL, path/query, DOM content and executable target are deliberately absent.
+message OpaqueFrameState {
+  string frame_ref = 1;
+  string parent_frame_id = 2;
+  optional string origin = 3;
+  optional TargetBounds bounds = 4;
+  string boundary_reason = 5;
+  bool visible = 6;
+  bool in_viewport = 7;
+  bool occluded = 8;
+  optional string visibility_reason = 9;
+  string interaction_strategy = 10;
+}
+
 message BrowserStateEvent {
   string session_id = 1;
   uint64 state_version = 2;
@@ -699,6 +714,10 @@ message BrowserStateEvent {
   // False means the Browser-level event observer has a gap. No missing entry may be interpreted
   // as completed until a new Runtime establishes a continuous source.
   bool download_evidence_fresh = 20;
+  repeated OpaqueFrameState opaque_frames = 21;
+  // N-1 Nodes and samples blocked by a native dialog leave this false. Consumers may display the
+  // last projection but must not use stale geometry for a bounded screenshot.
+  bool opaque_frame_evidence_fresh = 22;
 }
 
 // Payload-minimal proof that the Node resampled an unchanged page. Control Plane refreshes
@@ -1003,6 +1022,9 @@ message CaptureAgentScreenshotCommand {
   double region_height = 12;
   string evidence_id = 13;
   int64 captured_at_ms = 14;
+  // Present only for OPAQUE_FRAME. The Node re-resolves this boundary from the exact current
+  // State/Tab/Hash fence and compares its current bounds before capture.
+  string opaque_frame_ref = 15;
 }
 
 // Governed Runtime.evaluate. The durable Outbox stores only sealed_expression; the dispatcher
@@ -1130,6 +1152,8 @@ message BrowserStateDiffEvent {
   bool native_dialog_evidence_fresh = 21;
   repeated BrowserDownloadState downloads = 22;
   bool download_evidence_fresh = 23;
+  repeated OpaqueFrameState opaque_frames = 24;
+  bool opaque_frame_evidence_fresh = 25;
 }
 
 message DiffTruncatedEvent {

@@ -18,6 +18,7 @@ public final class AgentBrowserScreenshotModels {
     VIEWPORT,
     FULL_PAGE,
     ELEMENT,
+    OPAQUE_FRAME,
     REGION,
     CHALLENGE_REGION
   }
@@ -40,6 +41,8 @@ public final class AgentBrowserScreenshotModels {
       return switch (mode) {
         case VIEWPORT, FULL_PAGE -> (elementId == null || elementId.isBlank()) && region == null;
         case ELEMENT -> elementId != null && !elementId.isBlank() && region == null;
+        case OPAQUE_FRAME ->
+            elementId != null && elementId.matches("^ofr_[0-9a-f]{20}$") && region == null;
         case REGION, CHALLENGE_REGION ->
             (elementId == null || elementId.isBlank()) && region != null;
       };

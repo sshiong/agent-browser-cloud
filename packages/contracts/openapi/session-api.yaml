@@ -10798,6 +10798,8 @@ components:
         - networkQuietMillis
         - networkEvidenceFresh
         - targets
+        - opaqueFrames
+        - opaqueFrameEvidenceFresh
         - tabs
         - activeTabId
         - nativeDialogs
@@ -10864,6 +10866,15 @@ components:
           maxItems: 500
           items:
             $ref: "#/components/schemas/InteractiveTarget"
+        opaqueFrames:
+          type: array
+          maxItems: 32
+          description: Explicit cross-origin, sandboxed, or otherwise inaccessible iframe boundaries. These are never executable targets.
+          items:
+            $ref: "#/components/schemas/OpaqueFrame"
+        opaqueFrameEvidenceFresh:
+          type: boolean
+          description: True only when opaque-frame geometry was sampled from the current active Page. Stale geometry must not authorize a bounded screenshot.
         tabs:
           type: array
           maxItems: 100
@@ -11011,7 +11022,7 @@ components:
         completedAt: {type: [string, "null"], format: date-time}
     AgentBrowserScreenshotMode:
       type: string
-      enum: [VIEWPORT, FULL_PAGE, ELEMENT, REGION, CHALLENGE_REGION]
+      enum: [VIEWPORT, FULL_PAGE, ELEMENT, OPAQUE_FRAME, REGION, CHALLENGE_REGION]
     AgentBrowserScreenshotRegion:
       type: object
       additionalProperties: false
@@ -11026,14 +11037,19 @@ components:
       additionalProperties: false
       required: [mode, expectedStateCursor]
       description: >
-        VIEWPORT and FULL_PAGE accept no target. ELEMENT requires elementId. REGION and
+        VIEWPORT and FULL_PAGE accept no target. ELEMENT requires a structured elementId.
+        OPAQUE_FRAME requires its frameRef in elementId and derives the region server-side from
+        fresh Browser State; it is observation-only and cannot authorize input. REGION and
         CHALLENGE_REGION require a viewport-relative region. Other combinations are rejected.
       properties:
         mode: {$ref: "#/components/schemas/AgentBrowserScreenshotMode"}
         expectedStateCursor:
           type: string
           pattern: "^[0-9]+:[0-9]+:[a-f0-9]{64}$"
-        elementId: {type: [string, "null"], maxLength: 256}
+        elementId:
+          type: [string, "null"]
+          maxLength: 256
+          description: Stable element ID for ELEMENT, or an ofr_ frameRef for OPAQUE_FRAME.
         region:
           anyOf:
             - $ref: "#/components/schemas/AgentBrowserScreenshotRegion"
@@ -11125,7 +11141,7 @@ components:
           description: Challenge authority remains the dedicated Challenge API; the snapshot does not infer it from DOM text.
         visionRecommended:
           type: boolean
-          description: True only when structured perception is depth-limited or a visible target is occluded.
+          description: True when structured perception is depth-limited, a visible target is occluded, or a fresh visible opaque frame can only be observed through the governed bounded screenshot path.
     AgentBrowserTab:
       type: object
       additionalProperties: false
@@ -11315,6 +11331,63 @@ components:
             - OCCLUDED
             - LEGACY_VISIBILITY_UNKNOWN
             - null
+    OpaqueFrame:
+      type: object
+      additionalProperties: false
+      required:
+        - frameRef
+        - parentFrameId
+        - origin
+        - bounds
+        - boundaryReason
+        - visible
+        - inViewport
+        - occluded
+        - visibilityReason
+        - interactionStrategy
+      properties:
+        frameRef:
+          type: string
+          pattern: "^ofr_[0-9a-f]{20}$"
+          description: Stable opaque-boundary reference for the active tab and outer iframe path; never an action target.
+        parentFrameId:
+          type: string
+          maxLength: 512
+        origin:
+          type: [string, "null"]
+          maxLength: 512
+          description: Scheme and authority only. Paths, query strings, fragments, credentials, and iframe content are never exposed.
+        bounds:
+          oneOf:
+            - $ref: "#/components/schemas/TargetBounds"
+            - type: "null"
+        boundaryReason:
+          type: string
+          enum: [CROSS_ORIGIN, SANDBOXED, INACCESSIBLE]
+        visible:
+          type: boolean
+        inViewport:
+          type: boolean
+        occluded:
+          type: boolean
+        visibilityReason:
+          type: [string, "null"]
+          enum:
+            - HIDDEN_ATTRIBUTE
+            - ARIA_HIDDEN
+            - DISPLAY_NONE
+            - VISIBILITY_HIDDEN
+            - OPACITY_ZERO
+            - POINTER_EVENTS_NONE
+            - COLLAPSED
+            - ZERO_SIZE
+            - OUTSIDE_VIEWPORT
+            - OCCLUDED
+            - null
+        interactionStrategy:
+          type: string
+          enum: [BOUNDED_VISION_THEN_HUMAN_HANDOFF]
+          description: The existing state/tab/region-fenced redacted screenshot path may observe the rectangle. Direct Agent input is forbidden because no semantic target can be revalidated; interaction requires Human Handoff.
     TargetBounds:
       type: object
       additionalProperties: false

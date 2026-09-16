@@ -723,6 +723,28 @@ public class SessionApplicationService {
                                   dialog.defaultPrompt(),
                                   dialog.hasBrowserHandler()))
                       .toList();
+              var opaqueFrames =
+                  state.opaqueFrames().stream()
+                      .map(
+                          frame ->
+                              new BrowserStateView.OpaqueFrameView(
+                                  frame.frameRef(),
+                                  frame.parentFrameId(),
+                                  frame.origin(),
+                                  frame.bounds() == null
+                                      ? null
+                                      : new BrowserStateView.BoundsView(
+                                          frame.bounds().x(),
+                                          frame.bounds().y(),
+                                          frame.bounds().width(),
+                                          frame.bounds().height()),
+                                  frame.boundaryReason(),
+                                  frame.visible(),
+                                  frame.inViewport(),
+                                  frame.occluded(),
+                                  frame.visibilityReason(),
+                                  frame.interactionStrategy()))
+                      .toList();
               var freshness =
                   BrowserStateFreshness.describe(state, snapshot.observedAt(), Instant.now());
               return new BrowserStateView(
@@ -745,7 +767,9 @@ public class SessionApplicationService {
                   freshness.observedAt(),
                   freshness.ageMillis(),
                   freshness.freshness(),
-                  freshness.pageActivity());
+                  freshness.pageActivity(),
+                  opaqueFrames,
+                  state.opaqueFrameEvidenceFresh());
             });
   }
 

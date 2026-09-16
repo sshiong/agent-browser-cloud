@@ -68,6 +68,25 @@ pub struct Bounds {
     pub height: f64,
 }
 
+/// A frame whose document cannot be inspected from the active Page execution context.
+///
+/// Only an origin-level identity and outer-element geometry are exposed. The Node never treats
+/// this boundary as an executable target: callers may request the already-governed bounded
+/// screenshot path, but interaction requires a human handoff.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct OpaqueFrame {
+    pub frame_ref: String,
+    pub parent_frame_id: String,
+    pub origin: Option<String>,
+    pub bounds: Option<Bounds>,
+    pub boundary_reason: String,
+    pub visible: bool,
+    pub in_viewport: bool,
+    pub occluded: bool,
+    pub visibility_reason: Option<String>,
+    pub interaction_strategy: String,
+}
+
 /// Browser-level Page Target exposed to the Agent as one stable tab.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BrowserTab {
@@ -120,6 +139,12 @@ pub struct CurrentState {
     pub download_evidence_fresh: bool,
     /// 交互目标列表
     pub targets: Vec<InteractiveTarget>,
+    /// Cross-origin/sandboxed/inaccessible iframe boundaries. Never executable targets.
+    #[serde(default)]
+    pub opaque_frames: Vec<OpaqueFrame>,
+    /// False for an N-1 serialized state or when the Page execution context could not be sampled.
+    #[serde(default)]
+    pub opaque_frame_evidence_fresh: bool,
     /// 状态质量
     pub quality: StateQuality,
     /// 内容哈希
@@ -165,6 +190,10 @@ pub struct StateDiff {
     pub network_evidence_fresh: bool,
     pub upserted_targets: Vec<InteractiveTarget>,
     pub removed_target_refs: Vec<String>,
+    #[serde(default)]
+    pub opaque_frames: Vec<OpaqueFrame>,
+    #[serde(default)]
+    pub opaque_frame_evidence_fresh: bool,
     #[serde(default)]
     pub snapshot_kind: String,
     #[serde(default)]
@@ -239,6 +268,8 @@ pub fn diff_states(
         network_evidence_fresh: current.network_evidence_fresh,
         upserted_targets,
         removed_target_refs,
+        opaque_frames: current.opaque_frames.clone(),
+        opaque_frame_evidence_fresh: current.opaque_frame_evidence_fresh,
         snapshot_kind: String::new(),
         requested_root_ref: String::new(),
     };
@@ -377,12 +408,71 @@ struct EvaluatedPageState {
     document_ready_state: String,
     #[serde(default)]
     targets: Vec<EvaluatedTarget>,
+    #[serde(default, rename = "opaqueFrames")]
+    opaque_frames: Vec<EvaluatedOpaqueFrame>,
     #[serde(default)]
     truncated: bool,
     #[serde(default, rename = "rootPath")]
     root_path: Option<String>,
     #[serde(default)]
     error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct EvaluatedOpaqueFrame {
+    #[serde(skip_serializing)]
+    path: String,
+    #[serde(default, rename = "frameRef")]
+    frame_ref: String,
+    #[serde(rename = "parentFrameId")]
+    parent_frame_id: String,
+    origin: Option<String>,
+    bounds: Option<Bounds>,
+    #[serde(rename = "boundaryReason")]
+    boundary_reason: String,
+    visible: bool,
+    #[serde(rename = "inViewport")]
+    in_viewport: bool,
+    occluded: bool,
+    #[serde(rename = "visibilityReason")]
+    visibility_reason: Option<String>,
+    #[serde(rename = "interactionStrategy")]
+    interaction_strategy: String,
+}
+
+impl From<EvaluatedOpaqueFrame> for OpaqueFrame {
+    fn from(value: EvaluatedOpaqueFrame) -> Self {
+        Self {
+            frame_ref: value.frame_ref,
+            parent_frame_id: value.parent_frame_id,
+            origin: value.origin,
+            bounds: value.bounds,
+            boundary_reason: value.boundary_reason,
+            visible: value.visible,
+            in_viewport: value.in_viewport,
+            occluded: value.occluded,
+            visibility_reason: value.visibility_reason,
+            interaction_strategy: value.interaction_strategy,
+        }
+    }
+}
+
+impl From<&OpaqueFrame> for EvaluatedOpaqueFrame {
+    fn from(value: &OpaqueFrame) -> Self {
+        Self {
+            path: String::new(),
+            frame_ref: value.frame_ref.clone(),
+            parent_frame_id: value.parent_frame_id.clone(),
+            origin: value.origin.clone(),
+            bounds: value.bounds.clone(),
+            boundary_reason: value.boundary_reason.clone(),
+            visible: value.visible,
+            in_viewport: value.in_viewport,
+            occluded: value.occluded,
+            visibility_reason: value.visibility_reason.clone(),
+            interaction_strategy: value.interaction_strategy.clone(),
+        }
+    }
 }
 
 fn default_true() -> bool {
@@ -2062,6 +2152,7 @@ impl CdpStateCollector {
                 }
               }
               const candidates = [];
+              const opaqueFrames = [];
               const visited = new Set();
               const walk = (walkRoot, frameId = 'main', offsetX = 0, offsetY = 0, prefix = '') => {
                 const elements = walkRoot === document
@@ -2080,14 +2171,47 @@ impl CdpStateCollector {
                     walk(element.shadowRoot, frameId, offsetX, offsetY, `${path}>>>`);
                   }
                   if (element.tagName === 'IFRAME') {
+                    let frameDocument = null;
                     try {
-                      const frameDocument = element.contentDocument;
+                      frameDocument = element.contentDocument;
                       if (frameDocument?.documentElement) {
                         const frameRect = element.getBoundingClientRect();
                         walk(frameDocument, `frame:${path}`, offsetX + frameRect.x,
                           offsetY + frameRect.y, `${path}::frame::`);
                       }
-                    } catch (_) { /* cross-origin frames remain explicit Browser State boundaries */ }
+                    } catch (_) { /* projected below as an opaque boundary */ }
+                    if (!frameDocument?.documentElement) {
+                      const frameRect = element.getBoundingClientRect();
+                      const visibility = visibilityFor(element, frameRect, offsetX, offsetY);
+                      let origin = null;
+                      try {
+                        const candidateOrigin = new URL(element.getAttribute('src') || '',
+                          element.ownerDocument.location.href).origin;
+                        if (candidateOrigin && candidateOrigin !== 'null') origin = candidateOrigin;
+                      } catch (_) { /* malformed/data/blob URL remains originless */ }
+                      const sandboxed = element.hasAttribute('sandbox')
+                        && !element.sandbox.contains('allow-same-origin');
+                      let boundaryReason = sandboxed ? 'SANDBOXED' : 'INACCESSIBLE';
+                      try {
+                        if (!sandboxed && origin && origin !== element.ownerDocument.location.origin) {
+                          boundaryReason = 'CROSS_ORIGIN';
+                        }
+                      } catch (_) { boundaryReason = 'CROSS_ORIGIN'; }
+                      opaqueFrames.push({
+                        path,
+                        frameRef: '',
+                        parentFrameId: frameId,
+                        origin,
+                        bounds: frameRect.width > 0 && frameRect.height > 0
+                          ? visibility.global : null,
+                        boundaryReason,
+                        visible: visibility.visible,
+                        inViewport: visibility.inViewport,
+                        occluded: visibility.occluded,
+                        visibilityReason: visibility.reason,
+                        interactionStrategy: 'BOUNDED_VISION_THEN_HUMAN_HANDOFF'
+                      });
+                    }
                   }
                 }
               };
@@ -2126,6 +2250,7 @@ impl CdpStateCollector {
                 title: document.title.slice(0, 1024),
                 documentReadyState: document.readyState,
                 targets,
+                opaqueFrames: opaqueFrames.slice(0, 32),
                 truncated: candidates.length > 200,
                 rootPath: requestedRoot === null ? null : pathFor(root)
               };
@@ -2762,6 +2887,23 @@ impl CdpStateCollector {
         targets
     }
 
+    fn seal_opaque_frames(page: &mut EvaluatedPageState, active_tab_id: &str) {
+        page.opaque_frames
+            .sort_by(|left, right| left.path.cmp(&right.path));
+        for frame in &mut page.opaque_frames {
+            let digest = hex_sha256(
+                format!(
+                    "{active_tab_id}\n{}\n{}\n{}",
+                    frame.path,
+                    frame.parent_frame_id,
+                    frame.origin.as_deref().unwrap_or("UNKNOWN")
+                )
+                .as_bytes(),
+            );
+            frame.frame_ref = format!("ofr_{}", &digest[..20]);
+        }
+    }
+
     fn state_hash(
         page: &EvaluatedPageState,
         tab_snapshot: &TabSnapshot,
@@ -2771,7 +2913,10 @@ impl CdpStateCollector {
         truncated: bool,
         network_readiness_hash_bucket: u64,
     ) -> anyhow::Result<(String, String)> {
-        let serialized_targets = serde_json::to_string(&page.targets)?;
+        // Opaque boundaries participate in both State hash and Target revision. This makes their
+        // geometry and origin-level identity part of the exact screenshot fence without ever
+        // exposing iframe content or making the frame an executable target.
+        let serialized_targets = serde_json::to_string(&(&page.targets, &page.opaque_frames))?;
         let content_hash = hex_sha256(
             format!(
                 "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
@@ -2824,6 +2969,11 @@ impl CdpStateCollector {
             .as_ref()
             .filter(|state| state.active_tab_id == tab_snapshot.active_tab_id)
             .map(|state| state.targets.clone())
+            .unwrap_or_default();
+        let opaque_frames = previous
+            .as_ref()
+            .filter(|state| state.active_tab_id == tab_snapshot.active_tab_id)
+            .map(|state| state.opaque_frames.clone())
             .unwrap_or_default();
         let quality = previous
             .as_ref()
@@ -2890,6 +3040,8 @@ impl CdpStateCollector {
             downloads: network_observation.downloads,
             download_evidence_fresh: network_observation.fresh,
             targets,
+            opaque_frames,
+            opaque_frame_evidence_fresh: false,
             quality,
             content_hash,
             document_ready_state,
@@ -2975,6 +3127,7 @@ impl CdpStateCollector {
         page.targets
             .iter_mut()
             .for_each(Self::seal_semantic_context);
+        Self::seal_opaque_frames(&mut page, &tab_snapshot.active_tab_id);
         let network_observation = self.browser_safety_observation(session_id).await;
         let network_quiet_millis = network_observation.network_quiet_millis();
         let network_readiness_hash_bucket =
@@ -3040,6 +3193,12 @@ impl CdpStateCollector {
             .into_iter()
             .map(|(_, _, interactive)| interactive)
             .collect();
+        let opaque_frames = page
+            .opaque_frames
+            .iter()
+            .cloned()
+            .map(OpaqueFrame::from)
+            .collect();
         self.target_registries
             .lock()
             .await
@@ -3058,6 +3217,8 @@ impl CdpStateCollector {
             downloads: network_observation.downloads,
             download_evidence_fresh: network_observation.fresh,
             targets,
+            opaque_frames,
+            opaque_frame_evidence_fresh: true,
             quality: if page.truncated {
                 StateQuality::DepthLimited
             } else {
@@ -3181,6 +3342,13 @@ impl CdpStateCollector {
         page.targets
             .iter_mut()
             .for_each(Self::seal_semantic_context);
+        // A REGION sample cannot authoritatively replace page-wide opaque-frame boundaries.
+        // Preserve the fenced baseline and mark it stale until the next FULL sample.
+        page.opaque_frames = baseline
+            .opaque_frames
+            .iter()
+            .map(EvaluatedOpaqueFrame::from)
+            .collect();
 
         registry.targets.retain(|_, target| {
             target.evaluated.path != root_path
@@ -3266,6 +3434,8 @@ impl CdpStateCollector {
             downloads: network_observation.downloads,
             download_evidence_fresh: network_observation.fresh,
             targets,
+            opaque_frames: baseline.opaque_frames.clone(),
+            opaque_frame_evidence_fresh: false,
             quality: if truncated {
                 StateQuality::DepthLimited
             } else {
@@ -4830,6 +5000,8 @@ mod tests {
             downloads: Vec::new(),
             download_evidence_fresh: true,
             targets: vec![target("target:1:a", "A"), target("target:1:b", "B")],
+            opaque_frames: Vec::new(),
+            opaque_frame_evidence_fresh: true,
             quality: StateQuality::Complete,
             content_hash: "old".to_owned(),
             document_ready_state: "interactive".to_owned(),
@@ -4882,6 +5054,26 @@ mod tests {
 
         let page_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let page_address = page_listener.local_addr().unwrap();
+        let frame_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let frame_address = frame_listener.local_addr().unwrap();
+        let frame_task = tokio::spawn(async move {
+            loop {
+                let Ok((mut stream, _)) = frame_listener.accept().await else {
+                    return;
+                };
+                tokio::spawn(async move {
+                    let mut request = vec![0_u8; 4096];
+                    let _ = stream.read(&mut request).await;
+                    let body = "<!doctype html><button>Private cross-origin control</button>";
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                        body.len(),
+                        body
+                    );
+                    let _ = stream.write_all(response.as_bytes()).await;
+                });
+            }
+        });
         let page_task = tokio::spawn(async move {
             loop {
                 let Ok((mut stream, _)) = page_listener.accept().await else {
@@ -4890,7 +5082,7 @@ mod tests {
                 tokio::spawn(async move {
                     let mut request = vec![0_u8; 4096];
                     let _ = stream.read(&mut request).await;
-                    let body = "<!doctype html><html><head><title>Runtime Gate</title></head><body><div role=\"row\" data-row-key=\"customer-a\"><span>Alice</span><button aria-label=\"执行验收\">Run</button></div><input placeholder=\"Name\"></body></html>";
+                    let body = format!("<!doctype html><html><head><title>Runtime Gate</title></head><body><div role=\"row\" data-row-key=\"customer-a\"><span>Alice</span><button aria-label=\"执行验收\">Run</button></div><input placeholder=\"Name\"><iframe style=\"width:320px;height:180px\" src=\"http://{frame_address}/private?token=must-not-leak\"></iframe></body></html>");
                     let response = format!(
                         "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                         body.len(),
@@ -4970,7 +5162,7 @@ mod tests {
         let mut collected = None;
         for _ in 0..50 {
             if let Ok(state) = collector.collect_current_state("ses_real_chromium").await {
-                if state.title == "Runtime Gate" {
+                if state.title == "Runtime Gate" && !state.opaque_frames.is_empty() {
                     collected = Some(state);
                     break;
                 }
@@ -4987,6 +5179,24 @@ mod tests {
             .targets
             .iter()
             .any(|target| target.role == "textbox" && target.name.as_deref() == Some("Name")));
+        assert!(state.opaque_frame_evidence_fresh);
+        let opaque = state
+            .opaque_frames
+            .first()
+            .expect("cross-origin iframe boundary");
+        let expected_frame_origin = format!("http://{frame_address}");
+        assert_eq!(
+            opaque.origin.as_deref(),
+            Some(expected_frame_origin.as_str())
+        );
+        assert_eq!(opaque.boundary_reason, "CROSS_ORIGIN");
+        assert_eq!(
+            opaque.interaction_strategy,
+            "BOUNDED_VISION_THEN_HUMAN_HANDOFF"
+        );
+        assert!(!serde_json::to_string(opaque)
+            .unwrap()
+            .contains("must-not-leak"));
 
         let old_button = state
             .targets
@@ -5085,6 +5295,7 @@ mod tests {
         let _ = child.start_kill();
         let _ = child.wait().await;
         page_task.abort();
+        frame_task.abort();
         let _ = tokio::fs::remove_dir_all(profile).await;
     }
 

@@ -31,6 +31,7 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
     activeTabId_ = "";
     nativeDialogs_ = java.util.Collections.emptyList();
     downloads_ = java.util.Collections.emptyList();
+    opaqueFrames_ = java.util.Collections.emptyList();
   }
 
   @java.lang.Override
@@ -886,6 +887,83 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
     return downloadEvidenceFresh_;
   }
 
+  public static final int OPAQUE_FRAMES_FIELD_NUMBER = 21;
+
+  @SuppressWarnings("serial")
+  private java.util.List<io.browsercloud.proto.node.v1.OpaqueFrameState> opaqueFrames_;
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+   * </code>
+   */
+  @java.lang.Override
+  public java.util.List<io.browsercloud.proto.node.v1.OpaqueFrameState> getOpaqueFramesList() {
+    return opaqueFrames_;
+  }
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+   * </code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends io.browsercloud.proto.node.v1.OpaqueFrameStateOrBuilder>
+      getOpaqueFramesOrBuilderList() {
+    return opaqueFrames_;
+  }
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+   * </code>
+   */
+  @java.lang.Override
+  public int getOpaqueFramesCount() {
+    return opaqueFrames_.size();
+  }
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+   * </code>
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.OpaqueFrameState getOpaqueFrames(int index) {
+    return opaqueFrames_.get(index);
+  }
+
+  /**
+   * <code>
+   * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+   * </code>
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.OpaqueFrameStateOrBuilder getOpaqueFramesOrBuilder(
+      int index) {
+    return opaqueFrames_.get(index);
+  }
+
+  public static final int OPAQUE_FRAME_EVIDENCE_FRESH_FIELD_NUMBER = 22;
+  private boolean opaqueFrameEvidenceFresh_ = false;
+
+  /**
+   *
+   *
+   * <pre>
+   * N-1 Nodes and samples blocked by a native dialog leave this false. Consumers may display the
+   * last projection but must not use stale geometry for a bounded screenshot.
+   * </pre>
+   *
+   * <code>bool opaque_frame_evidence_fresh = 22 [json_name = "opaqueFrameEvidenceFresh"];</code>
+   *
+   * @return The opaqueFrameEvidenceFresh.
+   */
+  @java.lang.Override
+  public boolean getOpaqueFrameEvidenceFresh() {
+    return opaqueFrameEvidenceFresh_;
+  }
+
   private byte memoizedIsInitialized = -1;
 
   @java.lang.Override
@@ -960,6 +1038,12 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
     if (downloadEvidenceFresh_ != false) {
       output.writeBool(20, downloadEvidenceFresh_);
     }
+    for (int i = 0; i < opaqueFrames_.size(); i++) {
+      output.writeMessage(21, opaqueFrames_.get(i));
+    }
+    if (opaqueFrameEvidenceFresh_ != false) {
+      output.writeBool(22, opaqueFrameEvidenceFresh_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -1029,6 +1113,12 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
     if (downloadEvidenceFresh_ != false) {
       size += com.google.protobuf.CodedOutputStream.computeBoolSize(20, downloadEvidenceFresh_);
     }
+    for (int i = 0; i < opaqueFrames_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream.computeMessageSize(21, opaqueFrames_.get(i));
+    }
+    if (opaqueFrameEvidenceFresh_ != false) {
+      size += com.google.protobuf.CodedOutputStream.computeBoolSize(22, opaqueFrameEvidenceFresh_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -1065,6 +1155,8 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
     if (getNativeDialogEvidenceFresh() != other.getNativeDialogEvidenceFresh()) return false;
     if (!getDownloadsList().equals(other.getDownloadsList())) return false;
     if (getDownloadEvidenceFresh() != other.getDownloadEvidenceFresh()) return false;
+    if (!getOpaqueFramesList().equals(other.getOpaqueFramesList())) return false;
+    if (getOpaqueFrameEvidenceFresh() != other.getOpaqueFrameEvidenceFresh()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1126,6 +1218,12 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
     }
     hash = (37 * hash) + DOWNLOAD_EVIDENCE_FRESH_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getDownloadEvidenceFresh());
+    if (getOpaqueFramesCount() > 0) {
+      hash = (37 * hash) + OPAQUE_FRAMES_FIELD_NUMBER;
+      hash = (53 * hash) + getOpaqueFramesList().hashCode();
+    }
+    hash = (37 * hash) + OPAQUE_FRAME_EVIDENCE_FRESH_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getOpaqueFrameEvidenceFresh());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1308,6 +1406,14 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
       }
       bitField0_ = (bitField0_ & ~0x00040000);
       downloadEvidenceFresh_ = false;
+      if (opaqueFramesBuilder_ == null) {
+        opaqueFrames_ = java.util.Collections.emptyList();
+      } else {
+        opaqueFrames_ = null;
+        opaqueFramesBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00100000);
+      opaqueFrameEvidenceFresh_ = false;
       return this;
     }
 
@@ -1390,6 +1496,15 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
       } else {
         result.downloads_ = downloadsBuilder_.build();
       }
+      if (opaqueFramesBuilder_ == null) {
+        if (((bitField0_ & 0x00100000) != 0)) {
+          opaqueFrames_ = java.util.Collections.unmodifiableList(opaqueFrames_);
+          bitField0_ = (bitField0_ & ~0x00100000);
+        }
+        result.opaqueFrames_ = opaqueFrames_;
+      } else {
+        result.opaqueFrames_ = opaqueFramesBuilder_.build();
+      }
     }
 
     private void buildPartial0(io.browsercloud.proto.node.v1.BrowserStateEvent result) {
@@ -1438,6 +1553,9 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
       }
       if (((from_bitField0_ & 0x00080000) != 0)) {
         result.downloadEvidenceFresh_ = downloadEvidenceFresh_;
+      }
+      if (((from_bitField0_ & 0x00200000) != 0)) {
+        result.opaqueFrameEvidenceFresh_ = opaqueFrameEvidenceFresh_;
       }
     }
 
@@ -1685,6 +1803,36 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
       if (other.getDownloadEvidenceFresh() != false) {
         setDownloadEvidenceFresh(other.getDownloadEvidenceFresh());
       }
+      if (opaqueFramesBuilder_ == null) {
+        if (!other.opaqueFrames_.isEmpty()) {
+          if (opaqueFrames_.isEmpty()) {
+            opaqueFrames_ = other.opaqueFrames_;
+            bitField0_ = (bitField0_ & ~0x00100000);
+          } else {
+            ensureOpaqueFramesIsMutable();
+            opaqueFrames_.addAll(other.opaqueFrames_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.opaqueFrames_.isEmpty()) {
+          if (opaqueFramesBuilder_.isEmpty()) {
+            opaqueFramesBuilder_.dispose();
+            opaqueFramesBuilder_ = null;
+            opaqueFrames_ = other.opaqueFrames_;
+            bitField0_ = (bitField0_ & ~0x00100000);
+            opaqueFramesBuilder_ =
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders
+                    ? getOpaqueFramesFieldBuilder()
+                    : null;
+          } else {
+            opaqueFramesBuilder_.addAllMessages(other.opaqueFrames_);
+          }
+        }
+      }
+      if (other.getOpaqueFrameEvidenceFresh() != false) {
+        setOpaqueFrameEvidenceFresh(other.getOpaqueFrameEvidenceFresh());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1870,6 +2018,25 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
                 bitField0_ |= 0x00080000;
                 break;
               } // case 160
+            case 170:
+              {
+                io.browsercloud.proto.node.v1.OpaqueFrameState m =
+                    input.readMessage(
+                        io.browsercloud.proto.node.v1.OpaqueFrameState.parser(), extensionRegistry);
+                if (opaqueFramesBuilder_ == null) {
+                  ensureOpaqueFramesIsMutable();
+                  opaqueFrames_.add(m);
+                } else {
+                  opaqueFramesBuilder_.addMessage(m);
+                }
+                break;
+              } // case 170
+            case 176:
+              {
+                opaqueFrameEvidenceFresh_ = input.readBool();
+                bitField0_ |= 0x00200000;
+                break;
+              } // case 176
             default:
               {
                 if (!super.parseUnknownField(input, extensionRegistry, tag)) {
@@ -4676,6 +4843,366 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
     public Builder clearDownloadEvidenceFresh() {
       bitField0_ = (bitField0_ & ~0x00080000);
       downloadEvidenceFresh_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.util.List<io.browsercloud.proto.node.v1.OpaqueFrameState> opaqueFrames_ =
+        java.util.Collections.emptyList();
+
+    private void ensureOpaqueFramesIsMutable() {
+      if (!((bitField0_ & 0x00100000) != 0)) {
+        opaqueFrames_ =
+            new java.util.ArrayList<io.browsercloud.proto.node.v1.OpaqueFrameState>(opaqueFrames_);
+        bitField0_ |= 0x00100000;
+      }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilderV3<
+            io.browsercloud.proto.node.v1.OpaqueFrameState,
+            io.browsercloud.proto.node.v1.OpaqueFrameState.Builder,
+            io.browsercloud.proto.node.v1.OpaqueFrameStateOrBuilder>
+        opaqueFramesBuilder_;
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public java.util.List<io.browsercloud.proto.node.v1.OpaqueFrameState> getOpaqueFramesList() {
+      if (opaqueFramesBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(opaqueFrames_);
+      } else {
+        return opaqueFramesBuilder_.getMessageList();
+      }
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public int getOpaqueFramesCount() {
+      if (opaqueFramesBuilder_ == null) {
+        return opaqueFrames_.size();
+      } else {
+        return opaqueFramesBuilder_.getCount();
+      }
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.OpaqueFrameState getOpaqueFrames(int index) {
+      if (opaqueFramesBuilder_ == null) {
+        return opaqueFrames_.get(index);
+      } else {
+        return opaqueFramesBuilder_.getMessage(index);
+      }
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public Builder setOpaqueFrames(
+        int index, io.browsercloud.proto.node.v1.OpaqueFrameState value) {
+      if (opaqueFramesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureOpaqueFramesIsMutable();
+        opaqueFrames_.set(index, value);
+        onChanged();
+      } else {
+        opaqueFramesBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public Builder setOpaqueFrames(
+        int index, io.browsercloud.proto.node.v1.OpaqueFrameState.Builder builderForValue) {
+      if (opaqueFramesBuilder_ == null) {
+        ensureOpaqueFramesIsMutable();
+        opaqueFrames_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        opaqueFramesBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public Builder addOpaqueFrames(io.browsercloud.proto.node.v1.OpaqueFrameState value) {
+      if (opaqueFramesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureOpaqueFramesIsMutable();
+        opaqueFrames_.add(value);
+        onChanged();
+      } else {
+        opaqueFramesBuilder_.addMessage(value);
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public Builder addOpaqueFrames(
+        int index, io.browsercloud.proto.node.v1.OpaqueFrameState value) {
+      if (opaqueFramesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureOpaqueFramesIsMutable();
+        opaqueFrames_.add(index, value);
+        onChanged();
+      } else {
+        opaqueFramesBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public Builder addOpaqueFrames(
+        io.browsercloud.proto.node.v1.OpaqueFrameState.Builder builderForValue) {
+      if (opaqueFramesBuilder_ == null) {
+        ensureOpaqueFramesIsMutable();
+        opaqueFrames_.add(builderForValue.build());
+        onChanged();
+      } else {
+        opaqueFramesBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public Builder addOpaqueFrames(
+        int index, io.browsercloud.proto.node.v1.OpaqueFrameState.Builder builderForValue) {
+      if (opaqueFramesBuilder_ == null) {
+        ensureOpaqueFramesIsMutable();
+        opaqueFrames_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        opaqueFramesBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public Builder addAllOpaqueFrames(
+        java.lang.Iterable<? extends io.browsercloud.proto.node.v1.OpaqueFrameState> values) {
+      if (opaqueFramesBuilder_ == null) {
+        ensureOpaqueFramesIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(values, opaqueFrames_);
+        onChanged();
+      } else {
+        opaqueFramesBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public Builder clearOpaqueFrames() {
+      if (opaqueFramesBuilder_ == null) {
+        opaqueFrames_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00100000);
+        onChanged();
+      } else {
+        opaqueFramesBuilder_.clear();
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public Builder removeOpaqueFrames(int index) {
+      if (opaqueFramesBuilder_ == null) {
+        ensureOpaqueFramesIsMutable();
+        opaqueFrames_.remove(index);
+        onChanged();
+      } else {
+        opaqueFramesBuilder_.remove(index);
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.OpaqueFrameState.Builder getOpaqueFramesBuilder(
+        int index) {
+      return getOpaqueFramesFieldBuilder().getBuilder(index);
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.OpaqueFrameStateOrBuilder getOpaqueFramesOrBuilder(
+        int index) {
+      if (opaqueFramesBuilder_ == null) {
+        return opaqueFrames_.get(index);
+      } else {
+        return opaqueFramesBuilder_.getMessageOrBuilder(index);
+      }
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public java.util.List<? extends io.browsercloud.proto.node.v1.OpaqueFrameStateOrBuilder>
+        getOpaqueFramesOrBuilderList() {
+      if (opaqueFramesBuilder_ != null) {
+        return opaqueFramesBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(opaqueFrames_);
+      }
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.OpaqueFrameState.Builder addOpaqueFramesBuilder() {
+      return getOpaqueFramesFieldBuilder()
+          .addBuilder(io.browsercloud.proto.node.v1.OpaqueFrameState.getDefaultInstance());
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.OpaqueFrameState.Builder addOpaqueFramesBuilder(
+        int index) {
+      return getOpaqueFramesFieldBuilder()
+          .addBuilder(index, io.browsercloud.proto.node.v1.OpaqueFrameState.getDefaultInstance());
+    }
+
+    /**
+     * <code>
+     * repeated .browsercloud.node.v1.OpaqueFrameState opaque_frames = 21 [json_name = "opaqueFrames"];
+     * </code>
+     */
+    public java.util.List<io.browsercloud.proto.node.v1.OpaqueFrameState.Builder>
+        getOpaqueFramesBuilderList() {
+      return getOpaqueFramesFieldBuilder().getBuilderList();
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilderV3<
+            io.browsercloud.proto.node.v1.OpaqueFrameState,
+            io.browsercloud.proto.node.v1.OpaqueFrameState.Builder,
+            io.browsercloud.proto.node.v1.OpaqueFrameStateOrBuilder>
+        getOpaqueFramesFieldBuilder() {
+      if (opaqueFramesBuilder_ == null) {
+        opaqueFramesBuilder_ =
+            new com.google.protobuf.RepeatedFieldBuilderV3<
+                io.browsercloud.proto.node.v1.OpaqueFrameState,
+                io.browsercloud.proto.node.v1.OpaqueFrameState.Builder,
+                io.browsercloud.proto.node.v1.OpaqueFrameStateOrBuilder>(
+                opaqueFrames_, ((bitField0_ & 0x00100000) != 0), getParentForChildren(), isClean());
+        opaqueFrames_ = null;
+      }
+      return opaqueFramesBuilder_;
+    }
+
+    private boolean opaqueFrameEvidenceFresh_;
+
+    /**
+     *
+     *
+     * <pre>
+     * N-1 Nodes and samples blocked by a native dialog leave this false. Consumers may display the
+     * last projection but must not use stale geometry for a bounded screenshot.
+     * </pre>
+     *
+     * <code>bool opaque_frame_evidence_fresh = 22 [json_name = "opaqueFrameEvidenceFresh"];</code>
+     *
+     * @return The opaqueFrameEvidenceFresh.
+     */
+    @java.lang.Override
+    public boolean getOpaqueFrameEvidenceFresh() {
+      return opaqueFrameEvidenceFresh_;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * N-1 Nodes and samples blocked by a native dialog leave this false. Consumers may display the
+     * last projection but must not use stale geometry for a bounded screenshot.
+     * </pre>
+     *
+     * <code>bool opaque_frame_evidence_fresh = 22 [json_name = "opaqueFrameEvidenceFresh"];</code>
+     *
+     * @param value The opaqueFrameEvidenceFresh to set.
+     * @return This builder for chaining.
+     */
+    public Builder setOpaqueFrameEvidenceFresh(boolean value) {
+
+      opaqueFrameEvidenceFresh_ = value;
+      bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * N-1 Nodes and samples blocked by a native dialog leave this false. Consumers may display the
+     * last projection but must not use stale geometry for a bounded screenshot.
+     * </pre>
+     *
+     * <code>bool opaque_frame_evidence_fresh = 22 [json_name = "opaqueFrameEvidenceFresh"];</code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearOpaqueFrameEvidenceFresh() {
+      bitField0_ = (bitField0_ & ~0x00200000);
+      opaqueFrameEvidenceFresh_ = false;
       onChanged();
       return this;
     }

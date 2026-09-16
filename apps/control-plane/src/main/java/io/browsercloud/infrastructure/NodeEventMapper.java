@@ -24,6 +24,7 @@ import io.browsercloud.proto.node.v1.EventEnvelope;
 import io.browsercloud.proto.node.v1.HumanAssistFailedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
+import io.browsercloud.proto.node.v1.OpaqueFrameState;
 import io.browsercloud.proto.node.v1.ProfileWarmTierSyncedEvent;
 import io.browsercloud.proto.node.v1.RemoteDesktopParticipantEvent;
 import io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent;
@@ -484,6 +485,7 @@ public class NodeEventMapper {
           var tabs = tabs(payload.getTabsList(), payload.getActiveTabId());
           var nativeDialogs = nativeDialogs(payload.getNativeDialogsList(), tabs);
           var downloads = downloads(payload.getDownloadsList());
+          var opaqueFrames = opaqueFrames(payload.getOpaqueFramesList());
           if (payload.getNativeDialogEvidenceFresh() && tabs.isEmpty()) {
             throw new IllegalArgumentException(
                 "Fresh Native Dialog evidence requires Browser tabs");
@@ -514,7 +516,9 @@ public class NodeEventMapper {
               nativeDialogs,
               payload.getNativeDialogEvidenceFresh(),
               downloads,
-              payload.getDownloadEvidenceFresh());
+              payload.getDownloadEvidenceFresh(),
+              opaqueFrames,
+              payload.getOpaqueFrameEvidenceFresh());
         }
         case DIFF_TRUNCATED -> {
           var payload = DiffTruncatedEvent.parseFrom(envelope.getPayload());
@@ -825,7 +829,12 @@ public class NodeEventMapper {
                 && (!payload.getTaskId().matches("^shot_[A-Za-z0-9]{20}$")
                     || !payload.getStepId().equals("agent-screenshot")
                     || !java.util.Set.of(
-                            "VIEWPORT", "FULL_PAGE", "ELEMENT", "REGION", "CHALLENGE_REGION")
+                            "VIEWPORT",
+                            "FULL_PAGE",
+                            "ELEMENT",
+                            "OPAQUE_FRAME",
+                            "REGION",
+                            "CHALLENGE_REGION")
                         .contains(payload.getCaptureMode()))) {
               throw new IllegalArgumentException("Agent screenshot identity is invalid");
             }
@@ -1045,6 +1054,7 @@ public class NodeEventMapper {
     var tabs = tabs(payload.getTabsList(), payload.getActiveTabId());
     var nativeDialogs = nativeDialogs(payload.getNativeDialogsList(), tabs);
     var downloads = downloads(payload.getDownloadsList());
+    var opaqueFrames = opaqueFrames(payload.getOpaqueFramesList());
     if (payload.getNativeDialogEvidenceFresh() && tabs.isEmpty()) {
       throw new IllegalArgumentException("Fresh Native Dialog evidence requires Browser tabs");
     }
@@ -1113,7 +1123,71 @@ public class NodeEventMapper {
         nativeDialogs,
         payload.getNativeDialogEvidenceFresh(),
         downloads,
-        payload.getDownloadEvidenceFresh());
+        payload.getDownloadEvidenceFresh(),
+        opaqueFrames,
+        payload.getOpaqueFrameEvidenceFresh());
+  }
+
+  private List<NodeEvent.OpaqueFrame> opaqueFrames(List<OpaqueFrameState> values) {
+    if (values.size() > 32) {
+      throw new IllegalArgumentException("Opaque frame count exceeds 32");
+    }
+    return values.stream()
+        .map(
+            value -> {
+              if (!value.getFrameRef().matches("^ofr_[0-9a-f]{20}$")
+                  || value.getParentFrameId().isBlank()
+                  || value.getParentFrameId().length() > 512
+                  || !java.util.Set.of("CROSS_ORIGIN", "SANDBOXED", "INACCESSIBLE")
+                      .contains(value.getBoundaryReason())
+                  || !value.getInteractionStrategy().equals("BOUNDED_VISION_THEN_HUMAN_HANDOFF")) {
+                throw new IllegalArgumentException("Opaque frame boundary metadata is invalid");
+              }
+              String origin = value.hasOrigin() ? value.getOrigin() : null;
+              if (origin != null) {
+                try {
+                  var parsed = java.net.URI.create(origin);
+                  if (!java.util.Set.of("http", "https").contains(parsed.getScheme())
+                      || parsed.getRawAuthority() == null
+                      || parsed.getRawUserInfo() != null
+                      || (parsed.getRawPath() != null && !parsed.getRawPath().isEmpty())
+                      || parsed.getRawQuery() != null
+                      || parsed.getRawFragment() != null
+                      || !parsed.toString().equals(origin)) {
+                    throw new IllegalArgumentException("Opaque frame origin is not origin-only");
+                  }
+                } catch (IllegalArgumentException exception) {
+                  throw new IllegalArgumentException("Opaque frame origin is invalid", exception);
+                }
+              }
+              NodeEvent.Bounds bounds =
+                  value.hasBounds()
+                      ? new NodeEvent.Bounds(
+                          value.getBounds().getX(),
+                          value.getBounds().getY(),
+                          value.getBounds().getWidth(),
+                          value.getBounds().getHeight())
+                      : null;
+              if (bounds != null
+                  && (!finiteBetween(bounds.x(), -100_000, 100_000)
+                      || !finiteBetween(bounds.y(), -100_000, 100_000)
+                      || !finiteBetween(bounds.width(), 0, 100_000)
+                      || !finiteBetween(bounds.height(), 0, 100_000))) {
+                throw new IllegalArgumentException("Opaque frame bounds are invalid");
+              }
+              return new NodeEvent.OpaqueFrame(
+                  value.getFrameRef(),
+                  value.getParentFrameId(),
+                  origin,
+                  bounds,
+                  value.getBoundaryReason(),
+                  value.getVisible(),
+                  value.getInViewport(),
+                  value.getOccluded(),
+                  value.hasVisibilityReason() ? value.getVisibilityReason() : null,
+                  value.getInteractionStrategy());
+            })
+        .toList();
   }
 
   private List<NodeEvent.BrowserDownload> downloads(List<BrowserDownloadState> values) {

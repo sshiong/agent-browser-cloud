@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **247 Operations / 341 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **247 Operations / 342 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -170,6 +170,9 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   顺序执行 CLICK/TYPE/FILL/AgentClipboard/SCROLL/WAIT，每步重读真实状态并支持 stop-on-error；
   Batch Primitive 已以 additive `element_id` 在每步后按最新 Target Revision 稳定重绑定，
   N−1/历史命令保持原围栏并 fail-closed，见 progress 150。
+- [已确认] 跨域、Sandbox 或不可读取 iframe 以 Origin-only Opaque Frame 显式投影，不暴露
+  内部 DOM 或 URL Path/Query；Frame 永不成为可执行 Target。受治理截图按精确 State/Tab/
+  frameRef/Bounds 双重围栏并复用脱敏 Evidence，任何输入固定 Human Handoff，见 progress 185。
 - [已确认] 同一 Batch 已增加真实 CDP 双击、右键、悬停、清空、勾选和取消勾选；
   Check/Uncheck 会在动作后重采并验证结构化 checked 状态，非文本动作不得夹带 Secret/Value，
   见 progress 151。
@@ -376,6 +379,12 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - `StopRuntime` + Recording 的幂等回归保持修复，主干绿色。
 
 ## 7. 当前正在处理的任务
+
+- progress 185：跨域、Sandbox 或不可读取 iframe 已投影为 Origin-only Opaque Frame，包含稳定
+  `frameRef`、Bounds、边界原因与 freshness，不含内部 DOM 或 URL Path/Query。Frame 永不进入
+  可执行 Target；`OPAQUE_FRAME` 截图由控制面从新鲜 State 推导 Region，Node 再按 State/Hash/
+  Active Tab/frameRef/Bounds 重验并复用脱敏 Evidence 与一次性 Grant，任何输入固定 Human
+  Handoff。A19 仓库内通用代码项已关闭；真实 IdP/支付/托管 Challenge Replay 仍是生产 Gate。
 
 - progress 184：Profile 网站 Session Health 已与 Checkpoint `TECHNICAL_READY` 分离。V123 按
   Tenant/Profile/Origin 保存来自精确 Business Recovery State 的 `HEALTHY / REAUTH_REQUIRED /

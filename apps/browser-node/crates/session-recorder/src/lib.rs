@@ -113,7 +113,7 @@ pub struct ScreenshotCaptureOptions {
     pub captured_at_ms: u64,
     pub active_tab_id: String,
     pub capture_mode: String,
-    /// CSS-pixel viewport coordinates. Required only for ELEMENT/REGION/CHALLENGE_REGION.
+    /// CSS-pixel viewport coordinates. Required only for bounded capture modes.
     pub clip: Option<ScreenshotClip>,
 }
 
@@ -1418,7 +1418,7 @@ fn screenshot_capture_plan(
                 "DOCUMENT".to_owned(),
             )
         }
-        "ELEMENT" | "REGION" | "CHALLENGE_REGION" => {
+        "ELEMENT" | "OPAQUE_FRAME" | "REGION" | "CHALLENGE_REGION" => {
             let clip = options
                 .clip
                 .as_ref()

@@ -4002,6 +4002,100 @@ export class BrowserDownloadState extends Message<BrowserDownloadState> {
 }
 
 /**
+ * Explicit boundary for an iframe whose document is not inspectable from the active Page context.
+ * The full URL, path/query, DOM content and executable target are deliberately absent.
+ *
+ * @generated from message browsercloud.node.v1.OpaqueFrameState
+ */
+export class OpaqueFrameState extends Message<OpaqueFrameState> {
+  /**
+   * @generated from field: string frame_ref = 1;
+   */
+  frameRef = "";
+
+  /**
+   * @generated from field: string parent_frame_id = 2;
+   */
+  parentFrameId = "";
+
+  /**
+   * @generated from field: optional string origin = 3;
+   */
+  origin?: string;
+
+  /**
+   * @generated from field: optional browsercloud.node.v1.TargetBounds bounds = 4;
+   */
+  bounds?: TargetBounds;
+
+  /**
+   * @generated from field: string boundary_reason = 5;
+   */
+  boundaryReason = "";
+
+  /**
+   * @generated from field: bool visible = 6;
+   */
+  visible = false;
+
+  /**
+   * @generated from field: bool in_viewport = 7;
+   */
+  inViewport = false;
+
+  /**
+   * @generated from field: bool occluded = 8;
+   */
+  occluded = false;
+
+  /**
+   * @generated from field: optional string visibility_reason = 9;
+   */
+  visibilityReason?: string;
+
+  /**
+   * @generated from field: string interaction_strategy = 10;
+   */
+  interactionStrategy = "";
+
+  constructor(data?: PartialMessage<OpaqueFrameState>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.OpaqueFrameState";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "frame_ref", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "parent_frame_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "origin", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 4, name: "bounds", kind: "message", T: TargetBounds, opt: true },
+    { no: 5, name: "boundary_reason", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "visible", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 7, name: "in_viewport", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 8, name: "occluded", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 9, name: "visibility_reason", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 10, name: "interaction_strategy", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): OpaqueFrameState {
+    return new OpaqueFrameState().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): OpaqueFrameState {
+    return new OpaqueFrameState().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): OpaqueFrameState {
+    return new OpaqueFrameState().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: OpaqueFrameState | PlainMessage<OpaqueFrameState> | undefined, b: OpaqueFrameState | PlainMessage<OpaqueFrameState> | undefined): boolean {
+    return proto3.util.equals(OpaqueFrameState, a, b);
+  }
+}
+
+/**
  * @generated from message browsercloud.node.v1.BrowserStateEvent
  */
 export class BrowserStateEvent extends Message<BrowserStateEvent> {
@@ -4123,6 +4217,19 @@ export class BrowserStateEvent extends Message<BrowserStateEvent> {
    */
   downloadEvidenceFresh = false;
 
+  /**
+   * @generated from field: repeated browsercloud.node.v1.OpaqueFrameState opaque_frames = 21;
+   */
+  opaqueFrames: OpaqueFrameState[] = [];
+
+  /**
+   * N-1 Nodes and samples blocked by a native dialog leave this false. Consumers may display the
+   * last projection but must not use stale geometry for a bounded screenshot.
+   *
+   * @generated from field: bool opaque_frame_evidence_fresh = 22;
+   */
+  opaqueFrameEvidenceFresh = false;
+
   constructor(data?: PartialMessage<BrowserStateEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -4151,6 +4258,8 @@ export class BrowserStateEvent extends Message<BrowserStateEvent> {
     { no: 18, name: "native_dialog_evidence_fresh", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 19, name: "downloads", kind: "message", T: BrowserDownloadState, repeated: true },
     { no: 20, name: "download_evidence_fresh", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 21, name: "opaque_frames", kind: "message", T: OpaqueFrameState, repeated: true },
+    { no: 22, name: "opaque_frame_evidence_fresh", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BrowserStateEvent {
@@ -6045,6 +6154,14 @@ export class CaptureAgentScreenshotCommand extends Message<CaptureAgentScreensho
    */
   capturedAtMs = protoInt64.zero;
 
+  /**
+   * Present only for OPAQUE_FRAME. The Node re-resolves this boundary from the exact current
+   * State/Tab/Hash fence and compares its current bounds before capture.
+   *
+   * @generated from field: string opaque_frame_ref = 15;
+   */
+  opaqueFrameRef = "";
+
   constructor(data?: PartialMessage<CaptureAgentScreenshotCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -6067,6 +6184,7 @@ export class CaptureAgentScreenshotCommand extends Message<CaptureAgentScreensho
     { no: 12, name: "region_height", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
     { no: 13, name: "evidence_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 14, name: "captured_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 15, name: "opaque_frame_ref", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CaptureAgentScreenshotCommand {
@@ -6791,6 +6909,16 @@ export class BrowserStateDiffEvent extends Message<BrowserStateDiffEvent> {
    */
   downloadEvidenceFresh = false;
 
+  /**
+   * @generated from field: repeated browsercloud.node.v1.OpaqueFrameState opaque_frames = 24;
+   */
+  opaqueFrames: OpaqueFrameState[] = [];
+
+  /**
+   * @generated from field: bool opaque_frame_evidence_fresh = 25;
+   */
+  opaqueFrameEvidenceFresh = false;
+
   constructor(data?: PartialMessage<BrowserStateDiffEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -6822,6 +6950,8 @@ export class BrowserStateDiffEvent extends Message<BrowserStateDiffEvent> {
     { no: 21, name: "native_dialog_evidence_fresh", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 22, name: "downloads", kind: "message", T: BrowserDownloadState, repeated: true },
     { no: 23, name: "download_evidence_fresh", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 24, name: "opaque_frames", kind: "message", T: OpaqueFrameState, repeated: true },
+    { no: 25, name: "opaque_frame_evidence_fresh", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BrowserStateDiffEvent {

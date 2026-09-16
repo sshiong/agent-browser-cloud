@@ -242,7 +242,9 @@ public sealed interface NodeEvent
       List<NativeDialog> nativeDialogs,
       boolean nativeDialogEvidenceFresh,
       List<BrowserDownload> downloads,
-      boolean downloadEvidenceFresh)
+      boolean downloadEvidenceFresh,
+      List<OpaqueFrame> opaqueFrames,
+      boolean opaqueFrameEvidenceFresh)
       implements NodeEvent {
     public StateUpdated {
       tabs = tabs == null ? List.of() : List.copyOf(tabs);
@@ -251,6 +253,54 @@ public sealed interface NodeEvent
       actionOutcomes = actionOutcomes == null ? List.of() : List.copyOf(actionOutcomes);
       nativeDialogs = nativeDialogs == null ? List.of() : List.copyOf(nativeDialogs);
       downloads = downloads == null ? List.of() : List.copyOf(downloads);
+      opaqueFrames = opaqueFrames == null ? List.of() : List.copyOf(opaqueFrames);
+    }
+
+    /** Additive N/N-1 constructor used by callers that predate opaque-frame projection. */
+    public StateUpdated(
+        String sessionId,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        List<BrowserTab> tabs,
+        String activeTabId,
+        String stateHash,
+        String stateQuality,
+        List<InteractiveTarget> targets,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        String snapshotKind,
+        String requestedRootRef,
+        List<AgentActionOutcome> actionOutcomes,
+        List<NativeDialog> nativeDialogs,
+        boolean nativeDialogEvidenceFresh,
+        List<BrowserDownload> downloads,
+        boolean downloadEvidenceFresh) {
+      this(
+          sessionId,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          tabs,
+          activeTabId,
+          stateHash,
+          stateQuality,
+          targets,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          snapshotKind,
+          requestedRootRef,
+          actionOutcomes,
+          nativeDialogs,
+          nativeDialogEvidenceFresh,
+          downloads,
+          downloadEvidenceFresh,
+          List.of(),
+          false);
     }
 
     public StateUpdated(
@@ -515,6 +565,18 @@ public sealed interface NodeEvent
       java.time.Instant startedAt,
       java.time.Instant updatedAt) {}
 
+  record OpaqueFrame(
+      String frameRef,
+      String parentFrameId,
+      String origin,
+      Bounds bounds,
+      String boundaryReason,
+      boolean visible,
+      boolean inViewport,
+      boolean occluded,
+      String visibilityReason,
+      String interactionStrategy) {}
+
   record AgentActionOutcome(
       String actionId,
       String status,
@@ -608,7 +670,9 @@ public sealed interface NodeEvent
       List<NativeDialog> nativeDialogs,
       boolean nativeDialogEvidenceFresh,
       List<BrowserDownload> downloads,
-      boolean downloadEvidenceFresh)
+      boolean downloadEvidenceFresh,
+      List<OpaqueFrame> opaqueFrames,
+      boolean opaqueFrameEvidenceFresh)
       implements NodeEvent {
     public StateDiff {
       tabs = tabs == null ? List.of() : List.copyOf(tabs);
@@ -617,6 +681,62 @@ public sealed interface NodeEvent
       removedTargetRefs = List.copyOf(removedTargetRefs);
       nativeDialogs = nativeDialogs == null ? List.of() : List.copyOf(nativeDialogs);
       downloads = downloads == null ? List.of() : List.copyOf(downloads);
+      opaqueFrames = opaqueFrames == null ? List.of() : List.copyOf(opaqueFrames);
+    }
+
+    /** Additive N/N-1 constructor used by callers that predate opaque-frame projection. */
+    public StateDiff(
+        String sessionId,
+        long baseStateVersion,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        List<BrowserTab> tabs,
+        String activeTabId,
+        String stateHash,
+        String stateQuality,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        List<InteractiveTarget> upsertedTargets,
+        List<String> removedTargetRefs,
+        String snapshotKind,
+        String requestedRootRef,
+        String resyncRequestId,
+        long snapshotBytes,
+        Long collectionCpuMillis,
+        List<NativeDialog> nativeDialogs,
+        boolean nativeDialogEvidenceFresh,
+        List<BrowserDownload> downloads,
+        boolean downloadEvidenceFresh) {
+      this(
+          sessionId,
+          baseStateVersion,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          tabs,
+          activeTabId,
+          stateHash,
+          stateQuality,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          upsertedTargets,
+          removedTargetRefs,
+          snapshotKind,
+          requestedRootRef,
+          resyncRequestId,
+          snapshotBytes,
+          collectionCpuMillis,
+          nativeDialogs,
+          nativeDialogEvidenceFresh,
+          downloads,
+          downloadEvidenceFresh,
+          List.of(),
+          false);
     }
 
     public StateDiff(

@@ -34,7 +34,7 @@ export type AgentBrowserSnapshot = {
      */
     challengeState: 'NOT_EVALUATED';
     /**
-     * True only when structured perception is depth-limited or a visible target is occluded.
+     * True when structured perception is depth-limited, a visible target is occluded, or a fresh visible opaque frame can only be observed through the governed bounded screenshot path.
      */
     visionRecommended: boolean;
 };

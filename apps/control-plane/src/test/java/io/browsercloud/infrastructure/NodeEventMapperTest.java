@@ -26,6 +26,7 @@ import io.browsercloud.proto.node.v1.HumanAssistFailedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
 import io.browsercloud.proto.node.v1.InteractiveTargetState;
+import io.browsercloud.proto.node.v1.OpaqueFrameState;
 import io.browsercloud.proto.node.v1.ProfileWarmTierSyncedEvent;
 import io.browsercloud.proto.node.v1.RemoteDesktopParticipantEvent;
 import io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent;
@@ -829,6 +830,18 @@ class NodeEventMapperTest {
                     .setStartedAtMs(1_786_400_000_000L)
                     .setUpdatedAtMs(1_786_400_001_000L))
             .setDownloadEvidenceFresh(true)
+            .addOpaqueFrames(
+                OpaqueFrameState.newBuilder()
+                    .setFrameRef("ofr_0123456789abcdef0123")
+                    .setParentFrameId("main")
+                    .setOrigin("https://verify.example")
+                    .setBounds(
+                        TargetBounds.newBuilder().setX(20).setY(40).setWidth(320).setHeight(180))
+                    .setBoundaryReason("CROSS_ORIGIN")
+                    .setVisible(true)
+                    .setInViewport(true)
+                    .setInteractionStrategy("BOUNDED_VISION_THEN_HUMAN_HANDOFF"))
+            .setOpaqueFrameEvidenceFresh(true)
             .addActionOutcomes(
                 AgentActionOutcome.newBuilder()
                     .setActionId("action_1")
@@ -871,6 +884,17 @@ class NodeEventMapperTest {
               assertThat(state.networkQuietMillis()).isEqualTo(1_500);
               assertThat(state.networkEvidenceFresh()).isTrue();
               assertThat(state.downloadEvidenceFresh()).isTrue();
+              assertThat(state.opaqueFrameEvidenceFresh()).isTrue();
+              assertThat(state.opaqueFrames())
+                  .singleElement()
+                  .satisfies(
+                      frame -> {
+                        assertThat(frame.frameRef()).isEqualTo("ofr_0123456789abcdef0123");
+                        assertThat(frame.origin()).isEqualTo("https://verify.example");
+                        assertThat(frame.boundaryReason()).isEqualTo("CROSS_ORIGIN");
+                        assertThat(frame.interactionStrategy())
+                            .isEqualTo("BOUNDED_VISION_THEN_HUMAN_HANDOFF");
+                      });
               assertThat(state.downloads())
                   .singleElement()
                   .satisfies(

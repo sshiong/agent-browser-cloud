@@ -1578,6 +1578,7 @@ for message_name, expected_tags in (
             "region_height": 12,
             "evidence_id": 13,
             "captured_at_ms": 14,
+            "opaque_frame_ref": 15,
         },
     ),
 ):
@@ -2514,6 +2515,15 @@ for message_name in ("BrowserStateEvent", "BrowserStateDiffEvent"):
         assert re.search(rf"\b{field}\s*=\s*{tag};", state_message), (
             f"{message_name} must keep additive Browser download tag {tag} for {field}"
         )
+    opaque_frame_tags = (
+        (("opaque_frames", 21), ("opaque_frame_evidence_fresh", 22))
+        if message_name == "BrowserStateEvent"
+        else (("opaque_frames", 24), ("opaque_frame_evidence_fresh", 25))
+    )
+    for field, tag in opaque_frame_tags:
+        assert re.search(rf"\b{field}\s*=\s*{tag};", state_message), (
+            f"{message_name} must keep additive Opaque Frame tag {tag} for {field}"
+        )
 
 browser_tab_state = proto.split("message BrowserTabState {", 1)[1].split("}", 1)[0]
 for field, tag in (("tab_id", 1), ("url", 2), ("title", 3), ("active", 4)):
@@ -2547,6 +2557,21 @@ for field, tag in (
     ("updated_at_ms", 9),
 ):
     assert re.search(rf"\b{field}\s*=\s*{tag};", browser_download_state)
+
+opaque_frame_state = proto.split("message OpaqueFrameState {", 1)[1].split("}", 1)[0]
+for field, tag in (
+    ("frame_ref", 1),
+    ("parent_frame_id", 2),
+    ("origin", 3),
+    ("bounds", 4),
+    ("boundary_reason", 5),
+    ("visible", 6),
+    ("in_viewport", 7),
+    ("occluded", 8),
+    ("visibility_reason", 9),
+    ("interaction_strategy", 10),
+):
+    assert re.search(rf"\b{field}\s*=\s*{tag};", opaque_frame_state)
 
 for message_name, fields in (
     ("StageAgentBrowserFileRequest", (

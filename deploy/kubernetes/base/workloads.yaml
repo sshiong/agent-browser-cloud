@@ -363,6 +363,8 @@ spec:
               value: /var/run/browsercloud/helpers/storage.sock
             - name: PROFILE_STORAGE_ROOT
               value: /var/lib/browsercloud/profiles
+            - name: PROFILE_ARCHIVE_KEYRING_FILE
+              value: /var/run/browsercloud/profile-archive-keys/keyring.json
             - name: NODE_AGENT_UID
               value: "11001"
           volumeMounts:
@@ -370,6 +372,9 @@ spec:
               mountPath: /var/lib/browsercloud/profiles
             - name: helper-ipc
               mountPath: /var/run/browsercloud/helpers
+            - name: profile-archive-keyring
+              mountPath: /var/run/browsercloud/profile-archive-keys
+              readOnly: true
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -404,6 +409,11 @@ spec:
         - name: proxy-provider-catalog
           secret:
             secretName: browser-node-proxy-provider-catalog
+            defaultMode: 0440
+        - name: profile-archive-keyring
+          secret:
+            secretName: browser-node-profile-archive-keyring
+            optional: true
             defaultMode: 0440
   volumeClaimTemplates:
     - metadata:

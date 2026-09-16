@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "576a4adfd425fc1666761320edefa99bdee97f13ddef05ce1c33fb361ecd4be2",
+  "contractSha256": "444489a910e8abdec3e4b5bcc2912a4d231d40e8d52ea40dde0fb7febea07268",
   "files": {
     "BrowserCloudGeneratedClient.ts": "9af238a7342b4202ace30c93c8fac304d101b48a600224c76ce2d59908979c4c",
     "core/ApiError.ts": "1340dca2bdae61fcf8c1d1a52004c43fb070eb6f084a20c56423ee00f9d3a798",
@@ -251,7 +251,7 @@
     "models/RecoveryGameDayTrend.ts": "71fde6978b2f2b4e630be62e32eaeef8b42750286b82510500007078a8432486",
     "models/RecoveryTargetIndicator.ts": "4860476e0077f72374909f8b15f4a56f52a6eff78224acb142c63ee534d5a243",
     "models/RedeemEvidenceAccessResponse.ts": "765fbd40fb473e133fb1963cc026b4ea6a90c2423a05d137f8e587fc4cc7cafc",
-    "models/RedeemProfileExportResponse.ts": "9eb83a8945cdbde7ac088c968c809dc157f3c0074fcd1e32517dc95d0d871790",
+    "models/RedeemProfileExportResponse.ts": "e482ab4dd063656ad8c3ff289a9605c49dbb4eac20aa417f7aae8247d096a589",
     "models/RegionId.ts": "a9d07ba8c9e0362a5bd52cca5c7d899dc8e0c0ec03d264fe85a671d61168a845",
     "models/RegisterBrowserNodeRequest.ts": "ff7d194a06b26a5f8b3513477e2851e5555a1d3bdefa0ee53e1cd2b42dd4a8ed",
     "models/ReleaseFreeze.ts": "9597bf674e26829a20d20fd7bea6730293f8db00fb784b5a425715d919f64a0e",

@@ -42,6 +42,8 @@ minio_access_key="browsercloud-integration"
 minio_secret_key="browsercloud-integration-secret"
 minio_bucket="profile-checkpoints"
 temp_dir="$(mktemp -d)"
+cp tests/fixtures/profile-archive-keyring.json "$temp_dir/profile-archive-keyring.json"
+chmod 600 "$temp_dir/profile-archive-keyring.json"
 # Spring Boot lazily reads nested classes. Keep this run's artifact independent of later builds.
 control_plane_test_jar="$temp_dir/control-plane.jar"
 cp apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar "$control_plane_test_jar"
@@ -330,6 +332,7 @@ start_storage_helper() {
   OBJECT_STORAGE_BUCKET="$minio_bucket" \
   OBJECT_STORAGE_ACCESS_KEY_ID="$minio_access_key" \
   OBJECT_STORAGE_SECRET_ACCESS_KEY="$minio_secret_key" \
+  PROFILE_ARCHIVE_KEYRING_FILE="$temp_dir/profile-archive-keyring.json" \
   STORAGE_HELPER_SOCKET="$temp_dir/storage-helper.sock" \
   PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
   NODE_AGENT_UID="$(id -u)" \
@@ -351,6 +354,7 @@ start_storage_helper_b() {
   OBJECT_STORAGE_BUCKET="$minio_bucket" \
   OBJECT_STORAGE_ACCESS_KEY_ID="$minio_access_key" \
   OBJECT_STORAGE_SECRET_ACCESS_KEY="$minio_secret_key" \
+  PROFILE_ARCHIVE_KEYRING_FILE="$temp_dir/profile-archive-keyring.json" \
   STORAGE_HELPER_SOCKET="$temp_dir/storage-helper-b.sock" \
   PROFILE_STORAGE_ROOT="$temp_dir/runtime-b/profile-storage" \
   NODE_AGENT_UID="$(id -u)" \
@@ -372,6 +376,7 @@ start_storage_helper_c() {
   OBJECT_STORAGE_BUCKET="$minio_bucket" \
   OBJECT_STORAGE_ACCESS_KEY_ID="$minio_access_key" \
   OBJECT_STORAGE_SECRET_ACCESS_KEY="$minio_secret_key" \
+  PROFILE_ARCHIVE_KEYRING_FILE="$temp_dir/profile-archive-keyring.json" \
   STORAGE_HELPER_SOCKET="$temp_dir/storage-helper-c.sock" \
   PROFILE_STORAGE_ROOT="$temp_dir/runtime-c/profile-storage" \
   NODE_AGENT_UID="$(id -u)" \
@@ -724,7 +729,7 @@ for _ in $(seq 1 30); do
   sleep 0.25
 done
 printf '%s' "$browser_nodes" | python3 -c \
-  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["safePointBrowserTransactions"] == "cdp-transaction-v1"; assert node["labels"]["safePointBrowserTransactionPolicy"] == "approved-route-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileExport"] == "presigned-checkpoint-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["evidenceRedaction"] == "dom-overlay-script-freeze-v1"; assert node["labels"]["recordingRedaction"] == "frame-mask-v1"; assert node["labels"]["agentScreenshot"] == "state-fenced-region-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["safePointBrowserTransactions"] == "cdp-transaction-v1"; assert node["labels"]["safePointBrowserTransactionPolicy"] == "approved-route-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileArchiveEncryption"] == "aead-envelope-v1"; assert node["labels"]["profileExport"] == "presigned-encrypted-checkpoint-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["evidenceRedaction"] == "dom-overlay-script-freeze-v1"; assert node["labels"]["recordingRedaction"] == "frame-mask-v1"; assert node["labels"]["agentScreenshot"] == "state-fenced-region-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
 printf 'safe_point_browser_transaction_policy=true\n'
 
 runtime_builds="$(curl -fsS \
@@ -6648,7 +6653,23 @@ access = json.loads(sys.argv[1])
 archive = pathlib.Path(sys.argv[2]).read_bytes()
 assert len(archive) == access["archiveSizeBytes"]
 assert hashlib.sha256(archive).hexdigest() == access["archiveSha256"]
+assert archive.startswith(b"BCPAE1\0\0")
+assert b"Cookies" not in archive
 PY
+encrypted_profile_export_sha="$(openssl dgst -sha256 -r "$temp_dir/profile-export.tar.zst" | awk '{print $1}')"
+encrypted_profile_import_response="$(curl -fsS \
+  -X POST "http://localhost:${control_port}/api/v1/profile-imports" \
+  -H 'X-Tenant-Id: tenant-encrypted-profile-import' \
+  -H 'X-Actor-Id: encrypted-profile-import-operator' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: encrypted-profile-import-integration-v1' \
+  -F 'profileId=profile-encrypted-roundtrip' \
+  -F 'profileName=Encrypted roundtrip Profile' \
+  -F 'runtimeBuildId=runtime_local_chromium' \
+  -F "archiveSha256=${encrypted_profile_export_sha}" \
+  -F "archive=@${temp_dir}/profile-export.tar.zst;filename=profile-export.tar.zst.enc;type=application/octet-stream")"
+printf '%s' "$encrypted_profile_import_response" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "COMMITTED"; assert item["profileId"] == "profile-encrypted-roundtrip"; assert item["checkpointFileCount"] >= 1; assert item["coreSizeBytes"] > 0'
 profile_export_second_redeem="$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
   "http://localhost:${control_port}/api/v1/profiles/profile-integration/export-grants/${profile_export_grant_id}:redeem" \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -6659,7 +6680,7 @@ profile_export_db="$(docker exec "$postgres_name" psql -qAt -U browsercloud -d b
   "select state || ':' || signer_node_id || ':' || (archive_sha256 is not null)::text || ':' || (archive_size_bytes > 0)::text || ':' || (error_code is null)::text
      from profile_export_access_grants where grant_id='${profile_export_grant_id}';")"
 test "$profile_export_db" = "REDEEMED:node_integration:true:true:true"
-printf 'profile_checkpoint_export=true\n'
+printf 'profile_checkpoint_export=true encrypted_archive=true encrypted_roundtrip_import=true\n'
 proxy_after_terminate="$(curl -fsS "http://localhost:${control_port}/api/v1/proxies" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$proxy_after_terminate" | python3 -c \

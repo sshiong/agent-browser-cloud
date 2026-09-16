@@ -13,7 +13,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use storage_helper::object_archive::{
-    EvidenceDownloadRequest, ObjectArchive, ProfileExportDownloadRequest, S3ArchiveConfig,
+    EvidenceDownloadRequest, ObjectArchive, ProfileArchiveCrypto, ProfileExportDownloadRequest,
+    S3ArchiveConfig,
 };
 use storage_helper::{LocalProfileStore, ProfileRestoreStatus, ProfileWorkspace};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
@@ -345,16 +346,36 @@ async fn execute_storage_operation(
                 "Profile import integrity verification failed"
             );
             file.seek(std::io::SeekFrom::Start(0)).await?;
-            let manifest = store
-                .import_checkpoint_archive_file(
-                    tenant_id,
-                    profile_id,
-                    checkpoint_id,
-                    runtime_build_id,
-                    *archive_size_bytes,
-                    file.into_std().await,
-                )
-                .await?;
+            let mut magic = [0_u8; 8];
+            let magic_bytes = file.read(&mut magic).await?;
+            file.seek(std::io::SeekFrom::Start(0)).await?;
+            let manifest = if magic_bytes == magic.len()
+                && ObjectArchive::is_encrypted_profile_archive(&magic)
+            {
+                let mut encrypted = Vec::with_capacity(*archive_size_bytes as usize);
+                file.read_to_end(&mut encrypted).await?;
+                let plaintext = object_archive.decrypt_profile_import(&encrypted)?;
+                store
+                    .import_checkpoint_archive(
+                        tenant_id,
+                        profile_id,
+                        checkpoint_id,
+                        runtime_build_id,
+                        plaintext,
+                    )
+                    .await?
+            } else {
+                store
+                    .import_checkpoint_archive_file(
+                        tenant_id,
+                        profile_id,
+                        checkpoint_id,
+                        runtime_build_id,
+                        *archive_size_bytes,
+                        file.into_std().await,
+                    )
+                    .await?
+            };
             object_archive.commit_checkpoint(store, &manifest).await?;
             tokio::fs::remove_file(&canonical_path).await?;
             Ok((
@@ -810,6 +831,9 @@ fn object_archive_from_environment() -> anyhow::Result<Option<ObjectArchive>> {
     let connect_timeout = duration_from_environment("OBJECT_STORAGE_CONNECT_TIMEOUT_MS", 1_000)?;
     let operation_timeout =
         duration_from_environment("OBJECT_STORAGE_OPERATION_TIMEOUT_MS", 3_000)?;
+    let profile_crypto = ProfileArchiveCrypto::from_keyring_file(&required_absolute_path(
+        "PROFILE_ARCHIVE_KEYRING_FILE",
+    )?)?;
     Ok(Some(ObjectArchive::s3(S3ArchiveConfig {
         bucket: required_environment("OBJECT_STORAGE_BUCKET")?,
         region: std::env::var("OBJECT_STORAGE_REGION").unwrap_or_else(|_| "us-east-1".to_owned()),
@@ -820,6 +844,7 @@ fn object_archive_from_environment() -> anyhow::Result<Option<ObjectArchive>> {
         connect_timeout,
         operation_timeout,
         allow_http,
+        profile_crypto,
     })?))
 }
 

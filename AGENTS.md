@@ -371,6 +371,13 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 
 ## 7. 当前正在处理的任务
 
+- progress 183：Profile Cold Archive 已从明文 `checkpoint.tar.zst` 改为版本化 KEK 封装随机
+  DEK 的 AES-256-GCM `.tar.zst.enc`；Tenant/Profile/Checkpoint/明文哈希纳入 AAD。受限文件
+  Keyring 支持历史 Key 读取；旧明文对象在恢复/导出时 commit-last 迁移后删除；导出保持密文，
+  导入先认证解密。已有 checkpoint 的 Placement 与 Import/Export 候选要求
+  `profileArchiveEncryption=aead-envelope-v1`，滚动升级不会落到不兼容 N−1 Node。A17 仓库内代码项
+  已关闭；本地卷加密、目标云 KMS/HSM/Workload Identity 与正式轮换/灾备演练仍是生产 Gate。
+
 - progress 182：Real-URL Agent Matrix 已在隔离 Docker 服务和真实 Chromium 中实际访问
   Cloudflare 公共 trace 页面；该证据不冒充 Cloudflare 托管 CAPTCHA 绕过。安全可绑定 Target 的
   `SINGLE_CLICK` 改走 V122 `STRUCTURAL_CLICK`，Node 在输入前重验 State/Target/Bounds/Visual

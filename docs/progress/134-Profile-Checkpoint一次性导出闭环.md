@@ -13,7 +13,7 @@ Profile 页原先只能创建和导入 Checkpoint，没有可审计的真实导�
   Actor 兑换一次，且兑换时 Profile 不得已前进到新 Checkpoint；
 - V095 `profile_export_access_grants` 仅保存 Grant、用途、Actor、Checkpoint、
   签名 Node、归档哈希/大小和结果，不保存临时 URL 或对象存储凭据；
-- Control Plane 只会选择声明 `profileExport=presigned-checkpoint-v1` 的新版健康
+- Control Plane 只会选择声明 `profileExport=presigned-encrypted-checkpoint-v1` 的新版健康
   Node，N−1 Node 不会被误调度；
 - Browser Node 通过 Helper IPC 请求签名，S3 凭据始终只属于 Storage Helper；
 - Storage Helper 在签名前重新验证 `COMMITTED` Marker、Checkpoint ID、SHA-256、
@@ -59,5 +59,6 @@ DDL；已签名 URL 会在 60 秒内自然失效。
    关闭；仍缺 SQLite/LevelDB 应用感知 Adapter 与 Multipart Resume；
 2. 真实跨 Region Profile Restore 和全局带宽/一致性证书；
 3. Profile 对象保留期、Legal Hold 和对象锁的深度联动；
-4. 目标云 KMS/IAM、外部 HSM 与正式密钥轮换演练；
+4. 应用层 Envelope Encryption 与本地 Keyring 轮换读取已由 progress 183 关闭；目标云
+   KMS/IAM、外部 HSM 与正式密钥轮换演练仍待完成；
 5. 目标 Linux 多 Node 长稳、正式云对象存储故障和跨 Region 网络分区矩阵。

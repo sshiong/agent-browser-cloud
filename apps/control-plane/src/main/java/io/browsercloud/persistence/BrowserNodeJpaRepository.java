@@ -28,6 +28,10 @@ public interface BrowserNodeJpaRepository extends JpaRepository<BrowserNodeEntit
             AND admission_state = 'OPEN'
             AND pressure_state = 'NORMAL'
             AND last_heartbeat_at >= :freshAfter
+            AND (
+              CAST(:requiresProfileArchiveEncryption AS boolean) = false
+              OR labels->>'profileArchiveEncryption' = 'aead-envelope-v1'
+            )
           ORDER BY
             (CAST(reserved_memory_mib AS numeric) / certified_memory_mib) ASC,
             active_sessions ASC,
@@ -37,7 +41,9 @@ public interface BrowserNodeJpaRepository extends JpaRepository<BrowserNodeEntit
           """,
       nativeQuery = true)
   List<BrowserNodeEntity> lockPlacementCandidates(
-      @Param("region") String region, @Param("freshAfter") Instant freshAfter);
+      @Param("region") String region,
+      @Param("freshAfter") Instant freshAfter,
+      @Param("requiresProfileArchiveEncryption") boolean requiresProfileArchiveEncryption);
 
   /**
    * Cross-Node restore requires a target that understands StartRuntimeCommand's generation floor.
@@ -57,6 +63,10 @@ public interface BrowserNodeJpaRepository extends JpaRepository<BrowserNodeEntit
             AND pressure_state = 'NORMAL'
             AND last_heartbeat_at >= :freshAfter
             AND labels->>'startRuntimeGenerationFloor' = 'v1'
+            AND (
+              CAST(:requiresProfileArchiveEncryption AS boolean) = false
+              OR labels->>'profileArchiveEncryption' = 'aead-envelope-v1'
+            )
           ORDER BY
             (CAST(reserved_memory_mib AS numeric) / certified_memory_mib) ASC,
             active_sessions ASC,
@@ -66,7 +76,9 @@ public interface BrowserNodeJpaRepository extends JpaRepository<BrowserNodeEntit
           """,
       nativeQuery = true)
   List<BrowserNodeEntity> lockMigrationPlacementCandidates(
-      @Param("region") String region, @Param("freshAfter") Instant freshAfter);
+      @Param("region") String region,
+      @Param("freshAfter") Instant freshAfter,
+      @Param("requiresProfileArchiveEncryption") boolean requiresProfileArchiveEncryption);
 
   @Query(
       value =
@@ -78,6 +90,7 @@ public interface BrowserNodeJpaRepository extends JpaRepository<BrowserNodeEntit
             AND pressure_state = 'NORMAL'
             AND last_heartbeat_at >= :freshAfter
             AND labels->>'profileImport' = 'checkpoint-stream-v1'
+            AND labels->>'profileArchiveEncryption' = 'aead-envelope-v1'
           ORDER BY
             (CAST(reserved_memory_mib AS numeric) / certified_memory_mib) ASC,
             active_sessions ASC,
@@ -110,7 +123,8 @@ public interface BrowserNodeJpaRepository extends JpaRepository<BrowserNodeEntit
             AND admission_state = 'OPEN'
             AND pressure_state = 'NORMAL'
             AND last_heartbeat_at >= :freshAfter
-            AND labels->>'profileExport' = 'presigned-checkpoint-v1'
+            AND labels->>'profileExport' = 'presigned-encrypted-checkpoint-v1'
+            AND labels->>'profileArchiveEncryption' = 'aead-envelope-v1'
           ORDER BY active_sessions ASC, last_heartbeat_at DESC, node_id ASC
           LIMIT 16
           """,

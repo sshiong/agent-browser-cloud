@@ -1,7 +1,8 @@
 use crate::{LocalProfileStore, ProfileCheckpointManifest};
 use anyhow::Context;
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine;
 use bytes::Bytes;
-use futures_util::StreamExt;
 use http::Method;
 use object_store::aws::{AmazonS3, AmazonS3Builder};
 use object_store::path::Path;
@@ -12,14 +13,21 @@ use object_store::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
+use std::fs;
+use std::io::Read;
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
+use std::path::Path as FilePath;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use zeroize::{Zeroize, Zeroizing};
 
 #[derive(Clone)]
 pub struct ObjectArchive {
     store: Arc<AmazonS3>,
     prefix: String,
     operation_timeout: Duration,
+    profile_crypto: Arc<ProfileArchiveCrypto>,
 }
 
 pub struct EvidenceDownloadRequest<'a> {
@@ -47,6 +55,57 @@ pub struct SignedProfileExport {
 }
 
 const MAX_PROFILE_EXPORT_BYTES: usize = 256 * 1024 * 1024;
+const MAX_PROFILE_ARCHIVE_BYTES: usize = 1024 * 1024 * 1024;
+const ENCRYPTED_ARCHIVE_OBJECT: &str = "checkpoint.tar.zst.enc";
+const LEGACY_ARCHIVE_OBJECT: &str = "checkpoint.tar.zst";
+const PROFILE_ARCHIVE_MAGIC: &[u8; 8] = b"BCPAE1\0\0";
+const MAX_ENVELOPE_HEADER_BYTES: usize = 16 * 1024;
+const AES_GCM_NONCE_BYTES: usize = 12;
+const AES_GCM_TAG_BYTES: usize = 16;
+
+pub struct ProfileArchiveCrypto {
+    active_key_id: String,
+    keys: HashMap<String, [u8; 32]>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProfileArchiveKeyringFile {
+    active_key_id: String,
+    keys: HashMap<String, String>,
+}
+
+impl Drop for ProfileArchiveKeyringFile {
+    fn drop(&mut self) {
+        for encoded_key in self.keys.values_mut() {
+            encoded_key.zeroize();
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProfileArchiveEnvelopeHeader {
+    version: u32,
+    algorithm: String,
+    key_id: String,
+    wrapped_key_nonce: String,
+    wrapped_data_key: String,
+    content_nonce: String,
+    tenant_id: String,
+    profile_id: String,
+    checkpoint_id: String,
+    plaintext_sha256: String,
+    plaintext_bytes: usize,
+}
+
+struct DecryptedProfileArchive {
+    plaintext: Zeroizing<Vec<u8>>,
+    key_id: String,
+    tenant_id: String,
+    profile_id: String,
+    checkpoint_id: String,
+}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -57,14 +116,372 @@ struct ArchiveCommitMarker<'a> {
     content_hash: &'a str,
     archive_sha256: String,
     archive_bytes: usize,
+    archive_object: &'static str,
+    archive_format: &'static str,
+    encryption_key_id: &'a str,
+    plaintext_archive_sha256: String,
+    plaintext_archive_bytes: usize,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct StoredArchiveCommitMarker {
     checkpoint_id: String,
+    #[serde(default)]
+    checkpoint_epoch: u64,
+    #[serde(default)]
+    profile_write_epoch: u64,
+    #[serde(default)]
+    content_hash: String,
     archive_sha256: String,
     archive_bytes: usize,
+    #[serde(default = "legacy_archive_object")]
+    archive_object: String,
+    #[serde(default = "legacy_archive_format")]
+    archive_format: String,
+    #[serde(default)]
+    encryption_key_id: Option<String>,
+    #[serde(default)]
+    plaintext_archive_sha256: Option<String>,
+    #[serde(default)]
+    plaintext_archive_bytes: Option<usize>,
+}
+
+fn legacy_archive_object() -> String {
+    LEGACY_ARCHIVE_OBJECT.to_owned()
+}
+
+fn legacy_archive_format() -> String {
+    "TAR_ZSTD".to_owned()
+}
+
+impl Drop for ProfileArchiveCrypto {
+    fn drop(&mut self) {
+        for key in self.keys.values_mut() {
+            key.zeroize();
+        }
+    }
+}
+
+impl ProfileArchiveCrypto {
+    pub fn from_keyring_file(path: &FilePath) -> anyhow::Result<Self> {
+        let metadata = fs::symlink_metadata(path)
+            .with_context(|| format!("inspect Profile archive keyring {}", path.display()))?;
+        anyhow::ensure!(
+            metadata.file_type().is_file() && !metadata.file_type().is_symlink(),
+            "Profile archive keyring must be a regular file"
+        );
+        anyhow::ensure!(
+            metadata.permissions().mode() & 0o022 == 0
+                && metadata.permissions().mode() & 0o004 == 0,
+            "Profile archive keyring must not be writable by group/other or readable by other"
+        );
+        anyhow::ensure!(
+            metadata.size() <= 64 * 1024,
+            "Profile archive keyring exceeds 64 KiB"
+        );
+        let mut file = fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(nix::libc::O_NOFOLLOW)
+            .open(path)
+            .with_context(|| format!("securely open Profile archive keyring {}", path.display()))?;
+        let opened_metadata = file.metadata()?;
+        anyhow::ensure!(
+            opened_metadata.is_file()
+                && opened_metadata.dev() == metadata.dev()
+                && opened_metadata.ino() == metadata.ino()
+                && opened_metadata.len() == metadata.len(),
+            "Profile archive keyring changed during secure open"
+        );
+        let mut keyring_bytes = Vec::with_capacity(metadata.len() as usize);
+        file.read_to_end(&mut keyring_bytes)?;
+        anyhow::ensure!(
+            keyring_bytes.len() as u64 == metadata.len(),
+            "Profile archive keyring changed during read"
+        );
+        let encoded_result =
+            serde_json::from_slice(&keyring_bytes).context("parse Profile archive keyring");
+        keyring_bytes.zeroize();
+        let mut encoded: ProfileArchiveKeyringFile = encoded_result?;
+        validate_key_id(&encoded.active_key_id)?;
+        anyhow::ensure!(
+            !encoded.keys.is_empty() && encoded.keys.len() <= 16,
+            "Profile archive keyring must contain between 1 and 16 keys"
+        );
+        let mut keys = HashMap::with_capacity(encoded.keys.len());
+        for (key_id, encoded_key) in encoded.keys.drain() {
+            validate_key_id(&key_id)?;
+            let encoded_key = Zeroizing::new(encoded_key);
+            let mut decoded = BASE64
+                .decode(encoded_key.as_bytes())
+                .with_context(|| format!("Profile archive key {key_id} is not valid base64"))?;
+            anyhow::ensure!(
+                decoded.len() == 32,
+                "Profile archive key {key_id} must decode to exactly 32 bytes"
+            );
+            let mut key = [0_u8; 32];
+            key.copy_from_slice(&decoded);
+            decoded.zeroize();
+            anyhow::ensure!(
+                keys.insert(key_id, key).is_none(),
+                "Profile archive keyring contains a duplicate key id"
+            );
+        }
+        anyhow::ensure!(
+            keys.contains_key(&encoded.active_key_id),
+            "Profile archive active key id is absent from the keyring"
+        );
+        Ok(Self {
+            active_key_id: encoded.active_key_id.clone(),
+            keys,
+        })
+    }
+
+    #[cfg(test)]
+    fn for_test(active_key_id: &str, keys: &[(&str, [u8; 32])]) -> Self {
+        Self {
+            active_key_id: active_key_id.to_owned(),
+            keys: keys
+                .iter()
+                .map(|(key_id, key)| ((*key_id).to_owned(), *key))
+                .collect(),
+        }
+    }
+
+    fn active_key_id(&self) -> &str {
+        &self.active_key_id
+    }
+
+    fn encrypt(
+        &self,
+        tenant_id: &str,
+        profile_id: &str,
+        checkpoint_id: &str,
+        plaintext: &[u8],
+    ) -> anyhow::Result<Vec<u8>> {
+        anyhow::ensure!(
+            !plaintext.is_empty() && plaintext.len() <= MAX_PROFILE_ARCHIVE_BYTES,
+            "Profile archive plaintext size is invalid"
+        );
+        let plaintext_sha256 = hex_sha256(plaintext);
+        let mut data_key = Zeroizing::new([0_u8; 32]);
+        let mut wrap_nonce = [0_u8; AES_GCM_NONCE_BYTES];
+        let mut content_nonce = [0_u8; AES_GCM_NONCE_BYTES];
+        let random = ring::rand::SystemRandom::new();
+        use ring::rand::SecureRandom;
+        random
+            .fill(data_key.as_mut())
+            .map_err(|_| anyhow::anyhow!("generate Profile archive data key"))?;
+        random
+            .fill(&mut wrap_nonce)
+            .map_err(|_| anyhow::anyhow!("generate Profile archive wrap nonce"))?;
+        random
+            .fill(&mut content_nonce)
+            .map_err(|_| anyhow::anyhow!("generate Profile archive content nonce"))?;
+
+        let key_encryption_key = self
+            .keys
+            .get(&self.active_key_id)
+            .ok_or_else(|| anyhow::anyhow!("Profile archive active key is unavailable"))?;
+        let wrapping_key = ring::aead::LessSafeKey::new(
+            ring::aead::UnboundKey::new(&ring::aead::AES_256_GCM, key_encryption_key)
+                .map_err(|_| anyhow::anyhow!("initialize Profile archive wrapping key"))?,
+        );
+        let mut wrapped_data_key = Zeroizing::new(data_key.to_vec());
+        wrapping_key
+            .seal_in_place_append_tag(
+                ring::aead::Nonce::assume_unique_for_key(wrap_nonce),
+                ring::aead::Aad::from(wrap_aad(&self.active_key_id).as_slice()),
+                &mut *wrapped_data_key,
+            )
+            .map_err(|_| anyhow::anyhow!("wrap Profile archive data key"))?;
+
+        let header = ProfileArchiveEnvelopeHeader {
+            version: 1,
+            algorithm: "AES_256_GCM".to_owned(),
+            key_id: self.active_key_id.clone(),
+            wrapped_key_nonce: BASE64.encode(wrap_nonce),
+            wrapped_data_key: BASE64.encode(wrapped_data_key.as_slice()),
+            content_nonce: BASE64.encode(content_nonce),
+            tenant_id: tenant_id.to_owned(),
+            profile_id: profile_id.to_owned(),
+            checkpoint_id: checkpoint_id.to_owned(),
+            plaintext_sha256,
+            plaintext_bytes: plaintext.len(),
+        };
+        let header_bytes = serde_json::to_vec(&header)?;
+        anyhow::ensure!(
+            header_bytes.len() <= MAX_ENVELOPE_HEADER_BYTES,
+            "Profile archive envelope header is too large"
+        );
+        let content_key = ring::aead::LessSafeKey::new(
+            ring::aead::UnboundKey::new(&ring::aead::AES_256_GCM, data_key.as_ref())
+                .map_err(|_| anyhow::anyhow!("initialize Profile archive content key"))?,
+        );
+        let mut ciphertext = plaintext.to_vec();
+        content_key
+            .seal_in_place_append_tag(
+                ring::aead::Nonce::assume_unique_for_key(content_nonce),
+                ring::aead::Aad::from(content_aad(&header).as_slice()),
+                &mut ciphertext,
+            )
+            .map_err(|_| anyhow::anyhow!("encrypt Profile archive"))?;
+        let mut envelope = Vec::with_capacity(
+            PROFILE_ARCHIVE_MAGIC.len() + 4 + header_bytes.len() + ciphertext.len(),
+        );
+        envelope.extend_from_slice(PROFILE_ARCHIVE_MAGIC);
+        envelope.extend_from_slice(&(header_bytes.len() as u32).to_be_bytes());
+        envelope.extend_from_slice(&header_bytes);
+        envelope.extend_from_slice(&ciphertext);
+        ciphertext.zeroize();
+        anyhow::ensure!(
+            envelope.len() <= MAX_PROFILE_ARCHIVE_BYTES + MAX_ENVELOPE_HEADER_BYTES + 64,
+            "encrypted Profile archive exceeds the archive size limit"
+        );
+        Ok(envelope)
+    }
+
+    fn decrypt(&self, envelope: &[u8]) -> anyhow::Result<DecryptedProfileArchive> {
+        anyhow::ensure!(
+            envelope.len() > PROFILE_ARCHIVE_MAGIC.len() + 4 + AES_GCM_TAG_BYTES
+                && envelope.starts_with(PROFILE_ARCHIVE_MAGIC),
+            "Profile archive is not an encrypted envelope"
+        );
+        let header_length_offset = PROFILE_ARCHIVE_MAGIC.len();
+        let header_length = u32::from_be_bytes(
+            envelope[header_length_offset..header_length_offset + 4]
+                .try_into()
+                .expect("fixed header length slice"),
+        ) as usize;
+        anyhow::ensure!(
+            (1..=MAX_ENVELOPE_HEADER_BYTES).contains(&header_length),
+            "Profile archive envelope header length is invalid"
+        );
+        let ciphertext_offset = header_length_offset + 4 + header_length;
+        anyhow::ensure!(
+            ciphertext_offset + AES_GCM_TAG_BYTES <= envelope.len()
+                && envelope.len() <= MAX_PROFILE_ARCHIVE_BYTES + MAX_ENVELOPE_HEADER_BYTES + 64,
+            "Profile archive envelope size is invalid"
+        );
+        let header: ProfileArchiveEnvelopeHeader =
+            serde_json::from_slice(&envelope[header_length_offset + 4..ciphertext_offset])
+                .context("parse Profile archive envelope header")?;
+        anyhow::ensure!(
+            header.version == 1 && header.algorithm == "AES_256_GCM",
+            "Profile archive envelope algorithm is unsupported"
+        );
+        validate_key_id(&header.key_id)?;
+        anyhow::ensure!(
+            !header.tenant_id.is_empty()
+                && !header.profile_id.is_empty()
+                && !header.checkpoint_id.is_empty()
+                && header.plaintext_sha256.len() == 64
+                && header
+                    .plaintext_sha256
+                    .chars()
+                    .all(|character| character.is_ascii_hexdigit())
+                && (1..=MAX_PROFILE_ARCHIVE_BYTES).contains(&header.plaintext_bytes),
+            "Profile archive envelope metadata is invalid"
+        );
+        let wrap_nonce = decode_nonce(&header.wrapped_key_nonce, "wrapped key")?;
+        let content_nonce = decode_nonce(&header.content_nonce, "content")?;
+        let mut wrapped_data_key = Zeroizing::new(
+            BASE64
+                .decode(header.wrapped_data_key.as_bytes())
+                .context("Profile archive wrapped data key is not valid base64")?,
+        );
+        anyhow::ensure!(
+            wrapped_data_key.len() == 32 + AES_GCM_TAG_BYTES,
+            "Profile archive wrapped data key has an invalid size"
+        );
+        let key_encryption_key = self
+            .keys
+            .get(&header.key_id)
+            .ok_or_else(|| anyhow::anyhow!("Profile archive encryption key is unavailable"))?;
+        let wrapping_key = ring::aead::LessSafeKey::new(
+            ring::aead::UnboundKey::new(&ring::aead::AES_256_GCM, key_encryption_key)
+                .map_err(|_| anyhow::anyhow!("initialize Profile archive wrapping key"))?,
+        );
+        let opened_data_key_length = wrapping_key
+            .open_in_place(
+                ring::aead::Nonce::assume_unique_for_key(wrap_nonce),
+                ring::aead::Aad::from(wrap_aad(&header.key_id).as_slice()),
+                wrapped_data_key.as_mut_slice(),
+            )
+            .map_err(|_| anyhow::anyhow!("Profile archive data key authentication failed"))?
+            .len();
+        anyhow::ensure!(
+            opened_data_key_length == 32,
+            "Profile archive data key has an invalid size"
+        );
+        let mut data_key = Zeroizing::new([0_u8; 32]);
+        data_key.copy_from_slice(&wrapped_data_key[..opened_data_key_length]);
+
+        let content_key = ring::aead::LessSafeKey::new(
+            ring::aead::UnboundKey::new(&ring::aead::AES_256_GCM, data_key.as_ref())
+                .map_err(|_| anyhow::anyhow!("initialize Profile archive content key"))?,
+        );
+        let mut plaintext = envelope[ciphertext_offset..].to_vec();
+        let plaintext_length = content_key
+            .open_in_place(
+                ring::aead::Nonce::assume_unique_for_key(content_nonce),
+                ring::aead::Aad::from(content_aad(&header).as_slice()),
+                &mut plaintext,
+            )
+            .map_err(|_| anyhow::anyhow!("Profile archive authentication failed"))?
+            .len();
+        plaintext.truncate(plaintext_length);
+        anyhow::ensure!(
+            plaintext.len() == header.plaintext_bytes
+                && hex_sha256(&plaintext).eq_ignore_ascii_case(&header.plaintext_sha256),
+            "Profile archive plaintext integrity verification failed"
+        );
+        Ok(DecryptedProfileArchive {
+            plaintext: Zeroizing::new(plaintext),
+            key_id: header.key_id,
+            tenant_id: header.tenant_id,
+            profile_id: header.profile_id,
+            checkpoint_id: header.checkpoint_id,
+        })
+    }
+}
+
+fn validate_key_id(key_id: &str) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        (1..=64).contains(&key_id.len())
+            && key_id.chars().all(
+                |character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
+            ),
+        "Profile archive key id is invalid"
+    );
+    Ok(())
+}
+
+fn decode_nonce(value: &str, label: &str) -> anyhow::Result<[u8; AES_GCM_NONCE_BYTES]> {
+    let decoded = BASE64
+        .decode(value.as_bytes())
+        .with_context(|| format!("Profile archive {label} nonce is not valid base64"))?;
+    anyhow::ensure!(
+        decoded.len() == AES_GCM_NONCE_BYTES,
+        "Profile archive {label} nonce has an invalid size"
+    );
+    Ok(decoded.try_into().expect("validated nonce length"))
+}
+
+fn wrap_aad(key_id: &str) -> Vec<u8> {
+    format!("browsercloud/profile-checkpoint/dek/v1\0{key_id}").into_bytes()
+}
+
+fn content_aad(header: &ProfileArchiveEnvelopeHeader) -> Vec<u8> {
+    format!(
+        "browsercloud/profile-checkpoint/content/v1\0{}\0{}\0{}\0{}\0{}",
+        header.tenant_id,
+        header.profile_id,
+        header.checkpoint_id,
+        header.plaintext_sha256,
+        header.plaintext_bytes
+    )
+    .into_bytes()
 }
 
 #[derive(Debug, Serialize)]
@@ -143,6 +560,7 @@ impl ObjectArchive {
             store: Arc::new(store),
             prefix: config.prefix.trim_matches('/').to_owned(),
             operation_timeout: config.operation_timeout,
+            profile_crypto: Arc::new(config.profile_crypto),
         })
     }
 
@@ -152,11 +570,36 @@ impl ObjectArchive {
         manifest: &ProfileCheckpointManifest,
     ) -> anyhow::Result<()> {
         let archive = local.pack_checkpoint(manifest).await?;
-        let archive_hash = hex_sha256(&archive);
+        self.commit_encrypted_checkpoint(manifest, &archive).await
+    }
+
+    pub fn is_encrypted_profile_archive(value: &[u8]) -> bool {
+        value.starts_with(PROFILE_ARCHIVE_MAGIC)
+    }
+
+    pub fn decrypt_profile_import(&self, value: &[u8]) -> anyhow::Result<Vec<u8>> {
+        self.profile_crypto
+            .decrypt(value)
+            .map(|archive| archive.plaintext.to_vec())
+    }
+
+    async fn commit_encrypted_checkpoint(
+        &self,
+        manifest: &ProfileCheckpointManifest,
+        plaintext_archive: &[u8],
+    ) -> anyhow::Result<()> {
+        let plaintext_hash = hex_sha256(plaintext_archive);
+        let encrypted_archive = self.profile_crypto.encrypt(
+            &manifest.tenant_id,
+            &manifest.profile_id,
+            &manifest.checkpoint_id,
+            plaintext_archive,
+        )?;
+        let archive_hash = hex_sha256(&encrypted_archive);
         let base = self.object_key(manifest);
         self.put(
-            &format!("{base}/checkpoint.tar.zst"),
-            Bytes::from(archive.clone()),
+            &format!("{base}/{ENCRYPTED_ARCHIVE_OBJECT}"),
+            Bytes::from(encrypted_archive.clone()),
         )
         .await?;
         self.put(
@@ -170,7 +613,12 @@ impl ObjectArchive {
             profile_write_epoch: manifest.profile_write_epoch,
             content_hash: &manifest.content_hash,
             archive_sha256: archive_hash,
-            archive_bytes: archive.len(),
+            archive_bytes: encrypted_archive.len(),
+            archive_object: ENCRYPTED_ARCHIVE_OBJECT,
+            archive_format: "BROWSERCLOUD_PROFILE_AEAD_V1",
+            encryption_key_id: self.profile_crypto.active_key_id(),
+            plaintext_archive_sha256: plaintext_hash,
+            plaintext_archive_bytes: plaintext_archive.len(),
         };
         self.put(
             &format!("{base}/COMMITTED"),
@@ -193,14 +641,48 @@ impl ObjectArchive {
             marker.checkpoint_id == checkpoint_id,
             "archive commit marker checkpoint mismatch"
         );
-        let archive = self.get(&format!("{base}/checkpoint.tar.zst")).await?;
+        let archive = self
+            .get(&format!("{base}/{}", marker.archive_object))
+            .await?;
         anyhow::ensure!(
             archive.len() == marker.archive_bytes && hex_sha256(&archive) == marker.archive_sha256,
             "checkpoint archive integrity verification failed"
         );
-        local
-            .install_checkpoint_archive(tenant_id, profile_id, checkpoint_id, archive.to_vec())
-            .await
+        let is_legacy = marker.archive_format == "TAR_ZSTD";
+        let plaintext_archive = if is_legacy {
+            archive.to_vec()
+        } else {
+            anyhow::ensure!(
+                marker.archive_format == "BROWSERCLOUD_PROFILE_AEAD_V1"
+                    && marker.archive_object == ENCRYPTED_ARCHIVE_OBJECT,
+                "checkpoint archive format is unsupported"
+            );
+            let decrypted = self.profile_crypto.decrypt(&archive)?;
+            let plaintext_sha256 = hex_sha256(&decrypted.plaintext);
+            anyhow::ensure!(
+                marker.encryption_key_id.as_deref() == Some(decrypted.key_id.as_str())
+                    && marker.plaintext_archive_sha256.as_deref()
+                        == Some(plaintext_sha256.as_str())
+                    && marker.plaintext_archive_bytes == Some(decrypted.plaintext.len()),
+                "checkpoint encryption metadata does not match its commit marker"
+            );
+            decrypted.plaintext.to_vec()
+        };
+        let restored = local
+            .install_checkpoint_archive(
+                tenant_id,
+                profile_id,
+                checkpoint_id,
+                plaintext_archive.clone(),
+            )
+            .await?;
+        if is_legacy {
+            self.commit_encrypted_checkpoint(&restored, &plaintext_archive)
+                .await?;
+            self.delete(&format!("{base}/{LEGACY_ARCHIVE_OBJECT}"))
+                .await?;
+        }
+        Ok(restored)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -379,7 +861,7 @@ impl ObjectArchive {
         let base =
             self.object_key_for(request.tenant_id, request.profile_id, request.checkpoint_id);
         let marker_bytes = self.get(&format!("{base}/COMMITTED")).await?;
-        let marker: StoredArchiveCommitMarker = serde_json::from_slice(&marker_bytes)?;
+        let mut marker: StoredArchiveCommitMarker = serde_json::from_slice(&marker_bytes)?;
         anyhow::ensure!(
             marker.checkpoint_id == request.checkpoint_id
                 && marker.archive_sha256.len() == 64
@@ -390,7 +872,26 @@ impl ObjectArchive {
                 && (1..=MAX_PROFILE_EXPORT_BYTES).contains(&marker.archive_bytes),
             "Profile archive commit marker is invalid"
         );
-        let object_key = format!("{base}/checkpoint.tar.zst");
+        if marker.archive_format == "TAR_ZSTD" {
+            marker = self
+                .migrate_legacy_archive(
+                    request.tenant_id,
+                    request.profile_id,
+                    request.checkpoint_id,
+                    &base,
+                    &marker,
+                )
+                .await?;
+        }
+        anyhow::ensure!(
+            marker.archive_format == "BROWSERCLOUD_PROFILE_AEAD_V1"
+                && marker.archive_object == ENCRYPTED_ARCHIVE_OBJECT
+                && marker.encryption_key_id.is_some()
+                && marker.plaintext_archive_sha256.is_some()
+                && marker.plaintext_archive_bytes.is_some(),
+            "Profile archive is not application-layer encrypted"
+        );
+        let object_key = format!("{base}/{}", marker.archive_object);
         let object_path = Path::from(object_key.as_str());
         let metadata = tokio::time::timeout(self.operation_timeout, self.store.head(&object_path))
             .await
@@ -401,34 +902,27 @@ impl ObjectArchive {
             "Profile archive size does not match its commit marker"
         );
 
-        // A signed export is a high-risk data disclosure. Re-read the immutable object as a
-        // bounded stream and verify the marker hash immediately before issuing the URL.
-        let get_result = tokio::time::timeout(self.operation_timeout, self.store.get(&object_path))
-            .await
-            .context("Object Storage operation timed out")?
-            .with_context(|| format!("Object Storage GET failed for {object_key}"))?;
-        let mut stream = get_result.into_stream();
-        let mut digest = Sha256::new();
-        let mut observed_bytes = 0_u64;
-        while let Some(chunk) = tokio::time::timeout(self.operation_timeout, stream.next())
-            .await
-            .context("Object Storage export verification timed out")?
-        {
-            let chunk = chunk.context("Object Storage export verification failed")?;
-            observed_bytes = observed_bytes
-                .checked_add(chunk.len() as u64)
-                .ok_or_else(|| anyhow::anyhow!("Profile archive size overflow"))?;
-            anyhow::ensure!(
-                observed_bytes <= marker.archive_bytes as u64,
-                "Profile archive exceeds its commit marker"
-            );
-            digest.update(&chunk);
-        }
-        let observed_sha256 = format!("{:x}", digest.finalize());
+        // A signed export is a high-risk disclosure. Re-read, hash, authenticate and bind the
+        // envelope identity immediately before issuing the URL. This prevents an Object Storage
+        // writer from copying another tenant's valid ciphertext and marker into this object key.
+        let encrypted_archive = self.get(&object_key).await?;
+        let observed_bytes = encrypted_archive.len() as u64;
+        let observed_sha256 = hex_sha256(&encrypted_archive);
         anyhow::ensure!(
             observed_bytes == marker.archive_bytes as u64
                 && observed_sha256.eq_ignore_ascii_case(&marker.archive_sha256),
             "Profile archive integrity verification failed"
+        );
+        let decrypted = self.profile_crypto.decrypt(&encrypted_archive)?;
+        let plaintext_sha256 = hex_sha256(decrypted.plaintext.as_slice());
+        anyhow::ensure!(
+            decrypted.tenant_id == request.tenant_id
+                && decrypted.profile_id == request.profile_id
+                && decrypted.checkpoint_id == request.checkpoint_id
+                && marker.encryption_key_id.as_deref() == Some(decrypted.key_id.as_str())
+                && marker.plaintext_archive_sha256.as_deref() == Some(plaintext_sha256.as_str())
+                && marker.plaintext_archive_bytes == Some(decrypted.plaintext.len()),
+            "Profile archive envelope identity does not match the export request"
         );
 
         let signed_url = tokio::time::timeout(
@@ -449,6 +943,75 @@ impl ObjectArchive {
             archive_size_bytes: observed_bytes,
             download_url: signed_url.to_string(),
             expires_at_ms,
+        })
+    }
+
+    async fn migrate_legacy_archive(
+        &self,
+        tenant_id: &str,
+        profile_id: &str,
+        checkpoint_id: &str,
+        base: &str,
+        legacy_marker: &StoredArchiveCommitMarker,
+    ) -> anyhow::Result<StoredArchiveCommitMarker> {
+        anyhow::ensure!(
+            legacy_marker.archive_object == LEGACY_ARCHIVE_OBJECT
+                && legacy_marker.archive_format == "TAR_ZSTD"
+                && legacy_marker.content_hash.len() == 64
+                && legacy_marker
+                    .content_hash
+                    .chars()
+                    .all(|character| character.is_ascii_hexdigit()),
+            "legacy Profile archive marker is invalid"
+        );
+        let plaintext = self.get(&format!("{base}/{LEGACY_ARCHIVE_OBJECT}")).await?;
+        anyhow::ensure!(
+            plaintext.len() == legacy_marker.archive_bytes
+                && hex_sha256(&plaintext).eq_ignore_ascii_case(&legacy_marker.archive_sha256),
+            "legacy Profile archive integrity verification failed"
+        );
+        let plaintext_sha256 = hex_sha256(&plaintext);
+        let encrypted =
+            self.profile_crypto
+                .encrypt(tenant_id, profile_id, checkpoint_id, &plaintext)?;
+        let encrypted_sha256 = hex_sha256(&encrypted);
+        self.put(
+            &format!("{base}/{ENCRYPTED_ARCHIVE_OBJECT}"),
+            Bytes::from(encrypted.clone()),
+        )
+        .await?;
+        let committed = ArchiveCommitMarker {
+            checkpoint_id,
+            checkpoint_epoch: legacy_marker.checkpoint_epoch,
+            profile_write_epoch: legacy_marker.profile_write_epoch,
+            content_hash: &legacy_marker.content_hash,
+            archive_sha256: encrypted_sha256.clone(),
+            archive_bytes: encrypted.len(),
+            archive_object: ENCRYPTED_ARCHIVE_OBJECT,
+            archive_format: "BROWSERCLOUD_PROFILE_AEAD_V1",
+            encryption_key_id: self.profile_crypto.active_key_id(),
+            plaintext_archive_sha256: plaintext_sha256.clone(),
+            plaintext_archive_bytes: plaintext.len(),
+        };
+        self.put(
+            &format!("{base}/COMMITTED"),
+            Bytes::from(serde_json::to_vec(&committed)?),
+        )
+        .await?;
+        self.delete(&format!("{base}/{LEGACY_ARCHIVE_OBJECT}"))
+            .await?;
+        Ok(StoredArchiveCommitMarker {
+            checkpoint_id: checkpoint_id.to_owned(),
+            checkpoint_epoch: legacy_marker.checkpoint_epoch,
+            profile_write_epoch: legacy_marker.profile_write_epoch,
+            content_hash: legacy_marker.content_hash.clone(),
+            archive_sha256: encrypted_sha256,
+            archive_bytes: encrypted.len(),
+            archive_object: ENCRYPTED_ARCHIVE_OBJECT.to_owned(),
+            archive_format: "BROWSERCLOUD_PROFILE_AEAD_V1".to_owned(),
+            encryption_key_id: Some(self.profile_crypto.active_key_id().to_owned()),
+            plaintext_archive_sha256: Some(plaintext_sha256),
+            plaintext_archive_bytes: Some(plaintext.len()),
         })
     }
 
@@ -506,6 +1069,14 @@ impl ObjectArchive {
         })
         .await
         .context("Object Storage operation timed out")?
+    }
+
+    async fn delete(&self, key: &str) -> anyhow::Result<()> {
+        tokio::time::timeout(self.operation_timeout, self.store.delete(&Path::from(key)))
+            .await
+            .context("Object Storage operation timed out")?
+            .with_context(|| format!("Object Storage DELETE failed for {key}"))?;
+        Ok(())
     }
 
     fn object_key(&self, manifest: &ProfileCheckpointManifest) -> String {
@@ -571,6 +1142,7 @@ pub struct S3ArchiveConfig {
     pub connect_timeout: Duration,
     pub operation_timeout: Duration,
     pub allow_http: bool,
+    pub profile_crypto: ProfileArchiveCrypto,
 }
 
 fn hex_sha256(value: &[u8]) -> String {
@@ -581,7 +1153,66 @@ fn hex_sha256(value: &[u8]) -> String {
 mod tests {
     use super::*;
     use std::fs;
+    use std::os::unix::fs::PermissionsExt;
     use std::time::Instant;
+
+    #[test]
+    fn profile_archive_envelope_supports_rotation_and_rejects_tampering() {
+        let old = ProfileArchiveCrypto::for_test("key-v1", &[("key-v1", [0x11; 32])]);
+        let plaintext = b"Cookies=super-secret-session-value";
+        let encrypted = old
+            .encrypt("tenant-a", "profile-a", "chk_a", plaintext)
+            .unwrap();
+        assert!(ObjectArchive::is_encrypted_profile_archive(&encrypted));
+        assert!(!encrypted
+            .windows(plaintext.len())
+            .any(|window| window == plaintext));
+
+        let rotated = ProfileArchiveCrypto::for_test(
+            "key-v2",
+            &[("key-v1", [0x11; 32]), ("key-v2", [0x22; 32])],
+        );
+        let decrypted = rotated.decrypt(&encrypted).unwrap();
+        assert_eq!(decrypted.plaintext.as_slice(), plaintext);
+        assert_eq!(decrypted.key_id, "key-v1");
+
+        let newly_encrypted = rotated
+            .encrypt("tenant-a", "profile-a", "chk_b", plaintext)
+            .unwrap();
+        assert_eq!(rotated.decrypt(&newly_encrypted).unwrap().key_id, "key-v2");
+
+        let mut tampered = encrypted.clone();
+        *tampered.last_mut().unwrap() ^= 0x01;
+        assert!(rotated.decrypt(&tampered).is_err());
+
+        let missing_old_key = ProfileArchiveCrypto::for_test("key-v2", &[("key-v2", [0x22; 32])]);
+        assert!(missing_old_key.decrypt(&encrypted).is_err());
+    }
+
+    #[test]
+    fn profile_archive_keyring_requires_restricted_file_permissions() {
+        let root = std::env::temp_dir().join(format!(
+            "browsercloud-profile-keyring-test-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let keyring_path = root.join("keyring.json");
+        fs::write(
+            &keyring_path,
+            serde_json::json!({
+                "activeKeyId": "key-v1",
+                "keys": {"key-v1": BASE64.encode([0x31; 32])}
+            })
+            .to_string(),
+        )
+        .unwrap();
+        fs::set_permissions(&keyring_path, fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(ProfileArchiveCrypto::from_keyring_file(&keyring_path).is_ok());
+
+        fs::set_permissions(&keyring_path, fs::Permissions::from_mode(0o604)).unwrap();
+        assert!(ProfileArchiveCrypto::from_keyring_file(&keyring_path).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[tokio::test]
     #[ignore = "requires TEST_OBJECT_STORAGE_* and an S3-compatible server"]
@@ -615,6 +1246,10 @@ mod tests {
             connect_timeout: Duration::from_millis(timeout_millis),
             operation_timeout: Duration::from_millis(timeout_millis),
             allow_http: true,
+            profile_crypto: ProfileArchiveCrypto::for_test(
+                "test-key-v1",
+                &[("test-key-v1", [0x41; 32])],
+            ),
         })
         .unwrap();
 
@@ -629,7 +1264,7 @@ mod tests {
             let base = archive.object_key(&manifest);
             archive
                 .store
-                .get(&Path::from(format!("{base}/checkpoint.tar.zst")))
+                .get(&Path::from(format!("{base}/{ENCRYPTED_ARCHIVE_OBJECT}")))
                 .await
                 .unwrap();
             archive
@@ -642,6 +1277,53 @@ mod tests {
                 .get(&Path::from(format!("{base}/COMMITTED")))
                 .await
                 .unwrap();
+            let plaintext_for_substitution = local.pack_checkpoint(&manifest).await.unwrap();
+            let substituted = archive
+                .profile_crypto
+                .encrypt(
+                    "tenant-other",
+                    "profile-test",
+                    &manifest.checkpoint_id,
+                    &plaintext_for_substitution,
+                )
+                .unwrap();
+            let substituted_marker = ArchiveCommitMarker {
+                checkpoint_id: &manifest.checkpoint_id,
+                checkpoint_epoch: manifest.checkpoint_epoch,
+                profile_write_epoch: manifest.profile_write_epoch,
+                content_hash: &manifest.content_hash,
+                archive_sha256: hex_sha256(&substituted),
+                archive_bytes: substituted.len(),
+                archive_object: ENCRYPTED_ARCHIVE_OBJECT,
+                archive_format: "BROWSERCLOUD_PROFILE_AEAD_V1",
+                encryption_key_id: archive.profile_crypto.active_key_id(),
+                plaintext_archive_sha256: hex_sha256(&plaintext_for_substitution),
+                plaintext_archive_bytes: plaintext_for_substitution.len(),
+            };
+            archive
+                .put(
+                    &format!("{base}/{ENCRYPTED_ARCHIVE_OBJECT}"),
+                    Bytes::from(substituted),
+                )
+                .await
+                .unwrap();
+            archive
+                .put(
+                    &format!("{base}/COMMITTED"),
+                    Bytes::from(serde_json::to_vec(&substituted_marker).unwrap()),
+                )
+                .await
+                .unwrap();
+            assert!(archive
+                .sign_profile_export_download(ProfileExportDownloadRequest {
+                    tenant_id: "tenant-test",
+                    profile_id: "profile-test",
+                    checkpoint_id: &manifest.checkpoint_id,
+                    expires_in: Duration::from_secs(60),
+                })
+                .await
+                .is_err());
+            archive.commit_checkpoint(&local, &manifest).await.unwrap();
             let signed_export = archive
                 .sign_profile_export_download(ProfileExportDownloadRequest {
                     tenant_id: "tenant-test",
@@ -664,6 +1346,89 @@ mod tests {
                 downloaded_export.len() as u64
             );
             assert_eq!(signed_export.archive_sha256, hex_sha256(&downloaded_export));
+            assert!(ObjectArchive::is_encrypted_profile_archive(
+                &downloaded_export
+            ));
+            let decrypted_export = archive.decrypt_profile_import(&downloaded_export).unwrap();
+            assert!(!ObjectArchive::is_encrypted_profile_archive(
+                &decrypted_export
+            ));
+            archive
+                .put(
+                    &format!("{base}/{LEGACY_ARCHIVE_OBJECT}"),
+                    Bytes::from(decrypted_export.clone()),
+                )
+                .await
+                .unwrap();
+            archive
+                .put(
+                    &format!("{base}/COMMITTED"),
+                    Bytes::from(
+                        serde_json::to_vec(&serde_json::json!({
+                            "checkpointId": manifest.checkpoint_id,
+                            "checkpointEpoch": manifest.checkpoint_epoch,
+                            "profileWriteEpoch": manifest.profile_write_epoch,
+                            "contentHash": manifest.content_hash,
+                            "archiveSha256": hex_sha256(&decrypted_export),
+                            "archiveBytes": decrypted_export.len()
+                        }))
+                        .unwrap(),
+                    ),
+                )
+                .await
+                .unwrap();
+            archive
+                .delete(&format!("{base}/{ENCRYPTED_ARCHIVE_OBJECT}"))
+                .await
+                .unwrap();
+            let restored_root = std::env::temp_dir().join(format!(
+                "browsercloud-object-archive-legacy-restore-test-{}",
+                uuid::Uuid::new_v4().simple()
+            ));
+            let restored_local = LocalProfileStore::open(restored_root.clone())
+                .await
+                .unwrap();
+            archive
+                .restore_checkpoint(
+                    &restored_local,
+                    "tenant-test",
+                    "profile-test",
+                    &manifest.checkpoint_id,
+                )
+                .await
+                .unwrap();
+            assert!(archive
+                .store
+                .head(&Path::from(format!("{base}/{LEGACY_ARCHIVE_OBJECT}")))
+                .await
+                .is_err());
+            let migrated = archive
+                .store
+                .get(&Path::from(format!("{base}/{ENCRYPTED_ARCHIVE_OBJECT}")))
+                .await
+                .unwrap()
+                .bytes()
+                .await
+                .unwrap();
+            assert!(ObjectArchive::is_encrypted_profile_archive(&migrated));
+            let encrypted_restore_root = std::env::temp_dir().join(format!(
+                "browsercloud-object-archive-encrypted-restore-test-{}",
+                uuid::Uuid::new_v4().simple()
+            ));
+            let encrypted_restore_local = LocalProfileStore::open(encrypted_restore_root.clone())
+                .await
+                .unwrap();
+            archive
+                .restore_checkpoint(
+                    &encrypted_restore_local,
+                    "tenant-test",
+                    "profile-test",
+                    &manifest.checkpoint_id,
+                )
+                .await
+                .unwrap();
+            fs::remove_dir_all(restored_root).unwrap();
+            fs::remove_dir_all(encrypted_restore_root).unwrap();
             let recording_content = Bytes::from_static(
                 br#"{"capturedAtMs":1,"cdpSessionId":7,"format":"jpeg","redactionState":"MASKED","redactedRegionCount":2,"redactionPolicyVersion":1,"data":"/9j/"}"#,
             );

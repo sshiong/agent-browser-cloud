@@ -47,6 +47,8 @@ tokio-tungstenite = { version = "0.24", default-features = false, features = ["c
 sysinfo = "0.33"
 base64 = "0.22"
 hmac = "0.12"
+ring = "0.17"
+zeroize = "1"
 http = "1"
 jpeg-decoder = { version = "0.3", default-features = false }
 jpeg-encoder = "0.6"

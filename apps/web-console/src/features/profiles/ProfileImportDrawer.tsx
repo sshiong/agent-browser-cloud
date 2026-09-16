@@ -97,8 +97,14 @@ export function ProfileImportDrawer({
       setLocalError('Checkpoint 归档必须大于 0，且不能超过 256 MiB。');
       return;
     }
-    if (!file.name.toLowerCase().endsWith('.tar.zst')) {
-      setLocalError('请选择由 Agent Browser Cloud 导出的 .tar.zst 归档。');
+    const lowerName = file.name.toLowerCase();
+    if (
+      !lowerName.endsWith('.tar.zst') &&
+      !lowerName.endsWith('.tar.zst.enc')
+    ) {
+      setLocalError(
+        '请选择 .tar.zst 归档或 Agent Browser Cloud 导出的 .tar.zst.enc 加密归档。'
+      );
       return;
     }
     setArchive(file);
@@ -310,7 +316,8 @@ export function ProfileImportDrawer({
                       </span>
                       <span className="min-w-0">
                         <span className="block truncate text-[13px] font-medium text-text-primary">
-                          {archive?.name || '选择或拖入 .tar.zst'}
+                          {archive?.name ||
+                            '选择或拖入 .tar.zst / .tar.zst.enc'}
                         </span>
                         <span className="mt-1 block text-[10px] leading-4 text-text-muted">
                           最大 256
@@ -330,7 +337,7 @@ export function ProfileImportDrawer({
                     <input
                       ref={fileRef}
                       type="file"
-                      accept=".tar.zst,application/zstd,application/octet-stream"
+                      accept=".tar.zst,.tar.zst.enc,application/zstd,application/octet-stream"
                       className="sr-only"
                       onChange={(event) =>
                         void selectArchive(event.target.files?.[0])

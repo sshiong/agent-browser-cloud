@@ -40,6 +40,7 @@ Local Manifest + Local COMMITTED
 - `OBJECT_STORAGE_PREFIX`
 - `OBJECT_STORAGE_CONNECT_TIMEOUT_MS`
 - `OBJECT_STORAGE_OPERATION_TIMEOUT_MS`
+- `PROFILE_ARCHIVE_KEYRING_FILE`（启用对象存储时必填；格式与轮换边界见 progress 183）
 
 Compose/Kubernetes 基础清单显式保持 `OBJECT_STORAGE_ENABLED=false`。目标环境必须通过
 Secret/Workload Identity Overlay 注入凭证后再开启，仓库不提供默认生产密钥。
@@ -68,7 +69,7 @@ local_checkpoint_retryable=true
 1. 当前是 Single PUT 压缩归档；大对象 Multipart Resume、Upload ID Journal、过期
    Orphan 清理和 API Cost 统计尚未实现。
 2. 尚未实现从 Object Storage 下载、Archive Hash 复验和跨 Node/Region Restore。
-3. 目标云 IAM/Workload Identity、KMS Envelope Encryption、Versioning、WORM、
-   Cross-region Replication 和 Lifecycle Policy 尚未验收。
+3. 应用层 Envelope Encryption 已由 progress 183 关闭；目标云 IAM/Workload Identity、KMS/HSM
+   Provider、Versioning、WORM、Cross-region Replication 和 Lifecycle Policy 尚未验收。
 4. Kubernetes 基础清单默认关闭 Provider，生产 Overlay 与 Secret Rotation 待目标环境完成。
 5. 尚未将 MinIO GameDay 加入默认 CI；它需要 Docker 镜像和容器权限。

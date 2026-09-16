@@ -24,6 +24,7 @@ import io.browsercloud.persistence.ExtensionProfileEntity;
 import io.browsercloud.persistence.ExtensionProfileJpaRepository;
 import io.browsercloud.persistence.ExtensionProfileSampleEntity;
 import io.browsercloud.persistence.ExtensionProfileSampleJpaRepository;
+import io.browsercloud.persistence.ProfileJpaRepository;
 import io.browsercloud.persistence.SessionResourceDemandEntity;
 import io.browsercloud.persistence.SessionResourceDemandJpaRepository;
 import java.math.BigDecimal;
@@ -55,6 +56,8 @@ public class BrowserCapacityApplicationService {
   private static final String PROXY_DESCRIPTOR_CAPABILITY_VERSION = "v1";
   private static final String RECORDING_REDACTION_CAPABILITY = "recordingRedaction";
   private static final String RECORDING_REDACTION_CAPABILITY_VERSION = "frame-mask-v1";
+  private static final String PROFILE_ARCHIVE_ENCRYPTION_CAPABILITY = "profileArchiveEncryption";
+  private static final String PROFILE_ARCHIVE_ENCRYPTION_CAPABILITY_VERSION = "aead-envelope-v1";
   private static final Set<String> ACTIVE_PLACEMENT_STATES =
       Set.of("RESERVED", "ACTIVE", "WAITING_SAFE_POINT");
 
@@ -63,6 +66,7 @@ public class BrowserCapacityApplicationService {
   private final ExtensionProfileSampleJpaRepository extensionSampleRepository;
   private final SessionResourceDemandJpaRepository demandRepository;
   private final BrowserPlacementJpaRepository placementRepository;
+  private final ProfileJpaRepository profileRepository;
   private final SessionRepository sessionRepository;
   private final EnterpriseOperationsApplicationService enterpriseOperationsService;
   private final SessionResourceApplicationService sessionResourceService;
@@ -74,6 +78,7 @@ public class BrowserCapacityApplicationService {
       ExtensionProfileSampleJpaRepository extensionSampleRepository,
       SessionResourceDemandJpaRepository demandRepository,
       BrowserPlacementJpaRepository placementRepository,
+      ProfileJpaRepository profileRepository,
       SessionRepository sessionRepository,
       EnterpriseOperationsApplicationService enterpriseOperationsService,
       SessionResourceApplicationService sessionResourceService,
@@ -83,6 +88,7 @@ public class BrowserCapacityApplicationService {
     this.extensionSampleRepository = extensionSampleRepository;
     this.demandRepository = demandRepository;
     this.placementRepository = placementRepository;
+    this.profileRepository = profileRepository;
     this.sessionRepository = sessionRepository;
     this.enterpriseOperationsService = enterpriseOperationsService;
     this.sessionResourceService = sessionResourceService;
@@ -412,14 +418,21 @@ public class BrowserCapacityApplicationService {
     var requiresProxyDescriptor =
         session.proxyBindingId() != null && !session.proxyBindingId().isBlank();
     var requiresRecordingRedaction = demand.isVideoRecordingRequested();
+    var requiresProfileArchiveEncryption =
+        profileRepository
+            .findById(session.profileId())
+            .map(profile -> profile.getLatestCheckpointId() != null)
+            .orElse(false);
     enterpriseOperationsService.requireResidency(session.tenantId(), region);
     enterpriseOperationsService.requireMediaQuota(
         session.tenantId(), calculated.mediaSlots(), calculated.mediaBitrateKbps());
     var now = Instant.now();
     var placementCandidates =
         requireGenerationFloorCapability
-            ? nodeRepository.lockMigrationPlacementCandidates(region, now.minus(NODE_HEARTBEAT_TTL))
-            : nodeRepository.lockPlacementCandidates(region, now.minus(NODE_HEARTBEAT_TTL));
+            ? nodeRepository.lockMigrationPlacementCandidates(
+                region, now.minus(NODE_HEARTBEAT_TTL), requiresProfileArchiveEncryption)
+            : nodeRepository.lockPlacementCandidates(
+                region, now.minus(NODE_HEARTBEAT_TTL), requiresProfileArchiveEncryption);
     var candidates =
         placementCandidates.stream()
             .filter(node -> !excludedNodeIds.contains(node.getNodeId()))
@@ -440,6 +453,13 @@ public class BrowserCapacityApplicationService {
                             node,
                             RECORDING_REDACTION_CAPABILITY,
                             RECORDING_REDACTION_CAPABILITY_VERSION))
+            .filter(
+                node ->
+                    !requiresProfileArchiveEncryption
+                        || nodeHasLabel(
+                            node,
+                            PROFILE_ARCHIVE_ENCRYPTION_CAPABILITY,
+                            PROFILE_ARCHIVE_ENCRYPTION_CAPABILITY_VERSION))
             .map(node -> scoreCandidate(node, session.tenantId(), calculated))
             .filter(Candidate::eligible)
             .sorted(
@@ -454,11 +474,13 @@ public class BrowserCapacityApplicationService {
       throw new BrowserCapacityUnavailableException(
           requiresRecordingRedaction
               ? "NO_RECORDING_REDACTION_CAPABLE_NODE"
-              : requiresProxyDescriptor
-                  ? "NO_PROXY_DESCRIPTOR_CAPABLE_NODE"
-                  : requireGenerationFloorCapability
-                      ? "NO_MIGRATION_TARGET_WITH_GENERATION_FLOOR_CAPABILITY"
-                      : "NO_ELIGIBLE_BROWSER_NODE");
+              : requiresProfileArchiveEncryption
+                  ? "NO_PROFILE_ARCHIVE_ENCRYPTION_CAPABLE_NODE"
+                  : requiresProxyDescriptor
+                      ? "NO_PROXY_DESCRIPTOR_CAPABLE_NODE"
+                      : requireGenerationFloorCapability
+                          ? "NO_MIGRATION_TARGET_WITH_GENERATION_FLOOR_CAPABILITY"
+                          : "NO_ELIGIBLE_BROWSER_NODE");
     }
     var chosen = candidates.getFirst();
     var node = chosen.node();

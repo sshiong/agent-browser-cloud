@@ -85,7 +85,9 @@ export function ProfileExportDialog({
               </div>
               <p className="mt-1">
                 归档可能包含 Cookie、登录状态与站点数据。授权仅属于当前操作者，5
-                分钟内可兑换一次；下载链接 60 秒失效且不会保存到平台。
+                分钟内可兑换一次；下载链接 60
+                秒失效且不会保存到平台。导出文件使用 `.tar.zst.enc`
+                应用层加密封装，只能导入保留对应历史密钥的部署。
               </p>
             </div>
 

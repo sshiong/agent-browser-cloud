@@ -21,6 +21,8 @@ import io.browsercloud.persistence.BrowserPlacementJpaRepository;
 import io.browsercloud.persistence.ExtensionProfileEntity;
 import io.browsercloud.persistence.ExtensionProfileJpaRepository;
 import io.browsercloud.persistence.ExtensionProfileSampleJpaRepository;
+import io.browsercloud.persistence.ProfileEntity;
+import io.browsercloud.persistence.ProfileJpaRepository;
 import io.browsercloud.persistence.SessionResourceDemandEntity;
 import io.browsercloud.persistence.SessionResourceDemandJpaRepository;
 import java.math.BigDecimal;
@@ -43,6 +45,7 @@ class BrowserCapacityApplicationServiceTest {
   @Mock private ExtensionProfileSampleJpaRepository extensionSampleRepository;
   @Mock private SessionResourceDemandJpaRepository demandRepository;
   @Mock private BrowserPlacementJpaRepository placementRepository;
+  @Mock private ProfileJpaRepository profileRepository;
   @Mock private SessionRepository sessionRepository;
   @Mock private EnterpriseOperationsApplicationService enterpriseOperationsService;
   @Mock private SessionResourceApplicationService sessionResourceService;
@@ -60,6 +63,7 @@ class BrowserCapacityApplicationServiceTest {
             extensionSampleRepository,
             demandRepository,
             placementRepository,
+            profileRepository,
             sessionRepository,
             enterpriseOperationsService,
             sessionResourceService,
@@ -167,7 +171,8 @@ class BrowserCapacityApplicationServiceTest {
     when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
     when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
     when(extensionRepository.findAllById(any())).thenReturn(List.of());
-    when(nodeRepository.lockPlacementCandidates(eq("local"), any())).thenReturn(List.of(node));
+    when(nodeRepository.lockPlacementCandidates(eq("local"), any(), eq(false)))
+        .thenReturn(List.of(node));
     when(placementRepository.findAllByNodeIdAndStateIn(eq("node_local"), any()))
         .thenReturn(List.of());
     when(nodeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -251,7 +256,7 @@ class BrowserCapacityApplicationServiceTest {
     when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
     when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
     when(extensionRepository.findAllById(any())).thenReturn(List.of());
-    when(nodeRepository.lockPlacementCandidates(eq("local"), any()))
+    when(nodeRepository.lockPlacementCandidates(eq("local"), any(), eq(false)))
         .thenReturn(List.of(standardNode(now)));
 
     assertThatThrownBy(
@@ -283,7 +288,7 @@ class BrowserCapacityApplicationServiceTest {
     when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
     when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
     when(extensionRepository.findAllById(any())).thenReturn(List.of());
-    when(nodeRepository.lockPlacementCandidates(eq("local"), any()))
+    when(nodeRepository.lockPlacementCandidates(eq("local"), any(), eq(false)))
         .thenReturn(List.of(standardNode(now)));
 
     assertThatThrownBy(() -> service.reserve(session(ResourceClass.L2), "local"))
@@ -313,7 +318,8 @@ class BrowserCapacityApplicationServiceTest {
     when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
     when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
     when(extensionRepository.findAllById(any())).thenReturn(List.of());
-    when(nodeRepository.lockPlacementCandidates(eq("local"), any())).thenReturn(List.of(node));
+    when(nodeRepository.lockPlacementCandidates(eq("local"), any(), eq(false)))
+        .thenReturn(List.of(node));
     when(placementRepository.findAllByNodeIdAndStateIn(eq("node_local"), any()))
         .thenReturn(List.of());
     when(nodeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -364,7 +370,8 @@ class BrowserCapacityApplicationServiceTest {
     when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
     when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
     when(extensionRepository.findAllById(any())).thenReturn(List.of());
-    when(nodeRepository.lockPlacementCandidates(eq("local"), any())).thenReturn(List.of(node));
+    when(nodeRepository.lockPlacementCandidates(eq("local"), any(), eq(false)))
+        .thenReturn(List.of(node));
     when(placementRepository.findAllByNodeIdAndStateIn(eq("node_local"), any()))
         .thenReturn(List.of());
     when(nodeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -458,7 +465,7 @@ class BrowserCapacityApplicationServiceTest {
     when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
     when(extensionRepository.findAllById(any())).thenReturn(List.of());
     // The service deliberately rechecks the label even though the PostgreSQL query also filters it.
-    when(nodeRepository.lockMigrationPlacementCandidates(eq("local"), any()))
+    when(nodeRepository.lockMigrationPlacementCandidates(eq("local"), any(), eq(false)))
         .thenReturn(List.of(legacyNode, failedCompatibleNode, compatibleNode));
     when(placementRepository.findAllByNodeIdAndStateIn(eq("node_compatible"), any()))
         .thenReturn(List.of());
@@ -514,7 +521,7 @@ class BrowserCapacityApplicationServiceTest {
     when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
     when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
     when(extensionRepository.findAllById(any())).thenReturn(List.of());
-    when(nodeRepository.lockMigrationPlacementCandidates(eq("local"), any()))
+    when(nodeRepository.lockMigrationPlacementCandidates(eq("local"), any(), eq(false)))
         .thenReturn(List.of(legacyNode));
 
     assertThatThrownBy(
@@ -588,13 +595,51 @@ class BrowserCapacityApplicationServiceTest {
     when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
     when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
     when(extensionRepository.findAllById(any())).thenReturn(List.of(extension));
-    when(nodeRepository.lockPlacementCandidates(eq("local"), any())).thenReturn(List.of(node));
+    when(nodeRepository.lockPlacementCandidates(eq("local"), any(), eq(false)))
+        .thenReturn(List.of(node));
     when(placementRepository.findAllByNodeIdAndStateIn(eq("node_local"), any()))
         .thenReturn(List.of(existing));
 
     assertThatThrownBy(() -> service.reserve(session(ResourceClass.L1), "local"))
         .isInstanceOf(BrowserCapacityUnavailableException.class)
         .hasMessage("NO_ELIGIBLE_BROWSER_NODE");
+  }
+
+  @Test
+  void requiresArchiveEncryptionCapabilityWhenProfileHasCheckpoint() throws Exception {
+    var now = Instant.now();
+    var profile =
+        new ProfileEntity("profile-a", "tenant-a", "Profile A", null, "profiles/profile-a", now);
+    profile.commitCheckpoint("chk_1234567890abcdef", 1, 1, 42, 1, "EMPTY", now);
+    var demand =
+        new SessionResourceDemandEntity(
+            "ses_1234567890abcdef",
+            "tenant-a",
+            ResourceClass.L1,
+            1,
+            0,
+            false,
+            false,
+            false,
+            0,
+            0,
+            objectMapper.writeValueAsString(List.of()),
+            now);
+    var node = standardNode(now, "{\"profileArchiveEncryption\":\"aead-envelope-v1\"}");
+    when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
+    when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
+    when(profileRepository.findById("profile-a")).thenReturn(Optional.of(profile));
+    when(extensionRepository.findAllById(any())).thenReturn(List.of());
+    when(nodeRepository.lockPlacementCandidates(eq("local"), any(), eq(true)))
+        .thenReturn(List.of(node));
+    when(placementRepository.findAllByNodeIdAndStateIn(eq("node_local"), any()))
+        .thenReturn(List.of());
+    when(nodeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    when(placementRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    assertThat(service.reserve(session(ResourceClass.L1), "local").nodeId())
+        .isEqualTo("node_local");
+    verify(nodeRepository).lockPlacementCandidates(eq("local"), any(), eq(true));
   }
 
   @Test

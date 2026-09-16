@@ -840,6 +840,18 @@ impl NodeCapacityReporter {
             }
             .to_owned(),
         );
+        labels.insert(
+            "profileArchiveEncryption".to_owned(),
+            if std::env::var("STORAGE_HELPER_SOCKET")
+                .map(|value| !value.trim().is_empty())
+                .unwrap_or(false)
+            {
+                "aead-envelope-v1"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
+        );
         labels.insert("agentBrowserFiles".to_owned(), "cdp-file-v1".to_owned());
         labels.insert(
             "agentActionCancellation".to_owned(),
@@ -856,7 +868,7 @@ impl NodeCapacityReporter {
                 .unwrap_or(false)
                 && Self::bool_env("OBJECT_STORAGE_ENABLED", false)
             {
-                "presigned-checkpoint-v1"
+                "presigned-encrypted-checkpoint-v1"
             } else {
                 "unavailable"
             }

@@ -213,7 +213,13 @@ public final class Models {
 
   public record RedeemProfileExportResponse(String grantId, String profileId, String checkpointId, String archiveSha256, Long archiveSizeBytes, String downloadUrl, String expiresAt) {}
 
-  public record Profile(String profileId, String tenantId, String name, Object description, Object latestCheckpointId, Object latestCheckpointEpoch, Long profileWriteEpoch, Long coreSizeBytes, Long checkpointFileCount, String restoreStatus, String state, String createdAt, String updatedAt, Object lastCheckpointAt) {}
+  public record Profile(String profileId, String tenantId, String name, Object description, Object latestCheckpointId, Object latestCheckpointEpoch, Long profileWriteEpoch, Long coreSizeBytes, Long checkpointFileCount, String restoreStatus, ProfileSessionHealthSummary sessionHealth, String state, String createdAt, String updatedAt, Object lastCheckpointAt) {}
+
+  public record ProfileSessionHealthSummary(String state, Integer siteCount, Object checkedAt, Object freshUntil) {}
+
+  public record ProfileSiteSessionHealth(String healthId, String profileId, String siteOrigin, Object applicationId, String state, String reasonCode, Object sourceSessionId, Long contextEpoch, Long stateVersion, String checkedAt, String freshUntil, Object authenticatedAt, Object reauthRequiredAt) {}
+
+  public record ProfileSiteSessionHealthListResponse(ProfileSessionHealthSummary summary, List<ProfileSiteSessionHealth> items, Integer total) {}
 
   public record ProfileListResponse(List<Profile> items, Integer total) {}
 

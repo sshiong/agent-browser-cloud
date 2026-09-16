@@ -2329,6 +2329,31 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/profiles/{profileId}/session-health:
+    get:
+      operationId: getProfileSessionHealth
+      summary: Get Profile website authentication health
+      description: >-
+        Returns Profile-scoped website authentication observations derived from fenced Business
+        Recovery evidence. Checkpoint restore readiness does not imply that a website login remains
+        valid. REAUTH_REQUIRED persists until a newer trusted READY observation clears it. Detailed
+        website origins require tenant operator permission; read-only viewers receive only the
+        aggregate status embedded in the Profile view.
+      tags: [Profile]
+      parameters:
+        - $ref: "#/components/parameters/ProfileId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Website authentication health, including freshness and reauthentication state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileSiteSessionHealthListResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/profiles/{profileId}/export-grants:
     post:
       operationId: createProfileExportGrant
@@ -9449,6 +9474,7 @@ components:
         - coreSizeBytes
         - checkpointFileCount
         - restoreStatus
+        - sessionHealth
         - state
         - createdAt
         - updatedAt
@@ -9481,6 +9507,8 @@ components:
         restoreStatus:
           type: string
           enum: [EMPTY, TECHNICAL_READY]
+        sessionHealth:
+          $ref: "#/components/schemas/ProfileSessionHealthSummary"
         state:
           type: string
           enum: [ACTIVE]
@@ -9493,6 +9521,87 @@ components:
         lastCheckpointAt:
           type: [string, "null"]
           format: date-time
+    ProfileSessionHealthSummary:
+      type: object
+      additionalProperties: false
+      required: [state, siteCount]
+      properties:
+        state:
+          type: string
+          enum: [NOT_CHECKED, HEALTHY, REAUTH_REQUIRED, DEGRADED, STALE]
+        siteCount:
+          type: integer
+          minimum: 0
+        checkedAt:
+          type: [string, "null"]
+          format: date-time
+        freshUntil:
+          type: [string, "null"]
+          format: date-time
+    ProfileSiteSessionHealth:
+      type: object
+      additionalProperties: false
+      required:
+        - healthId
+        - profileId
+        - siteOrigin
+        - state
+        - reasonCode
+        - contextEpoch
+        - stateVersion
+        - checkedAt
+        - freshUntil
+      properties:
+        healthId:
+          type: string
+        profileId:
+          type: string
+        siteOrigin:
+          type: string
+          format: uri
+        applicationId:
+          type: [string, "null"]
+        state:
+          type: string
+          enum: [HEALTHY, REAUTH_REQUIRED, DEGRADED, STALE]
+        reasonCode:
+          type: string
+        sourceSessionId:
+          type: [string, "null"]
+        contextEpoch:
+          type: integer
+          format: int64
+          minimum: 0
+        stateVersion:
+          type: integer
+          format: int64
+          minimum: 0
+        checkedAt:
+          type: string
+          format: date-time
+        freshUntil:
+          type: string
+          format: date-time
+        authenticatedAt:
+          type: [string, "null"]
+          format: date-time
+        reauthRequiredAt:
+          type: [string, "null"]
+          format: date-time
+    ProfileSiteSessionHealthListResponse:
+      type: object
+      additionalProperties: false
+      required: [summary, items, total]
+      properties:
+        summary:
+          $ref: "#/components/schemas/ProfileSessionHealthSummary"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProfileSiteSessionHealth"
+        total:
+          type: integer
+          minimum: 0
     ProfileListResponse:
       type: object
       additionalProperties: false

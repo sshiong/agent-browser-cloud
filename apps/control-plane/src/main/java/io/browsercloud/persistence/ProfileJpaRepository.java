@@ -3,11 +3,16 @@ package io.browsercloud.persistence;
 import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ProfileJpaRepository extends JpaRepository<ProfileEntity, String> {
   List<ProfileEntity> findAllByTenantIdOrderByUpdatedAtDesc(String tenantId);
+
+  @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+  @Query("SELECT profile FROM ProfileEntity profile WHERE profile.profileId = :profileId")
+  java.util.Optional<ProfileEntity> findForUpdate(@Param("profileId") String profileId);
 
   @Query(
       value =

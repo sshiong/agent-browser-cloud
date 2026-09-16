@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ProfileSessionHealthSummary } from './ProfileSessionHealthSummary.js';
 export type Profile = {
     profileId: string;
     tenantId: string;
@@ -13,6 +14,7 @@ export type Profile = {
     coreSizeBytes: number;
     checkpointFileCount: number;
     restoreStatus: 'EMPTY' | 'TECHNICAL_READY';
+    sessionHealth: ProfileSessionHealthSummary;
     state: 'ACTIVE';
     createdAt: string;
     updatedAt: string;

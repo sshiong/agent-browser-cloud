@@ -14,6 +14,7 @@ import type {
   RedeemProfileExportResponse,
   ProfileView,
   ProfileWarmTierStatus,
+  ProfileSiteSessionHealthListResponse,
 } from '@/types/profile';
 
 const configuredBase = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -99,6 +100,18 @@ export function getProfileWarmTierStatus(
 ): Promise<ProfileWarmTierStatus> {
   return request(
     `/profiles/${encodeURIComponent(profileId)}/warm-tier`,
+    tenantId,
+    { signal }
+  );
+}
+
+export function getProfileSessionHealth(
+  profileId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<ProfileSiteSessionHealthListResponse> {
+  return request(
+    `/profiles/${encodeURIComponent(profileId)}/session-health`,
     tenantId,
     { signal }
   );

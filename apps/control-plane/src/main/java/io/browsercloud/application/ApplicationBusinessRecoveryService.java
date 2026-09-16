@@ -49,6 +49,7 @@ public class ApplicationBusinessRecoveryService {
   private final BusinessRecoveryValidator defaultValidator;
   private final IdempotencyService idempotency;
   private final AuditApplicationService audit;
+  private final ProfileSessionHealthApplicationService profileSessionHealth;
   private final ObjectMapper objectMapper;
 
   public ApplicationBusinessRecoveryService(
@@ -66,6 +67,7 @@ public class ApplicationBusinessRecoveryService {
       BusinessRecoveryValidator defaultValidator,
       IdempotencyService idempotency,
       AuditApplicationService audit,
+      ProfileSessionHealthApplicationService profileSessionHealth,
       ObjectMapper objectMapper) {
     this.contracts = contracts;
     this.revisions = revisions;
@@ -81,6 +83,7 @@ public class ApplicationBusinessRecoveryService {
     this.defaultValidator = defaultValidator;
     this.idempotency = idempotency;
     this.audit = audit;
+    this.profileSessionHealth = profileSessionHealth;
     this.objectMapper = objectMapper;
   }
 
@@ -892,6 +895,16 @@ public class ApplicationBusinessRecoveryService {
                 actorId,
                 requestId,
                 now));
+    profileSessionHealth.observe(
+        tenantId,
+        session.profileId(),
+        sessionId,
+        binding.map(SessionApplicationBindingEntity::getApplicationId).orElse(null),
+        snapshot.state().url(),
+        session.contextEpoch(),
+        snapshot.state().stateVersion(),
+        evaluation.verdict(),
+        now);
     return toValidationView(entity);
   }
 

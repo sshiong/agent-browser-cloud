@@ -9,10 +9,43 @@ export interface ProfileView {
   coreSizeBytes: number;
   checkpointFileCount: number;
   restoreStatus: 'EMPTY' | 'TECHNICAL_READY';
+  sessionHealth: ProfileSessionHealthSummary;
   state: 'ACTIVE' | string;
   createdAt: string;
   updatedAt: string;
   lastCheckpointAt: string | null;
+}
+
+export type ProfileSessionHealthState =
+  'NOT_CHECKED' | 'HEALTHY' | 'REAUTH_REQUIRED' | 'DEGRADED' | 'STALE';
+
+export interface ProfileSessionHealthSummary {
+  state: ProfileSessionHealthState;
+  siteCount: number;
+  checkedAt: string | null;
+  freshUntil: string | null;
+}
+
+export interface ProfileSiteSessionHealth {
+  healthId: string;
+  profileId: string;
+  siteOrigin: string;
+  applicationId: string | null;
+  state: Exclude<ProfileSessionHealthState, 'NOT_CHECKED'>;
+  reasonCode: string;
+  sourceSessionId: string | null;
+  contextEpoch: number;
+  stateVersion: number;
+  checkedAt: string;
+  freshUntil: string;
+  authenticatedAt: string | null;
+  reauthRequiredAt: string | null;
+}
+
+export interface ProfileSiteSessionHealthListResponse {
+  summary: ProfileSessionHealthSummary;
+  items: ProfileSiteSessionHealth[];
+  total: number;
 }
 
 export interface ProfileListResponse {

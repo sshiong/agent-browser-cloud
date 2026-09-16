@@ -41,7 +41,7 @@
 | A15 | 取消/Lease/Epoch | progress 181 已闭环：人工取消、Operation 丢失/过期及权威 Epoch 前进会通过独立高优先级链快速终止 Node 动作、释放输入并终态排空迟到事件；V121 保证首次取消响应精确重放 |
 | A16 | Agent Trace / Why Stuck | progress 169 已闭环：Web/Tauri 统一展示持久步骤/动作/验证/失败/下一决策，完整集成通过 |
 | A17 | Profile 应用层加密 | progress 183 已闭环：新 checkpoint 使用版本化 KEK + 随机 DEK 的 AES-256-GCM Envelope；旧明文恢复/导出时原地迁移，导出保持密文、导入先认证解密，N−1 Node 按能力 fail-closed |
-| A18 | 网站 Session Health / Reauth | 待独立于 Profile 恢复状态建模 |
+| A18 | 网站 Session Health / Reauth | progress 184 已闭环：按 Profile × 网站独立保存有围栏和新鲜度的登录健康；Reauth/降级持续到可信 READY，技术恢复不再冒充登录有效 |
 | A19 | Opaque Cross-Origin Frame | 待显式感知边界与受治理 Vision/Handoff 策略 |
 | A20 | DOM/Layout/Network/Focus/Route 稳定性 | 网络观察已有实现；待组合稳定性与动态页面验证 |
 | A21 | 高层 Agent 操作接口 | snapshot/find/inspect/execute-actions 已有；待 wait/handoff 整合 |

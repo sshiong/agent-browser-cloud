@@ -3105,6 +3105,16 @@ business_recovery_replay="$(curl -fsS -X POST \
 replayed_business_recovery_id="$(printf '%s' "$business_recovery_replay" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["validationId"])')"
 test "$business_recovery_id" = "$replayed_business_recovery_id"
+profile_session_health="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/profiles/profile-integration/session-health" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$profile_session_health" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["summary"]["state"] == "HEALTHY"; assert item["summary"]["siteCount"] == 1; assert item["total"] == 1; site=item["items"][0]; assert site["siteOrigin"] == "https://example.test"; assert site["applicationId"] == "crm.integration"; assert site["state"] == "HEALTHY"; assert site["reasonCode"] == "READY"; assert site["authenticatedAt"]; assert site["reauthRequiredAt"] is None'
+profile_session_health_viewer_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/profiles/profile-integration/session-health" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER')"
+test "$profile_session_health_viewer_status" = "403"
 latest_business_recovery="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/business-recovery" \
   -H 'X-Tenant-Id: tenant-integration')"
@@ -3119,6 +3129,11 @@ business_recovery_db_summary="$(docker exec "$postgres_name" psql -U browserclou
        where tenant_id='tenant-integration' and session_id='${session_one}'
          and source='API' and verdict='READY')")"
 test "$business_recovery_db_summary" = "1:1"
+profile_session_health_db="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select health_state || ':' || reason_code from profile_site_session_health
+   where tenant_id='tenant-integration' and profile_id='profile-integration'")"
+test "$profile_session_health_db" = "HEALTHY:READY"
+printf 'profile_session_health=true\n'
 
 rebind_session_response="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions" \

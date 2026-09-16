@@ -129,6 +129,7 @@ OPERATIONS: dict[str, Operation] = {
     'createProfile': Operation('createProfile', 'POST', '/api/v1/profiles', (), (), ('X-Tenant-Id',), 'CreateProfileRequest', True, 'Profile'),
     'getProfile': Operation('getProfile', 'GET', '/api/v1/profiles/{profileId}', ('profileId',), (), ('X-Tenant-Id',), '', False, 'Profile'),
     'getProfileWarmTierStatus': Operation('getProfileWarmTierStatus', 'GET', '/api/v1/profiles/{profileId}/warm-tier', ('profileId',), (), ('X-Tenant-Id',), '', False, 'ProfileWarmTierStatus'),
+    'getProfileSessionHealth': Operation('getProfileSessionHealth', 'GET', '/api/v1/profiles/{profileId}/session-health', ('profileId',), (), ('X-Tenant-Id',), '', False, 'ProfileSiteSessionHealthListResponse'),
     'createProfileExportGrant': Operation('createProfileExportGrant', 'POST', '/api/v1/profiles/{profileId}/export-grants', ('profileId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CreateProfileExportGrantRequest', True, 'ProfileExportGrant'),
     'redeemProfileExportGrant': Operation('redeemProfileExportGrant', 'POST', '/api/v1/profiles/{profileId}/export-grants/{grantId}:redeem', ('grantId', 'profileId'), (), ('X-Tenant-Id',), '', False, 'RedeemProfileExportResponse'),
     'listProfileImports': Operation('listProfileImports', 'GET', '/api/v1/profile-imports', (), ('limit',), ('X-Tenant-Id',), '', False, 'ProfileImportListResponse'),
@@ -620,6 +621,9 @@ class BrowserCloudGeneratedClient:
 
     def getProfileWarmTierStatus(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('getProfileWarmTierStatus', path=path, query=query, body=body, headers=headers)
+
+    def getProfileSessionHealth(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getProfileSessionHealth', path=path, query=query, body=body, headers=headers)
 
     def createProfileExportGrant(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('createProfileExportGrant', path=path, query=query, body=body, headers=headers)

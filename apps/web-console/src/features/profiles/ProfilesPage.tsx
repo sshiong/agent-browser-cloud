@@ -185,6 +185,7 @@ export function ProfilesPage() {
                         '最新检查点',
                         '写入世代',
                         '恢复来源',
+                        '网站会话',
                         '更新时间',
                         '操作',
                       ].map((label) => (
@@ -315,6 +316,9 @@ function ProfileRow({
       <td className="px-4 py-3.5">
         <RestoreChip status={profile.restoreStatus} />
       </td>
+      <td className="px-4 py-3.5">
+        <SessionHealthChip health={profile.sessionHealth} />
+      </td>
       <td className="px-4 py-3.5 text-[11px] text-text-muted">
         {formatDate(profile.updatedAt)}
       </td>
@@ -378,6 +382,14 @@ function ProfileCard({
           }
         />
         <Datum label="写入世代" value={String(profile.profileWriteEpoch)} />
+        <div>
+          <dt className="text-[10px] uppercase tracking-[0.1em] text-text-muted">
+            网站会话
+          </dt>
+          <dd className="mt-1">
+            <SessionHealthChip health={profile.sessionHealth} />
+          </dd>
+        </div>
       </dl>
       <div className="mt-4 grid grid-cols-2 gap-2">
         <button
@@ -525,6 +537,41 @@ function RestoreChip({ status }: { status: ProfileView['restoreStatus'] }) {
       )}
     >
       {ready ? '检查点恢复' : '空白初始化'}
+    </span>
+  );
+}
+
+function SessionHealthChip({
+  health,
+}: {
+  health: ProfileView['sessionHealth'];
+}) {
+  const presentation = {
+    NOT_CHECKED: [
+      '未检查',
+      'border-border-default bg-surface-2 text-text-muted',
+    ],
+    HEALTHY: ['登录有效', 'border-success/25 bg-success/10 text-success'],
+    REAUTH_REQUIRED: [
+      '需要重新登录',
+      'border-danger/25 bg-danger/10 text-danger',
+    ],
+    DEGRADED: ['需检查', 'border-warning/25 bg-warning/10 text-warning'],
+    STALE: ['状态过期', 'border-border-default bg-surface-2 text-text-muted'],
+  }[health.state];
+  return (
+    <span
+      title={
+        health.checkedAt
+          ? `最近检查 ${formatDate(health.checkedAt)}；${health.siteCount} 个网站`
+          : '尚无可信的网站登录验证结果'
+      }
+      className={cn(
+        'inline-flex whitespace-nowrap border px-2 py-0.5 text-[10px] font-medium',
+        presentation[1]
+      )}
+    >
+      {presentation[0]}
     </span>
   );
 }

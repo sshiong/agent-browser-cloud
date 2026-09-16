@@ -13,6 +13,7 @@ public record ProfileView(
     long coreSizeBytes,
     long checkpointFileCount,
     String restoreStatus,
+    ProfileSessionHealthModels.ProfileSessionHealthSummary sessionHealth,
     String state,
     Instant createdAt,
     Instant updatedAt,

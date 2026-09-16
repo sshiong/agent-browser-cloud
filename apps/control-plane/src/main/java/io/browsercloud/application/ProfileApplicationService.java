@@ -20,14 +20,17 @@ public class ProfileApplicationService {
   private final ProfileJpaRepository repository;
   private final SessionJpaRepository sessionRepository;
   private final AuditApplicationService auditService;
+  private final ProfileSessionHealthApplicationService sessionHealth;
 
   public ProfileApplicationService(
       ProfileJpaRepository repository,
       SessionJpaRepository sessionRepository,
-      AuditApplicationService auditService) {
+      AuditApplicationService auditService,
+      ProfileSessionHealthApplicationService sessionHealth) {
     this.repository = repository;
     this.sessionRepository = sessionRepository;
     this.auditService = auditService;
+    this.sessionHealth = sessionHealth;
   }
 
   @Transactional
@@ -44,7 +47,7 @@ public class ProfileApplicationService {
             request.description(),
             storagePath(tenantId, request.profileId()),
             now);
-    return toView(repository.save(entity));
+    return toView(repository.save(entity), sessionHealth.notChecked());
   }
 
   @Transactional
@@ -73,14 +76,19 @@ public class ProfileApplicationService {
     var profile =
         repository.findById(profileId).orElseThrow(() -> new ProfileNotFoundException(profileId));
     requireTenant(profile, tenantId);
-    return toView(profile);
+    return toView(profile, sessionHealth.summary(tenantId, profileId, Instant.now()));
   }
 
   @Transactional(readOnly = true)
   public ProfileListResponse list(String tenantId) {
+    var health = sessionHealth.summaries(tenantId, Instant.now());
     var items =
         repository.findAllByTenantIdOrderByUpdatedAtDesc(tenantId).stream()
-            .map(ProfileApplicationService::toView)
+            .map(
+                profile ->
+                    toView(
+                        profile,
+                        health.getOrDefault(profile.getProfileId(), sessionHealth.notChecked())))
             .toList();
     return new ProfileListResponse(items, items.size());
   }
@@ -145,7 +153,9 @@ public class ProfileApplicationService {
     return "tenants/" + tenantId + "/profiles/" + profileId;
   }
 
-  private static ProfileView toView(ProfileEntity profile) {
+  private static ProfileView toView(
+      ProfileEntity profile,
+      io.browsercloud.api.ProfileSessionHealthModels.ProfileSessionHealthSummary sessionHealth) {
     return new ProfileView(
         profile.getProfileId(),
         profile.getTenantId(),
@@ -157,6 +167,7 @@ public class ProfileApplicationService {
         profile.getCoreSizeBytes(),
         profile.getCheckpointFileCount(),
         profile.getRestoreStatus(),
+        sessionHealth,
         profile.getState(),
         profile.getCreatedAt(),
         profile.getUpdatedAt(),

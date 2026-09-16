@@ -47,6 +47,7 @@ class ApplicationBusinessRecoveryServiceTest {
   @Mock private BusinessRecoveryValidator defaultValidator;
   @Mock private IdempotencyService idempotency;
   @Mock private AuditApplicationService audit;
+  @Mock private ProfileSessionHealthApplicationService profileSessionHealth;
 
   private ObjectMapper objectMapper;
   private ApplicationBusinessRecoveryService service;
@@ -70,6 +71,7 @@ class ApplicationBusinessRecoveryServiceTest {
             defaultValidator,
             idempotency,
             audit,
+            profileSessionHealth,
             objectMapper);
   }
 
@@ -469,6 +471,17 @@ class ApplicationBusinessRecoveryServiceTest {
     assertThat(result.verdict()).isEqualTo(Verdict.LOGIN_REQUIRED);
     assertThat(result.ready()).isFalse();
     assertThat(result.evidence()).containsExactly("LOGIN_INDICATOR_MATCHED");
+    verify(profileSessionHealth)
+        .observe(
+            eq(TENANT_ID),
+            eq("profile-a"),
+            eq(SESSION_ID),
+            eq("crm"),
+            eq("https://crm.example.test/sign-in"),
+            eq(7L),
+            eq(12L),
+            eq(Verdict.LOGIN_REQUIRED),
+            any(Instant.class));
   }
 
   @Test

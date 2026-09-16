@@ -1116,20 +1116,50 @@ type RedeemProfileExportResponse struct {
 }
 
 type Profile struct {
-	ProfileId             string `json:"profileId,omitempty"`
-	TenantId              string `json:"tenantId,omitempty"`
-	Name                  string `json:"name,omitempty"`
-	Description           any    `json:"description,omitempty"`
-	LatestCheckpointId    any    `json:"latestCheckpointId,omitempty"`
-	LatestCheckpointEpoch any    `json:"latestCheckpointEpoch,omitempty"`
-	ProfileWriteEpoch     int64  `json:"profileWriteEpoch,omitempty"`
-	CoreSizeBytes         int64  `json:"coreSizeBytes,omitempty"`
-	CheckpointFileCount   int64  `json:"checkpointFileCount,omitempty"`
-	RestoreStatus         string `json:"restoreStatus,omitempty"`
-	State                 string `json:"state,omitempty"`
-	CreatedAt             string `json:"createdAt,omitempty"`
-	UpdatedAt             string `json:"updatedAt,omitempty"`
-	LastCheckpointAt      any    `json:"lastCheckpointAt,omitempty"`
+	ProfileId             string                      `json:"profileId,omitempty"`
+	TenantId              string                      `json:"tenantId,omitempty"`
+	Name                  string                      `json:"name,omitempty"`
+	Description           any                         `json:"description,omitempty"`
+	LatestCheckpointId    any                         `json:"latestCheckpointId,omitempty"`
+	LatestCheckpointEpoch any                         `json:"latestCheckpointEpoch,omitempty"`
+	ProfileWriteEpoch     int64                       `json:"profileWriteEpoch,omitempty"`
+	CoreSizeBytes         int64                       `json:"coreSizeBytes,omitempty"`
+	CheckpointFileCount   int64                       `json:"checkpointFileCount,omitempty"`
+	RestoreStatus         string                      `json:"restoreStatus,omitempty"`
+	SessionHealth         ProfileSessionHealthSummary `json:"sessionHealth,omitempty"`
+	State                 string                      `json:"state,omitempty"`
+	CreatedAt             string                      `json:"createdAt,omitempty"`
+	UpdatedAt             string                      `json:"updatedAt,omitempty"`
+	LastCheckpointAt      any                         `json:"lastCheckpointAt,omitempty"`
+}
+
+type ProfileSessionHealthSummary struct {
+	State      string `json:"state,omitempty"`
+	SiteCount  int    `json:"siteCount,omitempty"`
+	CheckedAt  any    `json:"checkedAt,omitempty"`
+	FreshUntil any    `json:"freshUntil,omitempty"`
+}
+
+type ProfileSiteSessionHealth struct {
+	HealthId         string `json:"healthId,omitempty"`
+	ProfileId        string `json:"profileId,omitempty"`
+	SiteOrigin       string `json:"siteOrigin,omitempty"`
+	ApplicationId    any    `json:"applicationId,omitempty"`
+	State            string `json:"state,omitempty"`
+	ReasonCode       string `json:"reasonCode,omitempty"`
+	SourceSessionId  any    `json:"sourceSessionId,omitempty"`
+	ContextEpoch     int64  `json:"contextEpoch,omitempty"`
+	StateVersion     int64  `json:"stateVersion,omitempty"`
+	CheckedAt        string `json:"checkedAt,omitempty"`
+	FreshUntil       string `json:"freshUntil,omitempty"`
+	AuthenticatedAt  any    `json:"authenticatedAt,omitempty"`
+	ReauthRequiredAt any    `json:"reauthRequiredAt,omitempty"`
+}
+
+type ProfileSiteSessionHealthListResponse struct {
+	Summary ProfileSessionHealthSummary `json:"summary,omitempty"`
+	Items   []ProfileSiteSessionHealth  `json:"items,omitempty"`
+	Total   int                         `json:"total,omitempty"`
 }
 
 type ProfileListResponse struct {

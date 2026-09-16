@@ -2,6 +2,7 @@ package io.browsercloud.api;
 
 import io.browsercloud.application.ProfileApplicationService;
 import io.browsercloud.application.ProfileExportGovernanceService;
+import io.browsercloud.application.ProfileSessionHealthApplicationService;
 import io.browsercloud.application.ProfileWarmTierApplicationService;
 import io.browsercloud.security.PlatformIdentity;
 import io.browsercloud.security.PlatformRoles;
@@ -31,16 +32,19 @@ public class ProfileController {
   private final ProfileExportGovernanceService exports;
   private final PlatformIdentity identity;
   private final ProfileWarmTierApplicationService warmTier;
+  private final ProfileSessionHealthApplicationService sessionHealth;
 
   public ProfileController(
       ProfileApplicationService service,
       ProfileExportGovernanceService exports,
       PlatformIdentity identity,
-      ProfileWarmTierApplicationService warmTier) {
+      ProfileWarmTierApplicationService warmTier,
+      ProfileSessionHealthApplicationService sessionHealth) {
     this.service = service;
     this.exports = exports;
     this.identity = identity;
     this.warmTier = warmTier;
+    this.sessionHealth = sessionHealth;
   }
 
   @PostMapping
@@ -64,6 +68,13 @@ public class ProfileController {
   public ProfileWarmTierApplicationService.WarmTierStatus warmTier(
       @PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,128}$") String profileId) {
     return warmTier.status(identity.current().tenantId(), profileId);
+  }
+
+  @GetMapping("/{profileId}/session-health")
+  @PreAuthorize(PlatformRoles.OPERATE)
+  public ProfileSessionHealthModels.ProfileSiteSessionHealthListResponse sessionHealth(
+      @PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,128}$") String profileId) {
+    return sessionHealth.list(identity.current().tenantId(), profileId, java.time.Instant.now());
   }
 
   @PostMapping("/{profileId}/export-grants")

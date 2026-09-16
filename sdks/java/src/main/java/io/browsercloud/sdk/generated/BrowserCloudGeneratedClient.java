@@ -119,6 +119,7 @@ public final class BrowserCloudGeneratedClient {
     operation("createProfile", "POST", "/api/v1/profiles", List.of(), List.of(), List.of("X-Tenant-Id"), "CreateProfileRequest", true, "Profile"),
     operation("getProfile", "GET", "/api/v1/profiles/{profileId}", List.of("profileId"), List.of(), List.of("X-Tenant-Id"), "", false, "Profile"),
     operation("getProfileWarmTierStatus", "GET", "/api/v1/profiles/{profileId}/warm-tier", List.of("profileId"), List.of(), List.of("X-Tenant-Id"), "", false, "ProfileWarmTierStatus"),
+    operation("getProfileSessionHealth", "GET", "/api/v1/profiles/{profileId}/session-health", List.of("profileId"), List.of(), List.of("X-Tenant-Id"), "", false, "ProfileSiteSessionHealthListResponse"),
     operation("createProfileExportGrant", "POST", "/api/v1/profiles/{profileId}/export-grants", List.of("profileId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CreateProfileExportGrantRequest", true, "ProfileExportGrant"),
     operation("redeemProfileExportGrant", "POST", "/api/v1/profiles/{profileId}/export-grants/{grantId}:redeem", List.of("grantId", "profileId"), List.of(), List.of("X-Tenant-Id"), "", false, "RedeemProfileExportResponse"),
     operation("listProfileImports", "GET", "/api/v1/profile-imports", List.of(), List.of("limit"), List.of("X-Tenant-Id"), "", false, "ProfileImportListResponse"),
@@ -397,6 +398,7 @@ public final class BrowserCloudGeneratedClient {
   public Response createProfile(Request request) { return call("createProfile", request); }
   public Response getProfile(Request request) { return call("getProfile", request); }
   public Response getProfileWarmTierStatus(Request request) { return call("getProfileWarmTierStatus", request); }
+  public Response getProfileSessionHealth(Request request) { return call("getProfileSessionHealth", request); }
   public Response createProfileExportGrant(Request request) { return call("createProfileExportGrant", request); }
   public Response redeemProfileExportGrant(Request request) { return call("redeemProfileExportGrant", request); }
   public Response listProfileImports(Request request) { return call("listProfileImports", request); }

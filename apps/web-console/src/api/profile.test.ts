@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createProfile,
   createProfileExportGrant,
+  getProfileSessionHealth,
   getProfileWarmTierStatus,
   importProfileCheckpoint,
   listProfileImports,
@@ -44,6 +45,12 @@ describe('profile API', () => {
       coreSizeBytes: 0,
       checkpointFileCount: 0,
       restoreStatus: 'EMPTY',
+      sessionHealth: {
+        state: 'NOT_CHECKED',
+        siteCount: 0,
+        checkedAt: null,
+        freshUntil: null,
+      },
       state: 'ACTIVE',
       createdAt: '2026-07-26T00:00:00Z',
       updatedAt: '2026-07-26T00:00:00Z',
@@ -96,6 +103,28 @@ describe('profile API', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/v1/profiles/profile-test/warm-tier',
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'X-Tenant-Id': 'tenant-test' }),
+      })
+    );
+  });
+
+  it('reads website login health independently from checkpoint restore status', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          summary: { state: 'REAUTH_REQUIRED', siteCount: 1 },
+          items: [],
+          total: 1,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+
+    await getProfileSessionHealth('profile-test', 'tenant-test');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/profiles/profile-test/session-health',
       expect.objectContaining({
         headers: expect.objectContaining({ 'X-Tenant-Id': 'tenant-test' }),
       })

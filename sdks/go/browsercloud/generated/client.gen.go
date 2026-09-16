@@ -143,6 +143,7 @@ var Operations = map[string]Operation{
 	"createProfile":                              {OperationID: "createProfile", Method: "POST", Path: "/api/v1/profiles", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "CreateProfileRequest", RequestRequired: true, ResponseSchema: "Profile"},
 	"getProfile":                                 {OperationID: "getProfile", Method: "GET", Path: "/api/v1/profiles/{profileId}", PathParameters: []string{"profileId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "Profile"},
 	"getProfileWarmTierStatus":                   {OperationID: "getProfileWarmTierStatus", Method: "GET", Path: "/api/v1/profiles/{profileId}/warm-tier", PathParameters: []string{"profileId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ProfileWarmTierStatus"},
+	"getProfileSessionHealth":                    {OperationID: "getProfileSessionHealth", Method: "GET", Path: "/api/v1/profiles/{profileId}/session-health", PathParameters: []string{"profileId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ProfileSiteSessionHealthListResponse"},
 	"createProfileExportGrant":                   {OperationID: "createProfileExportGrant", Method: "POST", Path: "/api/v1/profiles/{profileId}/export-grants", PathParameters: []string{"profileId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "CreateProfileExportGrantRequest", RequestRequired: true, ResponseSchema: "ProfileExportGrant"},
 	"redeemProfileExportGrant":                   {OperationID: "redeemProfileExportGrant", Method: "POST", Path: "/api/v1/profiles/{profileId}/export-grants/{grantId}:redeem", PathParameters: []string{"grantId", "profileId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "RedeemProfileExportResponse"},
 	"listProfileImports":                         {OperationID: "listProfileImports", Method: "GET", Path: "/api/v1/profile-imports", PathParameters: nil, QueryParameters: []string{"limit"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ProfileImportListResponse"},
@@ -679,6 +680,9 @@ func (c *Client) GetProfile(ctx context.Context, request Request) (any, *http.Re
 }
 func (c *Client) GetProfileWarmTierStatus(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "getProfileWarmTierStatus", request)
+}
+func (c *Client) GetProfileSessionHealth(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "getProfileSessionHealth", request)
 }
 func (c *Client) CreateProfileExportGrant(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "createProfileExportGrant", request)

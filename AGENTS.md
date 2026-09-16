@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **246 Operations / 338 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **247 Operations / 341 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -93,7 +93,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V121 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V123 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -219,6 +219,12 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- Profile 网站 Session Health 切片本地 Control Plane 全量、Web 142 项、Rust Workspace、
+  Worker/Provider、完整 `make ci`、Desktop test/lint、OpenAPI/四 SDK、供应链、Operator、
+  50k Capacity、V123 N/N−1 与完整 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过；
+  Integration 输出 `profile_session_health=true`，显式验证真实 READY 状态形成独立网站健康，
+  API 与数据库为 `HEALTHY:READY`。公开基线为 247 Operations / 341 Schemas，见 progress 184。
 
 - 历史环境初始化兼容切片本地 Java 496 项、Web 133 项、完整 Test（首次 Lint 仅格式失败，
   格式化后 Lint/Build 重跑通过）、Desktop test/lint、契约与 N/N−1、完整 Integration 通过。
@@ -370,6 +376,12 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - `StopRuntime` + Recording 的幂等回归保持修复，主干绿色。
 
 ## 7. 当前正在处理的任务
+
+- progress 184：Profile 网站 Session Health 已与 Checkpoint `TECHNICAL_READY` 分离。V123 按
+  Tenant/Profile/Origin 保存来自精确 Business Recovery State 的 `HEALTHY / REAUTH_REQUIRED /
+  DEGRADED` 证据及新鲜度；健康可过期，Reauth/降级不会随时间自动清除，只有更新 Epoch/Version
+  的可信 READY 可以恢复。Profile API、逐站点详情和 Web/Tauri 独立状态列已接入；A18 仓库内
+  代码项已关闭，真实站点 Contract/Provider 证据和撤销延迟仍是生产 Gate。
 
 - progress 183：Profile Cold Archive 已从明文 `checkpoint.tar.zst` 改为版本化 KEK 封装随机
   DEK 的 AES-256-GCM `.tar.zst.enc`；Tenant/Profile/Checkpoint/明文哈希纳入 AAD。受限文件

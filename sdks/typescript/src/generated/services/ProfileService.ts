@@ -9,6 +9,7 @@ import type { ProfileExportGrant } from '../models/ProfileExportGrant.js';
 import type { ProfileImport } from '../models/ProfileImport.js';
 import type { ProfileImportListResponse } from '../models/ProfileImportListResponse.js';
 import type { ProfileListResponse } from '../models/ProfileListResponse.js';
+import type { ProfileSiteSessionHealthListResponse } from '../models/ProfileSiteSessionHealthListResponse.js';
 import type { ProfileWarmTierStatus } from '../models/ProfileWarmTierStatus.js';
 import type { RedeemProfileExportResponse } from '../models/RedeemProfileExportResponse.js';
 import type { CancelablePromise } from '../core/CancelablePromise.js';
@@ -117,6 +118,37 @@ export class ProfileService {
         return this.httpRequest.request({
             method: 'GET',
             url: '/api/v1/profiles/{profileId}/warm-tier',
+            path: {
+                'profileId': profileId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * Get Profile website authentication health
+     * Returns Profile-scoped website authentication observations derived from fenced Business Recovery evidence. Checkpoint restore readiness does not imply that a website login remains valid. REAUTH_REQUIRED persists until a newer trusted READY observation clears it. Detailed website origins require tenant operator permission; read-only viewers receive only the aggregate status embedded in the Profile view.
+     * @returns ProfileSiteSessionHealthListResponse Website authentication health, including freshness and reauthentication state.
+     * @throws ApiError
+     */
+    public getProfileSessionHealth({
+        profileId,
+        xTenantId,
+    }: {
+        profileId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<ProfileSiteSessionHealthListResponse> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/profiles/{profileId}/session-health',
             path: {
                 'profileId': profileId,
             },

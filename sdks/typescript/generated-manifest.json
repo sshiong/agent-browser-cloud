@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "d722a2755edebaa1db0df4517d8c735acb8b3ffd584cc209b615742337b41e37",
+  "contractSha256": "23f53f78d427353456437487c7aab22787efc5187b28c09921ac13f54b7b1d60",
   "files": {
     "BrowserCloudGeneratedClient.ts": "9af238a7342b4202ace30c93c8fac304d101b48a600224c76ce2d59908979c4c",
     "core/ApiError.ts": "1340dca2bdae61fcf8c1d1a52004c43fb070eb6f084a20c56423ee00f9d3a798",
@@ -11,7 +11,7 @@
     "core/FetchHttpRequest.ts": "6c3d87ef0960cfa9ee353bc638b6d9a389867a4f0f7f23e59931b4a972b4aeef",
     "core/OpenAPI.ts": "471e123472ddaf12e4b2ddd6ec301a05032331ddb720f2bd1b75bb8543eb9f63",
     "core/request.ts": "599939ccf4b4b09fbd4ad2a8e4d2cf3a441e64e9b4cd42c180a9599150c7374c",
-    "index.ts": "d960744ad8e3d4f2b43c703773b4346e4d67ee862b92079e4448a680c80f63a1",
+    "index.ts": "43db77060514e0fd9352016f9baa9c8e7188b179faff3a54036ab06f7fbd9987",
     "models/ActorId.ts": "a6b9a2f1d3ae13603cf93ec6584983bc6798012e98e4870d7cd838778fb4c620",
     "models/AgentActionRequest.ts": "1a68b65ae898ac20a1551342e0e08fcf4e93dcbd1682111ffdbc543b798e9025",
     "models/AgentBatchActionInput.ts": "a6b863ff18089c5ac25021bcbc5014ac58e0da970b08950f4ef912bd16d28d30",
@@ -84,7 +84,7 @@
     "models/BrowserNode.ts": "65e01f427c34416081ed317256f10d80df52323b7ae01fa7ecdfecfb8b1e50d4",
     "models/BrowserNodeListResponse.ts": "ccf9c5c9a088349d72fb7305ed4ac6f658467af74d26200c986f3b638d3f9d58",
     "models/BrowserPlacement.ts": "a16c74e7cb254b5894f985150b624957f0363a11aa49bd29c742b1009b7f17e0",
-    "models/BrowserState.ts": "0cc22ae1045cf0f816ecad902bdc6fb5be649ae4ec02a75197a7f73377cd8ad1",
+    "models/BrowserState.ts": "78f79f36984804acf1a49e98a42040712c620fa2f72cc654fbd8e100f039fe3e",
     "models/BusinessRecoveryAction.ts": "0e604bbf7dcb0a4d70474e808f4083f6359dcf5bc594aec0fa1caa63365ba863",
     "models/BusinessRecoveryValidation.ts": "f3fd9c6413c4467d713ab3e58308f651012c502acc9b9c889b71ce10e5ec6ea2",
     "models/CancelWorkspaceBatchOperationRequest.ts": "baa4b147b874e079e7bf3db87ffee1bbe654bd1a3973d677b85a85f98a882010",
@@ -202,6 +202,7 @@
     "models/OutcomeModelDeployment.ts": "937b7488a2731cfe76b930eca9aa2a540cb4bc4f7122e93a89140999e1424e77",
     "models/OutcomeStateEvidence.ts": "c4d25d6b2a070439bc6893c9d4c5c823ff87314a8ce49f49f6b43e21ac96891c",
     "models/OutcomeTargetEvidence.ts": "ae857ea69d1e899189701bf08dc061be54ad6df8c10d4c8122a3e1e0181c59e4",
+    "models/PageStability.ts": "bf62482b88d98b0b3fd62acea0133df778a5fbda974505be1c898cfb46ec1c80",
     "models/PreviewEnvironmentImportRequest.ts": "da0a5625ddaeb2a0e29189131355a35e056bc7949de38977104ed244d829fea7",
     "models/Profile.ts": "e03175e1645907683477632e54bebb8066389366eb2b33a8cdbff6c86efa69b6",
     "models/ProfileExportGrant.ts": "19797a119a0413cea70a7f20082b83b954994b624224eee1b7db3603df559371",

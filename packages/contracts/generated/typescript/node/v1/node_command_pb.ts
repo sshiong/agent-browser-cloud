@@ -4096,6 +4096,70 @@ export class OpaqueFrameState extends Message<OpaqueFrameState> {
 }
 
 /**
+ * Component-level quiet windows from consecutive authoritative Page samples. No DOM text,
+ * selectors, URLs, or user values are included.
+ *
+ * @generated from message browsercloud.node.v1.PageStabilityState
+ */
+export class PageStabilityState extends Message<PageStabilityState> {
+  /**
+   * @generated from field: uint64 dom_quiet_millis = 1;
+   */
+  domQuietMillis = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 layout_quiet_millis = 2;
+   */
+  layoutQuietMillis = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 focus_quiet_millis = 3;
+   */
+  focusQuietMillis = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 route_quiet_millis = 4;
+   */
+  routeQuietMillis = protoInt64.zero;
+
+  /**
+   * @generated from field: bool evidence_fresh = 5;
+   */
+  evidenceFresh = false;
+
+  constructor(data?: PartialMessage<PageStabilityState>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.PageStabilityState";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "dom_quiet_millis", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 2, name: "layout_quiet_millis", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 3, name: "focus_quiet_millis", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 4, name: "route_quiet_millis", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 5, name: "evidence_fresh", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PageStabilityState {
+    return new PageStabilityState().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): PageStabilityState {
+    return new PageStabilityState().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PageStabilityState {
+    return new PageStabilityState().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: PageStabilityState | PlainMessage<PageStabilityState> | undefined, b: PageStabilityState | PlainMessage<PageStabilityState> | undefined): boolean {
+    return proto3.util.equals(PageStabilityState, a, b);
+  }
+}
+
+/**
  * @generated from message browsercloud.node.v1.BrowserStateEvent
  */
 export class BrowserStateEvent extends Message<BrowserStateEvent> {
@@ -4230,6 +4294,11 @@ export class BrowserStateEvent extends Message<BrowserStateEvent> {
    */
   opaqueFrameEvidenceFresh = false;
 
+  /**
+   * @generated from field: browsercloud.node.v1.PageStabilityState page_stability = 23;
+   */
+  pageStability?: PageStabilityState;
+
   constructor(data?: PartialMessage<BrowserStateEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -4260,6 +4329,7 @@ export class BrowserStateEvent extends Message<BrowserStateEvent> {
     { no: 20, name: "download_evidence_fresh", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 21, name: "opaque_frames", kind: "message", T: OpaqueFrameState, repeated: true },
     { no: 22, name: "opaque_frame_evidence_fresh", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 23, name: "page_stability", kind: "message", T: PageStabilityState },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BrowserStateEvent {
@@ -6919,6 +6989,11 @@ export class BrowserStateDiffEvent extends Message<BrowserStateDiffEvent> {
    */
   opaqueFrameEvidenceFresh = false;
 
+  /**
+   * @generated from field: browsercloud.node.v1.PageStabilityState page_stability = 26;
+   */
+  pageStability?: PageStabilityState;
+
   constructor(data?: PartialMessage<BrowserStateDiffEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -6952,6 +7027,7 @@ export class BrowserStateDiffEvent extends Message<BrowserStateDiffEvent> {
     { no: 23, name: "download_evidence_fresh", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 24, name: "opaque_frames", kind: "message", T: OpaqueFrameState, repeated: true },
     { no: 25, name: "opaque_frame_evidence_fresh", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 26, name: "page_stability", kind: "message", T: PageStabilityState },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BrowserStateDiffEvent {

@@ -244,7 +244,8 @@ public sealed interface NodeEvent
       List<BrowserDownload> downloads,
       boolean downloadEvidenceFresh,
       List<OpaqueFrame> opaqueFrames,
-      boolean opaqueFrameEvidenceFresh)
+      boolean opaqueFrameEvidenceFresh,
+      PageStability pageStability)
       implements NodeEvent {
     public StateUpdated {
       tabs = tabs == null ? List.of() : List.copyOf(tabs);
@@ -254,6 +255,57 @@ public sealed interface NodeEvent
       nativeDialogs = nativeDialogs == null ? List.of() : List.copyOf(nativeDialogs);
       downloads = downloads == null ? List.of() : List.copyOf(downloads);
       opaqueFrames = opaqueFrames == null ? List.of() : List.copyOf(opaqueFrames);
+      pageStability = pageStability == null ? PageStability.unknown() : pageStability;
+    }
+
+    /** Additive constructor retained for callers created before component stability evidence. */
+    public StateUpdated(
+        String sessionId,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        List<BrowserTab> tabs,
+        String activeTabId,
+        String stateHash,
+        String stateQuality,
+        List<InteractiveTarget> targets,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        String snapshotKind,
+        String requestedRootRef,
+        List<AgentActionOutcome> actionOutcomes,
+        List<NativeDialog> nativeDialogs,
+        boolean nativeDialogEvidenceFresh,
+        List<BrowserDownload> downloads,
+        boolean downloadEvidenceFresh,
+        List<OpaqueFrame> opaqueFrames,
+        boolean opaqueFrameEvidenceFresh) {
+      this(
+          sessionId,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          tabs,
+          activeTabId,
+          stateHash,
+          stateQuality,
+          targets,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          snapshotKind,
+          requestedRootRef,
+          actionOutcomes,
+          nativeDialogs,
+          nativeDialogEvidenceFresh,
+          downloads,
+          downloadEvidenceFresh,
+          opaqueFrames,
+          opaqueFrameEvidenceFresh,
+          PageStability.unknown());
     }
 
     /** Additive N/N-1 constructor used by callers that predate opaque-frame projection. */
@@ -577,6 +629,24 @@ public sealed interface NodeEvent
       String visibilityReason,
       String interactionStrategy) {}
 
+  record PageStability(
+      long domQuietMillis,
+      long layoutQuietMillis,
+      long focusQuietMillis,
+      long routeQuietMillis,
+      boolean evidenceFresh) {
+    public PageStability {
+      domQuietMillis = Math.max(0, domQuietMillis);
+      layoutQuietMillis = Math.max(0, layoutQuietMillis);
+      focusQuietMillis = Math.max(0, focusQuietMillis);
+      routeQuietMillis = Math.max(0, routeQuietMillis);
+    }
+
+    public static PageStability unknown() {
+      return new PageStability(0, 0, 0, 0, false);
+    }
+  }
+
   record AgentActionOutcome(
       String actionId,
       String status,
@@ -672,7 +742,8 @@ public sealed interface NodeEvent
       List<BrowserDownload> downloads,
       boolean downloadEvidenceFresh,
       List<OpaqueFrame> opaqueFrames,
-      boolean opaqueFrameEvidenceFresh)
+      boolean opaqueFrameEvidenceFresh,
+      PageStability pageStability)
       implements NodeEvent {
     public StateDiff {
       tabs = tabs == null ? List.of() : List.copyOf(tabs);
@@ -682,6 +753,65 @@ public sealed interface NodeEvent
       nativeDialogs = nativeDialogs == null ? List.of() : List.copyOf(nativeDialogs);
       downloads = downloads == null ? List.of() : List.copyOf(downloads);
       opaqueFrames = opaqueFrames == null ? List.of() : List.copyOf(opaqueFrames);
+      pageStability = pageStability == null ? PageStability.unknown() : pageStability;
+    }
+
+    /** Additive constructor retained for callers created before component stability evidence. */
+    public StateDiff(
+        String sessionId,
+        long baseStateVersion,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        List<BrowserTab> tabs,
+        String activeTabId,
+        String stateHash,
+        String stateQuality,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        List<InteractiveTarget> upsertedTargets,
+        List<String> removedTargetRefs,
+        String snapshotKind,
+        String requestedRootRef,
+        String resyncRequestId,
+        long snapshotBytes,
+        Long collectionCpuMillis,
+        List<NativeDialog> nativeDialogs,
+        boolean nativeDialogEvidenceFresh,
+        List<BrowserDownload> downloads,
+        boolean downloadEvidenceFresh,
+        List<OpaqueFrame> opaqueFrames,
+        boolean opaqueFrameEvidenceFresh) {
+      this(
+          sessionId,
+          baseStateVersion,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          tabs,
+          activeTabId,
+          stateHash,
+          stateQuality,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          upsertedTargets,
+          removedTargetRefs,
+          snapshotKind,
+          requestedRootRef,
+          resyncRequestId,
+          snapshotBytes,
+          collectionCpuMillis,
+          nativeDialogs,
+          nativeDialogEvidenceFresh,
+          downloads,
+          downloadEvidenceFresh,
+          opaqueFrames,
+          opaqueFrameEvidenceFresh,
+          PageStability.unknown());
     }
 
     /** Additive N/N-1 constructor used by callers that predate opaque-frame projection. */

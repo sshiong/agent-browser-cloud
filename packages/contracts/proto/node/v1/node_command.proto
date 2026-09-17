@@ -683,6 +683,16 @@ message OpaqueFrameState {
   string interaction_strategy = 10;
 }
 
+// Component-level quiet windows from consecutive authoritative Page samples. No DOM text,
+// selectors, URLs, or user values are included.
+message PageStabilityState {
+  uint64 dom_quiet_millis = 1;
+  uint64 layout_quiet_millis = 2;
+  uint64 focus_quiet_millis = 3;
+  uint64 route_quiet_millis = 4;
+  bool evidence_fresh = 5;
+}
+
 message BrowserStateEvent {
   string session_id = 1;
   uint64 state_version = 2;
@@ -718,6 +728,7 @@ message BrowserStateEvent {
   // N-1 Nodes and samples blocked by a native dialog leave this false. Consumers may display the
   // last projection but must not use stale geometry for a bounded screenshot.
   bool opaque_frame_evidence_fresh = 22;
+  PageStabilityState page_stability = 23;
 }
 
 // Payload-minimal proof that the Node resampled an unchanged page. Control Plane refreshes
@@ -1154,6 +1165,7 @@ message BrowserStateDiffEvent {
   bool download_evidence_fresh = 23;
   repeated OpaqueFrameState opaque_frames = 24;
   bool opaque_frame_evidence_fresh = 25;
+  PageStabilityState page_stability = 26;
 }
 
 message DiffTruncatedEvent {

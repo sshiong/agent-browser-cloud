@@ -25,7 +25,8 @@ public record BrowserStateView(
     String freshness,
     String pageActivity,
     List<OpaqueFrameView> opaqueFrames,
-    boolean opaqueFrameEvidenceFresh) {
+    boolean opaqueFrameEvidenceFresh,
+    PageStabilityView pageStability) {
 
   public BrowserStateView {
     targets = List.copyOf(targets);
@@ -37,6 +38,57 @@ public record BrowserStateView(
     freshness = freshness == null ? "UNKNOWN" : freshness;
     pageActivity = pageActivity == null ? "UNKNOWN" : pageActivity;
     opaqueFrames = opaqueFrames == null ? List.of() : List.copyOf(opaqueFrames);
+    pageStability = pageStability == null ? PageStabilityView.unknown() : pageStability;
+  }
+
+  /** Additive constructor retained for callers created before component stability evidence. */
+  public BrowserStateView(
+      String sessionId,
+      long contextEpoch,
+      long stateVersion,
+      long targetRevision,
+      String url,
+      String title,
+      String stateHash,
+      String stateQuality,
+      String documentReadyState,
+      long networkQuietMillis,
+      boolean networkEvidenceFresh,
+      List<InteractiveTargetView> targets,
+      List<BrowserTabView> tabs,
+      String activeTabId,
+      List<NativeDialogView> nativeDialogs,
+      boolean nativeDialogEvidenceFresh,
+      Instant observedAt,
+      long ageMillis,
+      String freshness,
+      String pageActivity,
+      List<OpaqueFrameView> opaqueFrames,
+      boolean opaqueFrameEvidenceFresh) {
+    this(
+        sessionId,
+        contextEpoch,
+        stateVersion,
+        targetRevision,
+        url,
+        title,
+        stateHash,
+        stateQuality,
+        documentReadyState,
+        networkQuietMillis,
+        networkEvidenceFresh,
+        targets,
+        tabs,
+        activeTabId,
+        nativeDialogs,
+        nativeDialogEvidenceFresh,
+        observedAt,
+        ageMillis,
+        freshness,
+        pageActivity,
+        opaqueFrames,
+        opaqueFrameEvidenceFresh,
+        PageStabilityView.unknown());
   }
 
   /** Additive constructor retained for N/N-1 callers created before opaque-frame projection. */
@@ -83,7 +135,8 @@ public record BrowserStateView(
         freshness,
         pageActivity,
         List.of(),
-        false);
+        false,
+        PageStabilityView.unknown());
   }
 
   public BrowserStateView(
@@ -215,6 +268,17 @@ public record BrowserStateView(
       boolean occluded,
       String visibilityReason,
       String interactionStrategy) {}
+
+  public record PageStabilityView(
+      long domQuietMillis,
+      long layoutQuietMillis,
+      long focusQuietMillis,
+      long routeQuietMillis,
+      boolean evidenceFresh) {
+    public static PageStabilityView unknown() {
+      return new PageStabilityView(0, 0, 0, 0, false);
+    }
+  }
 
   public record InteractiveTargetView(
       String targetRef,

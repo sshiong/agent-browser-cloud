@@ -3052,7 +3052,7 @@ grep -Fq -- \
   "--load-extension=$repo_root/tests/integration/fixtures/extensions/jdgnleokimdbblcflcfcohbinohmmmlb" \
   "$temp_dir/fake-chromium-args.log"
 printf '%s' "$browser_state" | python3 -c \
-  'import datetime,json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 3; assert state["stateVersion"] >= 1; assert state["title"] == "Browser Cloud Test Page"; assert state["stateQuality"] == "COMPLETE"; assert state["documentReadyState"] == "complete"; assert isinstance(state["networkQuietMillis"], int); assert isinstance(state["networkEvidenceFresh"], bool); assert state["targets"][0]["role"] == "button"; assert datetime.datetime.fromisoformat(state["observedAt"].replace("Z", "+00:00")); assert state["ageMillis"] >= 0; assert state["freshness"] in ("FRESH", "AGING"); assert state["pageActivity"] in ("CHANGING", "SETTLING", "STABLE")'
+  'import datetime,json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 3; assert state["stateVersion"] >= 1; assert state["title"] == "Browser Cloud Test Page"; assert state["stateQuality"] == "COMPLETE"; assert state["documentReadyState"] == "complete"; assert isinstance(state["networkQuietMillis"], int); assert isinstance(state["networkEvidenceFresh"], bool); stability=state["pageStability"]; assert all(isinstance(stability[key], int) for key in ("domQuietMillis", "layoutQuietMillis", "focusQuietMillis", "routeQuietMillis")); assert isinstance(stability["evidenceFresh"], bool); assert state["targets"][0]["role"] == "button"; assert datetime.datetime.fromisoformat(state["observedAt"].replace("Z", "+00:00")); assert state["ageMillis"] >= 0; assert state["freshness"] in ("FRESH", "AGING"); assert state["pageActivity"] in ("CHANGING", "SETTLING", "STABLE")'
 session_event_envelope_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select
      count(*) filter (where change_type='SESSION') || ':' ||
@@ -4669,7 +4669,7 @@ for _ in $(seq 1 80); do
 done
 test "$extended_action_state" = "COMPLETED"
 printf '%s' "$extended_action_task" | python3 -c \
-  'import json,sys; task=json.load(sys.stdin); batch=next(item for item in task["executionResults"] if item["toolId"] == "EXECUTE_ACTIONS"); actions=batch["output"]["actions"]; assert batch["output"]["completedActions"] == 19; assert [item["actionId"] for item in actions] == [f"action_{index}" for index in range(1, 20)]; assert all(item["status"] == "SUCCEEDED" and item["errorCode"] == "" for item in actions); indexes=[item["microBatchIndex"] for item in actions]; assert indexes == sorted(indexes) and indexes[0] == 1 and indexes[-1] >= 5; boundaries=[item["boundaryReason"] for item in actions if item["boundaryReason"]]; assert "STABLE_ACTION_LIMIT" in boundaries; assert all(reason in {"ROUTE_OR_TAB_CHANGED","NATIVE_DIALOG_CHANGED","PAGE_UNSETTLED","STRUCTURE_AND_CONTENT_CHANGED","CONTENT_CHANGED","TARGET_SET_CHANGED","STABLE_ACTION_LIMIT"} for reason in boundaries)'
+  'import json,sys; task=json.load(sys.stdin); batch=next(item for item in task["executionResults"] if item["toolId"] == "EXECUTE_ACTIONS"); actions=batch["output"]["actions"]; assert batch["output"]["completedActions"] == 19; assert [item["actionId"] for item in actions] == [f"action_{index}" for index in range(1, 20)]; assert all(item["status"] == "SUCCEEDED" and item["errorCode"] == "" for item in actions); indexes=[item["microBatchIndex"] for item in actions]; assert indexes == sorted(indexes) and indexes[0] == 1 and indexes[-1] >= 5; boundaries=[item["boundaryReason"] for item in actions if item["boundaryReason"]]; assert "STABLE_ACTION_LIMIT" in boundaries; assert all(reason in {"ROUTE_OR_TAB_CHANGED","NATIVE_DIALOG_CHANGED","PAGE_STABILITY_UNKNOWN","ROUTE_CHANGING","DOM_CHANGING","LAYOUT_CHANGING","FOCUS_CHANGING","PAGE_UNSETTLED","STRUCTURE_AND_CONTENT_CHANGED","CONTENT_CHANGED","TARGET_SET_CHANGED","STABLE_ACTION_LIMIT"} for reason in boundaries)'
 curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -5591,7 +5591,8 @@ for _ in $(seq 1 240); do
   sleep 0.25
 done
 printf '%s' "$reviewer_browser_state" | python3 -c \
-  'import json,sys,urllib.parse; state=json.load(sys.stdin); assert urllib.parse.urlparse(state["url"]).hostname == "example.test", state; assert state["stateQuality"] in ("COMPLETE", "DEPTH_LIMITED"); assert state["freshness"] in ("FRESH", "AGING"); assert state["pageActivity"] == "STABLE"'
+  'import json,sys,urllib.parse; state=json.load(sys.stdin); assert urllib.parse.urlparse(state["url"]).hostname == "example.test", state; assert state["stateQuality"] in ("COMPLETE", "DEPTH_LIMITED"); assert state["freshness"] in ("FRESH", "AGING"); assert state["pageActivity"] == "STABLE"; stability=state["pageStability"]; assert stability["evidenceFresh"]; assert min(stability["domQuietMillis"], stability["layoutQuietMillis"], stability["focusQuietMillis"], stability["routeQuietMillis"], state["networkQuietMillis"]) >= 2000'
+printf 'page_composite_stability=true\n'
 reviewer_session_owner="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select coordinator_owner from coordinator_ownership where session_id='${reviewer_session}'")"
 test "$reviewer_session_owner" = "coordinator-integration-d"

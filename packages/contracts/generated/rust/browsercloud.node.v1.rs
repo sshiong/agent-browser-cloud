@@ -1102,6 +1102,22 @@ pub struct OpaqueFrameState {
     #[prost(string, tag="10")]
     pub interaction_strategy: ::prost::alloc::string::String,
 }
+/// Component-level quiet windows from consecutive authoritative Page samples. No DOM text,
+/// selectors, URLs, or user values are included.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PageStabilityState {
+    #[prost(uint64, tag="1")]
+    pub dom_quiet_millis: u64,
+    #[prost(uint64, tag="2")]
+    pub layout_quiet_millis: u64,
+    #[prost(uint64, tag="3")]
+    pub focus_quiet_millis: u64,
+    #[prost(uint64, tag="4")]
+    pub route_quiet_millis: u64,
+    #[prost(bool, tag="5")]
+    pub evidence_fresh: bool,
+}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BrowserStateEvent {
@@ -1161,6 +1177,8 @@ pub struct BrowserStateEvent {
     /// last projection but must not use stale geometry for a bounded screenshot.
     #[prost(bool, tag="22")]
     pub opaque_frame_evidence_fresh: bool,
+    #[prost(message, optional, tag="23")]
+    pub page_stability: ::core::option::Option<PageStabilityState>,
 }
 /// Payload-minimal proof that the Node resampled an unchanged page. Control Plane refreshes
 /// observed_at only when all three fences exactly match its current authoritative projection.
@@ -1918,6 +1936,8 @@ pub struct BrowserStateDiffEvent {
     pub opaque_frames: ::prost::alloc::vec::Vec<OpaqueFrameState>,
     #[prost(bool, tag="25")]
     pub opaque_frame_evidence_fresh: bool,
+    #[prost(message, optional, tag="26")]
+    pub page_stability: ::core::option::Option<PageStabilityState>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

@@ -769,7 +769,13 @@ public class SessionApplicationService {
                   freshness.freshness(),
                   freshness.pageActivity(),
                   opaqueFrames,
-                  state.opaqueFrameEvidenceFresh());
+                  state.opaqueFrameEvidenceFresh(),
+                  new BrowserStateView.PageStabilityView(
+                      state.pageStability().domQuietMillis(),
+                      state.pageStability().layoutQuietMillis(),
+                      state.pageStability().focusQuietMillis(),
+                      state.pageStability().routeQuietMillis(),
+                      state.pageStability().evidenceFresh()));
             });
   }
 

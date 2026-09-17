@@ -27,6 +27,7 @@ import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
 import io.browsercloud.proto.node.v1.InteractiveTargetState;
 import io.browsercloud.proto.node.v1.OpaqueFrameState;
+import io.browsercloud.proto.node.v1.PageStabilityState;
 import io.browsercloud.proto.node.v1.ProfileWarmTierSyncedEvent;
 import io.browsercloud.proto.node.v1.RemoteDesktopParticipantEvent;
 import io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent;
@@ -842,6 +843,13 @@ class NodeEventMapperTest {
                     .setInViewport(true)
                     .setInteractionStrategy("BOUNDED_VISION_THEN_HUMAN_HANDOFF"))
             .setOpaqueFrameEvidenceFresh(true)
+            .setPageStability(
+                PageStabilityState.newBuilder()
+                    .setDomQuietMillis(1_200)
+                    .setLayoutQuietMillis(1_100)
+                    .setFocusQuietMillis(1_000)
+                    .setRouteQuietMillis(900)
+                    .setEvidenceFresh(true))
             .addActionOutcomes(
                 AgentActionOutcome.newBuilder()
                     .setActionId("action_1")
@@ -885,6 +893,11 @@ class NodeEventMapperTest {
               assertThat(state.networkEvidenceFresh()).isTrue();
               assertThat(state.downloadEvidenceFresh()).isTrue();
               assertThat(state.opaqueFrameEvidenceFresh()).isTrue();
+              assertThat(state.pageStability().evidenceFresh()).isTrue();
+              assertThat(state.pageStability().domQuietMillis()).isEqualTo(1_200);
+              assertThat(state.pageStability().layoutQuietMillis()).isEqualTo(1_100);
+              assertThat(state.pageStability().focusQuietMillis()).isEqualTo(1_000);
+              assertThat(state.pageStability().routeQuietMillis()).isEqualTo(900);
               assertThat(state.opaqueFrames())
                   .singleElement()
                   .satisfies(

@@ -2524,6 +2524,10 @@ for message_name in ("BrowserStateEvent", "BrowserStateDiffEvent"):
         assert re.search(rf"\b{field}\s*=\s*{tag};", state_message), (
             f"{message_name} must keep additive Opaque Frame tag {tag} for {field}"
         )
+    stability_tag = 23 if message_name == "BrowserStateEvent" else 26
+    assert re.search(rf"\bpage_stability\s*=\s*{stability_tag};", state_message), (
+        f"{message_name} must keep additive Page Stability tag {stability_tag}"
+    )
 
 browser_tab_state = proto.split("message BrowserTabState {", 1)[1].split("}", 1)[0]
 for field, tag in (("tab_id", 1), ("url", 2), ("title", 3), ("active", 4)):
@@ -2572,6 +2576,18 @@ for field, tag in (
     ("interaction_strategy", 10),
 ):
     assert re.search(rf"\b{field}\s*=\s*{tag};", opaque_frame_state)
+
+page_stability_state = proto.split(
+    "message PageStabilityState {", 1
+)[1].split("}", 1)[0]
+for field, tag in (
+    ("dom_quiet_millis", 1),
+    ("layout_quiet_millis", 2),
+    ("focus_quiet_millis", 3),
+    ("route_quiet_millis", 4),
+    ("evidence_fresh", 5),
+):
+    assert re.search(rf"\b{field}\s*=\s*{tag};", page_stability_state)
 
 for message_name, fields in (
     ("StageAgentBrowserFileRequest", (

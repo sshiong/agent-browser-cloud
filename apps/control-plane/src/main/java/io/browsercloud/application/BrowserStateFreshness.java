@@ -28,12 +28,20 @@ final class BrowserStateFreshness {
   }
 
   private static String pageActivity(NodeEvent.StateUpdated state, boolean evidenceUsable) {
-    if (!evidenceUsable) return "UNKNOWN";
-    if (state.documentReadyState().equals("loading") || state.networkQuietMillis() <= 0) {
+    var stability = state.pageStability();
+    if (!evidenceUsable || stability == null || !stability.evidenceFresh()) return "UNKNOWN";
+    var componentQuietMillis =
+        Math.min(
+            Math.min(stability.domQuietMillis(), stability.layoutQuietMillis()),
+            Math.min(stability.focusQuietMillis(), stability.routeQuietMillis()));
+    if (state.documentReadyState().equals("loading")
+        || state.networkQuietMillis() <= 0
+        || componentQuietMillis <= 0) {
       return "CHANGING";
     }
     if (state.documentReadyState().equals("complete")
-        && state.networkQuietMillis() >= STABLE_NETWORK_QUIET_MILLIS) {
+        && state.networkQuietMillis() >= STABLE_NETWORK_QUIET_MILLIS
+        && componentQuietMillis >= STABLE_NETWORK_QUIET_MILLIS) {
       return "STABLE";
     }
     return "SETTLING";

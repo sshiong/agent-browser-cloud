@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **247 Operations / 342 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **247 Operations / 343 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -165,6 +165,9 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - [已确认] 新的粗粒度 `snapshot/inspect/find/execute-actions` 复用现有
   Browser State、Operation、Reviewer 和 Capability；普通页面以 DOM/A11y/Layout 为主，
   Screenshot/Vision 只作为 Challenge 或结构化感知失败的 fallback。
+- [已确认] Browser Node 以连续权威采样形成 DOM/Layout/Focus/Route 四类 quiet window，并与
+  Network 证据共同约束普通动作、动态微批和 Outcome 稳定状态；任一证据缺失或变化均
+  fail-closed，真实 Chrome 动态页面验证通过，见 progress 186。
 - [已确认] Target 已具备稳定 Element ID、iframe/open Shadow Root 上下文、
   Focus/Form State，以及隐藏、离屏、遮挡和不可交互判定；Action Executor 以一个持久 Batch
   顺序执行 CLICK/TYPE/FILL/AgentClipboard/SCROLL/WAIT，每步重读真实状态并支持 stop-on-error；
@@ -380,6 +383,12 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 
 ## 7. 当前正在处理的任务
 
+- progress 186：DOM、Layout、Focus、Route 的连续权威采样已与 Network 组合为统一页面稳定
+  证据；单动作和动态微批至少等待全部组件安静 250ms，控制面 Outcome 稳定要求全部组件至少
+  2 秒。阈值进入有界 Content Hash bucket，旧 Node/REGION/Dialog 阻断均 fail-closed。真实 Chrome
+  已验证 DOM 增删、布局移动、焦点和 SPA Route 变化。A20 仓库内通用代码项已关闭；CSS/Canvas
+  纯像素变化、真实客户 SPA Replay 和目标环境长稳仍是生产 Gate。
+
 - progress 185：跨域、Sandbox 或不可读取 iframe 已投影为 Origin-only Opaque Frame，包含稳定
   `frameRef`、Bounds、边界原因与 freshness，不含内部 DOM 或 URL Path/Query。Frame 永不进入
   可执行 Target；`OPAQUE_FRAME` 截图由控制面从新鲜 State 推导 Region，Node 再按 State/Hash/
@@ -453,8 +462,8 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   SKIPPED 并终止 Step，不自动 Replan 重放副作用。公开 API 保持 245 Operations / 338 Schemas；
   Control Plane 541 项、Web 141 项、Worker 30 项、Rust、Desktop、N/N−1、完整 `make ci` 与
   PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过，输出
-  `agent_browser_dynamic_micro_batches=true`。A06 仓库内通用代码项关闭；A20 的 Layout/Focus/
-  动画帧级组合稳定性仍独立待完成。
+  `agent_browser_dynamic_micro_batches=true`。A06 仓库内通用代码项关闭；当时独立跟踪的 A20
+  后由 progress 186 关闭。
 
 - progress 176：V119 增加 `CHALLENGE_SCREENSHOT` 与 nullable、整组约束的捕获范围/隐私证明；
   Control Plane 与 Node 在截图前后精确围栏 State Version/Hash、Target Revision、Active Tab 和
@@ -469,7 +478,8 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   行语义以 Node 内 hash-only 指纹绑定 Element ID；原文在 State Hash/Registry 前清除，不进入
   Browser State/API/Audit。真实 Chrome 在同一 DOM 槽位保持同名按钮、只替换业务行后验证旧
   ID 拒绝与新 ID 可解析。A03 仓库内通用代码项关闭；无业务键且可见语义完全相同的站点需由
-  Adapter 提供实体属性，A06 后由 progress 177 关闭；A20 的组合稳定性仍独立待完成。Rust Workspace、
+  Adapter 提供实体属性，A06 后由 progress 177 关闭；当时独立跟踪的 A20 后由 progress 186
+  关闭。Rust Workspace、
   完整 `make ci` 与 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过，公开契约保持
   245 Operations / 338 Schemas。功能提交 `4cbfd99` 的 GitHub CI `34682995669` 与 Desktop
   `34682995642`（Windows/macOS）均成功。
@@ -479,8 +489,9 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   Outcome Verifier 的同一精确最终 State 先做确定性判定，完整状态失败或深度受限不确定时，
   即使模型提交 `VERIFIED` 也强制收敛为 `NOT_VERIFIED`。API/四 SDK/Web/Tauri 已同步至
   245 Operations / 338 Schemas；完整 Integration 输出 `agent_task_expected_outcomes=true`，
-  覆盖原文不落库与模型假成功拒绝。A04 仓库内通用代码项关闭；站点领域 Validator 与 A20 仍
-  独立待完成，A03/A05 已由 progress 175/176 关闭。功能提交 `153f077` 后 Docker Hub 固定 MinIO 镜像下架导致
+  覆盖原文不落库与模型假成功拒绝。A04 仓库内通用代码项关闭；站点领域 Validator 仍独立待完成，
+  当时跟踪的 A20 后由 progress 186 关闭，A03/A05 已由 progress 175/176 关闭。功能提交
+  `153f077` 后 Docker Hub 固定 MinIO 镜像下架导致
   首次 CI 非产品失败；保持版本不变迁移至官方 Quay 的修复提交 `172f6d3` 已通过 GitHub CI
   `34681675184` 与 Desktop `34681675198`（Windows/macOS）。
 
@@ -514,13 +525,14 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   随后既有 PAGE_ACTION 在冷 Runner 上连续命中合法 State Stale；夹具已要求稳定 Cursor 后提交
   并保留有界重试，未放宽生产围栏。修复提交 `8970047` 已推送，GitHub CI `34311805818` 与
   Desktop `34311805802` 均成功。A09 已关闭；它本身不证明业务 Outcome，A11 后由
-  progress 173 关闭，A04 与 A20 仍待完成。
+  progress 173 关闭；当时待完成的 A04/A20 后由 progress 174/186 关闭。
 
 - progress 170：V114 单独保存控制面接收最后权威 Browser State 样本的时间；API/四 SDK
   增加 age/freshness/pageActivity，STALE 状态禁止结构化规划，Web/Tauri 显示样本年龄与页面
   活动。稳定页面通过 15 秒合并、精确状态围栏且不触发公开 SSE 的最小 observation heartbeat
   保持新鲜；完整 Test/Lint/Build、契约/四 SDK、N/N−1 与完整 Integration 已通过。组合
-  DOM/Layout/Focus/Route 稳定性仍由 A20 跟踪。实现提交 `677f694` 已推送，GitHub CI
+  当时仍由 A20 跟踪的 DOM/Layout/Focus/Route 稳定性后由 progress 186 关闭。实现提交
+  `677f694` 已推送，GitHub CI
   `34224365484` 与 Desktop `34224365485` 均成功。
 - progress 169：Agent Task 正式 API 增加由持久 Task 状态确定的
   `RETRY/REFRESH/REPLAN/WAIT/HUMAN/TERMINAL` 恢复指令；Web/Tauri 共用任务详情已展示

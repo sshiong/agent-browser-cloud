@@ -55,6 +55,7 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
             io.browsercloud.proto.node.v1.BrowserStateEvent.Builder.class);
   }
 
+  private int bitField0_;
   public static final int SESSION_ID_FIELD_NUMBER = 1;
 
   @SuppressWarnings("serial")
@@ -964,6 +965,47 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
     return opaqueFrameEvidenceFresh_;
   }
 
+  public static final int PAGE_STABILITY_FIELD_NUMBER = 23;
+  private io.browsercloud.proto.node.v1.PageStabilityState pageStability_;
+
+  /**
+   * <code>
+   * .browsercloud.node.v1.PageStabilityState page_stability = 23 [json_name = "pageStability"];
+   * </code>
+   *
+   * @return Whether the pageStability field is set.
+   */
+  @java.lang.Override
+  public boolean hasPageStability() {
+    return ((bitField0_ & 0x00000001) != 0);
+  }
+
+  /**
+   * <code>
+   * .browsercloud.node.v1.PageStabilityState page_stability = 23 [json_name = "pageStability"];
+   * </code>
+   *
+   * @return The pageStability.
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.PageStabilityState getPageStability() {
+    return pageStability_ == null
+        ? io.browsercloud.proto.node.v1.PageStabilityState.getDefaultInstance()
+        : pageStability_;
+  }
+
+  /**
+   * <code>
+   * .browsercloud.node.v1.PageStabilityState page_stability = 23 [json_name = "pageStability"];
+   * </code>
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.PageStabilityStateOrBuilder getPageStabilityOrBuilder() {
+    return pageStability_ == null
+        ? io.browsercloud.proto.node.v1.PageStabilityState.getDefaultInstance()
+        : pageStability_;
+  }
+
   private byte memoizedIsInitialized = -1;
 
   @java.lang.Override
@@ -1044,6 +1086,9 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
     if (opaqueFrameEvidenceFresh_ != false) {
       output.writeBool(22, opaqueFrameEvidenceFresh_);
     }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      output.writeMessage(23, getPageStability());
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -1119,6 +1164,9 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
     if (opaqueFrameEvidenceFresh_ != false) {
       size += com.google.protobuf.CodedOutputStream.computeBoolSize(22, opaqueFrameEvidenceFresh_);
     }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream.computeMessageSize(23, getPageStability());
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -1157,6 +1205,10 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
     if (getDownloadEvidenceFresh() != other.getDownloadEvidenceFresh()) return false;
     if (!getOpaqueFramesList().equals(other.getOpaqueFramesList())) return false;
     if (getOpaqueFrameEvidenceFresh() != other.getOpaqueFrameEvidenceFresh()) return false;
+    if (hasPageStability() != other.hasPageStability()) return false;
+    if (hasPageStability()) {
+      if (!getPageStability().equals(other.getPageStability())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1224,6 +1276,10 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
     }
     hash = (37 * hash) + OPAQUE_FRAME_EVIDENCE_FRESH_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getOpaqueFrameEvidenceFresh());
+    if (hasPageStability()) {
+      hash = (37 * hash) + PAGE_STABILITY_FIELD_NUMBER;
+      hash = (53 * hash) + getPageStability().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1346,10 +1402,25 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
     }
 
     // Construct using io.browsercloud.proto.node.v1.BrowserStateEvent.newBuilder()
-    private Builder() {}
+    private Builder() {
+      maybeForceBuilderInitialization();
+    }
 
     private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
+      maybeForceBuilderInitialization();
+    }
+
+    private void maybeForceBuilderInitialization() {
+      if (com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders) {
+        getTargetsFieldBuilder();
+        getActionOutcomesFieldBuilder();
+        getTabsFieldBuilder();
+        getNativeDialogsFieldBuilder();
+        getDownloadsFieldBuilder();
+        getOpaqueFramesFieldBuilder();
+        getPageStabilityFieldBuilder();
+      }
     }
 
     @java.lang.Override
@@ -1414,6 +1485,11 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
       }
       bitField0_ = (bitField0_ & ~0x00100000);
       opaqueFrameEvidenceFresh_ = false;
+      pageStability_ = null;
+      if (pageStabilityBuilder_ != null) {
+        pageStabilityBuilder_.dispose();
+        pageStabilityBuilder_ = null;
+      }
       return this;
     }
 
@@ -1557,6 +1633,13 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
       if (((from_bitField0_ & 0x00200000) != 0)) {
         result.opaqueFrameEvidenceFresh_ = opaqueFrameEvidenceFresh_;
       }
+      int to_bitField0_ = 0;
+      if (((from_bitField0_ & 0x00400000) != 0)) {
+        result.pageStability_ =
+            pageStabilityBuilder_ == null ? pageStability_ : pageStabilityBuilder_.build();
+        to_bitField0_ |= 0x00000001;
+      }
+      result.bitField0_ |= to_bitField0_;
     }
 
     @java.lang.Override
@@ -1833,6 +1916,9 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
       if (other.getOpaqueFrameEvidenceFresh() != false) {
         setOpaqueFrameEvidenceFresh(other.getOpaqueFrameEvidenceFresh());
       }
+      if (other.hasPageStability()) {
+        mergePageStability(other.getPageStability());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -2037,6 +2123,12 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
                 bitField0_ |= 0x00200000;
                 break;
               } // case 176
+            case 186:
+              {
+                input.readMessage(getPageStabilityFieldBuilder().getBuilder(), extensionRegistry);
+                bitField0_ |= 0x00400000;
+                break;
+              } // case 186
             default:
               {
                 if (!super.parseUnknownField(input, extensionRegistry, tag)) {
@@ -5205,6 +5297,166 @@ public final class BrowserStateEvent extends com.google.protobuf.GeneratedMessag
       opaqueFrameEvidenceFresh_ = false;
       onChanged();
       return this;
+    }
+
+    private io.browsercloud.proto.node.v1.PageStabilityState pageStability_;
+    private com.google.protobuf.SingleFieldBuilderV3<
+            io.browsercloud.proto.node.v1.PageStabilityState,
+            io.browsercloud.proto.node.v1.PageStabilityState.Builder,
+            io.browsercloud.proto.node.v1.PageStabilityStateOrBuilder>
+        pageStabilityBuilder_;
+
+    /**
+     * <code>
+     * .browsercloud.node.v1.PageStabilityState page_stability = 23 [json_name = "pageStability"];
+     * </code>
+     *
+     * @return Whether the pageStability field is set.
+     */
+    public boolean hasPageStability() {
+      return ((bitField0_ & 0x00400000) != 0);
+    }
+
+    /**
+     * <code>
+     * .browsercloud.node.v1.PageStabilityState page_stability = 23 [json_name = "pageStability"];
+     * </code>
+     *
+     * @return The pageStability.
+     */
+    public io.browsercloud.proto.node.v1.PageStabilityState getPageStability() {
+      if (pageStabilityBuilder_ == null) {
+        return pageStability_ == null
+            ? io.browsercloud.proto.node.v1.PageStabilityState.getDefaultInstance()
+            : pageStability_;
+      } else {
+        return pageStabilityBuilder_.getMessage();
+      }
+    }
+
+    /**
+     * <code>
+     * .browsercloud.node.v1.PageStabilityState page_stability = 23 [json_name = "pageStability"];
+     * </code>
+     */
+    public Builder setPageStability(io.browsercloud.proto.node.v1.PageStabilityState value) {
+      if (pageStabilityBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        pageStability_ = value;
+      } else {
+        pageStabilityBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00400000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>
+     * .browsercloud.node.v1.PageStabilityState page_stability = 23 [json_name = "pageStability"];
+     * </code>
+     */
+    public Builder setPageStability(
+        io.browsercloud.proto.node.v1.PageStabilityState.Builder builderForValue) {
+      if (pageStabilityBuilder_ == null) {
+        pageStability_ = builderForValue.build();
+      } else {
+        pageStabilityBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00400000;
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>
+     * .browsercloud.node.v1.PageStabilityState page_stability = 23 [json_name = "pageStability"];
+     * </code>
+     */
+    public Builder mergePageStability(io.browsercloud.proto.node.v1.PageStabilityState value) {
+      if (pageStabilityBuilder_ == null) {
+        if (((bitField0_ & 0x00400000) != 0)
+            && pageStability_ != null
+            && pageStability_
+                != io.browsercloud.proto.node.v1.PageStabilityState.getDefaultInstance()) {
+          getPageStabilityBuilder().mergeFrom(value);
+        } else {
+          pageStability_ = value;
+        }
+      } else {
+        pageStabilityBuilder_.mergeFrom(value);
+      }
+      if (pageStability_ != null) {
+        bitField0_ |= 0x00400000;
+        onChanged();
+      }
+      return this;
+    }
+
+    /**
+     * <code>
+     * .browsercloud.node.v1.PageStabilityState page_stability = 23 [json_name = "pageStability"];
+     * </code>
+     */
+    public Builder clearPageStability() {
+      bitField0_ = (bitField0_ & ~0x00400000);
+      pageStability_ = null;
+      if (pageStabilityBuilder_ != null) {
+        pageStabilityBuilder_.dispose();
+        pageStabilityBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+
+    /**
+     * <code>
+     * .browsercloud.node.v1.PageStabilityState page_stability = 23 [json_name = "pageStability"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.PageStabilityState.Builder getPageStabilityBuilder() {
+      bitField0_ |= 0x00400000;
+      onChanged();
+      return getPageStabilityFieldBuilder().getBuilder();
+    }
+
+    /**
+     * <code>
+     * .browsercloud.node.v1.PageStabilityState page_stability = 23 [json_name = "pageStability"];
+     * </code>
+     */
+    public io.browsercloud.proto.node.v1.PageStabilityStateOrBuilder getPageStabilityOrBuilder() {
+      if (pageStabilityBuilder_ != null) {
+        return pageStabilityBuilder_.getMessageOrBuilder();
+      } else {
+        return pageStability_ == null
+            ? io.browsercloud.proto.node.v1.PageStabilityState.getDefaultInstance()
+            : pageStability_;
+      }
+    }
+
+    /**
+     * <code>
+     * .browsercloud.node.v1.PageStabilityState page_stability = 23 [json_name = "pageStability"];
+     * </code>
+     */
+    private com.google.protobuf.SingleFieldBuilderV3<
+            io.browsercloud.proto.node.v1.PageStabilityState,
+            io.browsercloud.proto.node.v1.PageStabilityState.Builder,
+            io.browsercloud.proto.node.v1.PageStabilityStateOrBuilder>
+        getPageStabilityFieldBuilder() {
+      if (pageStabilityBuilder_ == null) {
+        pageStabilityBuilder_ =
+            new com.google.protobuf.SingleFieldBuilderV3<
+                io.browsercloud.proto.node.v1.PageStabilityState,
+                io.browsercloud.proto.node.v1.PageStabilityState.Builder,
+                io.browsercloud.proto.node.v1.PageStabilityStateOrBuilder>(
+                getPageStability(), getParentForChildren(), isClean());
+        pageStability_ = null;
+      }
+      return pageStabilityBuilder_;
     }
 
     @java.lang.Override

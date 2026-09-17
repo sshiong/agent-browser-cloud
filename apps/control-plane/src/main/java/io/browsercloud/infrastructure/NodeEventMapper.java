@@ -518,7 +518,8 @@ public class NodeEventMapper {
               downloads,
               payload.getDownloadEvidenceFresh(),
               opaqueFrames,
-              payload.getOpaqueFrameEvidenceFresh());
+              payload.getOpaqueFrameEvidenceFresh(),
+              pageStability(payload.hasPageStability() ? payload.getPageStability() : null));
         }
         case DIFF_TRUNCATED -> {
           var payload = DiffTruncatedEvent.parseFrom(envelope.getPayload());
@@ -1079,6 +1080,11 @@ public class NodeEventMapper {
                               "",
                               "ROUTE_OR_TAB_CHANGED",
                               "NATIVE_DIALOG_CHANGED",
+                              "PAGE_STABILITY_UNKNOWN",
+                              "ROUTE_CHANGING",
+                              "DOM_CHANGING",
+                              "LAYOUT_CHANGING",
+                              "FOCUS_CHANGING",
                               "PAGE_UNSETTLED",
                               "STRUCTURE_AND_CONTENT_CHANGED",
                               "CONTENT_CHANGED",
@@ -1125,7 +1131,31 @@ public class NodeEventMapper {
         downloads,
         payload.getDownloadEvidenceFresh(),
         opaqueFrames,
-        payload.getOpaqueFrameEvidenceFresh());
+        payload.getOpaqueFrameEvidenceFresh(),
+        pageStability(payload.hasPageStability() ? payload.getPageStability() : null));
+  }
+
+  private NodeEvent.PageStability pageStability(
+      io.browsercloud.proto.node.v1.PageStabilityState value) {
+    if (value == null) {
+      return NodeEvent.PageStability.unknown();
+    }
+    var values =
+        java.util.List.of(
+            value.getDomQuietMillis(),
+            value.getLayoutQuietMillis(),
+            value.getFocusQuietMillis(),
+            value.getRouteQuietMillis());
+    if (values.stream().anyMatch(quiet -> quiet < 0 || quiet > 300_000)) {
+      throw new IllegalArgumentException(
+          "Page stability quiet window is outside the bounded range");
+    }
+    return new NodeEvent.PageStability(
+        value.getDomQuietMillis(),
+        value.getLayoutQuietMillis(),
+        value.getFocusQuietMillis(),
+        value.getRouteQuietMillis(),
+        value.getEvidenceFresh());
   }
 
   private List<NodeEvent.OpaqueFrame> opaqueFrames(List<OpaqueFrameState> values) {

@@ -87,6 +87,17 @@ pub struct OpaqueFrame {
     pub interaction_strategy: String,
 }
 
+/// Independently sampled page-stability windows. These values are derived on the Node from
+/// consecutive authoritative samples and contain no page text or raw DOM.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct PageStability {
+    pub dom_quiet_millis: u64,
+    pub layout_quiet_millis: u64,
+    pub focus_quiet_millis: u64,
+    pub route_quiet_millis: u64,
+    pub evidence_fresh: bool,
+}
+
 /// Browser-level Page Target exposed to the Agent as one stable tab.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BrowserTab {
@@ -158,6 +169,9 @@ pub struct CurrentState {
     /// Network 观察在当前 Runtime 代内是否连续、可用于 Ready Gate。
     #[serde(default)]
     pub network_evidence_fresh: bool,
+    /// Component-level DOM/Layout/Focus/Route stability evidence.
+    #[serde(default)]
+    pub page_stability: PageStability,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -188,6 +202,8 @@ pub struct StateDiff {
     pub network_quiet_millis: u64,
     #[serde(default)]
     pub network_evidence_fresh: bool,
+    #[serde(default)]
+    pub page_stability: PageStability,
     pub upserted_targets: Vec<InteractiveTarget>,
     pub removed_target_refs: Vec<String>,
     #[serde(default)]
@@ -266,6 +282,7 @@ pub fn diff_states(
         document_ready_state: current.document_ready_state.clone(),
         network_quiet_millis: current.network_quiet_millis,
         network_evidence_fresh: current.network_evidence_fresh,
+        page_stability: current.page_stability.clone(),
         upserted_targets,
         removed_target_refs,
         opaque_frames: current.opaque_frames.clone(),
@@ -414,6 +431,12 @@ struct EvaluatedPageState {
     truncated: bool,
     #[serde(default, rename = "rootPath")]
     root_path: Option<String>,
+    #[serde(default, rename = "layoutSignature")]
+    layout_signature: String,
+    #[serde(default, rename = "focusPath")]
+    focus_path: String,
+    #[serde(default, rename = "documentFocused")]
+    document_focused: bool,
     #[serde(default)]
     error: Option<String>,
 }
@@ -545,6 +568,12 @@ struct CollectorCursor {
     target_fingerprint: String,
     content_hash: String,
     active_tab_id: String,
+    dom_fingerprint: String,
+    layout_fingerprint: String,
+    focus_fingerprint: String,
+    route_fingerprint: String,
+    last_stability_sample: Option<std::time::Instant>,
+    page_stability: PageStability,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -563,6 +592,15 @@ struct RegisteredTarget {
 struct DownloadHashEvidence<'a> {
     downloads: &'a [BrowserDownload],
     fresh: bool,
+}
+
+struct StateHashEvidence<'a> {
+    native_dialogs: &'a [NativeDialog],
+    native_dialog_evidence_fresh: bool,
+    downloads: DownloadHashEvidence<'a>,
+    network_readiness_hash_bucket: u64,
+    stability_fingerprints: &'a (String, String, String, String),
+    page_stability: &'a PageStability,
 }
 
 #[derive(Debug, Clone)]
@@ -648,6 +686,12 @@ impl CdpStateCollector {
             cursor.url.clear();
             cursor.target_fingerprint.clear();
             cursor.active_tab_id.clear();
+            cursor.dom_fingerprint.clear();
+            cursor.layout_fingerprint.clear();
+            cursor.focus_fingerprint.clear();
+            cursor.route_fingerprint.clear();
+            cursor.last_stability_sample = None;
+            cursor.page_stability = PageStability::default();
         }
         self.target_registries.lock().await.remove(session_id);
         self.collection_locks.lock().await.remove(session_id);
@@ -2245,6 +2289,26 @@ impl CdpStateCollector {
                     visibilityReason: visibility.reason
                   };
                 });
+              const documentElement = document.documentElement;
+              const body = document.body;
+              const layoutSignature = JSON.stringify({
+                viewport: [window.innerWidth, window.innerHeight, window.scrollX, window.scrollY],
+                document: [
+                  documentElement?.scrollWidth || 0,
+                  documentElement?.scrollHeight || 0,
+                  documentElement?.clientWidth || 0,
+                  documentElement?.clientHeight || 0,
+                  body?.scrollWidth || 0,
+                  body?.scrollHeight || 0
+                ],
+                targets: targets.map((target) => [
+                  target.path, target.bounds, target.visible, target.inViewport, target.occluded
+                ]),
+                opaqueFrames: opaqueFrames.slice(0, 32).map((frame) => [
+                  frame.path, frame.bounds, frame.visible, frame.inViewport, frame.occluded
+                ])
+              });
+              const activeElement = document.activeElement;
               return {
                 url: location.href,
                 title: document.title.slice(0, 1024),
@@ -2252,7 +2316,11 @@ impl CdpStateCollector {
                 targets,
                 opaqueFrames: opaqueFrames.slice(0, 32),
                 truncated: candidates.length > 200,
-                rootPath: requestedRoot === null ? null : pathFor(root)
+                rootPath: requestedRoot === null ? null : pathFor(root),
+                layoutSignature,
+                focusPath: activeElement && activeElement !== document.body
+                  ? pathFor(activeElement) : '',
+                documentFocused: document.hasFocus()
               };
             })()
         "#
@@ -2904,14 +2972,104 @@ impl CdpStateCollector {
         }
     }
 
+    fn stability_fingerprints(
+        page: &EvaluatedPageState,
+        active_tab_id: &str,
+    ) -> anyhow::Result<(String, String, String, String)> {
+        let dom = page
+            .targets
+            .iter()
+            .map(|target| {
+                serde_json::json!([
+                    target.path,
+                    target.role,
+                    target.name,
+                    target.semantic_context_hash,
+                    target.value,
+                    target.control_type,
+                    target.enabled,
+                    target.sensitive,
+                    target.checked,
+                    target.selected,
+                    target.interactive,
+                    target.frame_id
+                ])
+            })
+            .collect::<Vec<_>>();
+        let opaque_boundaries = page
+            .opaque_frames
+            .iter()
+            .map(|frame| {
+                serde_json::json!([
+                    frame.path,
+                    frame.parent_frame_id,
+                    frame.origin,
+                    frame.boundary_reason
+                ])
+            })
+            .collect::<Vec<_>>();
+        Ok((
+            hex_sha256(serde_json::to_string(&(dom, opaque_boundaries))?.as_bytes()),
+            hex_sha256(page.layout_signature.as_bytes()),
+            hex_sha256(format!("{}\n{}", page.document_focused, page.focus_path).as_bytes()),
+            hex_sha256(format!("{active_tab_id}\n{}", page.url).as_bytes()),
+        ))
+    }
+
+    fn update_page_stability(
+        cursor: &mut CollectorCursor,
+        fingerprints: &(String, String, String, String),
+    ) -> PageStability {
+        let now = std::time::Instant::now();
+        let elapsed = cursor
+            .last_stability_sample
+            .map(|sample| now.saturating_duration_since(sample).as_millis() as u64)
+            .unwrap_or(0)
+            .min(300_000);
+        let advance = |previous: &str, current: &str, quiet: u64| {
+            if !previous.is_empty() && previous == current {
+                quiet.saturating_add(elapsed).min(300_000)
+            } else {
+                0
+            }
+        };
+        let stability = PageStability {
+            dom_quiet_millis: advance(
+                &cursor.dom_fingerprint,
+                &fingerprints.0,
+                cursor.page_stability.dom_quiet_millis,
+            ),
+            layout_quiet_millis: advance(
+                &cursor.layout_fingerprint,
+                &fingerprints.1,
+                cursor.page_stability.layout_quiet_millis,
+            ),
+            focus_quiet_millis: advance(
+                &cursor.focus_fingerprint,
+                &fingerprints.2,
+                cursor.page_stability.focus_quiet_millis,
+            ),
+            route_quiet_millis: advance(
+                &cursor.route_fingerprint,
+                &fingerprints.3,
+                cursor.page_stability.route_quiet_millis,
+            ),
+            evidence_fresh: true,
+        };
+        cursor.dom_fingerprint.clone_from(&fingerprints.0);
+        cursor.layout_fingerprint.clone_from(&fingerprints.1);
+        cursor.focus_fingerprint.clone_from(&fingerprints.2);
+        cursor.route_fingerprint.clone_from(&fingerprints.3);
+        cursor.last_stability_sample = Some(now);
+        cursor.page_stability = stability.clone();
+        stability
+    }
+
     fn state_hash(
         page: &EvaluatedPageState,
         tab_snapshot: &TabSnapshot,
-        native_dialogs: &[NativeDialog],
-        native_dialog_evidence_fresh: bool,
-        download_evidence: DownloadHashEvidence<'_>,
         truncated: bool,
-        network_readiness_hash_bucket: u64,
+        evidence: StateHashEvidence<'_>,
     ) -> anyhow::Result<(String, String)> {
         // Opaque boundaries participate in both State hash and Target revision. This makes their
         // geometry and origin-level identity part of the exact screenshot fence without ever
@@ -2919,19 +3077,24 @@ impl CdpStateCollector {
         let serialized_targets = serde_json::to_string(&(&page.targets, &page.opaque_frames))?;
         let content_hash = hex_sha256(
             format!(
-                "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+                "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{:?}",
                 page.url,
                 page.title,
                 serde_json::to_string(&tab_snapshot.tabs)?,
                 tab_snapshot.active_tab_id,
-                serde_json::to_string(native_dialogs)?,
-                native_dialog_evidence_fresh,
-                serde_json::to_string(download_evidence.downloads)?,
-                download_evidence.fresh,
+                serde_json::to_string(evidence.native_dialogs)?,
+                evidence.native_dialog_evidence_fresh,
+                serde_json::to_string(evidence.downloads.downloads)?,
+                evidence.downloads.fresh,
                 serialized_targets,
                 truncated,
                 page.document_ready_state,
-                network_readiness_hash_bucket
+                evidence.network_readiness_hash_bucket,
+                evidence.stability_fingerprints.0,
+                evidence.stability_fingerprints.1,
+                evidence.stability_fingerprints.2,
+                evidence.stability_fingerprints.3,
+                page_stability_hash_bucket(evidence.page_stability)
             )
             .as_bytes(),
         );
@@ -3047,6 +3210,13 @@ impl CdpStateCollector {
             document_ready_state,
             network_quiet_millis,
             network_evidence_fresh: network_observation.fresh,
+            page_stability: PageStability {
+                evidence_fresh: false,
+                ..previous
+                    .as_ref()
+                    .map(|state| state.page_stability.clone())
+                    .unwrap_or_default()
+            },
         };
         self.last_states
             .write()
@@ -3132,17 +3302,28 @@ impl CdpStateCollector {
         let network_quiet_millis = network_observation.network_quiet_millis();
         let network_readiness_hash_bucket =
             network_readiness_hash_bucket(network_quiet_millis, network_observation.fresh);
+        let stability_fingerprints =
+            Self::stability_fingerprints(&page, &tab_snapshot.active_tab_id)?;
+        let page_stability = {
+            let mut cursors = self.cursors.lock().await;
+            let cursor = cursors.entry(session_id.to_owned()).or_default();
+            Self::update_page_stability(cursor, &stability_fingerprints)
+        };
         let (serialized_targets, content_hash) = Self::state_hash(
             &page,
             &tab_snapshot,
-            &native_dialogs,
-            native_dialog_evidence_fresh,
-            DownloadHashEvidence {
-                downloads: &network_observation.downloads,
-                fresh: network_observation.fresh,
-            },
             page.truncated,
-            network_readiness_hash_bucket,
+            StateHashEvidence {
+                native_dialogs: &native_dialogs,
+                native_dialog_evidence_fresh,
+                downloads: DownloadHashEvidence {
+                    downloads: &network_observation.downloads,
+                    fresh: network_observation.fresh,
+                },
+                network_readiness_hash_bucket,
+                stability_fingerprints: &stability_fingerprints,
+                page_stability: &page_stability,
+            },
         )?;
         let target_fingerprint = hex_sha256(serialized_targets.as_bytes());
         let (state_version, target_revision) = {
@@ -3228,6 +3409,7 @@ impl CdpStateCollector {
             document_ready_state: page.document_ready_state,
             network_quiet_millis,
             network_evidence_fresh: network_observation.fresh,
+            page_stability,
         };
         self.last_states
             .write()
@@ -3383,17 +3565,23 @@ impl CdpStateCollector {
         let readiness_bucket =
             network_readiness_hash_bucket(network_quiet_millis, network_observation.fresh);
         let truncated = page.truncated || matches!(baseline.quality, StateQuality::DepthLimited);
+        let stability_fingerprints =
+            Self::stability_fingerprints(&page, &tab_snapshot.active_tab_id)?;
         let (serialized_targets, content_hash) = Self::state_hash(
             &page,
             &tab_snapshot,
-            &native_dialogs,
-            native_dialog_evidence_fresh,
-            DownloadHashEvidence {
-                downloads: &network_observation.downloads,
-                fresh: network_observation.fresh,
-            },
             truncated,
-            readiness_bucket,
+            StateHashEvidence {
+                native_dialogs: &native_dialogs,
+                native_dialog_evidence_fresh,
+                downloads: DownloadHashEvidence {
+                    downloads: &network_observation.downloads,
+                    fresh: network_observation.fresh,
+                },
+                network_readiness_hash_bucket: readiness_bucket,
+                stability_fingerprints: &stability_fingerprints,
+                page_stability: &PageStability::default(),
+            },
         )?;
         let state_version = baseline.state_version.saturating_add(1);
         anyhow::ensure!(
@@ -3445,6 +3633,10 @@ impl CdpStateCollector {
             document_ready_state: page.document_ready_state,
             network_quiet_millis,
             network_evidence_fresh: network_observation.fresh,
+            page_stability: PageStability {
+                evidence_fresh: false,
+                ..baseline.page_stability.clone()
+            },
         };
         self.last_states
             .write()
@@ -3526,6 +3718,27 @@ fn network_readiness_hash_bucket(network_quiet_millis: u64, evidence_fresh: bool
     }
     1 + network_quiet_millis.min(MAX_NETWORK_QUIET_POLICY_MILLIS)
         / NETWORK_READINESS_HASH_BUCKET_MILLIS
+}
+
+fn component_quiet_hash_bucket(quiet_millis: u64) -> u8 {
+    match quiet_millis {
+        0 => 0,
+        1..=249 => 1,
+        250..=1_999 => 2,
+        _ => 3,
+    }
+}
+
+fn page_stability_hash_bucket(page_stability: &PageStability) -> [u8; 4] {
+    if !page_stability.evidence_fresh {
+        return [0; 4];
+    }
+    [
+        component_quiet_hash_bucket(page_stability.dom_quiet_millis) + 1,
+        component_quiet_hash_bucket(page_stability.layout_quiet_millis) + 1,
+        component_quiet_hash_bucket(page_stability.focus_quiet_millis) + 1,
+        component_quiet_hash_bucket(page_stability.route_quiet_millis) + 1,
+    ]
 }
 
 #[cfg(test)]
@@ -3647,6 +3860,27 @@ mod tests {
         assert_eq!(network_readiness_hash_bucket(300_000, true), 31);
     }
 
+    #[test]
+    fn page_stability_hash_bucket_tracks_execution_and_outcome_thresholds() {
+        assert_eq!(
+            page_stability_hash_bucket(&PageStability::default()),
+            [0; 4]
+        );
+        let stability = |quiet_millis| PageStability {
+            dom_quiet_millis: quiet_millis,
+            layout_quiet_millis: quiet_millis,
+            focus_quiet_millis: quiet_millis,
+            route_quiet_millis: quiet_millis,
+            evidence_fresh: true,
+        };
+        assert_eq!(page_stability_hash_bucket(&stability(0)), [1; 4]);
+        assert_eq!(page_stability_hash_bucket(&stability(1)), [2; 4]);
+        assert_eq!(page_stability_hash_bucket(&stability(249)), [2; 4]);
+        assert_eq!(page_stability_hash_bucket(&stability(250)), [3; 4]);
+        assert_eq!(page_stability_hash_bucket(&stability(1_999)), [3; 4]);
+        assert_eq!(page_stability_hash_bucket(&stability(2_000)), [4; 4]);
+    }
+
     #[tokio::test]
     async fn collects_page_and_interactive_targets_over_cdp() {
         let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -3758,17 +3992,21 @@ mod tests {
             .is_err());
         assert!(matches!(state.quality, StateQuality::Complete));
         let repeated = collector.collect_current_state("ses_state").await.unwrap();
-        assert_eq!(repeated.state_version, 1);
+        assert!(repeated.state_version > state.state_version);
         assert_eq!(repeated.targets[0].target_ref, state.targets[0].target_ref);
         assert_eq!(repeated.target_revision, state.target_revision);
-        assert_eq!(repeated.content_hash, state.content_hash);
+        assert_ne!(repeated.content_hash, state.content_hash);
+        assert!(repeated.page_stability.evidence_fresh);
         let action_confirmation = collector
             .collect_action_confirmation("ses_state")
             .await
             .unwrap();
-        assert_eq!(action_confirmation.state_version, 2);
+        assert_eq!(
+            action_confirmation.state_version,
+            repeated.state_version + 1
+        );
         assert_eq!(action_confirmation.target_revision, state.target_revision);
-        assert_eq!(action_confirmation.content_hash, state.content_hash);
+        assert_eq!(action_confirmation.content_hash, repeated.content_hash);
         assert_eq!(action_confirmation.targets, state.targets);
 
         websocket_task.await.unwrap();
@@ -4059,8 +4297,10 @@ mod tests {
             .any(|target| target.name.as_deref() == Some("New inside")));
 
         let periodic = collector.collect_current_state("ses_region").await.unwrap();
+        assert!(periodic.state_version > region.state_version);
         assert_eq!(periodic.target_revision, region.target_revision);
-        assert_eq!(periodic.content_hash, region.content_hash);
+        assert_ne!(periodic.content_hash, region.content_hash);
+        assert!(periodic.page_stability.evidence_fresh);
         assert_eq!(periodic.targets, region.targets);
 
         websocket_task.await.unwrap();
@@ -4328,6 +4568,7 @@ mod tests {
                 target_fingerprint: "fingerprint".to_owned(),
                 content_hash: "content-hash".to_owned(),
                 active_tab_id: "tab-1".to_owned(),
+                ..CollectorCursor::default()
             },
         );
 
@@ -4340,6 +4581,7 @@ mod tests {
         assert!(cursor.url.is_empty());
         assert!(cursor.target_fingerprint.is_empty());
         assert!(cursor.active_tab_id.is_empty());
+        assert!(!cursor.page_stability.evidence_fresh);
         drop(cursors);
         assert!(!collector
             .collection_locks
@@ -5007,6 +5249,7 @@ mod tests {
             document_ready_state: "interactive".to_owned(),
             network_quiet_millis: 250,
             network_evidence_fresh: true,
+            page_stability: PageStability::default(),
         };
         let current = CurrentState {
             state_version: 2,
@@ -5198,19 +5441,59 @@ mod tests {
             .unwrap()
             .contains("must-not-leak"));
 
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let stable = collector
+            .collect_current_state("ses_real_chromium")
+            .await
+            .unwrap();
+        assert!(stable.page_stability.evidence_fresh);
+        assert!(stable.page_stability.dom_quiet_millis >= 250);
+        assert!(stable.page_stability.layout_quiet_millis >= 250);
+        assert!(stable.page_stability.focus_quiet_millis >= 250);
+        assert!(stable.page_stability.route_quiet_millis >= 250);
+
+        let websocket = collector
+            .active_page_websocket("ses_real_chromium")
+            .await
+            .unwrap();
+        CdpStateCollector::cdp_command_with_params(
+            &websocket,
+            "Runtime.evaluate",
+            989,
+            serde_json::json!({
+                "expression": "document.querySelector('input').focus(); document.querySelector('button').style.marginLeft = '24px'; history.pushState({}, '', '/runtime-gate/next'); const added = document.createElement('button'); added.textContent = 'Dynamic'; document.body.appendChild(added); true",
+                "returnByValue": true
+            }),
+        )
+        .await
+        .unwrap();
+        let changing = collector
+            .collect_current_state("ses_real_chromium")
+            .await
+            .unwrap();
+        assert_eq!(changing.page_stability.dom_quiet_millis, 0);
+        assert_eq!(changing.page_stability.layout_quiet_millis, 0);
+        assert_eq!(changing.page_stability.focus_quiet_millis, 0);
+        assert_eq!(changing.page_stability.route_quiet_millis, 0);
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let state = collector
+            .collect_current_state("ses_real_chromium")
+            .await
+            .unwrap();
+        assert!(state.page_stability.dom_quiet_millis >= 250);
+        assert!(state.page_stability.layout_quiet_millis >= 250);
+        assert!(state.page_stability.focus_quiet_millis >= 250);
+        assert!(state.page_stability.route_quiet_millis >= 250);
+
         let old_button = state
             .targets
             .iter()
-            .find(|target| target.role == "button")
+            .find(|target| target.role == "button" && target.name.as_deref() == Some("执行验收"))
             .unwrap();
         let old_input = state
             .targets
             .iter()
             .find(|target| target.role == "textbox")
-            .unwrap();
-        let websocket = collector
-            .active_page_websocket("ses_real_chromium")
-            .await
             .unwrap();
         CdpStateCollector::cdp_command_with_params(
             &websocket, "Runtime.evaluate", 990,
@@ -5226,7 +5509,7 @@ mod tests {
         let new_button = changed
             .targets
             .iter()
-            .find(|target| target.role == "button")
+            .find(|target| target.role == "button" && target.name.as_deref() == Some("Delete"))
             .unwrap();
         let new_input = changed
             .targets
@@ -5270,7 +5553,7 @@ mod tests {
         let reused_row_button = reused_row
             .targets
             .iter()
-            .find(|target| target.role == "button")
+            .find(|target| target.role == "button" && target.name.as_deref() == Some("Delete"))
             .unwrap();
         assert_eq!(reused_row_button.name.as_deref(), Some("Delete"));
         assert_ne!(new_button.element_id, reused_row_button.element_id);

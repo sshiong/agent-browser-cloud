@@ -200,6 +200,7 @@ export type { OutcomeExecutionEvidence } from './models/OutcomeExecutionEvidence
 export type { OutcomeModelDeployment } from './models/OutcomeModelDeployment.js';
 export type { OutcomeStateEvidence } from './models/OutcomeStateEvidence.js';
 export type { OutcomeTargetEvidence } from './models/OutcomeTargetEvidence.js';
+export type { PageStability } from './models/PageStability.js';
 export type { PreviewEnvironmentImportRequest } from './models/PreviewEnvironmentImportRequest.js';
 export type { Profile } from './models/Profile.js';
 export type { ProfileExportGrant } from './models/ProfileExportGrant.js';

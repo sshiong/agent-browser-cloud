@@ -1570,6 +1570,7 @@ type BrowserState struct {
 	Targets                   []InteractiveTarget        `json:"targets,omitempty"`
 	OpaqueFrames              []OpaqueFrame              `json:"opaqueFrames,omitempty"`
 	OpaqueFrameEvidenceFresh  bool                       `json:"opaqueFrameEvidenceFresh,omitempty"`
+	PageStability             PageStability              `json:"pageStability,omitempty"`
 	Tabs                      []AgentBrowserTab          `json:"tabs,omitempty"`
 	ActiveTabId               string                     `json:"activeTabId,omitempty"`
 	NativeDialogs             []AgentBrowserNativeDialog `json:"nativeDialogs,omitempty"`
@@ -1816,6 +1817,14 @@ type OpaqueFrame struct {
 	Occluded            bool          `json:"occluded,omitempty"`
 	VisibilityReason    any           `json:"visibilityReason,omitempty"`
 	InteractionStrategy string        `json:"interactionStrategy,omitempty"`
+}
+
+type PageStability struct {
+	DomQuietMillis    int64 `json:"domQuietMillis,omitempty"`
+	LayoutQuietMillis int64 `json:"layoutQuietMillis,omitempty"`
+	FocusQuietMillis  int64 `json:"focusQuietMillis,omitempty"`
+	RouteQuietMillis  int64 `json:"routeQuietMillis,omitempty"`
+	EvidenceFresh     bool  `json:"evidenceFresh,omitempty"`
 }
 
 type TargetBounds struct {

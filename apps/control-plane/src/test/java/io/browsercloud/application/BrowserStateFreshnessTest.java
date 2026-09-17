@@ -41,6 +41,29 @@ class BrowserStateFreshnessTest {
         .isEqualTo("STABLE");
   }
 
+  @Test
+  void reportsUnknownActivityForLegacyNodeWithoutComponentEvidence() {
+    var legacy =
+        new NodeEvent.StateUpdated(
+            "ses_test",
+            7,
+            3,
+            "https://example.test/app",
+            "App",
+            List.of(),
+            "",
+            "hash-7",
+            "COMPLETE",
+            List.of(),
+            "complete",
+            3_000,
+            true,
+            "PERIODIC",
+            "");
+
+    assertThat(describe(legacy, 1).pageActivity()).isEqualTo("UNKNOWN");
+  }
+
   private static BrowserStateFreshness.Description describe(
       NodeEvent.StateUpdated state, long age) {
     return BrowserStateFreshness.describe(state, NOW.minusSeconds(age), NOW);
@@ -63,6 +86,15 @@ class BrowserStateFreshnessTest {
         networkQuietMillis,
         networkFresh,
         "PERIODIC",
-        "");
+        "",
+        List.of(),
+        List.of(),
+        false,
+        List.of(),
+        false,
+        List.of(),
+        false,
+        new NodeEvent.PageStability(
+            networkQuietMillis, networkQuietMillis, networkQuietMillis, networkQuietMillis, true));
   }
 }

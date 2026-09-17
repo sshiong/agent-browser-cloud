@@ -6,6 +6,7 @@ import type { AgentBrowserNativeDialog } from './AgentBrowserNativeDialog.js';
 import type { AgentBrowserTab } from './AgentBrowserTab.js';
 import type { InteractiveTarget } from './InteractiveTarget.js';
 import type { OpaqueFrame } from './OpaqueFrame.js';
+import type { PageStability } from './PageStability.js';
 export type BrowserState = {
     sessionId: string;
     contextEpoch: number;
@@ -40,7 +41,7 @@ export type BrowserState = {
      */
     freshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNKNOWN';
     /**
-     * Conservative document/network activity classification; UNKNOWN when evidence is discontinuous or degraded.
+     * Conservative DOM/Layout/Network/Focus/Route activity classification; UNKNOWN when any component evidence is unavailable, discontinuous, or degraded.
      */
     pageActivity?: 'CHANGING' | 'SETTLING' | 'STABLE' | 'UNKNOWN';
     targets: Array<InteractiveTarget>;
@@ -52,6 +53,7 @@ export type BrowserState = {
      * True only when opaque-frame geometry was sampled from the current active Page. Stale geometry must not authorize a bounded screenshot.
      */
     opaqueFrameEvidenceFresh: boolean;
+    pageStability: PageStability;
     /**
      * Browser-level Page Targets. Empty only while an N-1 Browser Node has not projected tab authority.
      */

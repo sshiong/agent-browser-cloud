@@ -436,4 +436,29 @@ public interface BrowserStateDiffEventOrBuilder
    * @return The opaqueFrameEvidenceFresh.
    */
   boolean getOpaqueFrameEvidenceFresh();
+
+  /**
+   * <code>
+   * .browsercloud.node.v1.PageStabilityState page_stability = 26 [json_name = "pageStability"];
+   * </code>
+   *
+   * @return Whether the pageStability field is set.
+   */
+  boolean hasPageStability();
+
+  /**
+   * <code>
+   * .browsercloud.node.v1.PageStabilityState page_stability = 26 [json_name = "pageStability"];
+   * </code>
+   *
+   * @return The pageStability.
+   */
+  io.browsercloud.proto.node.v1.PageStabilityState getPageStability();
+
+  /**
+   * <code>
+   * .browsercloud.node.v1.PageStabilityState page_stability = 26 [json_name = "pageStability"];
+   * </code>
+   */
+  io.browsercloud.proto.node.v1.PageStabilityStateOrBuilder getPageStabilityOrBuilder();
 }

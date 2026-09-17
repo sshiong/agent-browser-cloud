@@ -10800,6 +10800,7 @@ components:
         - targets
         - opaqueFrames
         - opaqueFrameEvidenceFresh
+        - pageStability
         - tabs
         - activeTabId
         - nativeDialogs
@@ -10860,7 +10861,7 @@ components:
         pageActivity:
           type: string
           enum: [CHANGING, SETTLING, STABLE, UNKNOWN]
-          description: Conservative document/network activity classification; UNKNOWN when evidence is discontinuous or degraded.
+          description: Conservative DOM/Layout/Network/Focus/Route activity classification; UNKNOWN when any component evidence is unavailable, discontinuous, or degraded.
         targets:
           type: array
           maxItems: 500
@@ -10875,6 +10876,8 @@ components:
         opaqueFrameEvidenceFresh:
           type: boolean
           description: True only when opaque-frame geometry was sampled from the current active Page. Stale geometry must not authorize a bounded screenshot.
+        pageStability:
+          $ref: "#/components/schemas/PageStability"
         tabs:
           type: array
           maxItems: 100
@@ -11388,6 +11391,35 @@ components:
           type: string
           enum: [BOUNDED_VISION_THEN_HUMAN_HANDOFF]
           description: The existing state/tab/region-fenced redacted screenshot path may observe the rectangle. Direct Agent input is forbidden because no semantic target can be revalidated; interaction requires Human Handoff.
+    PageStability:
+      type: object
+      additionalProperties: false
+      required: [domQuietMillis, layoutQuietMillis, focusQuietMillis, routeQuietMillis, evidenceFresh]
+      description: Component-level quiet windows from consecutive authoritative Node samples. No DOM text, selectors, URL, or user value is exposed.
+      properties:
+        domQuietMillis:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 300000
+        layoutQuietMillis:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 300000
+        focusQuietMillis:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 300000
+        routeQuietMillis:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 300000
+        evidenceFresh:
+          type: boolean
+          description: False for N-1 Nodes, native-dialog-blocked samples, region-only resync, or an interrupted Page observation.
     TargetBounds:
       type: object
       additionalProperties: false

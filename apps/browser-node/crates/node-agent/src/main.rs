@@ -22,8 +22,8 @@ use node_contracts::proto::{
     CommandAck, CommandEnvelope, DiffTruncatedEvent, DispatchRequest, DispatchResponse,
     EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand, ExtensionBackgroundPolicy,
     HumanAssistClickCommand, HumanAssistFailedEvent, HumanTakeoverEndedEvent,
-    HumanTakeoverReadyEvent, InteractiveTargetState, OpaqueFrameState, PingRequest, PingResponse,
-    PresignEvidenceDownloadRequest, PresignEvidenceDownloadResponse,
+    HumanTakeoverReadyEvent, InteractiveTargetState, OpaqueFrameState, PageStabilityState,
+    PingRequest, PingResponse, PresignEvidenceDownloadRequest, PresignEvidenceDownloadResponse,
     PresignProfileExportDownloadRequest, PresignProfileExportDownloadResponse,
     ProbeProxyBindingRequest, ProbeProxyBindingResponse, ProfileWarmTierSyncedEvent,
     PublishRequest, PublishResponse, ReleaseAllInputCommand, RemoteDesktopParticipantEvent,
@@ -74,6 +74,33 @@ const MAX_STABLE_ACTIONS_PER_MICRO_BATCH: usize = 4;
 const MICRO_BATCH_SETTLE_TIMEOUT: Duration = Duration::from_secs(5);
 const MICRO_BATCH_SETTLE_POLL: Duration = Duration::from_millis(100);
 const MICRO_BATCH_NETWORK_QUIET: u64 = 250;
+const MICRO_BATCH_COMPONENT_QUIET: u64 = 250;
+
+fn component_stability_ready(state: &CurrentState) -> bool {
+    let stability = &state.page_stability;
+    stability.evidence_fresh
+        && stability.dom_quiet_millis >= MICRO_BATCH_COMPONENT_QUIET
+        && stability.layout_quiet_millis >= MICRO_BATCH_COMPONENT_QUIET
+        && stability.focus_quiet_millis >= MICRO_BATCH_COMPONENT_QUIET
+        && stability.route_quiet_millis >= MICRO_BATCH_COMPONENT_QUIET
+}
+
+fn micro_batch_current_state_ready(state: &CurrentState) -> bool {
+    matches!(
+        state.quality,
+        StateQuality::Complete | StateQuality::DepthLimited
+    ) && state.document_ready_state == "complete"
+        && state.network_evidence_fresh
+        && state.network_quiet_millis >= MICRO_BATCH_NETWORK_QUIET
+        && component_stability_ready(state)
+}
+
+fn action_requires_stable_page(tool_id: &str) -> bool {
+    !matches!(
+        tool_id,
+        "WAIT_FOR" | "OPEN_TAB" | "SWITCH_TAB" | "CLOSE_TAB" | "ACCEPT_DIALOG" | "DISMISS_DIALOG"
+    )
+}
 
 fn rebound_action_target(
     action: &AgentActionPrimitive,
@@ -106,6 +133,16 @@ fn dynamic_micro_batch_boundary(
         Some("ROUTE_OR_TAB_CHANGED")
     } else if before.native_dialogs != after.native_dialogs {
         Some("NATIVE_DIALOG_CHANGED")
+    } else if !after.page_stability.evidence_fresh {
+        Some("PAGE_STABILITY_UNKNOWN")
+    } else if after.page_stability.route_quiet_millis < MICRO_BATCH_COMPONENT_QUIET {
+        Some("ROUTE_CHANGING")
+    } else if after.page_stability.dom_quiet_millis < MICRO_BATCH_COMPONENT_QUIET {
+        Some("DOM_CHANGING")
+    } else if after.page_stability.layout_quiet_millis < MICRO_BATCH_COMPONENT_QUIET {
+        Some("LAYOUT_CHANGING")
+    } else if after.page_stability.focus_quiet_millis < MICRO_BATCH_COMPONENT_QUIET {
+        Some("FOCUS_CHANGING")
     } else if after.document_ready_state != "complete"
         || !after.network_evidence_fresh
         || after.network_quiet_millis < MICRO_BATCH_NETWORK_QUIET
@@ -127,12 +164,7 @@ fn dynamic_micro_batch_boundary(
 }
 
 fn micro_batch_state_is_settled(previous: &CurrentState, current: &CurrentState) -> bool {
-    matches!(
-        current.quality,
-        StateQuality::Complete | StateQuality::DepthLimited
-    ) && current.document_ready_state == "complete"
-        && current.network_evidence_fresh
-        && current.network_quiet_millis >= MICRO_BATCH_NETWORK_QUIET
+    micro_batch_current_state_ready(current)
         && previous.url == current.url
         && previous.active_tab_id == current.active_tab_id
         && previous.native_dialogs == current.native_dialogs
@@ -265,6 +297,10 @@ fn agent_action_error_code(tool_id: &str, error: &anyhow::Error) -> &'static str
         "ELEMENT_NOT_INTERACTIVE"
     } else if message.contains("sensitive") || message.contains("forbidden") {
         "PERMISSION_DENIED"
+    } else if message.contains("page state is unstable")
+        || message.contains("dynamic page did not settle")
+    {
+        "PAGE_UNSTABLE"
     } else if tool_id == "WAIT_FOR" {
         "WAIT_CONDITION_FAILED"
     } else if message.contains("timed out") || message.contains("timeout") {
@@ -2250,6 +2286,7 @@ impl NodeControlService {
                     document_ready_state: String::new(),
                     network_quiet_millis: 0,
                     network_evidence_fresh: false,
+                    page_stability: state_collector::PageStability::default(),
                     tabs: Vec::new(),
                     active_tab_id: payload.active_tab_id.clone(),
                     native_dialogs: Vec::new(),
@@ -2696,6 +2733,17 @@ impl NodeControlService {
                 .map(Self::opaque_frame_payload)
                 .collect(),
             opaque_frame_evidence_fresh: state.opaque_frame_evidence_fresh,
+            page_stability: Some(Self::page_stability_payload(state.page_stability)),
+        }
+    }
+
+    fn page_stability_payload(stability: state_collector::PageStability) -> PageStabilityState {
+        PageStabilityState {
+            dom_quiet_millis: stability.dom_quiet_millis,
+            layout_quiet_millis: stability.layout_quiet_millis,
+            focus_quiet_millis: stability.focus_quiet_millis,
+            route_quiet_millis: stability.route_quiet_millis,
+            evidence_fresh: stability.evidence_fresh,
         }
     }
 
@@ -2825,6 +2873,7 @@ impl NodeControlService {
                 .map(Self::opaque_frame_payload)
                 .collect(),
             opaque_frame_evidence_fresh: diff.opaque_frame_evidence_fresh,
+            page_stability: Some(Self::page_stability_payload(diff.page_stability)),
         }
     }
 
@@ -3960,6 +4009,17 @@ impl NodeControlService {
                     || current.content_hash == payload.base_content_hash),
             "agent action batch state cursor is stale"
         );
+        if payload
+            .actions
+            .first()
+            .is_some_and(|action| action_requires_stable_page(&action.tool_id))
+            && !micro_batch_current_state_ready(&current)
+        {
+            current = self
+                .settle_after_dynamic_micro_batch(&payload.session_id, &current)
+                .await
+                .context("agent action batch initial page state is unstable")?;
+        }
         let mut outcomes = Vec::with_capacity(payload.actions.len());
         let mut micro_batch_index = 1_u32;
         let mut actions_in_micro_batch = 0_usize;
@@ -6590,6 +6650,15 @@ impl NodeControlService {
                                     if payload.tool_id == "EXECUTE_ACTIONS" {
                                         self.execute_agent_action_batch(&payload).await
                                     } else {
+                                        if action_requires_stable_page(&payload.tool_id) {
+                                            let current = self.state_collector
+                                                .collect_current_state(&payload.session_id).await?;
+                                            if !micro_batch_current_state_ready(&current) {
+                                                self.settle_after_dynamic_micro_batch(
+                                                    &payload.session_id, &current).await
+                                                    .context("agent action page state is unstable")?;
+                                            }
+                                        }
                                         self.execute_agent_action(&payload)
                                             .await
                                             .map(|state| (state, Vec::new()))
@@ -10585,6 +10654,13 @@ mod tests {
             document_ready_state: "complete".to_owned(),
             network_quiet_millis: 1_000,
             network_evidence_fresh: true,
+            page_stability: state_collector::PageStability {
+                dom_quiet_millis: 1_000,
+                layout_quiet_millis: 1_000,
+                focus_quiet_millis: 1_000,
+                route_quiet_millis: 1_000,
+                evidence_fresh: true,
+            },
         }
     }
 
@@ -10610,6 +10686,13 @@ mod tests {
         assert_eq!(
             dynamic_micro_batch_boundary(&before, &after, 1),
             Some("PAGE_UNSETTLED")
+        );
+
+        after.document_ready_state = "complete".to_owned();
+        after.page_stability.layout_quiet_millis = 0;
+        assert_eq!(
+            dynamic_micro_batch_boundary(&before, &after, 1),
+            Some("LAYOUT_CHANGING")
         );
     }
 
@@ -10669,6 +10752,9 @@ mod tests {
         assert!(!micro_batch_state_is_settled(&previous, &current));
         current.target_revision = previous.target_revision;
         current.network_quiet_millis = 0;
+        assert!(!micro_batch_state_is_settled(&previous, &current));
+        current.network_quiet_millis = 1_000;
+        current.page_stability.focus_quiet_millis = 0;
         assert!(!micro_batch_state_is_settled(&previous, &current));
     }
 
@@ -10967,6 +11053,13 @@ mod tests {
             document_ready_state: "complete".to_owned(),
             network_quiet_millis: 1_000,
             network_evidence_fresh: true,
+            page_stability: state_collector::PageStability {
+                dom_quiet_millis: 1_000,
+                layout_quiet_millis: 1_000,
+                focus_quiet_millis: 1_000,
+                route_quiet_millis: 1_000,
+                evidence_fresh: true,
+            },
         };
         let previous = state(11);
         let current = state(12);

@@ -61,6 +61,9 @@ OPERATIONS: dict[str, Operation] = {
     'inspectAgentBrowserElements': Operation('inspectAgentBrowserElements', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/inspect', ('sessionId',), (), ('X-Tenant-Id',), 'AgentBrowserInspectRequest', True, 'AgentBrowserTargetList'),
     'findAgentBrowserElements': Operation('findAgentBrowserElements', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/find', ('sessionId',), (), ('X-Tenant-Id',), 'AgentBrowserFindRequest', True, 'AgentBrowserTargetList'),
     'executeAgentBrowserActions': Operation('executeAgentBrowserActions', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/execute-actions', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'ExecuteAgentBrowserActionsRequest', True, 'AgentTask'),
+    'actAgentBrowser': Operation('actAgentBrowser', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/act', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'ExecuteAgentBrowserActionsRequest', True, 'AgentTask'),
+    'waitForAgentBrowser': Operation('waitForAgentBrowser', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/wait', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'WaitForAgentBrowserRequest', True, 'AgentTask'),
+    'handoffAgentBrowser': Operation('handoffAgentBrowser', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/handoff', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'HandoffAgentBrowserRequest', True, 'AgentTask'),
     'createAgentBrowserEvaluation': Operation('createAgentBrowserEvaluation', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/evaluations', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CreateAgentBrowserEvaluationRequest', True, 'AgentBrowserEvaluation'),
     'getAgentBrowserEvaluation': Operation('getAgentBrowserEvaluation', 'GET', '/api/v1/sessions/{sessionId}/agent-browser/evaluations/{evaluationId}', ('evaluationId', 'sessionId'), ('waitMs',), ('X-Tenant-Id',), '', False, 'AgentBrowserEvaluation'),
     'captureAgentBrowserScreenshot': Operation('captureAgentBrowserScreenshot', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/screenshots', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CaptureAgentBrowserScreenshotRequest', True, 'AgentBrowserScreenshot'),
@@ -417,6 +420,15 @@ class BrowserCloudGeneratedClient:
 
     def executeAgentBrowserActions(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('executeAgentBrowserActions', path=path, query=query, body=body, headers=headers)
+
+    def actAgentBrowser(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('actAgentBrowser', path=path, query=query, body=body, headers=headers)
+
+    def waitForAgentBrowser(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('waitForAgentBrowser', path=path, query=query, body=body, headers=headers)
+
+    def handoffAgentBrowser(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('handoffAgentBrowser', path=path, query=query, body=body, headers=headers)
 
     def createAgentBrowserEvaluation(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('createAgentBrowserEvaluation', path=path, query=query, body=body, headers=headers)

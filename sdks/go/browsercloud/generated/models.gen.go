@@ -2045,6 +2045,19 @@ type ExecuteAgentBrowserActionsRequest struct {
 	StopOnError         bool                      `json:"stopOnError,omitempty"`
 }
 
+type WaitForAgentBrowserRequest struct {
+	Goal                string `json:"goal,omitempty"`
+	ExpectedStateCursor string `json:"expectedStateCursor,omitempty"`
+	WaitCondition       string `json:"waitCondition,omitempty"`
+	TargetRef           string `json:"targetRef,omitempty"`
+	TimeoutMs           int    `json:"timeoutMs,omitempty"`
+}
+
+type HandoffAgentBrowserRequest struct {
+	Goal                string `json:"goal,omitempty"`
+	ExpectedStateCursor string `json:"expectedStateCursor,omitempty"`
+}
+
 type AgentClipboard struct {
 	SessionId   string `json:"sessionId,omitempty"`
 	Version     int64  `json:"version,omitempty"`

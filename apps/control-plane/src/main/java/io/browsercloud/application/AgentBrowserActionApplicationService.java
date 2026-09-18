@@ -44,17 +44,13 @@ public class AgentBrowserActionApplicationService {
 
   public AgentTaskView execute(
       String sessionId, String tenantId, String idempotencyKey, ExecuteActionsRequest request) {
-    var snapshot = perception.snapshot(sessionId, tenantId);
-    if (!snapshot.stateCursor().equals(request.expectedStateCursor())) {
-      throw new AgentBrowserActionRejectedException("STATE_CURSOR_STALE");
-    }
-    var domain = domain(snapshot.state().url());
-    var domains = new LinkedHashSet<String>();
-    domains.add(domain);
-    snapshot.tabs().stream()
-        .map(tab -> domainOrNull(tab.url()))
-        .filter(java.util.Objects::nonNull)
-        .forEach(domains::add);
+    return act(sessionId, tenantId, idempotencyKey, request);
+  }
+
+  public AgentTaskView act(
+      String sessionId, String tenantId, String idempotencyKey, ExecuteActionsRequest request) {
+    var snapshot = freshSnapshot(sessionId, tenantId, request.expectedStateCursor());
+    var domains = allowedDomains(snapshot);
     request.actions().stream()
         .filter(action -> action.toolId() == ToolId.OPEN_TAB)
         .map(CreateAgentTaskRequest.BatchActionRequest::tabUrl)
@@ -82,6 +78,55 @@ public class AgentBrowserActionApplicationService {
             0,
             List.of(),
             List.of(batch));
+    return createAndRoute(sessionId, tenantId, idempotencyKey, create);
+  }
+
+  public AgentTaskView waitFor(
+      String sessionId, String tenantId, String idempotencyKey, WaitRequest request) {
+    var snapshot = freshSnapshot(sessionId, tenantId, request.expectedStateCursor());
+    var wait =
+        new CreateAgentTaskRequest.ActionRequest(
+            ToolId.WAIT_FOR,
+            request.targetRef(),
+            null,
+            null,
+            null,
+            null,
+            null,
+            request.waitCondition(),
+            request.timeoutMs());
+    var create =
+        new CreateAgentTaskRequest(
+            request.goal(),
+            null,
+            List.copyOf(allowedDomains(snapshot)),
+            4,
+            0,
+            List.of(),
+            List.of(wait));
+    return createAndRoute(sessionId, tenantId, idempotencyKey, create);
+  }
+
+  public AgentTaskView handoff(
+      String sessionId, String tenantId, String idempotencyKey, HandoffRequest request) {
+    var snapshot = freshSnapshot(sessionId, tenantId, request.expectedStateCursor());
+    var handoff =
+        new CreateAgentTaskRequest.ActionRequest(
+            ToolId.REQUEST_HUMAN_TAKEOVER, null, null, null, null, null, null, null, null);
+    var create =
+        new CreateAgentTaskRequest(
+            request.goal(),
+            null,
+            List.copyOf(allowedDomains(snapshot)),
+            4,
+            0,
+            List.of(),
+            List.of(handoff));
+    return createAndRoute(sessionId, tenantId, idempotencyKey, create);
+  }
+
+  private AgentTaskView createAndRoute(
+      String sessionId, String tenantId, String idempotencyKey, CreateAgentTaskRequest create) {
     var task = tasks.create(sessionId, tenantId, create, idempotencyKey + ":create");
     if (task.state() != TaskState.PLANNED) {
       // SAFE/high-risk policy remains authoritative. The one-call fast path never bypasses a
@@ -104,6 +149,26 @@ public class AgentBrowserActionApplicationService {
         new AgentExecute(tenantId, task.taskId(), executeKey),
         AgentTaskView.class,
         () -> execution.execute(task.taskId(), tenantId, executeKey));
+  }
+
+  private io.browsercloud.api.AgentBrowserPerceptionModels.SnapshotView freshSnapshot(
+      String sessionId, String tenantId, String expectedStateCursor) {
+    var snapshot = perception.snapshot(sessionId, tenantId);
+    if (!snapshot.stateCursor().equals(expectedStateCursor)) {
+      throw new AgentBrowserActionRejectedException("STATE_CURSOR_STALE");
+    }
+    return snapshot;
+  }
+
+  private static LinkedHashSet<String> allowedDomains(
+      io.browsercloud.api.AgentBrowserPerceptionModels.SnapshotView snapshot) {
+    var domains = new LinkedHashSet<String>();
+    domains.add(domain(snapshot.state().url()));
+    snapshot.tabs().stream()
+        .map(tab -> domainOrNull(tab.url()))
+        .filter(java.util.Objects::nonNull)
+        .forEach(domains::add);
+    return domains;
   }
 
   private static String domain(String url) {

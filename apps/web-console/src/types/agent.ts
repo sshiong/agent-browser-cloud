@@ -127,6 +127,19 @@ export interface ExecuteAgentBrowserActionsRequest {
   stopOnError?: boolean;
 }
 
+export interface WaitForAgentBrowserRequest {
+  goal: string;
+  expectedStateCursor: string;
+  waitCondition: 'STATE_CHANGED' | 'STATE_STABLE' | 'TARGET_PRESENT';
+  targetRef?: string;
+  timeoutMs: number;
+}
+
+export interface HandoffAgentBrowserRequest {
+  goal: string;
+  expectedStateCursor: string;
+}
+
 export interface AgentBrowserSnapshot {
   stateCursor: string;
   state: import('./session').BrowserStateView;

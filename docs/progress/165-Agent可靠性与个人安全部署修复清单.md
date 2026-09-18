@@ -44,7 +44,7 @@
 | A18 | 网站 Session Health / Reauth | progress 184 已闭环：按 Profile × 网站独立保存有围栏和新鲜度的登录健康；Reauth/降级持续到可信 READY，技术恢复不再冒充登录有效 |
 | A19 | Opaque Cross-Origin Frame | progress 185 已闭环：显式 Origin-only Opaque Frame、freshness/State/Tab/Bounds 双重围栏的脱敏观察；Frame 永不成为可执行 Target，输入固定 Human Handoff |
 | A20 | DOM/Layout/Network/Focus/Route 稳定性 | progress 186 已闭环：Node 连续采样四类隐私安全指纹并与 Network 组合，动作/微批/Outcome 统一 fail-closed；真实 Chrome 动态页面通过 |
-| A21 | 高层 Agent 操作接口 | snapshot/find/inspect/execute-actions 已有；待 wait/handoff 整合 |
+| A21 | 高层 Agent 操作接口 | progress 187 已闭环：正式 `snapshot/find/inspect/act/wait/handoff`，旧 `execute-actions` 保留 deprecated 兼容；所有写入口复用 State/Task/Reviewer/Outcome 治理链 |
 | A22 | Personal Secure 一键部署 | 待实现，不能复用开发身份后声称安全公网部署 |
 | A23 | 文档漂移 CI | progress 166 已实现 Git 模块表生成/CI 校验及 README 本地链接检查，5 项测试通过 |
 | A24 | LICENSE / SECURITY.md | SECURITY.md 已新增；Rust 标 MIT、TS SDK 标 UNLICENSED，统一授权须权利人确认 |

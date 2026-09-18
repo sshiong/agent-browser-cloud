@@ -181,6 +181,7 @@ export type { FailRuntimeValidationJobRequest } from './models/FailRuntimeValida
 export type { GameDayId } from './models/GameDayId.js';
 export type { GlobalSearchResponse } from './models/GlobalSearchResponse.js';
 export type { GlobalSearchResult } from './models/GlobalSearchResult.js';
+export type { HandoffAgentBrowserRequest } from './models/HandoffAgentBrowserRequest.js';
 export type { HumanAssistIntent } from './models/HumanAssistIntent.js';
 export type { IdempotencyKey } from './models/IdempotencyKey.js';
 export type { InteractiveTarget } from './models/InteractiveTarget.js';
@@ -339,6 +340,7 @@ export type { UpsertSlaExclusionRequest } from './models/UpsertSlaExclusionReque
 export type { UpsertSloPolicyRequest } from './models/UpsertSloPolicyRequest.js';
 export type { UserPreferences } from './models/UserPreferences.js';
 export type { ValidationId } from './models/ValidationId.js';
+export type { WaitForAgentBrowserRequest } from './models/WaitForAgentBrowserRequest.js';
 export type { WorkerClaimWaitSeconds } from './models/WorkerClaimWaitSeconds.js';
 export type { WorkspaceAgentSummary } from './models/WorkspaceAgentSummary.js';
 export type { WorkspaceBatchAction } from './models/WorkspaceBatchAction.js';

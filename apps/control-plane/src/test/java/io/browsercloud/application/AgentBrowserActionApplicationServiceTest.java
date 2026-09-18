@@ -5,12 +5,15 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import io.browsercloud.api.AgentBrowserActionModels.ExecuteActionsRequest;
+import io.browsercloud.api.AgentBrowserActionModels.HandoffRequest;
+import io.browsercloud.api.AgentBrowserActionModels.WaitRequest;
 import io.browsercloud.api.AgentBrowserPerceptionModels.SnapshotView;
 import io.browsercloud.api.AgentTaskView;
 import io.browsercloud.api.BrowserStateView;
 import io.browsercloud.api.CreateAgentTaskRequest;
 import io.browsercloud.domain.agent.AgentModels.TaskState;
 import io.browsercloud.domain.agent.AgentModels.ToolId;
+import io.browsercloud.domain.agent.AgentModels.WaitCondition;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -175,6 +178,98 @@ class AgentBrowserActionApplicationServiceTest {
     org.assertj.core.api.Assertions.assertThat(create.getValue().maxActions()).isEqualTo(23);
     org.assertj.core.api.Assertions.assertThat(create.getValue().actions().getFirst().actions())
         .hasSize(20);
+  }
+
+  @Test
+  void exposesActAsTheCanonicalAliasForTheExistingBatchGateway() {
+    var task = mock(AgentTaskView.class);
+    when(task.state()).thenReturn(TaskState.AWAITING_CONFIRMATION);
+    when(tasks.create(eq("ses_1234567890abcdef"), eq("tenant-test"), any(), eq("act:create")))
+        .thenReturn(task);
+
+    service.act("ses_1234567890abcdef", "tenant-test", "act", request("9:2:" + "a".repeat(64)));
+
+    verify(tasks).create(eq("ses_1234567890abcdef"), eq("tenant-test"), any(), eq("act:create"));
+  }
+
+  @Test
+  void createsOneStateFencedWaitTaskWithoutExposingPrimitivePlanFields() {
+    var task = mock(AgentTaskView.class);
+    when(task.state()).thenReturn(TaskState.AWAITING_CONFIRMATION);
+    when(tasks.create(eq("ses_1234567890abcdef"), eq("tenant-test"), any(), eq("wait:create")))
+        .thenReturn(task);
+
+    service.waitFor(
+        "ses_1234567890abcdef",
+        "tenant-test",
+        "wait",
+        new WaitRequest(
+            "Wait for the account menu",
+            "9:2:" + "a".repeat(64),
+            WaitCondition.TARGET_PRESENT,
+            "e-account",
+            5_000));
+
+    var create = ArgumentCaptor.forClass(CreateAgentTaskRequest.class);
+    verify(tasks)
+        .create(eq("ses_1234567890abcdef"), eq("tenant-test"), create.capture(), eq("wait:create"));
+    var action = create.getValue().actions().getFirst();
+    org.assertj.core.api.Assertions.assertThat(action.toolId()).isEqualTo(ToolId.WAIT_FOR);
+    org.assertj.core.api.Assertions.assertThat(action.waitCondition())
+        .isEqualTo(WaitCondition.TARGET_PRESENT);
+    org.assertj.core.api.Assertions.assertThat(action.targetRef()).isEqualTo("e-account");
+    org.assertj.core.api.Assertions.assertThat(action.timeoutMs()).isEqualTo(5_000);
+    org.assertj.core.api.Assertions.assertThat(create.getValue().maxActions()).isEqualTo(4);
+  }
+
+  @Test
+  void createsOneGovernedHumanHandoffAndRoutesItThroughTheReviewer() {
+    var task = mock(AgentTaskView.class);
+    when(task.taskId()).thenReturn("agt_1234567890abcdef");
+    when(task.state()).thenReturn(TaskState.PLANNED);
+    when(tasks.create(eq("ses_1234567890abcdef"), eq("tenant-test"), any(), eq("handoff:create")))
+        .thenReturn(task);
+    when(reviewer.enabled()).thenReturn(true);
+    when(tasks.get("agt_1234567890abcdef", "tenant-test")).thenReturn(task);
+
+    service.handoff(
+        "ses_1234567890abcdef",
+        "tenant-test",
+        "handoff",
+        new HandoffRequest("Ask an operator to finish this step", "9:2:" + "a".repeat(64)));
+
+    var create = ArgumentCaptor.forClass(CreateAgentTaskRequest.class);
+    verify(tasks)
+        .create(
+            eq("ses_1234567890abcdef"), eq("tenant-test"), create.capture(), eq("handoff:create"));
+    org.assertj.core.api.Assertions.assertThat(create.getValue().actions())
+        .singleElement()
+        .extracting(CreateAgentTaskRequest.ActionRequest::toolId)
+        .isEqualTo(ToolId.REQUEST_HUMAN_TAKEOVER);
+    verify(reviewer).routeForExecution("agt_1234567890abcdef", "tenant-test", "handoff:execute");
+  }
+
+  @Test
+  void rejectsStaleHighLevelWaitAndHandoffBeforeCreatingTasks() {
+    var stale = "8:2:" + "b".repeat(64);
+
+    assertThatThrownBy(
+            () ->
+                service.waitFor(
+                    "ses_1234567890abcdef",
+                    "tenant-test",
+                    "wait",
+                    new WaitRequest("Wait", stale, WaitCondition.STATE_STABLE, null, 500)))
+        .hasMessage("STATE_CURSOR_STALE");
+    assertThatThrownBy(
+            () ->
+                service.handoff(
+                    "ses_1234567890abcdef",
+                    "tenant-test",
+                    "handoff",
+                    new HandoffRequest("Handoff", stale)))
+        .hasMessage("STATE_CURSOR_STALE");
+    verifyNoInteractions(tasks, execution, reviewer, externalWorker, routing);
   }
 
   private static ExecuteActionsRequest request(String cursor) {

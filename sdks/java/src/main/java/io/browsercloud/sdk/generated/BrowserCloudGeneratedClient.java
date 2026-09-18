@@ -51,6 +51,9 @@ public final class BrowserCloudGeneratedClient {
     operation("inspectAgentBrowserElements", "POST", "/api/v1/sessions/{sessionId}/agent-browser/inspect", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "AgentBrowserInspectRequest", true, "AgentBrowserTargetList"),
     operation("findAgentBrowserElements", "POST", "/api/v1/sessions/{sessionId}/agent-browser/find", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "AgentBrowserFindRequest", true, "AgentBrowserTargetList"),
     operation("executeAgentBrowserActions", "POST", "/api/v1/sessions/{sessionId}/agent-browser/execute-actions", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "ExecuteAgentBrowserActionsRequest", true, "AgentTask"),
+    operation("actAgentBrowser", "POST", "/api/v1/sessions/{sessionId}/agent-browser/act", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "ExecuteAgentBrowserActionsRequest", true, "AgentTask"),
+    operation("waitForAgentBrowser", "POST", "/api/v1/sessions/{sessionId}/agent-browser/wait", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "WaitForAgentBrowserRequest", true, "AgentTask"),
+    operation("handoffAgentBrowser", "POST", "/api/v1/sessions/{sessionId}/agent-browser/handoff", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "HandoffAgentBrowserRequest", true, "AgentTask"),
     operation("createAgentBrowserEvaluation", "POST", "/api/v1/sessions/{sessionId}/agent-browser/evaluations", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CreateAgentBrowserEvaluationRequest", true, "AgentBrowserEvaluation"),
     operation("getAgentBrowserEvaluation", "GET", "/api/v1/sessions/{sessionId}/agent-browser/evaluations/{evaluationId}", List.of("evaluationId", "sessionId"), List.of("waitMs"), List.of("X-Tenant-Id"), "", false, "AgentBrowserEvaluation"),
     operation("captureAgentBrowserScreenshot", "POST", "/api/v1/sessions/{sessionId}/agent-browser/screenshots", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CaptureAgentBrowserScreenshotRequest", true, "AgentBrowserScreenshot"),
@@ -330,6 +333,9 @@ public final class BrowserCloudGeneratedClient {
   public Response inspectAgentBrowserElements(Request request) { return call("inspectAgentBrowserElements", request); }
   public Response findAgentBrowserElements(Request request) { return call("findAgentBrowserElements", request); }
   public Response executeAgentBrowserActions(Request request) { return call("executeAgentBrowserActions", request); }
+  public Response actAgentBrowser(Request request) { return call("actAgentBrowser", request); }
+  public Response waitForAgentBrowser(Request request) { return call("waitForAgentBrowser", request); }
+  public Response handoffAgentBrowser(Request request) { return call("handoffAgentBrowser", request); }
   public Response createAgentBrowserEvaluation(Request request) { return call("createAgentBrowserEvaluation", request); }
   public Response getAgentBrowserEvaluation(Request request) { return call("getAgentBrowserEvaluation", request); }
   public Response captureAgentBrowserScreenshot(Request request) { return call("captureAgentBrowserScreenshot", request); }

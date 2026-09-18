@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  actAgentBrowser,
   acceptAgentHandoff,
   approveAgentTask,
   createAgentTask,
@@ -15,6 +16,8 @@ import {
   captureAgentBrowserScreenshot,
   getAgentBrowserScreenshot,
   redeemAgentBrowserScreenshot,
+  handoffAgentBrowser,
+  waitForAgentBrowser,
 } from './agent';
 
 afterEach(() => vi.restoreAllMocks());
@@ -187,6 +190,60 @@ describe('agent API', () => {
         }),
       })
     );
+  });
+
+  it('uses the canonical high-level act, wait and handoff endpoints', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ taskId: 'agt_1234567890abcdef' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+    );
+    const cursor = `9:2:${'a'.repeat(64)}`;
+
+    await actAgentBrowser(
+      'ses_1234567890abcdef',
+      {
+        goal: 'Open the account menu',
+        expectedStateCursor: cursor,
+        actions: [{ toolId: 'CLICK_TARGET', targetRef: 'e-account' }],
+      },
+      'idem-act',
+      'tenant-test'
+    );
+    await waitForAgentBrowser(
+      'ses_1234567890abcdef',
+      {
+        goal: 'Wait for the account menu',
+        expectedStateCursor: cursor,
+        waitCondition: 'TARGET_PRESENT',
+        targetRef: 'e-menu',
+        timeoutMs: 5000,
+      },
+      'idem-wait',
+      'tenant-test'
+    );
+    await handoffAgentBrowser(
+      'ses_1234567890abcdef',
+      {
+        goal: 'Ask an operator to complete the step',
+        expectedStateCursor: cursor,
+      },
+      'idem-handoff',
+      'tenant-test'
+    );
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      '/api/v1/sessions/ses_1234567890abcdef/agent-browser/act',
+      '/api/v1/sessions/ses_1234567890abcdef/agent-browser/wait',
+      '/api/v1/sessions/ses_1234567890abcdef/agent-browser/handoff',
+    ]);
+    expect(fetchMock.mock.calls.map(([, init]) => init?.headers)).toEqual([
+      expect.objectContaining({ 'Idempotency-Key': 'idem-act' }),
+      expect.objectContaining({ 'Idempotency-Key': 'idem-wait' }),
+      expect.objectContaining({ 'Idempotency-Key': 'idem-handoff' }),
+    ]);
   });
 
   it('binds human governance decisions to the configured actor', async () => {

@@ -41,4 +41,28 @@ public class AgentBrowserActionController {
       @Valid @RequestBody ExecuteActionsRequest request) {
     return service.execute(sessionId, identity.current().tenantId(), idempotencyKey, request);
   }
+
+  @PostMapping("/act")
+  public AgentTaskView act(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 96) String idempotencyKey,
+      @Valid @RequestBody ExecuteActionsRequest request) {
+    return service.act(sessionId, identity.current().tenantId(), idempotencyKey, request);
+  }
+
+  @PostMapping("/wait")
+  public AgentTaskView waitFor(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 96) String idempotencyKey,
+      @Valid @RequestBody WaitRequest request) {
+    return service.waitFor(sessionId, identity.current().tenantId(), idempotencyKey, request);
+  }
+
+  @PostMapping("/handoff")
+  public AgentTaskView handoff(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 96) String idempotencyKey,
+      @Valid @RequestBody HandoffRequest request) {
+    return service.handoff(sessionId, identity.current().tenantId(), idempotencyKey, request);
+  }
 }

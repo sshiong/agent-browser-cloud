@@ -24,7 +24,11 @@ class GeneratedClientTest(unittest.TestCase):
             transport=transport,
         )
         result = client.getSession(path={"sessionId": "ses_1"})
-        self.assertEqual(247, len(OPERATIONS))
+        self.assertEqual(250, len(OPERATIONS))
+        self.assertEqual(
+            "/api/v1/sessions/{sessionId}/agent-browser/handoff",
+            OPERATIONS["handoffAgentBrowser"].path,
+        )
         self.assertEqual("GET", captured["method"])
         self.assertEqual(
             "https://browser.example/api/v1/sessions/ses_1", captured["url"]

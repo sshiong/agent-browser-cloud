@@ -553,8 +553,9 @@ paths:
     post:
       operationId: executeAgentBrowserActions
       summary: Execute one ordered state-fenced Browser action batch
+      deprecated: true
       description: >
-        Provides the browser.execute_actions fast path. The gateway validates one authoritative
+        Compatibility alias for browser.act. The gateway validates one authoritative
         state cursor, persists one auditable Agent Task, executes primitives in order, checks state
         between actions, honors stopOnError, and yields to real VNC input without forcing takeover.
       tags: [Session, Agent, State]
@@ -571,6 +572,93 @@ paths:
       responses:
         "200":
           description: Persisted task after immediate execution or durable enqueue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTask"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /api/v1/sessions/{sessionId}/agent-browser/act:
+    post:
+      operationId: actAgentBrowser
+      summary: Perform one ordered state-fenced Browser action batch
+      description: >
+        Canonical high-level browser.act tool. It persists one auditable Agent Task and retains
+        reviewer, confirmation, state freshness, stable-target rebinding and human-input priority.
+      tags: [Session, Agent, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExecuteAgentBrowserActionsRequest"
+      responses:
+        "200":
+          description: Persisted task after immediate execution or durable enqueue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTask"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /api/v1/sessions/{sessionId}/agent-browser/wait:
+    post:
+      operationId: waitForAgentBrowser
+      summary: Wait for one bounded Browser state condition
+      description: >
+        Canonical high-level browser.wait tool. The current state cursor is checked before a
+        bounded WAIT_FOR task enters the same reviewer, execution and outcome-verification chain.
+      tags: [Session, Agent, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WaitForAgentBrowserRequest"
+      responses:
+        "200":
+          description: Persisted wait task after immediate execution or durable enqueue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTask"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /api/v1/sessions/{sessionId}/agent-browser/handoff:
+    post:
+      operationId: handoffAgentBrowser
+      summary: Pause Agent execution and request governed human control
+      description: >
+        Canonical high-level browser.handoff tool. The request is state-fenced, persisted and
+        audited, then enters WAITING_FOR_HUMAN without granting control or bypassing policy.
+      tags: [Session, Agent, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HandoffAgentBrowserRequest"
+      responses:
+        "200":
+          description: Persisted handoff task after immediate execution or durable enqueue.
           content:
             application/json:
               schema:
@@ -12217,6 +12305,42 @@ components:
         stopOnError:
           type: boolean
           default: true
+    WaitForAgentBrowserRequest:
+      type: object
+      additionalProperties: false
+      required: [goal, expectedStateCursor, waitCondition, timeoutMs]
+      properties:
+        goal:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        expectedStateCursor:
+          type: string
+          pattern: "^[0-9]+:[0-9]+:[a-f0-9]{64}$"
+        waitCondition:
+          type: string
+          enum: [STATE_CHANGED, STATE_STABLE, TARGET_PRESENT]
+        targetRef:
+          type: string
+          maxLength: 128
+          description: Required when waitCondition is TARGET_PRESENT.
+        timeoutMs:
+          type: integer
+          minimum: 100
+          maximum: 10000
+    HandoffAgentBrowserRequest:
+      type: object
+      additionalProperties: false
+      required: [goal, expectedStateCursor]
+      properties:
+        goal:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Operator-facing reason for requesting governed human control.
+        expectedStateCursor:
+          type: string
+          pattern: "^[0-9]+:[0-9]+:[a-f0-9]{64}$"
     AgentClipboard:
       type: object
       additionalProperties: false

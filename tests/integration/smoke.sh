@@ -4677,6 +4677,124 @@ curl -fsS \
   'import json,sys; state=json.load(sys.stdin)["state"]; textbox=next(item for item in state["targets"] if item["role"] == "textbox" and not item["sensitive"]); checkbox=next(item for item in state["targets"] if item["role"] == "checkbox"); select=next(item for item in state["targets"] if item["role"] == "combobox"); assert textbox["value"] == ""; assert checkbox["checked"] is False; assert select["value"] == "beta"'
 printf 'agent_browser_advanced_actions=true\n'
 printf 'agent_browser_dynamic_micro_batches=true\n'
+high_level_act_snapshot="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER')"
+high_level_act_request="$(python3 - "$high_level_act_snapshot" <<'PY'
+import json
+import sys
+snapshot = json.loads(sys.argv[1])
+target = next(item for item in snapshot["state"]["targets"] if item["role"] == "button")
+print(json.dumps({
+    "goal": "Hover the current primary button through the high-level act tool",
+    "expectedStateCursor": snapshot["stateCursor"],
+    "actions": [{
+        "toolId": "HOVER_TARGET",
+        "targetRef": target["elementId"],
+        "targetRevision": snapshot["state"]["targetRevision"],
+    }],
+}, separators=(",", ":")))
+PY
+)"
+high_level_act_task="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/act" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-agent-browser-high-level-act-001' \
+  -d "$high_level_act_request")"
+high_level_act_task_id="$(printf '%s' "$high_level_act_task" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["taskId"])')"
+for _ in $(seq 1 80); do
+  high_level_act_task="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/agent-tasks/${high_level_act_task_id}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  high_level_act_state="$(printf '%s' "$high_level_act_task" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$high_level_act_state" = "COMPLETED" ]]; then break; fi
+  sleep 0.25
+done
+test "$high_level_act_state" = "COMPLETED"
+
+high_level_wait_snapshot="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER')"
+high_level_wait_request="$(python3 - "$high_level_wait_snapshot" <<'PY'
+import json
+import sys
+snapshot = json.loads(sys.argv[1])
+print(json.dumps({
+    "goal": "Wait for the current page to remain stable",
+    "expectedStateCursor": snapshot["stateCursor"],
+    "waitCondition": "STATE_STABLE",
+    "timeoutMs": 2000,
+}, separators=(",", ":")))
+PY
+)"
+high_level_wait_task="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/wait" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-agent-browser-high-level-wait-001' \
+  -d "$high_level_wait_request")"
+high_level_wait_task_id="$(printf '%s' "$high_level_wait_task" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["taskId"])')"
+for _ in $(seq 1 80); do
+  high_level_wait_task="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/agent-tasks/${high_level_wait_task_id}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  high_level_wait_state="$(printf '%s' "$high_level_wait_task" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$high_level_wait_state" = "COMPLETED" ]]; then break; fi
+  sleep 0.25
+done
+test "$high_level_wait_state" = "COMPLETED"
+
+high_level_handoff_snapshot="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER')"
+high_level_handoff_request="$(python3 - "$high_level_handoff_snapshot" <<'PY'
+import json
+import sys
+snapshot = json.loads(sys.argv[1])
+print(json.dumps({
+    "goal": "Request explicit operator control through the high-level handoff tool",
+    "expectedStateCursor": snapshot["stateCursor"],
+}, separators=(",", ":")))
+PY
+)"
+high_level_handoff_task="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/handoff" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-agent-browser-high-level-handoff-001' \
+  -d "$high_level_handoff_request")"
+high_level_handoff_task_id="$(printf '%s' "$high_level_handoff_task" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["taskId"])')"
+for _ in $(seq 1 80); do
+  high_level_handoff_task="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/agent-tasks/${high_level_handoff_task_id}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  high_level_handoff_state="$(printf '%s' "$high_level_handoff_task" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$high_level_handoff_state" = "WAITING_FOR_HUMAN" ]]; then break; fi
+  sleep 0.25
+done
+test "$high_level_handoff_state" = "WAITING_FOR_HUMAN"
+printf '%s' "$high_level_handoff_task" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["humanHandoff"]["status"] == "PENDING"; assert task["executionResults"][-1]["toolId"] == "REQUEST_HUMAN_TAKEOVER"'
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/agent-tasks/${high_level_handoff_task_id}:reject-handoff" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'X-Actor-Id: integration-operator' | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "FAILED"; assert task["humanHandoff"]["status"] == "REJECTED"; assert task["lastError"] == "HUMAN_HANDOFF_REJECTED"'
+printf 'agent_browser_high_level_tools=true\n'
 tab_session_created="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
@@ -6582,9 +6700,10 @@ printf '%s' "$session_after_terminate" | python3 -c \
 
 committed_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and state='COMMITTED'")"
-# Worker execution uses reviewer_session. The coarse extended-action batch above contributes one
-# additional committed AGENT_TASK operation to this crash-recovery Session.
-test "$committed_operations" = "14"
+# Worker execution uses reviewer_session. The coarse extended-action batch and the canonical
+# act/wait/handoff coverage above contribute four committed AGENT_TASK operations to this
+# crash-recovery Session.
+test "$committed_operations" = "17"
 resource_policy_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RESOURCE_ADJUSTMENT' and state='COMMITTED'")"
 test "$resource_policy_operations" = "4"

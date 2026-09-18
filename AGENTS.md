@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **247 Operations / 343 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **250 Operations / 345 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -162,9 +162,10 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 
 ### Agent Browser 结构化感知与低延迟执行
 
-- [已确认] 新的粗粒度 `snapshot/inspect/find/execute-actions` 复用现有
-  Browser State、Operation、Reviewer 和 Capability；普通页面以 DOM/A11y/Layout 为主，
-  Screenshot/Vision 只作为 Challenge 或结构化感知失败的 fallback。
+- [已确认] 正式粗粒度操作面为 `snapshot/find/inspect/act/wait/handoff`，复用现有 Browser
+  State、Operation、Reviewer、Capability 与 Outcome Verification；旧 `execute-actions` 保留为
+  deprecated 兼容别名。普通页面以 DOM/A11y/Layout 为主，Screenshot/Vision 只作为 Challenge
+  或结构化感知失败的 fallback，见 progress 187。
 - [已确认] Browser Node 以连续权威采样形成 DOM/Layout/Focus/Route 四类 quiet window，并与
   Network 证据共同约束普通动作、动态微批和 Outcome 稳定状态；任一证据缺失或变化均
   fail-closed，真实 Chrome 动态页面验证通过，见 progress 186。
@@ -382,6 +383,12 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - `StopRuntime` + Recording 的幂等回归保持修复，主干绿色。
 
 ## 7. 当前正在处理的任务
+
+- progress 187：Agent Browser 正式高层操作面已收敛为
+  `snapshot/find/inspect/act/wait/handoff`。`act` 复用既有动态微批和风险链；`wait`、`handoff`
+  只暴露有界输入并转换为持久 `WAIT_FOR`/`REQUEST_HUMAN_TAKEOVER` Task，继续经过精确 State
+  Cursor、Reviewer、Capability、人工治理和 Outcome Verification。旧 `execute-actions` 保留为
+  deprecated 兼容别名。A21 仓库内通用代码项已关闭；A22 Personal Secure 一键部署是下一主线。
 
 - progress 186：DOM、Layout、Focus、Route 的连续权威采样已与 Network 组合为统一页面稳定
   证据；单动作和动态微批至少等待全部组件安静 250ms，控制面 Outcome 稳定要求全部组件至少

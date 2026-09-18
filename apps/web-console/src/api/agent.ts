@@ -24,6 +24,8 @@ import type {
   RedeemAgentBrowserScreenshotResponse,
   CreateAgentTaskRequest,
   ExecuteAgentBrowserActionsRequest,
+  HandoffAgentBrowserRequest,
+  WaitForAgentBrowserRequest,
 } from '@/types/agent';
 
 const configuredBase = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -318,6 +320,63 @@ export function executeAgentBrowserActions(
 ) {
   return request<AgentTaskView>(
     `/sessions/${encodeURIComponent(sessionId)}/agent-browser/execute-actions`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+    tenantId
+  );
+}
+
+export function actAgentBrowser(
+  sessionId: string,
+  data: ExecuteAgentBrowserActionsRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+) {
+  return request<AgentTaskView>(
+    `/sessions/${encodeURIComponent(sessionId)}/agent-browser/act`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+    tenantId
+  );
+}
+
+export function waitForAgentBrowser(
+  sessionId: string,
+  data: WaitForAgentBrowserRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+) {
+  return request<AgentTaskView>(
+    `/sessions/${encodeURIComponent(sessionId)}/agent-browser/wait`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+    tenantId
+  );
+}
+
+export function handoffAgentBrowser(
+  sessionId: string,
+  data: HandoffAgentBrowserRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+) {
+  return request<AgentTaskView>(
+    `/sessions/${encodeURIComponent(sessionId)}/agent-browser/handoff`,
     {
       method: 'POST',
       body: JSON.stringify(data),

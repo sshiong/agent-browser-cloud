@@ -361,6 +361,10 @@ public final class Models {
 
   public record ExecuteAgentBrowserActionsRequest(String goal, String expectedStateCursor, List<AgentBatchActionRequest> actions, Boolean stopOnError) {}
 
+  public record WaitForAgentBrowserRequest(String goal, String expectedStateCursor, String waitCondition, String targetRef, Integer timeoutMs) {}
+
+  public record HandoffAgentBrowserRequest(String goal, String expectedStateCursor) {}
+
   public record AgentClipboard(String sessionId, Long version, Object contentHash, Integer valueLength, Object value, Object updatedAt) {}
 
   public record WriteAgentClipboardRequest(String value, Long expectedVersion) {}

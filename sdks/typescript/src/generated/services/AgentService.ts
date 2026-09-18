@@ -42,11 +42,13 @@ import type { ExecuteAgentBrowserActionsRequest } from '../models/ExecuteAgentBr
 import type { FailAgentExecutionJobRequest } from '../models/FailAgentExecutionJobRequest.js';
 import type { FailAgentOutcomeJobRequest } from '../models/FailAgentOutcomeJobRequest.js';
 import type { FailAgentReviewJobRequest } from '../models/FailAgentReviewJobRequest.js';
+import type { HandoffAgentBrowserRequest } from '../models/HandoffAgentBrowserRequest.js';
 import type { RedeemEvidenceAccessResponse } from '../models/RedeemEvidenceAccessResponse.js';
 import type { SessionIdentityChangeRequest } from '../models/SessionIdentityChangeRequest.js';
 import type { SessionIdentitySpec } from '../models/SessionIdentitySpec.js';
 import type { SessionIdentitySpecInput } from '../models/SessionIdentitySpecInput.js';
 import type { UploadAgentBrowserFileRequest } from '../models/UploadAgentBrowserFileRequest.js';
+import type { WaitForAgentBrowserRequest } from '../models/WaitForAgentBrowserRequest.js';
 import type { WriteAgentClipboardRequest } from '../models/WriteAgentClipboardRequest.js';
 import type { CancelablePromise } from '../core/CancelablePromise.js';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest.js';
@@ -151,8 +153,9 @@ export class AgentService {
         });
     }
     /**
+     * @deprecated
      * Execute one ordered state-fenced Browser action batch
-     * Provides the browser.execute_actions fast path. The gateway validates one authoritative state cursor, persists one auditable Agent Task, executes primitives in order, checks state between actions, honors stopOnError, and yields to real VNC input without forcing takeover.
+     * Compatibility alias for browser.act. The gateway validates one authoritative state cursor, persists one auditable Agent Task, executes primitives in order, checks state between actions, honors stopOnError, and yields to real VNC input without forcing takeover.
      *
      * @returns AgentTask Persisted task after immediate execution or durable enqueue.
      * @throws ApiError
@@ -174,6 +177,123 @@ export class AgentService {
         return this.httpRequest.request({
             method: 'POST',
             url: '/api/v1/sessions/{sessionId}/agent-browser/execute-actions',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                409: `State or idempotency conflict.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
+            },
+        });
+    }
+    /**
+     * Perform one ordered state-fenced Browser action batch
+     * Canonical high-level browser.act tool. It persists one auditable Agent Task and retains reviewer, confirmation, state freshness, stable-target rebinding and human-input priority.
+     *
+     * @returns AgentTask Persisted task after immediate execution or durable enqueue.
+     * @throws ApiError
+     */
+    public actAgentBrowser({
+        sessionId,
+        idempotencyKey,
+        requestBody,
+        xTenantId,
+    }: {
+        sessionId: string,
+        idempotencyKey: string,
+        requestBody: ExecuteAgentBrowserActionsRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentTask> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/act',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                409: `State or idempotency conflict.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
+            },
+        });
+    }
+    /**
+     * Wait for one bounded Browser state condition
+     * Canonical high-level browser.wait tool. The current state cursor is checked before a bounded WAIT_FOR task enters the same reviewer, execution and outcome-verification chain.
+     *
+     * @returns AgentTask Persisted wait task after immediate execution or durable enqueue.
+     * @throws ApiError
+     */
+    public waitForAgentBrowser({
+        sessionId,
+        idempotencyKey,
+        requestBody,
+        xTenantId,
+    }: {
+        sessionId: string,
+        idempotencyKey: string,
+        requestBody: WaitForAgentBrowserRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentTask> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/wait',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                409: `State or idempotency conflict.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
+            },
+        });
+    }
+    /**
+     * Pause Agent execution and request governed human control
+     * Canonical high-level browser.handoff tool. The request is state-fenced, persisted and audited, then enters WAITING_FOR_HUMAN without granting control or bypassing policy.
+     *
+     * @returns AgentTask Persisted handoff task after immediate execution or durable enqueue.
+     * @throws ApiError
+     */
+    public handoffAgentBrowser({
+        sessionId,
+        idempotencyKey,
+        requestBody,
+        xTenantId,
+    }: {
+        sessionId: string,
+        idempotencyKey: string,
+        requestBody: HandoffAgentBrowserRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentTask> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/handoff',
             path: {
                 'sessionId': sessionId,
             },

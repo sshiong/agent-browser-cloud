@@ -37,7 +37,9 @@ Reviewer、风险确认、Capability、执行和 Outcome Verification 链。
   Task 以 `HUMAN_HANDOFF_REJECTED` 终止，输出 `agent_browser_high_level_tools=true`。
 - OpenAPI lint、四语言 SDK 生成/漂移检查、Rust Workspace、Worker/Provider、完整 `make ci`、
   Desktop test/lint/unsigned build、供应链、Operator 17 项、50k Coordinator Capacity 与
-  N/N−1 本地 Gate 均通过。GitHub `ci`/`desktop` 冷机结果在推送后记录。
+  N/N−1 本地 Gate 均通过。实现提交 `1b1bae7` 的 GitHub `ci` run `35346560766` 已通过 Verify、
+  完整 Integration、Object Storage/Recording GameDay、供应链与 Kubernetes Operator E2E；
+  `desktop` run `35346560687` 的 Windows/macOS 均通过。
 
 ## 剩余边界
 

@@ -227,6 +227,13 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 
 ### 最近验证状态
 
+- Agent Browser 高层操作接口切片本地 Java 566 项、Web 143 项、Rust Workspace、
+  Worker/Provider、完整 `make ci`、Desktop test/lint/unsigned build、OpenAPI/四 SDK、供应链、
+  Operator 17 项、50k Coordinator Capacity、N/N−1 与完整 PostgreSQL/Redis/MinIO/mTLS/Chromium
+  Integration 均通过；Integration 输出 `agent_browser_high_level_tools=true`。公开基线为
+  250 Operations / 345 Schemas。实现提交 `1b1bae7` 的 GitHub `ci` run `35346560766` 与
+  `desktop` run `35346560687`（Windows/macOS）均成功，见 progress 187。
+
 - Profile 网站 Session Health 切片本地 Control Plane 全量、Web 142 项、Rust Workspace、
   Worker/Provider、完整 `make ci`、Desktop test/lint、OpenAPI/四 SDK、供应链、Operator、
   50k Capacity、V123 N/N−1 与完整 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过；

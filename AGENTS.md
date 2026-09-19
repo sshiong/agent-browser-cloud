@@ -1,8 +1,8 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-09-14
+> 更新日期：2026-09-19
 > 基准分支：`main`
-> 编写时基准提交：`fa18356 feat: enforce agent instruction source authority`
+> 编写时基准提交：`8725d56 feat: add personal secure deployment`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -229,6 +229,14 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- Personal Secure 单机部署切片本地专用测试 4 项、Control Plane 定向安全测试、Rust 定向与
+  Workspace 测试、完整 `make ci`/`make build`、Desktop test/lint/unsigned build、四类生产
+  镜像构建及完整 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过；Web 镜像在只读
+  RootFS、Drop All Capabilities 和 `no-new-privileges` 下真实启动，验证 OIDC CSP 与 Nginx
+  运行变量。实现提交 `8725d56` 的 GitHub `ci` run `35438884436`（含 Verify、供应链、完整
+  Integration、Object Storage/Recording GameDay 与 Kubernetes Operator E2E）和 `desktop`
+  run `35438884442`（Windows/macOS）均成功，见 progress 188。
 
 - Agent Browser 高层操作接口切片本地 Java 566 项、Web 143 项、Rust Workspace、
   Worker/Provider、完整 `make ci`、Desktop test/lint/unsigned build、OpenAPI/四 SDK、供应链、

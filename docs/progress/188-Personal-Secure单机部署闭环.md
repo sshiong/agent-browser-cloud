@@ -40,7 +40,13 @@ Outcome Verifier、Vision Worker 作为真实隔离进程完整启动。把它�
 - Web Production 镜像在 `read_only + cap_drop=ALL + no-new-privileges` 下真实启动；HTTP 响应 CSP
   只增加配置的 OIDC Origin，Nginx `$host` 变量保持未展开。
 - Agent Worker、Control Plane、Browser Node 与 Web Console 四类镜像均执行真实 Docker build；
-  Rust 定向测试和后续完整仓库 Gate 结果记录在本文件最终验证提交中。
+  Rust 定向测试与完整 Workspace 测试通过。
+- `make ci`、`make build`、`make test-desktop lint-desktop build-desktop` 和完整
+  PostgreSQL/Redis/MinIO/mTLS/Chromium `make test-integration` 均通过；Integration 保持高层
+  Agent 工具、Profile 加密、Prompt Injection 来源权威、Worker long-poll/notify 等既有能力。
+- 实现提交 `8725d56` 已推送至 `main`；GitHub `ci` run `35438884436` 的 Verify、供应链、完整
+  Integration、Object Storage/Recording GameDay 与 Kubernetes Operator E2E 全部成功，
+  `desktop` run `35438884442` 的 Windows/macOS 均成功。
 
 ## 边界
 

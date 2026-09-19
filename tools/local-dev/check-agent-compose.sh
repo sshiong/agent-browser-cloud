@@ -19,7 +19,11 @@ esac
 [ ! -L "$LOCAL_AGENT_MODEL_API_KEY_FILE" ] || fail "model API key must not be a symbolic link"
 [ -s "$LOCAL_AGENT_MODEL_API_KEY_FILE" ] || fail "model API key must not be empty"
 
-mode="$(stat -f '%Lp' "$LOCAL_AGENT_MODEL_API_KEY_FILE" 2>/dev/null || stat -c '%a' "$LOCAL_AGENT_MODEL_API_KEY_FILE")"
+if mode="$(stat -c '%a' "$LOCAL_AGENT_MODEL_API_KEY_FILE" 2>/dev/null)"; then
+  : # GNU stat (Linux)
+else
+  mode="$(stat -f '%Lp' "$LOCAL_AGENT_MODEL_API_KEY_FILE")" # BSD stat (macOS)
+fi
 [ "$mode" = 600 ] || [ "$mode" = 400 ] || fail "model API key mode must be 0600 or 0400"
 
 case "$LOCAL_AGENT_MODEL_ENDPOINT" in

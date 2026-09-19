@@ -1,4 +1,4 @@
-.PHONY: install install-desktop build build-desktop build-sdk-release test test-desktop test-application-adapter test-validation-worker test-gameday-worker test-agent-worker test-terraform-provider lint lint-desktop fmt compose-up compose-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check sdk-multilang-generate sdk-multilang-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
+.PHONY: install install-desktop build build-desktop build-sdk-release test test-desktop test-application-adapter test-validation-worker test-gameday-worker test-agent-worker test-personal-secure test-terraform-provider lint lint-desktop fmt compose-up compose-down personal-secure-init personal-secure-check personal-secure-up personal-secure-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check sdk-multilang-generate sdk-multilang-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
 CAPACITY_BUILD_ID ?= $(shell git rev-parse HEAD)
@@ -52,6 +52,7 @@ test:
 	$(MAKE) test-validation-worker
 	$(MAKE) test-gameday-worker
 	$(MAKE) test-agent-worker
+	$(MAKE) test-personal-secure
 	$(MAKE) test-terraform-provider
 
 # Verify the dependency-free, least-privilege Provider/Lease integration runtime.
@@ -68,6 +69,10 @@ test-gameday-worker:
 # Verify the data-minimized fixed-protocol Agent execution dispatcher.
 test-agent-worker:
 	python3 -m unittest discover -s apps/agent-worker -p 'test_*.py' -v
+
+# Verify the fail-closed personal deployment bootstrap and its isolated Compose topology.
+test-personal-secure:
+	python3 -m unittest discover -s tests/personal-secure -p 'test_*.py' -v
 
 # Verify the protocol-v6 Terraform Provider, API client, and fail-closed configuration.
 test-terraform-provider:
@@ -106,6 +111,18 @@ compose-up:
 # Stop local services
 compose-down:
 	docker compose down
+
+personal-secure-init:
+	./deploy/personal-secure/personal-secure init
+
+personal-secure-check:
+	./deploy/personal-secure/personal-secure check
+
+personal-secure-up:
+	./deploy/personal-secure/personal-secure up
+
+personal-secure-down:
+	./deploy/personal-secure/personal-secure down
 
 # Clean build artifacts
 clean:

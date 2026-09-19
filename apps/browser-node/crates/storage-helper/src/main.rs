@@ -839,7 +839,10 @@ fn object_archive_from_environment() -> anyhow::Result<Option<ObjectArchive>> {
         region: std::env::var("OBJECT_STORAGE_REGION").unwrap_or_else(|_| "us-east-1".to_owned()),
         endpoint,
         access_key_id: required_environment("OBJECT_STORAGE_ACCESS_KEY_ID")?,
-        secret_access_key: required_environment("OBJECT_STORAGE_SECRET_ACCESS_KEY")?,
+        secret_access_key: required_secret_environment(
+            "OBJECT_STORAGE_SECRET_ACCESS_KEY",
+            "OBJECT_STORAGE_SECRET_ACCESS_KEY_FILE",
+        )?,
         prefix: std::env::var("OBJECT_STORAGE_PREFIX").unwrap_or_default(),
         connect_timeout,
         operation_timeout,
@@ -1175,6 +1178,30 @@ fn required_environment(name: &str) -> anyhow::Result<String> {
         .trim()
         .to_owned();
     anyhow::ensure!(!value.is_empty(), "{name} cannot be empty");
+    Ok(value)
+}
+
+fn required_secret_environment(value_name: &str, file_name: &str) -> anyhow::Result<String> {
+    if let Ok(value) = std::env::var(value_name) {
+        let value = value.trim().to_owned();
+        anyhow::ensure!(!value.is_empty(), "{value_name} cannot be empty");
+        return Ok(value);
+    }
+    let path = required_absolute_path(file_name)?;
+    let metadata = std::fs::symlink_metadata(&path)?;
+    anyhow::ensure!(
+        metadata.file_type().is_file() && !metadata.file_type().is_symlink(),
+        "{file_name} must reference a regular non-symlink file"
+    );
+    anyhow::ensure!(
+        metadata.len() > 0 && metadata.len() <= 8192,
+        "{file_name} size is invalid"
+    );
+    let value = std::fs::read_to_string(path)?.trim().to_owned();
+    anyhow::ensure!(
+        !value.is_empty() && !value.contains(['\r', '\n', '\0']),
+        "{file_name} must contain one non-empty line"
+    );
     Ok(value)
 }
 

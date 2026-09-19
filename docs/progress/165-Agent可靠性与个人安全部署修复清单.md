@@ -25,7 +25,7 @@
 | ID | 项目 | 当前状态 / 下一证据 |
 | --- | --- | --- |
 | A01 | Compose 完整 Agent/Reviewer/Vision 链 | 已确认默认缺服务；待实现并以真实进程验收，模型凭据不得用 fixture 冒充 |
-| A02 | Local Mode 公网风险 | progress 168 统一 CP/Node/Helper 非 local/test 安全要求；完整集成验证中，入口限制、随机凭据与安全部署层待实现 |
+| A02 | Local Mode 公网风险 | progress 168 已使非 local/test 统一 fail-closed；progress 188 提供独立 loopback-only Personal Secure 路径并明确禁止公网反代。Local Mode 本身仍只允许 localhost，不会被包装为公网模式 |
 | A03 | DOM 复用后的语义目标稳定性 | progress 175 已闭环：最近业务实体键/行语义 hash-only 绑定 Element ID，同路径同名虚拟行复用旧 ID 拒绝，真实 Chrome 通过 |
 | A04 | Expected Outcome / Intent Verification | progress 174 已闭环：V118 结构化结果声明、hash-only 持久化、精确最终 State 确定性判定及模型假成功覆盖均通过完整 Integration |
 | A05 | Vision Canvas/图片/PDF 隐私 | progress 176 已闭环：精确状态围栏 Challenge Region、本地 OCR/PII 像素遮罩、二次复核、能力/证明契约及不可验证时 Human Handoff 均通过完整 Integration |
@@ -45,7 +45,7 @@
 | A19 | Opaque Cross-Origin Frame | progress 185 已闭环：显式 Origin-only Opaque Frame、freshness/State/Tab/Bounds 双重围栏的脱敏观察；Frame 永不成为可执行 Target，输入固定 Human Handoff |
 | A20 | DOM/Layout/Network/Focus/Route 稳定性 | progress 186 已闭环：Node 连续采样四类隐私安全指纹并与 Network 组合，动作/微批/Outcome 统一 fail-closed；真实 Chrome 动态页面通过 |
 | A21 | 高层 Agent 操作接口 | progress 187 已闭环：正式 `snapshot/find/inspect/act/wait/handoff`，旧 `execute-actions` 保留 deprecated 兼容；所有写入口复用 State/Task/Reviewer/Outcome 治理链 |
-| A22 | Personal Secure 一键部署 | 待实现，不能复用开发身份后声称安全公网部署 |
+| A22 | Personal Secure 一键部署 | progress 188 已闭环仓库代码项：非 Local OIDC/API Audience、随机文件 Secret、内部 mTLS、四 Worker 独立身份/进程、受控出口、HTTPS 对象/模型与加密 Profile；只允许 loopback/SSH 本地转发，不声称公网或生产认证 |
 | A23 | 文档漂移 CI | progress 166 已实现 Git 模块表生成/CI 校验及 README 本地链接检查，5 项测试通过 |
 | A24 | LICENSE / SECURITY.md | SECURITY.md 已新增；Rust 标 MIT、TS SDK 标 UNLICENSED，统一授权须权利人确认 |
 

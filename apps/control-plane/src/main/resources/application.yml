@@ -47,6 +47,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
 
   security:
     oauth2:
@@ -145,6 +146,7 @@ app:
 security:
   tenant-claim: ${OIDC_TENANT_CLAIM:tenant_id}
   roles-claim: ${OIDC_ROLES_CLAIM:roles}
+  audience: ${OIDC_AUDIENCE:}
   runtime-signing-public-keys: ${RUNTIME_SIGNING_PUBLIC_KEYS:}
   secure-debug-max-minutes: ${SECURE_DEBUG_MAX_MINUTES:15}
   secure-debug-scan-interval-ms: ${SECURE_DEBUG_SCAN_INTERVAL_MS:5000}

@@ -13,6 +13,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
@@ -78,12 +81,33 @@ public class SecurityConfiguration {
     @Bean
     JwtDecoder productionJwtDecoder(
         @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer,
-        @Value("${security.roles-claim:roles}") String rolesClaim) {
+        @Value("${security.roles-claim:roles}") String rolesClaim,
+        @Value("${security.audience:}") String audience) {
       var decoder = NimbusJwtDecoder.withIssuerLocation(issuer).build();
-      decoder.setJwtValidator(
-          new DelegatingOAuth2TokenValidator<>(
-              JwtValidators.createDefaultWithIssuer(issuer), new AdminMfaJwtValidator(rolesClaim)));
+      var issuerValidator = JwtValidators.createDefaultWithIssuer(issuer);
+      var mfaValidator = new AdminMfaJwtValidator(rolesClaim);
+      if (audience == null || audience.isBlank()) {
+        decoder.setJwtValidator(
+            new DelegatingOAuth2TokenValidator<>(issuerValidator, mfaValidator));
+      } else {
+        decoder.setJwtValidator(
+            new DelegatingOAuth2TokenValidator<>(
+                issuerValidator, new AudienceJwtValidator(audience.trim()), mfaValidator));
+      }
       return decoder;
+    }
+
+    private record AudienceJwtValidator(String audience) implements OAuth2TokenValidator<Jwt> {
+
+      private static final OAuth2Error INVALID_AUDIENCE =
+          new OAuth2Error("invalid_token", "JWT audience is not allowed", null);
+
+      @Override
+      public OAuth2TokenValidatorResult validate(Jwt jwt) {
+        return jwt.getAudience().contains(audience)
+            ? OAuth2TokenValidatorResult.success()
+            : OAuth2TokenValidatorResult.failure(INVALID_AUDIENCE);
+      }
     }
 
     private static JwtAuthenticationConverter jwtConverter(String rolesClaim) {

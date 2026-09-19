@@ -1,0 +1,259 @@
+#!/bin/sh
+set -eu
+umask 077
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+env_file="$script_dir/.env"
+compose_file="$script_dir/compose.yaml"
+state_dir="$script_dir/.state"
+
+fail() {
+  echo "personal-secure: $*" >&2
+  exit 1
+}
+
+env_value() {
+  key="$1"
+  eval "current=\${$key:-}"
+  if [ -n "$current" ]; then
+    printf '%s' "$current"
+    return
+  fi
+  [ -f "$env_file" ] || return 0
+  awk -F= -v key="$key" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' "$env_file"
+}
+
+require_setting() {
+  value=$(env_value "$1")
+  [ -n "$value" ] || fail "$1 is required in $env_file"
+  printf '%s' "$value"
+}
+
+write_random() {
+  destination="$1"
+  if [ ! -s "$destination" ]; then
+    openssl rand -base64 48 > "$destination"
+    chmod 0600 "$destination"
+  fi
+}
+
+copy_secret() {
+  setting="$1"
+  destination="$2"
+  source_file=$(require_setting "$setting")
+  case "$source_file" in /*) ;; *) fail "$setting must be an absolute path" ;; esac
+  [ -f "$source_file" ] && [ ! -L "$source_file" ] || fail "$setting must reference a regular non-symlink file"
+  [ -s "$source_file" ] || fail "$setting cannot be empty"
+  cp "$source_file" "$destination"
+  chmod 0600 "$destination"
+}
+
+prepare_directories() {
+  mkdir -p "$state_dir/bootstrap-secrets"
+  for name in control-plane browser-node storage-helper network-helper gateway agent-worker reviewer-worker outcome-worker vision-worker postgres redis; do
+    mkdir -p "$state_dir/bootstrap-secrets/$name"
+    chmod 0700 "$state_dir/bootstrap-secrets/$name"
+  done
+}
+
+generate_pki() {
+  pki_dir="$state_dir/pki"
+  mkdir -p "$pki_dir"
+  chmod 0700 "$pki_dir"
+  if [ ! -s "$pki_dir/ca.key" ] || [ ! -s "$pki_dir/ca.crt" ]; then
+    openssl req -x509 -newkey rsa:3072 -nodes -days 825 -sha256 \
+      -subj '/CN=Agent Browser Personal Internal CA' \
+      -keyout "$pki_dir/ca.key" -out "$pki_dir/ca.crt" >/dev/null 2>&1
+  fi
+  generate_leaf control-plane.internal 'DNS:control-plane.internal,DNS:control-plane'
+  generate_leaf browser-node.internal 'DNS:browser-node.internal,DNS:browser-node'
+  generate_leaf worker-gateway 'DNS:worker-gateway'
+  chmod 0600 "$pki_dir"/*.key
+  chmod 0644 "$pki_dir"/*.crt
+}
+
+generate_leaf() {
+  name="$1"
+  san="$2"
+  pki_dir="$state_dir/pki"
+  if [ -s "$pki_dir/$name.key" ] && [ -s "$pki_dir/$name.crt" ]; then
+    return
+  fi
+  openssl req -new -newkey rsa:3072 -nodes -sha256 \
+    -subj "/CN=$name" -addext "subjectAltName=$san" \
+    -keyout "$pki_dir/$name.key" -out "$pki_dir/$name.csr" >/dev/null 2>&1
+  openssl x509 -req -days 397 -sha256 -in "$pki_dir/$name.csr" \
+    -CA "$pki_dir/ca.crt" -CAkey "$pki_dir/ca.key" -CAcreateserial \
+    -copy_extensions copy -out "$pki_dir/$name.crt" >/dev/null 2>&1
+  rm -f "$pki_dir/$name.csr"
+}
+
+install_generated_material() {
+  base="$state_dir/bootstrap-secrets"
+  write_random "$base/postgres/password"
+  write_random "$base/redis/password"
+  write_random "$base/control-plane/remote-desktop-ticket"
+  cp "$base/control-plane/remote-desktop-ticket" "$base/browser-node/remote-desktop-ticket"
+  write_random "$base/control-plane/agent-capability-token"
+  write_random "$base/control-plane/agent-action-payload"
+  write_random "$base/control-plane/audit-export-signing-key"
+
+  if [ ! -s "$base/storage-helper/profile-archive-keyring.json" ]; then
+    profile_key=$(openssl rand -base64 32 | tr -d '\r\n')
+    printf '{"version":1,"activeKeyId":"personal-v1","keys":[{"keyId":"personal-v1","keyBase64":"%s"}]}\n' "$profile_key" \
+      > "$base/storage-helper/profile-archive-keyring.json"
+  fi
+
+  cp "$state_dir/pki/ca.crt" "$base/control-plane/ca.crt"
+  cp "$state_dir/pki/control-plane.internal.crt" "$base/control-plane/tls.crt"
+  cp "$state_dir/pki/control-plane.internal.key" "$base/control-plane/tls.key"
+  cp "$state_dir/pki/ca.crt" "$base/browser-node/ca.crt"
+  cp "$state_dir/pki/browser-node.internal.crt" "$base/browser-node/tls.crt"
+  cp "$state_dir/pki/browser-node.internal.key" "$base/browser-node/tls.key"
+  cp "$state_dir/pki/ca.crt" "$base/gateway/ca.crt"
+  cp "$state_dir/pki/worker-gateway.crt" "$base/gateway/tls.crt"
+  cp "$state_dir/pki/worker-gateway.key" "$base/gateway/tls.key"
+  for worker in agent-worker reviewer-worker outcome-worker vision-worker; do
+    cp "$state_dir/pki/ca.crt" "$base/$worker/ca.crt"
+  done
+
+  copy_secret PERSONAL_OBJECT_STORAGE_SECRET_ACCESS_KEY_FILE "$base/storage-helper/object-storage-secret"
+  copy_secret PERSONAL_AGENT_WORKER_TOKEN_FILE "$base/agent-worker/token"
+  copy_secret PERSONAL_REVIEWER_WORKER_TOKEN_FILE "$base/reviewer-worker/token"
+  copy_secret PERSONAL_OUTCOME_VERIFIER_WORKER_TOKEN_FILE "$base/outcome-worker/token"
+  copy_secret PERSONAL_VISION_WORKER_TOKEN_FILE "$base/vision-worker/token"
+  copy_secret PERSONAL_MODEL_API_KEY_FILE "$base/reviewer-worker/model-api-key"
+  cp "$base/reviewer-worker/model-api-key" "$base/outcome-worker/model-api-key"
+  cp "$base/reviewer-worker/model-api-key" "$base/vision-worker/model-api-key"
+
+  expected_ip=$(require_setting PERSONAL_PROXY_EXPECTED_EXIT_IP)
+  exit_check=$(require_setting PERSONAL_PROXY_EXIT_CHECK_URL)
+  cat > "$base/network-helper/providers.json" <<EOF
+{"version":1,"providers":[{"providerId":"personal-egress","endpoint":"http://egress-proxy:3128","expectedExitIp":"$expected_ip","credentialRef":"","exitCheckUrl":"$exit_check","regions":["personal"],"reputationScore":100,"maxConcurrentSessions":16}]}
+EOF
+  cp "$base/network-helper/providers.json" "$base/control-plane/providers.json"
+  find "$base" -type f -exec chmod 0600 {} \;
+}
+
+validate_configuration() {
+  command -v openssl >/dev/null 2>&1 || fail "openssl is required"
+  command -v python3 >/dev/null 2>&1 || fail "python3 is required"
+  issuer=$(require_setting PERSONAL_OIDC_ISSUER)
+  client_id=$(require_setting PERSONAL_OIDC_CLIENT_ID)
+  audience=$(require_setting PERSONAL_OIDC_AUDIENCE)
+  object_endpoint=$(require_setting PERSONAL_OBJECT_STORAGE_ENDPOINT)
+  object_host=$(require_setting PERSONAL_OBJECT_STORAGE_HOST)
+  model_endpoint=$(require_setting PERSONAL_MODEL_ENDPOINT)
+  model_host=$(require_setting PERSONAL_MODEL_HOST)
+  expected_ip=$(require_setting PERSONAL_PROXY_EXPECTED_EXIT_IP)
+  roles_claim=$(env_value PERSONAL_OIDC_ROLES_CLAIM)
+  [ -n "$roles_claim" ] || roles_claim=roles
+  export PERSONAL_CHECK_ISSUER="$issuer" PERSONAL_CHECK_CLIENT_ID="$client_id" PERSONAL_CHECK_AUDIENCE="$audience"
+  export PERSONAL_CHECK_OBJECT_ENDPOINT="$object_endpoint" PERSONAL_CHECK_MODEL_ENDPOINT="$model_endpoint"
+  export PERSONAL_CHECK_OBJECT_HOST="$object_host"
+  export PERSONAL_CHECK_MODEL_HOST="$model_host" PERSONAL_CHECK_EXPECTED_IP="$expected_ip"
+  export PERSONAL_CHECK_ROLES_CLAIM="$roles_claim" PERSONAL_CHECK_STATE_DIR="$state_dir"
+  export PERSONAL_CHECK_OFFLINE="${PERSONAL_SECURE_OFFLINE_CHECK:-0}"
+  python3 - <<'PY'
+import base64, ipaddress, json, os, pathlib, ssl, time, urllib.parse, urllib.request
+
+def fail(message):
+    raise SystemExit(f"personal-secure: {message}")
+
+issuer = os.environ["PERSONAL_CHECK_ISSUER"].rstrip("/")
+obj = urllib.parse.urlsplit(os.environ["PERSONAL_CHECK_OBJECT_ENDPOINT"])
+model = urllib.parse.urlsplit(os.environ["PERSONAL_CHECK_MODEL_ENDPOINT"])
+if urllib.parse.urlsplit(issuer).scheme != "https": fail("PERSONAL_OIDC_ISSUER must use HTTPS")
+if obj.scheme != "https" or not obj.hostname: fail("PERSONAL_OBJECT_STORAGE_ENDPOINT must be an HTTPS origin")
+if obj.hostname != os.environ["PERSONAL_CHECK_OBJECT_HOST"].lower(): fail("PERSONAL_OBJECT_STORAGE_HOST must exactly match the object storage endpoint")
+if model.scheme != "https" or model.path.rstrip("/") != "/v1/responses": fail("PERSONAL_MODEL_ENDPOINT must be an HTTPS /v1/responses URL")
+if model.hostname != os.environ["PERSONAL_CHECK_MODEL_HOST"].lower(): fail("PERSONAL_MODEL_HOST must exactly match the model endpoint")
+try: ipaddress.ip_address(os.environ["PERSONAL_CHECK_EXPECTED_IP"])
+except ValueError: fail("PERSONAL_PROXY_EXPECTED_EXIT_IP must be one IP address")
+
+base = pathlib.Path(os.environ["PERSONAL_CHECK_STATE_DIR"]) / "bootstrap-secrets"
+claim = os.environ["PERSONAL_CHECK_ROLES_CLAIM"]
+audience = os.environ["PERSONAL_CHECK_AUDIENCE"]
+tokens = {
+    "agent-worker/token": "AGENT_WORKER",
+    "reviewer-worker/token": "REVIEWER_WORKER",
+    "outcome-worker/token": "OUTCOME_VERIFIER_WORKER",
+    "vision-worker/token": "VISION_WORKER",
+}
+for relative, role in tokens.items():
+    raw = (base / relative).read_text().strip()
+    parts = raw.split(".")
+    if len(parts) != 3: fail(f"{relative} must contain a JWT")
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
+    except Exception: fail(f"{relative} JWT payload is invalid")
+    if str(payload.get("iss", "")).rstrip("/") != issuer: fail(f"{relative} issuer does not match")
+    roles = payload.get(claim)
+    if roles != [role]: fail(f"{relative} must contain only {role} in {claim}")
+    token_audience = payload.get("aud")
+    audiences = token_audience if isinstance(token_audience, list) else [token_audience]
+    if audience not in audiences: fail(f"{relative} must contain the configured API audience")
+    if not isinstance(payload.get("exp"), (int, float)) or payload["exp"] < time.time() + 3600:
+        fail(f"{relative} must remain valid for at least one hour")
+
+if os.environ["PERSONAL_CHECK_OFFLINE"] != "1":
+    url = issuer + "/.well-known/openid-configuration"
+    try:
+        with urllib.request.urlopen(url, timeout=10, context=ssl.create_default_context()) as response:
+            document = json.load(response)
+    except Exception as error: fail(f"OIDC discovery failed: {type(error).__name__}")
+    if document.get("issuer", "").rstrip("/") != issuer: fail("OIDC discovery issuer does not match")
+    if not str(document.get("jwks_uri", "")).startswith("https://"): fail("OIDC discovery must publish an HTTPS jwks_uri")
+PY
+}
+
+write_state_setting() {
+  tmp="$env_file.tmp"
+  if [ -f "$env_file" ]; then
+    awk '$0 !~ /^PERSONAL_STATE_DIR=/' "$env_file" > "$tmp"
+  else
+    : > "$tmp"
+  fi
+  printf '\nPERSONAL_STATE_DIR=%s\n' "$state_dir" >> "$tmp"
+  mv "$tmp" "$env_file"
+  chmod 0600 "$env_file"
+}
+
+compose() {
+  docker compose --env-file "$env_file" -f "$compose_file" "$@"
+}
+
+command_name=${1:-help}
+case "$command_name" in
+  init)
+    [ -f "$env_file" ] || fail "copy .env.example to .env and configure it first"
+    prepare_directories
+    command -v openssl >/dev/null 2>&1 || fail "openssl is required"
+    generate_pki
+    install_generated_material
+    write_state_setting
+    validate_configuration
+    echo "Personal Secure material initialized in $state_dir"
+    ;;
+  check)
+    [ -d "$state_dir/bootstrap-secrets" ] || fail "run init first"
+    validate_configuration
+    compose config --quiet
+    echo "Personal Secure configuration: PASS"
+    ;;
+  up)
+    "$0" check
+    compose up -d --build
+    echo "Open http://127.0.0.1:$(env_value PERSONAL_PORT)/ (use SSH port forwarding for remote access)"
+    ;;
+  down)
+    compose down
+    ;;
+  status)
+    compose ps
+    ;;
+  *)
+    echo "Usage: $0 {init|check|up|down|status}" >&2
+    exit 2
+    ;;
+esac

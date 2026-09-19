@@ -42,6 +42,11 @@ open http://localhost:3000
 open http://localhost:3000/enterprise
 ```
 
+默认 Compose 仅限本机开发。需要单机个人部署时，使用独立的
+[Personal Secure 部署层](deploy/personal-secure/)；它强制 OIDC、随机文件型 Secret、内部 mTLS、
+受控代理出口、HTTPS 对象存储和完整 Agent/Reviewer/Outcome/Vision Worker 链，并且只绑定
+loopback。它不是公网反代模板；远程访问应使用 SSH 本地端口转发或经过评审的私有网络。
+
 ### 分步启动
 
 ```bash
@@ -83,7 +88,7 @@ CI 的 `make docs-check` 会拒绝模块表漂移和 README 本地链接失效�
 | `packages/` | [contracts](packages/contracts/) |
 | `sdks/` | [go](sdks/go/)、[java](sdks/java/)、[python](sdks/python/)、[typescript](sdks/typescript/) |
 | `database/` | [migrations](database/migrations/)、[online-migrations](database/online-migrations/)、[seeds](database/seeds/) |
-| `deploy/` | [docker](deploy/docker/)、[kubernetes](deploy/kubernetes/)、[terraform](deploy/terraform/) |
+| `deploy/` | [docker](deploy/docker/)、[kubernetes](deploy/kubernetes/)、[personal-secure](deploy/personal-secure/)、[terraform](deploy/terraform/) |
 | `tools/` | [browser-session-operator](tools/browser-session-operator/)、[docs](tools/docs/)、[sdk](tools/sdk/)、[supply-chain](tools/supply-chain/) |
 
 <!-- END GENERATED MODULES -->

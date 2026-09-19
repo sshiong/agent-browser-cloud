@@ -1,0 +1,358 @@
+x-runtime-hardening: &runtime-hardening
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=128m
+
+x-worker-common: &worker-common
+  <<: *runtime-hardening
+  build:
+    context: ../../apps/agent-worker
+    dockerfile: Dockerfile
+  depends_on:
+    worker-gateway:
+      condition: service_started
+    control-plane:
+      condition: service_healthy
+  networks: [core, egress]
+
+services:
+  secret-init:
+    image: alpine:3.22
+    restart: "no"
+    user: "0:0"
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE]
+    security_opt: [no-new-privileges:true]
+    command:
+      - /bin/sh
+      - -euc
+      - |
+        copy_tree() {
+          source_dir="/source/$$1"
+          target_dir="/out/$$1"
+          rm -f "$$target_dir"/*
+          cp "$$source_dir"/* "$$target_dir"/
+          chown -R 65532:65532 "$$target_dir"
+          chmod 0700 "$$target_dir"
+          chmod 0400 "$$target_dir"/*
+        }
+        for name in control-plane browser-node storage-helper network-helper gateway agent-worker reviewer-worker outcome-worker vision-worker; do
+          copy_tree "$$name"
+        done
+        cp /source/postgres/password /out/postgres/password
+        cp /source/redis/password /out/redis/password
+        chmod 0444 /out/postgres/password /out/redis/password
+    volumes:
+      - ${PERSONAL_STATE_DIR:?run personal-secure init}/bootstrap-secrets:/source:ro
+      - control_plane_secrets:/out/control-plane
+      - browser_node_secrets:/out/browser-node
+      - storage_helper_secrets:/out/storage-helper
+      - network_helper_secrets:/out/network-helper
+      - gateway_secrets:/out/gateway
+      - agent_worker_secrets:/out/agent-worker
+      - reviewer_worker_secrets:/out/reviewer-worker
+      - outcome_worker_secrets:/out/outcome-worker
+      - vision_worker_secrets:/out/vision-worker
+      - postgres_secrets:/out/postgres
+      - redis_secrets:/out/redis
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: browsercloud
+      POSTGRES_USER: browsercloud
+      POSTGRES_PASSWORD_FILE: /run/browsercloud/secrets/password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - postgres_secrets:/run/browsercloud/secrets:ro
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U browsercloud]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      secret-init: {condition: service_completed_successfully}
+    networks: [core]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    entrypoint: [/bin/sh, -euc]
+    command: ['exec redis-server --appendonly yes --requirepass "$$(cat /run/browsercloud/secrets/password)"']
+    volumes:
+      - redis_data:/data
+      - redis_secrets:/run/browsercloud/secrets:ro
+    healthcheck:
+      test: [CMD-SHELL, 'redis-cli -a "$$(cat /run/browsercloud/secrets/password)" ping | grep -q PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      secret-init: {condition: service_completed_successfully}
+    networks: [core]
+
+  control-plane:
+    <<: *runtime-hardening
+    build:
+      context: ../..
+      dockerfile: apps/control-plane/Dockerfile
+    environment:
+      APP_ENVIRONMENT: personal
+      DATABASE_URL: jdbc:postgresql://postgres:5432/browsercloud
+      DATABASE_USER: browsercloud
+      DATABASE_PASSWORD_FILE: /run/browsercloud/secrets/database-password
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD_FILE: /run/browsercloud/secrets/redis-password
+      OIDC_ISSUER_URI: ${PERSONAL_OIDC_ISSUER:?OIDC issuer required}
+      OIDC_AUDIENCE: ${PERSONAL_OIDC_AUDIENCE:?OIDC API audience required}
+      OIDC_TENANT_CLAIM: ${PERSONAL_OIDC_TENANT_CLAIM:-tenant_id}
+      OIDC_ROLES_CLAIM: ${PERSONAL_OIDC_ROLES_CLAIM:-roles}
+      BROWSER_NODE_GRPC_TARGET: browser-node:9090
+      BROWSER_NODE_TLS_SERVER_NAME: browser-node.internal
+      CONTROL_PLANE_NODE_EVENT_PORT: 9091
+      GRPC_TLS_ENABLED: "true"
+      GRPC_TLS_CA_CERT: /run/browsercloud/secrets/ca.crt
+      GRPC_TLS_CERT: /run/browsercloud/secrets/tls.crt
+      GRPC_TLS_KEY: /run/browsercloud/secrets/tls.key
+      REMOTE_DESKTOP_TICKET_SECRET_FILE: /run/browsercloud/secrets/remote-desktop-ticket
+      AGENT_CAPABILITY_TOKEN_SECRET_FILE: /run/browsercloud/secrets/agent-capability-token
+      AGENT_ACTION_PAYLOAD_SECRET_FILE: /run/browsercloud/secrets/agent-action-payload
+      AUDIT_EXPORT_SIGNING_KEY_FILE: /run/browsercloud/secrets/audit-export-signing-key
+      AUDIT_EXPORT_SIGNING_KEY_ID: personal-generated-v1
+      AGENT_EXTERNAL_WORKER_ENABLED: "true"
+      AGENT_REVIEWER_EXTERNAL_ENABLED: "true"
+      AGENT_REVIEWER_DEPLOYMENT_ID: personal-reviewer-v1
+      AGENT_REVIEWER_MODEL_NAME: ${PERSONAL_MODEL_NAME:?model name required}
+      AGENT_REVIEWER_MODEL_REVISION: ${PERSONAL_MODEL_REVISION:-personal-v1}
+      AGENT_OUTCOME_VERIFIER_EXTERNAL_ENABLED: "true"
+      AGENT_OUTCOME_VERIFIER_DEPLOYMENT_ID: personal-outcome-v1
+      AGENT_OUTCOME_VERIFIER_MODEL_NAME: ${PERSONAL_MODEL_NAME:?model name required}
+      AGENT_OUTCOME_VERIFIER_MODEL_REVISION: ${PERSONAL_MODEL_REVISION:-personal-v1}
+      CHALLENGE_VISION_DEPLOYMENT_ID: personal-vision-v1
+      CHALLENGE_VISION_MODEL_REVISION: ${PERSONAL_MODEL_REVISION:-personal-v1}
+      PROXY_ALLOW_DIRECT: "false"
+      PROXY_PROVIDER_CONFIG_FILE: /run/browsercloud/secrets/providers.json
+      BROWSER_DENSITY_BOOTSTRAP_LOCAL_NODE_ENABLED: "false"
+    volumes:
+      - control_plane_secrets:/run/browsercloud/secrets:ro
+    healthcheck:
+      test: [CMD-SHELL, 'wget -q -O - http://127.0.0.1:8080/actuator/health | grep -q ''"status":"UP"''']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    depends_on:
+      secret-init: {condition: service_completed_successfully}
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      browser-node: {condition: service_started}
+    networks: [core, egress]
+
+  browser-storage-init:
+    build:
+      context: ../..
+      dockerfile: apps/browser-node/Dockerfile
+    user: "0:0"
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN]
+    security_opt: [no-new-privileges:true]
+    entrypoint: [/bin/sh, -euc]
+    command:
+      - mkdir -p /runtime /profiles /helpers && chown -R 65532:65532 /runtime /profiles /helpers
+    volumes:
+      - browser_runtime:/runtime
+      - profile_storage:/profiles
+      - helper_ipc:/helpers
+
+  storage-helper:
+    <<: *runtime-hardening
+    build:
+      context: ../..
+      dockerfile: apps/browser-node/Dockerfile
+    entrypoint: [/usr/bin/tini, --, /usr/local/bin/storage-helper]
+    environment:
+      APP_ENVIRONMENT: personal
+      NODE_AGENT_UID: "65532"
+      OBJECT_STORAGE_ENABLED: "true"
+      OBJECT_STORAGE_ENDPOINT: ${PERSONAL_OBJECT_STORAGE_ENDPOINT:?HTTPS object storage required}
+      OBJECT_STORAGE_BUCKET: ${PERSONAL_OBJECT_STORAGE_BUCKET:?object storage bucket required}
+      OBJECT_STORAGE_REGION: ${PERSONAL_OBJECT_STORAGE_REGION:-us-east-1}
+      OBJECT_STORAGE_ACCESS_KEY_ID: ${PERSONAL_OBJECT_STORAGE_ACCESS_KEY_ID:?access key id required}
+      OBJECT_STORAGE_SECRET_ACCESS_KEY_FILE: /run/browsercloud/secrets/object-storage-secret
+      PROFILE_ARCHIVE_KEYRING_FILE: /run/browsercloud/secrets/profile-archive-keyring.json
+      PROFILE_STORAGE_ROOT: /var/lib/browsercloud/profiles
+      STORAGE_HELPER_SOCKET: /var/run/browsercloud/helpers/storage.sock
+    volumes:
+      - storage_helper_secrets:/run/browsercloud/secrets:ro
+      - profile_storage:/var/lib/browsercloud/profiles
+      - helper_ipc:/var/run/browsercloud/helpers
+    depends_on:
+      secret-init: {condition: service_completed_successfully}
+      browser-storage-init: {condition: service_completed_successfully}
+    networks: [core, egress]
+
+  network-helper:
+    <<: *runtime-hardening
+    build:
+      context: ../..
+      dockerfile: apps/browser-node/Dockerfile
+    entrypoint: [/usr/bin/tini, --, /usr/local/bin/network-helper]
+    environment:
+      APP_ENVIRONMENT: personal
+      NODE_AGENT_UID: "65532"
+      NETWORK_HELPER_SOCKET: /var/run/browsercloud/helpers/network.sock
+      PROXY_PROVIDER_CONFIG_FILE: /run/browsercloud/secrets/providers.json
+    volumes:
+      - network_helper_secrets:/run/browsercloud/secrets:ro
+      - helper_ipc:/var/run/browsercloud/helpers
+    depends_on:
+      secret-init: {condition: service_completed_successfully}
+      browser-storage-init: {condition: service_completed_successfully}
+      egress-proxy: {condition: service_started}
+    networks: [core]
+
+  egress-proxy:
+    image: ubuntu/squid:6.10-24.10_edge
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, SETGID, SETUID]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp:rw,noexec,nosuid,nodev,size=64m, /var/spool/squid:rw,nosuid,nodev,size=64m]
+    volumes:
+      - ./squid.conf:/etc/squid/squid.conf:ro
+    networks: [core, egress]
+
+  browser-node:
+    <<: *runtime-hardening
+    build:
+      context: ../..
+      dockerfile: apps/browser-node/Dockerfile
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=../docker/chromium-seccomp.json
+    environment:
+      APP_ENVIRONMENT: personal
+      NODE_AGENT_PORT: 9090
+      NODE_ID: node_personal_1
+      NODE_REGION: personal
+      NODE_ADVERTISED_GRPC_TARGET: browser-node:9090
+      CONTROL_PLANE_EVENT_TARGET: control-plane:9091
+      CONTROL_PLANE_TLS_SERVER_NAME: control-plane.internal
+      GRPC_TLS_ENABLED: "true"
+      GRPC_TLS_CA_CERT: /run/browsercloud/secrets/ca.crt
+      GRPC_TLS_CERT: /run/browsercloud/secrets/tls.crt
+      GRPC_TLS_KEY: /run/browsercloud/secrets/tls.key
+      CHROMIUM_PATH: /usr/bin/chromium
+      RUNTIME_ROOT: /var/lib/browsercloud/runtime
+      NODE_JOURNAL_PATH: /var/lib/browsercloud/runtime/node-journal.sqlite3
+      PROFILE_STORAGE_ROOT: /var/lib/browsercloud/profiles
+      STORAGE_HELPER_SOCKET: /var/run/browsercloud/helpers/storage.sock
+      NETWORK_HELPER_SOCKET: /var/run/browsercloud/helpers/network.sock
+      ALLOW_DIRECT_NETWORK: "false"
+      REMOTE_DESKTOP_GATEWAY_PORT: 6080
+      REMOTE_DESKTOP_TICKET_SECRET_FILE: /run/browsercloud/secrets/remote-desktop-ticket
+      REMOTE_DESKTOP_ALLOWED_ORIGINS: http://127.0.0.1:${PERSONAL_PORT:-3000},http://localhost:${PERSONAL_PORT:-3000}
+    volumes:
+      - browser_node_secrets:/run/browsercloud/secrets:ro
+      - browser_runtime:/var/lib/browsercloud/runtime
+      - profile_storage:/var/lib/browsercloud/profiles
+      - helper_ipc:/var/run/browsercloud/helpers
+    depends_on:
+      secret-init: {condition: service_completed_successfully}
+      browser-storage-init: {condition: service_completed_successfully}
+      storage-helper: {condition: service_started}
+      network-helper: {condition: service_started}
+    networks: [core]
+
+  worker-gateway:
+    image: nginxinc/nginx-unprivileged:1.27-alpine
+    restart: unless-stopped
+    user: "65532:65532"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp:rw,noexec,nosuid,nodev,size=32m]
+    command: [nginx, -c, /etc/browsercloud/nginx.conf, -g, daemon off;]
+    volumes:
+      - ./worker-gateway.conf:/etc/browsercloud/nginx.conf:ro
+      - gateway_secrets:/run/browsercloud/secrets:ro
+    depends_on:
+      secret-init: {condition: service_completed_successfully}
+    networks: [core]
+
+  agent-worker:
+    <<: *worker-common
+    command: [--control-plane-url, https://worker-gateway:8443, --control-plane-token-file, /run/browsercloud/secrets/token, --control-plane-ca-file, /run/browsercloud/secrets/ca.crt, --worker-id, personal-agent-1, --environment, production]
+    volumes: [agent_worker_secrets:/run/browsercloud/secrets:ro]
+
+  reviewer-worker:
+    <<: *worker-common
+    entrypoint: [/usr/bin/tini, --, python, /app/reviewer_worker.py]
+    command: [--control-plane-url, "https://worker-gateway:8443", --control-plane-token-file, /run/browsercloud/secrets/token, --control-plane-ca-file, /run/browsercloud/secrets/ca.crt, --worker-id, personal-reviewer-1, --deployment-id, personal-reviewer-v1, --model-endpoint, "${PERSONAL_MODEL_ENDPOINT:?model endpoint required}", --model-api-key-file, /run/browsercloud/secrets/model-api-key, --model-name, "${PERSONAL_MODEL_NAME:?model name required}", --model-revision, "${PERSONAL_MODEL_REVISION:-personal-v1}", --allowed-model-host, "${PERSONAL_MODEL_HOST:?model host required}", --environment, production]
+    volumes: [reviewer_worker_secrets:/run/browsercloud/secrets:ro]
+
+  outcome-verifier-worker:
+    <<: *worker-common
+    entrypoint: [/usr/bin/tini, --, python, /app/outcome_verifier_worker.py]
+    command: [--control-plane-url, "https://worker-gateway:8443", --control-plane-token-file, /run/browsercloud/secrets/token, --control-plane-ca-file, /run/browsercloud/secrets/ca.crt, --worker-id, personal-outcome-1, --deployment-id, personal-outcome-v1, --model-endpoint, "${PERSONAL_MODEL_ENDPOINT:?model endpoint required}", --model-api-key-file, /run/browsercloud/secrets/model-api-key, --model-name, "${PERSONAL_MODEL_NAME:?model name required}", --model-revision, "${PERSONAL_MODEL_REVISION:-personal-v1}", --allowed-model-host, "${PERSONAL_MODEL_HOST:?model host required}", --environment, production]
+    volumes: [outcome_worker_secrets:/run/browsercloud/secrets:ro]
+
+  vision-worker:
+    <<: *worker-common
+    entrypoint: [/usr/bin/tini, --, python, /app/vision_worker.py]
+    command: [--control-plane-url, "https://worker-gateway:8443", --control-plane-token-file, /run/browsercloud/secrets/token, --control-plane-ca-file, /run/browsercloud/secrets/ca.crt, --worker-id, personal-vision-1, --deployment-id, personal-vision-v1, --model-endpoint, "${PERSONAL_MODEL_ENDPOINT:?model endpoint required}", --model-api-key-file, /run/browsercloud/secrets/model-api-key, --model-name, "${PERSONAL_MODEL_NAME:?model name required}", --model-revision, "${PERSONAL_MODEL_REVISION:-personal-v1}", --allowed-model-host, "${PERSONAL_MODEL_HOST:?model host required}", --allowed-screenshot-host, "${PERSONAL_OBJECT_STORAGE_HOST:?object storage host required}", --environment, production]
+    volumes: [vision_worker_secrets:/run/browsercloud/secrets:ro]
+
+  web-console:
+    <<: *runtime-hardening
+    build:
+      context: ../..
+      dockerfile: apps/web-console/Dockerfile
+      args:
+        VITE_AUTH_MODE: oidc
+        VITE_ENABLE_FIXTURES: "false"
+        VITE_API_BASE_URL: ""
+        VITE_OIDC_AUTHORITY: ${PERSONAL_OIDC_ISSUER:?OIDC issuer required}
+        VITE_OIDC_CLIENT_ID: ${PERSONAL_OIDC_CLIENT_ID:?OIDC client required}
+        VITE_OIDC_REDIRECT_URI: http://127.0.0.1:${PERSONAL_PORT:-3000}/auth/callback
+        VITE_OIDC_POST_LOGOUT_REDIRECT_URI: http://127.0.0.1:${PERSONAL_PORT:-3000}
+        VITE_OIDC_SCOPE: ${PERSONAL_OIDC_SCOPE:-openid profile offline_access}
+        VITE_OIDC_ROLES_CLAIM: ${PERSONAL_OIDC_ROLES_CLAIM:-roles}
+        VITE_OIDC_TENANT_CLAIM: ${PERSONAL_OIDC_TENANT_CLAIM:-tenant_id}
+    ports:
+      - 127.0.0.1:${PERSONAL_PORT:-3000}:8080
+    depends_on:
+      control-plane: {condition: service_healthy}
+    networks: [core]
+
+networks:
+  core:
+    internal: true
+    ipam:
+      config: [{subnet: 172.30.0.0/24}]
+  egress: {}
+
+volumes:
+  postgres_data: {}
+  redis_data: {}
+  browser_runtime: {}
+  profile_storage: {}
+  helper_ipc: {}
+  control_plane_secrets: {}
+  browser_node_secrets: {}
+  storage_helper_secrets: {}
+  network_helper_secrets: {}
+  gateway_secrets: {}
+  agent_worker_secrets: {}
+  reviewer_worker_secrets: {}
+  outcome_worker_secrets: {}
+  vision_worker_secrets: {}
+  postgres_secrets: {}
+  redis_secrets: {}

@@ -10358,8 +10358,11 @@ async fn main() -> Result<()> {
         Some(Arc::new(client))
     };
     let local_ticket_secret = "browsercloud-local-remote-desktop-ticket-secret-v1";
-    let ticket_secret = std::env::var("REMOTE_DESKTOP_TICKET_SECRET")
-        .unwrap_or_else(|_| local_ticket_secret.to_owned());
+    let ticket_secret = secret_environment(
+        "REMOTE_DESKTOP_TICKET_SECRET",
+        "REMOTE_DESKTOP_TICKET_SECRET_FILE",
+    )?
+    .unwrap_or_else(|| local_ticket_secret.to_owned());
     let allowed_origins = std::env::var("REMOTE_DESKTOP_ALLOWED_ORIGINS")
         .unwrap_or_default()
         .split(',')
@@ -10577,6 +10580,35 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+fn secret_environment(value_name: &str, file_name: &str) -> anyhow::Result<Option<String>> {
+    if let Ok(value) = std::env::var(value_name) {
+        let value = value.trim().to_owned();
+        anyhow::ensure!(!value.is_empty(), "{value_name} cannot be empty");
+        return Ok(Some(value));
+    }
+    let Ok(path) = std::env::var(file_name) else {
+        return Ok(None);
+    };
+    let path = std::path::PathBuf::from(path);
+    anyhow::ensure!(path.is_absolute(), "{file_name} must be an absolute path");
+    let metadata = std::fs::symlink_metadata(&path)?;
+    anyhow::ensure!(
+        metadata.file_type().is_file() && !metadata.file_type().is_symlink(),
+        "{file_name} must reference a regular non-symlink file"
+    );
+    anyhow::ensure!(
+        metadata.len() > 0 && metadata.len() <= 8192,
+        "{file_name} size is invalid"
+    );
+    let value = std::fs::read_to_string(path)?;
+    let value = value.trim().to_owned();
+    anyhow::ensure!(
+        !value.is_empty() && !value.contains(['\r', '\n', '\0']),
+        "{file_name} must contain one non-empty line"
+    );
+    Ok(Some(value))
+}
+
 async fn shutdown_signal() {
     #[cfg(unix)]
     {
@@ -10606,6 +10638,30 @@ async fn shutdown_signal() {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn secret_environment_reads_file_without_exposing_value_in_configuration() {
+        let root = std::env::temp_dir().join(format!(
+            "browsercloud-node-secret-test-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let secret = root.join("ticket");
+        std::fs::write(&secret, "file-secret-value\n").unwrap();
+        let value_name = "NODE_AGENT_TEST_SECRET_VALUE";
+        let file_name = "NODE_AGENT_TEST_SECRET_FILE";
+        unsafe {
+            std::env::remove_var(value_name);
+            std::env::set_var(file_name, &secret);
+        }
+        let value = super::secret_environment(value_name, file_name).unwrap();
+        unsafe {
+            std::env::remove_var(file_name);
+        }
+        assert_eq!(value.as_deref(), Some("file-secret-value"));
+        std::fs::remove_file(secret).unwrap();
+        std::fs::remove_dir(root).unwrap();
+    }
+
     #[test]
     fn unknown_deployment_names_cannot_enable_plaintext_grpc() {
         for environment in ["production", "staging", "prod", "LOCAL", "test ", ""] {

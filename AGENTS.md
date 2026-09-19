@@ -134,6 +134,9 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - [已确认] Profile 导入/用途绑定一次性导出、Proxy Provider/Binding/探测/自动路由、Safe Point Rebind 已实现。
 - [已确认] Tauri 2 容器、OS 安全存储、系统浏览器 OIDC/Deep Link 和 Updater Gate 已实现；Web 与 Desktop 复用业务 UI。
 - [已确认] Validation Matrix、Recovery GameDay、Cost/SLO/Retention/Compliance/Residency/DR Registry、Error Budget Freeze、Terraform、四语言 SDK 和统一发布包已实现。
+- [已确认] 独立 Personal Secure 单机部署层只绑定 loopback，强制非 Local OIDC/API Audience、
+  随机文件 Secret、数据库/Redis 认证、内部 mTLS、完整四 Worker 独立身份/进程、受控 Browser
+  出口、HTTPS 对象/模型端点和加密 Profile；它不是公网反代模板或 V16 生产认证，见 progress 188。
 
 ### AUTO 资源治理
 
@@ -395,7 +398,12 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   `snapshot/find/inspect/act/wait/handoff`。`act` 复用既有动态微批和风险链；`wait`、`handoff`
   只暴露有界输入并转换为持久 `WAIT_FOR`/`REQUEST_HUMAN_TAKEOVER` Task，继续经过精确 State
   Cursor、Reviewer、Capability、人工治理和 Outcome Verification。旧 `execute-actions` 保留为
-  deprecated 兼容别名。A21 仓库内通用代码项已关闭；A22 Personal Secure 一键部署是下一主线。
+  deprecated 兼容别名。A21 仓库内通用代码项已关闭。
+
+- progress 188：独立 Personal Secure 单机部署层已闭环 A22 仓库代码项。它不复用开发身份，
+  只绑定 loopback，使用真实 OIDC/API Audience、随机文件 Secret、内部 mTLS、四 Worker 独立
+  进程/身份、受控出口、HTTPS 对象/模型与加密 Profile；不允许据此直接反代公网。A01 默认开发
+  Compose 完整 Worker 链是下一主线。
 
 - progress 186：DOM、Layout、Focus、Route 的连续权威采样已与 Network 组合为统一页面稳定
   证据；单动作和动态微批至少等待全部组件安静 250ms，控制面 Outcome 稳定要求全部组件至少
@@ -564,9 +572,9 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   `docs/progress/165-Agent可靠性与个人安全部署修复清单.md` 的 A01—A24 为实施账本。
   第一切片已加三 Worker 有界退避、Vision lease-lost 主流程阻断和 finally 心跳清理；
   Local Header 仅允许显式 local/test，其他环境进入 OIDC 链。语义目标、Expected Outcome 和
-  Challenge 像素隐私、动态微批次及 Reviewer 风险路由已由 progress 175、174、176、177、178
-  关闭；后续仍须完整 Compose、
-  取消、加密和 Personal Secure 验收。
+  Challenge 像素隐私、动态微批次、Reviewer 风险路由、取消、Profile 加密和 Personal Secure
+  已由 progress 175、174、176、177、178、181、183、188 关闭；后续仍须默认开发 Compose 的
+  完整 Worker 链。
   不得把 Worker 心跳修复冒充已完成浏览器长操作取消。仓库许可证元数据 MIT/UNLICENSED
   不一致，未经权利人选择不得擅自对整个仓库授予新许可证。
 - progress 167/175：Element ID/target_ref 新增名称/角色/控件类型/Route/Tab 及最近业务实体

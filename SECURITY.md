@@ -28,6 +28,10 @@ impact, and any mitigation. Test only systems and data you own or are authorized
   [the remaining-work register](docs/progress/33-当前未实现清单.md).
 - Default development signing/encryption keys and database credentials must not be reused outside
   localhost. Changing only the public port, TLS proxy, or frontend login is not sufficient.
+- The supported single-host personal profile is documented in
+  [Personal Secure](deploy/personal-secure/). It binds only to loopback and requires OIDC with a
+  dedicated API audience, file-backed generated secrets, internal mTLS and separate worker
+  identities. It is not a public reverse-proxy or V16 production-certification profile.
 - Profile/checkpoint/recording and screenshot data are sensitive. Do not share raw artifacts in bug
   reports. DOM redaction is not proof that image, canvas, or PDF pixels contain no personal data.
 - Supported security fixes are tracked on `main`; no historical release support window or

@@ -14,8 +14,8 @@ FROM debian:bookworm-slim
 RUN apt-get update \
     && apt-get install --no-install-recommends -y ca-certificates chromium chromium-sandbox tini xvfb x11vnc \
     && rm -rf /var/lib/apt/lists/* \
-    && groupadd --system browsercloud \
-    && useradd --system --gid browsercloud --home-dir /var/lib/browsercloud browsercloud \
+    && groupadd --gid 65532 browsercloud \
+    && useradd --uid 65532 --gid browsercloud --no-log-init --home-dir /var/lib/browsercloud browsercloud \
     && mkdir -p /var/lib/browsercloud/runtime \
     && chown -R browsercloud:browsercloud /var/lib/browsercloud
 COPY --from=build /workspace/apps/browser-node/target/release/node-agent /usr/local/bin/node-agent

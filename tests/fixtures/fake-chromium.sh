@@ -177,6 +177,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             command = json.loads(request)
             method = command.get("method")
+            browser_events = []
             if method == "Browser.close":
                 # Match graceful Chromium shutdown for Profile checkpoint lifecycle tests.
                 os._exit(0)
@@ -488,6 +489,14 @@ class Handler(BaseHTTPRequestHandler):
                     }
                     active_page_id = page_id
                 response = {"id": command["id"], "result": {"targetId": page_id}}
+                browser_events.append({
+                    "method": "Target.attachedToTarget",
+                    "params": {
+                        "sessionId": f"fake-page-session-{page_id}",
+                        "targetInfo": {"targetId": page_id, "type": "page"},
+                        "waitingForDebugger": False,
+                    },
+                })
             elif method == "Target.activateTarget":
                 page_id = command.get("params", {}).get("targetId")
                 with pages_lock:
@@ -511,6 +520,11 @@ class Handler(BaseHTTPRequestHandler):
                         if active_page_id == page_id:
                             active_page_id = next(iter(pages))
                 response = {"id": command["id"], "result": {"success": success}}
+                if success:
+                    browser_events.append({
+                        "method": "Target.detachedFromTarget",
+                        "params": {"sessionId": f"fake-page-session-{page_id}"},
+                    })
             elif method == "Performance.getMetrics":
                 response = {
                     "id": command["id"],
@@ -718,6 +732,17 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 response = {"id": command.get("id", 1), "result": {}}
             self.write_websocket_text(json.dumps(response))
+            if browser_events:
+                with browser_connections_lock:
+                    connections = list(browser_connections)
+                for connection in connections:
+                    try:
+                        for event in browser_events:
+                            connection.write_websocket_text(json.dumps(event))
+                    except (BrokenPipeError, ConnectionError, OSError):
+                        with browser_connections_lock:
+                            if connection in browser_connections:
+                                browser_connections.remove(connection)
             if method == "Target.setAutoAttach":
                 self.write_websocket_text(json.dumps({
                     "method": "Target.attachedToTarget",

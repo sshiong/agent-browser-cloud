@@ -46,6 +46,11 @@ Agent Executor、Reviewer 和 Outcome Verifier 队列，也没有 Vision Worker�
   `agent_task_outcome_verification=true`、`agent_reviewer_risk_routing=true`、
   `challenge_visual_pixel_privacy=true`、`audit_chain_valid=true`，公开契约保持 250 Operations /
   345 Schemas。
+- 实现提交 `f7810af` 首轮 GitHub `desktop` run `35445798305` 成功；首轮 Linux CI 发现 BSD
+  `stat -f` 在 GNU `stat` 上被解释为文件系统格式并返回成功，导致权限值误判。兼容修复
+  `fbc5179` 改为先使用 GNU `stat -c`、失败后回退 BSD `stat -f`，本地重新通过完整 `make ci`。
+  最终 GitHub `ci` run `35446270368`（Verify、供应链、完整 Integration、Object Storage/Recording
+  GameDay、Kubernetes Operator E2E）及 `desktop` run `35446270328`（Windows/macOS）均成功。
 
 ## 边界
 

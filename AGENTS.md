@@ -2,7 +2,7 @@
 
 > 更新日期：2026-09-19
 > 基准分支：`main`
-> 编写时基准提交：`8725d56 feat: add personal secure deployment`
+> 编写时基准提交：`fbc5179 fix: make compose secret mode check portable`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -237,8 +237,11 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   `make compose-up` 构建并启动完整栈，Control Plane 与 Agent/Reviewer/Outcome/Vision 四 Worker
   均在成功访问权威队列后 healthy，`compose-verify` 通过并确认模型 Key 未进入环境变量。验收未
   冒充真实模型调用；完整 `make ci`/`make build`、Desktop test/lint/unsigned build 与完整
-  PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过，目标 Provider 任务仍为部署 Gate，
-  见 progress 189。
+  PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过。实现提交 `f7810af` 与 GNU/BSD
+  `stat` 权限检查兼容修复 `fbc5179` 的 GitHub `ci` run `35446270368`（含 Verify、供应链、
+  完整 Integration、Object Storage/Recording GameDay 与 Kubernetes Operator E2E）和
+  `desktop` run `35446270328`（Windows/macOS）均成功；目标 Provider 任务仍为部署 Gate，见
+  progress 189。
 
 - Personal Secure 单机部署切片本地专用测试 4 项、Control Plane 定向安全测试、Rust 定向与
   Workspace 测试、完整 `make ci`/`make build`、Desktop test/lint/unsigned build、四类生产

@@ -1,0 +1,9 @@
+# Narrow exceptions for intentional protocol semantics that Redocly 1.34 cannot infer.
+packages/contracts/openapi/session-api.yaml:
+  operation-2xx-response:
+    # This compatibility route always returns the documented SESSION_CONFIG_LOCKED conflict.
+    - '#/paths/~1api~1v1~1sessions~1{sessionId}~1identity-spec/put/responses'
+  no-unused-components:
+    # These payloads are referenced by x-sse-event-schemas; the linter ignores extension refs.
+    - '#/components/schemas/EnterpriseOverviewStreamControl'
+    - '#/components/schemas/EnterpriseOverviewStreamChange'

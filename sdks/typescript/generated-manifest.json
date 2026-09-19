@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "f93ded35d0989e0c1b715916f5ab3400ef87ac1081a1a73829cf39adb8df3e5c",
+  "contractSha256": "686fddf889444679dc12bdc8bf8acc756911476fd861010dc47291172c41736a",
   "files": {
     "BrowserCloudGeneratedClient.ts": "9af238a7342b4202ace30c93c8fac304d101b48a600224c76ce2d59908979c4c",
     "core/ApiError.ts": "1340dca2bdae61fcf8c1d1a52004c43fb070eb6f084a20c56423ee00f9d3a798",
@@ -382,7 +382,7 @@
     "models/WriteAgentClipboardRequest.ts": "3097443a905765fabf5487e2a35beb9f1ae271526a7ea3ce8c48a41735195d45",
     "services/AdministrationService.ts": "6cd3269b2b1dc736ba6a49c8e0260c1c4b7920ece26191baed9e2906d15753e6",
     "services/AgentSafetyService.ts": "0de28e81d55ab747f84a0bde7b4fd1d5ac9323a6e3698a24c6a658901edbe8ca",
-    "services/AgentService.ts": "bbb9343c56ebc15cfb0acab533331bde20209c1b4c58758bba4b4a4628704a86",
+    "services/AgentService.ts": "3b8e792f1ed6be3711a92de528b9cc30a78e377b7c7aba3809fbbd3234aa5103",
     "services/AgentToolService.ts": "529421b2038d536254729c59cf0b91baf55b911209162a787bca6771af0a6cf3",
     "services/AuditService.ts": "7d8232371f96bfd508c5a9de97b27f406c100ccf1e140b6e09d674f5df7c466e",
     "services/BusinessRecoveryService.ts": "8549251ae6f2b16012e421740944f9c4d20909f3af8f1a06274d488ae1c440c1",
@@ -409,7 +409,7 @@
     "services/SavedViewService.ts": "3917820daf3ad127569135eff7a42bd483e9e6b493a42c697bb92732e389d9b6",
     "services/SearchService.ts": "e9a377b859d1739f541427e82014cce14fe7db5d87811d6bd3f19264934d537e",
     "services/SecurityService.ts": "98216738f7b7c46fca65525ea7f3ed5c272ed6bcded877d1950c04331759e9ed",
-    "services/SessionService.ts": "301749260d304e411b1dbc3468540cab119935c48df178536e7ac72c9065f51d",
+    "services/SessionService.ts": "fbc69edc1f36e5157afa4312a0a8cf094e6ed37237dca1eb866d6aab0ebdbccd",
     "services/SettingsService.ts": "c5ed6d84ca3ae8afe42a9376c616bc76e8bba365145552a8db0b159c9ded312f",
     "services/SloService.ts": "5c2cb8e04af3245a690ef846dca3a3f0cb2e44bfef88b5dbf73c4bcd68ea86c1",
     "services/StateService.ts": "2509a5585de00ceeebff95d71fa4e8b34d5fc6c625ad67d0a89df3a5b6201fa8",

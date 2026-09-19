@@ -172,6 +172,22 @@ fn micro_batch_state_is_settled(previous: &CurrentState, current: &CurrentState)
         && previous.content_hash == current.content_hash
 }
 
+fn challenge_state_fence_matches(
+    structural_click: bool,
+    current_state_version: u64,
+    current_content_hash: &str,
+    base_state_version: u64,
+    base_content_hash: &str,
+) -> bool {
+    if structural_click {
+        current_state_version >= base_state_version
+            && (current_state_version != base_state_version
+                || current_content_hash == base_content_hash)
+    } else {
+        current_state_version == base_state_version && current_content_hash == base_content_hash
+    }
+}
+
 fn opaque_frame_screenshot_clip(
     current: &CurrentState,
     frame_ref: &str,
@@ -4215,10 +4231,36 @@ impl NodeControlService {
         let deadline = tokio::time::Instant::now() + MICRO_BATCH_SETTLE_TIMEOUT;
         let mut previous = current.clone();
         loop {
-            anyhow::ensure!(
-                tokio::time::Instant::now() < deadline,
-                "dynamic page did not settle before micro-batch deadline"
-            );
+            if tokio::time::Instant::now() >= deadline {
+                let network_observation = self
+                    .state_collector
+                    .browser_safety_observation(session_id)
+                    .await;
+                let active_network_requests = network_observation
+                    .active_network_request_count_for_tab(&previous.active_tab_id);
+                let active_network_request_kinds = network_observation
+                    .active_network_request_kinds_for_tab(&previous.active_tab_id);
+                anyhow::bail!(
+                    "dynamic page did not settle before micro-batch deadline \
+                     (state_version={}, target_revision={}, document_ready_state={}, \
+                     network_fresh={}, network_quiet_ms={}, active_tab_network_requests={:?}, \
+                     active_tab_network_request_kinds={:?}, stability_fresh={}, \
+                     dom_quiet_ms={}, layout_quiet_ms={}, focus_quiet_ms={}, \
+                     route_quiet_ms={})",
+                    previous.state_version,
+                    previous.target_revision,
+                    previous.document_ready_state,
+                    previous.network_evidence_fresh,
+                    previous.network_quiet_millis,
+                    active_network_requests,
+                    active_network_request_kinds,
+                    previous.page_stability.evidence_fresh,
+                    previous.page_stability.dom_quiet_millis,
+                    previous.page_stability.layout_quiet_millis,
+                    previous.page_stability.focus_quiet_millis,
+                    previous.page_stability.route_quiet_millis,
+                );
+            }
             tokio::time::sleep(MICRO_BATCH_SETTLE_POLL).await;
             let next = self
                 .state_collector
@@ -7010,11 +7052,17 @@ impl NodeControlService {
                                     .await
                             }
                         };
+                        let state_fence_matches = challenge_state_fence_matches(
+                            structural_click,
+                            current.state_version,
+                            &current.content_hash,
+                            payload.base_state_version,
+                            &payload.base_content_hash,
+                        );
                         if !matches!(
                             current.quality,
                             StateQuality::Complete | StateQuality::DepthLimited
-                        ) || current.state_version != payload.base_state_version
-                            || current.content_hash != payload.base_content_hash
+                        ) || !state_fence_matches
                         {
                             return self
                                 .challenge_automation_failed(
@@ -10812,6 +10860,29 @@ mod tests {
         current.network_quiet_millis = 1_000;
         current.page_stability.focus_quiet_millis = 0;
         assert!(!micro_batch_state_is_settled(&previous, &current));
+    }
+
+    #[test]
+    fn structural_challenge_revalidates_monotonic_state_while_vision_remains_exact() {
+        assert!(challenge_state_fence_matches(
+            true, 12, "new-hash", 11, "old-hash"
+        ));
+        assert!(!challenge_state_fence_matches(
+            true, 10, "old-hash", 11, "old-hash"
+        ));
+        assert!(!challenge_state_fence_matches(
+            true,
+            11,
+            "changed-hash",
+            11,
+            "old-hash"
+        ));
+        assert!(!challenge_state_fence_matches(
+            false, 12, "old-hash", 11, "old-hash"
+        ));
+        assert!(challenge_state_fence_matches(
+            false, 11, "old-hash", 11, "old-hash"
+        ));
     }
 
     #[test]

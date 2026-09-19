@@ -537,6 +537,9 @@ export class AgentService {
             query: {
                 'includeValue': includeValue,
             },
+            errors: {
+                404: `Resource not found.`,
+            },
         });
     }
     /**
@@ -849,6 +852,9 @@ export class AgentService {
             },
             headers: {
                 'X-Tenant-Id': xTenantId,
+            },
+            errors: {
+                404: `Resource not found.`,
             },
         });
     }

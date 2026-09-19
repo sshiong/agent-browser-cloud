@@ -128,6 +128,7 @@ pub struct BrowserSafetyObservation {
     pub active_critical_transaction_count: u32,
     pub active_network_request_count: u32,
     pub last_network_activity: Option<Instant>,
+    tab_network_activity: HashMap<String, TabNetworkActivity>,
     /// Completed entries remain bounded in-memory so Control Plane can persist them. No URL or
     /// local filesystem path crosses the Node boundary.
     pub downloads: Vec<BrowserDownload>,
@@ -151,6 +152,45 @@ impl BrowserSafetyObservation {
             .unwrap_or(u64::MAX)
             .min(MAX_NETWORK_QUIET_MILLIS)
     }
+
+    /// Returns network quiet evidence for the exact active Chromium Page target. Browser-level
+    /// safety accounting remains global, while action execution must not be stalled by unrelated
+    /// background tabs.
+    pub fn network_quiet_millis_for_tab(&self, tab_id: &str) -> u64 {
+        let Some(activity) = self.tab_network_activity.get(tab_id) else {
+            return 0;
+        };
+        if !self.fresh || activity.active_request_count > 0 {
+            return 0;
+        }
+        activity
+            .last_activity
+            .elapsed()
+            .as_millis()
+            .try_into()
+            .unwrap_or(u64::MAX)
+            .min(MAX_NETWORK_QUIET_MILLIS)
+    }
+
+    pub fn active_network_request_count_for_tab(&self, tab_id: &str) -> Option<u32> {
+        self.tab_network_activity
+            .get(tab_id)
+            .map(|activity| activity.active_request_count)
+    }
+
+    pub fn active_network_request_kinds_for_tab(&self, tab_id: &str) -> Vec<String> {
+        self.tab_network_activity
+            .get(tab_id)
+            .map(|activity| activity.active_request_kinds.clone())
+            .unwrap_or_default()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TabNetworkActivity {
+    active_request_count: u32,
+    active_request_kinds: Vec<String>,
+    last_activity: Instant,
 }
 
 #[derive(Debug, Deserialize)]
@@ -159,8 +199,10 @@ struct CdpVersion {
     web_socket_debugger_url: String,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 struct RequestActivity {
+    resource_type: String,
+    initiator_type: String,
     upload: bool,
     download: bool,
     form_submission: bool,
@@ -181,6 +223,8 @@ struct ActivityTracker {
     download_response_metadata: HashMap<String, DownloadResponseMetadata>,
     download_events_enabled: bool,
     network_sessions: HashSet<String>,
+    tab_by_network_session: HashMap<String, String>,
+    tab_last_network_activity: HashMap<String, Instant>,
     fresh_allowed: bool,
     was_fresh: bool,
     last_network_activity: Option<Instant>,
@@ -249,6 +293,38 @@ impl ActivityTracker {
             ),
             active_network_request_count: self.requests.len().try_into().unwrap_or(u32::MAX),
             last_network_activity: self.last_network_activity,
+            tab_network_activity: self
+                .tab_last_network_activity
+                .iter()
+                .map(|(tab_id, last_activity)| {
+                    let active_requests = self
+                        .requests
+                        .iter()
+                        .filter(|((session_id, _), _)| {
+                            self.tab_by_network_session.get(session_id) == Some(tab_id)
+                        })
+                        .map(|(_, activity)| activity)
+                        .collect::<Vec<_>>();
+                    let active_request_count = active_requests.len().try_into().unwrap_or(u32::MAX);
+                    let mut active_request_kinds = active_requests
+                        .into_iter()
+                        .map(|activity| {
+                            format!("{}:{}", activity.resource_type, activity.initiator_type)
+                        })
+                        .collect::<Vec<_>>();
+                    active_request_kinds.sort();
+                    active_request_kinds.dedup();
+                    active_request_kinds.truncate(8);
+                    (
+                        tab_id.clone(),
+                        TabNetworkActivity {
+                            active_request_count,
+                            active_request_kinds,
+                            last_activity: *last_activity,
+                        },
+                    )
+                })
+                .collect(),
             downloads: {
                 let mut values = self.browser_downloads.values().cloned().collect::<Vec<_>>();
                 values.sort_by(|left, right| {
@@ -267,8 +343,19 @@ impl ActivityTracker {
         self.last_network_activity = Some(Instant::now());
     }
 
+    fn mark_tab_network_activity(&mut self, session_id: &str) {
+        let now = Instant::now();
+        self.last_network_activity = Some(now);
+        if let Some(tab_id) = self.tab_by_network_session.get(session_id) {
+            self.tab_last_network_activity.insert(tab_id.clone(), now);
+        }
+    }
+
     fn remove_session(&mut self, session_id: &str) {
         self.network_sessions.remove(session_id);
+        if let Some(tab_id) = self.tab_by_network_session.remove(session_id) {
+            self.tab_last_network_activity.remove(&tab_id);
+        }
         let request_ids = self
             .requests
             .keys()
@@ -288,12 +375,29 @@ impl ActivityTracker {
         observation
     }
 
-    fn complete_request(&mut self, session_id: &str, request_id: &str) {
+    fn complete_request(&mut self, session_id: &str, request_id: &str) -> bool {
         if let Some(activity) = self
             .requests
             .remove(&(session_id.to_owned(), request_id.to_owned()))
         {
             self.hold_completed_transactions([activity]);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn complete_document_requests(&mut self, session_id: &str) {
+        let request_ids = self
+            .requests
+            .iter()
+            .filter(|((request_session, _), activity)| {
+                request_session == session_id && activity.resource_type == "Document"
+            })
+            .map(|((_, request_id), _)| request_id.clone())
+            .collect::<Vec<_>>();
+        for request_id in request_ids {
+            let _ = self.complete_request(session_id, &request_id);
         }
     }
 
@@ -378,6 +482,14 @@ fn active_or_settling_count(active: usize, settle_until: Option<Instant>) -> u32
 
 fn extend_deadline(deadline: &mut Option<Instant>, next: Instant) {
     *deadline = Some(deadline.map_or(next, |current| current.max(next)));
+}
+
+/// Chromium emits browser-service traffic (Autofill, Optimization Guide, account probes, and
+/// similar requests) through a Page target with an `other` initiator. Those requests are not
+/// caused by the active document and must not keep the page execution gate permanently busy.
+/// Top-level documents remain observable because user/browser navigations also use `other`.
+fn is_document_network_activity(resource_type: &str, initiator_type: &str) -> bool {
+    resource_type == "Document" || !initiator_type.eq_ignore_ascii_case("other")
 }
 
 pub(crate) fn spawn(
@@ -515,6 +627,7 @@ async fn observe_browser(
 
     let mut next_command_id = 8_100_i64;
     let mut network_enable_commands = HashMap::<i64, String>::new();
+    let mut page_enable_commands = HashSet::<i64>::new();
     loop {
         let message = match timeout(Duration::from_secs(1), socket.next()).await {
             Ok(Some(message)) => message,
@@ -536,7 +649,11 @@ async fn observe_browser(
             if let Some(network_session) = network_enable_commands.remove(&id) {
                 if event.get("error").is_none() {
                     tracker.network_sessions.insert(network_session);
+                } else {
+                    anyhow::bail!("required CDP Network.enable command failed");
                 }
+            } else if page_enable_commands.remove(&id) && event.get("error").is_some() {
+                anyhow::bail!("required CDP Page.enable command failed");
             } else if id == 8_003 && event.get("error").is_none() {
                 tracker.download_events_enabled = true;
             } else if event.get("error").is_some() && matches!(id, 8_001..=8_003) {
@@ -555,7 +672,7 @@ async fn observe_browser(
             .get("sessionId")
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default();
-        if method.starts_with("Network.") || method.starts_with("Browser.download") {
+        if method.starts_with("Browser.download") {
             tracker.mark_network_activity();
         }
         match method {
@@ -571,6 +688,17 @@ async fn observe_browser(
                     .and_then(serde_json::Value::as_str)
                     .ok_or_else(|| anyhow::anyhow!("attached Page Target has no sessionId"))?
                     .to_owned();
+                let target_id = event
+                    .pointer("/params/targetInfo/targetId")
+                    .and_then(serde_json::Value::as_str)
+                    .ok_or_else(|| anyhow::anyhow!("attached Page Target has no targetId"))?
+                    .to_owned();
+                tracker
+                    .tab_by_network_session
+                    .insert(attached_session.clone(), target_id.clone());
+                tracker
+                    .tab_last_network_activity
+                    .insert(target_id, Instant::now());
                 let command_id = next_command_id;
                 next_command_id = next_command_id.saturating_add(1);
                 send_command(
@@ -585,7 +713,18 @@ async fn observe_browser(
                     Some(&attached_session),
                 )
                 .await?;
-                network_enable_commands.insert(command_id, attached_session);
+                network_enable_commands.insert(command_id, attached_session.clone());
+                let page_command_id = next_command_id;
+                next_command_id = next_command_id.saturating_add(1);
+                send_command(
+                    &mut socket,
+                    page_command_id,
+                    "Page.enable",
+                    serde_json::json!({}),
+                    Some(&attached_session),
+                )
+                .await?;
+                page_enable_commands.insert(page_command_id);
             }
             "Target.detachedFromTarget" => {
                 tracker.mark_network_activity();
@@ -615,6 +754,14 @@ async fn observe_browser(
                         .pointer("/params/type")
                         .and_then(serde_json::Value::as_str)
                         .unwrap_or_default();
+                    let initiator_type = event
+                        .pointer("/params/initiator/type")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("other");
+                    if !is_document_network_activity(resource_type, initiator_type) {
+                        continue;
+                    }
+                    tracker.mark_tab_network_activity(cdp_session);
                     let content_type = header(&request["headers"], "content-type");
                     let content_disposition = header(&request["headers"], "content-disposition");
                     let upload = content_type.contains("multipart/form-data")
@@ -675,6 +822,8 @@ async fn observe_browser(
                     tracker.requests.insert(
                         (cdp_session.to_owned(), request_id.to_owned()),
                         RequestActivity {
+                            resource_type: resource_type.to_owned(),
+                            initiator_type: initiator_type.to_owned(),
                             upload,
                             form_submission,
                             spa_mutation,
@@ -690,16 +839,20 @@ async fn observe_browser(
                     .pointer("/params/requestId")
                     .and_then(serde_json::Value::as_str)
                     .unwrap_or_default();
+                let tracked = tracker
+                    .requests
+                    .contains_key(&(cdp_session.to_owned(), request_id.to_owned()));
                 let disposition = header(
                     event
                         .pointer("/params/response/headers")
                         .unwrap_or(&serde_json::Value::Null),
                     "content-disposition",
                 );
-                if !request_id.is_empty()
-                    && !cdp_session.is_empty()
-                    && disposition.contains("attachment")
-                {
+                let is_attachment = disposition.contains("attachment");
+                if tracked || is_attachment {
+                    tracker.mark_tab_network_activity(cdp_session);
+                }
+                if !request_id.is_empty() && !cdp_session.is_empty() && is_attachment {
                     tracker
                         .requests
                         .entry((cdp_session.to_owned(), request_id.to_owned()))
@@ -731,8 +884,14 @@ async fn observe_browser(
                     .pointer("/params/requestId")
                     .and_then(serde_json::Value::as_str)
                 {
-                    tracker.complete_request(cdp_session, request_id);
+                    if tracker.complete_request(cdp_session, request_id) {
+                        tracker.mark_tab_network_activity(cdp_session);
+                    }
                 }
+            }
+            "Page.loadEventFired" => {
+                tracker.complete_document_requests(cdp_session);
+                tracker.mark_tab_network_activity(cdp_session);
             }
             "Browser.downloadWillBegin" => {
                 if let Some(guid) = event
@@ -983,6 +1142,46 @@ mod tests {
     }
 
     #[test]
+    fn page_network_activity_excludes_browser_service_requests() {
+        assert!(is_document_network_activity("Document", "other"));
+        assert!(is_document_network_activity("Fetch", "script"));
+        assert!(is_document_network_activity("Script", "parser"));
+        assert!(!is_document_network_activity("Fetch", "other"));
+        assert!(!is_document_network_activity("Other", "other"));
+    }
+
+    #[test]
+    fn page_load_completes_only_document_requests_for_the_same_tab_session() {
+        let mut tracker = ActivityTracker::default();
+        for (session_id, request_id, resource_type) in [
+            ("page-1", "document-1", "Document"),
+            ("page-1", "fetch-1", "Fetch"),
+            ("page-2", "document-2", "Document"),
+        ] {
+            tracker.requests.insert(
+                (session_id.to_owned(), request_id.to_owned()),
+                RequestActivity {
+                    resource_type: resource_type.to_owned(),
+                    initiator_type: "script".to_owned(),
+                    ..RequestActivity::default()
+                },
+            );
+        }
+
+        tracker.complete_document_requests("page-1");
+
+        assert!(!tracker
+            .requests
+            .contains_key(&("page-1".to_owned(), "document-1".to_owned())));
+        assert!(tracker
+            .requests
+            .contains_key(&("page-1".to_owned(), "fetch-1".to_owned())));
+        assert!(tracker
+            .requests
+            .contains_key(&("page-2".to_owned(), "document-2".to_owned())));
+    }
+
+    #[test]
     fn remembers_freshness_after_the_last_page_detaches() {
         let mut tracker = ActivityTracker {
             download_events_enabled: true,
@@ -1070,7 +1269,7 @@ mod tests {
             },
         );
 
-        tracker.complete_request("page-1", "request-1");
+        assert!(tracker.complete_request("page-1", "request-1"));
 
         assert!(tracker.requests.is_empty());
         let observation = tracker.observation();
@@ -1117,7 +1316,7 @@ mod tests {
                         "method": "Target.attachedToTarget",
                         "params": {
                             "sessionId": "page-session-1",
-                            "targetInfo": {"type": "page"}
+                            "targetInfo": {"type": "page", "targetId": "tab-1"}
                         }
                     })
                     .to_string(),
@@ -1133,6 +1332,18 @@ mod tests {
             socket
                 .send(Message::Text(
                     serde_json::json!({"id": network_enable["id"], "result": {}}).to_string(),
+                ))
+                .await
+                .unwrap();
+            let Message::Text(page_enable) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected Page.enable")
+            };
+            let page_enable: serde_json::Value = serde_json::from_str(&page_enable).unwrap();
+            assert_eq!(page_enable["method"], "Page.enable");
+            assert_eq!(page_enable["sessionId"], "page-session-1");
+            socket
+                .send(Message::Text(
+                    serde_json::json!({"id": page_enable["id"], "result": {}}).to_string(),
                 ))
                 .await
                 .unwrap();
@@ -1156,6 +1367,7 @@ mod tests {
                             "params": {
                                 "requestId": request_id,
                                 "type": resource_type,
+                                "initiator": {"type": "script"},
                                 "request": {
                                     "method": "POST",
                                     "url": url,

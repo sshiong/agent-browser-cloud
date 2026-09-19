@@ -21,6 +21,7 @@ use tokio_tungstenite::tungstenite::Message;
 
 const NETWORK_READINESS_HASH_BUCKET_MILLIS: u64 = 1_000;
 const MAX_NETWORK_QUIET_POLICY_MILLIS: u64 = 30_000;
+const PAGE_NAVIGATE_RESPONSE_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// 交互目标。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -2229,9 +2230,12 @@ impl CdpStateCollector {
                       const visibility = visibilityFor(element, frameRect, offsetX, offsetY);
                       let origin = null;
                       try {
-                        const candidateOrigin = new URL(element.getAttribute('src') || '',
-                          element.ownerDocument.location.href).origin;
-                        if (candidateOrigin && candidateOrigin !== 'null') origin = candidateOrigin;
+                        const candidateUrl = new URL(element.getAttribute('src') || '',
+                          element.ownerDocument.location.href);
+                        if ((candidateUrl.protocol === 'http:' || candidateUrl.protocol === 'https:')
+                            && candidateUrl.origin !== 'null') {
+                          origin = candidateUrl.origin;
+                        }
                       } catch (_) { /* malformed/data/blob URL remains originless */ }
                       const sandboxed = element.hasAttribute('sandbox')
                         && !element.sandbox.contains('allow-same-origin');
@@ -2386,7 +2390,7 @@ impl CdpStateCollector {
                 .to_string(),
             ))
             .await?;
-        while let Some(message) = timeout(Duration::from_secs(5), socket.next())
+        while let Some(message) = timeout(PAGE_NAVIGATE_RESPONSE_TIMEOUT, socket.next())
             .await
             .map_err(|_| anyhow::anyhow!("CDP Page.navigate timed out"))?
         {
@@ -3112,7 +3116,8 @@ impl CdpStateCollector {
     ) -> anyhow::Result<CurrentState> {
         let previous = self.last_states.read().await.get(session_id).cloned();
         let network_observation = self.browser_safety_observation(session_id).await;
-        let network_quiet_millis = network_observation.network_quiet_millis();
+        let network_quiet_millis =
+            network_observation.network_quiet_millis_for_tab(&tab_snapshot.active_tab_id);
         let active_tab = tab_snapshot
             .tabs
             .iter()
@@ -3299,7 +3304,8 @@ impl CdpStateCollector {
             .for_each(Self::seal_semantic_context);
         Self::seal_opaque_frames(&mut page, &tab_snapshot.active_tab_id);
         let network_observation = self.browser_safety_observation(session_id).await;
-        let network_quiet_millis = network_observation.network_quiet_millis();
+        let network_quiet_millis =
+            network_observation.network_quiet_millis_for_tab(&tab_snapshot.active_tab_id);
         let network_readiness_hash_bucket =
             network_readiness_hash_bucket(network_quiet_millis, network_observation.fresh);
         let stability_fingerprints =
@@ -3561,7 +3567,8 @@ impl CdpStateCollector {
             .map(|(_, _, interactive)| interactive)
             .collect::<Vec<_>>();
         let network_observation = self.browser_safety_observation(session_id).await;
-        let network_quiet_millis = network_observation.network_quiet_millis();
+        let network_quiet_millis =
+            network_observation.network_quiet_millis_for_tab(&tab_snapshot.active_tab_id);
         let readiness_bucket =
             network_readiness_hash_bucket(network_quiet_millis, network_observation.fresh);
         let truncated = page.truncated || matches!(baseline.quality, StateQuality::DepthLimited);

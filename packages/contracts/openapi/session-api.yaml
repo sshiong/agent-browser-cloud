@@ -845,6 +845,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AgentClipboard"
+        "404":
+          $ref: "#/components/responses/NotFound"
     put:
       operationId: writeAgentClipboard
       summary: Replace the isolated AgentClipboard using optimistic concurrency
@@ -1070,6 +1072,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SessionIdentitySpec"
+        "404":
+          $ref: "#/components/responses/NotFound"
     put:
       operationId: rejectDirectSessionIdentityMutation
       summary: Explicitly reject direct post-creation identity mutation

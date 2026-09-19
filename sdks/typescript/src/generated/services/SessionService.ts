@@ -788,6 +788,9 @@ export class SessionService {
             query: {
                 'includeValue': includeValue,
             },
+            errors: {
+                404: `Resource not found.`,
+            },
         });
     }
     /**
@@ -1100,6 +1103,9 @@ export class SessionService {
             },
             headers: {
                 'X-Tenant-Id': xTenantId,
+            },
+            errors: {
+                404: `Resource not found.`,
             },
         });
     }

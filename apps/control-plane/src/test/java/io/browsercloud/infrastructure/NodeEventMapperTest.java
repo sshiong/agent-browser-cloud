@@ -946,6 +946,85 @@ class NodeEventMapperTest {
   }
 
   @Test
+  void shouldMapOriginlessOpaqueFrameForNonWebBrowserInternals() {
+    var payload =
+        BrowserStateEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setStateVersion(7)
+            .setTargetRevision(6)
+            .setUrl("chrome://newtab/")
+            .setContentHash("hash-7")
+            .setStateQuality("COMPLETE")
+            .addOpaqueFrames(
+                OpaqueFrameState.newBuilder()
+                    .setFrameRef("ofr_0123456789abcdef0123")
+                    .setParentFrameId("main")
+                    .setBoundaryReason("INACCESSIBLE")
+                    .setVisible(true)
+                    .setInViewport(true)
+                    .setInteractionStrategy("BOUNDED_VISION_THEN_HUMAN_HANDOFF"))
+            .setOpaqueFrameEvidenceFresh(true)
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_internal_frame")
+            .setEventType(NodeEventMapper.BROWSER_STATE_UPDATED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(2)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.StateUpdated.class,
+            state ->
+                assertThat(state.opaqueFrames())
+                    .singleElement()
+                    .satisfies(
+                        frame -> {
+                          assertThat(frame.origin()).isNull();
+                          assertThat(frame.boundaryReason()).isEqualTo("INACCESSIBLE");
+                        }));
+  }
+
+  @Test
+  void shouldRejectOpaqueFrameOriginUsingChromiumInternalScheme() {
+    var payload =
+        BrowserStateEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setStateVersion(7)
+            .setTargetRevision(6)
+            .setUrl("chrome://newtab/")
+            .setContentHash("hash-7")
+            .setStateQuality("COMPLETE")
+            .addOpaqueFrames(
+                OpaqueFrameState.newBuilder()
+                    .setFrameRef("ofr_0123456789abcdef0123")
+                    .setParentFrameId("main")
+                    .setOrigin("chrome-untrusted://new-tab-page")
+                    .setBoundaryReason("INACCESSIBLE")
+                    .setVisible(true)
+                    .setInViewport(true)
+                    .setInteractionStrategy("BOUNDED_VISION_THEN_HUMAN_HANDOFF"))
+            .setOpaqueFrameEvidenceFresh(true)
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_invalid_internal_frame_origin")
+            .setEventType(NodeEventMapper.BROWSER_STATE_UPDATED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(2)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThatThrownBy(() -> mapper.toCommand(envelope))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Opaque frame origin is invalid");
+  }
+
+  @Test
   void shouldRejectInvalidAgentMicroBatchMetadata() {
     var payload =
         BrowserStateEvent.newBuilder()

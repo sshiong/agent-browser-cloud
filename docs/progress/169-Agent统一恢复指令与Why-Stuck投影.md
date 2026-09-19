@@ -38,4 +38,5 @@ Web 与 Tauri 共用的任务详情在同一视图展示持久 `currentStep`、p
   Reviewer Provider fixture、Agent Browser 高级动作、截图/文件/JS、Challenge Vision、
   Profile 恢复、资源策略真实并发与审计链，最终 `audit_chain_valid=true`、Audit 349 条。
 
-A08/A16 的仓库内代码项据此关闭；真实目标模型与完整 Worker Compose 运行仍由 A01 单独验收。
+A08/A16 的仓库内代码项据此关闭；默认 Worker Compose 运行后由 progress 189 闭环，真实目标模型
+仍属于部署环境 Gate。

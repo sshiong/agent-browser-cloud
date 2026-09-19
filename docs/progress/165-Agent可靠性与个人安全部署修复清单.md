@@ -24,7 +24,7 @@
 
 | ID | 项目 | 当前状态 / 下一证据 |
 | --- | --- | --- |
-| A01 | Compose 完整 Agent/Reviewer/Vision 链 | 已确认默认缺服务；待实现并以真实进程验收，模型凭据不得用 fixture 冒充 |
+| A01 | Compose 完整 Agent/Reviewer/Vision 链 | progress 189 已闭环仓库编排：默认启动 Agent/Reviewer/Outcome/Vision 真实进程，首次权威队列请求后才 healthy，真实 HTTPS 模型配置和私有 Key fail-closed；运行验收未用 fixture 冒充模型成功，真实 Provider 任务仍是部署 Gate |
 | A02 | Local Mode 公网风险 | progress 168 已使非 local/test 统一 fail-closed；progress 188 提供独立 loopback-only Personal Secure 路径并明确禁止公网反代。Local Mode 本身仍只允许 localhost，不会被包装为公网模式 |
 | A03 | DOM 复用后的语义目标稳定性 | progress 175 已闭环：最近业务实体键/行语义 hash-only 绑定 Element ID，同路径同名虚拟行复用旧 ID 拒绝，真实 Chrome 通过 |
 | A04 | Expected Outcome / Intent Verification | progress 174 已闭环：V118 结构化结果声明、hash-only 持久化、精确最终 State 确定性判定及模型假成功覆盖均通过完整 Integration |

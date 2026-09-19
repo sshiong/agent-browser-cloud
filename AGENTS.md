@@ -137,6 +137,9 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - [已确认] 独立 Personal Secure 单机部署层只绑定 loopback，强制非 Local OIDC/API Audience、
   随机文件 Secret、数据库/Redis 认证、内部 mTLS、完整四 Worker 独立身份/进程、受控 Browser
   出口、HTTPS 对象/模型端点和加密 Profile；它不是公网反代模板或 V16 生产认证，见 progress 188。
+- [已确认] 默认 localhost Compose 已启动 Agent Executor、Reviewer、Outcome Verifier、Vision 四个
+  独立真实进程并开启对应外部队列；Worker 保持 loopback-only HTTP 约束，真实 HTTPS 模型配置与
+  私有文件 Key 缺失时 fail-closed，首次成功长轮询后才 healthy，见 progress 189。
 
 ### AUTO 资源治理
 
@@ -229,6 +232,13 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- 默认 Compose 完整 Worker 链本地 Agent Worker 32 项、Compose 契约/预检 3 项通过；真实
+  `make compose-up` 构建并启动完整栈，Control Plane 与 Agent/Reviewer/Outcome/Vision 四 Worker
+  均在成功访问权威队列后 healthy，`compose-verify` 通过并确认模型 Key 未进入环境变量。验收未
+  冒充真实模型调用；完整 `make ci`/`make build`、Desktop test/lint/unsigned build 与完整
+  PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过，目标 Provider 任务仍为部署 Gate，
+  见 progress 189。
 
 - Personal Secure 单机部署切片本地专用测试 4 项、Control Plane 定向安全测试、Rust 定向与
   Workspace 测试、完整 `make ci`/`make build`、Desktop test/lint/unsigned build、四类生产
@@ -411,7 +421,11 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - progress 188：独立 Personal Secure 单机部署层已闭环 A22 仓库代码项。它不复用开发身份，
   只绑定 loopback，使用真实 OIDC/API Audience、随机文件 Secret、内部 mTLS、四 Worker 独立
   进程/身份、受控出口、HTTPS 对象/模型与加密 Profile；不允许据此直接反代公网。A01 默认开发
-  Compose 完整 Worker 链是下一主线。
+  Compose 完整 Worker 链后由 progress 189 闭环。
+
+- progress 189：默认 localhost Compose 已启用外部 Agent/Reviewer/Outcome 队列并启动四个独立
+  Worker；模型配置与私有文件 Key 缺失时 fail-closed，首次成功权威长轮询后才 healthy。真实
+  Compose 运行链已通过，但运营方真实 Provider 任务仍是部署环境 Gate。
 
 - progress 186：DOM、Layout、Focus、Route 的连续权威采样已与 Network 组合为统一页面稳定
   证据；单动作和动态微批至少等待全部组件安静 250ms，控制面 Outcome 稳定要求全部组件至少
@@ -580,9 +594,9 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   `docs/progress/165-Agent可靠性与个人安全部署修复清单.md` 的 A01—A24 为实施账本。
   第一切片已加三 Worker 有界退避、Vision lease-lost 主流程阻断和 finally 心跳清理；
   Local Header 仅允许显式 local/test，其他环境进入 OIDC 链。语义目标、Expected Outcome 和
-  Challenge 像素隐私、动态微批次、Reviewer 风险路由、取消、Profile 加密和 Personal Secure
-  已由 progress 175、174、176、177、178、181、183、188 关闭；后续仍须默认开发 Compose 的
-  完整 Worker 链。
+  Challenge 像素隐私、动态微批次、Reviewer 风险路由、取消、Profile 加密、Personal Secure
+  和默认 Compose 完整 Worker 链已由 progress 175、174、176、177、178、181、183、188、189
+  关闭；真实 Provider 与目标环境运行仍是部署 Gate。
   不得把 Worker 心跳修复冒充已完成浏览器长操作取消。仓库许可证元数据 MIT/UNLICENSED
   不一致，未经权利人选择不得擅自对整个仓库授予新许可证。
 - progress 167/175：Element ID/target_ref 新增名称/角色/控件类型/Route/Tab 及最近业务实体

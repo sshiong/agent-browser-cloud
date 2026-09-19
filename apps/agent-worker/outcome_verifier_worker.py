@@ -329,8 +329,8 @@ class OutcomeVerifierLoop:
             if thread is not None:
                 thread.join(timeout=self.heartbeat_seconds + 1)
 
-    def run(self, once: bool) -> None:
-        run_poll_loop(self.run_once, once, self.poll_seconds)
+    def run(self, once: bool, ready_file: str | None = None) -> None:
+        run_poll_loop(self.run_once, once, self.poll_seconds, ready_file)
 
 
 def parse_args() -> argparse.Namespace:
@@ -350,6 +350,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--poll-seconds", type=float, default=2)
     parser.add_argument("--heartbeat-seconds", type=float, default=15)
     parser.add_argument("--environment", choices=("production", "local", "test"), default="production")
+    parser.add_argument("--ready-file")
     parser.add_argument("--once", action="store_true")
     return parser.parse_args()
 
@@ -375,7 +376,9 @@ def main() -> int:
         args.model_revision,
         args.maximum_output_tokens,
     )
-    OutcomeVerifierLoop(client, provider, args.poll_seconds, args.heartbeat_seconds).run(args.once)
+    OutcomeVerifierLoop(client, provider, args.poll_seconds, args.heartbeat_seconds).run(
+        args.once, args.ready_file
+    )
     return 0
 
 

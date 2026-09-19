@@ -1,4 +1,6 @@
 import math
+import pathlib
+import tempfile
 import threading
 import unittest
 from unittest.mock import Mock, patch
@@ -38,6 +40,17 @@ class PollBackoffTest(unittest.TestCase):
                 run_poll_loop(Mock(side_effect=WorkerError("UNAVAILABLE")), True, 2)
             sleep.assert_not_called()
 
+    def test_ready_file_only_appears_after_successful_control_plane_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ready = pathlib.Path(directory) / "worker-ready"
+            run_poll_loop(Mock(return_value=False), True, 2, str(ready))
+            self.assertEqual(ready.read_text(), "ready\n")
+            self.assertEqual(ready.stat().st_mode & 0o777, 0o600)
+            ready.unlink()
+            with self.assertRaisesRegex(WorkerError, "UNAVAILABLE"):
+                run_poll_loop(Mock(side_effect=WorkerError("UNAVAILABLE")), True, 2, str(ready))
+            self.assertFalse(ready.exists())
+
     def test_all_four_workers_use_shared_backoff(self):
         for cls in (WorkerLoop, ReviewerLoop, VisionLoop, OutcomeVerifierLoop):
             loop = cls.__new__(cls)
@@ -47,7 +60,7 @@ class PollBackoffTest(unittest.TestCase):
             # exact globals captured by the class instead of a later sys.modules alias.
             with patch.dict(loop.run.__globals__, {"run_poll_loop": run}):
                 loop.run(True)
-                run.assert_called_once_with(loop.run_once, True, 2)
+                run.assert_called_once_with(loop.run_once, True, 2, None)
 
 
 class VisionLeaseTest(unittest.TestCase):

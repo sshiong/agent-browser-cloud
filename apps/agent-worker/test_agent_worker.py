@@ -98,8 +98,10 @@ class AgentWorkerTest(unittest.TestCase):
             path.write_text("secret\n", encoding="utf-8")
             path.chmod(0o600)
             self.assertEqual(worker.read_secret(str(path.resolve())), "secret")
+            path.chmod(0o400)
+            self.assertEqual(worker.read_secret(str(path.resolve())), "secret")
             path.chmod(0o644)
-            with self.assertRaisesRegex(ValueError, "0600"):
+            with self.assertRaisesRegex(ValueError, "0400/0600"):
                 worker.read_secret(str(path.resolve()))
 
     def test_claim_uses_only_fixed_protocol_capability_and_worker_role(self):

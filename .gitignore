@@ -36,6 +36,7 @@ dist/
 .env.*.local
 deploy/personal-secure/.env
 deploy/personal-secure/.state/
+.local/
 .terraform/
 
 # OS

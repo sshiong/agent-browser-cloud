@@ -1,4 +1,62 @@
+x-local-agent-worker: &local-agent-worker
+  build:
+    context: apps/agent-worker
+    dockerfile: Dockerfile
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m
+  network_mode: service:control-plane
+  depends_on:
+    local-agent-secrets:
+      condition: service_completed_successfully
+    control-plane:
+      condition: service_healthy
+  healthcheck:
+    test: [CMD, python, -c, "import pathlib; assert pathlib.Path('/tmp/worker-ready').read_text() == 'ready\\n'"]
+    interval: 5s
+    timeout: 3s
+    retries: 24
+    start_period: 10s
+
 services:
+  local-agent-secrets:
+    image: alpine:3.22
+    restart: "no"
+    user: "0:0"
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    security_opt: [no-new-privileges:true]
+    entrypoint: [/bin/sh, -euc]
+    command:
+      - |
+        install_secret() {
+          target="/out/$$1"
+          mkdir -p "$$target"
+          printf '%s\n' "local-$$1-token-unused" >"$$target/token"
+          if [ "$$1" != agent-worker ]; then
+            cp /source/model-api-key "$$target/model-api-key"
+          fi
+          chown -R 65532:65532 "$$target"
+          chmod 0700 "$$target"
+          chmod 0400 "$$target"/*
+        }
+        test -f /source/model-api-key
+        test ! -L /source/model-api-key
+        test -s /source/model-api-key
+        for worker in agent-worker reviewer-worker outcome-worker vision-worker; do
+          install_secret "$$worker"
+        done
+    volumes:
+      - ${LOCAL_AGENT_MODEL_API_KEY_FILE:-./.local/agent-model-api-key}:/source/model-api-key:ro
+      - local_agent_worker_secrets:/out/agent-worker
+      - local_reviewer_worker_secrets:/out/reviewer-worker
+      - local_outcome_worker_secrets:/out/outcome-worker
+      - local_vision_worker_secrets:/out/vision-worker
+
   postgres:
     image: postgres:17-alpine
     environment:
@@ -47,11 +105,27 @@ services:
       REMOTE_DESKTOP_VIEWER_ACTOR_BITRATE_LIMIT_KBPS: ${REMOTE_DESKTOP_VIEWER_ACTOR_BITRATE_LIMIT_KBPS:-4000}
       REMOTE_DESKTOP_VIEWER_ACTOR_FRAME_RATE_LIMIT_FPS: ${REMOTE_DESKTOP_VIEWER_ACTOR_FRAME_RATE_LIMIT_FPS:-15}
       PROXY_ALLOW_DIRECT: "true"
+      AGENT_EXTERNAL_WORKER_ENABLED: "true"
+      AGENT_REVIEWER_EXTERNAL_ENABLED: "true"
+      AGENT_REVIEWER_DEPLOYMENT_ID: local-reviewer-v1
+      AGENT_REVIEWER_MODEL_NAME: ${LOCAL_AGENT_MODEL_NAME:-configure-real-model}
+      AGENT_REVIEWER_MODEL_REVISION: ${LOCAL_AGENT_MODEL_REVISION:-local-v1}
+      AGENT_OUTCOME_VERIFIER_EXTERNAL_ENABLED: "true"
+      AGENT_OUTCOME_VERIFIER_DEPLOYMENT_ID: local-outcome-v1
+      AGENT_OUTCOME_VERIFIER_MODEL_NAME: ${LOCAL_AGENT_MODEL_NAME:-configure-real-model}
+      AGENT_OUTCOME_VERIFIER_MODEL_REVISION: ${LOCAL_AGENT_MODEL_REVISION:-local-v1}
+      CHALLENGE_VISION_DEPLOYMENT_ID: local-vision-v1
+      CHALLENGE_VISION_MODEL_REVISION: ${LOCAL_AGENT_MODEL_REVISION:-local-v1}
       SERVER_PORT: 8080
     ports:
       - "127.0.0.1:8080:8080"
     expose:
       - "9091"
+    healthcheck:
+      test: [CMD-SHELL, 'wget -q -O - http://127.0.0.1:8080/actuator/health | grep -q ''"status":"UP"''']
+      interval: 10s
+      timeout: 5s
+      retries: 30
     depends_on:
       postgres:
         condition: service_healthy
@@ -59,6 +133,33 @@ services:
         condition: service_healthy
       browser-node:
         condition: service_started
+
+  agent-worker:
+    <<: *local-agent-worker
+    command: [--control-plane-url, http://127.0.0.1:8080, --control-plane-token-file, /run/browsercloud/secrets/token, --worker-id, local-agent-1, --environment, local, --ready-file, /tmp/worker-ready]
+    volumes:
+      - local_agent_worker_secrets:/run/browsercloud/secrets:ro
+
+  reviewer-worker:
+    <<: *local-agent-worker
+    entrypoint: [/usr/bin/tini, --, python, /app/reviewer_worker.py]
+    command: [--control-plane-url, http://127.0.0.1:8080, --control-plane-token-file, /run/browsercloud/secrets/token, --worker-id, local-reviewer-1, --deployment-id, local-reviewer-v1, --model-endpoint, "${LOCAL_AGENT_MODEL_ENDPOINT:-https://model.invalid/v1/responses}", --model-api-key-file, /run/browsercloud/secrets/model-api-key, --model-name, "${LOCAL_AGENT_MODEL_NAME:-configure-real-model}", --model-revision, "${LOCAL_AGENT_MODEL_REVISION:-local-v1}", --environment, local, --ready-file, /tmp/worker-ready]
+    volumes:
+      - local_reviewer_worker_secrets:/run/browsercloud/secrets:ro
+
+  outcome-verifier-worker:
+    <<: *local-agent-worker
+    entrypoint: [/usr/bin/tini, --, python, /app/outcome_verifier_worker.py]
+    command: [--control-plane-url, http://127.0.0.1:8080, --control-plane-token-file, /run/browsercloud/secrets/token, --worker-id, local-outcome-1, --deployment-id, local-outcome-v1, --model-endpoint, "${LOCAL_AGENT_MODEL_ENDPOINT:-https://model.invalid/v1/responses}", --model-api-key-file, /run/browsercloud/secrets/model-api-key, --model-name, "${LOCAL_AGENT_MODEL_NAME:-configure-real-model}", --model-revision, "${LOCAL_AGENT_MODEL_REVISION:-local-v1}", --environment, local, --ready-file, /tmp/worker-ready]
+    volumes:
+      - local_outcome_worker_secrets:/run/browsercloud/secrets:ro
+
+  vision-worker:
+    <<: *local-agent-worker
+    entrypoint: [/usr/bin/tini, --, python, /app/vision_worker.py]
+    command: [--control-plane-url, http://127.0.0.1:8080, --control-plane-token-file, /run/browsercloud/secrets/token, --worker-id, local-vision-1, --deployment-id, local-vision-v1, --model-endpoint, "${LOCAL_AGENT_MODEL_ENDPOINT:-https://model.invalid/v1/responses}", --model-api-key-file, /run/browsercloud/secrets/model-api-key, --model-name, "${LOCAL_AGENT_MODEL_NAME:-configure-real-model}", --model-revision, "${LOCAL_AGENT_MODEL_REVISION:-local-v1}", --environment, local, --ready-file, /tmp/worker-ready]
+    volumes:
+      - local_vision_worker_secrets:/run/browsercloud/secrets:ro
 
   browser-node:
     build:
@@ -154,3 +255,7 @@ volumes:
   browser_runtime:
   profile_storage:
   helper_ipc:
+  local_agent_worker_secrets:
+  local_reviewer_worker_secrets:
+  local_outcome_worker_secrets:
+  local_vision_worker_secrets:

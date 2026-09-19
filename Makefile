@@ -1,4 +1,4 @@
-.PHONY: install install-desktop build build-desktop build-sdk-release test test-desktop test-application-adapter test-validation-worker test-gameday-worker test-agent-worker test-personal-secure test-terraform-provider lint lint-desktop fmt compose-up compose-down personal-secure-init personal-secure-check personal-secure-up personal-secure-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check sdk-multilang-generate sdk-multilang-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
+.PHONY: install install-desktop build build-desktop build-sdk-release test test-desktop test-application-adapter test-validation-worker test-gameday-worker test-agent-worker test-default-compose test-personal-secure test-terraform-provider lint lint-desktop fmt compose-check compose-up compose-verify compose-down personal-secure-init personal-secure-check personal-secure-up personal-secure-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check sdk-multilang-generate sdk-multilang-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
 CAPACITY_BUILD_ID ?= $(shell git rev-parse HEAD)
@@ -52,6 +52,7 @@ test:
 	$(MAKE) test-validation-worker
 	$(MAKE) test-gameday-worker
 	$(MAKE) test-agent-worker
+	$(MAKE) test-default-compose
 	$(MAKE) test-personal-secure
 	$(MAKE) test-terraform-provider
 
@@ -69,6 +70,9 @@ test-gameday-worker:
 # Verify the data-minimized fixed-protocol Agent execution dispatcher.
 test-agent-worker:
 	python3 -m unittest discover -s apps/agent-worker -p 'test_*.py' -v
+
+test-default-compose:
+	python3 -m unittest discover -s tests/compose -p 'test_*.py' -v
 
 # Verify the fail-closed personal deployment bootstrap and its isolated Compose topology.
 test-personal-secure:
@@ -104,9 +108,17 @@ fmt:
 	pnpm --dir apps/web-console format
 	gofmt -w deploy/terraform/provider
 
-# Start local services
-compose-up:
-	docker compose up -d --build
+# Start the complete local Agent/Reviewer/Outcome/Vision chain with a real model credential.
+compose-check:
+	./tools/local-dev/check-agent-compose.sh
+
+compose-up: compose-check
+	docker compose rm -sf local-agent-secrets agent-worker reviewer-worker outcome-verifier-worker vision-worker
+	docker compose up -d --build --wait --wait-timeout 300
+	$(MAKE) compose-verify
+
+compose-verify:
+	./tools/local-dev/verify-agent-compose.sh
 
 # Stop local services
 compose-down:

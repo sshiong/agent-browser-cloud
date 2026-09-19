@@ -53,4 +53,4 @@ Outcome Verifier、Vision Worker 作为真实隔离进程完整启动。把它�
 该配置关闭 A22 的仓库代码产品化缺口，也为 A02 提供不复用 Local 身份的个人部署路径；它不把
 Local Mode 变成公网安全模式，也不宣称单机 Compose 通过生产认证。真实企业 IdP/S3/模型/出口、
 宿主机全盘加密、外部 Secret 轮换、备份恢复、KMS/HSM、多 Region、组织 Threat Review 与发布
-审批仍是目标环境或组织 Gate。A01 的“默认开发 Compose 完整 Worker 链”保持独立，下一步处理。
+审批仍是目标环境或组织 Gate。A01 的默认开发 Compose 完整 Worker 链随后由 progress 189 闭环。

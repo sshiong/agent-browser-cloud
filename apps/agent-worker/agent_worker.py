@@ -51,11 +51,28 @@ class PollBackoff:
         return delay
 
 
-def run_poll_loop(run_once, once: bool, poll_seconds: float) -> None:
+def write_ready_file(path_value: str | None) -> None:
+    if not path_value:
+        return
+    path = pathlib.Path(path_value)
+    if not path.is_absolute() or path.is_symlink() or not path.parent.is_dir():
+        raise ValueError("ready file path must be absolute with an existing parent")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(path, flags, 0o600)
+    try:
+        os.write(descriptor, b"ready\n")
+    finally:
+        os.close(descriptor)
+
+
+def run_poll_loop(run_once, once: bool, poll_seconds: float, ready_file: str | None = None) -> None:
     backoff = PollBackoff(poll_seconds)
     while True:
         try:
             worked = run_once()
+            write_ready_file(ready_file)
         except WorkerError:
             if once:
                 raise
@@ -86,10 +103,10 @@ def read_secret(path_value: str) -> str:
         raise ValueError("secret path must be an absolute regular non-symlink file")
     info = path.stat()
     mode = stat.S_IMODE(info.st_mode)
-    private_owner = mode == 0o600 and info.st_uid == os.geteuid()
+    private_owner = mode in {0o400, 0o600} and info.st_uid == os.geteuid()
     private_group = mode == 0o440 and info.st_gid == os.getegid()
     if not (private_owner or private_group) or mode & stat.S_IRWXO:
-        raise ValueError("secret file must be owner 0600 or dedicated process-group 0440")
+        raise ValueError("secret file must be owner 0400/0600 or dedicated process-group 0440")
     with path.open("rb") as handle:
         payload = handle.read(8193)
     if not payload or len(payload) > 8192:
@@ -274,8 +291,8 @@ class WorkerLoop:
             if thread is not None:
                 thread.join(timeout=self.heartbeat_seconds + 1)
 
-    def run(self, once: bool) -> None:
-        run_poll_loop(self.run_once, once, self.poll_seconds)
+    def run(self, once: bool, ready_file: str | None = None) -> None:
+        run_poll_loop(self.run_once, once, self.poll_seconds, ready_file)
 
 
 def parse_args() -> argparse.Namespace:
@@ -287,6 +304,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--poll-seconds", type=float, default=2)
     parser.add_argument("--heartbeat-seconds", type=float, default=15)
     parser.add_argument("--environment", choices=("production", "local", "test"), default="production")
+    parser.add_argument("--ready-file")
     parser.add_argument("--once", action="store_true")
     return parser.parse_args()
 
@@ -302,7 +320,7 @@ def main() -> int:
         args.environment,
         args.worker_id,
     )
-    WorkerLoop(client, args.poll_seconds, args.heartbeat_seconds).run(args.once)
+    WorkerLoop(client, args.poll_seconds, args.heartbeat_seconds).run(args.once, args.ready_file)
     return 0
 
 

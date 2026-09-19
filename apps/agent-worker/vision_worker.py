@@ -511,8 +511,8 @@ class VisionLoop:
             if thread is not None:
                 thread.join(timeout=self.heartbeat_seconds + 1)
 
-    def run(self, once: bool):
-        run_poll_loop(self.run_once, once, self.poll_seconds)
+    def run(self, once: bool, ready_file: str | None = None):
+        run_poll_loop(self.run_once, once, self.poll_seconds, ready_file)
 
 
 def main() -> int:
@@ -533,6 +533,7 @@ def main() -> int:
     parser.add_argument("--poll-seconds", type=float, default=2)
     parser.add_argument("--heartbeat-seconds", type=float, default=15)
     parser.add_argument("--environment", choices=("production", "local", "test"), default="production")
+    parser.add_argument("--ready-file")
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
     client = VisionControlPlaneClient(
@@ -547,7 +548,7 @@ def main() -> int:
     )
     privacy_scanner = LocalScreenshotPrivacyScanner()
     VisionLoop(client, provider, privacy_scanner, args.environment, args.allowed_screenshot_host,
-               args.poll_seconds, args.heartbeat_seconds).run(args.once)
+               args.poll_seconds, args.heartbeat_seconds).run(args.once, args.ready_file)
     return 0
 
 

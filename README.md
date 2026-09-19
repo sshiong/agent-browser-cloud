@@ -32,7 +32,13 @@ make install
 git clone https://github.com/sshiong/agent-browser-cloud.git
 cd agent-browser-cloud
 
-# 启动本地开发服务（完整外部 Worker 链仍见下方说明）
+# 配置真实模型。Key 文件必须是绝对路径、非符号链接且权限为 0600/0400。
+export LOCAL_AGENT_MODEL_API_KEY_FILE=/absolute/path/to/model-api-key
+export LOCAL_AGENT_MODEL_ENDPOINT=https://your-model-provider.example/v1/responses
+export LOCAL_AGENT_MODEL_NAME=your-reviewed-model-deployment
+export LOCAL_AGENT_MODEL_REVISION=your-pinned-model-revision
+
+# 启动本地开发服务及真实 Agent/Reviewer/Outcome/Vision Worker 进程
 make compose-up
 
 # 验证服务
@@ -41,6 +47,12 @@ open http://localhost:3000
 # 企业运营工作台
 open http://localhost:3000/enterprise
 ```
+
+`make compose-up` 会先拒绝缺失、宽权限或非 HTTPS 的模型配置，再构建并等待四个 Worker 首次成功
+访问各自的权威长轮询队列。模型 Key 只经受限文件卷提供给 Worker，不进入其环境变量；不会使用
+fixture 冒充真实模型。配置模板见
+[deploy/docker/local-agent.env.example](deploy/docker/local-agent.env.example)。只需要数据库和 Redis
+时仍可执行 `docker compose up -d postgres redis`。
 
 默认 Compose 仅限本机开发。需要单机个人部署时，使用独立的
 [Personal Secure 部署层](deploy/personal-secure/)；它强制 OIDC、随机文件型 Secret、内部 mTLS、
@@ -89,7 +101,7 @@ CI 的 `make docs-check` 会拒绝模块表漂移和 README 本地链接失效�
 | `sdks/` | [go](sdks/go/)、[java](sdks/java/)、[python](sdks/python/)、[typescript](sdks/typescript/) |
 | `database/` | [migrations](database/migrations/)、[online-migrations](database/online-migrations/)、[seeds](database/seeds/) |
 | `deploy/` | [docker](deploy/docker/)、[kubernetes](deploy/kubernetes/)、[personal-secure](deploy/personal-secure/)、[terraform](deploy/terraform/) |
-| `tools/` | [browser-session-operator](tools/browser-session-operator/)、[docs](tools/docs/)、[sdk](tools/sdk/)、[supply-chain](tools/supply-chain/) |
+| `tools/` | [browser-session-operator](tools/browser-session-operator/)、[docs](tools/docs/)、[local-dev](tools/local-dev/)、[sdk](tools/sdk/)、[supply-chain](tools/supply-chain/) |
 
 <!-- END GENERATED MODULES -->
 

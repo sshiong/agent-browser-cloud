@@ -13,6 +13,7 @@ import argparse
 import dataclasses
 import datetime as dt
 import hashlib
+import hmac
 import json
 import os
 import pathlib
@@ -31,6 +32,7 @@ MAX_RESPONSE_BYTES = 1024 * 1024
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 SESSION_PATTERN = re.compile(r"^ses_[A-Za-z0-9]{16,}$")
 REFERENCE_HEADERS = {"x-request-id", "request-id", "x-correlation-id", "traceparent"}
+ENTITY_COMPONENT_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]{0,127}$")
 
 
 class AdapterError(RuntimeError):
@@ -77,6 +79,39 @@ def canonical_value(value: Any) -> bytes:
 
 def sha256_value(value: Any) -> str:
     return hashlib.sha256(canonical_value(value)).hexdigest()
+
+
+def entity_identity_attributes(
+    entity_value: str, namespace: str, entity_type: str, identity_key: str
+) -> dict[str, str]:
+    """Create non-reversible DOM attributes for disambiguating otherwise identical targets.
+
+    These attributes are identity data only. Browser Node includes them in its target fence but
+    never treats them as authorization, executable instructions, or business-outcome evidence.
+    """
+    if (
+        not entity_value
+        or len(entity_value.encode("utf-8")) > 1024
+        or "\x00" in entity_value
+        or not ENTITY_COMPONENT_PATTERN.fullmatch(namespace)
+        or not ENTITY_COMPONENT_PATTERN.fullmatch(entity_type)
+        or len(identity_key.encode("utf-8")) < 32
+    ):
+        raise AdapterError("ENTITY_IDENTITY_INPUT_INVALID")
+    material = canonical_value(
+        {
+            "entityType": entity_type,
+            "entityValue": entity_value,
+            "namespace": namespace,
+            "version": "entity-identity-v1",
+        }
+    )
+    digest = hmac.new(identity_key.encode("utf-8"), material, hashlib.sha256).hexdigest()
+    return {
+        "data-agent-entity-hash": digest,
+        "data-agent-entity-scope": namespace,
+        "data-agent-entity-type": entity_type,
+    }
 
 
 def extract_json_pointer(document: Any, pointer: str) -> Any:
@@ -418,6 +453,11 @@ def build_parser() -> argparse.ArgumentParser:
     attest.add_argument("--key", required=True)
     attest.add_argument("--provider-id", required=True)
     attest.add_argument("--expected-value-hash", required=True)
+    entity_identity = commands.add_parser("entity-identity")
+    entity_identity.add_argument("--entity-value-file", required=True)
+    entity_identity.add_argument("--identity-key-file", required=True)
+    entity_identity.add_argument("--namespace", required=True)
+    entity_identity.add_argument("--entity-type", required=True)
     for command in ("lease-acquire", "lease-renew", "lease-release"):
         lease = commands.add_parser(command)
         _common_control_plane(lease)
@@ -478,6 +518,15 @@ def _control_plane_client(args: argparse.Namespace) -> BrowserCloudAdapterClient
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        if args.command == "entity-identity":
+            result = entity_identity_attributes(
+                read_secret_file(args.entity_value_file),
+                args.namespace,
+                args.entity_type,
+                read_secret_file(args.identity_key_file),
+            )
+            print(json.dumps(result, sort_keys=True))
+            return 0
         control_plane = _control_plane_client(args)
         if args.command == "attest":
             provider_token = (

@@ -16,6 +16,27 @@ Production invariants:
 - Provider response bodies and bearer tokens are never printed or persisted.
 - The Control Plane identity must have only the `APPLICATION_ADAPTER` role.
 
+## DOM entity identity
+
+When multiple visible controls have the same role, name and surrounding text, a tenant-owned UI
+Adapter can attach a stable, non-secret entity fence to the control itself or its nearest container.
+Generate the attributes without putting the raw CRM/payment/IAM identifier in the DOM:
+
+```bash
+python application_adapter.py entity-identity \
+  --entity-value-file /run/secrets/current-entity-id \
+  --identity-key-file /run/secrets/entity-identity-key \
+  --namespace crm.production \
+  --entity-type customer
+```
+
+The command returns only `data-agent-entity-hash`, `data-agent-entity-scope` and
+`data-agent-entity-type`. Apply all three attributes to the interactive element or a composed-tree
+ancestor. Browser Node uses the nearest valid tuple only to bind Element ID and reject stale target
+reuse; it hashes the tuple again before Browser State publication and never treats it as authority,
+permission or proof of business outcome. The identity key must be at least 32 bytes, remain outside
+the page, and be scoped per tenant/application to prevent cross-context correlation.
+
 Example attestation:
 
 ```bash

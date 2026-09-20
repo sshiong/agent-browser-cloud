@@ -147,6 +147,40 @@ class AdapterRuntimeTest(unittest.TestCase):
             adapter.sha256_value({"a": 1, "b": 2}),
         )
 
+    def test_entity_identity_attributes_are_keyed_domain_separated_and_non_reversible(self):
+        first = adapter.entity_identity_attributes(
+            "customer-42", "crm.production", "customer", "k" * 32
+        )
+        repeated = adapter.entity_identity_attributes(
+            "customer-42", "crm.production", "customer", "k" * 32
+        )
+        other_entity = adapter.entity_identity_attributes(
+            "customer-43", "crm.production", "customer", "k" * 32
+        )
+        other_scope = adapter.entity_identity_attributes(
+            "customer-42", "billing.production", "customer", "k" * 32
+        )
+        self.assertEqual(first, repeated)
+        self.assertNotEqual(first["data-agent-entity-hash"], other_entity["data-agent-entity-hash"])
+        self.assertNotEqual(first["data-agent-entity-hash"], other_scope["data-agent-entity-hash"])
+        self.assertEqual(first["data-agent-entity-scope"], "crm.production")
+        self.assertEqual(first["data-agent-entity-type"], "customer")
+        self.assertRegex(first["data-agent-entity-hash"], r"^[0-9a-f]{64}$")
+        self.assertNotIn("customer-42", json.dumps(first))
+
+    def test_entity_identity_rejects_weak_keys_and_unsafe_components(self):
+        for value, namespace, entity_type, key in (
+            ("", "crm", "customer", "k" * 32),
+            ("customer-42", "invalid scope", "customer", "k" * 32),
+            ("customer-42", "crm", "invalid/type", "k" * 32),
+            ("customer-42", "crm", "customer", "short"),
+        ):
+            with self.subTest(namespace=namespace, entity_type=entity_type):
+                with self.assertRaisesRegex(
+                    adapter.AdapterError, "ENTITY_IDENTITY_INPUT_INVALID"
+                ):
+                    adapter.entity_identity_attributes(value, namespace, entity_type, key)
+
     def test_provider_redirect_is_not_followed(self):
         client = adapter.ProviderClient(self.transport, "provider-token")
         spec = self.spec(provider_url=f"{self.base_url}/redirect")

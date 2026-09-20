@@ -2085,8 +2085,29 @@ impl CdpStateCollector {
                   'data-agent-entity-id', 'data-entity-id', 'data-row-key',
                   'data-item-key', 'data-key'
                 ];
-                let current = element.parentElement;
+                const composedParent = (node) => {
+                  if (node.parentElement) return node.parentElement;
+                  const root = node.getRootNode?.();
+                  return root && root.host instanceof Element ? root.host : null;
+                };
+                let current = element;
                 for (let depth = 0; current && depth < 12; depth += 1) {
+                  const adapterHash = normalizeContext(
+                    current.getAttribute('data-agent-entity-hash')
+                  ).toLowerCase();
+                  const adapterScope = normalizeContext(
+                    current.getAttribute('data-agent-entity-scope')
+                  );
+                  const adapterType = normalizeContext(
+                    current.getAttribute('data-agent-entity-type')
+                  );
+                  if (
+                    /^[a-f0-9]{64}$/.test(adapterHash)
+                    && /^[A-Za-z][A-Za-z0-9_.:-]{0,127}$/.test(adapterScope)
+                    && /^[A-Za-z][A-Za-z0-9_.:-]{0,127}$/.test(adapterType)
+                  ) {
+                    return `adapter:${adapterScope}:${adapterType}:${adapterHash}`;
+                  }
                   for (const attribute of explicitKeys) {
                     const key = normalizeContext(current.getAttribute(attribute));
                     if (key) return `key:${attribute}:${key}`;
@@ -2099,7 +2120,7 @@ impl CdpStateCollector {
                     );
                     if (label) return `container:${role || tag}:${label}`;
                   }
-                  current = current.parentElement;
+                  current = composedParent(current);
                 }
                 return null;
               };
@@ -2883,6 +2904,46 @@ impl CdpStateCollector {
         });
     }
 
+    fn reject_semantically_ambiguous_targets(targets: &mut [EvaluatedTarget]) {
+        let mut counts = HashMap::new();
+        for target in targets.iter().filter(|target| {
+            target.interactive
+                && target.visible
+                && target.enabled
+                && target.semantic_context_hash.is_none()
+        }) {
+            *counts
+                .entry((
+                    target.frame_id.clone(),
+                    target.role.clone(),
+                    target.name.clone(),
+                    target.control_type.clone(),
+                    target.sensitive,
+                ))
+                .or_insert(0_usize) += 1;
+        }
+        for target in targets.iter_mut().filter(|target| {
+            target.interactive
+                && target.visible
+                && target.enabled
+                && target.semantic_context_hash.is_none()
+        }) {
+            let signature = (
+                target.frame_id.clone(),
+                target.role.clone(),
+                target.name.clone(),
+                target.control_type.clone(),
+                target.sensitive,
+            );
+            if counts.get(&signature).copied().unwrap_or_default() > 1 {
+                // DOM path/geometry can distinguish slots but cannot prove which business entity
+                // occupies either slot. Keep the targets observable while refusing execution until
+                // the page or a tenant-owned Adapter provides a stable entity fence.
+                target.interactive = false;
+            }
+        }
+    }
+
     fn registered_target(
         target_revision: u64,
         evaluated: EvaluatedTarget,
@@ -3302,6 +3363,7 @@ impl CdpStateCollector {
         page.targets
             .iter_mut()
             .for_each(Self::seal_semantic_context);
+        Self::reject_semantically_ambiguous_targets(&mut page.targets);
         Self::seal_opaque_frames(&mut page, &tab_snapshot.active_tab_id);
         let network_observation = self.browser_safety_observation(session_id).await;
         let network_quiet_millis =
@@ -3530,6 +3592,16 @@ impl CdpStateCollector {
         page.targets
             .iter_mut()
             .for_each(Self::seal_semantic_context);
+        for target in &mut page.targets {
+            if target.semantic_context_hash.is_none()
+                && registry.targets.values().any(|registered| {
+                    registered.evaluated.path == target.path && !registered.evaluated.interactive
+                })
+            {
+                target.interactive = false;
+            }
+        }
+        Self::reject_semantically_ambiguous_targets(&mut page.targets);
         // A REGION sample cannot authoritatively replace page-wide opaque-frame boundaries.
         // Preserve the fenced baseline and mark it stale until the next FULL sample.
         page.opaque_frames = baseline
@@ -4025,6 +4097,7 @@ mod tests {
             "path": "html>body>button:nth-of-type(1)",
             "role": "button", "name": "Save", "controlType": "submit",
             "frameId": "main", "enabled": true, "visible": true,
+            "interactive": true,
             "bounds": {"x": 0, "y": 0, "width": 100, "height": 40}
         }))
         .unwrap()
@@ -4083,6 +4156,32 @@ mod tests {
         assert_ne!(
             CdpStateCollector::element_id(&first_entity),
             CdpStateCollector::element_id(&second_entity)
+        );
+    }
+
+    #[test]
+    fn identical_targets_without_entity_context_fail_closed_until_adapter_identity_exists() {
+        let first = semantic_test_target();
+        let mut second = first.clone();
+        second.path = "html>body>button:nth-of-type(2)".into();
+        let mut ambiguous = vec![first.clone(), second.clone()];
+        CdpStateCollector::reject_semantically_ambiguous_targets(&mut ambiguous);
+        assert!(ambiguous.iter().all(|target| !target.interactive));
+
+        let mut bound_first = first;
+        bound_first.semantic_context_hash = Some(hex_sha256(
+            b"agent-target-semantic-context-v1\nadapter:crm:customer:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        ));
+        let mut bound_second = second;
+        bound_second.semantic_context_hash = Some(hex_sha256(
+            b"agent-target-semantic-context-v1\nadapter:crm:customer:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        ));
+        let mut bound = vec![bound_first, bound_second];
+        CdpStateCollector::reject_semantically_ambiguous_targets(&mut bound);
+        assert!(bound.iter().all(|target| target.interactive));
+        assert_ne!(
+            CdpStateCollector::element_id(&bound[0]),
+            CdpStateCollector::element_id(&bound[1])
         );
     }
 
@@ -5332,7 +5431,7 @@ mod tests {
                 tokio::spawn(async move {
                     let mut request = vec![0_u8; 4096];
                     let _ = stream.read(&mut request).await;
-                    let body = format!("<!doctype html><html><head><title>Runtime Gate</title></head><body><div role=\"row\" data-row-key=\"customer-a\"><span>Alice</span><button aria-label=\"执行验收\">Run</button></div><input placeholder=\"Name\"><iframe style=\"width:320px;height:180px\" src=\"http://{frame_address}/private?token=must-not-leak\"></iframe></body></html>");
+                    let body = format!("<!doctype html><html><head><title>Runtime Gate</title></head><body><div role=\"row\" data-row-key=\"customer-a\"><span>Alice</span><button aria-label=\"执行验收\">Run</button></div><button aria-label=\"Open\" data-agent-entity-hash=\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\" data-agent-entity-scope=\"crm.production\" data-agent-entity-type=\"customer\">Open</button><button aria-label=\"Open\" data-agent-entity-hash=\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\" data-agent-entity-scope=\"crm.production\" data-agent-entity-type=\"customer\">Open</button><button aria-label=\"Ambiguous\">Ambiguous</button><button aria-label=\"Ambiguous\">Ambiguous</button><input placeholder=\"Name\"><iframe style=\"width:320px;height:180px\" src=\"http://{frame_address}/private?token=must-not-leak\"></iframe></body></html>");
                     let response = format!(
                         "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                         body.len(),
@@ -5429,6 +5528,25 @@ mod tests {
             .targets
             .iter()
             .any(|target| target.role == "textbox" && target.name.as_deref() == Some("Name")));
+        let adapter_targets = state
+            .targets
+            .iter()
+            .filter(|target| target.role == "button" && target.name.as_deref() == Some("Open"))
+            .collect::<Vec<_>>();
+        assert_eq!(adapter_targets.len(), 2);
+        assert!(adapter_targets.iter().all(|target| target.interactive));
+        assert_ne!(adapter_targets[0].element_id, adapter_targets[1].element_id);
+        let public_state = serde_json::to_string(&state).unwrap();
+        assert!(!public_state.contains("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        assert!(!public_state.contains("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
+        assert!(!public_state.contains("crm.production"));
+        let ambiguous_targets = state
+            .targets
+            .iter()
+            .filter(|target| target.role == "button" && target.name.as_deref() == Some("Ambiguous"))
+            .collect::<Vec<_>>();
+        assert_eq!(ambiguous_targets.len(), 2);
+        assert!(ambiguous_targets.iter().all(|target| !target.interactive));
         assert!(state.opaque_frame_evidence_fresh);
         let opaque = state
             .opaque_frames

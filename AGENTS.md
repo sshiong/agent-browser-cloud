@@ -259,6 +259,11 @@ progress 166。
 
 ### 最近验证状态
 
+- 极端完全同名目标现有明确 Adapter 身份契约：Application Adapter 以租户/应用隔离 Key 将原始
+  实体值 HMAC 为 `data-agent-entity-hash/type/scope`，Node 从目标自身、祖先与 open Shadow Host
+  读取并在公开 State 前再次哈希。无任何业务上下文的完全同名目标 fail-closed；Chrome 153 真实
+  页面验证不同 Adapter 身份可恢复交互且 Element ID 不同，见 progress 197。
+
 - 外部模型客户端传输取消已补齐：Reviewer、Outcome Verifier 与 Vision 的 HTTP(S) 请求绑定
   权威 Job Lease；Task 或 Owner 状态前进使 Heartbeat fail-closed 后，Worker shutdown 实际 socket，
   停止本地等待、响应下载和迟到回写。真实阻塞 HTTP Provider 与 41 项 Worker 测试通过。第三方

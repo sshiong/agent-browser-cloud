@@ -130,8 +130,9 @@ Rust Browser Node
 | `docs/prompt/` | Web 优先、跨平台复用及 Neo-Industrial Observatory UI 设计输入 |
 | `Makefile` | 统一构建、测试、契约、SDK、集成和发布检查入口 |
 
-README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，再执行 `make docs-generate`。
-`make docs-check` 在 CI 拒绝目录表漂移和 README 本地链接失效，见 progress 166。
+中英文 README 模块表均从 Git 跟踪文件生成；模块变更先暂存，再执行 `make docs-generate`。
+`make docs-check` 在 CI 同时拒绝 `README.md`、`README.en.md` 的目录表漂移和本地链接失效，见
+progress 166。
 
 ## 6. 已完成功能与真实开发进度
 
@@ -256,6 +257,10 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- 仓库已提供简体中文 `README.md` 与英文 `README.en.md` 双入口；两份文件包含语言切换并保持相同的
+  安全边界、启动方式、Worker 链、模型 Provider、真实浏览器 Gate、项目结构和开发入口。
+  `make docs-generate`/`make docs-check` 会同时生成并校验双语模块表和本地链接，见 progress 193。
 
 - `code` 聚合模型 Provider 已以真实 Chrome 登录矩阵验证：请求模型保持聚合路由别名，响应允许合法的
   动态后端模型身份；Reviewer、Outcome 与 Vision 不再依赖所有下游都实现原生 JSON Schema，而以最小

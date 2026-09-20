@@ -13,6 +13,15 @@ class ReadmeInventoryTest(unittest.TestCase):
         self.assertEqual(result.count("apps/z/"), 1)
         self.assertNotIn("old", result)
 
+    def test_english_inventory_uses_english_labels_and_separator(self):
+        result = inventory(["apps/z/main.rs", "apps/a/main.py"], "en")
+        self.assertIn("| Directory | Git-tracked modules |", result)
+        self.assertIn("[a](apps/a/), [z](apps/z/)", result)
+
+    def test_unsupported_inventory_language_fails(self):
+        with self.assertRaisesRegex(ValueError, "unsupported README language"):
+            inventory([], "fr")
+
     def test_addition_and_deletion_change_inventory(self):
         self.assertNotEqual(inventory([]), inventory(["apps/new/main.py"]))
 

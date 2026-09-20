@@ -1,5 +1,7 @@
 # Agent Browser Cloud
 
+[简体中文](README.md) | [English](README.en.md)
+
 以受控 Chromium Runtime 为核心的浏览器基础设施平台。
 
 > Phase 4 MVP、Phase 6 本机容量/N/N−1 和 Phase 7 企业运营核心已有仓库内验收证据，
@@ -23,6 +25,12 @@ macOS 本地 Docker Gate 统一使用 OrbStack；运行前确认 `orbctl status`
 `docker context show` 为 `orbstack`，且 `docker info` 的 Operating System 为 `OrbStack`。
 不得用 Docker Desktop 或 `desktop-linux` context 代替本仓库的本机验收。
 
+```bash
+orbctl status
+docker context show
+docker info --format 'Name={{.Name}} OS={{.OperatingSystem}} Server={{.ServerVersion}}'
+```
+
 首次运行先安装前端依赖：
 
 ```bash
@@ -42,14 +50,18 @@ export LOCAL_AGENT_MODEL_ENDPOINT=https://your-model-provider.example/v1/respons
 export LOCAL_AGENT_MODEL_NAME=your-reviewed-model-deployment
 export LOCAL_AGENT_MODEL_REVISION=your-pinned-model-revision
 
+# 可选：聚合路由（例如 code）通常不固定响应模型名；只有 Provider 保证规范模型 ID 时才锁定。
+export LOCAL_AGENT_MODEL_RESPONSE_NAME=
+export LOCAL_AGENT_MODEL_TIMEOUT_SECONDS=120
+export LOCAL_AGENT_MODEL_MAXIMUM_OUTPUT_TOKENS=512
+
 # 启动本地开发服务及真实 Agent/Reviewer/Outcome/Vision Worker 进程
 make compose-up
 
 # 验证服务
 curl http://localhost:8080/actuator/health
-open http://localhost:3000
-# 企业运营工作台
-open http://localhost:3000/enterprise
+# 浏览器访问 http://localhost:3000
+# 企业运营工作台为 http://localhost:3000/enterprise
 ```
 
 `make compose-up` 会先拒绝缺失、宽权限或非 HTTPS 的模型配置，再构建并等待四个 Worker 首次成功
@@ -82,6 +94,8 @@ loopback。它不是公网反代模板；远程访问应使用 SSH 本地端口�
 
 ### 分步启动
 
+在 macOS 上执行以下 Docker 命令前，仍须完成上方 OrbStack 三项检查。
+
 ```bash
 # 1. 启动基础设施
 docker compose up -d postgres redis
@@ -110,8 +124,8 @@ cd apps/web-console && pnpm dev
 
 ## 项目结构
 
-模块表由 Git 跟踪文件生成，新增/删除模块后先暂存文件，再执行 `make docs-generate`。
-CI 的 `make docs-check` 会拒绝模块表漂移和 README 本地链接失效。
+中英文模块表均由 Git 跟踪文件生成，新增/删除模块后先暂存文件，再执行 `make docs-generate`。
+CI 的 `make docs-check` 会拒绝任一 README 的模块表漂移和本地链接失效。
 
 <!-- BEGIN GENERATED MODULES -->
 
@@ -127,9 +141,9 @@ CI 的 `make docs-check` 会拒绝模块表漂移和 README 本地链接失效�
 <!-- END GENERATED MODULES -->
 
 `docs/` 保存架构与验证证据，`tests/` 保存跨组件 Gate，`Makefile` 是统一检查入口，
-`docker-compose.yml` 为开发编排。当前默认 Compose 尚未完整启动 Agent/Reviewer/Vision
-三个独立 Worker，不能用进程内执行的成功代替外部 Worker 验收；专项修复见
-[A01—A24 实施账本](docs/progress/165-Agent可靠性与个人安全部署修复清单.md)。
+`docker-compose.yml` 为开发编排。当前默认 Compose 已启动 Agent Executor、Reviewer、Outcome
+Verifier 与 Vision 四个独立 Worker，并在真实模型配置缺失时 fail-closed；专项证据见
+[默认 Compose 完整 Agent 运行链闭环](docs/progress/189-默认Compose完整Agent运行链闭环.md)。
 
 ## 文档
 

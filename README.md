@@ -19,6 +19,10 @@
 - Docker 24+
 - Docker Compose 2.20+
 
+macOS 本地 Docker Gate 统一使用 OrbStack；运行前确认 `orbctl status` 为 `Running`、
+`docker context show` 为 `orbstack`，且 `docker info` 的 Operating System 为 `OrbStack`。
+不得用 Docker Desktop 或 `desktop-linux` context 代替本仓库的本机验收。
+
 首次运行先安装前端依赖：
 
 ```bash
@@ -53,6 +57,23 @@ open http://localhost:3000/enterprise
 fixture 冒充真实模型。配置模板见
 [deploy/docker/local-agent.env.example](deploy/docker/local-agent.env.example)。只需要数据库和 Redis
 时仍可执行 `docker compose up -d postgres redis`。
+
+真实浏览器登录与交互 Challenge 可单独复验：
+
+```bash
+# 真实 Chrome：正确密码、错误密码和假成功拒绝；每个 case 使用独立 Profile。
+make test-real-login-agent
+
+# 使用上方显式配置的真实 HTTPS Responses Provider 重跑同一 Outcome Gate。
+make test-real-login-agent-provider
+
+# Cloudflare 官方 forced-interactive 测试 sitekey；真实 headed Chrome 鼠标点击，不访问生产站点。
+make test-turnstile-interactive
+```
+
+`test-real-login-agent-provider` 和默认 Compose 一样缺少私有 Key 文件时 fail-closed。测试不会读取或
+复用 Codex/浏览器账户凭据。Turnstile Gate 只验证 Cloudflare 官方测试 widget 的真实交互，不代表
+绕过生产 CAPTCHA；跨域 iframe 仍按 Opaque Frame 边界处理。
 
 默认 Compose 仅限本机开发。需要单机个人部署时，使用独立的
 [Personal Secure 部署层](deploy/personal-secure/)；它强制 OIDC、随机文件型 Secret、内部 mTLS、

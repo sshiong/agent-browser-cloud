@@ -2,7 +2,7 @@
 
 > 更新日期：2026-09-20
 > 基准分支：`main`
-> 编写时基准提交：`2aacf59 docs: record real chromium audit closure`
+> 编写时基准提交：`594bf54 test: add real login and interactive challenge gates`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -256,6 +256,13 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- 真实登录 Outcome 与交互 Challenge Gate 已加入：三个真实 Chrome 登录 case 各自使用独立 Profile，
+  正确密码、错误密码语义和假成功拒绝均通过，Secret 只经一次性引用使用；Cloudflare 官方
+  forced-interactive dummy sitekey 已在 headed Chrome 中发生真实 checkbox 点击并返回测试 token。
+  实现提交 `594bf54`，本地 `make ci`、Worker/Compose 定向测试和两个真实浏览器 Gate 均通过。
+  `make test-real-login-agent-provider` 已提供真实 HTTPS Provider 入口，但缺少显式 0600/0400 Key
+  时必须 fail-closed；当前 fixture 结果不得写成真实外部 Provider 已验收，见 progress 191。
 
 - 真实 Chrome 初始状态与契约告警切片已修复：Chromium 内部 scheme 以 originless Opaque
   Frame 投影，Control Plane 保持非 Web origin 拒绝；活动 Page 网络 quiet、Document load

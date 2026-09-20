@@ -1,8 +1,8 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-09-19
+> 更新日期：2026-09-20
 > 基准分支：`main`
-> 编写时基准提交：`fbc5179 fix: make compose secret mode check portable`
+> 编写时基准提交：`ccec50c test: publish dynamic fake chromium targets`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -232,6 +232,14 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- 真实 Chrome 初始状态与契约告警切片已修复：Chromium 内部 scheme 以 originless Opaque
+  Frame 投影，Control Plane 保持非 Web origin 拒绝；活动 Page 网络 quiet、Document load
+  收敛和结构化 Challenge 单调 State 复验已通过精确真实 Chrome Matrix。实现提交 `f799e51`，
+  Fake Chromium 动态 Target 事件提交 `ccec50c`；本地 `make ci`、完整 PostgreSQL/Redis/
+  MinIO/mTLS/Chromium Integration、Rust Workspace/Clippy、Control Plane Mapper、OpenAPI 与
+  四语言 SDK 均通过。Redocly 无活动 warning，三个显式 ignore 分别对应始终 409 的锁定接口和
+  两个 extension-only SSE schema；公开基线保持 250 Operations / 345 Schemas，见 progress 190。
 
 - 默认 Compose 完整 Worker 链本地 Agent Worker 32 项、Compose 契约/预检 3 项通过；真实
   `make compose-up` 构建并启动完整栈，Control Plane 与 Agent/Reviewer/Outcome/Vision 四 Worker

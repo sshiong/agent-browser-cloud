@@ -261,6 +261,9 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   正确密码、错误密码语义和假成功拒绝均通过，Secret 只经一次性引用使用；Cloudflare 官方
   forced-interactive dummy sitekey 已在 headed Chrome 中发生真实 checkbox 点击并返回测试 token。
   实现提交 `594bf54`，本地 `make ci`、Worker/Compose 定向测试和两个真实浏览器 Gate 均通过。
+  文档提交 `1997bf2` 的 GitHub `ci` run `35493322329`（含 Verify、完整 Integration、Object
+  Storage/Recording GameDay 与 Kubernetes Operator E2E）和 `desktop` run `35493322318`
+  （Windows/macOS）均成功。
   `make test-real-login-agent-provider` 已提供真实 HTTPS Provider 入口，但缺少显式 0600/0400 Key
   时必须 fail-closed；当前 fixture 结果不得写成真实外部 Provider 已验收，见 progress 191。
 

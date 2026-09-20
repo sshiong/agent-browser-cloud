@@ -66,6 +66,8 @@ Opaque Frame 必须 Human Handoff 的安全策略。官方依据：
 | `make test-default-compose` | 3 项通过 |
 | `make ci` | 通过；Java、Rust/Clippy、Web 143 项、Worker、契约/SDK、供应链、Operator、N−1 |
 | 外部 Provider 缺配置预检 | 预期拒绝，启动任何运行时之前 fail-closed |
+| GitHub `ci` run `35493322329` | 通过；Verify、镜像/供应链、完整 Integration、对象存储/录制 GameDay、Kind Operator E2E |
+| GitHub `desktop` run `35493322318` | 通过；Windows 与 macOS 安全边界测试及 unsigned build |
 
 截图和本地日志写入 `output/playwright/`，不进入 Git。临时容器在 Gate 退出时清理；Docker daemon
 和 context 均为 OrbStack。

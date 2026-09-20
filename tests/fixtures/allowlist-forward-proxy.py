@@ -96,6 +96,65 @@ def relay(left, right):
 class ProxyHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
+    @staticmethod
+    def login_html(title, status_text):
+        return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>{title}</title>
+<style>body{{font-family:sans-serif;padding:32px}}label,input{{display:block}}
+input{{width:360px;height:36px;margin:8px 0 24px}}button{{height:40px;width:180px}}
+</style></head><body><main><h1>Controlled login fixture</h1>
+<p role="status">{status_text}</p>
+<form method="post" action="/login">
+<label for="username">Username</label><input id="username" name="username" autocomplete="username">
+<label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password">
+<button id="submit-login" type="submit">Sign in</button>
+</form></main></body></html>""".encode()
+
+    def send_fixture(self, body, status=200, headers=None):
+        headers = headers or {}
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        for key, value in headers.items():
+            self.send_header(key, value)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self):
+        parsed = urllib.parse.urlsplit(self.path)
+        host = normalized_host(
+            parsed.hostname or self.headers.get("Host", "").split(":")[0]
+        )
+        if host != CONTROL_FIXTURE_HOST or parsed.path != "/login":
+            self.send_error(403, "POST target denied")
+            return
+        length = int(self.headers.get("Content-Length", "0"))
+        fields = urllib.parse.parse_qs(
+            self.rfile.read(length).decode("utf-8", "replace")
+        )
+        # These are repository-owned fixture credentials; values are never logged.
+        ok = (
+            fields.get("username", [""])[0] == "fixture-user"
+            and fields.get("password", [""])[0] == "fixture-pass"
+        )
+        log_event("login_attempt", host=host, success=ok)
+        if ok:
+            body = b"""<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Fixture Dashboard</title></head>
+<body><main><h1>Fixture Dashboard</h1><p role="status">Login successful</p><a href="/dashboard">Account home</a></main></body></html>"""
+            self.send_fixture(
+                body,
+                status=303,
+                headers={
+                    "Location": "/dashboard",
+                    "Set-Cookie": "fixture_session=ok; Path=/",
+                },
+            )
+        else:
+            self.send_fixture(
+                self.login_html("Fixture Login Failed", "Invalid username or password"),
+                status=401,
+            )
+
     def do_CONNECT(self):
         try:
             host, port_text = self.path.rsplit(":", 1)
@@ -139,6 +198,13 @@ class ProxyHandler(BaseHTTPRequestHandler):
 <body><main><h1>Simple challenge fixture</h1>
 <button id="verify" type="button" onclick="document.title='Challenge passed';this.remove();document.querySelector('main').insertAdjacentHTML('beforeend','<p role=status>Challenge passed</p>')">Verify you are human</button>
 </main></body></html>"""
+            elif parsed.path == "/login":
+                body = self.login_html(
+                    "Fixture Login", "Use the controlled fixture account"
+                )
+            elif parsed.path == "/dashboard":
+                body = b"""<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Fixture Dashboard</title></head>
+<body><main><h1>Fixture Dashboard</h1><p role="status">Login successful</p><a href="/dashboard">Account home</a></main></body></html>"""
             else:
                 body = b"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Agent Control Fixture</title>

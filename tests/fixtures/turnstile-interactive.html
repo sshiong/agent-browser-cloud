@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cloudflare Turnstile interactive test fixture</title>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <style>
+      body {
+        color: #172033;
+        font-family: system-ui, sans-serif;
+        margin: 3rem auto;
+        max-width: 42rem;
+        padding: 0 1rem;
+      }
+
+      main {
+        border: 1px solid #d8deea;
+        border-radius: 0.75rem;
+        padding: 2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Authorized Cloudflare Turnstile test</h1>
+      <p>
+        This fixture uses Cloudflare's public dummy sitekey that forces a visible interactive
+        challenge. It does not target a production website or bypass an access-control decision.
+      </p>
+      <div
+        class="cf-turnstile"
+        data-sitekey="3x00000000000000000000FF"
+        data-action="agent-browser-interactive-test"
+        data-callback="turnstilePassed"
+        data-error-callback="turnstileFailed"
+      ></div>
+      <p id="turnstile-status" role="status">Waiting for interactive verification</p>
+    </main>
+    <script>
+      function turnstilePassed(token) {
+        const status = document.getElementById('turnstile-status');
+        status.textContent = token ? 'Interactive Turnstile verified' : 'Turnstile returned no token';
+        status.dataset.verified = token ? 'true' : 'false';
+      }
+
+      function turnstileFailed(code) {
+        const status = document.getElementById('turnstile-status');
+        status.textContent = `Interactive Turnstile failed (${String(code)})`;
+        status.dataset.verified = 'false';
+      }
+    </script>
+  </body>
+</html>

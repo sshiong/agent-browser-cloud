@@ -47,15 +47,15 @@ make install
 git clone https://github.com/sshiong/agent-browser-cloud.git
 cd agent-browser-cloud
 
-# Configure a real model provider. The key file must be an absolute, non-symlink path
-# with mode 0600 or 0400.
-export LOCAL_AGENT_MODEL_API_KEY_FILE=/absolute/path/to/model-api-key
-export LOCAL_AGENT_MODEL_ENDPOINT=https://your-model-provider.example/v1/responses
-export LOCAL_AGENT_MODEL_NAME=your-reviewed-model-deployment
-export LOCAL_AGENT_MODEL_REVISION=your-pinned-model-revision
+# Configure only an OpenAI Responses-compatible Base URL, key, and model.
+# End the Base URL at /v1; the system appends /responses.
+export LOCAL_AGENT_MODEL_ENDPOINT=https://your-model-provider.example/v1
+export LOCAL_AGENT_MODEL_API_KEY=your-provider-key
+export LOCAL_AGENT_MODEL_NAME=code
 
-# Optional: aggregate aliases such as "code" normally allow a dynamic response model.
-# Lock RESPONSE_NAME only when the provider guarantees a canonical model ID.
+# All settings below are optional. Revision defaults to local-v1; aggregate aliases
+# normally leave the response model unlocked.
+export LOCAL_AGENT_MODEL_REVISION=local-v1
 export LOCAL_AGENT_MODEL_RESPONSE_NAME=
 export LOCAL_AGENT_MODEL_TIMEOUT_SECONDS=120
 export LOCAL_AGENT_MODEL_MAXIMUM_OUTPUT_TOKENS=512
@@ -69,7 +69,17 @@ curl http://localhost:8080/actuator/health
 # The enterprise operations workspace is at http://localhost:3000/enterprise.
 ```
 
-`make compose-up` rejects missing, overly permissive, or non-HTTPS model configuration before it
+The Local Compose Reviewer, Outcome, and Vision workers accept OpenAI Responses-compatible HTTP(S)
+Base URLs on any domain or IP. Enter a URL ending in `/v1`; the system calls `/v1/responses`
+automatically. This supports OpenAI, third-party providers, and local aggregate gateways. Keys are
+opaque credentials and are not tied to a vendor. To keep the key out of container environments,
+preflight writes `LOCAL_AGENT_MODEL_API_KEY` to the Git-ignored `.local/agent-model-api-key` with
+mode `0600`, and workers mount only that Secret file. `LOCAL_AGENT_MODEL_API_KEY_FILE` remains
+available for an existing private file. HTTP transmits the key and request content without
+transport encryption and should only be used on a trusted host or network; production workers
+still require HTTPS and an explicit host allowlist.
+
+`make compose-up` rejects missing, overly permissive, or malformed model configuration before it
 starts. It then builds the stack and waits until all four workers have successfully reached their
 authoritative long-poll queues. The model key is mounted from a restricted file and is never placed
 in worker environment variables. No fixture is used to impersonate a real model. See
@@ -84,7 +94,7 @@ The real-browser login and interactive challenge gates can be run independently:
 # Every case uses an independent Profile.
 make test-real-login-agent
 
-# Run the same Outcome gate against the explicitly configured HTTPS Responses provider.
+# Run the same Outcome gate against the explicitly configured HTTP(S) Responses provider.
 make test-real-login-agent-provider
 
 # Cloudflare's official forced-interactive test sitekey, using a real headed-Chrome mouse click.

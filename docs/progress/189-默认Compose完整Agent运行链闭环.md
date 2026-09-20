@@ -16,9 +16,11 @@ Agent Executor、Reviewer 和 Outcome Verifier 队列，也没有 Vision Worker�
   对齐。
 - Worker 继续拒绝非 loopback 明文 HTTP。四个进程通过 `network_mode: service:control-plane`
   共享本地网络命名空间，只访问 `http://127.0.0.1:8080`，没有为了 Compose 放宽认证或传输规则。
-- Reviewer、Outcome、Vision 必须提供显式 HTTPS `/v1/responses` Endpoint、模型名、固定 Revision
-  和绝对路径 API Key 文件。预检拒绝缺失值、符号链接、空文件、宽权限 Key、HTTP Endpoint 和
-  占位模型名；不提供内置模型 fixture 或假成功路径。
+- 本切片当时要求显式 `/v1/responses` Endpoint、模型名、固定 Revision 和绝对路径 API Key 文件。
+  后续 progress 194 已将 Local Compose 的必填项收敛为 Base URL、Key、Model：Base URL 填到 `/v1`
+  后自动补 `/responses`，Revision 默认 `local-v1`，并支持任意域名/IP 的 HTTP(S) 模型入口；生产
+  Worker 仍强制 HTTPS 与 Host Allowlist。预检继续拒绝缺失值、错误 Endpoint 和占位模型名；文件型
+  Key 继续拒绝符号链接、空文件与宽权限。不提供内置模型 fixture 或假成功路径。
 - 一次性 Secret Init 只把凭据复制到按 Worker 隔离、UID 65532、`0400` 的命名卷；模型 Key 不
   进入 Worker 环境变量。Agent Executor 不挂载模型 Key。Worker 文件读取器补齐 owner-only
   `0400` 支持，同时继续拒绝 world-readable 文件。每次 `make compose-up` 都先重建 Secret Init
@@ -32,7 +34,7 @@ Agent Executor、Reviewer 和 Outcome Verifier 队列，也没有 Vision Worker�
 ## 验证
 
 - Agent Worker 32 项测试通过，新增 `0400` Secret 和“成功请求后才 ready、失败不 ready”回归。
-- 默认 Compose 3 项契约/预检测试通过，覆盖完整四 Worker、队列开关、真实凭据要求、HTTPS 和
+- 当时默认 Compose 3 项契约/预检测试通过，覆盖完整四 Worker、队列开关、真实凭据要求、HTTPS 和
   文件权限；`docker compose config --quiet` 通过。
 - 真实执行 `make compose-up` 构建并启动 PostgreSQL、Redis、Control Plane、Browser Node、Web
   与四个 Worker。第一次真实运行发现 Secret Init 缺 `FOWNER`，第二次发现 Worker 未接受更严格

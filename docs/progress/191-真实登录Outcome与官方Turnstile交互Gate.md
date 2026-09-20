@@ -78,7 +78,8 @@ Opaque Frame 必须 Human Handoff 的安全策略。官方依据：
 
 以下内容未完成，不能因本切片改写为已验收：
 
-1. 目标部署仍需使用正式 HTTPS Provider 实际运行 `make compose-up`、`make compose-verify`；本机
-   LAN HTTP 聚合入口仅通过临时 TLS Relay 完成真实登录矩阵，不冒充生产 Provider 验收；
+1. 目标生产部署仍需使用正式 HTTPS Provider 实际运行 `make compose-up`、`make compose-verify`；
+   progress 194 已允许 Local Compose 和真实登录 Gate 直接连接任意域名/IP 的 HTTP(S) Provider，
+   但可信 LAN HTTP 能力不冒充生产 Provider 验收；
 2. 真实企业 IdP/目标网站的客户授权 Replay、Session 撤销延迟与站点特有 Validator；
 3. 生产 Cloudflare Challenge 不属于自动绕过目标，仍遵守 Opaque Frame/Vision/Human Handoff 策略。

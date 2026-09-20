@@ -16,9 +16,8 @@ class DefaultComposeTest(unittest.TestCase):
         return {
             **os.environ,
             "LOCAL_AGENT_MODEL_API_KEY_FILE": str(key_file),
-            "LOCAL_AGENT_MODEL_ENDPOINT": "https://models.example.test/v1/responses",
+            "LOCAL_AGENT_MODEL_ENDPOINT": "https://models.example.test/v1",
             "LOCAL_AGENT_MODEL_NAME": "real-model-deployment",
-            "LOCAL_AGENT_MODEL_REVISION": "2026-09-19",
         }
 
     def test_compose_contains_complete_external_worker_chain(self):
@@ -69,24 +68,47 @@ class DefaultComposeTest(unittest.TestCase):
             self.assertNotEqual(rejected.returncode, 0)
             self.assertIn("0600 or 0400", rejected.stderr)
 
-    def test_preflight_rejects_missing_or_non_https_model_configuration(self):
+    def test_preflight_accepts_http_or_https_and_rejects_invalid_model_configuration(self):
         missing = subprocess.run(
             [str(PREFLIGHT)], cwd=ROOT, env={"PATH": os.environ["PATH"]}, capture_output=True, text=True
         )
         self.assertNotEqual(missing.returncode, 0)
-        self.assertIn("LOCAL_AGENT_MODEL_API_KEY_FILE is required", missing.stderr)
+        self.assertIn("LOCAL_AGENT_MODEL_ENDPOINT is required", missing.stderr)
 
         with tempfile.TemporaryDirectory() as directory:
             key_file = pathlib.Path(directory) / "model-api-key"
             key_file.write_text("secret\n")
             key_file.chmod(stat.S_IRUSR | stat.S_IWUSR)
             environment = self.environment(key_file)
-            environment["LOCAL_AGENT_MODEL_ENDPOINT"] = "http://models.example.test/v1/responses"
+            environment["LOCAL_AGENT_MODEL_ENDPOINT"] = "http://models.example.test/v1"
+            accepted = subprocess.run(
+                [str(PREFLIGHT)], cwd=ROOT, env=environment, capture_output=True, text=True
+            )
+            self.assertEqual(accepted.returncode, 0, accepted.stderr)
+
+            environment["LOCAL_AGENT_MODEL_ENDPOINT"] = "ftp://models.example.test/v1/responses"
             rejected = subprocess.run(
                 [str(PREFLIGHT)], cwd=ROOT, env=environment, capture_output=True, text=True
             )
             self.assertNotEqual(rejected.returncode, 0)
-            self.assertIn("HTTPS /v1/responses", rejected.stderr)
+            self.assertIn("HTTP(S) /v1 base URL", rejected.stderr)
+
+    def test_preflight_materializes_direct_key_without_requiring_revision(self):
+        environment = {
+            **os.environ,
+            "LOCAL_AGENT_MODEL_API_KEY": "third-party-or-local-key",
+            "LOCAL_AGENT_MODEL_ENDPOINT": "http://models.example.test:8080/v1",
+            "LOCAL_AGENT_MODEL_NAME": "code",
+        }
+        local_secret = ROOT / ".local" / "agent-model-api-key"
+        local_secret.unlink(missing_ok=True)
+        self.addCleanup(local_secret.unlink, missing_ok=True)
+        accepted = subprocess.run(
+            [str(PREFLIGHT)], cwd=ROOT, env=environment, capture_output=True, text=True
+        )
+        self.assertEqual(accepted.returncode, 0, accepted.stderr)
+        self.assertEqual(local_secret.read_text(), "third-party-or-local-key\n")
+        self.assertEqual(stat.S_IMODE(local_secret.stat().st_mode), 0o600)
 
     def test_preflight_rejects_invalid_model_output_budget(self):
         with tempfile.TemporaryDirectory() as directory:

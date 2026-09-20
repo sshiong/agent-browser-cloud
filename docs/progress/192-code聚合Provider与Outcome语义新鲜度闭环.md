@@ -30,8 +30,9 @@ GPT、GLM、MiniMax 等不同后端完成，因此响应中的实际模型名不
 
 ## 真实验证
 
-本机 Provider 只提供 LAN HTTP。为不降低仓库默认 HTTPS fail-closed 约束，测试使用临时 localhost TLS
-Relay 和临时 CA 转发到该入口；Key 以 0600 文件放在仓库外，未写入环境变量、日志或 Git。
+本机 Provider 只提供 LAN HTTP。本切片执行时为保持当时的默认 HTTPS fail-closed 约束，测试使用临时
+localhost TLS Relay 和临时 CA 转发到该入口；Key 以 0600 文件放在仓库外，未写入日志或 Git。后续
+progress 194 已允许 Local Compose 直接填写 HTTP(S) `/v1` Base URL、Key 和 Model。
 
 | Gate | 结果 |
 | --- | --- |
@@ -48,8 +49,9 @@ Relay 和临时 CA 转发到该入口；Key 以 0600 文件放在仓库外，未
 
 ## 边界
 
-- 用户当前入口是明文 LAN HTTP，只适合本次受控本机验证；默认 Compose 和生产部署仍必须使用受信 HTTPS
-  Provider 或正式受控网关。
+- 用户当前入口是明文 LAN HTTP；progress 194 已允许 Local Compose 直接连接任意域名/IP 的 HTTP(S)
+  Provider，但 HTTP 会明文传输 Key 与请求内容，只适合可信本机/网络，生产 Worker 仍必须使用受信
+  HTTPS Provider 或正式受控网关。
 - `modelRevision` 是运营方声明的部署/策略修订，不冒充聚合器实际选择的后端模型版本。动态响应模型只作
   合法身份与审计元数据；如需严格模型准入，应由网关固定路由并显式配置响应模型。
 - 本切片不代表真实企业 IdP、客户站点、目标云模型准入或长期稳定性 Gate 已完成。

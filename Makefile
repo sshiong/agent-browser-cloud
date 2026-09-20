@@ -213,7 +213,7 @@ test-real-url-agent:
 test-real-login-agent:
 	LOGIN_AGENT_PROVIDER_MODE=fixture ./tests/compatibility/real-login-agent-matrix.sh
 
-# Repeat the login Outcome gate against the explicitly configured real HTTPS model Provider.
+# Repeat the login Outcome gate against an explicitly configured real HTTP(S) model Provider.
 test-real-login-agent-provider:
 	LOGIN_AGENT_PROVIDER_MODE=external ./tests/compatibility/real-login-agent-matrix.sh
 

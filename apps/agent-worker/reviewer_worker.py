@@ -57,6 +57,9 @@ FORBIDDEN_PAYLOAD_KEYS = {
 
 def fixed_model_endpoint(value: str, environment: str, allowed_hosts: list[str]) -> str:
     parsed = urllib.parse.urlsplit(value)
+    path = parsed.path.rstrip("/")
+    base_url = path.endswith("/v1")
+    responses_url = path.endswith("/v1/responses")
     if (
         parsed.scheme not in {"http", "https"}
         or not parsed.hostname
@@ -64,18 +67,19 @@ def fixed_model_endpoint(value: str, environment: str, allowed_hosts: list[str])
         or parsed.password
         or parsed.query
         or parsed.fragment
-        or parsed.path.rstrip("/") != "/v1/responses"
+        or not (base_url or responses_url)
     ):
-        raise ValueError("model endpoint must be a fixed /v1/responses URL")
+        raise ValueError("model endpoint must be a fixed /v1 base URL or /v1/responses URL")
     local = environment in {"local", "test"}
     if not local and parsed.scheme != "https":
         raise ValueError("non-local Reviewer Worker requires an HTTPS model endpoint")
-    if parsed.scheme == "http" and parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
-        raise ValueError("HTTP model endpoint must be loopback-only")
     normalized_hosts = {host.strip().lower() for host in allowed_hosts if host.strip()}
     if not local and parsed.hostname.lower() not in normalized_hosts:
         raise ValueError("model endpoint host is not explicitly allowed")
-    return value.rstrip("/")
+    normalized_path = f"{path}/responses" if base_url else path
+    return urllib.parse.urlunsplit(
+        (parsed.scheme, parsed.netloc, normalized_path, "", "")
+    )
 
 
 def contains_forbidden_key(value) -> bool:

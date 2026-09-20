@@ -44,13 +44,14 @@ make install
 git clone https://github.com/sshiong/agent-browser-cloud.git
 cd agent-browser-cloud
 
-# 配置真实模型。Key 文件必须是绝对路径、非符号链接且权限为 0600/0400。
-export LOCAL_AGENT_MODEL_API_KEY_FILE=/absolute/path/to/model-api-key
-export LOCAL_AGENT_MODEL_ENDPOINT=https://your-model-provider.example/v1/responses
-export LOCAL_AGENT_MODEL_NAME=your-reviewed-model-deployment
-export LOCAL_AGENT_MODEL_REVISION=your-pinned-model-revision
+# 只需配置 OpenAI Responses 兼容的 Base URL、Key 和 Model。
+# Base URL 填到 /v1；系统会自动补充 /responses。
+export LOCAL_AGENT_MODEL_ENDPOINT=https://your-model-provider.example/v1
+export LOCAL_AGENT_MODEL_API_KEY=your-provider-key
+export LOCAL_AGENT_MODEL_NAME=code
 
-# 可选：聚合路由（例如 code）通常不固定响应模型名；只有 Provider 保证规范模型 ID 时才锁定。
+# 以下均为可选项。Revision 默认 local-v1；聚合路由通常不锁定响应模型名。
+export LOCAL_AGENT_MODEL_REVISION=local-v1
 export LOCAL_AGENT_MODEL_RESPONSE_NAME=
 export LOCAL_AGENT_MODEL_TIMEOUT_SECONDS=120
 export LOCAL_AGENT_MODEL_MAXIMUM_OUTPUT_TOKENS=512
@@ -64,7 +65,15 @@ curl http://localhost:8080/actuator/health
 # 企业运营工作台为 http://localhost:3000/enterprise
 ```
 
-`make compose-up` 会先拒绝缺失、宽权限或非 HTTPS 的模型配置，再构建并等待四个 Worker 首次成功
+Local Compose 的 Reviewer、Outcome 与 Vision 接受任意域名或 IP 的 OpenAI Responses 兼容
+HTTP(S) Base URL；填写到 `/v1` 即可，系统自动调用 `/v1/responses`。因此可使用 OpenAI 官方、
+第三方 Provider 或本地聚合接口；Key 内容作为不透明凭据处理，不绑定任何供应商。为了避免把 Key
+放进容器环境，预检会将 `LOCAL_AGENT_MODEL_API_KEY` 写入 Git 忽略的 `.local/agent-model-api-key`
+并设为 `0600`，Worker 只挂载该 Secret 文件。也可继续使用 `LOCAL_AGENT_MODEL_API_KEY_FILE` 指定已有
+私有文件。HTTP 会以明文传输 Key 和请求内容，只应在你信任的本机或网络使用；正式生产 Worker 仍
+强制 HTTPS 和显式 Host Allowlist。
+
+`make compose-up` 会先拒绝缺失、宽权限或格式错误的模型配置，再构建并等待四个 Worker 首次成功
 访问各自的权威长轮询队列。模型 Key 只经受限文件卷提供给 Worker，不进入其环境变量；不会使用
 fixture 冒充真实模型。配置模板见
 [deploy/docker/local-agent.env.example](deploy/docker/local-agent.env.example)。只需要数据库和 Redis
@@ -76,7 +85,7 @@ fixture 冒充真实模型。配置模板见
 # 真实 Chrome：正确密码、错误密码和假成功拒绝；每个 case 使用独立 Profile。
 make test-real-login-agent
 
-# 使用上方显式配置的真实 HTTPS Responses Provider 重跑同一 Outcome Gate。
+# 使用上方显式配置的真实 HTTP(S) Responses Provider 重跑同一 Outcome Gate。
 make test-real-login-agent-provider
 
 # Cloudflare 官方 forced-interactive 测试 sitekey；真实 headed Chrome 鼠标点击，不访问生产站点。

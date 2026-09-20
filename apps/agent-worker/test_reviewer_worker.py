@@ -279,6 +279,20 @@ class ReviewerWorkerTest(unittest.TestCase):
             "https://models.example.com/v1/responses",
         )
 
+    def test_local_environment_accepts_http_for_ip_and_domain_providers(self):
+        for endpoint, expected in (
+            ("http://192.168.2.10:18078/v1", "http://192.168.2.10:18078/v1/responses"),
+            ("http://models.internal.example:8080/v1/", "http://models.internal.example:8080/v1/responses"),
+            ("https://api.openai.com/v1", "https://api.openai.com/v1/responses"),
+            ("https://gateway.example/openai/v1", "https://gateway.example/openai/v1/responses"),
+            ("https://third-party.example/v1/responses", "https://third-party.example/v1/responses"),
+        ):
+            with self.subTest(endpoint=endpoint):
+                self.assertEqual(
+                    reviewer.fixed_model_endpoint(endpoint, "local", []),
+                    expected,
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

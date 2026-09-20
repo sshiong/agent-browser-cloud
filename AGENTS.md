@@ -163,8 +163,9 @@ progress 166。
   随机文件 Secret、数据库/Redis 认证、内部 mTLS、完整四 Worker 独立身份/进程、受控 Browser
   出口、HTTPS 对象/模型端点和加密 Profile；它不是公网反代模板或 V16 生产认证，见 progress 188。
 - [已确认] 默认 localhost Compose 已启动 Agent Executor、Reviewer、Outcome Verifier、Vision 四个
-  独立真实进程并开启对应外部队列；Worker 保持 loopback-only HTTP 约束，真实 HTTPS 模型配置与
-  私有文件 Key 缺失时 fail-closed，首次成功长轮询后才 healthy，见 progress 189。
+  独立真实进程并开启对应外部队列；Local Compose 的模型入口支持任意域名/IP 的 HTTP(S)
+  `/v1/responses`，Key 作为供应商无关的不透明凭据处理，而非 local/test Worker 仍强制 HTTPS 与
+  Host Allowlist。私有文件 Key 缺失时 fail-closed，首次成功长轮询后才 healthy，见 progress 194。
 
 ### AUTO 资源治理
 
@@ -258,6 +259,12 @@ progress 166。
 
 ### 最近验证状态
 
+- Local Compose 模型入口已支持任意域名/IP 的 HTTP(S) OpenAI Responses 兼容 Provider，可直接连接
+  OpenAI 官方、第三方 HTTPS 或可信本机/LAN HTTP 聚合接口；API Key 不校验供应商前缀，聚合路由允许
+  动态响应模型。必填配置收敛为 `/v1` Base URL、Key、Model，Worker 自动补 `/responses`，Revision
+  默认 `local-v1`；非 local/test Worker 继续强制 HTTPS 与显式 Host Allowlist。Worker 37 项、
+  Compose 5 项与完整 `make ci` 通过，见 progress 194。
+
 - 仓库已提供简体中文 `README.md` 与英文 `README.en.md` 双入口；两份文件包含语言切换并保持相同的
   安全边界、启动方式、Worker 链、模型 Provider、真实浏览器 Gate、项目结构和开发入口。
   `make docs-generate`/`make docs-check` 会同时生成并校验双语模块表和本地链接，见 progress 193。
@@ -267,8 +274,9 @@ progress 166。
   Responses 请求、明确 JSON Prompt 和 Worker 本地严格校验 fail-closed。V124 以最小化语义证据哈希
   容忍真实模型延迟期间非语义 State 游标前进，同时仍要求当前页面新鲜、稳定且 URL/Target/Expected
   Outcome/执行证据不变。成功登录、错误密码预期失败和假成功拒绝均经真实外部模型通过，三次最终调用
-  分别约 4.9s、4.3s、6.8s，Secret 未输出。用户入口仅为 LAN HTTP，本机验证通过临时 TLS Relay
-  保持仓库 HTTPS fail-closed，不能据此宣称生产 Provider Gate 完成，见 progress 192。
+  分别约 4.9s、4.3s、6.8s，Secret 未输出。当时用户入口仅为 LAN HTTP并通过临时 TLS Relay 验证；
+  progress 194 已允许 Local Compose 直接填写 HTTP(S) `/v1` Base URL、Key、Model，但仍不能据此
+  宣称生产 Provider Gate 完成，见 progress 192。
 
 - 真实登录 Outcome 与交互 Challenge Gate 已加入：三个真实 Chrome 登录 case 各自使用独立 Profile，
   正确密码、错误密码语义和假成功拒绝均通过，Secret 只经一次性引用使用；Cloudflare 官方
@@ -277,9 +285,9 @@ progress 166。
   文档提交 `1997bf2` 的 GitHub `ci` run `35493322329`（含 Verify、完整 Integration、Object
   Storage/Recording GameDay 与 Kubernetes Operator E2E）和 `desktop` run `35493322318`
   （Windows/macOS）均成功。
-  `make test-real-login-agent-provider` 保持显式 0600/0400 Key 与 HTTPS fail-closed；后续真实聚合
-  Provider 调用、动态后端模型兼容和 LAN HTTP 剩余边界见 progress 192，不能据此冒充生产 HTTPS
-  Provider 已验收。
+  `make test-real-login-agent-provider` 已在 progress 194 支持直接 Key 或显式 0600/0400 Key 文件，
+  并接受 HTTP(S) `/v1` Base URL；真实聚合 Provider 调用、动态后端模型兼容和 LAN HTTP 边界见
+  progress 192，不能据此冒充生产 HTTPS Provider 已验收。
 
 - 真实 Chrome 初始状态与契约告警切片已修复：Chromium 内部 scheme 以 originless Opaque
   Frame 投影，Control Plane 保持非 Web origin 拒绝；活动 Page 网络 quiet、Document load

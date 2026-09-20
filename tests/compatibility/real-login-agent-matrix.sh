@@ -28,21 +28,31 @@ provider_mode="${LOGIN_AGENT_PROVIDER_MODE:-fixture}"
 case "$provider_mode" in
   fixture) ;;
   external)
-    [[ -n "${LOCAL_AGENT_MODEL_API_KEY_FILE:-}" ]] || fail "external Provider requires LOCAL_AGENT_MODEL_API_KEY_FILE"
+    [[ -n "${LOCAL_AGENT_MODEL_API_KEY:-}" || -n "${LOCAL_AGENT_MODEL_API_KEY_FILE:-}" ]] \
+      || fail "external Provider requires LOCAL_AGENT_MODEL_API_KEY or LOCAL_AGENT_MODEL_API_KEY_FILE"
     [[ -n "${LOCAL_AGENT_MODEL_ENDPOINT:-}" ]] || fail "external Provider requires LOCAL_AGENT_MODEL_ENDPOINT"
     [[ -n "${LOCAL_AGENT_MODEL_NAME:-}" ]] || fail "external Provider requires LOCAL_AGENT_MODEL_NAME"
-    [[ -n "${LOCAL_AGENT_MODEL_REVISION:-}" ]] || fail "external Provider requires LOCAL_AGENT_MODEL_REVISION"
-    [[ "$LOCAL_AGENT_MODEL_API_KEY_FILE" = /* ]] || fail "model API key path must be absolute"
-    [[ -f "$LOCAL_AGENT_MODEL_API_KEY_FILE" ]] || fail "model API key must be a regular file"
-    [[ ! -L "$LOCAL_AGENT_MODEL_API_KEY_FILE" ]] || fail "model API key must not be a symbolic link"
-    [[ -s "$LOCAL_AGENT_MODEL_API_KEY_FILE" ]] || fail "model API key must not be empty"
-    if key_mode="$(stat -c '%a' "$LOCAL_AGENT_MODEL_API_KEY_FILE" 2>/dev/null)"; then
-      : # GNU stat (Linux)
-    else
-      key_mode="$(stat -f '%Lp' "$LOCAL_AGENT_MODEL_API_KEY_FILE")" # BSD stat (macOS)
+    if [[ -n "${LOCAL_AGENT_MODEL_API_KEY_FILE:-}" ]]; then
+      [[ "$LOCAL_AGENT_MODEL_API_KEY_FILE" = /* ]] || fail "model API key path must be absolute"
+      [[ -f "$LOCAL_AGENT_MODEL_API_KEY_FILE" ]] || fail "model API key must be a regular file"
+      [[ ! -L "$LOCAL_AGENT_MODEL_API_KEY_FILE" ]] || fail "model API key must not be a symbolic link"
+      [[ -s "$LOCAL_AGENT_MODEL_API_KEY_FILE" ]] || fail "model API key must not be empty"
+      if key_mode="$(stat -c '%a' "$LOCAL_AGENT_MODEL_API_KEY_FILE" 2>/dev/null)"; then
+        : # GNU stat (Linux)
+      else
+        key_mode="$(stat -f '%Lp' "$LOCAL_AGENT_MODEL_API_KEY_FILE")" # BSD stat (macOS)
+      fi
+      [[ "$key_mode" == "600" || "$key_mode" == "400" ]] || fail "model API key mode must be 0600 or 0400"
     fi
-    [[ "$key_mode" == "600" || "$key_mode" == "400" ]] || fail "model API key mode must be 0600 or 0400"
-    [[ "$LOCAL_AGENT_MODEL_ENDPOINT" == https://*/v1/responses ]] || fail "model endpoint must be HTTPS and end in /v1/responses"
+    [[ "$LOCAL_AGENT_MODEL_ENDPOINT" == http://*/v1 \
+      || "$LOCAL_AGENT_MODEL_ENDPOINT" == http://*/v1/ \
+      || "$LOCAL_AGENT_MODEL_ENDPOINT" == http://*/v1/responses \
+      || "$LOCAL_AGENT_MODEL_ENDPOINT" == http://*/v1/responses/ \
+      || "$LOCAL_AGENT_MODEL_ENDPOINT" == https://*/v1 \
+      || "$LOCAL_AGENT_MODEL_ENDPOINT" == https://*/v1/ \
+      || "$LOCAL_AGENT_MODEL_ENDPOINT" == https://*/v1/responses \
+      || "$LOCAL_AGENT_MODEL_ENDPOINT" == https://*/v1/responses/ ]] \
+      || fail "model endpoint must be HTTP(S) and end in /v1"
     ;;
   *)
     echo "LOGIN_AGENT_PROVIDER_MODE must be fixture or external" >&2
@@ -176,9 +186,15 @@ if [[ "$provider_mode" == "fixture" ]]; then
 else
   model_endpoint="$LOCAL_AGENT_MODEL_ENDPOINT"
   model_name="$LOCAL_AGENT_MODEL_NAME"
-  model_revision="$LOCAL_AGENT_MODEL_REVISION"
+  model_revision="${LOCAL_AGENT_MODEL_REVISION:-local-v1}"
   model_maximum_output_tokens="${LOCAL_AGENT_MODEL_MAXIMUM_OUTPUT_TOKENS:-512}"
-  model_key_file="$LOCAL_AGENT_MODEL_API_KEY_FILE"
+  if [[ -n "${LOCAL_AGENT_MODEL_API_KEY_FILE:-}" ]]; then
+    model_key_file="$LOCAL_AGENT_MODEL_API_KEY_FILE"
+  else
+    model_key_file="$temp_dir/model-api-key"
+    printf '%s\n' "$LOCAL_AGENT_MODEL_API_KEY" >"$model_key_file"
+    chmod 600 "$model_key_file"
+  fi
 fi
 
 for _ in $(seq 1 40); do

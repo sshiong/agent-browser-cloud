@@ -67,10 +67,16 @@ class Handler(BaseHTTPRequestHandler):
         }
         with open(EVENT_LOG, "a", encoding="utf-8") as handle:
             handle.write(json.dumps(event, sort_keys=True) + "\n")
-        schema_name = request.get("text", {}).get("format", {}).get("name")
+        system_text = " ".join(
+            str(part.get("text", ""))
+            for message in request.get("input", [])
+            if isinstance(message, dict) and message.get("role") == "system"
+            for part in message.get("content", [])
+            if isinstance(part, dict)
+        )
         verdict_document = (
             {"decision": "VERIFIED", "reasonCodes": ["GOAL_SATISFIED"], "confidence": 0.97}
-            if schema_name == "agent_outcome_verification"
+            if "outcome verifier" in system_text.lower()
             else {"decision": "APPROVE", "reasonCodes": ["SAFE"], "confidence": 0.97}
         )
         verdict = json.dumps(verdict_document, separators=(",", ":"))

@@ -37,6 +37,79 @@ class VisionWorkerTest(unittest.TestCase):
             "/api/v1/challenge-visual-jobs:claim?waitSeconds=15",
         )
 
+    def test_aggregate_model_alias_accepts_dynamic_response_model_and_minimal_request(self):
+        class Handler(http.server.BaseHTTPRequestHandler):
+            request_body = None
+
+            def do_POST(self):
+                self.__class__.request_body = json.loads(
+                    self.rfile.read(int(self.headers["Content-Length"]))
+                )
+                document = {
+                    "id": "resp_vision_fixture",
+                    "model": "glm-vision-routed",
+                    "output": [{
+                        "type": "message",
+                        "content": [{
+                            "type": "output_text",
+                            "text": json.dumps({
+                                "decision": "ACT",
+                                "confidence": 0.95,
+                                "actions": [{
+                                    "actionType": "CLICK",
+                                    "x": 0.25,
+                                    "y": 0.5,
+                                    "endX": None,
+                                    "endY": None,
+                                    "repeatCount": 1,
+                                }],
+                            }),
+                        }],
+                    }],
+                    "usage": {"input_tokens": 100, "output_tokens": 20},
+                }
+                raw = json.dumps(document).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+
+            def log_message(self, *args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            provider = vision_worker.ScreenshotVisionProvider(
+                f"http://127.0.0.1:{server.server_port}/v1/responses",
+                "provider-secret",
+                None,
+                "code",
+                "aggregate-revision-v1",
+                512,
+                timeout_seconds=5,
+            )
+            verdict = provider.analyze(
+                {
+                    "challengeType": "SINGLE_CLICK",
+                    "allowMultiClick": False,
+                    "allowSlide": False,
+                    "job": {"deploymentId": "vision-test"},
+                },
+                self.jpeg(),
+            )
+            self.assertEqual(verdict["decision"], "ACT")
+            self.assertEqual(verdict["actions"][0]["actionType"], "CLICK")
+            self.assertEqual(Handler.request_body["model"], "code")
+            self.assertNotIn("temperature", Handler.request_body)
+            self.assertNotIn("text", Handler.request_body)
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            server.server_close()
+
     @staticmethod
     def tsv(text):
         header = "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n"

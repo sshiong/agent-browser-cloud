@@ -37,6 +37,9 @@ class DefaultComposeTest(unittest.TestCase):
         ):
             self.assertIn(setting, compose)
         self.assertEqual(compose.count("--ready-file, /tmp/worker-ready"), 4)
+        self.assertEqual(compose.count("--expected-response-model"), 3)
+        self.assertEqual(compose.count("--model-timeout-seconds"), 3)
+        self.assertEqual(compose.count("--maximum-output-tokens"), 3)
         self.assertEqual(compose.count("network_mode: service:control-plane"), 1)
         self.assertNotIn("model-fixture", compose.lower())
         self.assertIn("${LOCAL_AGENT_MODEL_API_KEY_FILE", compose)
@@ -84,6 +87,19 @@ class DefaultComposeTest(unittest.TestCase):
             )
             self.assertNotEqual(rejected.returncode, 0)
             self.assertIn("HTTPS /v1/responses", rejected.stderr)
+
+    def test_preflight_rejects_invalid_model_output_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            key_file = pathlib.Path(directory) / "model-api-key"
+            key_file.write_text("secret\n")
+            key_file.chmod(stat.S_IRUSR | stat.S_IWUSR)
+            environment = self.environment(key_file)
+            environment["LOCAL_AGENT_MODEL_MAXIMUM_OUTPUT_TOKENS"] = "4097"
+            rejected = subprocess.run(
+                [str(PREFLIGHT)], cwd=ROOT, env=environment, capture_output=True, text=True
+            )
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn("integer from 64 to 4096", rejected.stderr)
 
 
 if __name__ == "__main__":

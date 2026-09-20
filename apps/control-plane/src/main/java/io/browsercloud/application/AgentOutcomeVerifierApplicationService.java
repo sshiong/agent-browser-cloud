@@ -24,6 +24,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -148,6 +149,7 @@ public class AgentOutcomeVerifierApplicationService {
     var provisional = payload(task, results, snapshot, null);
     var evidenceHash = sha256(write(provisional));
     var payload = payload(task, results, snapshot, evidenceHash);
+    var semanticEvidenceHash = semanticEvidenceHash(payload);
     var inputHash = sha256(write(payload));
     if (findByTaskId(task.getTaskId()).isPresent()) {
       throw new AgentOutcomeRejectedException("AGENT_OUTCOME_JOB_ALREADY_EXISTS");
@@ -158,12 +160,13 @@ public class AgentOutcomeVerifierApplicationService {
         """
         INSERT INTO agent_outcome_verification_jobs(
           job_id, verification_id, task_id, tenant_id, session_id, protocol_version,
-          evidence_hash, state_version, target_revision, state_hash, state, attempt,
+          evidence_hash, semantic_evidence_hash, state_version, target_revision, state_hash,
+          state, attempt,
           maximum_attempts, claim_epoch, available_at, deployment_id, provider_type,
           model_name, model_revision, data_policy, maximum_output_tokens,
           input_price_micros_per_mtok, output_price_micros_per_mtok, input_hash,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, 'outcome-verifier-worker/v1', ?, ?, ?, ?, 'QUEUED', 0,
+        ) VALUES (?, ?, ?, ?, ?, 'outcome-verifier-worker/v1', ?, ?, ?, ?, ?, 'QUEUED', 0,
                   ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         jobId,
@@ -172,6 +175,7 @@ public class AgentOutcomeVerifierApplicationService {
         task.getTenantId(),
         task.getSessionId(),
         evidenceHash,
+        semanticEvidenceHash,
         snapshot.state().stateVersion(),
         snapshot.state().targetRevision(),
         snapshot.state().stateHash(),
@@ -339,7 +343,7 @@ public class AgentOutcomeVerifierApplicationService {
       throw new AgentOutcomeRejectedException("OUTCOME_MODEL_OUTPUT_BUDGET_EXCEEDED");
     }
     var task = requireTask(job.taskId(), job.tenantId());
-    var exactPayload = requireExactPayload(job, task);
+    var exactPayload = requireSemanticallyEquivalentPayload(job, task, now);
     var reasons = normalizedReasons(request.reasonCodes());
     var outcome =
         policyDecision(
@@ -544,6 +548,7 @@ public class AgentOutcomeVerifierApplicationService {
     var provisional = payload(task, results, snapshot, null);
     var evidenceHash = sha256(write(provisional));
     var payload = payload(task, results, snapshot, evidenceHash);
+    var semanticEvidenceHash = semanticEvidenceHash(payload);
     var inputHash = sha256(write(payload));
     if (state.stateVersion() != job.stateVersion()
         || state.targetRevision() != job.targetRevision()
@@ -554,11 +559,13 @@ public class AgentOutcomeVerifierApplicationService {
           jdbc.update(
               """
               UPDATE agent_outcome_verification_jobs
-                 SET evidence_hash = ?, state_version = ?, target_revision = ?, state_hash = ?,
-                     input_hash = ?, available_at = ?, updated_at = ?
+                 SET evidence_hash = ?, semantic_evidence_hash = ?, state_version = ?,
+                     target_revision = ?, state_hash = ?, input_hash = ?, available_at = ?,
+                     updated_at = ?
                WHERE job_id = ? AND state = 'QUEUED' AND claim_epoch = ?
               """,
               evidenceHash,
+              semanticEvidenceHash,
               state.stateVersion(),
               state.targetRevision(),
               state.stateHash(),
@@ -589,17 +596,17 @@ public class AgentOutcomeVerifierApplicationService {
     return Optional.empty();
   }
 
-  private AgentOutcomePayload requireExactPayload(OutcomeJob job, AgentTaskEntity task) {
+  private AgentOutcomePayload requireSemanticallyEquivalentPayload(
+      OutcomeJob job, AgentTaskEntity task, Instant now) {
     if (!"VERIFYING_OUTCOME".equals(task.getState())
         || !job.verificationId().equals(task.getOutcomeVerificationId())) {
       throw new AgentOutcomeRejectedException("AGENT_OUTCOME_TASK_CHANGED");
     }
     var snapshot = requireSnapshot(task);
-    if (snapshot.state().stateVersion() != job.stateVersion()
-        || snapshot.state().targetRevision() != job.targetRevision()
-        || !MessageDigest.isEqual(
-            snapshot.state().stateHash().getBytes(StandardCharsets.US_ASCII),
-            job.stateHash().getBytes(StandardCharsets.US_ASCII))) {
+    var freshness = BrowserStateFreshness.describe(snapshot.state(), snapshot.observedAt(), now);
+    if (!Set.of("COMPLETE", "DEPTH_LIMITED").contains(snapshot.state().stateQuality())
+        || "STALE".equals(freshness.freshness())
+        || !"STABLE".equals(freshness.pageActivity())) {
       throw new AgentOutcomeRejectedException("AGENT_OUTCOME_EVIDENCE_CHANGED");
     }
     var results =
@@ -607,11 +614,44 @@ public class AgentOutcomeVerifierApplicationService {
     var provisional = payload(task, results, snapshot, null);
     var evidenceHash = sha256(write(provisional));
     var payload = payload(task, results, snapshot, evidenceHash);
-    if (!constantEquals(evidenceHash, job.evidenceHash())
-        || !constantEquals(sha256(write(payload)), job.inputHash())) {
-      throw new AgentOutcomeRejectedException("AGENT_OUTCOME_INPUT_CHANGED");
+    if (job.semanticEvidenceHash() == null) {
+      if (snapshot.state().stateVersion() != job.stateVersion()
+          || snapshot.state().targetRevision() != job.targetRevision()
+          || !constantEquals(snapshot.state().stateHash(), job.stateHash())) {
+        throw new AgentOutcomeRejectedException("AGENT_OUTCOME_EVIDENCE_CHANGED");
+      }
+      if (!constantEquals(evidenceHash, job.evidenceHash())
+          || !constantEquals(sha256(write(payload)), job.inputHash())) {
+        throw new AgentOutcomeRejectedException("AGENT_OUTCOME_INPUT_CHANGED");
+      }
+      return payload;
+    }
+    if (!constantEquals(semanticEvidenceHash(payload), job.semanticEvidenceHash())) {
+      throw new AgentOutcomeRejectedException("AGENT_OUTCOME_EVIDENCE_CHANGED");
     }
     return payload;
+  }
+
+  private String semanticEvidenceHash(AgentOutcomePayload payload) {
+    var state = payload.finalState();
+    var stableState = new LinkedHashMap<String, Object>();
+    stableState.put("url", state.url());
+    stableState.put("title", state.title());
+    stableState.put("stateQuality", state.stateQuality());
+    stableState.put("documentReadyState", state.documentReadyState());
+    stableState.put("networkEvidenceFresh", state.networkEvidenceFresh());
+    stableState.put("targets", state.targets());
+    var stablePayload = new LinkedHashMap<String, Object>();
+    stablePayload.put("taskId", payload.taskId());
+    stablePayload.put("goal", payload.goal());
+    stablePayload.put("riskClass", payload.riskClass());
+    stablePayload.put("allowedDomains", payload.allowedDomains());
+    stablePayload.put("expectedOutcomes", payload.expectedOutcomes());
+    stablePayload.put("expectedOutcomeEvaluations", payload.expectedOutcomeEvaluations());
+    stablePayload.put("executionEvidence", payload.executionEvidence());
+    stablePayload.put("finalState", stableState);
+    stablePayload.put("dataPolicy", payload.dataPolicy());
+    return sha256(write(stablePayload));
   }
 
   private AgentOutcomePayload payload(
@@ -804,6 +844,7 @@ public class AgentOutcomeVerifierApplicationService {
         result.getString("session_id"),
         result.getString("protocol_version"),
         result.getString("evidence_hash"),
+        result.getString("semantic_evidence_hash"),
         result.getLong("state_version"),
         result.getLong("target_revision"),
         result.getString("state_hash"),
@@ -1042,6 +1083,7 @@ public class AgentOutcomeVerifierApplicationService {
       String sessionId,
       String protocolVersion,
       String evidenceHash,
+      String semanticEvidenceHash,
       long stateVersion,
       long targetRevision,
       String stateHash,

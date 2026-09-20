@@ -110,10 +110,12 @@ services:
       AGENT_REVIEWER_DEPLOYMENT_ID: local-reviewer-v1
       AGENT_REVIEWER_MODEL_NAME: ${LOCAL_AGENT_MODEL_NAME:-configure-real-model}
       AGENT_REVIEWER_MODEL_REVISION: ${LOCAL_AGENT_MODEL_REVISION:-local-v1}
+      AGENT_REVIEWER_MAXIMUM_OUTPUT_TOKENS: ${LOCAL_AGENT_MODEL_MAXIMUM_OUTPUT_TOKENS:-512}
       AGENT_OUTCOME_VERIFIER_EXTERNAL_ENABLED: "true"
       AGENT_OUTCOME_VERIFIER_DEPLOYMENT_ID: local-outcome-v1
       AGENT_OUTCOME_VERIFIER_MODEL_NAME: ${LOCAL_AGENT_MODEL_NAME:-configure-real-model}
       AGENT_OUTCOME_VERIFIER_MODEL_REVISION: ${LOCAL_AGENT_MODEL_REVISION:-local-v1}
+      AGENT_OUTCOME_VERIFIER_MAXIMUM_OUTPUT_TOKENS: ${LOCAL_AGENT_MODEL_MAXIMUM_OUTPUT_TOKENS:-512}
       CHALLENGE_VISION_DEPLOYMENT_ID: local-vision-v1
       CHALLENGE_VISION_MODEL_REVISION: ${LOCAL_AGENT_MODEL_REVISION:-local-v1}
       SERVER_PORT: 8080
@@ -143,21 +145,21 @@ services:
   reviewer-worker:
     <<: *local-agent-worker
     entrypoint: [/usr/bin/tini, --, python, /app/reviewer_worker.py]
-    command: [--control-plane-url, http://127.0.0.1:8080, --control-plane-token-file, /run/browsercloud/secrets/token, --worker-id, local-reviewer-1, --deployment-id, local-reviewer-v1, --model-endpoint, "${LOCAL_AGENT_MODEL_ENDPOINT:-https://model.invalid/v1/responses}", --model-api-key-file, /run/browsercloud/secrets/model-api-key, --model-name, "${LOCAL_AGENT_MODEL_NAME:-configure-real-model}", --model-revision, "${LOCAL_AGENT_MODEL_REVISION:-local-v1}", --environment, local, --ready-file, /tmp/worker-ready]
+    command: [--control-plane-url, http://127.0.0.1:8080, --control-plane-token-file, /run/browsercloud/secrets/token, --worker-id, local-reviewer-1, --deployment-id, local-reviewer-v1, --model-endpoint, "${LOCAL_AGENT_MODEL_ENDPOINT:-https://model.invalid/v1/responses}", --model-api-key-file, /run/browsercloud/secrets/model-api-key, --model-name, "${LOCAL_AGENT_MODEL_NAME:-configure-real-model}", --expected-response-model, "${LOCAL_AGENT_MODEL_RESPONSE_NAME:-}", --model-revision, "${LOCAL_AGENT_MODEL_REVISION:-local-v1}", --maximum-output-tokens, "${LOCAL_AGENT_MODEL_MAXIMUM_OUTPUT_TOKENS:-512}", --model-timeout-seconds, "${LOCAL_AGENT_MODEL_TIMEOUT_SECONDS:-120}", --environment, local, --ready-file, /tmp/worker-ready]
     volumes:
       - local_reviewer_worker_secrets:/run/browsercloud/secrets:ro
 
   outcome-verifier-worker:
     <<: *local-agent-worker
     entrypoint: [/usr/bin/tini, --, python, /app/outcome_verifier_worker.py]
-    command: [--control-plane-url, http://127.0.0.1:8080, --control-plane-token-file, /run/browsercloud/secrets/token, --worker-id, local-outcome-1, --deployment-id, local-outcome-v1, --model-endpoint, "${LOCAL_AGENT_MODEL_ENDPOINT:-https://model.invalid/v1/responses}", --model-api-key-file, /run/browsercloud/secrets/model-api-key, --model-name, "${LOCAL_AGENT_MODEL_NAME:-configure-real-model}", --model-revision, "${LOCAL_AGENT_MODEL_REVISION:-local-v1}", --environment, local, --ready-file, /tmp/worker-ready]
+    command: [--control-plane-url, http://127.0.0.1:8080, --control-plane-token-file, /run/browsercloud/secrets/token, --worker-id, local-outcome-1, --deployment-id, local-outcome-v1, --model-endpoint, "${LOCAL_AGENT_MODEL_ENDPOINT:-https://model.invalid/v1/responses}", --model-api-key-file, /run/browsercloud/secrets/model-api-key, --model-name, "${LOCAL_AGENT_MODEL_NAME:-configure-real-model}", --expected-response-model, "${LOCAL_AGENT_MODEL_RESPONSE_NAME:-}", --model-revision, "${LOCAL_AGENT_MODEL_REVISION:-local-v1}", --maximum-output-tokens, "${LOCAL_AGENT_MODEL_MAXIMUM_OUTPUT_TOKENS:-512}", --model-timeout-seconds, "${LOCAL_AGENT_MODEL_TIMEOUT_SECONDS:-120}", --environment, local, --ready-file, /tmp/worker-ready]
     volumes:
       - local_outcome_worker_secrets:/run/browsercloud/secrets:ro
 
   vision-worker:
     <<: *local-agent-worker
     entrypoint: [/usr/bin/tini, --, python, /app/vision_worker.py]
-    command: [--control-plane-url, http://127.0.0.1:8080, --control-plane-token-file, /run/browsercloud/secrets/token, --worker-id, local-vision-1, --deployment-id, local-vision-v1, --model-endpoint, "${LOCAL_AGENT_MODEL_ENDPOINT:-https://model.invalid/v1/responses}", --model-api-key-file, /run/browsercloud/secrets/model-api-key, --model-name, "${LOCAL_AGENT_MODEL_NAME:-configure-real-model}", --model-revision, "${LOCAL_AGENT_MODEL_REVISION:-local-v1}", --environment, local, --ready-file, /tmp/worker-ready]
+    command: [--control-plane-url, http://127.0.0.1:8080, --control-plane-token-file, /run/browsercloud/secrets/token, --worker-id, local-vision-1, --deployment-id, local-vision-v1, --model-endpoint, "${LOCAL_AGENT_MODEL_ENDPOINT:-https://model.invalid/v1/responses}", --model-api-key-file, /run/browsercloud/secrets/model-api-key, --model-name, "${LOCAL_AGENT_MODEL_NAME:-configure-real-model}", --expected-response-model, "${LOCAL_AGENT_MODEL_RESPONSE_NAME:-}", --model-revision, "${LOCAL_AGENT_MODEL_REVISION:-local-v1}", --maximum-output-tokens, "${LOCAL_AGENT_MODEL_MAXIMUM_OUTPUT_TOKENS:-512}", --model-timeout-seconds, "${LOCAL_AGENT_MODEL_TIMEOUT_SECONDS:-120}", --environment, local, --ready-file, /tmp/worker-ready]
     volumes:
       - local_vision_worker_secrets:/run/browsercloud/secrets:ro
 

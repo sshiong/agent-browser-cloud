@@ -234,10 +234,36 @@ class ReviewerWorkerTest(unittest.TestCase):
         self.assertTrue(reviewer.contains_forbidden_key({"nested": {"sealedPayload": "x"}}))
         self.assertTrue(reviewer.contains_forbidden_key({"capabilityToken": "x"}))
 
-    def test_provider_response_must_match_the_pinned_model(self):
+    def test_dynamic_provider_response_model_is_allowed_when_not_pinned(self):
         ModelFixture.response_model = "unexpected-model"
+        self.assertEqual(
+            self.provider.review({"taskId": "agt_1234567890abcdef"})["decision"], "APPROVE"
+        )
+
+    def test_explicit_provider_response_model_remains_strict(self):
+        ModelFixture.response_model = "unexpected-model"
+        provider = reviewer.OpenAIResponsesReviewer(
+            reviewer.fixed_model_endpoint(self.model_endpoint, "test", []),
+            "provider-secret", None, "reviewer-model", "model-revision-v1", 512,
+            "reviewer-model",
+        )
         with self.assertRaisesRegex(reviewer.WorkerError, "MODEL_PROVIDER_MODEL_MISMATCH"):
-            self.provider.review({"taskId": "agt_1234567890abcdef"})
+            provider.review({"taskId": "agt_1234567890abcdef"})
+
+    def test_provider_alias_can_optionally_pin_canonical_response_model(self):
+        ModelFixture.response_model = "reviewer-model-2026-09-20"
+        provider = reviewer.OpenAIResponsesReviewer(
+            reviewer.fixed_model_endpoint(self.model_endpoint, "test", []),
+            "provider-secret",
+            None,
+            "reviewer-model-alias",
+            "model-revision-v1",
+            512,
+            "reviewer-model-2026-09-20",
+        )
+        verdict = provider.review({"taskId": "agt_1234567890abcdef"})
+        self.assertEqual(verdict["decision"], "APPROVE")
+        self.assertEqual(ModelFixture.requests[-1]["body"]["model"], "reviewer-model-alias")
 
     def test_production_requires_https_and_explicit_host_allowlist(self):
         with self.assertRaisesRegex(ValueError, "HTTPS"):

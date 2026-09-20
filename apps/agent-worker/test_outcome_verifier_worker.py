@@ -103,6 +103,7 @@ class ControlPlaneFixture(BaseHTTPRequestHandler):
 
 class ModelFixture(BaseHTTPRequestHandler):
     requests = []
+    response_model = "outcome-model"
 
     def log_message(self, *_args):
         return
@@ -112,7 +113,7 @@ class ModelFixture(BaseHTTPRequestHandler):
         self.__class__.requests.append(body)
         document = {
             "id": "resp_outcome_123",
-            "model": "outcome-model",
+            "model": self.__class__.response_model,
             "output_text": json.dumps({
                 "decision": "VERIFIED",
                 "reasonCodes": ["GOAL_SATISFIED"],
@@ -150,6 +151,7 @@ class OutcomeVerifierWorkerTest(unittest.TestCase):
     def setUp(self):
         ControlPlaneFixture.requests.clear()
         ModelFixture.requests.clear()
+        ModelFixture.response_model = "outcome-model"
         self.client = outcome.OutcomeControlPlaneClient(
             f"http://127.0.0.1:{self.control.server_port}",
             "control-token", None, "test", "outcome-worker-test",
@@ -177,7 +179,7 @@ class OutcomeVerifierWorkerTest(unittest.TestCase):
             {"waitSeconds": ["15"]},
         )
         request = ModelFixture.requests[-1]
-        self.assertEqual(request["text"]["format"]["name"], "agent_outcome_verification")
+        self.assertNotIn("text", request)
         serialized = json.dumps(request)
         for forbidden in (
             "capabilityToken", "sealedPayload", "elementId", "matchValue", "provider-secret"
@@ -190,6 +192,21 @@ class OutcomeVerifierWorkerTest(unittest.TestCase):
     def test_sensitive_fields_are_rejected_before_model_call(self):
         self.assertTrue(outcome.contains_forbidden_outcome_key({"targets": [{"value": "secret"}]}))
         self.assertTrue(outcome.contains_forbidden_outcome_key({"elementId": "stable"}))
+
+    def test_provider_alias_can_optionally_pin_canonical_response_model(self):
+        ModelFixture.response_model = "gpt-5.6-luna"
+        provider = outcome.OpenAIResponsesOutcomeVerifier(
+            f"http://127.0.0.1:{self.model.server_port}/v1/responses",
+            "provider-secret",
+            None,
+            "code",
+            "model-revision-v1",
+            512,
+            "gpt-5.6-luna",
+        )
+        verdict = provider.review({"taskId": "agt_1234567890abcdef"})
+        self.assertEqual(verdict["decision"], "VERIFIED")
+        self.assertEqual(ModelFixture.requests[-1]["model"], "code")
 
 
 if __name__ == "__main__":

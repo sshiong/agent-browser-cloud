@@ -33,4 +33,11 @@ esac
 
 [ "$LOCAL_AGENT_MODEL_NAME" != configure-real-model ] || fail "configure a real model name"
 
+case "${LOCAL_AGENT_MODEL_MAXIMUM_OUTPUT_TOKENS:-512}" in
+  *[!0-9]*|'') fail "LOCAL_AGENT_MODEL_MAXIMUM_OUTPUT_TOKENS must be an integer from 64 to 4096" ;;
+esac
+[ "${LOCAL_AGENT_MODEL_MAXIMUM_OUTPUT_TOKENS:-512}" -ge 64 ] \
+  && [ "${LOCAL_AGENT_MODEL_MAXIMUM_OUTPUT_TOKENS:-512}" -le 4096 ] \
+  || fail "LOCAL_AGENT_MODEL_MAXIMUM_OUTPUT_TOKENS must be an integer from 64 to 4096"
+
 docker compose config --quiet

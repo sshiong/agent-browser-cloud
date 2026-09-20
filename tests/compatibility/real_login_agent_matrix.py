@@ -7,6 +7,7 @@ temporary proxy sibling and uses repository-owned test credentials; no user cred
 
 import hashlib
 import json
+import os
 import pathlib
 import sys
 import time
@@ -20,6 +21,7 @@ EVENT_LOG = pathlib.Path(sys.argv[2])
 PROVIDER_MODE = sys.argv[3]
 MODEL_NAME = sys.argv[4]
 MODEL_REVISION = sys.argv[5]
+TASK_TIMEOUT_SECONDS = int(os.environ.get("LOGIN_AGENT_TASK_TIMEOUT_SECONDS", "120"))
 TENANT = "tenant-login-fixture"
 FIXTURE_HOST = "agent-controls.invalid"
 LOGIN_URL = "http://agent-controls.invalid/login"
@@ -92,7 +94,7 @@ def task_until_terminal(task_id):
     return wait_for(
         f"/api/v1/agent-tasks/{task_id}",
         lambda item: item.get("state") in {"COMPLETED", "FAILED", "BLOCKED"},
-        timeout=120,
+        timeout=TASK_TIMEOUT_SECONDS,
     )
 
 
@@ -201,7 +203,7 @@ def login_targets(login_state):
     return username, password, submit
 
 
-def action_task(session_id, login_state, label, action, expected_outcomes):
+def action_task(session_id, login_state, label, action, expected_outcomes, goal=None):
     username, password, submit = login_targets(login_state)
     if action == "username":
         username_secret = create_secret(session_id, "USERNAME", FIXTURE_USERNAME, f"{label}-username")
@@ -230,10 +232,16 @@ def action_task(session_id, login_state, label, action, expected_outcomes):
         }
     else:
         raise AssertionError(f"unsupported fixture action: {action}")
+    if goal is None and action in {"username", "password"}:
+        goal = (
+            "After the separately verified bounded credential input, verify the login form "
+            "remains ready for the next controlled step; secret text is intentionally absent "
+            "from semantic evidence"
+        )
     return create_and_execute(
         session_id,
         {
-            "goal": "Perform one bounded login fixture action and verify the resulting state",
+            "goal": goal or "Perform one bounded login fixture action and verify the resulting state",
             "allowedDomains": [FIXTURE_HOST],
             "maxActions": 8,
             "replanBudget": 1,
@@ -244,7 +252,7 @@ def action_task(session_id, login_state, label, action, expected_outcomes):
     )
 
 
-def run_login_case(label, password_value, final_expected_outcomes):
+def run_login_case(label, password_value, final_expected_outcomes, final_goal):
     session_id = create_session(label)
     login_state, landing = navigate_to_login(session_id, label)
     login_page_expected = expected("Fixture Login", "Use the controlled fixture account")
@@ -262,7 +270,9 @@ def run_login_case(label, password_value, final_expected_outcomes):
     if password_task["state"] != "COMPLETED" or password_task.get("outcomeVerification", {}).get("status") != "VERIFIED":
         raise AssertionError(f"{label} password action was not verified: {password_task}")
     password_state = state(session_id, username_state["stateVersion"])
-    submit_task = action_task(session_id, password_state, label, "submit", final_expected_outcomes)
+    submit_task = action_task(
+        session_id, password_state, label, "submit", final_expected_outcomes, final_goal
+    )
     return session_id, landing, username_task, password_task, submit_task
 
 
@@ -285,21 +295,30 @@ def require_provider_evidence(task):
 
 
 success_session, success_landing, success_username, success_password, success = run_login_case(
-    "login-success", FIXTURE_PASSWORD, expected("Fixture Dashboard", "Login successful")
+    "login-success",
+    FIXTURE_PASSWORD,
+    expected("Fixture Dashboard", "Login successful"),
+    "Sign in with the controlled valid credentials and verify login success",
 )
 if success["state"] != "COMPLETED" or success.get("outcomeVerification", {}).get("status") != "VERIFIED":
     raise AssertionError(f"successful login did not verify: {success}")
 success_provider_evidence = require_provider_evidence(success)
 
 failure_session, failure_landing, failure_username, failure_password, failure = run_login_case(
-    "login-failure", "wrong-fixture-password", expected("Fixture Login Failed", "Invalid username or password")
+    "login-failure",
+    "wrong-fixture-password",
+    expected("Fixture Login Failed", "Invalid username or password"),
+    "Submit controlled invalid credentials and verify the site rejects them as invalid",
 )
 if failure["state"] != "COMPLETED" or failure.get("outcomeVerification", {}).get("status") != "VERIFIED":
     raise AssertionError(f"expected invalid-login outcome was not verified: {failure}")
 failure_provider_evidence = require_provider_evidence(failure)
 
 false_success_session, false_success_landing, false_success_username, false_success_password, false_success = run_login_case(
-    "login-false-success", "wrong-fixture-password-2", expected("Fixture Dashboard", "Login successful")
+    "login-false-success",
+    "wrong-fixture-password-2",
+    expected("Fixture Dashboard", "Login successful"),
+    "Sign in with the controlled credentials and verify login success",
 )
 if false_success["state"] != "FAILED" or false_success.get("lastError") != "AGENT_OUTCOME_NOT_VERIFIED":
     raise AssertionError(f"false success was not rejected by Outcome Verifier: {false_success}")

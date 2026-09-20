@@ -343,7 +343,26 @@ class VisionControlPlaneClient:
 
 
 class ScreenshotVisionProvider:
-    def __init__(self, endpoint, api_key, ca_file, model_name, model_revision, maximum_output_tokens):
+    def __init__(
+        self,
+        endpoint,
+        api_key,
+        ca_file,
+        model_name,
+        model_revision,
+        maximum_output_tokens,
+        expected_response_model=None,
+        timeout_seconds=120,
+    ):
+        response_model = expected_response_model or None
+        if (
+            not MODEL_ID.fullmatch(model_name)
+            or not MODEL_ID.fullmatch(model_revision)
+            or (response_model is not None and not MODEL_ID.fullmatch(response_model))
+        ):
+            raise ValueError("model identity is invalid")
+        if not 64 <= maximum_output_tokens <= 4096:
+            raise ValueError("maximum output tokens must be 64..4096")
         context = ssl.create_default_context(cafile=ca_file) if ca_file else ssl.create_default_context()
         self.http = urllib.request.build_opener(
             urllib.request.ProxyHandler({}), NoRedirect(), urllib.request.HTTPSHandler(context=context)
@@ -351,8 +370,10 @@ class ScreenshotVisionProvider:
         self.endpoint = endpoint
         self.api_key = api_key
         self.model_name = model_name
+        self.expected_response_model = response_model
         self.model_revision = model_revision
         self.maximum_output_tokens = maximum_output_tokens
+        self.timeout_seconds = min(max(timeout_seconds, 1), 300)
 
     def download(self, url: str, environment: str, allowed_hosts: list[str]) -> bytes:
         target = validate_screenshot_url(url, environment, allowed_hosts)
@@ -376,7 +397,6 @@ class ScreenshotVisionProvider:
         action_types = ["CLICK"] + (["SLIDE"] if allow_slide else [])
         body = {
             "model": self.model_name,
-            "temperature": 0,
             "max_output_tokens": self.maximum_output_tokens,
             "input": [{
                 "role": "user",
@@ -386,32 +406,16 @@ class ScreenshotVisionProvider:
                         "Do not enter text, OTP, credentials, approve payments, or make account-security decisions. "
                         "Coordinates are normalized to [0,1]. Return ESCALATE when uncertain. "
                         f"Challenge type: {claim.get('challengeType')}; multiple clicks allowed: {allow_multi}; "
-                        f"slide allowed: {allow_slide}."
+                        f"slide allowed: {allow_slide}. Return only one compact JSON object without markdown, "
+                        "prose, or extra keys. The exact shape is "
+                        '{"decision":"ACT|ESCALATE","confidence":0.0,"actions":['
+                        f'{{"actionType":"{"|".join(action_types)}","x":0.0,"y":0.0,"endX":null,'
+                        '"endY":null,"repeatCount":1}]}. Return an empty actions array for ESCALATE. '
+                        "Do not echo the input."
                     )},
                     {"type": "input_image", "image_url": "data:image/jpeg;base64," + base64.b64encode(screenshot).decode()},
                 ],
             }],
-            "text": {"format": {"type": "json_schema", "name": "challenge_visual_action", "strict": True,
-                "schema": {"type": "object", "additionalProperties": False,
-                    "required": ["decision", "confidence", "actions"],
-                    "properties": {
-                        "decision": {"type": "string", "enum": ["ACT", "ESCALATE"]},
-                        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-                        "actions": {"type": "array", "maxItems": 8, "items": {
-                            "type": "object", "additionalProperties": False,
-                            "required": ["actionType", "x", "y", "endX", "endY", "repeatCount"],
-                            "properties": {
-                                "actionType": {"type": "string", "enum": action_types},
-                                "x": {"type": "number", "minimum": 0, "maximum": 1},
-                                "y": {"type": "number", "minimum": 0, "maximum": 1},
-                                "endX": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
-                                "endY": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
-                                "repeatCount": {"type": "integer", "minimum": 1, "maximum": 5},
-                            },
-                        }},
-                    },
-                },
-            }},
         }
         raw_body = json.dumps(body, allow_nan=False, separators=(",", ":")).encode()
         call = urllib.request.Request(self.endpoint, data=raw_body, headers={
@@ -420,7 +424,7 @@ class ScreenshotVisionProvider:
         }, method="POST")
         started = time.monotonic()
         try:
-            response = self.http.open(call, timeout=120)
+            response = self.http.open(call, timeout=self.timeout_seconds)
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as error:
             raise WorkerError("MODEL_PROVIDER_UNAVAILABLE") from error
         with response:
@@ -431,16 +435,61 @@ class ScreenshotVisionProvider:
             raise WorkerError("MODEL_PROVIDER_RESPONSE_TOO_LARGE", retryable=False)
         try:
             document = json.loads(raw)
+            response_model = document.get("model") if isinstance(document, dict) else None
+            if not isinstance(response_model, str) or not MODEL_ID.fullmatch(response_model):
+                raise WorkerError("MODEL_PROVIDER_MODEL_MISMATCH", retryable=False)
+            if self.expected_response_model and response_model != self.expected_response_model:
+                raise WorkerError("MODEL_PROVIDER_MODEL_MISMATCH", retryable=False)
             result = json.loads(OpenAIResponsesReviewer._output_text(document))
+        except WorkerError:
+            raise
         except (UnicodeError, json.JSONDecodeError, TypeError) as error:
             raise WorkerError("MODEL_PROVIDER_VERDICT_INVALID") from error
         actions = result.get("actions") if isinstance(result, dict) else None
         decision = result.get("decision") if isinstance(result, dict) else None
         confidence = result.get("confidence") if isinstance(result, dict) else None
-        if decision not in {"ACT", "ESCALATE"} or not isinstance(actions, list) or not isinstance(confidence, (int, float)):
+        if (
+            not isinstance(result, dict)
+            or set(result) != {"decision", "confidence", "actions"}
+            or decision not in {"ACT", "ESCALATE"}
+            or not isinstance(actions, list)
+            or len(actions) > 8
+            or isinstance(confidence, bool)
+            or not isinstance(confidence, (int, float))
+            or not 0 <= confidence <= 1
+        ):
             raise WorkerError("MODEL_PROVIDER_VERDICT_INVALID", retryable=False)
         if decision == "ESCALATE" and actions:
             raise WorkerError("MODEL_PROVIDER_VERDICT_INVALID", retryable=False)
+        for action in actions:
+            if (
+                not isinstance(action, dict)
+                or set(action) != {"actionType", "x", "y", "endX", "endY", "repeatCount"}
+                or action.get("actionType") not in action_types
+                or any(
+                    isinstance(action.get(key), bool)
+                    or not isinstance(action.get(key), (int, float))
+                    or not 0 <= action[key] <= 1
+                    for key in ("x", "y")
+                )
+                or any(
+                    value is not None
+                    and (
+                        isinstance(value, bool)
+                        or not isinstance(value, (int, float))
+                        or not 0 <= value <= 1
+                    )
+                    for value in (action.get("endX"), action.get("endY"))
+                )
+                or isinstance(action.get("repeatCount"), bool)
+                or not isinstance(action.get("repeatCount"), int)
+                or not 1 <= action["repeatCount"] <= 5
+                or (
+                    action["actionType"] == "SLIDE"
+                    and (action.get("endX") is None or action.get("endY") is None)
+                )
+            ):
+                raise WorkerError("MODEL_PROVIDER_VERDICT_INVALID", retryable=False)
         if not allow_multi and sum(a.get("repeatCount", 0) for a in actions if a.get("actionType") == "CLICK") > 1:
             raise WorkerError("MODEL_PROVIDER_VERDICT_INVALID", retryable=False)
         usage = document.get("usage", {})
@@ -526,10 +575,12 @@ def main() -> int:
     parser.add_argument("--model-api-key-file", required=True)
     parser.add_argument("--model-ca-file")
     parser.add_argument("--model-name", required=True)
+    parser.add_argument("--expected-response-model")
     parser.add_argument("--model-revision", required=True)
     parser.add_argument("--allowed-model-host", action="append", default=[])
     parser.add_argument("--allowed-screenshot-host", action="append", default=[])
     parser.add_argument("--maximum-output-tokens", type=int, default=768)
+    parser.add_argument("--model-timeout-seconds", type=float, default=120)
     parser.add_argument("--poll-seconds", type=float, default=2)
     parser.add_argument("--heartbeat-seconds", type=float, default=15)
     parser.add_argument("--environment", choices=("production", "local", "test"), default="production")
@@ -544,7 +595,8 @@ def main() -> int:
     provider = ScreenshotVisionProvider(
         fixed_model_endpoint(args.model_endpoint, args.environment, args.allowed_model_host),
         read_secret(args.model_api_key_file), args.model_ca_file, args.model_name,
-        args.model_revision, args.maximum_output_tokens,
+        args.model_revision, args.maximum_output_tokens, args.expected_response_model,
+        args.model_timeout_seconds,
     )
     privacy_scanner = LocalScreenshotPrivacyScanner()
     VisionLoop(client, provider, privacy_scanner, args.environment, args.allowed_screenshot_host,

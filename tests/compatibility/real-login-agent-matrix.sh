@@ -165,6 +165,7 @@ if [[ "$provider_mode" == "fixture" ]]; then
   model_endpoint="http://127.0.0.1:${model_port}/v1/responses"
   model_name="outcome-login-fixture-model"
   model_revision="outcome-login-fixture-v1"
+  model_maximum_output_tokens=512
   model_key_file="$temp_dir/model-api-key"
   printf '%s\n' 'login-fixture-model-token' >"$model_key_file"
   chmod 600 "$model_key_file"
@@ -176,6 +177,7 @@ else
   model_endpoint="$LOCAL_AGENT_MODEL_ENDPOINT"
   model_name="$LOCAL_AGENT_MODEL_NAME"
   model_revision="$LOCAL_AGENT_MODEL_REVISION"
+  model_maximum_output_tokens="${LOCAL_AGENT_MODEL_MAXIMUM_OUTPUT_TOKENS:-512}"
   model_key_file="$LOCAL_AGENT_MODEL_API_KEY_FILE"
 fi
 
@@ -254,6 +256,7 @@ AGENT_OUTCOME_VERIFIER_EXTERNAL_ENABLED=true \
 AGENT_OUTCOME_VERIFIER_DEPLOYMENT_ID=outcome-login-v1 \
 AGENT_OUTCOME_VERIFIER_MODEL_NAME="$model_name" \
 AGENT_OUTCOME_VERIFIER_MODEL_REVISION="$model_revision" \
+AGENT_OUTCOME_VERIFIER_MAXIMUM_OUTPUT_TOKENS="$model_maximum_output_tokens" \
   "$java_bin" -jar apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
   >"$temp_dir/control-plane.log" 2>&1 &
 control_pid=$!
@@ -294,7 +297,10 @@ python3 "$repo_root/apps/agent-worker/outcome_verifier_worker.py" \
   --model-endpoint="$model_endpoint" \
   --model-api-key-file="$model_key_file" \
   --model-name="$model_name" \
+  --expected-response-model="${LOCAL_AGENT_MODEL_RESPONSE_NAME:-}" \
   --model-revision="$model_revision" \
+  --maximum-output-tokens="$model_maximum_output_tokens" \
+  --model-timeout-seconds="${LOCAL_AGENT_MODEL_TIMEOUT_SECONDS:-120}" \
   --environment=test --poll-seconds=0.25 --heartbeat-seconds=5 \
   >"$temp_dir/outcome-worker.log" 2>&1 &
 outcome_worker_pid=$!
@@ -302,6 +308,7 @@ sleep 0.5
 kill -0 "$outcome_worker_pid"
 
 BROWSER_VERSION="$("$chromium_path" --version 2>/dev/null || echo unknown)" \
+LOGIN_AGENT_TASK_TIMEOUT_SECONDS="${LOGIN_AGENT_TASK_TIMEOUT_SECONDS:-120}" \
 python3 "$repo_root/tests/compatibility/real_login_agent_matrix.py" \
   "http://localhost:${control_port}" \
   "$temp_dir/model-events.jsonl" \

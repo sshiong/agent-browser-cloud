@@ -117,7 +117,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V123 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V124 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -257,6 +257,14 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
 
 ### 最近验证状态
 
+- `code` 聚合模型 Provider 已以真实 Chrome 登录矩阵验证：请求模型保持聚合路由别名，响应允许合法的
+  动态后端模型身份；Reviewer、Outcome 与 Vision 不再依赖所有下游都实现原生 JSON Schema，而以最小
+  Responses 请求、明确 JSON Prompt 和 Worker 本地严格校验 fail-closed。V124 以最小化语义证据哈希
+  容忍真实模型延迟期间非语义 State 游标前进，同时仍要求当前页面新鲜、稳定且 URL/Target/Expected
+  Outcome/执行证据不变。成功登录、错误密码预期失败和假成功拒绝均经真实外部模型通过，三次最终调用
+  分别约 4.9s、4.3s、6.8s，Secret 未输出。用户入口仅为 LAN HTTP，本机验证通过临时 TLS Relay
+  保持仓库 HTTPS fail-closed，不能据此宣称生产 Provider Gate 完成，见 progress 192。
+
 - 真实登录 Outcome 与交互 Challenge Gate 已加入：三个真实 Chrome 登录 case 各自使用独立 Profile，
   正确密码、错误密码语义和假成功拒绝均通过，Secret 只经一次性引用使用；Cloudflare 官方
   forced-interactive dummy sitekey 已在 headed Chrome 中发生真实 checkbox 点击并返回测试 token。
@@ -264,8 +272,9 @@ README 模块表已改为从 Git 跟踪文件生成；模块变更先暂存，�
   文档提交 `1997bf2` 的 GitHub `ci` run `35493322329`（含 Verify、完整 Integration、Object
   Storage/Recording GameDay 与 Kubernetes Operator E2E）和 `desktop` run `35493322318`
   （Windows/macOS）均成功。
-  `make test-real-login-agent-provider` 已提供真实 HTTPS Provider 入口，但缺少显式 0600/0400 Key
-  时必须 fail-closed；当前 fixture 结果不得写成真实外部 Provider 已验收，见 progress 191。
+  `make test-real-login-agent-provider` 保持显式 0600/0400 Key 与 HTTPS fail-closed；后续真实聚合
+  Provider 调用、动态后端模型兼容和 LAN HTTP 剩余边界见 progress 192，不能据此冒充生产 HTTPS
+  Provider 已验收。
 
 - 真实 Chrome 初始状态与契约告警切片已修复：Chromium 内部 scheme 以 originless Opaque
   Frame 投影，Control Plane 保持非 Web origin 拒绝；活动 Page 网络 quiet、Document load

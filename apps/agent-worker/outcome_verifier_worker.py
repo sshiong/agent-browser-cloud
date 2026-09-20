@@ -124,7 +124,6 @@ class OpenAIResponsesOutcomeVerifier(OpenAIResponsesReviewer):
     def review(self, payload: dict) -> dict:
         body = {
             "model": self.model_name,
-            "temperature": 0,
             "max_output_tokens": self.maximum_output_tokens,
             "input": [
                 {
@@ -140,7 +139,13 @@ class OpenAIResponsesOutcomeVerifier(OpenAIResponsesReviewer):
                             "for visible errors, missing expected state, wrong target, stale/incomplete state, "
                             "or insufficient evidence. Structured expectedOutcomeEvaluations are authoritative: "
                             "any NOT_SATISFIED or INDETERMINATE item forbids VERIFIED. Return the required JSON "
-                            "schema only."
+                            "schema only as one compact JSON object without markdown, prose, or extra keys. "
+                            "The exact shape is "
+                            '{"decision":"VERIFIED|NOT_VERIFIED","reasonCodes":'
+                            '["ONE_OR_MORE_ALLOWED_CODES"],"confidence":0.0}. '
+                            "Allowed reasonCodes are: "
+                            + ", ".join(sorted(REASON_CODES))
+                            + ". Do not echo the input."
                         ),
                     }],
                 },
@@ -158,32 +163,6 @@ class OpenAIResponsesOutcomeVerifier(OpenAIResponsesReviewer):
                     }],
                 },
             ],
-            "text": {
-                "format": {
-                    "type": "json_schema",
-                    "name": "agent_outcome_verification",
-                    "strict": True,
-                    "schema": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "required": ["decision", "reasonCodes", "confidence"],
-                        "properties": {
-                            "decision": {
-                                "type": "string",
-                                "enum": ["VERIFIED", "NOT_VERIFIED"],
-                            },
-                            "reasonCodes": {
-                                "type": "array",
-                                "minItems": 1,
-                                "maxItems": 10,
-                                "uniqueItems": True,
-                                "items": {"type": "string", "enum": sorted(REASON_CODES)},
-                            },
-                            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-                        },
-                    },
-                }
-            },
         }
         raw_request = json.dumps(
             body, ensure_ascii=False, allow_nan=False, sort_keys=True, separators=(",", ":")
@@ -219,7 +198,10 @@ class OpenAIResponsesOutcomeVerifier(OpenAIResponsesReviewer):
                 document = json.loads(raw)
             except (UnicodeError, json.JSONDecodeError) as error:
                 raise WorkerError("MODEL_PROVIDER_RESPONSE_INVALID") from error
-            if not isinstance(document, dict) or document.get("model") != self.model_name:
+            response_model = document.get("model") if isinstance(document, dict) else None
+            if not isinstance(response_model, str) or not MODEL_ID.fullmatch(response_model):
+                raise WorkerError("MODEL_PROVIDER_MODEL_MISMATCH", retryable=False)
+            if self.expected_response_model and response_model != self.expected_response_model:
                 raise WorkerError("MODEL_PROVIDER_MODEL_MISMATCH", retryable=False)
             try:
                 verdict = json.loads(self._output_text(document))
@@ -229,7 +211,9 @@ class OpenAIResponsesOutcomeVerifier(OpenAIResponsesReviewer):
             reasons = verdict.get("reasonCodes") if isinstance(verdict, dict) else None
             confidence = verdict.get("confidence") if isinstance(verdict, dict) else None
             if (
-                decision not in {"VERIFIED", "NOT_VERIFIED"}
+                not isinstance(verdict, dict)
+                or set(verdict) != {"decision", "reasonCodes", "confidence"}
+                or decision not in {"VERIFIED", "NOT_VERIFIED"}
                 or not isinstance(reasons, list)
                 or not 1 <= len(reasons) <= 10
                 or any(reason not in REASON_CODES for reason in reasons)
@@ -344,9 +328,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model-api-key-file", required=True)
     parser.add_argument("--model-ca-file")
     parser.add_argument("--model-name", required=True)
+    parser.add_argument("--expected-response-model")
     parser.add_argument("--model-revision", required=True)
     parser.add_argument("--allowed-model-host", action="append", default=[])
     parser.add_argument("--maximum-output-tokens", type=int, default=512)
+    parser.add_argument("--model-timeout-seconds", type=float, default=120)
     parser.add_argument("--poll-seconds", type=float, default=2)
     parser.add_argument("--heartbeat-seconds", type=float, default=15)
     parser.add_argument("--environment", choices=("production", "local", "test"), default="production")
@@ -375,6 +361,8 @@ def main() -> int:
         args.model_name,
         args.model_revision,
         args.maximum_output_tokens,
+        args.expected_response_model,
+        args.model_timeout_seconds,
     )
     OutcomeVerifierLoop(client, provider, args.poll_seconds, args.heartbeat_seconds).run(
         args.once, args.ready_file

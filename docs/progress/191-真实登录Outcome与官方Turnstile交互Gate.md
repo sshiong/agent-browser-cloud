@@ -2,7 +2,7 @@
 
 > 日期：2026-09-20
 > 实现提交：`594bf54 test: add real login and interactive challenge gates`
-> 状态：仓库内登录/交互边界已闭环；真实外部模型 Provider 运行仍待凭据
+> 状态：仓库内登录/交互边界已闭环；后续真实聚合 Provider 验证见 progress 192
 
 ## 背景
 
@@ -41,7 +41,9 @@ fixture 模式还检查所有请求均通过敏感字段最小化证明。
 - model name 与 revision 必须显式固定。
 
 配置缺失或不安全时在启动容器和浏览器前 fail-closed。它不会读取 Codex、浏览器或系统账户凭据。
-当前机器没有上述独立模型 Key，因此该真实 Provider Gate 尚未执行；本轮 fixture 请求不能替代它。
+本切片提交时尚未执行真实 Provider Gate；后续已使用运营方提供的独立 Key 与聚合入口完成真实调用，
+动态模型路由兼容、语义证据新鲜度及其剩余 HTTPS 边界见
+[`progress 192`](192-code聚合Provider与Outcome语义新鲜度闭环.md)。
 
 ### 3. Cloudflare 官方 forced-interactive checkbox
 
@@ -76,7 +78,7 @@ Opaque Frame 必须 Human Handoff 的安全策略。官方依据：
 
 以下内容未完成，不能因本切片改写为已验收：
 
-1. 使用运营方提供的独立 0600/0400 Key 实际运行 `make compose-up`、`make compose-verify` 和
-   `make test-real-login-agent-provider`，取得真实外部 Provider request/evidence；
+1. 目标部署仍需使用正式 HTTPS Provider 实际运行 `make compose-up`、`make compose-verify`；本机
+   LAN HTTP 聚合入口仅通过临时 TLS Relay 完成真实登录矩阵，不冒充生产 Provider 验收；
 2. 真实企业 IdP/目标网站的客户授权 Replay、Session 撤销延迟与站点特有 Validator；
 3. 生产 Cloudflare Challenge 不属于自动绕过目标，仍遵守 Opaque Frame/Vision/Human Handoff 策略。

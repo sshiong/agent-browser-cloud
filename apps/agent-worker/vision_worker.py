@@ -34,6 +34,7 @@ from agent_worker import (
     run_poll_loop,
 )
 from reviewer_worker import OpenAIResponsesReviewer, fixed_model_endpoint
+from cancellable_http import CancellableHttpClient, RequestCancelled
 
 
 MAX_RESPONSE_BYTES = 1024 * 1024
@@ -364,9 +365,10 @@ class ScreenshotVisionProvider:
         if not 64 <= maximum_output_tokens <= 4096:
             raise ValueError("maximum output tokens must be 64..4096")
         context = ssl.create_default_context(cafile=ca_file) if ca_file else ssl.create_default_context()
-        self.http = urllib.request.build_opener(
+        self.download_http = urllib.request.build_opener(
             urllib.request.ProxyHandler({}), NoRedirect(), urllib.request.HTTPSHandler(context=context)
         )
+        self.http = CancellableHttpClient(context)
         self.endpoint = endpoint
         self.api_key = api_key
         self.model_name = model_name
@@ -378,7 +380,7 @@ class ScreenshotVisionProvider:
     def download(self, url: str, environment: str, allowed_hosts: list[str]) -> bytes:
         target = validate_screenshot_url(url, environment, allowed_hosts)
         try:
-            response = self.http.open(
+            response = self.download_http.open(
                 urllib.request.Request(target, headers={"Accept": "image/jpeg"}), timeout=30
             )
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as error:
@@ -391,7 +393,12 @@ class ScreenshotVisionProvider:
             raise WorkerError("SCREENSHOT_RESPONSE_INVALID", retryable=False)
         return content
 
-    def analyze(self, claim: dict, screenshot: bytes) -> dict:
+    def analyze(
+        self,
+        claim: dict,
+        screenshot: bytes,
+        cancel: threading.Event | None = None,
+    ) -> dict:
         allow_multi = bool(claim.get("allowMultiClick"))
         allow_slide = bool(claim.get("allowSlide"))
         action_types = ["CLICK"] + (["SLIDE"] if allow_slide else [])
@@ -418,19 +425,31 @@ class ScreenshotVisionProvider:
             }],
         }
         raw_body = json.dumps(body, allow_nan=False, separators=(",", ":")).encode()
-        call = urllib.request.Request(self.endpoint, data=raw_body, headers={
+        headers = {
             "Accept": "application/json", "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}", "User-Agent": "agent-browser-cloud-vision-worker/1",
-        }, method="POST")
+        }
         started = time.monotonic()
         try:
-            response = self.http.open(call, timeout=self.timeout_seconds)
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as error:
+            response = self.http.post(
+                self.endpoint,
+                raw_body,
+                headers,
+                self.timeout_seconds,
+                MAX_RESPONSE_BYTES,
+                cancel,
+            )
+        except RequestCancelled as error:
+            raise WorkerError("MODEL_PROVIDER_REQUEST_CANCELLED", retryable=False) from error
+        except (TimeoutError, OSError) as error:
             raise WorkerError("MODEL_PROVIDER_UNAVAILABLE") from error
-        with response:
-            raw = response.read(MAX_RESPONSE_BYTES + 1)
-            latency_ms = round((time.monotonic() - started) * 1000)
-            request_id = response.headers.get("x-request-id")
+        raw = response.body
+        latency_ms = round((time.monotonic() - started) * 1000)
+        request_id = response.headers.get("x-request-id")
+        if response.status == 429 or response.status >= 500:
+            raise WorkerError("MODEL_PROVIDER_RETRYABLE_ERROR")
+        if response.status != 200:
+            raise WorkerError("MODEL_PROVIDER_REQUEST_REJECTED", retryable=False)
         if len(raw) > MAX_RESPONSE_BYTES:
             raise WorkerError("MODEL_PROVIDER_RESPONSE_TOO_LARGE", retryable=False)
         try:
@@ -543,7 +562,7 @@ class VisionLoop:
             privacy = self.privacy_scanner.scan(screenshot)
             if lease_lost.is_set():
                 raise WorkerError("CHALLENGE_VISION_LEASE_LOST")
-            verdict = self.provider.analyze(claim, privacy.screenshot)
+            verdict = self.provider.analyze(claim, privacy.screenshot, lease_lost)
             verdict.update(privacy.attestation)
             verdict["deploymentId"] = self.client.deployment_id
             if lease_lost.is_set():
@@ -554,12 +573,14 @@ class VisionLoop:
             return True
         except WorkerError as error:
             stop.set()
+            if lease_lost.is_set():
+                error = WorkerError("CHALLENGE_VISION_LEASE_LOST")
             if started and not lease_lost.is_set():
                 try:
                     self.client.transition(claim, "fail", {"failureCode": error.code, "retryable": error.retryable})
                 except WorkerError:
                     pass
-            raise
+            raise error
         finally:
             stop.set()
             if thread is not None:

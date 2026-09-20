@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.coordinator.BrowserStateRepository;
 import io.browsercloud.domain.agent.AgentModels.RiskClass;
+import io.browsercloud.domain.agent.AgentModels.TaskState;
 import io.browsercloud.domain.agent.AgentModels.ToolExecutionResult;
 import io.browsercloud.persistence.AgentTaskEntity;
 import io.browsercloud.persistence.AgentTaskJpaRepository;
@@ -303,6 +304,11 @@ public class AgentOutcomeVerifierApplicationService {
       String jobId, AgentOutcomeJobClaimRequest request, String workerId) {
     var now = Instant.now();
     var job = activeClaim(jobId, request.claimToken(), workerId, now, "EXECUTING");
+    var task = requireTask(job.taskId(), job.tenantId());
+    if (!TaskState.VERIFYING_OUTCOME.name().equals(task.getState())
+        || !"IN_REVIEW".equals(task.getOutcomeVerificationStatus())) {
+      throw new AgentOutcomeRejectedException("AGENT_OUTCOME_JOB_OWNER_INACTIVE");
+    }
     var leaseUntil = now.plus(claimLease);
     var changed =
         jdbc.update(

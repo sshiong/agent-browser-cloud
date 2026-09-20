@@ -259,6 +259,11 @@ progress 166。
 
 ### 最近验证状态
 
+- 外部模型客户端传输取消已补齐：Reviewer、Outcome Verifier 与 Vision 的 HTTP(S) 请求绑定
+  权威 Job Lease；Task 或 Owner 状态前进使 Heartbeat fail-closed 后，Worker shutdown 实际 socket，
+  停止本地等待、响应下载和迟到回写。真实阻塞 HTTP Provider 与 41 项 Worker 测试通过。第三方
+  是否停止服务端推理/计费仍依赖其显式 Cancel API，见 progress 196。
+
 - 真实 Agent 综合验收以 OrbStack、Chrome 153 和运营方 `code` HTTP 聚合 Provider 完成：真实网页
   导航/读取/输入/滚动、三组独立 Profile 登录 Outcome、官方 Turnstile、Cookie 注入后 Checkpoint
   恢复、Profile 加密导入导出、截图/Vision 和完整 Integration 均通过。真实 Gate 首次发现跨导航
@@ -545,7 +550,8 @@ progress 166。
   Control Plane 555 项、Rust、完整 `make ci`、Desktop、N/N−1 与 PostgreSQL/Redis/MinIO/mTLS/
   Chromium Integration 均通过，输出 `agent_action_fast_cancellation=true`。A15 仓库内代码项关闭；
   实现提交 `2695153` 的 GitHub `ci` run `34939222987` 与 `desktop` run `34939222878` 均成功。
-  外部 HTTP/模型传输取消、目标云网络时延与副作用补偿仍是独立生产边界。
+  外部 HTTP/模型客户端传输取消后由 progress 196 闭环；Provider 服务端强取消、目标云网络时延
+  与副作用补偿仍是独立生产边界。
 
 - progress 180：Agent Executor、Reviewer、Outcome Verifier、Vision、Runtime Validation 与
   Recovery GameDay 六类 Worker Claim 已使用 V120 PostgreSQL 事务通知与 15 秒有界长轮询；

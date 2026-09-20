@@ -9,6 +9,12 @@ Worker 仅能调用五个固定接口：Claim、Start、Heartbeat、Drive、Fail
 HTTPS/OIDC、独立 ServiceAccount、只读根文件系统、无宿主挂载，并只允许访问 DNS 和
 Control Plane。
 
+Reviewer、Outcome Verifier 与 Vision 的外部模型调用与各自权威 Job Lease 绑定。Task 被取消、
+Owner 状态前进或 Lease 失效后，下一次 Heartbeat 会被控制面拒绝，Worker 随即对正在阻塞的
+HTTP(S) socket 执行 `shutdown`，停止本地等待、响应下载和结果处理；取消不会被误记为普通
+Provider 失败或触发旧 Job 的 `fail` 回写。传输断开不能证明第三方已经停止服务端推理或计费，
+正式 Provider 若要求这一保证，仍须接入并验收其明确的服务端 Cancel API。
+
 `vision_worker.py` 只处理精确 Browser State、Target Revision、活动标签页和有界
 `CHALLENGE_REGION` 绑定的 JPEG。它先在本地以 Tesseract（英文/简体中文）产生坐标化 OCR，
 使用固定 ImageMagick 命令在内存中遮盖命中 PII 的整行区域，再执行第二次 OCR；仅当残余敏感

@@ -34,6 +34,7 @@ build:
 	python3 -m py_compile apps/gameday-worker/gameday_worker.py
 	python3 -m py_compile apps/gameday-worker/gameday_runner.py
 	python3 -m py_compile apps/agent-worker/agent_worker.py
+	python3 -m py_compile apps/agent-worker/cancellable_http.py
 	python3 -m py_compile apps/agent-worker/reviewer_worker.py
 	python3 -m py_compile apps/agent-worker/outcome_verifier_worker.py
 	python3 -m py_compile apps/agent-worker/vision_worker.py

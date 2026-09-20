@@ -14,8 +14,6 @@ import json
 import re
 import threading
 import time
-import urllib.error
-import urllib.request
 
 from agent_worker import (
     CLAIM_WAIT_SECONDS,
@@ -32,6 +30,7 @@ from reviewer_worker import (
     contains_forbidden_key,
     fixed_model_endpoint,
 )
+from cancellable_http import RequestCancelled
 
 
 JOB_ID = re.compile(r"^ojob_[A-Za-z0-9]{20}$")
@@ -121,7 +120,7 @@ class OutcomeControlPlaneClient(ReviewerControlPlaneClient):
 
 
 class OpenAIResponsesOutcomeVerifier(OpenAIResponsesReviewer):
-    def review(self, payload: dict) -> dict:
+    def review(self, payload: dict, cancel: threading.Event | None = None) -> dict:
         body = {
             "model": self.model_name,
             "max_output_tokens": self.maximum_output_tokens,
@@ -167,87 +166,88 @@ class OpenAIResponsesOutcomeVerifier(OpenAIResponsesReviewer):
         raw_request = json.dumps(
             body, ensure_ascii=False, allow_nan=False, sort_keys=True, separators=(",", ":")
         ).encode("utf-8")
-        call = urllib.request.Request(
-            self.endpoint,
-            data=raw_request,
-            headers={
+        headers = {
                 "Accept": "application/json",
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {self.api_key}",
                 "User-Agent": "agent-browser-cloud-outcome-verifier-worker/1",
-            },
-            method="POST",
-        )
+            }
         started = time.monotonic()
         try:
-            response = self.http.open(call, timeout=self.timeout_seconds)
-        except urllib.error.HTTPError as error:
-            response = error
-        except (urllib.error.URLError, TimeoutError, OSError) as error:
+            response = self.http.post(
+                self.endpoint,
+                raw_request,
+                headers,
+                self.timeout_seconds,
+                MAX_RESPONSE_BYTES,
+                cancel,
+            )
+        except RequestCancelled as error:
+            raise WorkerError("MODEL_PROVIDER_REQUEST_CANCELLED", retryable=False) from error
+        except (TimeoutError, OSError) as error:
             raise WorkerError("MODEL_PROVIDER_UNAVAILABLE") from error
-        with response:
-            raw = response.read(MAX_RESPONSE_BYTES + 1)
-            latency_ms = round((time.monotonic() - started) * 1000)
-            if len(raw) > MAX_RESPONSE_BYTES:
-                raise WorkerError("MODEL_PROVIDER_RESPONSE_TOO_LARGE", retryable=False)
-            if response.status == 429 or response.status >= 500:
-                raise WorkerError("MODEL_PROVIDER_RETRYABLE_ERROR")
-            if response.status != 200:
-                raise WorkerError("MODEL_PROVIDER_REQUEST_REJECTED", retryable=False)
-            try:
-                document = json.loads(raw)
-            except (UnicodeError, json.JSONDecodeError) as error:
-                raise WorkerError("MODEL_PROVIDER_RESPONSE_INVALID") from error
-            response_model = document.get("model") if isinstance(document, dict) else None
-            if not isinstance(response_model, str) or not MODEL_ID.fullmatch(response_model):
-                raise WorkerError("MODEL_PROVIDER_MODEL_MISMATCH", retryable=False)
-            if self.expected_response_model and response_model != self.expected_response_model:
-                raise WorkerError("MODEL_PROVIDER_MODEL_MISMATCH", retryable=False)
-            try:
-                verdict = json.loads(self._output_text(document))
-            except (TypeError, json.JSONDecodeError) as error:
-                raise WorkerError("MODEL_PROVIDER_VERDICT_INVALID") from error
-            decision = verdict.get("decision") if isinstance(verdict, dict) else None
-            reasons = verdict.get("reasonCodes") if isinstance(verdict, dict) else None
-            confidence = verdict.get("confidence") if isinstance(verdict, dict) else None
-            if (
-                not isinstance(verdict, dict)
-                or set(verdict) != {"decision", "reasonCodes", "confidence"}
-                or decision not in {"VERIFIED", "NOT_VERIFIED"}
-                or not isinstance(reasons, list)
-                or not 1 <= len(reasons) <= 10
-                or any(reason not in REASON_CODES for reason in reasons)
-                or len(set(reasons)) != len(reasons)
-                or isinstance(confidence, bool)
-                or not isinstance(confidence, (int, float))
-                or not 0 <= confidence <= 1
-            ):
-                raise WorkerError("MODEL_PROVIDER_VERDICT_INVALID")
-            usage = document.get("usage")
-            input_tokens = usage.get("input_tokens") if isinstance(usage, dict) else None
-            output_tokens = usage.get("output_tokens") if isinstance(usage, dict) else None
-            if (
-                not isinstance(input_tokens, int)
-                or not 0 <= input_tokens <= 1_000_000
-                or not isinstance(output_tokens, int)
-                or not 0 <= output_tokens <= self.maximum_output_tokens
-            ):
-                raise WorkerError("MODEL_PROVIDER_USAGE_INVALID")
-            request_id = response.headers.get("x-request-id") or document.get("id")
-            if request_id is not None and not re.fullmatch(r"[A-Za-z0-9._:/-]{1,256}", str(request_id)):
-                request_id = None
-            return {
-                "decision": decision,
-                "reasonCodes": reasons,
-                "confidence": confidence,
-                "deploymentId": None,
-                "modelRevision": self.model_revision,
-                "providerRequestId": request_id,
-                "inputTokens": input_tokens,
-                "outputTokens": output_tokens,
-                "latencyMs": min(latency_ms, 600_000),
-                "outputHash": hashlib.sha256(raw).hexdigest(),
-            }
+        raw = response.body
+        latency_ms = round((time.monotonic() - started) * 1000)
+        if len(raw) > MAX_RESPONSE_BYTES:
+            raise WorkerError("MODEL_PROVIDER_RESPONSE_TOO_LARGE", retryable=False)
+        if response.status == 429 or response.status >= 500:
+            raise WorkerError("MODEL_PROVIDER_RETRYABLE_ERROR")
+        if response.status != 200:
+            raise WorkerError("MODEL_PROVIDER_REQUEST_REJECTED", retryable=False)
+        try:
+            document = json.loads(raw)
+        except (UnicodeError, json.JSONDecodeError) as error:
+            raise WorkerError("MODEL_PROVIDER_RESPONSE_INVALID") from error
+        response_model = document.get("model") if isinstance(document, dict) else None
+        if not isinstance(response_model, str) or not MODEL_ID.fullmatch(response_model):
+            raise WorkerError("MODEL_PROVIDER_MODEL_MISMATCH", retryable=False)
+        if self.expected_response_model and response_model != self.expected_response_model:
+            raise WorkerError("MODEL_PROVIDER_MODEL_MISMATCH", retryable=False)
+        try:
+            verdict = json.loads(self._output_text(document))
+        except (TypeError, json.JSONDecodeError) as error:
+            raise WorkerError("MODEL_PROVIDER_VERDICT_INVALID") from error
+        decision = verdict.get("decision") if isinstance(verdict, dict) else None
+        reasons = verdict.get("reasonCodes") if isinstance(verdict, dict) else None
+        confidence = verdict.get("confidence") if isinstance(verdict, dict) else None
+        if (
+            not isinstance(verdict, dict)
+            or set(verdict) != {"decision", "reasonCodes", "confidence"}
+            or decision not in {"VERIFIED", "NOT_VERIFIED"}
+            or not isinstance(reasons, list)
+            or not 1 <= len(reasons) <= 10
+            or any(reason not in REASON_CODES for reason in reasons)
+            or len(set(reasons)) != len(reasons)
+            or isinstance(confidence, bool)
+            or not isinstance(confidence, (int, float))
+            or not 0 <= confidence <= 1
+        ):
+            raise WorkerError("MODEL_PROVIDER_VERDICT_INVALID")
+        usage = document.get("usage")
+        input_tokens = usage.get("input_tokens") if isinstance(usage, dict) else None
+        output_tokens = usage.get("output_tokens") if isinstance(usage, dict) else None
+        if (
+            not isinstance(input_tokens, int)
+            or not 0 <= input_tokens <= 1_000_000
+            or not isinstance(output_tokens, int)
+            or not 0 <= output_tokens <= self.maximum_output_tokens
+        ):
+            raise WorkerError("MODEL_PROVIDER_USAGE_INVALID")
+        request_id = response.headers.get("x-request-id") or document.get("id")
+        if request_id is not None and not re.fullmatch(r"[A-Za-z0-9._:/-]{1,256}", str(request_id)):
+            request_id = None
+        return {
+            "decision": decision,
+            "reasonCodes": reasons,
+            "confidence": confidence,
+            "deploymentId": None,
+            "modelRevision": self.model_revision,
+            "providerRequestId": request_id,
+            "inputTokens": input_tokens,
+            "outputTokens": output_tokens,
+            "latencyMs": min(latency_ms, 600_000),
+            "outputHash": hashlib.sha256(raw).hexdigest(),
+        }
 
 
 class OutcomeVerifierLoop:
@@ -289,13 +289,15 @@ class OutcomeVerifierLoop:
 
             thread = threading.Thread(target=heartbeat, daemon=True)
             thread.start()
-            verdict = self.provider.review(claim["outcomePayload"])
+            verdict = self.provider.review(claim["outcomePayload"], lease_lost)
             verdict["deploymentId"] = self.client.deployment_id
             if lease_lost.is_set():
                 raise WorkerError("AGENT_OUTCOME_LEASE_LOST")
             self.client.transition(claim, "complete", verdict)
             return True
         except WorkerError as error:
+            if lease_lost.is_set():
+                error = WorkerError("AGENT_OUTCOME_LEASE_LOST")
             if started and error.code not in {
                 "AGENT_OUTCOME_JOB_CLAIM_TOKEN_INVALID",
                 "AGENT_OUTCOME_JOB_LEASE_EXPIRED",
@@ -307,7 +309,7 @@ class OutcomeVerifierLoop:
                     )
                 except WorkerError:
                     pass
-            raise
+            raise error
         finally:
             stop.set()
             if thread is not None:

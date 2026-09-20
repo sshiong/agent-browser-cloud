@@ -5,6 +5,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY agent_worker.py /app/agent_worker.py
+COPY cancellable_http.py /app/cancellable_http.py
 COPY reviewer_worker.py /app/reviewer_worker.py
 COPY outcome_verifier_worker.py /app/outcome_verifier_worker.py
 COPY vision_worker.py /app/vision_worker.py

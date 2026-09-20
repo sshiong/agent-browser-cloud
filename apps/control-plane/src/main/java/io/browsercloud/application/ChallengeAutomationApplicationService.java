@@ -429,11 +429,18 @@ public class ChallengeAutomationApplicationService {
   public ChallengeVisualJobView heartbeat(
       String jobId, ChallengeVisualJobClaimRequest request, String workerId) {
     var job = requireClaim(jobId, request.claimToken(), workerId, "RUNNING");
+    var run = requireRun(job.runId());
+    var task = tasks.findById(run.taskId()).orElse(null);
+    if (task == null
+        || !TaskState.WAITING_FOR_HUMAN.name().equals(task.getState())
+        || !"ANALYZING".equals(run.state())) {
+      throw new ChallengeAutomationRejectedException("VISION_JOB_OWNER_INACTIVE");
+    }
     jdbc.update(
         "UPDATE challenge_visual_jobs SET lease_expires_at=?, updated_at=now(), version=version+1 WHERE job_id=?",
         Timestamp.from(Instant.now().plus(CLAIM_LEASE)),
         jobId);
-    return view(requireJob(jobId), requireRun(job.runId()));
+    return view(requireJob(jobId), run);
   }
 
   @Transactional

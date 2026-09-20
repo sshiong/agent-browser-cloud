@@ -507,6 +507,11 @@ public class AgentReviewerApplicationService {
       String jobId, AgentReviewJobClaimRequest request, String workerId) {
     var now = Instant.now();
     var job = requireActiveClaim(jobId, request.claimToken(), workerId, now, "EXECUTING");
+    var task = requireTaskById(job.taskId());
+    if (!TaskState.AWAITING_REVIEW.name().equals(task.getState())
+        || !"IN_REVIEW".equals(task.getReviewerStatus())) {
+      throw new AgentReviewRejectedException("AGENT_REVIEW_JOB_OWNER_INACTIVE");
+    }
     var changed =
         jdbc.update(
             """

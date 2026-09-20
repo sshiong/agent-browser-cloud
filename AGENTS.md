@@ -2,7 +2,7 @@
 
 > 更新日期：2026-09-20
 > 基准分支：`main`
-> 编写时基准提交：`ccec50c test: publish dynamic fake chromium targets`
+> 编写时基准提交：`2aacf59 docs: record real chromium audit closure`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -12,6 +12,30 @@
 3. 判断状态时采用以下优先级：**当前代码与可重复测试证据 > 最新进度文档 > 旧进度文档 > 聊天或历史计划**。
 4. 若本文件、进度文档与代码不一致，以代码为准，并在同一改动中更新本文件和对应进度文档。
 5. 不重新讨论或重做本文中标记为“已确认”且已有代码证据的架构和能力。
+
+### 1.1 macOS 本地 Docker 运行时（所有会话强制）
+
+1. macOS 本地开发、Compose、Integration、Kind 和镜像构建统一使用 **OrbStack**；本仓库所有
+   Codex 会话、子代理和人工终端默认 Docker context 必须是 `orbstack`。不得启动或使用
+   Docker Desktop，也不得使用 `desktop-linux` context。Linux CI、目标 Kubernetes/云环境不受
+   此本机约束影响。
+2. 每次会话首次执行 Docker 命令前，以及运行任何 Docker Gate 前，必须先执行并核对：
+
+   ```bash
+   orbctl status
+   docker context show
+   docker info --format 'Name={{.Name}} OS={{.OperatingSystem}} Server={{.ServerVersion}}'
+   ```
+
+   期望结果分别包含 `Running`、`orbstack` 和 `OS=OrbStack`。OrbStack 未运行时执行
+   `orbctl start`；context 不正确时执行 `docker context use orbstack`，然后重新核对，禁止在错误
+   daemon 上继续测试。
+3. `docker context ls` 中存在 `desktop-linux` 仅表示保留了 context 配置，不代表 Docker Desktop
+   正在使用；判断必须以 `docker context show`、endpoint 和 `docker info` 为准。
+4. 若未来发现 Docker Desktop 中确有必须保留的容器、镜像或卷，不得把切换 context 冒充迁移。
+   必须先只读盘点 Desktop 与 OrbStack 两侧对象，停止在 Desktop 创建新状态，对镜像和命名卷数据
+   做显式导出/导入，在 OrbStack 中重建并验证服务和数据完整性；只有验证成功后才能经用户授权清理
+   Desktop 旧对象。不得为盘点而擅自启动 Docker Desktop，也不得删除来源数据。
 
 ## 2. 项目定位、目标与当前阶段
 

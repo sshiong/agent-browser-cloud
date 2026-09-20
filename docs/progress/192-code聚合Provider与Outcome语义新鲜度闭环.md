@@ -44,6 +44,7 @@ Relay 和临时 CA 转发到该入口；Key 以 0600 文件放在仓库外，未
 | Control Plane 全量测试 | 通过；V124 在真实 PostgreSQL 登录 Gate 中完成迁移 |
 | `make test-upgrade-compatibility` | 通过；V124 nullable N−1 Writer 与旧精确围栏被显式检查 |
 | `make ci` | 通过；Java、Rust/Clippy、Web 143 项、Worker、契约/SDK、供应链、Operator 与容量 Gate |
+| `make test-integration` | 通过；Reviewer/Outcome fixture 明确验证无 Provider JSON Schema/temperature 依赖 |
 
 ## 边界
 

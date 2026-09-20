@@ -61,6 +61,7 @@ class Handler(BaseHTTPRequestHandler):
             "requestHash": hashlib.sha256(raw).hexdigest(),
             "model": request.get("model"),
             "hasJsonSchema": request.get("text", {}).get("format", {}).get("type") == "json_schema",
+            "temperatureAbsent": "temperature" not in request,
             "authorizationPresent": True,
             "forbiddenFieldsAbsent": True,
             "schemaName": request.get("text", {}).get("format", {}).get("name"),

@@ -6004,7 +6004,9 @@ with open(sys.argv[1], encoding="utf-8") as handle:
     events = [json.loads(line) for line in handle if line.strip()]
 assert len(events) == 1
 assert events[0]["model"] == "reviewer-integration-model"
-assert events[0]["hasJsonSchema"] is True
+assert events[0]["hasJsonSchema"] is False
+assert events[0]["schemaName"] is None
+assert events[0]["temperatureAbsent"] is True
 assert events[0]["authorizationPresent"] is True
 assert events[0]["forbiddenFieldsAbsent"] is True
 PY
@@ -6060,9 +6062,9 @@ import sys
 
 with open(sys.argv[1], encoding="utf-8") as handle:
     events = [json.loads(line) for line in handle if line.strip()]
-assert [event["schemaName"] for event in events] == [
-    "agent_plan_review", "agent_outcome_verification"
-]
+assert all(event["hasJsonSchema"] is False for event in events)
+assert all(event["schemaName"] is None for event in events)
+assert all(event["temperatureAbsent"] is True for event in events)
 assert all(event["forbiddenFieldsAbsent"] for event in events)
 PY
 

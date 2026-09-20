@@ -30,6 +30,12 @@ fail-closed。定向测试固定“同 Page 清理 Document/Image parser、保�
 `x-request-id` 响应头。Reviewer 已支持这种合法返回，Vision Worker 却只读取响应头，导致追踪字段为空。
 Vision 现在与 Reviewer 一致：优先响应头，缺失时回退 JSON `id`，并以固定字符集和 256 字节上限过滤。
 
+### 3. GitHub Buf 安装使用匿名 API
+
+首次推送后的远端 `verify` 在源码测试前失败：固定版本 `buf-setup-action` 未收到 GitHub Token，匿名
+请求命中共享 Runner 出口的 API rate limit。Workflow 现在向该固定 SHA Action 传递 GitHub 自动提供的
+只读 `github.token`；它只提高仓库 Actions API 下载限额，不引入人工 Secret 或 Buf 登录权限。
+
 ## 验证证据
 
 | Gate | 结果 |

@@ -31,6 +31,7 @@ Network/Storage Helper、mTLS Control Plane、PostgreSQL、Redis 与精确域名
 | `chrome-error://` 被当作普通 HTTP URL 解析 | 事件处理抛异常并重复投递，任务最终超时 | 状态 URL 解析改为 fail-closed，不让错误页异常逃逸事务 |
 | macOS Chrome Profile 的 `RunningChromeVersion` 符号链接被视为未知持久数据 | 正常终止无法 Checkpoint | 仅将该已知运行时标记列入 Ephemeral；任意未知符号链接仍拒绝 |
 | 出口探测夹具只返回 IP | Network Helper 无法解析 country/ASN，会话停在 STARTING | 夹具严格实现 `exitIp/country/asn` 契约 |
+| 页面 load 后遗留旧 `Image:parser` 网络项 | DOM 已稳定但动作永久以 `PAGE_UNSTABLE` 失败 | `Page.loadEventFired` 只收敛同 Page 的 Document/parser-bound 请求；Fetch/XHR、上传、下载和交易仍等待独立终态 |
 
 ## 验收证据
 
@@ -40,6 +41,9 @@ Network/Storage Helper、mTLS Control Plane、PostgreSQL、Redis 与精确域名
 - `cargo test --locked --manifest-path apps/browser-node/Cargo.toml -p storage-helper`
 - `./gradlew -p apps/control-plane test --tests io.browsercloud.application.AgentNavigationCompletionServiceTest`
 - `make test-real-url-agent`
+
+2026-09-20 再次以 Chrome 153 运行时先真实复现上述 parser 网络账本问题；修复后同一命令重跑通过，
+输出继续包含 `NAVIGATE/READ/TYPE_TEXT/SCROLL/AUTOMATIC_SINGLE_CLICK_CHALLENGE`，详见 progress 195。
 
 真实矩阵最终输出：
 
@@ -62,4 +66,3 @@ Network/Storage Helper、mTLS Control Plane、PostgreSQL、Redis 与精确域名
    人工接管或明确禁止，不能由公开站点兼容测试绕过。
 4. 外部页面耗时受公网影响；生产还需要可配置 Step Deadline、N/N-1 浏览器兼容矩阵和
    独立网络稳定性报告。
-

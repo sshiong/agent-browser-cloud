@@ -259,6 +259,13 @@ progress 166。
 
 ### 最近验证状态
 
+- 真实 Agent 综合验收以 OrbStack、Chrome 153 和运营方 `code` HTTP 聚合 Provider 完成：真实网页
+  导航/读取/输入/滚动、三组独立 Profile 登录 Outcome、官方 Turnstile、Cookie 注入后 Checkpoint
+  恢复、Profile 加密导入导出、截图/Vision 和完整 Integration 均通过。真实 Gate 首次发现跨导航
+  遗留 `Image:parser` 使稳定页误报 `PAGE_UNSTABLE`，现按 Page load 只收敛 Document/parser-bound
+  请求，Fetch/XHR/上传/下载/交易仍 fail-closed；Vision 同步支持 Responses JSON `id` 作为请求追踪
+  回退。完整验证与剩余真实 OTP/客户站点边界见 progress 195。
+
 - Local Compose 模型入口已支持任意域名/IP 的 HTTP(S) OpenAI Responses 兼容 Provider，可直接连接
   OpenAI 官方、第三方 HTTPS 或可信本机/LAN HTTP 聚合接口；API Key 不校验供应商前缀，聚合路由允许
   动态响应模型。必填配置收敛为 `/v1` Base URL、Key、Model，Worker 自动补 `/responses`，Revision

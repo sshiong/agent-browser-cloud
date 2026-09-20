@@ -387,12 +387,14 @@ impl ActivityTracker {
         }
     }
 
-    fn complete_document_requests(&mut self, session_id: &str) {
+    fn complete_load_bound_requests(&mut self, session_id: &str) {
         let request_ids = self
             .requests
             .iter()
             .filter(|((request_session, _), activity)| {
-                request_session == session_id && activity.resource_type == "Document"
+                request_session == session_id
+                    && (activity.resource_type == "Document"
+                        || activity.initiator_type.eq_ignore_ascii_case("parser"))
             })
             .map(|((_, request_id), _)| request_id.clone())
             .collect::<Vec<_>>();
@@ -890,7 +892,14 @@ async fn observe_browser(
                 }
             }
             "Page.loadEventFired" => {
-                tracker.complete_document_requests(cdp_session);
+                // Chromium's load event proves that the document and parser-bound resources for
+                // this Page have reached a terminal state. In practice CDP can omit a matching
+                // loadingFinished/loadingFailed event when navigation replaces the previous
+                // document or an allowlist proxy rejects a passive resource. Retaining those
+                // stale entries would keep an otherwise stable page permanently non-executable.
+                // Script-driven Fetch/XHR, uploads, downloads and transaction requests are not
+                // load-bound and remain fail-closed until their own terminal event arrives.
+                tracker.complete_load_bound_requests(cdp_session);
                 tracker.mark_tab_network_activity(cdp_session);
             }
             "Browser.downloadWillBegin" => {
@@ -1151,28 +1160,32 @@ mod tests {
     }
 
     #[test]
-    fn page_load_completes_only_document_requests_for_the_same_tab_session() {
+    fn page_load_completes_document_and_parser_requests_for_the_same_tab_session() {
         let mut tracker = ActivityTracker::default();
-        for (session_id, request_id, resource_type) in [
-            ("page-1", "document-1", "Document"),
-            ("page-1", "fetch-1", "Fetch"),
-            ("page-2", "document-2", "Document"),
+        for (session_id, request_id, resource_type, initiator_type) in [
+            ("page-1", "document-1", "Document", "other"),
+            ("page-1", "image-1", "Image", "parser"),
+            ("page-1", "fetch-1", "Fetch", "script"),
+            ("page-2", "document-2", "Document", "other"),
         ] {
             tracker.requests.insert(
                 (session_id.to_owned(), request_id.to_owned()),
                 RequestActivity {
                     resource_type: resource_type.to_owned(),
-                    initiator_type: "script".to_owned(),
+                    initiator_type: initiator_type.to_owned(),
                     ..RequestActivity::default()
                 },
             );
         }
 
-        tracker.complete_document_requests("page-1");
+        tracker.complete_load_bound_requests("page-1");
 
         assert!(!tracker
             .requests
             .contains_key(&("page-1".to_owned(), "document-1".to_owned())));
+        assert!(!tracker
+            .requests
+            .contains_key(&("page-1".to_owned(), "image-1".to_owned())));
         assert!(tracker
             .requests
             .contains_key(&("page-1".to_owned(), "fetch-1".to_owned())));

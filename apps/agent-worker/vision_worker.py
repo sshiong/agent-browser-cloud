@@ -435,6 +435,11 @@ class ScreenshotVisionProvider:
             raise WorkerError("MODEL_PROVIDER_RESPONSE_TOO_LARGE", retryable=False)
         try:
             document = json.loads(raw)
+            request_id = request_id or (document.get("id") if isinstance(document, dict) else None)
+            if request_id is not None and not re.fullmatch(
+                r"[A-Za-z0-9._:/-]{1,256}", str(request_id)
+            ):
+                request_id = None
             response_model = document.get("model") if isinstance(document, dict) else None
             if not isinstance(response_model, str) or not MODEL_ID.fullmatch(response_model):
                 raise WorkerError("MODEL_PROVIDER_MODEL_MISMATCH", retryable=False)

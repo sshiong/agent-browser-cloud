@@ -102,6 +102,7 @@ class VisionWorkerTest(unittest.TestCase):
             )
             self.assertEqual(verdict["decision"], "ACT")
             self.assertEqual(verdict["actions"][0]["actionType"], "CLICK")
+            self.assertEqual(verdict["providerRequestId"], "resp_vision_fixture")
             self.assertEqual(Handler.request_body["model"], "code")
             self.assertNotIn("temperature", Handler.request_body)
             self.assertNotIn("text", Handler.request_body)

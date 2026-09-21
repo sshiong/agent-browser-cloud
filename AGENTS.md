@@ -117,7 +117,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V124 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V126 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -261,6 +261,14 @@ progress 166。
 
 ### 最近验证状态
 
+- 真实 OTP 续行已加入 OrbStack/Chrome 153 登录矩阵：Browser Node 只从标准
+  `autocomplete=one-time-code` 投影隐私安全控件类别，敏感 name/value 继续为空；Control Plane
+  绑定精确 Target/Anchor，操作员以用途绑定一次性 Secret 响应后，同一 Task 恢复并通过 Outcome
+  Verification。V126 兼容历史无 Target OTP 事件，资源 Sample 重投也在 Placement 行锁内幂等，
+  不再重复写入或重放危险保护。四个独立 Profile 的登录成功、错误密码、假成功拒绝和 OTP 均通过，
+  完整 Integration 与 `make ci` 通过，见 progress 199。真实短信/邮箱/TOTP、企业 IdP 和客户站点
+  仍是目标环境 Gate。
+
 - Opaque Frame 低风险单击自动化已以 OrbStack 和 Chrome 153 真实异步跨域 iframe 闭环：Session
   精确 Origin 策略与当前 Task Domain 双重授权后，任务在 `OPAQUE_FRAME_SINGLE_CLICK` 暂停，
   受治理截图进入 Vision Job，Node 按 State/Tab/Hash/frameRef/Bounds 即时重验一次左键，父页
@@ -282,7 +290,7 @@ progress 166。
   恢复、Profile 加密导入导出、截图/Vision 和完整 Integration 均通过。真实 Gate 首次发现跨导航
   遗留 `Image:parser` 使稳定页误报 `PAGE_UNSTABLE`，现按 Page load 只收敛 Document/parser-bound
   请求，Fetch/XHR/上传/下载/交易仍 fail-closed；Vision 同步支持 Responses JSON `id` 作为请求追踪
-  回退。完整验证与剩余真实 OTP/客户站点边界见 progress 195。
+  回退。完整验证与真实 OTP 续行见 progress 195、199；客户站点边界仍是目标环境 Gate。
 
 - Local Compose 模型入口已支持任意域名/IP 的 HTTP(S) OpenAI Responses 兼容 Provider，可直接连接
   OpenAI 官方、第三方 HTTPS 或可信本机/LAN HTTP 聚合接口；API Key 不校验供应商前缀，聚合路由允许

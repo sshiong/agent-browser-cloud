@@ -260,17 +260,21 @@ public class SessionResourceApplicationService {
   public SessionResourceView recordSample(String sessionId, RecordResourceSampleRequest request) {
     var placement =
         placements
-            .findById(sessionId)
+            .findForUpdate(sessionId)
             .orElseThrow(() -> new ResourceTelemetryRejectedException("PLACEMENT_NOT_FOUND"));
     if (!placement.getNodeId().equals(request.nodeId())
         || "RELEASED".equals(placement.getState())) {
       throw new ResourceTelemetryRejectedException("NODE_PLACEMENT_MISMATCH");
     }
     var now = Instant.now();
-    samples.save(
-        new SessionResourceSampleEntity(
-            newId("rs_"), sessionId, placement.getTenantId(), request, now));
-    if (request.dangerEvent() != null && !request.dangerEvent().isBlank()) {
+    var observedAt = request.observedAt() == null ? now : request.observedAt();
+    var duplicate = samples.existsBySessionIdAndObservedAt(sessionId, observedAt);
+    if (!duplicate) {
+      samples.save(
+          new SessionResourceSampleEntity(
+              newId("rs_"), sessionId, placement.getTenantId(), request, now));
+    }
+    if (!duplicate && request.dangerEvent() != null && !request.dangerEvent().isBlank()) {
       protectDangerEvent(
           requireTenant(sessionId, placement.getTenantId()),
           request.dangerEvent(),

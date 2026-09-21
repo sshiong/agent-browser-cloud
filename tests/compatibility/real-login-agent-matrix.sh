@@ -334,5 +334,10 @@ python3 "$repo_root/tests/compatibility/real_login_agent_matrix.py" \
 
 grep -q '"event": "login_attempt".*"success": true' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "login_attempt".*"success": false' "$temp_dir/proxy-events.jsonl"
+grep -q '"event": "otp_attempt".*"success": true' "$temp_dir/proxy-events.jsonl"
+if grep -Eq 'session_resource_samples_session_id_observed_at_key|chk_challenge_event_target' \
+  "$temp_dir/control-plane.log"; then
+  fail "Control Plane logged a replay-unsafe resource sample or invalid Challenge target"
+fi
 
-echo "Controlled login Agent matrix passed with real Chrome, sensitive-input references, Outcome verification, and Provider mode ${provider_mode}."
+echo "Controlled login/OTP Agent matrix passed with real Chrome, sensitive-input references, Outcome verification, and Provider mode ${provider_mode}."

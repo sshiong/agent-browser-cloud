@@ -36,7 +36,8 @@ pub struct InteractiveTarget {
     pub name: Option<String>,
     /// 非敏感控件的当前值；敏感控件始终为空。
     pub value: Option<String>,
-    /// DOM 控件类型（例如 text、submit、select-one）。
+    /// DOM 控件类型（例如 text、submit、select-one）；敏感 OTP 输入只投影非值语义
+    /// one-time-code，名称和值仍保持为空。
     pub control_type: Option<String>,
     /// 边界
     pub bounds: Option<Bounds>,
@@ -2291,6 +2292,12 @@ impl CdpStateCollector {
                   const rect = element.getBoundingClientRect();
                   const visibility = visibilityFor(element, rect, offsetX, offsetY);
                   const sensitive = sensitiveFor(element);
+                  const rawControlType =
+                    (element.getAttribute('type') || element.type || '').slice(0, 64) || null;
+                  const autocompleteTokens =
+                    (element.getAttribute('autocomplete') || '').toLowerCase().split(/\s+/);
+                  const controlType = sensitive && autocompleteTokens.includes('one-time-code')
+                    ? 'one-time-code' : rawControlType;
                   const rawValue = !sensitive && 'value' in element
                     ? String(element.value ?? '').slice(0, 512) : null;
                   return {
@@ -2299,7 +2306,7 @@ impl CdpStateCollector {
                     name: sensitive ? null : nameFor(element),
                     semanticContext: semanticContextFor(element),
                     value: rawValue || null,
-                    controlType: (element.getAttribute('type') || element.type || '').slice(0, 64) || null,
+                    controlType,
                     bounds: rect.width > 0 && rect.height > 0 ? visibility.global : null,
                     enabled: !element.disabled && element.getAttribute('aria-disabled') !== 'true',
                     visible: visibility.visible,

@@ -25,10 +25,12 @@ TASK_TIMEOUT_SECONDS = int(os.environ.get("LOGIN_AGENT_TASK_TIMEOUT_SECONDS", "1
 TENANT = "tenant-login-fixture"
 FIXTURE_HOST = "agent-controls.invalid"
 LOGIN_URL = "http://agent-controls.invalid/login"
+OTP_URL = "http://agent-controls.invalid/otp"
 
 # These values are owned by this ephemeral fixture, not supplied by or read from the user.
 FIXTURE_USERNAME = "fixture-user"
 FIXTURE_PASSWORD = "fixture-pass"
+FIXTURE_OTP = "246810"
 
 
 def request(method, path, body=None, idempotency_key=None, tenant=TENANT, roles=None, actor_id=None):
@@ -294,6 +296,93 @@ def require_provider_evidence(task):
     }
 
 
+def run_otp_case():
+    session_id = create_session("otp-success")
+    task = require(
+        "POST",
+        f"/api/v1/sessions/{session_id}/agent-tasks",
+        {
+            "goal": "Open the controlled OTP page, wait for the operator-provided one-time code, and verify the authenticated result",
+            "startUrl": OTP_URL,
+            "allowedDomains": [FIXTURE_HOST],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "expectedOutcomes": expected("Fixture OTP Dashboard", "OTP verified"),
+        },
+        f"login-otp-create-{uuid.uuid4().hex}",
+    )
+    if task.get("state") != "PLANNED":
+        raise AssertionError(f"OTP task not planned: {task}")
+    task_id = task["taskId"]
+    require(
+        "POST",
+        f"/api/v1/agent-tasks/{task_id}:execute",
+        idempotency_key=f"login-otp-execute-{uuid.uuid4().hex}",
+    )
+    waiting = wait_for(
+        f"/api/v1/agent-tasks/{task_id}",
+        lambda item: item.get("state") == "WAITING_FOR_HUMAN"
+        and isinstance(item.get("challengeEventId"), str),
+        timeout=90,
+    )
+    timeline = wait_for(
+        f"/api/v1/sessions/{session_id}/challenges",
+        lambda payload: any(
+            item.get("suspectedType") == "OTP"
+            and str(item.get("targetRef", "")).startswith("target:")
+            for item in payload.get("items", [])
+        ),
+        timeout=90,
+    )
+    event = next(
+        (
+            item
+            for item in timeline.get("items", [])
+            if item.get("suspectedType") == "OTP"
+            and str(item.get("targetRef", "")).startswith("target:")
+        ),
+        None,
+    )
+    if (
+        event is None
+        or event.get("suspectedType") != "OTP"
+        or not str(event.get("targetRef", "")).startswith("target:")
+    ):
+        raise AssertionError(f"OTP Challenge did not retain a sensitive target: {timeline}")
+    challenge_event_id = event["challengeEventId"]
+    waiting = wait_for(
+        f"/api/v1/agent-tasks/{task_id}",
+        lambda item: item.get("state") == "WAITING_FOR_HUMAN"
+        and item.get("challengeEventId") == challenge_event_id,
+        timeout=90,
+    )
+    otp_secret = create_secret(session_id, "OTP", FIXTURE_OTP, "otp-success")
+    response = require(
+        "POST",
+        f"/api/v1/challenges/{challenge_event_id}/input-responses",
+        {"secretId": otp_secret},
+        f"login-otp-response-{uuid.uuid4().hex}",
+        actor_id="login-fixture-operator",
+        roles="TENANT_OPERATOR",
+    )
+    if response.get("purpose") != "OTP" or response.get("taskId") != task_id:
+        raise AssertionError(f"OTP response was not bound to the original task: {response}")
+    terminal = task_until_terminal(task_id)
+    if (
+        terminal.get("state") != "COMPLETED"
+        or terminal.get("outcomeVerification", {}).get("status") != "VERIFIED"
+        or terminal.get("challengeEventId") is not None
+    ):
+        raise AssertionError(f"OTP task did not resume and verify: {terminal}")
+    final_state = wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda item: item.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and item.get("title") == "Fixture OTP Dashboard",
+        timeout=90,
+    )
+    return terminal, response
+
+
 success_session, success_landing, success_username, success_password, success = run_login_case(
     "login-success",
     FIXTURE_PASSWORD,
@@ -324,6 +413,9 @@ if false_success["state"] != "FAILED" or false_success.get("lastError") != "AGEN
     raise AssertionError(f"false success was not rejected by Outcome Verifier: {false_success}")
 false_success_provider_evidence = require_provider_evidence(false_success)
 
+otp_success, otp_response = run_otp_case()
+otp_provider_evidence = require_provider_evidence(otp_success)
+
 events = []
 if PROVIDER_MODE == "fixture":
     events = [json.loads(line) for line in EVENT_LOG.read_text().splitlines() if line.strip()]
@@ -342,19 +434,28 @@ print(json.dumps({
     "successTask": success["taskId"],
     "invalidLoginTask": failure["taskId"],
     "falseSuccessRejectedTask": false_success["taskId"],
+    "otpSuccessTask": otp_success["taskId"],
+    "otpInputIntent": otp_response["intentId"],
     "landingTasks": [success_landing["taskId"], failure_landing["taskId"], false_success_landing["taskId"]],
     "verifiedActionTasks": [
         success_username["taskId"], success_password["taskId"],
         failure_username["taskId"], failure_password["taskId"],
         false_success_username["taskId"], false_success_password["taskId"],
     ],
-    "verified": ["AUTONOMOUS_SENSITIVE_INPUT", "LOGIN_SUCCESS_EXPECTED_OUTCOME", "LOGIN_FAILURE_EXPECTED_OUTCOME"],
+    "verified": [
+        "AUTONOMOUS_SENSITIVE_INPUT",
+        "LOGIN_SUCCESS_EXPECTED_OUTCOME",
+        "LOGIN_FAILURE_EXPECTED_OUTCOME",
+        "OTP_CHALLENGE_OPERATOR_RESPONSE",
+        "OTP_EXPECTED_OUTCOME",
+    ],
     "rejected": "TECHNICAL_SUCCESS_WITH_UNSATISFIED_LOGIN_OUTCOME",
     "providerMode": PROVIDER_MODE,
     "providerEvidence": {
         "success": success_provider_evidence,
         "invalidLogin": failure_provider_evidence,
         "falseSuccessRejected": false_success_provider_evidence,
+        "otpSuccess": otp_provider_evidence,
     },
     "modelFixtureRequests": len(events) if PROVIDER_MODE == "fixture" else None,
     "secretValuesPrinted": False,

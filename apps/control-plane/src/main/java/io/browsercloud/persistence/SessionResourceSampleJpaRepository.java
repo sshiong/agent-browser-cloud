@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface SessionResourceSampleJpaRepository
     extends JpaRepository<SessionResourceSampleEntity, String> {
+  boolean existsBySessionIdAndObservedAt(String sessionId, Instant observedAt);
+
   List<SessionResourceSampleEntity> findBySessionIdOrderByObservedAtDesc(
       String sessionId, Pageable pageable);
 

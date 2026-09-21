@@ -204,7 +204,10 @@ public class ChallengeDetectionService {
     var otpTarget =
         state.targets().stream()
             .filter(NodeEvent.InteractiveTarget::sensitive)
-            .filter(target -> target.name() != null && OTP.matcher(normalize(target.name())).find())
+            .filter(
+                target ->
+                    (target.name() != null && OTP.matcher(normalize(target.name())).find())
+                        || "one-time-code".equalsIgnoreCase(target.controlType()))
             .filter(target -> target.visible() && target.enabled())
             .filter(
                 target -> java.util.Set.of("textbox", "combobox").contains(safeRole(target.role())))

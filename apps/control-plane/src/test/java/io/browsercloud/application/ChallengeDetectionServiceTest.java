@@ -76,7 +76,24 @@ class ChallengeDetectionServiceTest {
 
     var otp =
         new NodeEvent.InteractiveTarget(
-            "target:7:otp", "textbox", "Verification code", null, true, true, true);
+            "target:7:otp",
+            "textbox",
+            null,
+            null,
+            true,
+            true,
+            true,
+            "element-otp",
+            null,
+            "one-time-code",
+            false,
+            null,
+            null,
+            true,
+            "main",
+            true,
+            false,
+            null);
     assertThat(service.observe(envelope(), state("Confirm", List.of(otp)))).isPresent();
     var captured = ArgumentCaptor.forClass(ChallengeEventEntity.class);
     verify(events).save(captured.capture());

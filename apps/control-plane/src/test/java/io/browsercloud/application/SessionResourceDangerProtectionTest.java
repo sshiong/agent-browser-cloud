@@ -3,6 +3,7 @@ package io.browsercloud.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -83,6 +84,7 @@ class SessionResourceDangerProtectionTest {
     var policy = policy(now);
     var placement = placement(now);
     var task = mock(AgentTaskEntity.class);
+    when(placements.findForUpdate("ses_danger")).thenReturn(Optional.of(placement));
     when(placements.findById("ses_danger")).thenReturn(Optional.of(placement));
     when(sessions.require("ses_danger")).thenReturn(session(now));
     when(policies.findBySessionIdAndTenantId("ses_danger", "tenant-test"))
@@ -105,6 +107,28 @@ class SessionResourceDangerProtectionTest {
     var payload = AdjustRuntimeResourcesCommand.parseFrom(command.getValue().payload());
     assertThat(payload.getMemoryLimitMib()).isGreaterThan(1_280);
     assertThat(payload.getMemoryLimitMib()).isLessThanOrEqualTo(4_096);
+  }
+
+  @Test
+  void retriedSampleIsIdempotentAndDoesNotReplayDangerProtection() {
+    var now = Instant.now();
+    var policy = policy(now);
+    var placement = placement(now);
+    when(placements.findForUpdate("ses_danger")).thenReturn(Optional.of(placement));
+    when(placements.findById("ses_danger")).thenReturn(Optional.of(placement));
+    when(sessions.require("ses_danger")).thenReturn(session(now));
+    when(policies.findBySessionIdAndTenantId("ses_danger", "tenant-test"))
+        .thenReturn(Optional.of(policy));
+    when(samples.existsBySessionIdAndObservedAt("ses_danger", now)).thenReturn(true);
+    when(samples.findBySessionIdOrderByObservedAtDesc(any(), any())).thenReturn(List.of());
+    when(costs.findBySessionIdOrderByObservedAtDesc(any(), any())).thenReturn(List.of());
+
+    var view = service.recordSample("ses_danger", sample(now, "OOM"));
+
+    assertThat(view.sessionId()).isEqualTo("ses_danger");
+    verify(samples, never()).save(any());
+    verify(tasks, never()).findAllBySessionIdAndState(any(), any());
+    verify(nodeCommands, never()).send(any());
   }
 
   @Test

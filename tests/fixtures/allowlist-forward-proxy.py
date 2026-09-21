@@ -111,6 +111,22 @@ input{{width:360px;height:36px;margin:8px 0 24px}}button{{height:40px;width:180p
 <button id="submit-login" type="submit">Sign in</button>
 </form></main></body></html>""".encode()
 
+    @staticmethod
+    def otp_html(title="Fixture OTP Verification", status_text="Enter the one-time code"):
+        return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>{title}</title>
+<style>body{{font-family:sans-serif;padding:32px}}label,input{{display:block}}
+input{{width:360px;height:36px;margin:8px 0 24px}}button{{height:40px;width:180px}}
+</style></head><body><main><h1>Controlled OTP verification</h1>
+<p role="status">{status_text}</p>
+<form method="post" action="/otp" id="otp-form">
+<label for="otp">One-time code</label>
+<input id="otp" name="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+<button id="submit-otp" type="submit">Verify code</button>
+</form>
+<script>document.querySelector('#otp').addEventListener('input',event=>{{if(event.target.value.length===6)document.querySelector('#otp-form').requestSubmit();}});</script>
+</main></body></html>""".encode()
+
     def send_fixture(self, body, status=200, headers=None):
         headers = headers or {}
         self.send_response(status)
@@ -126,13 +142,34 @@ input{{width:360px;height:36px;margin:8px 0 24px}}button{{height:40px;width:180p
         host = normalized_host(
             parsed.hostname or self.headers.get("Host", "").split(":")[0]
         )
-        if host != CONTROL_FIXTURE_HOST or parsed.path != "/login":
+        if host != CONTROL_FIXTURE_HOST or parsed.path not in {"/login", "/otp"}:
             self.send_error(403, "POST target denied")
             return
         length = int(self.headers.get("Content-Length", "0"))
         fields = urllib.parse.parse_qs(
             self.rfile.read(length).decode("utf-8", "replace")
         )
+        if parsed.path == "/otp":
+            # This is a repository-owned one-time test code. Only the boolean outcome is logged.
+            ok = fields.get("otp", [""])[0] == "246810"
+            log_event("otp_attempt", host=host, success=ok)
+            if ok:
+                body = b"""<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Fixture OTP Dashboard</title></head>
+<body><main><h1>Fixture OTP Dashboard</h1><p role="status">OTP verified</p><a href="/otp-dashboard">Account home</a></main></body></html>"""
+                self.send_fixture(
+                    body,
+                    status=303,
+                    headers={
+                        "Location": "/otp-dashboard",
+                        "Set-Cookie": "fixture_otp_session=ok; Path=/; HttpOnly; SameSite=Lax",
+                    },
+                )
+            else:
+                self.send_fixture(
+                    self.otp_html("Fixture OTP Failed", "Invalid one-time code"),
+                    status=401,
+                )
+            return
         # These are repository-owned fixture credentials; values are never logged.
         ok = (
             fields.get("username", [""])[0] == "fixture-user"
@@ -214,6 +251,11 @@ setTimeout(()=>{document.querySelector('#hosted-verification').src='http://opaqu
                 body = self.login_html(
                     "Fixture Login", "Use the controlled fixture account"
                 )
+            elif parsed.path == "/otp":
+                body = self.otp_html()
+            elif parsed.path == "/otp-dashboard":
+                body = b"""<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Fixture OTP Dashboard</title></head>
+<body><main><h1>Fixture OTP Dashboard</h1><p role="status">OTP verified</p><a href="/otp-dashboard">Account home</a></main></body></html>"""
             elif parsed.path == "/dashboard":
                 body = b"""<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Fixture Dashboard</title></head>
 <body><main><h1>Fixture Dashboard</h1><p role="status">Login successful</p><a href="/dashboard">Account home</a></main></body></html>"""

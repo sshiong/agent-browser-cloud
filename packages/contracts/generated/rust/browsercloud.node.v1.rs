@@ -281,6 +281,46 @@ pub struct PresignRecordingPlaybackResponse {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DeleteRecordingObjectsRequest {
+    #[prost(string, tag="1")]
+    pub deletion_job_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="2")]
+    pub deletion_epoch: u64,
+    #[prost(string, tag="3")]
+    pub tenant_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub profile_id: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub recording_id: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub manifest_sha256: ::prost::alloc::string::String,
+    #[prost(uint64, tag="8")]
+    pub manifest_bytes: u64,
+    #[prost(uint64, tag="9")]
+    pub segment_count: u64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DeleteRecordingObjectsResponse {
+    #[prost(string, tag="1")]
+    pub deletion_job_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="2")]
+    pub deletion_epoch: u64,
+    #[prost(string, tag="3")]
+    pub node_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub recording_id: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub deletion_proof_hash: ::prost::alloc::string::String,
+    #[prost(uint64, tag="6")]
+    pub deleted_object_count: u64,
+    #[prost(int64, tag="7")]
+    pub completed_at_ms: i64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PresignProfileExportDownloadRequest {
     #[prost(string, tag="1")]
     pub grant_id: ::prost::alloc::string::String,

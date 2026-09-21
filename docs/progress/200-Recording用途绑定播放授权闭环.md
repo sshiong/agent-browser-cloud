@@ -1,7 +1,7 @@
 # Recording 用途绑定播放授权闭环
 
 > 日期：2026-09-21
-> 状态：仓库内 purpose-bound 播放 Grant、完整 mTLS/对象存储链及四语言 SDK 已闭环；全帧 OCR/非文本视觉敏感分类、Object Lock/WORM、到期物理删除 Worker 和目标云 Legal Hold 仍待完成。
+> 状态：仓库内 purpose-bound 播放 Grant、完整 mTLS/对象存储链及四语言 SDK 已闭环；到期物理删除 Worker 后由 progress 201 闭环，全帧 OCR/非文本视觉敏感分类、Object Lock/WORM 和目标云 Legal Hold 仍待完成。
 
 ## 问题
 
@@ -56,6 +56,6 @@
 ## 保留边界
 
 本闭环解决的是“谁、为何、在何时读取哪一份已提交 Recording”的授权与完整性问题，不把既有逐帧
-DOM 敏感遮罩冒充全帧 OCR 或非文本视觉分类。Object Lock/WORM、对象版本治理、到期物理删除 Worker、
-目标云 KMS/IAM 和真实对象 Legal Hold API 仍是独立代码/部署 Gate；未完成前仍不能据此宣称 V16
-生产就绪。
+DOM 敏感遮罩冒充全帧 OCR 或非文本视觉分类。到期物理删除 Worker 后由 progress 201 以真实 MinIO
+和 proof-bound Receipt 闭环；Object Lock/WORM、对象版本治理、目标云 KMS/IAM 和真实对象 Legal
+Hold API 仍是独立代码/部署 Gate；未完成前仍不能据此宣称 V16 生产就绪。

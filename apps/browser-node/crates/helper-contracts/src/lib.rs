@@ -173,6 +173,17 @@ pub enum StorageCommand {
         segment_limit: u32,
         expires_in_seconds: u32,
     },
+    DeleteRecording {
+        deletion_job_id: String,
+        deletion_epoch: u64,
+        tenant_id: String,
+        profile_id: String,
+        session_id: String,
+        recording_id: String,
+        manifest_sha256: String,
+        manifest_bytes: u64,
+        segment_count: u64,
+    },
     SignProfileExportDownload {
         tenant_id: String,
         profile_id: String,
@@ -204,6 +215,8 @@ pub struct StorageResponse {
     pub evidence_access: Option<StorageEvidenceAccess>,
     #[serde(default)]
     pub recording_playback_access: Option<StorageRecordingPlaybackAccess>,
+    #[serde(default)]
+    pub recording_deletion: Option<StorageRecordingDeletion>,
     #[serde(default)]
     pub profile_export_access: Option<StorageProfileExportAccess>,
     pub error_code: Option<String>,
@@ -320,6 +333,17 @@ pub struct StorageRecordingPlaybackAccess {
     pub expires_at_ms: u64,
     pub next_segment_offset: Option<u64>,
     pub segments: Vec<StorageRecordingPlaybackSegment>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageRecordingDeletion {
+    pub deletion_job_id: String,
+    pub recording_id: String,
+    pub deletion_epoch: u64,
+    pub deletion_proof_hash: String,
+    pub deleted_object_count: u64,
+    pub completed_at_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

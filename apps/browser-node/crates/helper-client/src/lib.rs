@@ -6,7 +6,8 @@ use helper_contracts::{
 };
 pub use helper_contracts::{
     StorageCheckpoint, StorageEvidence, StorageEvidenceAccess, StorageRecording,
-    StorageRecordingPlaybackAccess, StorageRestoreStatus, StorageWarmTierSync, StorageWorkspace,
+    StorageRecordingDeletion, StorageRecordingPlaybackAccess, StorageRestoreStatus,
+    StorageWarmTierSync, StorageWorkspace,
 };
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -505,6 +506,52 @@ impl StorageHelperClient {
         .await?
         .recording_playback_access
         .ok_or_else(|| anyhow::anyhow!("storage helper omitted recording playback result"))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn delete_recording(
+        &self,
+        deletion_job_id: &str,
+        deletion_epoch: u64,
+        tenant_id: &str,
+        profile_id: &str,
+        session_id: &str,
+        recording_id: &str,
+        manifest_sha256: &str,
+        manifest_bytes: u64,
+        segment_count: u64,
+    ) -> anyhow::Result<StorageRecordingDeletion> {
+        validate_identifier("deletion_job_id", deletion_job_id)?;
+        validate_identifier("tenant_id", tenant_id)?;
+        validate_identifier("profile_id", profile_id)?;
+        validate_identifier("session_id", session_id)?;
+        validate_identifier("recording_id", recording_id)?;
+        anyhow::ensure!(deletion_epoch > 0, "recording deletion epoch is invalid");
+        anyhow::ensure!(
+            manifest_sha256.len() == 64
+                && manifest_sha256
+                    .chars()
+                    .all(|character| character.is_ascii_hexdigit()),
+            "recording manifest SHA-256 is invalid"
+        );
+        anyhow::ensure!(
+            manifest_bytes > 0 && segment_count <= 100_000,
+            "recording deletion bounds are invalid"
+        );
+        self.call(StorageCommand::DeleteRecording {
+            deletion_job_id: deletion_job_id.to_owned(),
+            deletion_epoch,
+            tenant_id: tenant_id.to_owned(),
+            profile_id: profile_id.to_owned(),
+            session_id: session_id.to_owned(),
+            recording_id: recording_id.to_owned(),
+            manifest_sha256: manifest_sha256.to_ascii_lowercase(),
+            manifest_bytes,
+            segment_count,
+        })
+        .await?
+        .recording_deletion
+        .ok_or_else(|| anyhow::anyhow!("storage helper omitted recording deletion result"))
     }
 
     pub async fn sign_profile_export_download(

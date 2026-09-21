@@ -3,6 +3,7 @@ use anyhow::Context;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use bytes::Bytes;
+use futures_util::TryStreamExt;
 use http::Method;
 use object_store::aws::{AmazonS3, AmazonS3Builder};
 use object_store::path::Path;
@@ -57,6 +58,27 @@ pub struct RecordingPlaybackRequest<'a> {
     pub segment_offset: u64,
     pub segment_limit: u32,
     pub expires_in: Duration,
+}
+
+pub struct RecordingDeletionRequest<'a> {
+    pub deletion_job_id: &'a str,
+    pub deletion_epoch: u64,
+    pub tenant_id: &'a str,
+    pub profile_id: &'a str,
+    pub session_id: &'a str,
+    pub recording_id: &'a str,
+    pub manifest_sha256: &'a str,
+    pub manifest_bytes: u64,
+    pub segment_count: u64,
+}
+
+pub struct RecordingDeletionResult {
+    pub deletion_job_id: String,
+    pub recording_id: String,
+    pub deletion_epoch: u64,
+    pub deletion_proof_hash: String,
+    pub deleted_object_count: u64,
+    pub completed_at_ms: u64,
 }
 
 pub struct SignedRecordingPlaybackSegment {
@@ -581,6 +603,24 @@ struct StoredRecordingCommitMarker {
     ended_at_ms: u64,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct RecordingDeletionMarker {
+    version: u32,
+    state: String,
+    deletion_job_id: String,
+    deletion_epoch: u64,
+    tenant_id: String,
+    profile_id: String,
+    session_id: String,
+    recording_id: String,
+    manifest_sha256: String,
+    manifest_bytes: u64,
+    segment_count: u64,
+    deleted_object_count: u64,
+    completed_at_ms: Option<u64>,
+}
+
 pub struct RecordingCommitResult {
     pub object_key: String,
     pub manifest_sha256: String,
@@ -1034,6 +1074,184 @@ impl ObjectArchive {
         })
     }
 
+    pub async fn delete_recording(
+        &self,
+        request: RecordingDeletionRequest<'_>,
+    ) -> anyhow::Result<RecordingDeletionResult> {
+        anyhow::ensure!(
+            request.deletion_epoch > 0
+                && request.manifest_sha256.len() == 64
+                && request
+                    .manifest_sha256
+                    .chars()
+                    .all(|character| character.is_ascii_hexdigit())
+                && request.manifest_bytes > 0
+                && request.segment_count <= 100_000,
+            "recording deletion request is invalid"
+        );
+        let base = self.recording_key_for(
+            request.tenant_id,
+            request.profile_id,
+            request.session_id,
+            request.recording_id,
+        );
+        let deletion_base = self.recording_deletion_key_for(
+            request.tenant_id,
+            request.profile_id,
+            request.session_id,
+            request.recording_id,
+        );
+        let prepared_key = format!("{deletion_base}/PREPARED");
+        let committed_key = format!("{deletion_base}/COMMITTED");
+        if let Some(committed_bytes) = self.get_optional(&committed_key).await? {
+            return validate_recording_deletion_marker(&committed_bytes, &request, "COMMITTED");
+        }
+
+        let expected_object_count = request
+            .segment_count
+            .checked_mul(2)
+            .and_then(|count| count.checked_add(1))
+            .ok_or_else(|| anyhow::anyhow!("recording deletion object count overflow"))?;
+        let prepared = self.get_optional(&prepared_key).await?;
+        if let Some(prepared_bytes) = prepared.as_ref() {
+            validate_recording_deletion_marker(prepared_bytes, &request, "PREPARED")?;
+        } else {
+            let manifest_bytes = self.get(&format!("{base}/COMMITTED")).await?;
+            anyhow::ensure!(
+                manifest_bytes.len() as u64 == request.manifest_bytes
+                    && hex_sha256(&manifest_bytes).eq_ignore_ascii_case(request.manifest_sha256),
+                "recording aggregate manifest integrity does not match the deletion request"
+            );
+            let manifest: StoredRecordingCommitMarker = serde_json::from_slice(&manifest_bytes)?;
+            anyhow::ensure!(
+                manifest.recording_id == request.recording_id
+                    && manifest.segment_count == request.segment_count,
+                "recording aggregate manifest does not match the deletion request"
+            );
+            let initial_keys = self.recording_object_keys(&base).await?;
+            anyhow::ensure!(
+                initial_keys.len() as u64 == expected_object_count,
+                "recording object set is incomplete before deletion preparation"
+            );
+            self.validate_recording_object_keys(
+                &base,
+                request.recording_id,
+                request.segment_count,
+                &initial_keys,
+            )
+            .await?;
+            let marker = recording_deletion_marker(&request, "PREPARED", None);
+            self.put_immutable(&prepared_key, Bytes::from(serde_json::to_vec(&marker)?))
+                .await?;
+        }
+
+        let remaining_keys = self.recording_object_keys(&base).await?;
+        self.validate_recording_object_key_subset(&base, request.segment_count, &remaining_keys)?;
+        let manifest_key = format!("{base}/COMMITTED");
+        for key in remaining_keys.iter().filter(|key| *key != &manifest_key) {
+            self.delete(key).await?;
+        }
+        if remaining_keys.iter().any(|key| key == &manifest_key) {
+            self.delete(&manifest_key).await?;
+        }
+        anyhow::ensure!(
+            self.recording_object_keys(&base).await?.is_empty(),
+            "recording object prefix is not empty after deletion"
+        );
+        let completed_at_ms = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as u64;
+        let committed = recording_deletion_marker(&request, "COMMITTED", Some(completed_at_ms));
+        let committed_bytes = serde_json::to_vec(&committed)?;
+        let deletion_proof_hash = hex_sha256(&committed_bytes);
+        self.put_immutable(&committed_key, Bytes::from(committed_bytes))
+            .await?;
+        Ok(RecordingDeletionResult {
+            deletion_job_id: request.deletion_job_id.to_owned(),
+            recording_id: request.recording_id.to_owned(),
+            deletion_epoch: request.deletion_epoch,
+            deletion_proof_hash,
+            deleted_object_count: expected_object_count,
+            completed_at_ms,
+        })
+    }
+
+    async fn recording_object_keys(&self, base: &str) -> anyhow::Result<Vec<String>> {
+        let prefix = Path::from(format!("{base}/"));
+        tokio::time::timeout(
+            self.operation_timeout,
+            self.store
+                .list(Some(&prefix))
+                .map_ok(|metadata| metadata.location.to_string())
+                .try_collect::<Vec<_>>(),
+        )
+        .await
+        .context("Object Storage listing timed out")?
+        .context("Object Storage recording listing failed")
+    }
+
+    fn validate_recording_object_key_subset(
+        &self,
+        base: &str,
+        segment_count: u64,
+        keys: &[String],
+    ) -> anyhow::Result<()> {
+        for key in keys {
+            if key == &format!("{base}/COMMITTED") {
+                continue;
+            }
+            let Some(suffix) = key.strip_prefix(&format!("{base}/segments/")) else {
+                anyhow::bail!("recording object prefix contains an unexpected object");
+            };
+            let (sequence, extension) = suffix
+                .split_once('.')
+                .ok_or_else(|| anyhow::anyhow!("recording segment object name is invalid"))?;
+            anyhow::ensure!(
+                sequence.len() == 20
+                    && sequence.chars().all(|character| character.is_ascii_digit())
+                    && sequence.parse::<u64>()? < segment_count
+                    && matches!(extension, "ndjson" | "COMMITTED"),
+                "recording segment object name is outside the manifest"
+            );
+        }
+        Ok(())
+    }
+
+    async fn validate_recording_object_keys(
+        &self,
+        base: &str,
+        recording_id: &str,
+        segment_count: u64,
+        keys: &[String],
+    ) -> anyhow::Result<()> {
+        self.validate_recording_object_key_subset(base, segment_count, keys)?;
+        for sequence in 0..segment_count {
+            let object_key = format!("{base}/segments/{sequence:020}.ndjson");
+            let marker_key = format!("{base}/segments/{sequence:020}.COMMITTED");
+            anyhow::ensure!(
+                keys.contains(&object_key) && keys.contains(&marker_key),
+                "recording segment object pair is incomplete"
+            );
+            let marker_bytes = self.get(&marker_key).await?;
+            let marker: StoredRecordingSegmentMarker = serde_json::from_slice(&marker_bytes)?;
+            anyhow::ensure!(
+                marker.recording_id == recording_id
+                    && marker.segment_sequence == sequence
+                    && marker.content_bytes > 0,
+                "recording segment marker is invalid"
+            );
+            let metadata = tokio::time::timeout(
+                self.operation_timeout,
+                self.store.head(&Path::from(object_key.as_str())),
+            )
+            .await
+            .context("Object Storage operation timed out")??;
+            anyhow::ensure!(
+                metadata.size == marker.content_bytes,
+                "recording segment size does not match its commit marker"
+            );
+        }
+        Ok(())
+    }
+
     pub async fn sign_profile_export_download(
         &self,
         request: ProfileExportDownloadRequest<'_>,
@@ -1255,6 +1473,19 @@ impl ObjectArchive {
         .context("Object Storage operation timed out")?
     }
 
+    async fn get_optional(&self, key: &str) -> anyhow::Result<Option<Bytes>> {
+        let result = tokio::time::timeout(self.operation_timeout, async {
+            match self.store.get(&Path::from(key)).await {
+                Ok(result) => result.bytes().await.map(Some),
+                Err(ObjectStoreError::NotFound { .. }) => Ok(None),
+                Err(error) => Err(error),
+            }
+        })
+        .await
+        .context("Object Storage operation timed out")?;
+        result.with_context(|| format!("Object Storage optional GET failed for {key}"))
+    }
+
     async fn delete(&self, key: &str) -> anyhow::Result<()> {
         tokio::time::timeout(self.operation_timeout, self.store.delete(&Path::from(key)))
             .await
@@ -1298,6 +1529,23 @@ impl ObjectArchive {
         }
     }
 
+    fn recording_deletion_key_for(
+        &self,
+        tenant_id: &str,
+        profile_id: &str,
+        session_id: &str,
+        recording_id: &str,
+    ) -> String {
+        let suffix = format!(
+            "tenants/{tenant_id}/profiles/{profile_id}/sessions/{session_id}/recording-deletions/{recording_id}"
+        );
+        if self.prefix.is_empty() {
+            suffix
+        } else {
+            format!("{}/{}", self.prefix, suffix)
+        }
+    }
+
     fn evidence_key_for(
         &self,
         tenant_id: &str,
@@ -1313,6 +1561,82 @@ impl ObjectArchive {
         } else {
             format!("{}/{}", self.prefix, suffix)
         }
+    }
+}
+
+fn recording_deletion_marker(
+    request: &RecordingDeletionRequest<'_>,
+    state: &str,
+    completed_at_ms: Option<u64>,
+) -> RecordingDeletionMarker {
+    RecordingDeletionMarker {
+        version: 1,
+        state: state.to_owned(),
+        deletion_job_id: request.deletion_job_id.to_owned(),
+        deletion_epoch: request.deletion_epoch,
+        tenant_id: request.tenant_id.to_owned(),
+        profile_id: request.profile_id.to_owned(),
+        session_id: request.session_id.to_owned(),
+        recording_id: request.recording_id.to_owned(),
+        manifest_sha256: request.manifest_sha256.to_ascii_lowercase(),
+        manifest_bytes: request.manifest_bytes,
+        segment_count: request.segment_count,
+        deleted_object_count: request.segment_count.saturating_mul(2).saturating_add(1),
+        completed_at_ms,
+    }
+}
+
+fn validate_recording_deletion_marker(
+    bytes: &[u8],
+    request: &RecordingDeletionRequest<'_>,
+    expected_state: &str,
+) -> anyhow::Result<RecordingDeletionResult> {
+    let marker: RecordingDeletionMarker = serde_json::from_slice(bytes)?;
+    anyhow::ensure!(
+        marker.version == 1
+            && marker.state == expected_state
+            && marker.deletion_job_id == request.deletion_job_id
+            && marker.deletion_epoch > 0
+            && marker.deletion_epoch <= request.deletion_epoch
+            && marker.tenant_id == request.tenant_id
+            && marker.profile_id == request.profile_id
+            && marker.session_id == request.session_id
+            && marker.recording_id == request.recording_id
+            && marker
+                .manifest_sha256
+                .eq_ignore_ascii_case(request.manifest_sha256)
+            && marker.manifest_bytes == request.manifest_bytes
+            && marker.segment_count == request.segment_count
+            && marker.deleted_object_count
+                == request.segment_count.saturating_mul(2).saturating_add(1),
+        "recording deletion marker does not match the authority request"
+    );
+    if expected_state == "COMMITTED" {
+        let completed_at_ms = marker
+            .completed_at_ms
+            .filter(|value| *value > 0)
+            .ok_or_else(|| anyhow::anyhow!("recording deletion marker omitted completion time"))?;
+        Ok(RecordingDeletionResult {
+            deletion_job_id: marker.deletion_job_id,
+            recording_id: marker.recording_id,
+            deletion_epoch: request.deletion_epoch,
+            deletion_proof_hash: hex_sha256(bytes),
+            deleted_object_count: marker.deleted_object_count,
+            completed_at_ms,
+        })
+    } else {
+        anyhow::ensure!(
+            marker.completed_at_ms.is_none(),
+            "prepared recording deletion marker contains completion time"
+        );
+        Ok(RecordingDeletionResult {
+            deletion_job_id: marker.deletion_job_id,
+            recording_id: marker.recording_id,
+            deletion_epoch: request.deletion_epoch,
+            deletion_proof_hash: String::new(),
+            deleted_object_count: marker.deleted_object_count,
+            completed_at_ms: 0,
+        })
     }
 }
 
@@ -1734,6 +2058,44 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(downloaded_recording.as_ref(), recording_content.as_ref());
+            let deletion = archive
+                .delete_recording(RecordingDeletionRequest {
+                    deletion_job_id: "rrd-test",
+                    deletion_epoch: 1,
+                    tenant_id: "tenant-test",
+                    profile_id: "profile-test",
+                    session_id: "session-test",
+                    recording_id: "rec-test",
+                    manifest_sha256: &completed.manifest_sha256,
+                    manifest_bytes: completed.manifest_bytes,
+                    segment_count: 1,
+                })
+                .await
+                .unwrap();
+            assert_eq!(deletion.deleted_object_count, 3);
+            assert_eq!(deletion.deletion_proof_hash.len(), 64);
+            assert!(archive
+                .recording_object_keys(&recording_base)
+                .await
+                .unwrap()
+                .is_empty());
+            let repeated = archive
+                .delete_recording(RecordingDeletionRequest {
+                    deletion_job_id: "rrd-test",
+                    deletion_epoch: 2,
+                    tenant_id: "tenant-test",
+                    profile_id: "profile-test",
+                    session_id: "session-test",
+                    recording_id: "rec-test",
+                    manifest_sha256: &completed.manifest_sha256,
+                    manifest_bytes: completed.manifest_bytes,
+                    segment_count: 1,
+                })
+                .await
+                .unwrap();
+            assert_eq!(repeated.deletion_proof_hash, deletion.deletion_proof_hash);
+            assert_eq!(repeated.completed_at_ms, deletion.completed_at_ms);
+            assert_eq!(repeated.deletion_epoch, 2);
             let evidence_content = Bytes::from_static(&[0xff, 0xd8, 0xff, 0xd9]);
             let evidence_hash = hex_sha256(&evidence_content);
             let evidence_key = archive

@@ -2312,6 +2312,7 @@ dependencies = [
  "async-trait",
  "base64",
  "bytes",
+ "futures-util",
  "helper-contracts",
  "http",
  "nix",

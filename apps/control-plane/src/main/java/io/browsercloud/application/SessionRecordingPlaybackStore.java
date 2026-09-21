@@ -38,6 +38,7 @@ public class SessionRecordingPlaybackStore {
              WHERE recording.tenant_id = ?
                AND recording.session_id = ?
                AND recording.recording_id = ?
+               AND recording.deleted_at IS NULL
                AND (recording.legal_hold OR recording.retention_until > ?)
             """,
             (result, rowNumber) ->
@@ -135,6 +136,7 @@ public class SessionRecordingPlaybackStore {
                AND access_grant.actor_id = ?
                AND access_grant.state = 'ISSUED'
                AND access_grant.expires_at > ?
+               AND recording.deleted_at IS NULL
                AND (recording.legal_hold OR recording.retention_until > ?)
              FOR UPDATE OF access_grant
             """,
@@ -226,6 +228,7 @@ public class SessionRecordingPlaybackStore {
                AND access_grant.state = 'REDEEMED'
                AND access_grant.access_expires_at > ?
                AND ? < recording.segment_count
+               AND recording.deleted_at IS NULL
                AND (recording.legal_hold OR recording.retention_until > ?)
             """,
             (result, rowNumber) ->

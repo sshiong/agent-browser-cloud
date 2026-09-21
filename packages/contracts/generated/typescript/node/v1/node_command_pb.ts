@@ -1151,6 +1151,164 @@ export class PresignRecordingPlaybackResponse extends Message<PresignRecordingPl
 }
 
 /**
+ * @generated from message browsercloud.node.v1.DeleteRecordingObjectsRequest
+ */
+export class DeleteRecordingObjectsRequest extends Message<DeleteRecordingObjectsRequest> {
+  /**
+   * @generated from field: string deletion_job_id = 1;
+   */
+  deletionJobId = "";
+
+  /**
+   * @generated from field: uint64 deletion_epoch = 2;
+   */
+  deletionEpoch = protoInt64.zero;
+
+  /**
+   * @generated from field: string tenant_id = 3;
+   */
+  tenantId = "";
+
+  /**
+   * @generated from field: string profile_id = 4;
+   */
+  profileId = "";
+
+  /**
+   * @generated from field: string session_id = 5;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string recording_id = 6;
+   */
+  recordingId = "";
+
+  /**
+   * @generated from field: string manifest_sha256 = 7;
+   */
+  manifestSha256 = "";
+
+  /**
+   * @generated from field: uint64 manifest_bytes = 8;
+   */
+  manifestBytes = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 segment_count = 9;
+   */
+  segmentCount = protoInt64.zero;
+
+  constructor(data?: PartialMessage<DeleteRecordingObjectsRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.DeleteRecordingObjectsRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "deletion_job_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "deletion_epoch", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 3, name: "tenant_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "profile_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "recording_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "manifest_sha256", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "manifest_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 9, name: "segment_count", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DeleteRecordingObjectsRequest {
+    return new DeleteRecordingObjectsRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DeleteRecordingObjectsRequest {
+    return new DeleteRecordingObjectsRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DeleteRecordingObjectsRequest {
+    return new DeleteRecordingObjectsRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: DeleteRecordingObjectsRequest | PlainMessage<DeleteRecordingObjectsRequest> | undefined, b: DeleteRecordingObjectsRequest | PlainMessage<DeleteRecordingObjectsRequest> | undefined): boolean {
+    return proto3.util.equals(DeleteRecordingObjectsRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.DeleteRecordingObjectsResponse
+ */
+export class DeleteRecordingObjectsResponse extends Message<DeleteRecordingObjectsResponse> {
+  /**
+   * @generated from field: string deletion_job_id = 1;
+   */
+  deletionJobId = "";
+
+  /**
+   * @generated from field: uint64 deletion_epoch = 2;
+   */
+  deletionEpoch = protoInt64.zero;
+
+  /**
+   * @generated from field: string node_id = 3;
+   */
+  nodeId = "";
+
+  /**
+   * @generated from field: string recording_id = 4;
+   */
+  recordingId = "";
+
+  /**
+   * @generated from field: string deletion_proof_hash = 5;
+   */
+  deletionProofHash = "";
+
+  /**
+   * @generated from field: uint64 deleted_object_count = 6;
+   */
+  deletedObjectCount = protoInt64.zero;
+
+  /**
+   * @generated from field: int64 completed_at_ms = 7;
+   */
+  completedAtMs = protoInt64.zero;
+
+  constructor(data?: PartialMessage<DeleteRecordingObjectsResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.DeleteRecordingObjectsResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "deletion_job_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "deletion_epoch", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 3, name: "node_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "recording_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "deletion_proof_hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "deleted_object_count", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 7, name: "completed_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DeleteRecordingObjectsResponse {
+    return new DeleteRecordingObjectsResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DeleteRecordingObjectsResponse {
+    return new DeleteRecordingObjectsResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DeleteRecordingObjectsResponse {
+    return new DeleteRecordingObjectsResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: DeleteRecordingObjectsResponse | PlainMessage<DeleteRecordingObjectsResponse> | undefined, b: DeleteRecordingObjectsResponse | PlainMessage<DeleteRecordingObjectsResponse> | undefined): boolean {
+    return proto3.util.equals(DeleteRecordingObjectsResponse, a, b);
+  }
+}
+
+/**
  * @generated from message browsercloud.node.v1.PresignProfileExportDownloadRequest
  */
 export class PresignProfileExportDownloadRequest extends Message<PresignProfileExportDownloadRequest> {

@@ -30,6 +30,10 @@ service NodeControlService {
   // markers before returning short-lived URLs; object coordinates and credentials stay internal.
   rpc PresignRecordingPlayback(PresignRecordingPlaybackRequest)
       returns (PresignRecordingPlaybackResponse);
+  // Retention-expired physical deletion. The Node delegates exact-prefix verification and
+  // idempotent tombstone creation to the Storage Helper; object coordinates stay internal.
+  rpc DeleteRecordingObjects(DeleteRecordingObjectsRequest)
+      returns (DeleteRecordingObjectsResponse);
   // Purpose-bound Profile export. The Node delegates commit-marker and archive-integrity
   // verification plus short-lived signing to the isolated Storage Helper.
   rpc PresignProfileExportDownload(PresignProfileExportDownloadRequest)
@@ -202,6 +206,28 @@ message PresignRecordingPlaybackResponse {
   repeated RecordingPlaybackSegment segments = 10;
   bool complete = 11;
   uint64 next_segment_offset = 12;
+}
+
+message DeleteRecordingObjectsRequest {
+  string deletion_job_id = 1;
+  uint64 deletion_epoch = 2;
+  string tenant_id = 3;
+  string profile_id = 4;
+  string session_id = 5;
+  string recording_id = 6;
+  string manifest_sha256 = 7;
+  uint64 manifest_bytes = 8;
+  uint64 segment_count = 9;
+}
+
+message DeleteRecordingObjectsResponse {
+  string deletion_job_id = 1;
+  uint64 deletion_epoch = 2;
+  string node_id = 3;
+  string recording_id = 4;
+  string deletion_proof_hash = 5;
+  uint64 deleted_object_count = 6;
+  int64 completed_at_ms = 7;
 }
 
 message PresignProfileExportDownloadRequest {

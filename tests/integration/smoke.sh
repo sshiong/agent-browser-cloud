@@ -699,6 +699,7 @@ COORDINATOR_INSTANCE_ID=coordinator-integration-a \
 COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
 RESOURCE_POLICY_COST_TREND_INTERVAL_MS=1000 \
+RECORDING_RETENTION_DELETION_INTERVAL_MS=500 \
 SERVER_PORT="$control_port" \
   "$java_bin" -jar "$control_plane_test_jar" \
   >"$temp_dir/control-plane.log" 2>&1 &
@@ -6474,6 +6475,59 @@ recording_audit_leaks="$(docker exec "$postgres_name" psql -U browsercloud -d br
      and (details::text ilike '%http%' or details::text ilike '%signature%')")"
 test "$recording_audit_leaks" = "0"
 echo "recording_playback_access=true"
+
+recording_manual_receipt_status="$(curl -sS -o "$temp_dir/recording-manual-receipt.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/enterprise/retention-deletion-receipts" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-admin' \
+  -H 'X-Roles: SECURITY_ADMIN' \
+  -d "{\"dataClass\":\"REMOTE_DESKTOP_RECORDING\",\"objectId\":\"${recording_fixture_id}\",\"contentDigest\":\"sha256:${recording_manifest_sha}\"}")"
+test "$recording_manual_receipt_status" = "409"
+grep -q 'PHYSICAL_DELETION_PROOF_REQUIRED' "$temp_dir/recording-manual-receipt.json"
+
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -c \
+  "update session_recordings set legal_hold=false where recording_id='${recording_fixture_id}'" >/dev/null
+recording_deletion_state=""
+for _ in $(seq 1 120); do
+  recording_deletion_state="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select coalesce(to_char(recording.deleted_at, 'YYYY-MM-DD'), '') || ':' ||
+            coalesce(job.state, '') || ':' || coalesce(recording.deletion_proof_hash, '') || ':' ||
+            coalesce(recording.deleted_object_count::text, '')
+       from session_recordings recording
+       left join recording_retention_deletion_jobs job
+         on job.recording_id=recording.recording_id
+      where recording.recording_id='${recording_fixture_id}'")"
+  if [[ "$recording_deletion_state" == *":COMMITTED:"* ]]; then break; fi
+  sleep 0.25
+done
+[[ "$recording_deletion_state" == *":COMMITTED:"* ]]
+recording_deletion_proof="$(printf '%s' "$recording_deletion_state" | awk -F: '{print $3}')"
+test "${#recording_deletion_proof}" = "64"
+test "$(printf '%s' "$recording_deletion_state" | awk -F: '{print $4}')" = "51"
+recording_receipt_count="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from enterprise_retention_deletion_receipts
+    where tenant_id='tenant-integration'
+      and data_class='REMOTE_DESKTOP_RECORDING'
+      and object_id='${recording_fixture_id}'")"
+test "$recording_receipt_count" = "1"
+recording_list_after_deletion="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/recordings?limit=20" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$recording_list_after_deletion" | python3 -c \
+  "import json,sys; assert all(value['recordingId'] != '${recording_fixture_id}' for value in json.load(sys.stdin)['items'])"
+if docker run --rm --network "$minio_network" --entrypoint /bin/sh \
+  quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z \
+  -c "mc alias set integration http://${minio_name}:9000 '${minio_access_key}' '${minio_secret_key}' >/dev/null && mc stat 'integration/${minio_bucket}/${recording_manifest_key}' >/dev/null 2>&1"; then
+  echo "retention worker left the Recording manifest in Object Storage" >&2
+  exit 1
+fi
+recording_deletion_audit_leaks="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from audit_events
+    where resource_id='${recording_fixture_id}'
+      and (details::text ilike '%http%' or details::text ilike '%signature%' or details::text ilike '%objectkey%')")"
+test "$recording_deletion_audit_leaks" = "0"
+echo "recording_retention_physical_deletion=true"
 
 confirmation_task="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-tasks" \

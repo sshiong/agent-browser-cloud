@@ -668,7 +668,7 @@ public class EnterpriseOperationsApplicationService {
           UPDATE session_recordings
              SET retention_until = ended_at + make_interval(days => ?),
                  legal_hold = ?
-           WHERE tenant_id = ?
+           WHERE tenant_id = ? AND deleted_at IS NULL
           """,
           request.retentionDays(),
           request.legalHold(),
@@ -699,6 +699,9 @@ public class EnterpriseOperationsApplicationService {
   @Transactional
   public DeletionReceiptView createDeletionReceipt(
       String tenantId, CreateDeletionReceiptRequest request, String actorId) {
+    if ("REMOTE_DESKTOP_RECORDING".equals(request.dataClass())) {
+      throw new GovernanceRejectedException("PHYSICAL_DELETION_PROOF_REQUIRED");
+    }
     var policy =
         jdbc
             .queryForList(

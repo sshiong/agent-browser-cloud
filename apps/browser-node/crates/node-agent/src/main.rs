@@ -19,11 +19,12 @@ use node_contracts::proto::{
     BrowserStateSnapshotCommitEvent, BrowserTabState, BusinessRecoveryActionCommand,
     CancelAgentActionCommand, CaptureAgentScreenshotCommand, CaptureObserverScreenshotCommand,
     ChallengeAutomationActionCommand, ChallengeAutomationFailedEvent, ChallengeVisualAction,
-    CommandAck, CommandEnvelope, DiffTruncatedEvent, DispatchRequest, DispatchResponse,
-    EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand, ExtensionBackgroundPolicy,
-    HumanAssistClickCommand, HumanAssistFailedEvent, HumanTakeoverEndedEvent,
-    HumanTakeoverReadyEvent, InteractiveTargetState, OpaqueFrameState, PageStabilityState,
-    PingRequest, PingResponse, PresignEvidenceDownloadRequest, PresignEvidenceDownloadResponse,
+    CommandAck, CommandEnvelope, DeleteRecordingObjectsRequest, DeleteRecordingObjectsResponse,
+    DiffTruncatedEvent, DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope,
+    ExecuteInputCommand, ExtensionBackgroundPolicy, HumanAssistClickCommand,
+    HumanAssistFailedEvent, HumanTakeoverEndedEvent, HumanTakeoverReadyEvent,
+    InteractiveTargetState, OpaqueFrameState, PageStabilityState, PingRequest, PingResponse,
+    PresignEvidenceDownloadRequest, PresignEvidenceDownloadResponse,
     PresignProfileExportDownloadRequest, PresignProfileExportDownloadResponse,
     PresignRecordingPlaybackRequest, PresignRecordingPlaybackResponse, ProbeProxyBindingRequest,
     ProbeProxyBindingResponse, ProfileWarmTierSyncedEvent, PublishRequest, PublishResponse,
@@ -1021,6 +1022,15 @@ impl NodeCapacityReporter {
             "recordingPlayback".to_owned(),
             if evidence_storage_available {
                 "presigned-segments-v1"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
+        );
+        labels.insert(
+            "recordingRetentionDeletion".to_owned(),
+            if evidence_storage_available {
+                "verified-prefix-tombstone-v1"
             } else {
                 "unavailable"
             }
@@ -10120,6 +10130,91 @@ impl NodeControlServiceRpc for NodeControlService {
                 .collect(),
             complete: access.next_segment_offset.is_none(),
             next_segment_offset: access.next_segment_offset.unwrap_or_default(),
+        }))
+    }
+
+    async fn delete_recording_objects(
+        &self,
+        request: Request<DeleteRecordingObjectsRequest>,
+    ) -> Result<Response<DeleteRecordingObjectsResponse>, Status> {
+        let request = request.into_inner();
+        let valid_identifier = |value: &str, prefix: Option<&str>| {
+            !value.is_empty()
+                && value.len() <= 128
+                && prefix
+                    .map(|expected| value.starts_with(expected))
+                    .unwrap_or(true)
+                && value.chars().all(|character| {
+                    character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
+                })
+        };
+        if !valid_identifier(&request.deletion_job_id, Some("rrd_"))
+            || request.deletion_epoch == 0
+            || !valid_identifier(&request.tenant_id, None)
+            || !valid_identifier(&request.profile_id, None)
+            || !valid_identifier(&request.session_id, Some("ses_"))
+            || !valid_identifier(&request.recording_id, Some("rec_"))
+            || request.manifest_sha256.len() != 64
+            || !request
+                .manifest_sha256
+                .chars()
+                .all(|character| character.is_ascii_hexdigit())
+            || request.manifest_bytes == 0
+            || request.segment_count > 100_000
+        {
+            return Err(Status::invalid_argument(
+                "Recording deletion request is invalid",
+            ));
+        }
+        let storage_helper = self.storage_helper.as_ref().ok_or_else(|| {
+            Status::failed_precondition("Recording deletion requires the Storage Helper")
+        })?;
+        let deletion = storage_helper
+            .delete_recording(
+                &request.deletion_job_id,
+                request.deletion_epoch,
+                &request.tenant_id,
+                &request.profile_id,
+                &request.session_id,
+                &request.recording_id,
+                &request.manifest_sha256,
+                request.manifest_bytes,
+                request.segment_count,
+            )
+            .await
+            .map_err(|error| {
+                tracing::warn!(
+                    deletion_job_id = %request.deletion_job_id,
+                    recording_id = %request.recording_id,
+                    error = %error,
+                    "Storage Helper rejected Recording deletion"
+                );
+                Status::failed_precondition("Recording objects are unavailable or invalid")
+            })?;
+        if deletion.deletion_job_id != request.deletion_job_id
+            || deletion.deletion_epoch != request.deletion_epoch
+            || deletion.recording_id != request.recording_id
+            || deletion.deletion_proof_hash.len() != 64
+            || !deletion
+                .deletion_proof_hash
+                .chars()
+                .all(|character| character.is_ascii_hexdigit())
+            || deletion.deleted_object_count
+                != request.segment_count.saturating_mul(2).saturating_add(1)
+            || deletion.completed_at_ms == 0
+        {
+            return Err(Status::internal(
+                "Storage Helper Recording deletion acknowledgement mismatch",
+            ));
+        }
+        Ok(Response::new(DeleteRecordingObjectsResponse {
+            deletion_job_id: deletion.deletion_job_id,
+            deletion_epoch: deletion.deletion_epoch,
+            node_id: self.node_id.clone(),
+            recording_id: deletion.recording_id,
+            deletion_proof_hash: deletion.deletion_proof_hash,
+            deleted_object_count: deletion.deleted_object_count,
+            completed_at_ms: deletion.completed_at_ms as i64,
         }))
     }
 

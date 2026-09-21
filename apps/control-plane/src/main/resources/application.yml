@@ -83,6 +83,12 @@ remote-desktop:
   participant-history-purge-batch-size: ${REMOTE_DESKTOP_PARTICIPANT_HISTORY_PURGE_BATCH_SIZE:10000}
   participant-history-retention-cron: ${REMOTE_DESKTOP_PARTICIPANT_HISTORY_RETENTION_CRON:0 29 * * * *}
 
+recording:
+  retention-deletion:
+    interval-ms: ${RECORDING_RETENTION_DELETION_INTERVAL_MS:30000}
+    batch-size: ${RECORDING_RETENTION_DELETION_BATCH_SIZE:10}
+    maximum-attempts: ${RECORDING_RETENTION_DELETION_MAXIMUM_ATTEMPTS:10}
+
 agent:
   capability-token-secret: ${AGENT_CAPABILITY_TOKEN_SECRET:browsercloud-local-agent-capability-token-secret-v1}
   action-payload-secret: ${AGENT_ACTION_PAYLOAD_SECRET:browsercloud-local-agent-action-payload-secret-v1}

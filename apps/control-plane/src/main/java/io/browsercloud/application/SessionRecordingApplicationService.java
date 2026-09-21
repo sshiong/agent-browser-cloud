@@ -77,7 +77,7 @@ public class SessionRecordingApplicationService {
                    manifest_sha256, manifest_bytes, started_at, ended_at,
                    retention_until, legal_hold
               FROM session_recordings
-             WHERE tenant_id = ? AND session_id = ?
+             WHERE tenant_id = ? AND session_id = ? AND deleted_at IS NULL
              ORDER BY ended_at DESC, recording_id DESC
              LIMIT ? OFFSET ?
             """,

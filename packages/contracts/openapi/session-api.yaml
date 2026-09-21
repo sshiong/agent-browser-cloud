@@ -7212,7 +7212,7 @@ components:
     ChallengeAutomationPolicy:
       type: object
       additionalProperties: false
-      required: [sessionId, controlMode, sensitiveInputMaximumAttempts, enabled, maximumAttempts, minimumConfidence, allowMultiClick, allowSlide, motionMinimumSteps, motionMaximumSteps, motionMinimumDelayMs, motionMaximumDelayMs, targetOffsetRatio, updatedAt]
+      required: [sessionId, controlMode, sensitiveInputMaximumAttempts, enabled, maximumAttempts, minimumConfidence, allowMultiClick, allowSlide, opaqueFrameClickEnabled, opaqueFrameClickOrigins, motionMinimumSteps, motionMaximumSteps, motionMinimumDelayMs, motionMaximumDelayMs, targetOffsetRatio, updatedAt]
       properties:
         sessionId:
           type: string
@@ -7241,6 +7241,17 @@ components:
           type: boolean
         allowSlide:
           type: boolean
+        opaqueFrameClickEnabled:
+          type: boolean
+          description: Explicit opt-in for one bounded click inside an allowlisted opaque Challenge frame. It never authorizes text, secrets, slides, payments or account decisions.
+        opaqueFrameClickOrigins:
+          type: array
+          maxItems: 16
+          uniqueItems: true
+          items:
+            type: string
+            maxLength: 256
+          description: Exact origin-only allowlist. HTTPS is required except for local/private HTTP development origins.
         motionMinimumSteps:
           type: integer
           minimum: 4
@@ -7295,6 +7306,15 @@ components:
           type: boolean
         allowSlide:
           type: boolean
+        opaqueFrameClickEnabled:
+          type: boolean
+        opaqueFrameClickOrigins:
+          type: array
+          maxItems: 16
+          uniqueItems: true
+          items:
+            type: string
+            maxLength: 256
         motionMinimumSteps:
           type: integer
           minimum: 4
@@ -7613,7 +7633,7 @@ components:
           format: date-time
         challengeType:
           type: string
-          enum: [SINGLE_CLICK, IMAGE_SELECTION, PUZZLE, MULTI_ROUND]
+          enum: [SINGLE_CLICK, OPAQUE_FRAME_SINGLE_CLICK, IMAGE_SELECTION, PUZZLE, MULTI_ROUND]
         targetSummary:
           type: string
           maxLength: 512
@@ -7692,7 +7712,7 @@ components:
           additionalProperties: true
         suspectedType:
           type: string
-          enum: [SINGLE_CLICK, IMAGE_SELECTION, PUZZLE, OTP, DEVICE_CONFIRMATION, MULTI_ROUND, USER_JUDGMENT, PAYMENT_CONFIRMATION, UNKNOWN]
+          enum: [SINGLE_CLICK, OPAQUE_FRAME_SINGLE_CLICK, IMAGE_SELECTION, PUZZLE, OTP, DEVICE_CONFIRMATION, MULTI_ROUND, USER_JUDGMENT, PAYMENT_CONFIRMATION, UNKNOWN]
         accessOutcome:
           type: string
           enum: [CHALLENGE_SUSPECTED, CHALLENGE_CONFIRMED]

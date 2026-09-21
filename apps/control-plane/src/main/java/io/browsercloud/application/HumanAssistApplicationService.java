@@ -524,7 +524,8 @@ public class HumanAssistApplicationService {
         event.getTargetRef(),
         event.getTargetSummary(),
         event.getStatus(),
-        "SINGLE_CLICK".equals(event.getSuspectedType()),
+        java.util.Set.of("SINGLE_CLICK", "OPAQUE_FRAME_SINGLE_CLICK")
+            .contains(event.getSuspectedType()),
         event.getDetectedAt(),
         event.getAuthorizationDeadline(),
         event.getExpiresAt(),

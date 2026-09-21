@@ -336,35 +336,39 @@ type AgentTaskSummary struct {
 }
 
 type ChallengeAutomationPolicy struct {
-	SessionId                     string  `json:"sessionId,omitempty"`
-	ControlMode                   string  `json:"controlMode,omitempty"`
-	SensitiveInputMaximumAttempts int     `json:"sensitiveInputMaximumAttempts,omitempty"`
-	Enabled                       bool    `json:"enabled,omitempty"`
-	MaximumAttempts               int     `json:"maximumAttempts,omitempty"`
-	MinimumConfidence             float64 `json:"minimumConfidence,omitempty"`
-	AllowMultiClick               bool    `json:"allowMultiClick,omitempty"`
-	AllowSlide                    bool    `json:"allowSlide,omitempty"`
-	MotionMinimumSteps            int     `json:"motionMinimumSteps,omitempty"`
-	MotionMaximumSteps            int     `json:"motionMaximumSteps,omitempty"`
-	MotionMinimumDelayMs          int     `json:"motionMinimumDelayMs,omitempty"`
-	MotionMaximumDelayMs          int     `json:"motionMaximumDelayMs,omitempty"`
-	TargetOffsetRatio             float64 `json:"targetOffsetRatio,omitempty"`
-	UpdatedAt                     string  `json:"updatedAt,omitempty"`
+	SessionId                     string   `json:"sessionId,omitempty"`
+	ControlMode                   string   `json:"controlMode,omitempty"`
+	SensitiveInputMaximumAttempts int      `json:"sensitiveInputMaximumAttempts,omitempty"`
+	Enabled                       bool     `json:"enabled,omitempty"`
+	MaximumAttempts               int      `json:"maximumAttempts,omitempty"`
+	MinimumConfidence             float64  `json:"minimumConfidence,omitempty"`
+	AllowMultiClick               bool     `json:"allowMultiClick,omitempty"`
+	AllowSlide                    bool     `json:"allowSlide,omitempty"`
+	OpaqueFrameClickEnabled       bool     `json:"opaqueFrameClickEnabled,omitempty"`
+	OpaqueFrameClickOrigins       []string `json:"opaqueFrameClickOrigins,omitempty"`
+	MotionMinimumSteps            int      `json:"motionMinimumSteps,omitempty"`
+	MotionMaximumSteps            int      `json:"motionMaximumSteps,omitempty"`
+	MotionMinimumDelayMs          int      `json:"motionMinimumDelayMs,omitempty"`
+	MotionMaximumDelayMs          int      `json:"motionMaximumDelayMs,omitempty"`
+	TargetOffsetRatio             float64  `json:"targetOffsetRatio,omitempty"`
+	UpdatedAt                     string   `json:"updatedAt,omitempty"`
 }
 
 type UpdateChallengeAutomationPolicyRequest struct {
-	ControlMode                   string  `json:"controlMode,omitempty"`
-	SensitiveInputMaximumAttempts int     `json:"sensitiveInputMaximumAttempts,omitempty"`
-	Enabled                       bool    `json:"enabled,omitempty"`
-	MaximumAttempts               int     `json:"maximumAttempts,omitempty"`
-	MinimumConfidence             float64 `json:"minimumConfidence,omitempty"`
-	AllowMultiClick               bool    `json:"allowMultiClick,omitempty"`
-	AllowSlide                    bool    `json:"allowSlide,omitempty"`
-	MotionMinimumSteps            int     `json:"motionMinimumSteps,omitempty"`
-	MotionMaximumSteps            int     `json:"motionMaximumSteps,omitempty"`
-	MotionMinimumDelayMs          int     `json:"motionMinimumDelayMs,omitempty"`
-	MotionMaximumDelayMs          int     `json:"motionMaximumDelayMs,omitempty"`
-	TargetOffsetRatio             float64 `json:"targetOffsetRatio,omitempty"`
+	ControlMode                   string   `json:"controlMode,omitempty"`
+	SensitiveInputMaximumAttempts int      `json:"sensitiveInputMaximumAttempts,omitempty"`
+	Enabled                       bool     `json:"enabled,omitempty"`
+	MaximumAttempts               int      `json:"maximumAttempts,omitempty"`
+	MinimumConfidence             float64  `json:"minimumConfidence,omitempty"`
+	AllowMultiClick               bool     `json:"allowMultiClick,omitempty"`
+	AllowSlide                    bool     `json:"allowSlide,omitempty"`
+	OpaqueFrameClickEnabled       bool     `json:"opaqueFrameClickEnabled,omitempty"`
+	OpaqueFrameClickOrigins       []string `json:"opaqueFrameClickOrigins,omitempty"`
+	MotionMinimumSteps            int      `json:"motionMinimumSteps,omitempty"`
+	MotionMaximumSteps            int      `json:"motionMaximumSteps,omitempty"`
+	MotionMinimumDelayMs          int      `json:"motionMinimumDelayMs,omitempty"`
+	MotionMaximumDelayMs          int      `json:"motionMaximumDelayMs,omitempty"`
+	TargetOffsetRatio             float64  `json:"targetOffsetRatio,omitempty"`
 }
 
 type CreateAgentInputSecretRequest struct {

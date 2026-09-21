@@ -329,6 +329,28 @@ public class AgentExecutionService {
         || !challengeEventId.equals(task.getChallengeEventId())) {
       throw new AgentExecutionRejectedException("STALE_CHALLENGE_AGENT_TASK");
     }
+    resumeChallengeTask(task, tenantId);
+  }
+
+  /**
+   * Resumes the task owned by a successful automation run.
+   *
+   * <p>The detector may supersede/rebind a Challenge event while the exact fenced click is in
+   * flight. The durable run's task identity remains authoritative; a successful action result with
+   * no next Challenge is stronger evidence than the pre-action event id.
+   */
+  @Transactional
+  public void resumeAfterAutomatedChallenge(String taskId, String tenantId) {
+    var task = taskRepository.findForUpdate(taskId, tenantId).orElse(null);
+    if (task == null) return;
+    if (!task.getState().equals(TaskState.WAITING_FOR_HUMAN.name())
+        || task.getChallengeEventId() == null) {
+      throw new AgentExecutionRejectedException("STALE_CHALLENGE_AGENT_TASK");
+    }
+    resumeChallengeTask(task, tenantId);
+  }
+
+  private void resumeChallengeTask(AgentTaskEntity task, String tenantId) {
     var session = requireRunningSession(task, tenantId);
     operationRepository.ensureNoActiveOperation(session.sessionId());
     var plan = readPlan(task.getPlan());

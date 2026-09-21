@@ -42,28 +42,29 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
   }
 
   @Override
-  public boolean applyDiff(String tenantId, long contextEpoch, NodeEvent.StateDiff diff) {
+  public Optional<NodeEvent.StateUpdated> applyDiff(
+      String tenantId, long contextEpoch, NodeEvent.StateDiff diff) {
     var entity = repository.findByIdForUpdate(diff.sessionId()).orElse(null);
     if (entity == null
         || !entity.getTenantId().equals(tenantId)
         || entity.getContextEpoch() != contextEpoch
         || entity.getStateVersion() != diff.baseStateVersion()) {
-      return false;
+      return Optional.empty();
     }
     var previous = read(entity.getStateJson());
     if (previous.stateQuality().equals("INVALID") || previous.stateQuality().equals("RESYNCING")) {
-      return false;
+      return Optional.empty();
     }
     if (diff.snapshotKind().equals("REGION_RESYNC")
         && previous.targetRevision() != diff.targetRevision()) {
-      return false;
+      return Optional.empty();
     }
     var targets = new LinkedHashMap<String, NodeEvent.InteractiveTarget>();
     previous.targets().forEach(target -> targets.put(target.targetRef(), target));
     diff.removedTargetRefs().forEach(targets::remove);
     diff.upsertedTargets().forEach(target -> targets.put(target.targetRef(), target));
     if (targets.size() > 500) {
-      return false;
+      return Optional.empty();
     }
     var updated =
         new NodeEvent.StateUpdated(
@@ -98,7 +99,7 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
     entity.setObservedAt(now);
     entity.setUpdatedAt(now);
     repository.save(entity);
-    return true;
+    return Optional.of(updated);
   }
 
   @Override

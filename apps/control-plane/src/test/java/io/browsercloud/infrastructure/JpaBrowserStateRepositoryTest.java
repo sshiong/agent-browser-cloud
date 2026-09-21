@@ -77,7 +77,8 @@ class JpaBrowserStateRepositoryTest {
                 "REGION_RESYNC",
                 "#app"));
 
-    assertThat(applied).isTrue();
+    assertThat(applied).isPresent();
+    assertThat(applied.orElseThrow().stateVersion()).isEqualTo(8);
     var merged = objectMapper.readValue(entity.getStateJson(), NodeEvent.StateUpdated.class);
     assertThat(merged.stateVersion()).isEqualTo(8);
     assertThat(merged.targetRevision()).isEqualTo(3);
@@ -119,7 +120,7 @@ class JpaBrowserStateRepositoryTest {
                 List.of(),
                 List.of()));
 
-    assertThat(applied).isFalse();
+    assertThat(applied).isEmpty();
   }
 
   @Test

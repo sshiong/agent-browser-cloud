@@ -278,6 +278,8 @@ class ChallengeAutomationPolicy(TypedDict, total=False):
     minimumConfidence: float
     allowMultiClick: bool
     allowSlide: bool
+    opaqueFrameClickEnabled: bool
+    opaqueFrameClickOrigins: list[str]
     motionMinimumSteps: int
     motionMaximumSteps: int
     motionMinimumDelayMs: int
@@ -293,6 +295,8 @@ class UpdateChallengeAutomationPolicyRequest(TypedDict, total=False):
     minimumConfidence: float
     allowMultiClick: bool
     allowSlide: bool
+    opaqueFrameClickEnabled: bool
+    opaqueFrameClickOrigins: list[str]
     motionMinimumSteps: int
     motionMaximumSteps: int
     motionMinimumDelayMs: int
@@ -388,7 +392,7 @@ class ChallengeVisualJobClaim(TypedDict, total=False):
     job: ChallengeVisualJob
     screenshotUrl: str
     screenshotExpiresAt: str
-    challengeType: Literal['SINGLE_CLICK', 'IMAGE_SELECTION', 'PUZZLE', 'MULTI_ROUND']
+    challengeType: Literal['SINGLE_CLICK', 'OPAQUE_FRAME_SINGLE_CLICK', 'IMAGE_SELECTION', 'PUZZLE', 'MULTI_ROUND']
     targetSummary: str
     allowMultiClick: bool
     allowSlide: bool
@@ -408,7 +412,7 @@ class ChallengeEvent(TypedDict, total=False):
     targetRevision: int
     confidence: float
     evidence: dict[str, Any]
-    suspectedType: Literal['SINGLE_CLICK', 'IMAGE_SELECTION', 'PUZZLE', 'OTP', 'DEVICE_CONFIRMATION', 'MULTI_ROUND', 'USER_JUDGMENT', 'PAYMENT_CONFIRMATION', 'UNKNOWN']
+    suspectedType: Literal['SINGLE_CLICK', 'OPAQUE_FRAME_SINGLE_CLICK', 'IMAGE_SELECTION', 'PUZZLE', 'OTP', 'DEVICE_CONFIRMATION', 'MULTI_ROUND', 'USER_JUDGMENT', 'PAYMENT_CONFIRMATION', 'UNKNOWN']
     accessOutcome: Literal['CHALLENGE_SUSPECTED', 'CHALLENGE_CONFIRMED']
     targetRef: Any
     targetSummary: str

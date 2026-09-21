@@ -8,7 +8,7 @@ export type ChallengeVisualJobClaim = {
     job: ChallengeVisualJob;
     screenshotUrl: string;
     screenshotExpiresAt: string;
-    challengeType: 'SINGLE_CLICK' | 'IMAGE_SELECTION' | 'PUZZLE' | 'MULTI_ROUND';
+    challengeType: 'SINGLE_CLICK' | 'OPAQUE_FRAME_SINGLE_CLICK' | 'IMAGE_SELECTION' | 'PUZZLE' | 'MULTI_ROUND';
     targetSummary: string;
     allowMultiClick: boolean;
     allowSlide: boolean;

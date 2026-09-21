@@ -1,6 +1,7 @@
 package io.browsercloud.application;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.NodeEventReceived;
@@ -11,8 +12,10 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -45,14 +48,17 @@ public class ChallengeDetectionService {
   private final ChallengeEventJpaRepository events;
   private final ObjectMapper objectMapper;
   private final AuditApplicationService audit;
+  private final JdbcTemplate jdbc;
 
   public ChallengeDetectionService(
       ChallengeEventJpaRepository events,
       ObjectMapper objectMapper,
-      AuditApplicationService audit) {
+      AuditApplicationService audit,
+      JdbcTemplate jdbc) {
     this.events = events;
     this.objectMapper = objectMapper;
     this.audit = audit;
+    this.jdbc = jdbc;
   }
 
   /** Returns the event that must pause an active Agent after its verified step, if any. */
@@ -72,7 +78,7 @@ public class ChallengeDetectionService {
               events.save(event);
             });
 
-    var classification = classify(state);
+    var classification = classify(envelope.tenantId(), state);
     if (classification == null) return Optional.empty();
     var duplicate =
         events.findDuplicate(
@@ -82,19 +88,29 @@ public class ChallengeDetectionService {
             state.stateVersion(),
             state.targetRevision(),
             classification.type(),
-            classification.target() == null ? null : classification.target().targetRef());
+            classification.targetRef());
     if (duplicate.isPresent()) {
       return Optional.of(duplicate.orElseThrow().getChallengeEventId());
     }
 
     var eventId = id("chl_");
     var target = classification.target();
-    var anchor = target == null ? null : visualAnchor(state, target);
+    var anchor =
+        target != null
+            ? visualAnchor(state, target)
+            : classification.opaqueFrame() == null
+                ? null
+                : visualAnchor(state, classification.opaqueFrame());
     var evidence = new LinkedHashMap<String, Object>();
     evidence.put("detector", "conservative-accessibility-v1");
     evidence.put("signalCode", classification.signalCode());
     evidence.put("stateHash", state.stateHash());
     evidence.put("targetNameHash", target == null ? "NONE" : hash(target.name()));
+    evidence.put(
+        "opaqueFrameOriginHash",
+        classification.opaqueFrame() == null
+            ? "NONE"
+            : hash(classification.opaqueFrame().origin()));
     evidence.put("sensitiveContentStored", false);
     evidence.put("automaticInteraction", false);
     evidence.put("downstreamAutomationEligible", automationEligible(classification.type()));
@@ -111,7 +127,7 @@ public class ChallengeDetectionService {
             json(evidence),
             classification.type(),
             classification.confidence() >= 0.9 ? "CHALLENGE_CONFIRMED" : "CHALLENGE_SUSPECTED",
-            target == null ? null : target.targetRef(),
+            classification.targetRef(),
             classification.summary(),
             anchor,
             status,
@@ -161,7 +177,21 @@ public class ChallengeDetectionService {
             canonical(bounds.height())));
   }
 
-  private Classification classify(NodeEvent.StateUpdated state) {
+  static String visualAnchor(NodeEvent.StateUpdated state, NodeEvent.OpaqueFrame frame) {
+    var bounds = frame.bounds();
+    if (bounds == null) return "";
+    return PromptSecurityService.sha256(
+        String.join(
+            "\n",
+            frame.frameRef(),
+            frame.origin() == null ? "UNKNOWN" : frame.origin(),
+            canonical(bounds.x()),
+            canonical(bounds.y()),
+            canonical(bounds.width()),
+            canonical(bounds.height())));
+  }
+
+  private Classification classify(String tenantId, NodeEvent.StateUpdated state) {
     var aggregate =
         new StringBuilder(normalize(state.title())).append('\n').append(normalize(state.url()));
     state.targets().stream()
@@ -182,7 +212,7 @@ public class ChallengeDetectionService {
             .orElse(null);
     if (OTP.matcher(text).find() || otpTarget != null) {
       return new Classification(
-          "OTP", "OTP_OR_SENSITIVE_INPUT_SIGNAL", "验证码需要人工提供或自行填写", 0.98, otpTarget, false);
+          "OTP", "OTP_OR_SENSITIVE_INPUT_SIGNAL", "验证码需要人工提供或自行填写", 0.98, otpTarget, null, false);
     }
     if (IMAGE_OR_PUZZLE.matcher(text).find()) {
       var type = text.matches("(?is).*(puzzle|drag|拼图).*") ? "PUZZLE" : "IMAGE_SELECTION";
@@ -193,7 +223,7 @@ public class ChallengeDetectionService {
               .findFirst()
               .orElse(null);
       return new Classification(
-          type, "MULTI_STEP_VISUAL_SIGNAL", "多步骤视觉挑战需要受限视觉处理", 0.98, visualTarget, false);
+          type, "MULTI_STEP_VISUAL_SIGNAL", "多步骤视觉挑战需要受限视觉处理", 0.98, visualTarget, null, false);
     }
     if (DEVICE.matcher(text).find()) {
       return takeover("DEVICE_CONFIRMATION", "DEVICE_CONFIRMATION_SIGNAL", "设备确认需要人工接管");
@@ -201,20 +231,42 @@ public class ChallengeDetectionService {
     if (MULTI_ROUND.matcher(text).find()) {
       return takeover("MULTI_ROUND", "MULTI_ROUND_SIGNAL", "多轮挑战需要人工接管");
     }
-    return state.targets().stream()
-        .filter(this::eligibleSingleClickTarget)
-        .filter(target -> SINGLE_CLICK.matcher(normalize(target.name())).find())
-        .findFirst()
-        .map(
-            target ->
-                new Classification(
-                    "SINGLE_CLICK",
-                    "EXPLICIT_SINGLE_CLICK_ACCESSIBILITY_SIGNAL",
-                    "单次人机验证目标（" + safeRole(target.role()) + "）",
-                    0.99,
-                    target,
-                    true))
-        .orElse(null);
+    var structuralSingleClick =
+        state.targets().stream()
+            .filter(this::eligibleSingleClickTarget)
+            .filter(target -> SINGLE_CLICK.matcher(normalize(target.name())).find())
+            .findFirst();
+    if (structuralSingleClick.isPresent()) {
+      var target = structuralSingleClick.orElseThrow();
+      return new Classification(
+          "SINGLE_CLICK",
+          "EXPLICIT_SINGLE_CLICK_ACCESSIBILITY_SIGNAL",
+          "单次人机验证目标（" + safeRole(target.role()) + "）",
+          0.99,
+          target,
+          null,
+          true);
+    }
+    if (SINGLE_CLICK.matcher(text).find() && state.opaqueFrameEvidenceFresh()) {
+      var allowedOrigins = opaqueFrameClickOrigins(tenantId, state.sessionId());
+      var frames =
+          state.opaqueFrames().stream()
+              .filter(this::eligibleOpaqueFrame)
+              .filter(frame -> frame.origin() != null && allowedOrigins.contains(frame.origin()))
+              .toList();
+      if (frames.size() == 1) {
+        var frame = frames.getFirst();
+        return new Classification(
+            "OPAQUE_FRAME_SINGLE_CLICK",
+            "EXPLICIT_OPAQUE_FRAME_SINGLE_CLICK_SIGNAL",
+            "已授权跨域验证边界的单次视觉点击",
+            0.99,
+            null,
+            frame,
+            true);
+      }
+    }
+    return null;
   }
 
   private boolean eligibleSingleClickTarget(NodeEvent.InteractiveTarget target) {
@@ -242,12 +294,55 @@ public class ChallengeDetectionService {
         && target.bounds().width() * target.bounds().height() <= 2_097_152;
   }
 
+  private boolean eligibleOpaqueFrame(NodeEvent.OpaqueFrame frame) {
+    return frame.visible()
+        && frame.inViewport()
+        && !frame.occluded()
+        && frame.bounds() != null
+        && frame.bounds().x() >= 0
+        && frame.bounds().y() >= 0
+        && frame.bounds().width() >= 1
+        && frame.bounds().height() >= 1
+        && frame.bounds().width() <= 2048
+        && frame.bounds().height() <= 2048
+        && frame.bounds().width() * frame.bounds().height() <= 2_097_152
+        && "BOUNDED_VISION_THEN_HUMAN_HANDOFF".equals(frame.interactionStrategy());
+  }
+
+  private Set<String> opaqueFrameClickOrigins(String tenantId, String sessionId) {
+    return jdbc
+        .query(
+            """
+            SELECT challenge_opaque_frame_click_origins
+            FROM sessions
+            WHERE id=? AND tenant_id=? AND deleted_at IS NULL
+              AND challenge_automation_enabled
+              AND challenge_opaque_frame_click_enabled
+            """,
+            (result, row) -> {
+              try {
+                return Set.copyOf(
+                    objectMapper.readValue(
+                        result.getString("challenge_opaque_frame_click_origins"),
+                        new TypeReference<java.util.List<String>>() {}));
+              } catch (JsonProcessingException exception) {
+                throw new IllegalStateException("Opaque frame click policy is invalid", exception);
+              }
+            },
+            sessionId,
+            tenantId)
+        .stream()
+        .findFirst()
+        .orElse(Set.of());
+  }
+
   private static Classification takeover(String type, String signal, String summary) {
-    return new Classification(type, signal, summary, 0.98, null, false);
+    return new Classification(type, signal, summary, 0.98, null, null, false);
   }
 
   private static boolean automationEligible(String type) {
-    return java.util.Set.of("SINGLE_CLICK", "IMAGE_SELECTION", "PUZZLE", "MULTI_ROUND")
+    return java.util.Set.of(
+            "SINGLE_CLICK", "OPAQUE_FRAME_SINGLE_CLICK", "IMAGE_SELECTION", "PUZZLE", "MULTI_ROUND")
         .contains(type);
   }
 
@@ -285,5 +380,12 @@ public class ChallengeDetectionService {
       String summary,
       double confidence,
       NodeEvent.InteractiveTarget target,
-      boolean oneClick) {}
+      NodeEvent.OpaqueFrame opaqueFrame,
+      boolean oneClick) {
+    String targetRef() {
+      return target != null
+          ? target.targetRef()
+          : opaqueFrame == null ? null : opaqueFrame.frameRef();
+    }
+  }
 }

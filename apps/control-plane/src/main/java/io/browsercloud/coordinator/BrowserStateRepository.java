@@ -10,7 +10,9 @@ public interface BrowserStateRepository {
 
   boolean observe(String tenantId, long contextEpoch, NodeEvent.StateObserved observation);
 
-  boolean applyDiff(String tenantId, long contextEpoch, NodeEvent.StateDiff diff);
+  /** Applies a monotonic diff and returns the exact authoritative state committed by that write. */
+  Optional<NodeEvent.StateUpdated> applyDiff(
+      String tenantId, long contextEpoch, NodeEvent.StateDiff diff);
 
   void invalidate(
       String tenantId, long contextEpoch, String sessionId, long stateVersion, String reason);

@@ -10,6 +10,8 @@ export type UpdateChallengeAutomationPolicyRequest = {
     minimumConfidence: number;
     allowMultiClick: boolean;
     allowSlide: boolean;
+    opaqueFrameClickEnabled?: boolean;
+    opaqueFrameClickOrigins?: Array<string>;
     motionMinimumSteps?: number;
     motionMaximumSteps?: number;
     motionMinimumDelayMs?: number;

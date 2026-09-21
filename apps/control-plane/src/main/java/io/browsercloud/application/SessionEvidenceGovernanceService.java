@@ -139,6 +139,62 @@ public class SessionEvidenceGovernanceService {
       String stateHash,
       String activeTabId,
       io.browsercloud.coordinator.NodeEvent.Bounds region) {
+    return captureChallenge(
+        sessionId,
+        tenantId,
+        actorId,
+        idempotencyKey,
+        requestId,
+        stateVersion,
+        targetRevision,
+        stateHash,
+        activeTabId,
+        region,
+        null);
+  }
+
+  @Transactional
+  public EvidenceCaptureView captureChallengeOpaqueFrame(
+      String sessionId,
+      String tenantId,
+      String actorId,
+      String idempotencyKey,
+      String requestId,
+      long stateVersion,
+      long targetRevision,
+      String stateHash,
+      String activeTabId,
+      io.browsercloud.coordinator.NodeEvent.Bounds region,
+      String opaqueFrameRef) {
+    if (opaqueFrameRef == null || !opaqueFrameRef.matches("^ofr_[0-9a-f]{20}$")) {
+      throw new EvidenceGovernanceRejectedException("OPAQUE_FRAME_REFERENCE_INVALID");
+    }
+    return captureChallenge(
+        sessionId,
+        tenantId,
+        actorId,
+        idempotencyKey,
+        requestId,
+        stateVersion,
+        targetRevision,
+        stateHash,
+        activeTabId,
+        region,
+        opaqueFrameRef);
+  }
+
+  private EvidenceCaptureView captureChallenge(
+      String sessionId,
+      String tenantId,
+      String actorId,
+      String idempotencyKey,
+      String requestId,
+      long stateVersion,
+      long targetRevision,
+      String stateHash,
+      String activeTabId,
+      io.browsercloud.coordinator.NodeEvent.Bounds region,
+      String opaqueFrameRef) {
     var session = sessions.requireForUpdate(sessionId);
     requireTenant(session.tenantId(), tenantId, sessionId);
     if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
@@ -196,23 +252,37 @@ public class SessionEvidenceGovernanceService {
       return raced;
     }
     commands.send(
-        NodeCommands.captureChallengeScreenshot(
-            session,
-            captureId,
-            commandId,
-            stateVersion,
-            targetRevision,
-            stateHash,
-            activeTabId,
-            region,
-            now.toEpochMilli()));
+        opaqueFrameRef == null
+            ? NodeCommands.captureChallengeScreenshot(
+                session,
+                captureId,
+                commandId,
+                stateVersion,
+                targetRevision,
+                stateHash,
+                activeTabId,
+                region,
+                now.toEpochMilli())
+            : NodeCommands.captureOpaqueFrameChallengeScreenshot(
+                session,
+                captureId,
+                commandId,
+                stateVersion,
+                targetRevision,
+                stateHash,
+                activeTabId,
+                region,
+                opaqueFrameRef,
+                now.toEpochMilli()));
     audit.append(
         auditRecord(
             tenantId,
             sessionId,
             actorId,
             captureId,
-            "CHALLENGE_REGION_CAPTURE_REQUESTED",
+            opaqueFrameRef == null
+                ? "CHALLENGE_REGION_CAPTURE_REQUESTED"
+                : "OPAQUE_FRAME_CHALLENGE_CAPTURE_REQUESTED",
             "ACCEPTED",
             EvidencePurpose.CHANGE_VALIDATION,
             requestId));

@@ -13,7 +13,7 @@ export type ChallengeEvent = {
      * Bounded signal codes and hashes; no screenshot, OTP or raw sensitive content.
      */
     evidence: Record<string, any>;
-    suspectedType: 'SINGLE_CLICK' | 'IMAGE_SELECTION' | 'PUZZLE' | 'OTP' | 'DEVICE_CONFIRMATION' | 'MULTI_ROUND' | 'USER_JUDGMENT' | 'PAYMENT_CONFIRMATION' | 'UNKNOWN';
+    suspectedType: 'SINGLE_CLICK' | 'OPAQUE_FRAME_SINGLE_CLICK' | 'IMAGE_SELECTION' | 'PUZZLE' | 'OTP' | 'DEVICE_CONFIRMATION' | 'MULTI_ROUND' | 'USER_JUDGMENT' | 'PAYMENT_CONFIRMATION' | 'UNKNOWN';
     accessOutcome: 'CHALLENGE_SUSPECTED' | 'CHALLENGE_CONFIRMED';
     targetRef: string | null;
     targetSummary: string;

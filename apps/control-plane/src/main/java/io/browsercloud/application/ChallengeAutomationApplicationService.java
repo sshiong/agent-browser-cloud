@@ -20,6 +20,7 @@ import io.browsercloud.domain.operation.OperationState;
 import io.browsercloud.persistence.AgentTaskJpaRepository;
 import io.browsercloud.persistence.ChallengeEventJpaRepository;
 import java.math.BigDecimal;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -29,9 +30,11 @@ import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
@@ -50,7 +53,8 @@ public class ChallengeAutomationApplicationService {
   private static final Duration CLAIM_LEASE = Duration.ofSeconds(45);
   private static final SecureRandom RANDOM = new SecureRandom();
   private static final java.util.Set<String> AUTOMATABLE_TYPES =
-      java.util.Set.of("SINGLE_CLICK", "IMAGE_SELECTION", "PUZZLE", "MULTI_ROUND");
+      java.util.Set.of(
+          "SINGLE_CLICK", "OPAQUE_FRAME_SINGLE_CLICK", "IMAGE_SELECTION", "PUZZLE", "MULTI_ROUND");
 
   private final JdbcTemplate jdbc;
   private final SessionRepository sessions;
@@ -62,6 +66,7 @@ public class ChallengeAutomationApplicationService {
   private final NodeCommandGateway commands;
   private final AgentExecutionService agentExecution;
   private final AuditApplicationService audit;
+  private final BrowserCapacityApplicationService capacity;
   private final ObjectMapper objectMapper;
   private final String deploymentId;
   private final String modelRevision;
@@ -77,6 +82,7 @@ public class ChallengeAutomationApplicationService {
       NodeCommandGateway commands,
       AgentExecutionService agentExecution,
       AuditApplicationService audit,
+      BrowserCapacityApplicationService capacity,
       ObjectMapper objectMapper,
       @Value("${challenge-vision.deployment-id:challenge-vision-default}") String deploymentId,
       @Value("${challenge-vision.model-revision:challenge-vision-v1}") String modelRevision) {
@@ -90,6 +96,7 @@ public class ChallengeAutomationApplicationService {
     this.commands = commands;
     this.agentExecution = agentExecution;
     this.audit = audit;
+    this.capacity = capacity;
     this.objectMapper = objectMapper;
     this.deploymentId = deploymentId;
     this.modelRevision = modelRevision;
@@ -103,7 +110,8 @@ public class ChallengeAutomationApplicationService {
         SELECT id, agent_control_mode, agent_sensitive_input_max_attempts,
                challenge_automation_enabled, challenge_automation_max_attempts,
                challenge_automation_min_confidence, challenge_automation_allow_multi_click,
-               challenge_automation_allow_slide, challenge_motion_min_steps,
+               challenge_automation_allow_slide, challenge_opaque_frame_click_enabled,
+               challenge_opaque_frame_click_origins, challenge_motion_min_steps,
                challenge_motion_max_steps, challenge_motion_min_delay_ms,
                challenge_motion_max_delay_ms, challenge_target_offset_ratio, updated_at
         FROM sessions WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL
@@ -135,6 +143,18 @@ public class ChallengeAutomationApplicationService {
         request.sensitiveInputMaximumAttempts() == null
             ? current.sensitiveInputMaximumAttempts()
             : request.sensitiveInputMaximumAttempts();
+    var requestedOpaqueFrameEnabled =
+        request.opaqueFrameClickEnabled() == null
+            ? current.opaqueFrameClickEnabled()
+            : request.opaqueFrameClickEnabled();
+    var requestedOpaqueFrameOrigins =
+        request.opaqueFrameClickOrigins() == null
+            ? current.opaqueFrameClickOrigins()
+            : normalizeOpaqueFrameOrigins(request.opaqueFrameClickOrigins());
+    if (requestedOpaqueFrameEnabled && requestedOpaqueFrameOrigins.isEmpty()) {
+      throw new IllegalArgumentException(
+          "Opaque frame Challenge clicks require at least one exact origin");
+    }
     if (current.enabled() == request.enabled()
         && current.controlMode() == requestedControlMode
         && current.sensitiveInputMaximumAttempts() == requestedSensitiveAttempts
@@ -142,6 +162,8 @@ public class ChallengeAutomationApplicationService {
         && current.minimumConfidence().compareTo(request.minimumConfidence()) == 0
         && current.allowMultiClick() == request.allowMultiClick()
         && current.allowSlide() == request.allowSlide()
+        && current.opaqueFrameClickEnabled() == requestedOpaqueFrameEnabled
+        && current.opaqueFrameClickOrigins().equals(requestedOpaqueFrameOrigins)
         && current.motionMinimumSteps() == request.motionMinimumSteps()
         && current.motionMaximumSteps() == request.motionMaximumSteps()
         && current.motionMinimumDelayMs() == request.motionMinimumDelayMs()
@@ -156,6 +178,8 @@ public class ChallengeAutomationApplicationService {
             challenge_automation_enabled = ?, challenge_automation_max_attempts = ?,
             challenge_automation_min_confidence = ?,
             challenge_automation_allow_multi_click = ?, challenge_automation_allow_slide = ?,
+            challenge_opaque_frame_click_enabled = ?,
+            challenge_opaque_frame_click_origins = ?::jsonb,
             challenge_motion_min_steps = ?, challenge_motion_max_steps = ?,
             challenge_motion_min_delay_ms = ?, challenge_motion_max_delay_ms = ?,
             challenge_target_offset_ratio = ?,
@@ -169,6 +193,8 @@ public class ChallengeAutomationApplicationService {
         request.minimumConfidence(),
         request.allowMultiClick(),
         request.allowSlide(),
+        requestedOpaqueFrameEnabled,
+        json(requestedOpaqueFrameOrigins),
         request.motionMinimumSteps(),
         request.motionMaximumSteps(),
         request.motionMinimumDelayMs(),
@@ -194,6 +220,8 @@ public class ChallengeAutomationApplicationService {
                 Map.entry("maximumAttempts", request.maximumAttempts()),
                 Map.entry("allowMultiClick", request.allowMultiClick()),
                 Map.entry("allowSlide", request.allowSlide()),
+                Map.entry("opaqueFrameClickEnabled", requestedOpaqueFrameEnabled),
+                Map.entry("opaqueFrameClickOriginCount", requestedOpaqueFrameOrigins.size()),
                 Map.entry("motionMinimumSteps", request.motionMinimumSteps()),
                 Map.entry("motionMaximumSteps", request.motionMaximumSteps()),
                 Map.entry("motionMinimumDelayMs", request.motionMinimumDelayMs()),
@@ -332,8 +360,12 @@ public class ChallengeAutomationApplicationService {
       return;
     }
     var challenge = challenges.findForUpdate(job.challengeEventId(), job.tenantId()).orElse(null);
+    var expectedCaptureMode =
+        challenge != null && "OPAQUE_FRAME_SINGLE_CLICK".equals(challenge.getSuspectedType())
+            ? "OPAQUE_FRAME"
+            : "CHALLENGE_REGION";
     if (challenge == null
-        || !"CHALLENGE_REGION".equals(captured.captureMode())
+        || !expectedCaptureMode.equals(captured.captureMode())
         || captured.capturedStateVersion() != challenge.getStateVersion()
         || captured.capturedTargetRevision() != challenge.getTargetRevision()
         || !captured.capturedStateHash().matches("^[a-f0-9]{64}$")
@@ -459,6 +491,7 @@ public class ChallengeAutomationApplicationService {
         request.piiRedactedRegionCount(),
         request.remainingSensitivePatternCount());
     validateDecision(request, run);
+    validateOpaqueFrameDecision(job, request);
     jdbc.update(
         """
         UPDATE challenge_visual_jobs
@@ -531,6 +564,26 @@ public class ChallengeAutomationApplicationService {
         actionSummary(actions),
         run.runId());
     var executionActions = viewportActions(actions, job);
+    var challenge =
+        challenges
+            .findForUpdate(job.challengeEventId(), job.tenantId())
+            .orElseThrow(
+                () -> new ChallengeAutomationRejectedException("CHALLENGE_EVENT_NOT_FOUND"));
+    var opaqueScope =
+        "OPAQUE_FRAME_SINGLE_CLICK".equals(challenge.getSuspectedType())
+            ? challengeCaptureScope(challenge)
+            : null;
+    if ("OPAQUE_FRAME_SINGLE_CLICK".equals(challenge.getSuspectedType())) {
+      if (opaqueScope == null || opaqueScope.opaqueFrameRef() == null) {
+        throw new ChallengeAutomationRejectedException("OPAQUE_FRAME_FENCE_MISMATCH");
+      }
+      if (session.nodeId() == null
+          || !capacity.nodeHasCapability(
+              session.nodeId(), "opaqueFrameChallengeClick", "state-fenced-click-v1")) {
+        throw new ChallengeAutomationRejectedException("OPAQUE_FRAME_NODE_CAPABILITY_MISSING");
+      }
+      requireTaskAllowsOpaqueFrame(run, opaqueScope.origin());
+    }
     commands.send(
         NodeCommands.challengeAutomationAction(
             session,
@@ -546,7 +599,9 @@ public class ChallengeAutomationApplicationService {
             run.motionMaximumSteps(),
             run.motionMinimumDelayMs(),
             run.motionMaximumDelayMs(),
-            run.targetOffsetRatio()));
+            run.targetOffsetRatio(),
+            opaqueScope == null ? null : opaqueScope.opaqueFrameRef(),
+            opaqueScope == null ? null : opaqueScope.region()));
     appendAudit(
         run.tenantId(),
         run.sessionId(),
@@ -608,7 +663,7 @@ public class ChallengeAutomationApplicationService {
           "AGENT_CHALLENGE_AUTOMATION_COMPLETED",
           "COMMITTED",
           Map.of("attemptCount", run.attemptCount()));
-      agentExecution.resumeAfterHumanAssist(run.currentChallengeEventId(), run.tenantId());
+      agentExecution.resumeAfterAutomatedChallenge(run.taskId(), run.tenantId());
       return;
     }
     jdbc.update(
@@ -680,18 +735,46 @@ public class ChallengeAutomationApplicationService {
       exhaust(run, "CHALLENGE_PRIVACY_SAFE_REGION_UNAVAILABLE");
       return;
     }
+    if (scope.opaqueFrameRef() != null) {
+      var session = sessions.require(run.sessionId());
+      if (session.nodeId() == null
+          || !capacity.nodeHasCapability(
+              session.nodeId(), "opaqueFrameChallengeClick", "state-fenced-click-v1")) {
+        exhaust(run, "OPAQUE_FRAME_NODE_CAPABILITY_MISSING");
+        return;
+      }
+      try {
+        requireTaskAllowsOpaqueFrame(run, scope.origin());
+      } catch (ChallengeAutomationRejectedException rejected) {
+        exhaust(run, "OPAQUE_FRAME_DOMAIN_NOT_ALLOWED");
+        return;
+      }
+    }
     var capture =
-        evidence.captureChallengeRegion(
-            run.sessionId(),
-            run.tenantId(),
-            SYSTEM_ACTOR,
-            "challenge-capture-" + run.runId() + "-" + nextAttempt,
-            run.runId(),
-            scope.stateVersion(),
-            scope.targetRevision(),
-            scope.stateHash(),
-            scope.activeTabId(),
-            scope.region());
+        scope.opaqueFrameRef() == null
+            ? evidence.captureChallengeRegion(
+                run.sessionId(),
+                run.tenantId(),
+                SYSTEM_ACTOR,
+                "challenge-capture-" + run.runId() + "-" + nextAttempt,
+                run.runId(),
+                scope.stateVersion(),
+                scope.targetRevision(),
+                scope.stateHash(),
+                scope.activeTabId(),
+                scope.region())
+            : evidence.captureChallengeOpaqueFrame(
+                run.sessionId(),
+                run.tenantId(),
+                SYSTEM_ACTOR,
+                "challenge-capture-" + run.runId() + "-" + nextAttempt,
+                run.runId(),
+                scope.stateVersion(),
+                scope.targetRevision(),
+                scope.stateHash(),
+                scope.activeTabId(),
+                scope.region(),
+                scope.opaqueFrameRef());
     var now = Instant.now();
     jdbc.update(
         """
@@ -833,6 +916,38 @@ public class ChallengeAutomationApplicationService {
         || state.activeTabId().isBlank()
         || challenge.getTargetRef() == null
         || challenge.getVisualAnchorHash() == null) return null;
+    if ("OPAQUE_FRAME_SINGLE_CLICK".equals(challenge.getSuspectedType())) {
+      var currentPolicy = policy(challenge.getSessionId(), challenge.getTenantId());
+      if (!currentPolicy.enabled()
+          || !currentPolicy.opaqueFrameClickEnabled()
+          || !state.opaqueFrameEvidenceFresh()) return null;
+      var frame =
+          state.opaqueFrames().stream()
+              .filter(value -> challenge.getTargetRef().equals(value.frameRef()))
+              .filter(
+                  value ->
+                      value.visible()
+                          && value.inViewport()
+                          && !value.occluded()
+                          && value.bounds() != null
+                          && value.origin() != null
+                          && currentPolicy.opaqueFrameClickOrigins().contains(value.origin()))
+              .findFirst()
+              .orElse(null);
+      if (frame == null
+          || !challenge
+              .getVisualAnchorHash()
+              .equals(ChallengeDetectionService.visualAnchor(state, frame))
+          || !validChallengeBounds(frame.bounds())) return null;
+      return new ChallengeCaptureScope(
+          state.stateVersion(),
+          state.targetRevision(),
+          state.stateHash(),
+          state.activeTabId(),
+          frame.bounds(),
+          frame.frameRef(),
+          frame.origin());
+    }
     var target =
         state.targets().stream()
             .filter(value -> challenge.getTargetRef().equals(value.targetRef()))
@@ -845,23 +960,30 @@ public class ChallengeAutomationApplicationService {
             .getVisualAnchorHash()
             .equals(ChallengeDetectionService.visualAnchor(state, target))) return null;
     var bounds = target.bounds();
-    if (!Double.isFinite(bounds.x())
-        || !Double.isFinite(bounds.y())
-        || !Double.isFinite(bounds.width())
-        || !Double.isFinite(bounds.height())
-        || bounds.x() < 0
-        || bounds.y() < 0
-        || bounds.width() < 1
-        || bounds.height() < 1
-        || bounds.width() > 2048
-        || bounds.height() > 2048
-        || bounds.width() * bounds.height() > 2_097_152) return null;
+    if (!validChallengeBounds(bounds)) return null;
     return new ChallengeCaptureScope(
         state.stateVersion(),
         state.targetRevision(),
         state.stateHash(),
         state.activeTabId(),
-        bounds);
+        bounds,
+        null,
+        null);
+  }
+
+  private static boolean validChallengeBounds(io.browsercloud.coordinator.NodeEvent.Bounds bounds) {
+    return bounds != null
+        && Double.isFinite(bounds.x())
+        && Double.isFinite(bounds.y())
+        && Double.isFinite(bounds.width())
+        && Double.isFinite(bounds.height())
+        && bounds.x() >= 0
+        && bounds.y() >= 0
+        && bounds.width() >= 1
+        && bounds.height() >= 1
+        && bounds.width() <= 2048
+        && bounds.height() <= 2048
+        && bounds.width() * bounds.height() <= 2_097_152;
   }
 
   private ChallengeStructuralScope challengeStructuralScope(
@@ -1024,6 +1146,37 @@ public class ChallengeAutomationApplicationService {
     }
   }
 
+  private void validateOpaqueFrameDecision(Job job, CompleteChallengeVisualJobRequest request) {
+    var challenge = challenges.findForUpdate(job.challengeEventId(), job.tenantId()).orElse(null);
+    if (challenge == null || !"OPAQUE_FRAME_SINGLE_CLICK".equals(challenge.getSuspectedType()))
+      return;
+    if (request.decision() != VisualDecision.ACT
+        || request.actions().size() != 1
+        || request.actions().getFirst().actionType() != VisualActionType.CLICK
+        || request.actions().getFirst().repeatCount() != 1
+        || request.actions().getFirst().endX() != null
+        || request.actions().getFirst().endY() != null) {
+      throw new ChallengeAutomationRejectedException("OPAQUE_FRAME_SINGLE_CLICK_ONLY");
+    }
+  }
+
+  private void requireTaskAllowsOpaqueFrame(Run run, String origin) {
+    var task = tasks.findById(run.taskId()).orElse(null);
+    if (task == null || origin == null) {
+      throw new ChallengeAutomationRejectedException("OPAQUE_FRAME_TASK_SCOPE_INVALID");
+    }
+    try {
+      var host = URI.create(origin).getHost();
+      var allowedDomains =
+          Set.copyOf(read(task.getAllowedDomains(), new TypeReference<List<String>>() {}));
+      if (host == null || !allowedDomains.contains(host.toLowerCase())) {
+        throw new ChallengeAutomationRejectedException("OPAQUE_FRAME_DOMAIN_NOT_ALLOWED");
+      }
+    } catch (IllegalArgumentException exception) {
+      throw new ChallengeAutomationRejectedException("OPAQUE_FRAME_ORIGIN_INVALID");
+    }
+  }
+
   private Optional<Run> activeRun(String taskId, String tenantId) {
     return jdbc
         .query(
@@ -1079,6 +1232,10 @@ public class ChallengeAutomationApplicationService {
         result.getBigDecimal("challenge_automation_min_confidence"),
         result.getBoolean("challenge_automation_allow_multi_click"),
         result.getBoolean("challenge_automation_allow_slide"),
+        result.getBoolean("challenge_opaque_frame_click_enabled"),
+        read(
+            result.getString("challenge_opaque_frame_click_origins"),
+            new TypeReference<List<String>>() {}),
         result.getInt("challenge_motion_min_steps"),
         result.getInt("challenge_motion_max_steps"),
         result.getInt("challenge_motion_min_delay_ms"),
@@ -1232,6 +1389,61 @@ public class ChallengeAutomationApplicationService {
     }
   }
 
+  private <T> T read(String value, TypeReference<T> type) {
+    try {
+      return objectMapper.readValue(value, type);
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("Challenge policy JSON is invalid", exception);
+    }
+  }
+
+  static List<String> normalizeOpaqueFrameOrigins(List<String> values) {
+    if (values == null || values.size() > 16) {
+      throw new IllegalArgumentException("Opaque frame origin allowlist exceeds 16 entries");
+    }
+    var normalized = new LinkedHashSet<String>();
+    for (var raw : values) {
+      try {
+        var parsed = URI.create(raw == null ? "" : raw.trim());
+        var scheme = parsed.getScheme() == null ? "" : parsed.getScheme().toLowerCase();
+        var host = parsed.getHost() == null ? "" : parsed.getHost().toLowerCase();
+        if ((!scheme.equals("https") && !scheme.equals("http"))
+            || host.isBlank()
+            || parsed.getRawUserInfo() != null
+            || (parsed.getRawPath() != null && !parsed.getRawPath().isEmpty())
+            || parsed.getRawQuery() != null
+            || parsed.getRawFragment() != null
+            || (scheme.equals("http") && !privateDevelopmentHost(host))) {
+          throw new IllegalArgumentException("invalid origin");
+        }
+        var defaultPort = scheme.equals("https") ? 443 : 80;
+        var port = parsed.getPort() == defaultPort ? -1 : parsed.getPort();
+        normalized.add(new URI(scheme, null, host, port, null, null, null).toString());
+      } catch (Exception exception) {
+        throw new IllegalArgumentException(
+            "Opaque frame click origins must be exact HTTPS origins (HTTP is local/private only)");
+      }
+    }
+    return normalized.stream().sorted().toList();
+  }
+
+  private static boolean privateDevelopmentHost(String host) {
+    if (host.equals("localhost")
+        || host.equals("::1")
+        || host.startsWith("127.")
+        || host.endsWith(".invalid")) return true;
+    if (host.startsWith("10.") || host.startsWith("192.168.")) return true;
+    if (!host.startsWith("172.")) return false;
+    var parts = host.split("\\.");
+    if (parts.length != 4) return false;
+    try {
+      var second = Integer.parseInt(parts[1]);
+      return second >= 16 && second <= 31;
+    } catch (NumberFormatException ignored) {
+      return false;
+    }
+  }
+
   private List<ChallengeVisualAction> readActions(String value) {
     if (value == null) return List.of();
     try {
@@ -1373,7 +1585,9 @@ public class ChallengeAutomationApplicationService {
       long targetRevision,
       String stateHash,
       String activeTabId,
-      io.browsercloud.coordinator.NodeEvent.Bounds region) {}
+      io.browsercloud.coordinator.NodeEvent.Bounds region,
+      String opaqueFrameRef,
+      String origin) {}
 
   private record ChallengeStructuralScope(
       long stateVersion,

@@ -19,7 +19,10 @@ import {
 } from '@/features/sessions/api/sessionQueries';
 import { isSessionApiError } from '@/api/session';
 import { cn } from '@/shared/lib/utils';
-import type { ChallengeEventView } from '@/types/session';
+import type {
+  ChallengeAutomationPolicyView,
+  ChallengeEventView,
+} from '@/types/session';
 
 const ACTIVE = new Set([
   'SUSPECTED',
@@ -30,6 +33,7 @@ const ACTIVE = new Set([
 ]);
 const AUTOMATABLE = new Set([
   'SINGLE_CLICK',
+  'OPAQUE_FRAME_SINGLE_CLICK',
   'IMAGE_SELECTION',
   'PUZZLE',
   'MULTI_ROUND',
@@ -113,106 +117,134 @@ export function ChallengeAssistCard({
       </header>
 
       {automationPolicy && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border border-border-subtle bg-canvas/35 p-3">
-          <div>
-            <p className="text-[10px] font-medium text-text-secondary">
-              Agent 控制模式
-            </p>
-            <p className="mt-1 text-[9px] text-text-muted">
-              自动模式持续自行工作，只有确认需要人工时才通知。届时可发送 OTP 让
-              Agent 填写，也可自行进入协作界面输入。
-            </p>
+        <>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border border-border-subtle bg-canvas/35 p-3">
+            <div>
+              <p className="text-[10px] font-medium text-text-secondary">
+                Agent 控制模式
+              </p>
+              <p className="mt-1 text-[9px] text-text-muted">
+                自动模式持续自行工作，只有确认需要人工时才通知。届时可发送 OTP
+                让 Agent 填写，也可自行进入协作界面输入。
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                aria-label="Agent 控制模式"
+                disabled={!canOperate || updateAutomation.isPending}
+                value={automationPolicy.controlMode}
+                onChange={(event) =>
+                  updateAutomation.mutate({
+                    controlMode: event.target.value as 'SAFE' | 'AUTONOMOUS',
+                    sensitiveInputMaximumAttempts:
+                      automationPolicy.sensitiveInputMaximumAttempts,
+                    enabled: automationPolicy.enabled,
+                    maximumAttempts: automationPolicy.maximumAttempts,
+                    minimumConfidence: automationPolicy.minimumConfidence,
+                    allowMultiClick: automationPolicy.allowMultiClick,
+                    allowSlide: automationPolicy.allowSlide,
+                    motionMinimumSteps: automationPolicy.motionMinimumSteps,
+                    motionMaximumSteps: automationPolicy.motionMaximumSteps,
+                    motionMinimumDelayMs: automationPolicy.motionMinimumDelayMs,
+                    motionMaximumDelayMs: automationPolicy.motionMaximumDelayMs,
+                    targetOffsetRatio: automationPolicy.targetOffsetRatio,
+                  })
+                }
+                className="h-8 rounded-[6px] border border-border-default bg-surface-1 px-2 font-mono text-[10px] text-text-primary disabled:opacity-40"
+              >
+                <option value="SAFE">安全模式</option>
+                <option value="AUTONOMOUS">自动模式</option>
+              </select>
+              <select
+                aria-label="敏感输入自动重试次数"
+                disabled={!canOperate || updateAutomation.isPending}
+                value={automationPolicy.sensitiveInputMaximumAttempts}
+                onChange={(event) =>
+                  updateAutomation.mutate({
+                    controlMode: automationPolicy.controlMode,
+                    sensitiveInputMaximumAttempts: Number(event.target.value),
+                    enabled: automationPolicy.enabled,
+                    maximumAttempts: automationPolicy.maximumAttempts,
+                    minimumConfidence: automationPolicy.minimumConfidence,
+                    allowMultiClick: automationPolicy.allowMultiClick,
+                    allowSlide: automationPolicy.allowSlide,
+                    motionMinimumSteps: automationPolicy.motionMinimumSteps,
+                    motionMaximumSteps: automationPolicy.motionMaximumSteps,
+                    motionMinimumDelayMs: automationPolicy.motionMinimumDelayMs,
+                    motionMaximumDelayMs: automationPolicy.motionMaximumDelayMs,
+                    targetOffsetRatio: automationPolicy.targetOffsetRatio,
+                  })
+                }
+                className="h-8 rounded-[6px] border border-border-default bg-surface-1 px-2 font-mono text-[10px] text-text-primary disabled:opacity-40"
+              >
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((attempts) => (
+                  <option key={attempts} value={attempts}>
+                    输入重试 {attempts} 次
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Challenge 自动尝试次数"
+                disabled={!canOperate || updateAutomation.isPending}
+                value={
+                  automationPolicy.enabled
+                    ? automationPolicy.maximumAttempts
+                    : 0
+                }
+                onChange={(event) => {
+                  const maximumAttempts = Number(event.target.value);
+                  updateAutomation.mutate({
+                    controlMode: automationPolicy.controlMode,
+                    sensitiveInputMaximumAttempts:
+                      automationPolicy.sensitiveInputMaximumAttempts,
+                    enabled: maximumAttempts > 0,
+                    maximumAttempts,
+                    minimumConfidence: automationPolicy.minimumConfidence,
+                    allowMultiClick: automationPolicy.allowMultiClick,
+                    allowSlide: automationPolicy.allowSlide,
+                    motionMinimumSteps: automationPolicy.motionMinimumSteps,
+                    motionMaximumSteps: automationPolicy.motionMaximumSteps,
+                    motionMinimumDelayMs: automationPolicy.motionMinimumDelayMs,
+                    motionMaximumDelayMs: automationPolicy.motionMaximumDelayMs,
+                    targetOffsetRatio: automationPolicy.targetOffsetRatio,
+                  });
+                }}
+                className="h-8 rounded-[6px] border border-border-default bg-surface-1 px-2 font-mono text-[10px] text-text-primary disabled:opacity-40"
+              >
+                <option value={0}>关闭</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((attempts) => (
+                  <option key={attempts} value={attempts}>
+                    {attempts} 次
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              aria-label="Agent 控制模式"
-              disabled={!canOperate || updateAutomation.isPending}
-              value={automationPolicy.controlMode}
-              onChange={(event) =>
-                updateAutomation.mutate({
-                  controlMode: event.target.value as 'SAFE' | 'AUTONOMOUS',
-                  sensitiveInputMaximumAttempts:
-                    automationPolicy.sensitiveInputMaximumAttempts,
-                  enabled: automationPolicy.enabled,
-                  maximumAttempts: automationPolicy.maximumAttempts,
-                  minimumConfidence: automationPolicy.minimumConfidence,
-                  allowMultiClick: automationPolicy.allowMultiClick,
-                  allowSlide: automationPolicy.allowSlide,
-                  motionMinimumSteps: automationPolicy.motionMinimumSteps,
-                  motionMaximumSteps: automationPolicy.motionMaximumSteps,
-                  motionMinimumDelayMs: automationPolicy.motionMinimumDelayMs,
-                  motionMaximumDelayMs: automationPolicy.motionMaximumDelayMs,
-                  targetOffsetRatio: automationPolicy.targetOffsetRatio,
-                })
-              }
-              className="h-8 rounded-[6px] border border-border-default bg-surface-1 px-2 font-mono text-[10px] text-text-primary disabled:opacity-40"
-            >
-              <option value="SAFE">安全模式</option>
-              <option value="AUTONOMOUS">自动模式</option>
-            </select>
-            <select
-              aria-label="敏感输入自动重试次数"
-              disabled={!canOperate || updateAutomation.isPending}
-              value={automationPolicy.sensitiveInputMaximumAttempts}
-              onChange={(event) =>
-                updateAutomation.mutate({
-                  controlMode: automationPolicy.controlMode,
-                  sensitiveInputMaximumAttempts: Number(event.target.value),
-                  enabled: automationPolicy.enabled,
-                  maximumAttempts: automationPolicy.maximumAttempts,
-                  minimumConfidence: automationPolicy.minimumConfidence,
-                  allowMultiClick: automationPolicy.allowMultiClick,
-                  allowSlide: automationPolicy.allowSlide,
-                  motionMinimumSteps: automationPolicy.motionMinimumSteps,
-                  motionMaximumSteps: automationPolicy.motionMaximumSteps,
-                  motionMinimumDelayMs: automationPolicy.motionMinimumDelayMs,
-                  motionMaximumDelayMs: automationPolicy.motionMaximumDelayMs,
-                  targetOffsetRatio: automationPolicy.targetOffsetRatio,
-                })
-              }
-              className="h-8 rounded-[6px] border border-border-default bg-surface-1 px-2 font-mono text-[10px] text-text-primary disabled:opacity-40"
-            >
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((attempts) => (
-                <option key={attempts} value={attempts}>
-                  输入重试 {attempts} 次
-                </option>
-              ))}
-            </select>
-            <select
-              aria-label="Challenge 自动尝试次数"
-              disabled={!canOperate || updateAutomation.isPending}
-              value={
-                automationPolicy.enabled ? automationPolicy.maximumAttempts : 0
-              }
-              onChange={(event) => {
-                const maximumAttempts = Number(event.target.value);
-                updateAutomation.mutate({
-                  controlMode: automationPolicy.controlMode,
-                  sensitiveInputMaximumAttempts:
-                    automationPolicy.sensitiveInputMaximumAttempts,
-                  enabled: maximumAttempts > 0,
-                  maximumAttempts,
-                  minimumConfidence: automationPolicy.minimumConfidence,
-                  allowMultiClick: automationPolicy.allowMultiClick,
-                  allowSlide: automationPolicy.allowSlide,
-                  motionMinimumSteps: automationPolicy.motionMinimumSteps,
-                  motionMaximumSteps: automationPolicy.motionMaximumSteps,
-                  motionMinimumDelayMs: automationPolicy.motionMinimumDelayMs,
-                  motionMaximumDelayMs: automationPolicy.motionMaximumDelayMs,
-                  targetOffsetRatio: automationPolicy.targetOffsetRatio,
-                });
-              }}
-              className="h-8 rounded-[6px] border border-border-default bg-surface-1 px-2 font-mono text-[10px] text-text-primary disabled:opacity-40"
-            >
-              <option value={0}>关闭</option>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((attempts) => (
-                <option key={attempts} value={attempts}>
-                  {attempts} 次
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+          <OpaqueFrameClickPolicyEditor
+            key={`${automationPolicy.opaqueFrameClickEnabled}:${automationPolicy.opaqueFrameClickOrigins.join('|')}`}
+            policy={automationPolicy}
+            disabled={!canOperate || updateAutomation.isPending}
+            onSave={(opaqueFrameClickEnabled, opaqueFrameClickOrigins) =>
+              updateAutomation.mutate({
+                controlMode: automationPolicy.controlMode,
+                sensitiveInputMaximumAttempts:
+                  automationPolicy.sensitiveInputMaximumAttempts,
+                enabled: automationPolicy.enabled,
+                maximumAttempts: automationPolicy.maximumAttempts,
+                minimumConfidence: automationPolicy.minimumConfidence,
+                allowMultiClick: automationPolicy.allowMultiClick,
+                allowSlide: automationPolicy.allowSlide,
+                opaqueFrameClickEnabled,
+                opaqueFrameClickOrigins,
+                motionMinimumSteps: automationPolicy.motionMinimumSteps,
+                motionMaximumSteps: automationPolicy.motionMaximumSteps,
+                motionMinimumDelayMs: automationPolicy.motionMinimumDelayMs,
+                motionMaximumDelayMs: automationPolicy.motionMaximumDelayMs,
+                targetOffsetRatio: automationPolicy.targetOffsetRatio,
+              })
+            }
+          />
+        </>
       )}
 
       {!active ? (
@@ -448,6 +480,69 @@ export function ChallengeAssistCard({
         </details>
       )}
     </section>
+  );
+}
+
+function OpaqueFrameClickPolicyEditor({
+  policy,
+  disabled,
+  onSave,
+}: {
+  policy: ChallengeAutomationPolicyView;
+  disabled: boolean;
+  onSave: (enabled: boolean, origins: string[]) => void;
+}) {
+  const [enabled, setEnabled] = useState(policy.opaqueFrameClickEnabled);
+  const [originsText, setOriginsText] = useState(
+    policy.opaqueFrameClickOrigins.join('\n')
+  );
+  const origins = originsText
+    .split(/[\s,]+/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return (
+    <div className="mt-3 border border-warning/25 bg-warning/5 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="max-w-2xl">
+          <p className="text-[10px] font-medium text-text-secondary">
+            跨域 Challenge 单击
+          </p>
+          <p className="mt-1 text-[9px] leading-5 text-text-muted">
+            仅对精确
+            Origin、当前任务允许域和明确人机验证信号执行一次左键点击；不允许文字、密码、OTP、滑动、支付或账号决策。
+          </p>
+        </div>
+        <label className="flex min-h-8 items-center gap-2 text-[10px] text-text-secondary">
+          <input
+            type="checkbox"
+            checked={enabled}
+            disabled={disabled}
+            onChange={(event) => setEnabled(event.target.checked)}
+          />
+          显式启用
+        </label>
+      </div>
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <textarea
+          aria-label="跨域 Challenge 精确 Origin，每行一个"
+          rows={2}
+          disabled={disabled}
+          value={originsText}
+          onChange={(event) => setOriginsText(event.target.value)}
+          placeholder="https://challenges.example.com"
+          className="min-h-16 flex-1 rounded-[6px] border border-border-default bg-surface-1 px-2 py-1.5 font-mono text-[10px] text-text-primary disabled:opacity-40"
+        />
+        <button
+          type="button"
+          disabled={disabled || (enabled && origins.length === 0)}
+          onClick={() => onSave(enabled, [...new Set(origins)])}
+          className="min-h-8 rounded-[6px] border border-border-default bg-surface-2 px-3 text-[10px] text-text-secondary disabled:opacity-40"
+        >
+          保存 Origin 策略
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -842,7 +842,8 @@ public class NodeEventMapper {
             if (challengeScreenshot
                 && (!payload.getTaskId().matches("^cap_[A-Za-z0-9]{20}$")
                     || !payload.getStepId().equals("challenge-screenshot")
-                    || !payload.getCaptureMode().equals("CHALLENGE_REGION"))) {
+                    || !java.util.Set.of("CHALLENGE_REGION", "OPAQUE_FRAME")
+                        .contains(payload.getCaptureMode()))) {
               throw new IllegalArgumentException("Challenge screenshot identity is invalid");
             }
             if (payload.getResult().equals("COMMITTED")) {

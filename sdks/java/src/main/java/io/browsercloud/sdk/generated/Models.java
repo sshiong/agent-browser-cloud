@@ -77,9 +77,9 @@ public final class Models {
 
   public record AgentTaskSummary(String taskId, String sessionId, String goal, String state, String riskClass, String intentDecision, Object blockedReason, String agentPolicy, Integer currentStep, Integer totalSteps, Integer securityEventCount, Object executionWaitReason, Object executionWaitSince, String createdAt, String updatedAt) {}
 
-  public record ChallengeAutomationPolicy(String sessionId, String controlMode, Integer sensitiveInputMaximumAttempts, Boolean enabled, Integer maximumAttempts, Double minimumConfidence, Boolean allowMultiClick, Boolean allowSlide, Integer motionMinimumSteps, Integer motionMaximumSteps, Integer motionMinimumDelayMs, Integer motionMaximumDelayMs, Double targetOffsetRatio, String updatedAt) {}
+  public record ChallengeAutomationPolicy(String sessionId, String controlMode, Integer sensitiveInputMaximumAttempts, Boolean enabled, Integer maximumAttempts, Double minimumConfidence, Boolean allowMultiClick, Boolean allowSlide, Boolean opaqueFrameClickEnabled, List<String> opaqueFrameClickOrigins, Integer motionMinimumSteps, Integer motionMaximumSteps, Integer motionMinimumDelayMs, Integer motionMaximumDelayMs, Double targetOffsetRatio, String updatedAt) {}
 
-  public record UpdateChallengeAutomationPolicyRequest(String controlMode, Integer sensitiveInputMaximumAttempts, Boolean enabled, Integer maximumAttempts, Double minimumConfidence, Boolean allowMultiClick, Boolean allowSlide, Integer motionMinimumSteps, Integer motionMaximumSteps, Integer motionMinimumDelayMs, Integer motionMaximumDelayMs, Double targetOffsetRatio) {}
+  public record UpdateChallengeAutomationPolicyRequest(String controlMode, Integer sensitiveInputMaximumAttempts, Boolean enabled, Integer maximumAttempts, Double minimumConfidence, Boolean allowMultiClick, Boolean allowSlide, Boolean opaqueFrameClickEnabled, List<String> opaqueFrameClickOrigins, Integer motionMinimumSteps, Integer motionMaximumSteps, Integer motionMinimumDelayMs, Integer motionMaximumDelayMs, Double targetOffsetRatio) {}
 
   public record CreateAgentInputSecretRequest(String purpose, String value, String expiresAt) {}
 

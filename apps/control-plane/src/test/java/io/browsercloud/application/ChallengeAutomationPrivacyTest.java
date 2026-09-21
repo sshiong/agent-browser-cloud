@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -67,5 +68,28 @@ class ChallengeAutomationPrivacyTest {
         ChallengeAutomationApplicationService.normalizedViewportCoordinate(
                 700, 200, BigDecimal.ONE, 800)
             .compareTo(BigDecimal.ONE));
+  }
+
+  @Test
+  void normalizesExactOpaqueFrameOriginsAndRejectsBroadOrCleartextPublicScopes() {
+    assertEquals(
+        List.of("http://192.168.2.10:18078", "https://challenges.example.com"),
+        ChallengeAutomationApplicationService.normalizeOpaqueFrameOrigins(
+            List.of("https://Challenges.Example.com:443", "http://192.168.2.10:18078")));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            ChallengeAutomationApplicationService.normalizeOpaqueFrameOrigins(
+                List.of("http://challenges.example.com")));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            ChallengeAutomationApplicationService.normalizeOpaqueFrameOrigins(
+                List.of("https://challenges.example.com/path")));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            ChallengeAutomationApplicationService.normalizeOpaqueFrameOrigins(
+                List.of("https://user@challenges.example.com")));
   }
 }

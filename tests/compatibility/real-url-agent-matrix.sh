@@ -49,6 +49,11 @@ cargo build --locked --manifest-path apps/browser-node/Cargo.toml \
 run_id="$(date +%s)-$$"
 postgres_name="agentbrowser-postgres-real-url-${run_id}"
 redis_name="agentbrowser-redis-real-url-${run_id}"
+minio_name="agentbrowser-minio-real-url-${run_id}"
+minio_network="${minio_name}-network"
+minio_access_key="browsercloud-real-url"
+minio_secret_key="browsercloud-real-url-secret"
+minio_bucket="observer-evidence"
 temp_dir="$(mktemp -d)"
 control_pid=""
 node_pid=""
@@ -61,7 +66,8 @@ cleanup() {
   for pid in "$control_pid" "$node_pid" "$network_helper_pid" "$storage_helper_pid" "$proxy_pid"; do
     if [[ -n "$pid" ]]; then kill "$pid" 2>/dev/null || true; fi
   done
-  docker rm -f "$postgres_name" "$redis_name" >/dev/null 2>&1 || true
+  docker rm -f "$postgres_name" "$redis_name" "$minio_name" >/dev/null 2>&1 || true
+  docker network rm "$minio_network" >/dev/null 2>&1 || true
   if [[ "$exit_code" -ne 0 ]]; then
     tail -n 160 "$temp_dir/control-plane.log" 2>/dev/null || true
     tail -n 160 "$temp_dir/browser-node.log" 2>/dev/null || true
@@ -101,9 +107,17 @@ docker run -d --name "$postgres_name" \
 docker run -d --name "$redis_name" \
   -p 127.0.0.1::6379 \
   redis:7-alpine >/dev/null
+docker network create "$minio_network" >/dev/null
+docker run -d --name "$minio_name" \
+  --network "$minio_network" \
+  -p 127.0.0.1::9000 \
+  -e "MINIO_ROOT_USER=${minio_access_key}" \
+  -e "MINIO_ROOT_PASSWORD=${minio_secret_key}" \
+  quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z server /data >/dev/null
 
 postgres_port="$(docker port "$postgres_name" 5432/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 redis_port="$(docker port "$redis_name" 6379/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
+minio_port="$(docker port "$minio_name" 9000/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 free_port() {
   python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()'
 }
@@ -113,7 +127,7 @@ event_port="$(free_port)"
 desktop_port="$(free_port)"
 proxy_port="$(free_port)"
 
-PROXY_ALLOWED_HOSTS="example.com,www.w3.org,www.cloudflare.com,agent-controls.invalid" \
+PROXY_ALLOWED_HOSTS="example.com,www.w3.org,www.cloudflare.com,agent-controls.invalid,opaque-challenge.invalid" \
 PROXY_EVENT_LOG="$temp_dir/proxy-events.jsonl" \
   python3 "$repo_root/tests/fixtures/allowlist-forward-proxy.py" "$proxy_port" \
   >"$temp_dir/proxy.log" 2>&1 &
@@ -134,6 +148,24 @@ PROXY_EXIT_CHECK_URL="http://browsercloud.invalid/exit" \
   apps/browser-node/target/debug/network-helper >"$temp_dir/network-helper.log" 2>&1 &
 network_helper_pid=$!
 
+cp tests/fixtures/profile-archive-keyring.json "$temp_dir/profile-archive-keyring.json"
+chmod 600 "$temp_dir/profile-archive-keyring.json"
+for _ in $(seq 1 60); do
+  if curl -fsS "http://127.0.0.1:${minio_port}/minio/health/live" >/dev/null; then break; fi
+  sleep 0.25
+done
+curl -fsS "http://127.0.0.1:${minio_port}/minio/health/live" >/dev/null
+docker run --rm --network "$minio_network" --entrypoint /bin/sh \
+  quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z \
+  -c "mc alias set real-url http://${minio_name}:9000 '${minio_access_key}' '${minio_secret_key}' >/dev/null && mc mb real-url/${minio_bucket} >/dev/null"
+
+APP_ENVIRONMENT=local \
+OBJECT_STORAGE_ENABLED=true \
+OBJECT_STORAGE_ENDPOINT="http://127.0.0.1:${minio_port}" \
+OBJECT_STORAGE_BUCKET="$minio_bucket" \
+OBJECT_STORAGE_ACCESS_KEY_ID="$minio_access_key" \
+OBJECT_STORAGE_SECRET_ACCESS_KEY="$minio_secret_key" \
+PROFILE_ARCHIVE_KEYRING_FILE="$temp_dir/profile-archive-keyring.json" \
 STORAGE_HELPER_SOCKET="$temp_dir/storage-helper.sock" \
 PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
 NODE_AGENT_UID="$(id -u)" \
@@ -161,6 +193,7 @@ REMOTE_DESKTOP_GATEWAY_PORT="$desktop_port" \
 RUNTIME_ROOT="$temp_dir/runtime" \
 PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
 STORAGE_HELPER_SOCKET="$temp_dir/storage-helper.sock" \
+OBJECT_STORAGE_ENABLED=true \
 NETWORK_HELPER_SOCKET="$temp_dir/network-helper.sock" \
   apps/browser-node/target/debug/node-agent >"$temp_dir/browser-node.log" 2>&1 &
 node_pid=$!

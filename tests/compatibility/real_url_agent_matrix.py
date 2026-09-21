@@ -284,17 +284,30 @@ scrolled = create_execute_task(
 require_verified(scrolled, ["GET_CURRENT_STATE", "SCROLL", "GET_URL", "GET_PAGE_SUMMARY"])
 
 challenge_url = "http://agent-controls.invalid/challenge"
-challenge_task = create_execute_task(
-    session_id,
-    {
-        "goal": "Open the authorized simple challenge and continue after automatic verification",
-        "startUrl": challenge_url,
-        "allowedDomains": ["agent-controls.invalid"],
-        "maxActions": 8,
-        "replanBudget": 1,
-    },
-    "simple-challenge",
-)
+try:
+    challenge_task = create_execute_task(
+        session_id,
+        {
+            "goal": "Open the authorized simple challenge and continue after automatic verification",
+            "startUrl": challenge_url,
+            "allowedDomains": ["agent-controls.invalid"],
+            "maxActions": 8,
+            "replanBudget": 1,
+        },
+        "simple-challenge",
+    )
+except AssertionError as error:
+    simple_diagnostics = {
+        "state": request("GET", f"/api/v1/sessions/{session_id}/state"),
+        "challenges": request("GET", f"/api/v1/sessions/{session_id}/challenges"),
+        "run": request(
+            "GET", f"/api/v1/sessions/{session_id}/challenge-automation/current"
+        ),
+    }
+    raise AssertionError(
+        f"{error}; simple Challenge diagnostics: "
+        + json.dumps(simple_diagnostics, sort_keys=True)
+    ) from error
 require_verified(
     challenge_task, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"]
 )
@@ -330,6 +343,216 @@ if simple_challenge is None or simple_challenge["status"] == "AUTHORIZED":
 challenge_state = current_state(session_id)
 if challenge_state["title"] != "Challenge passed":
     raise AssertionError(f"simple Challenge outcome was not observed: {challenge_state}")
+
+# A real cross-origin iframe remains DOM-opaque. Automation is allowed only after an exact
+# Session-origin opt-in and Task allowedDomains intersection, then only through the screenshot
+# vision protocol. This controlled worker response exercises the real pixel/click transport while
+# keeping the fixture deterministic and free of external model credentials.
+require_status(
+    request(
+        "PUT",
+        f"/api/v1/sessions/{session_id}/challenge-automation/policy",
+        {
+            "controlMode": "AUTONOMOUS",
+            "sensitiveInputMaximumAttempts": 3,
+            "enabled": True,
+            "maximumAttempts": 3,
+            "minimumConfidence": 0.9,
+            "allowMultiClick": True,
+            "allowSlide": True,
+            "opaqueFrameClickEnabled": True,
+            "opaqueFrameClickOrigins": ["http://opaque-challenge.invalid"],
+        },
+        actor_id="opaque-challenge-operator",
+        roles="TENANT_OPERATOR",
+    ),
+    200,
+    "enable exact opaque Challenge origin",
+)
+opaque_navigation = create_execute_task(
+    session_id,
+    {
+        "goal": "Open the authorized hosted verification page",
+        "startUrl": "http://agent-controls.invalid/opaque-challenge",
+        "allowedDomains": ["agent-controls.invalid", "opaque-challenge.invalid"],
+        "maxActions": 8,
+        "replanBudget": 1,
+    },
+    "navigate-opaque-challenge",
+)
+require_verified(
+    opaque_navigation,
+    ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"],
+)
+# The hosted iframe is attached asynchronously.  Wait for the authoritative Browser State to
+# contain the exact opaque-frame identity before starting the task that automation will pause and
+# resume.  A broad STATE_CHANGED wait started before this point can legitimately finish on an
+# unrelated navigation-stability update, leaving no active task for Challenge detection to bind.
+opaque_frame_state = wait_for(
+    f"/api/v1/sessions/{session_id}/state",
+    lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+    and any(
+        frame.get("origin") == "http://opaque-challenge.invalid"
+        and frame.get("frameRef", "").startswith("ofr_")
+        and frame.get("boundaryReason") == "CROSS_ORIGIN"
+        for frame in state.get("opaqueFrames", [])
+    ),
+)
+if opaque_frame_state.get("title") != "Verify you are human":
+    raise AssertionError(
+        f"opaque Challenge parent page changed before task binding: {opaque_frame_state}"
+    )
+opaque_created = require_status(
+    request(
+        "POST",
+        f"/api/v1/sessions/{session_id}/agent-tasks",
+        {
+            "goal": "Wait for the authorized hosted verification and continue after one bounded click",
+            "allowedDomains": ["agent-controls.invalid", "opaque-challenge.invalid"],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [
+                {
+                    "toolId": "WAIT_FOR",
+                    "waitCondition": "STATE_CHANGED",
+                    "timeoutMs": 10000,
+                }
+            ],
+        },
+        f"real-opaque-challenge-create-{uuid.uuid4().hex}",
+    ),
+    201,
+    "create opaque Challenge task",
+)
+opaque_task_id = opaque_created["taskId"]
+if opaque_created["state"] != "PLANNED":
+    raise AssertionError(f"opaque Challenge task was not planned: {opaque_created}")
+require_status(
+    request(
+        "POST",
+        f"/api/v1/agent-tasks/{opaque_task_id}:execute",
+        idempotency_key=f"real-opaque-challenge-execute-{uuid.uuid4().hex}",
+    ),
+    200,
+    "execute opaque Challenge task",
+)
+opaque_claim = None
+deadline = time.monotonic() + 45
+while time.monotonic() < deadline:
+    status, candidate = request(
+        "POST",
+        "/api/v1/challenge-visual-jobs:claim",
+        {
+            "protocolVersion": "challenge-vision-worker/v1",
+            "capabilities": {
+                "screenshot-ocr-actions-v1": True,
+                "local-ocr-pii-gate-v1": True,
+            },
+            "deploymentId": "challenge-vision-default",
+            "modelRevision": "challenge-vision-v1",
+        },
+        roles="VISION_WORKER",
+        actor_id="opaque-fixture-vision-worker",
+    )
+    if status == 200:
+        opaque_claim = candidate
+        break
+    if status != 204:
+        raise AssertionError(f"claim opaque Challenge vision job failed: {status} {candidate}")
+    time.sleep(0.25)
+if opaque_claim is None:
+    opaque_diagnostics = {
+        "policy": request(
+            "GET", f"/api/v1/sessions/{session_id}/challenge-automation/policy"
+        ),
+        "task": request("GET", f"/api/v1/agent-tasks/{opaque_task_id}"),
+        "state": request("GET", f"/api/v1/sessions/{session_id}/state"),
+        "challenges": request("GET", f"/api/v1/sessions/{session_id}/challenges"),
+        "run": request(
+            "GET", f"/api/v1/sessions/{session_id}/challenge-automation/current"
+        ),
+    }
+    raise AssertionError(
+        "opaque Challenge never produced a vision job: "
+        + json.dumps(opaque_diagnostics, sort_keys=True)
+    )
+opaque_job_id = opaque_claim["job"]["jobId"]
+opaque_token = opaque_claim["claimToken"]
+require_status(
+    request(
+        "POST",
+        f"/api/v1/challenge-visual-jobs/{opaque_job_id}:start",
+        {"claimToken": opaque_token},
+        roles="VISION_WORKER",
+        actor_id="opaque-fixture-vision-worker",
+    ),
+    200,
+    "start opaque Challenge vision job",
+)
+require_status(
+    request(
+        "POST",
+        f"/api/v1/challenge-visual-jobs/{opaque_job_id}:complete",
+        {
+            "claimToken": opaque_token,
+            "decision": "ACT",
+            "actions": [
+                {"actionType": "CLICK", "x": 0.5, "y": 0.5, "repeatCount": 1}
+            ],
+            "confidence": 0.99,
+            "deploymentId": "challenge-vision-default",
+            "modelRevision": "challenge-vision-v1",
+            "providerRequestId": "fixture-opaque-click",
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "latencyMs": 1,
+            "outputHash": hashlib.sha256(b"fixture-opaque-click").hexdigest(),
+            "privacyScanVersion": "tesseract-pii-v1",
+            "ocrTextHash": hashlib.sha256(b"").hexdigest(),
+            "detectedSensitivePatternCount": 0,
+            "piiRedactedRegionCount": 0,
+            "remainingSensitivePatternCount": 0,
+        },
+        roles="VISION_WORKER",
+        actor_id="opaque-fixture-vision-worker",
+    ),
+    200,
+    "complete opaque Challenge vision job",
+)
+opaque_task = wait_for(
+    f"/api/v1/agent-tasks/{opaque_task_id}",
+    lambda task: task["state"] in {"COMPLETED", "FAILED", "BLOCKED"},
+)
+if opaque_task["state"] != "COMPLETED":
+    raise AssertionError(f"opaque Challenge task did not resume: {opaque_task}")
+require_verified(
+    opaque_task,
+    ["GET_CURRENT_STATE", "WAIT_FOR", "GET_URL", "GET_PAGE_SUMMARY"],
+)
+opaque_run = wait_for(
+    f"/api/v1/sessions/{session_id}/challenge-automation/current",
+    lambda run: run["state"] in {"COMPLETED", "FAILED", "ESCALATED", "EXHAUSTED"},
+)
+if opaque_run["state"] != "COMPLETED" or opaque_run["lastAction"] != "CLICKx1":
+    raise AssertionError(f"opaque Challenge automation did not complete: {opaque_run}")
+opaque_events = require_status(
+    request("GET", f"/api/v1/sessions/{session_id}/challenges"),
+    200,
+    "read opaque Challenge timeline",
+)
+opaque_event = next(
+    (
+        item
+        for item in opaque_events["items"]
+        if item["suspectedType"] == "OPAQUE_FRAME_SINGLE_CLICK"
+    ),
+    None,
+)
+if opaque_event is None or not opaque_event["targetRef"].startswith("ofr_"):
+    raise AssertionError(f"opaque Challenge did not retain a frame identity: {opaque_events}")
+opaque_state = current_state(session_id)
+if opaque_state["title"] != "Opaque challenge passed":
+    raise AssertionError(f"opaque Challenge click did not reach the hosted frame: {opaque_state}")
 
 example_task = create_execute_task(
     session_id,
@@ -534,12 +757,14 @@ print(
             "publicUrls": [url for _, url, _ in sites],
             "controlFixture": control_url,
             "challengeFixture": challenge_url,
+            "opaqueChallengeFixture": "http://agent-controls.invalid/opaque-challenge",
             "verifiedControls": [
                 "NAVIGATE",
                 "READ",
                 "TYPE_TEXT",
                 "SCROLL",
                 "AUTOMATIC_SINGLE_CLICK_CHALLENGE",
+                "AUTOMATIC_OPAQUE_FRAME_SINGLE_CLICK_CHALLENGE",
             ],
             "failClosed": ["CROSS_DOMAIN_CLICK", "NON_ALLOWLISTED_PLAN"],
         },

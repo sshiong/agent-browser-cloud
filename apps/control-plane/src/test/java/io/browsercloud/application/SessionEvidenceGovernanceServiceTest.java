@@ -147,7 +147,61 @@ class SessionEvidenceGovernanceServiceTest {
     assertThat(payload.getActiveTabId()).isEqualTo("tab-challenge");
     assertThat(payload.getRegionWidth()).isEqualTo(300);
     assertThat(payload.getRegionHeight()).isEqualTo(180);
+    assertThat(payload.getEvidenceId()).matches("^evd_[0-9a-f]{32}$");
     assertThat(command.getValue().idempotencyKey()).startsWith("challenge-evidence:");
+  }
+
+  @Test
+  void opaqueChallengeCaptureCarriesExactFrameAndBoundsFence() throws Exception {
+    var session = runningSession();
+    var view =
+        new EvidenceCaptureView(
+            "cap_1234567890abcdefghij",
+            session.sessionId(),
+            EvidencePurpose.CHANGE_VALIDATION,
+            "EXECUTING",
+            null,
+            null,
+            "cmd_1234567890abcdefghij",
+            "request-test",
+            Instant.now(),
+            null);
+    when(sessions.requireForUpdate(session.sessionId())).thenReturn(session);
+    when(operations.findActive(session.sessionId())).thenReturn(Optional.empty());
+    when(capacity.nodeHasCapability(session.nodeId(), "observerEvidence", "cdp-s3-v1"))
+        .thenReturn(true);
+    when(store.findCaptureByIdempotency("tenant-test", "challenge-automation", "opaque-key"))
+        .thenReturn(Optional.empty());
+    when(store.insertCapture(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(true);
+    when(store.findCapture(eq("tenant-test"), eq(session.sessionId()), any()))
+        .thenReturn(Optional.of(view));
+
+    service.captureChallengeOpaqueFrame(
+        session.sessionId(),
+        "tenant-test",
+        "challenge-automation",
+        "opaque-key",
+        "request-test",
+        11,
+        6,
+        "b".repeat(64),
+        "tab-challenge",
+        new NodeEvent.Bounds(20, 30, 320, 180),
+        "ofr_0123456789abcdef0123");
+
+    var command = ArgumentCaptor.forClass(NodeCommand.class);
+    verify(commands).send(command.capture());
+    var payload =
+        io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand.parseFrom(
+            command.getValue().payload());
+    assertThat(payload.getCaptureMode()).isEqualTo("OPAQUE_FRAME");
+    assertThat(payload.getOpaqueFrameRef()).isEqualTo("ofr_0123456789abcdef0123");
+    assertThat(payload.getRegionX()).isEqualTo(20);
+    assertThat(payload.getRegionY()).isEqualTo(30);
+    assertThat(payload.getRegionWidth()).isEqualTo(320);
+    assertThat(payload.getRegionHeight()).isEqualTo(180);
+    assertThat(payload.getEvidenceId()).matches("^evd_[0-9a-f]{32}$");
   }
 
   @Test

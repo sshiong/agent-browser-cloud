@@ -557,11 +557,25 @@ class NodeEventIngestionServiceTest {
             java.util.List.of("target:2:old"));
     var command = new NodeEventReceived("evt-diff", "tenant-test", "ses-test", 0, 2, 0, 3, diff);
     when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());
-    when(browserStateRepository.applyDiff("tenant-test", 2, diff)).thenReturn(true);
+    var updated =
+        new NodeEvent.StateUpdated(
+            "ses-test",
+            5,
+            2,
+            "https://example.test",
+            "Changed",
+            "hash-5",
+            "COMPLETE",
+            java.util.List.of());
+    when(browserStateRepository.applyDiff("tenant-test", 2, diff))
+        .thenReturn(java.util.Optional.of(updated));
 
     service.receive(command);
 
     verify(browserStateRepository).applyDiff("tenant-test", 2, diff);
+    verify(challengeDetectionService).observe(command, updated);
+    verify(agentNavigationCompletionService).stateUpdated(command, updated, null);
+    verify(challengeAutomationService).stateUpdated(command, updated, null);
     verify(inboxRepository).save(any());
   }
 
@@ -581,7 +595,8 @@ class NodeEventIngestionServiceTest {
             java.util.List.of());
     var command = new NodeEventReceived("evt-gap", "tenant-test", "ses-test", 0, 2, 0, 4, diff);
     when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());
-    when(browserStateRepository.applyDiff("tenant-test", 2, diff)).thenReturn(false);
+    when(browserStateRepository.applyDiff("tenant-test", 2, diff))
+        .thenReturn(java.util.Optional.empty());
     when(sessionRepository.requireForUpdate("ses-test")).thenReturn(runningSession());
     when(stateResyncAdmissionService.tryAdmitAutomaticFull(
             org.mockito.ArgumentMatchers.eq("tenant-test"),

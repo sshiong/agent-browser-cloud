@@ -731,6 +731,9 @@ done
 printf '%s' "$browser_nodes" | python3 -c \
   'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["safePointBrowserTransactions"] == "cdp-transaction-v1"; assert node["labels"]["safePointBrowserTransactionPolicy"] == "approved-route-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileArchiveEncryption"] == "aead-envelope-v1"; assert node["labels"]["profileExport"] == "presigned-encrypted-checkpoint-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["evidenceRedaction"] == "dom-overlay-script-freeze-v1"; assert node["labels"]["recordingRedaction"] == "frame-mask-v1"; assert node["labels"]["agentScreenshot"] == "state-fenced-region-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
 printf 'safe_point_browser_transaction_policy=true\n'
+printf '%s' "$browser_nodes" | python3 -c \
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["labels"]["opaqueFrameChallengeClick"] == "state-fenced-click-v1"'
+printf 'opaque_frame_challenge_click_capability=true\n'
 
 runtime_builds="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/runtime-builds" \
@@ -1772,13 +1775,13 @@ challenge_automation_policy="$(curl -fsS \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Roles: TENANT_VIEWER')"
 printf '%s' "$challenge_automation_policy" | python3 -c \
-  'import json,sys; value=json.load(sys.stdin); assert value["controlMode"] == "SAFE"; assert value["sensitiveInputMaximumAttempts"] == 3; assert value["enabled"] is True; assert value["maximumAttempts"] == 3; assert value["allowMultiClick"] is True; assert value["allowSlide"] is True'
+  'import json,sys; value=json.load(sys.stdin); assert value["controlMode"] == "SAFE"; assert value["sensitiveInputMaximumAttempts"] == 3; assert value["enabled"] is True; assert value["maximumAttempts"] == 3; assert value["allowMultiClick"] is True; assert value["allowSlide"] is True; assert value["opaqueFrameClickEnabled"] is False; assert value["opaqueFrameClickOrigins"] == []'
 challenge_automation_viewer_write="$(curl -sS -o "$temp_dir/challenge-automation-viewer-write.json" -w '%{http_code}' \
   -X PUT "http://localhost:${control_port}/api/v1/sessions/${session_one}/challenge-automation/policy" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Roles: TENANT_VIEWER' \
-  -d '{"controlMode":"AUTONOMOUS","sensitiveInputMaximumAttempts":3,"enabled":true,"maximumAttempts":5,"minimumConfidence":0.9,"allowMultiClick":true,"allowSlide":true}')"
+  -d '{"controlMode":"AUTONOMOUS","sensitiveInputMaximumAttempts":3,"enabled":true,"maximumAttempts":5,"minimumConfidence":0.9,"allowMultiClick":true,"allowSlide":true,"opaqueFrameClickEnabled":true,"opaqueFrameClickOrigins":["https://challenges.example.test"]}')"
 test "$challenge_automation_viewer_write" = "403"
 challenge_automation_updated="$(curl -fsS \
   -X PUT "http://localhost:${control_port}/api/v1/sessions/${session_one}/challenge-automation/policy" \
@@ -1786,9 +1789,17 @@ challenge_automation_updated="$(curl -fsS \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Actor-Id: challenge-operator' \
   -H 'X-Roles: TENANT_OPERATOR' \
-  -d '{"controlMode":"AUTONOMOUS","sensitiveInputMaximumAttempts":3,"enabled":true,"maximumAttempts":5,"minimumConfidence":0.9,"allowMultiClick":true,"allowSlide":true}')"
+  -d '{"controlMode":"AUTONOMOUS","sensitiveInputMaximumAttempts":3,"enabled":true,"maximumAttempts":5,"minimumConfidence":0.9,"allowMultiClick":true,"allowSlide":true,"opaqueFrameClickEnabled":true,"opaqueFrameClickOrigins":["https://challenges.example.test"]}')"
 printf '%s' "$challenge_automation_updated" | python3 -c \
-  'import json,sys; value=json.load(sys.stdin); assert value["controlMode"] == "AUTONOMOUS"; assert value["sensitiveInputMaximumAttempts"] == 3; assert value["maximumAttempts"] == 5; assert value["minimumConfidence"] == 0.9'
+  'import json,sys; value=json.load(sys.stdin); assert value["controlMode"] == "AUTONOMOUS"; assert value["sensitiveInputMaximumAttempts"] == 3; assert value["maximumAttempts"] == 5; assert value["minimumConfidence"] == 0.9; assert value["opaqueFrameClickEnabled"] is True; assert value["opaqueFrameClickOrigins"] == ["https://challenges.example.test"]'
+challenge_opaque_public_http_rejected="$(curl -sS -o "$temp_dir/challenge-opaque-public-http.json" -w '%{http_code}' \
+  -X PUT "http://localhost:${control_port}/api/v1/sessions/${session_one}/challenge-automation/policy" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: challenge-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -d '{"controlMode":"AUTONOMOUS","sensitiveInputMaximumAttempts":3,"enabled":true,"maximumAttempts":5,"minimumConfidence":0.9,"allowMultiClick":true,"allowSlide":true,"opaqueFrameClickEnabled":true,"opaqueFrameClickOrigins":["http://challenge.example.com"]}')"
+test "$challenge_opaque_public_http_rejected" = "400"
 
 agent_secret_viewer_write="$(curl -sS -o "$temp_dir/agent-secret-viewer-write.json" -w '%{http_code}' \
   -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-input-secrets" \

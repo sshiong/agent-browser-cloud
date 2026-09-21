@@ -985,6 +985,13 @@ message ChallengeAutomationActionCommand {
   double expected_width = 18;
   double expected_height = 19;
   string visual_anchor_hash = 20;
+  // Optional exact opaque-frame fence for one visual CLICK. This never authorizes keyboard,
+  // text, Secret, slide, multi-click, payment or account-decision input. N-1 Nodes reject it.
+  string opaque_frame_ref = 21;
+  double opaque_frame_x = 22;
+  double opaque_frame_y = 23;
+  double opaque_frame_width = 24;
+  double opaque_frame_height = 25;
 }
 
 message ChallengeAutomationFailedEvent {
@@ -1014,6 +1021,9 @@ message CaptureObserverScreenshotCommand {
   double region_height = 11;
   string evidence_id = 12;
   int64 captured_at_ms = 13;
+  // Set only for a policy-authorized OPAQUE_FRAME Challenge capture. The Node re-resolves the
+  // exact frame boundary and compares it with the region before any pixels leave the Runtime.
+  string opaque_frame_ref = 14;
 }
 
 // Coarse, state-fenced Agent screenshot. The Node selects the authoritative active Page Target;

@@ -516,8 +516,50 @@ public final class NodeCommands {
             .setRegionY(region.y())
             .setRegionWidth(region.width())
             .setRegionHeight(region.height())
-            .setEvidenceId(newId("evd_"))
+            .setEvidenceId(newEvidenceId())
             .setCapturedAtMs(capturedAtMs)
+            .build()
+            .toByteArray();
+    return new NodeCommand(
+        commandId,
+        "CaptureObserverScreenshot",
+        session.nodeId(),
+        session.sessionId(),
+        session.tenantId(),
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        0,
+        "challenge-evidence:" + captureId,
+        payload);
+  }
+
+  public static NodeCommand captureOpaqueFrameChallengeScreenshot(
+      SessionContext session,
+      String captureId,
+      String commandId,
+      long stateVersion,
+      long targetRevision,
+      String stateHash,
+      String activeTabId,
+      NodeEvent.Bounds region,
+      String opaqueFrameRef,
+      long capturedAtMs) {
+    var payload =
+        CaptureObserverScreenshotCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setCaptureId(captureId)
+            .setCaptureMode("OPAQUE_FRAME")
+            .setBaseStateVersion(stateVersion)
+            .setTargetRevision(targetRevision)
+            .setBaseContentHash(stateHash)
+            .setActiveTabId(activeTabId)
+            .setRegionX(region.x())
+            .setRegionY(region.y())
+            .setRegionWidth(region.width())
+            .setRegionHeight(region.height())
+            .setEvidenceId(newEvidenceId())
+            .setCapturedAtMs(capturedAtMs)
+            .setOpaqueFrameRef(opaqueFrameRef)
             .build()
             .toByteArray();
     return new NodeCommand(
@@ -637,7 +679,9 @@ public final class NodeCommands {
       int motionMaximumSteps,
       int motionMinimumDelayMs,
       int motionMaximumDelayMs,
-      java.math.BigDecimal targetOffsetRatio) {
+      java.math.BigDecimal targetOffsetRatio,
+      String opaqueFrameRef,
+      NodeEvent.Bounds opaqueFrameBounds) {
     var payload =
         ChallengeAutomationActionCommand.newBuilder()
             .setSessionId(session.sessionId())
@@ -651,7 +695,15 @@ public final class NodeCommands {
             .setMotionMaxSteps(motionMaximumSteps)
             .setMotionMinDelayMs(motionMinimumDelayMs)
             .setMotionMaxDelayMs(motionMaximumDelayMs)
-            .setTargetOffsetRatio(targetOffsetRatio.doubleValue());
+            .setTargetOffsetRatio(targetOffsetRatio.doubleValue())
+            .setOpaqueFrameRef(opaqueFrameRef == null ? "" : opaqueFrameRef);
+    if (opaqueFrameBounds != null) {
+      payload
+          .setOpaqueFrameX(opaqueFrameBounds.x())
+          .setOpaqueFrameY(opaqueFrameBounds.y())
+          .setOpaqueFrameWidth(opaqueFrameBounds.width())
+          .setOpaqueFrameHeight(opaqueFrameBounds.height());
+    }
     actions.forEach(
         action ->
             payload.addActions(
@@ -892,5 +944,11 @@ public final class NodeCommands {
 
   private static String newId(String prefix) {
     return prefix + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+  }
+
+  private static String newEvidenceId() {
+    // Screenshot evidence is persisted under the V110 create-only identifier contract and the
+    // Browser Node validates that exact shape before any pixels are captured.
+    return "evd_" + UUID.randomUUID().toString().replace("-", "");
   }
 }

@@ -5918,6 +5918,34 @@ export class ChallengeAutomationActionCommand extends Message<ChallengeAutomatio
    */
   visualAnchorHash = "";
 
+  /**
+   * Optional exact opaque-frame fence for one visual CLICK. This never authorizes keyboard,
+   * text, Secret, slide, multi-click, payment or account-decision input. N-1 Nodes reject it.
+   *
+   * @generated from field: string opaque_frame_ref = 21;
+   */
+  opaqueFrameRef = "";
+
+  /**
+   * @generated from field: double opaque_frame_x = 22;
+   */
+  opaqueFrameX = 0;
+
+  /**
+   * @generated from field: double opaque_frame_y = 23;
+   */
+  opaqueFrameY = 0;
+
+  /**
+   * @generated from field: double opaque_frame_width = 24;
+   */
+  opaqueFrameWidth = 0;
+
+  /**
+   * @generated from field: double opaque_frame_height = 25;
+   */
+  opaqueFrameHeight = 0;
+
   constructor(data?: PartialMessage<ChallengeAutomationActionCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -5946,6 +5974,11 @@ export class ChallengeAutomationActionCommand extends Message<ChallengeAutomatio
     { no: 18, name: "expected_width", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
     { no: 19, name: "expected_height", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
     { no: 20, name: "visual_anchor_hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 21, name: "opaque_frame_ref", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 22, name: "opaque_frame_x", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 23, name: "opaque_frame_y", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 24, name: "opaque_frame_width", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 25, name: "opaque_frame_height", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ChallengeAutomationActionCommand {
@@ -6107,6 +6140,14 @@ export class CaptureObserverScreenshotCommand extends Message<CaptureObserverScr
    */
   capturedAtMs = protoInt64.zero;
 
+  /**
+   * Set only for a policy-authorized OPAQUE_FRAME Challenge capture. The Node re-resolves the
+   * exact frame boundary and compares it with the region before any pixels leave the Runtime.
+   *
+   * @generated from field: string opaque_frame_ref = 14;
+   */
+  opaqueFrameRef = "";
+
   constructor(data?: PartialMessage<CaptureObserverScreenshotCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -6128,6 +6169,7 @@ export class CaptureObserverScreenshotCommand extends Message<CaptureObserverScr
     { no: 11, name: "region_height", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
     { no: 12, name: "evidence_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 13, name: "captured_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 14, name: "opaque_frame_ref", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CaptureObserverScreenshotCommand {

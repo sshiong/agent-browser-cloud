@@ -39,6 +39,8 @@ public final class ChallengeAutomationModels {
       BigDecimal minimumConfidence,
       boolean allowMultiClick,
       boolean allowSlide,
+      boolean opaqueFrameClickEnabled,
+      List<String> opaqueFrameClickOrigins,
       int motionMinimumSteps,
       int motionMaximumSteps,
       int motionMinimumDelayMs,
@@ -54,6 +56,8 @@ public final class ChallengeAutomationModels {
       @NotNull @DecimalMin("0.5") @DecimalMax("1.0") BigDecimal minimumConfidence,
       boolean allowMultiClick,
       boolean allowSlide,
+      Boolean opaqueFrameClickEnabled,
+      @Size(max = 16) List<@Size(max = 256) String> opaqueFrameClickOrigins,
       @Min(4) @Max(32) Integer motionMinimumSteps,
       @Min(4) @Max(40) Integer motionMaximumSteps,
       @Min(5) @Max(100) Integer motionMinimumDelayMs,
@@ -65,6 +69,8 @@ public final class ChallengeAutomationModels {
       motionMinimumDelayMs = motionMinimumDelayMs == null ? 12 : motionMinimumDelayMs;
       motionMaximumDelayMs = motionMaximumDelayMs == null ? 45 : motionMaximumDelayMs;
       targetOffsetRatio = targetOffsetRatio == null ? new BigDecimal("0.15") : targetOffsetRatio;
+      opaqueFrameClickOrigins =
+          opaqueFrameClickOrigins == null ? null : List.copyOf(opaqueFrameClickOrigins);
     }
 
     public UpdateChallengeAutomationPolicyRequest(
@@ -83,6 +89,8 @@ public final class ChallengeAutomationModels {
           minimumConfidence,
           allowMultiClick,
           allowSlide,
+          null,
+          null,
           8,
           18,
           12,

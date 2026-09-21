@@ -222,6 +222,15 @@ fn opaque_frame_screenshot_clip(
     })
 }
 
+fn screenshot_clip_contains(clip: &ScreenshotClip, x: f64, y: f64) -> bool {
+    x.is_finite()
+        && y.is_finite()
+        && x >= clip.x
+        && x < clip.x + clip.width
+        && y >= clip.y
+        && y < clip.y + clip.height
+}
+
 fn bounded_input_key(value: &str) -> anyhow::Result<InputKey> {
     anyhow::ensure!(
         !value.is_empty() && value.chars().count() <= 32,
@@ -944,6 +953,10 @@ impl NodeCapacityReporter {
             "authority-watch-v1".to_owned(),
         );
         labels.insert(
+            "opaqueFrameChallengeClick".to_owned(),
+            "state-fenced-click-v1".to_owned(),
+        );
+        labels.insert(
             "agentJavascriptEvaluate".to_owned(),
             "state-fenced-bounded-v1".to_owned(),
         );
@@ -1430,7 +1443,10 @@ impl NodeControlService {
             }
             let payload =
                 CaptureObserverScreenshotCommand::decode(command.payload.as_slice()).ok()?;
-            let scoped = payload.capture_mode == "CHALLENGE_REGION";
+            let scoped = matches!(
+                payload.capture_mode.as_str(),
+                "CHALLENGE_REGION" | "OPAQUE_FRAME"
+            );
             return Some(EvidenceRequest {
                 evidence_kind: if scoped {
                     "CHALLENGE_SCREENSHOT"
@@ -6925,6 +6941,7 @@ impl NodeControlService {
                 match ChallengeAutomationActionCommand::decode(command.payload.as_slice()) {
                     Ok(payload) => {
                         let structural_click = !payload.target_ref.is_empty();
+                        let opaque_frame_click = !payload.opaque_frame_ref.is_empty();
                         let legacy_motion = payload.motion_min_steps == 0
                             && payload.motion_max_steps == 0
                             && payload.motion_min_delay_ms == 0
@@ -6969,6 +6986,7 @@ impl NodeControlService {
                                 value.is_ascii_hexdigit() && !value.is_ascii_uppercase()
                             })
                             || payload.actions.len() > 8
+                            || (structural_click && opaque_frame_click)
                             || (structural_click
                                 && (!payload.actions.is_empty()
                                     || payload.target_ref.chars().count() > 256
@@ -6989,6 +7007,38 @@ impl NodeControlService {
                                     || payload.expected_y < 0.0
                                     || payload.expected_width <= 0.0
                                     || payload.expected_height <= 0.0))
+                            || (opaque_frame_click
+                                && (payload.actions.len() != 1
+                                    || payload.actions[0].action_type != "CLICK"
+                                    || payload.actions[0].repeat_count != 1
+                                    || payload.actions[0].end_x != 0.0
+                                    || payload.actions[0].end_y != 0.0
+                                    || payload.opaque_frame_ref.len() != 24
+                                    || !payload.opaque_frame_ref.starts_with("ofr_")
+                                    || !payload.opaque_frame_ref[4..].bytes().all(|value| {
+                                        value.is_ascii_hexdigit() && !value.is_ascii_uppercase()
+                                    })
+                                    || ![
+                                        payload.opaque_frame_x,
+                                        payload.opaque_frame_y,
+                                        payload.opaque_frame_width,
+                                        payload.opaque_frame_height,
+                                    ]
+                                    .iter()
+                                    .all(|value| value.is_finite())
+                                    || payload.opaque_frame_x < 0.0
+                                    || payload.opaque_frame_y < 0.0
+                                    || payload.opaque_frame_width < 1.0
+                                    || payload.opaque_frame_height < 1.0
+                                    || payload.opaque_frame_width > 2048.0
+                                    || payload.opaque_frame_height > 2048.0
+                                    || payload.opaque_frame_width * payload.opaque_frame_height
+                                        > 2_097_152.0))
+                            || (!opaque_frame_click
+                                && (payload.opaque_frame_x != 0.0
+                                    || payload.opaque_frame_y != 0.0
+                                    || payload.opaque_frame_width != 0.0
+                                    || payload.opaque_frame_height != 0.0))
                             || (!structural_click && payload.actions.is_empty())
                             || !(4..=32).contains(&motion_min_steps)
                             || !(motion_min_steps..=40).contains(&motion_max_steps)
@@ -7205,6 +7255,28 @@ impl NodeControlService {
                                 state,
                             );
                         }
+                        let opaque_frame_clip = if opaque_frame_click {
+                            let expected = [
+                                payload.opaque_frame_x,
+                                payload.opaque_frame_y,
+                                payload.opaque_frame_width,
+                                payload.opaque_frame_height,
+                            ];
+                            match opaque_frame_screenshot_clip(
+                                &current,
+                                &payload.opaque_frame_ref,
+                                expected,
+                            ) {
+                                Ok(clip) => Some(clip),
+                                Err(error_code) => {
+                                    return self
+                                        .challenge_automation_failed(command, &payload, error_code)
+                                        .await
+                                }
+                            }
+                        } else {
+                            None
+                        };
                         let (viewport_width, viewport_height) = match self
                             .state_collector
                             .viewport_size(&command.session_id)
@@ -7266,7 +7338,11 @@ impl NodeControlService {
                                     action_index,
                                     wall_clock_millis()
                                 );
-                                let offset_pixels = target_offset_ratio * 8.0;
+                                let offset_pixels = if opaque_frame_click {
+                                    0.0
+                                } else {
+                                    target_offset_ratio * 8.0
+                                };
                                 let start_x = (action.x * max_x
                                     + (Self::challenge_motion_fraction(&seed, 40) - 0.5)
                                         * 2.0
@@ -7277,6 +7353,12 @@ impl NodeControlService {
                                         * 2.0
                                         * offset_pixels)
                                     .clamp(0.0, max_y);
+                                if let Some(clip) = opaque_frame_clip.as_ref() {
+                                    anyhow::ensure!(
+                                        screenshot_clip_contains(clip, start_x, start_y),
+                                        "opaque frame click is outside the exact boundary"
+                                    );
+                                }
                                 Self::challenge_move_human_path(
                                     input.as_ref(),
                                     &mut next_sequence,
@@ -7662,6 +7744,7 @@ impl NodeControlService {
                                 || payload.region_height != 0.0
                                 || !payload.evidence_id.is_empty()
                                 || payload.captured_at_ms != 0
+                                || !payload.opaque_frame_ref.is_empty()
                             {
                                 return self.failed(
                                     command,
@@ -7671,8 +7754,11 @@ impl NodeControlService {
                                 );
                             }
                         } else {
-                            if payload.capture_mode != "CHALLENGE_REGION"
-                                || payload.base_state_version == 0
+                            let opaque_frame = payload.capture_mode == "OPAQUE_FRAME";
+                            if !matches!(
+                                payload.capture_mode.as_str(),
+                                "CHALLENGE_REGION" | "OPAQUE_FRAME"
+                            ) || payload.base_state_version == 0
                                 || payload.target_revision == 0
                                 || payload.base_content_hash.len() != 64
                                 || !payload.base_content_hash.bytes().all(|value| {
@@ -7697,6 +7783,13 @@ impl NodeControlService {
                                     .bytes()
                                     .all(|value| value.is_ascii_hexdigit())
                                 || payload.captured_at_ms <= 0
+                                || (opaque_frame
+                                    && (payload.opaque_frame_ref.len() != 24
+                                        || !payload.opaque_frame_ref.starts_with("ofr_")
+                                        || !payload.opaque_frame_ref[4..].bytes().all(|value| {
+                                            value.is_ascii_hexdigit() && !value.is_ascii_uppercase()
+                                        })))
+                                || (!opaque_frame && !payload.opaque_frame_ref.is_empty())
                             {
                                 return self.failed(
                                     command,
@@ -7740,6 +7833,29 @@ impl NodeControlService {
                                     ),
                                     None,
                                 );
+                            }
+                            if opaque_frame {
+                                let expected = [
+                                    payload.region_x,
+                                    payload.region_y,
+                                    payload.region_width,
+                                    payload.region_height,
+                                ];
+                                if let Err(error_code) = opaque_frame_screenshot_clip(
+                                    &current,
+                                    &payload.opaque_frame_ref,
+                                    expected,
+                                ) {
+                                    return Self::result(
+                                        Self::ack(
+                                            &command.message_id,
+                                            false,
+                                            error_code,
+                                            "Opaque Challenge frame fence changed before capture",
+                                        ),
+                                        None,
+                                    );
+                                }
                             }
                         }
                         Self::result(Self::ack(&command.message_id, true, "", ""), None)
@@ -10843,6 +10959,21 @@ mod tests {
             opaque_frame_screenshot_clip(&state, "ofr_0123456789abcdef0123", expected),
             Err("OPAQUE_FRAME_FENCE_MISMATCH")
         );
+    }
+
+    #[test]
+    fn opaque_frame_click_coordinates_must_remain_inside_exact_clip() {
+        let clip = ScreenshotClip {
+            x: 20.0,
+            y: 30.0,
+            width: 320.0,
+            height: 180.0,
+        };
+        assert!(screenshot_clip_contains(&clip, 20.0, 30.0));
+        assert!(screenshot_clip_contains(&clip, 339.999, 209.999));
+        assert!(!screenshot_clip_contains(&clip, 340.0, 100.0));
+        assert!(!screenshot_clip_contains(&clip, 100.0, 210.0));
+        assert!(!screenshot_clip_contains(&clip, f64::NAN, 100.0));
     }
 
     #[test]

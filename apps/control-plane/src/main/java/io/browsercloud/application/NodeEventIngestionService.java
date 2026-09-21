@@ -295,7 +295,9 @@ public class NodeEventIngestionService {
               diff.snapshotBytes(),
               diff.collectionCpuMillis());
         }
-        if (!browserStateRepository.applyDiff(command.tenantId(), command.contextEpoch(), diff)) {
+        var updated =
+            browserStateRepository.applyDiff(command.tenantId(), command.contextEpoch(), diff);
+        if (updated.isEmpty()) {
           browserStateRepository.invalidate(
               command.tenantId(),
               command.contextEpoch(),
@@ -303,6 +305,11 @@ public class NodeEventIngestionService {
               diff.stateVersion(),
               "BASE_VERSION_MISMATCH");
           requestAutomaticFullResync(command, "BASE_VERSION_MISMATCH", "document");
+        } else {
+          // Diffs are authoritative state transitions too. Process the exact state returned by
+          // the atomic write so a hosted frame that loads after navigation cannot evade challenge
+          // detection until the next complete snapshot.
+          processAuthoritativeState(command, updated.orElseThrow());
         }
       }
       case NodeEvent.DiffTruncated truncated -> {

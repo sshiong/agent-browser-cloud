@@ -1004,6 +1004,7 @@ export interface RemoteDesktopParticipantHistoryPage {
 
 export type ChallengeType =
   | 'SINGLE_CLICK'
+  | 'OPAQUE_FRAME_SINGLE_CLICK'
   | 'IMAGE_SELECTION'
   | 'PUZZLE'
   | 'OTP'
@@ -1102,6 +1103,8 @@ export interface ChallengeAutomationPolicyView {
   minimumConfidence: number;
   allowMultiClick: boolean;
   allowSlide: boolean;
+  opaqueFrameClickEnabled: boolean;
+  opaqueFrameClickOrigins: string[];
   motionMinimumSteps: number;
   motionMaximumSteps: number;
   motionMinimumDelayMs: number;
@@ -1118,6 +1121,8 @@ export interface UpdateChallengeAutomationPolicyRequest {
   minimumConfidence: number;
   allowMultiClick: boolean;
   allowSlide: boolean;
+  opaqueFrameClickEnabled?: boolean;
+  opaqueFrameClickOrigins?: string[];
   motionMinimumSteps: number;
   motionMaximumSteps: number;
   motionMinimumDelayMs: number;

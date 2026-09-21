@@ -208,7 +208,9 @@ progress 166。
   N−1/历史命令保持原围栏并 fail-closed，见 progress 150。
 - [已确认] 跨域、Sandbox 或不可读取 iframe 以 Origin-only Opaque Frame 显式投影，不暴露
   内部 DOM 或 URL Path/Query；Frame 永不成为可执行 Target。受治理截图按精确 State/Tab/
-  frameRef/Bounds 双重围栏并复用脱敏 Evidence，任何输入固定 Human Handoff，见 progress 185。
+  frameRef/Bounds 双重围栏并复用脱敏 Evidence。progress 198 仅为 Session 精确 Origin 与当前
+  Task Domain 双重授权的低风险托管 Challenge 开放一次左键；文本、Secret、键盘、滑动、连续点击
+  与支付/账号决策仍固定 Human Handoff。
 - [已确认] 同一 Batch 已增加真实 CDP 双击、右键、悬停、清空、勾选和取消勾选；
   Check/Uncheck 会在动作后重采并验证结构化 checked 状态，非文本动作不得夹带 Secret/Value，
   见 progress 151。
@@ -258,6 +260,12 @@ progress 166。
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- Opaque Frame 低风险单击自动化已以 OrbStack 和 Chrome 153 真实异步跨域 iframe 闭环：Session
+  精确 Origin 策略与当前 Task Domain 双重授权后，任务在 `OPAQUE_FRAME_SINGLE_CLICK` 暂停，
+  受治理截图进入 Vision Job，Node 按 State/Tab/Hash/frameRef/Bounds 即时重验一次左键，父页
+  Outcome、Run 与原 Task 均完成。跨域输入、Secret、滑动、连续点击和支付/账号决策继续 Human
+  Handoff；完整 Integration 与 `make ci` 均通过，见 progress 198。
 
 - 极端完全同名目标现有明确 Adapter 身份契约：Application Adapter 以租户/应用隔离 Key 将原始
   实体值 HMAC 为 `data-agent-entity-hash/type/scope`，Node 从目标自身、祖先与 open Shadow Host
@@ -519,9 +527,10 @@ progress 166。
 
 - progress 185：跨域、Sandbox 或不可读取 iframe 已投影为 Origin-only Opaque Frame，包含稳定
   `frameRef`、Bounds、边界原因与 freshness，不含内部 DOM 或 URL Path/Query。Frame 永不进入
-  可执行 Target；`OPAQUE_FRAME` 截图由控制面从新鲜 State 推导 Region，Node 再按 State/Hash/
-  Active Tab/frameRef/Bounds 重验并复用脱敏 Evidence 与一次性 Grant，任何输入固定 Human
-  Handoff。A19 仓库内通用代码项已关闭；真实 IdP/支付/托管 Challenge Replay 仍是生产 Gate。
+  可执行 Target；progress 198 增加精确 Origin 策略与 Task Domain 双重授权下的低风险单次左键，
+  截图和动作均由 Node 按 State/Hash/Active Tab/frameRef/Bounds 即时重验。所有跨域输入及支付/
+  账号决策继续 Human Handoff。A19 仓库通用观察项与该安全自动化切片已关闭；真实 IdP/支付/托管
+  Challenge Replay 仍是生产 Gate。
 
 - progress 184：Profile 网站 Session Health 已与 Checkpoint `TECHNICAL_READY` 分离。V123 按
   Tenant/Profile/Origin 保存来自精确 Business Recovery State 的 `HEALTHY / REAUTH_REQUIRED /

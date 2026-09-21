@@ -19,6 +19,7 @@ ALLOWED_HOSTS = {
 }
 EXIT_CHECK_HOST = "browsercloud.invalid"
 CONTROL_FIXTURE_HOST = "agent-controls.invalid"
+OPAQUE_CHALLENGE_HOST = "opaque-challenge.invalid"
 EXIT_IP = os.environ.get("PROXY_TEST_EXIT_IP", "203.0.113.10")
 LOG_PATH = os.environ.get("PROXY_EVENT_LOG", "")
 LOG_LOCK = threading.Lock()
@@ -198,6 +199,17 @@ input{{width:360px;height:36px;margin:8px 0 24px}}button{{height:40px;width:180p
 <body><main><h1>Simple challenge fixture</h1>
 <button id="verify" type="button" onclick="document.title='Challenge passed';this.remove();document.querySelector('main').insertAdjacentHTML('beforeend','<p role=status>Challenge passed</p>')">Verify you are human</button>
 </main></body></html>"""
+            elif parsed.path == "/opaque-challenge":
+                body = b"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Verify you are human</title>
+<style>body{font-family:sans-serif;padding:32px}iframe{border:1px solid #777;width:320px;height:180px}</style></head>
+<body><main><h1>Verify you are human</h1>
+<iframe id="hosted-verification" title="Hosted verification"></iframe>
+<script>
+addEventListener('message',event=>{if(event.origin==='http://opaque-challenge.invalid'&&event.data==='verified'){document.title='Opaque challenge passed';document.querySelector('h1').textContent='Opaque challenge passed';}});
+setTimeout(()=>{document.querySelector('#hosted-verification').src='http://opaque-challenge.invalid/widget'},3000);
+</script>
+</main></body></html>"""
             elif parsed.path == "/login":
                 body = self.login_html(
                     "Fixture Login", "Use the controlled fixture account"
@@ -216,6 +228,18 @@ input{width:360px;height:36px;margin:8px 0 24px}</style></head>
 <button type="button">Safe local action</button>
 <p>Deterministic authorized fixture for real Chrome controls.</p></main></body></html>"""
             log_event("control_fixture", host=host, path=parsed.path)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if host == OPAQUE_CHALLENGE_HOST and parsed.path == "/widget":
+            require_allowed_host(host)
+            body = b"""<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Hosted verification</title>
+<style>html,body{margin:0;width:100%;height:100%}button{width:100%;height:100%;font:18px sans-serif}</style></head>
+<body><button type="button" onclick="parent.postMessage('verified','http://agent-controls.invalid')">Continue verification</button></body></html>"""
+            log_event("opaque_challenge_fixture", host=host, path=parsed.path)
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))

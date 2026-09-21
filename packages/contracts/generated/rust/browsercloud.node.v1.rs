@@ -1616,6 +1616,18 @@ pub struct ChallengeAutomationActionCommand {
     pub expected_height: f64,
     #[prost(string, tag="20")]
     pub visual_anchor_hash: ::prost::alloc::string::String,
+    /// Optional exact opaque-frame fence for one visual CLICK. This never authorizes keyboard,
+    /// text, Secret, slide, multi-click, payment or account-decision input. N-1 Nodes reject it.
+    #[prost(string, tag="21")]
+    pub opaque_frame_ref: ::prost::alloc::string::String,
+    #[prost(double, tag="22")]
+    pub opaque_frame_x: f64,
+    #[prost(double, tag="23")]
+    pub opaque_frame_y: f64,
+    #[prost(double, tag="24")]
+    pub opaque_frame_width: f64,
+    #[prost(double, tag="25")]
+    pub opaque_frame_height: f64,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1666,6 +1678,10 @@ pub struct CaptureObserverScreenshotCommand {
     pub evidence_id: ::prost::alloc::string::String,
     #[prost(int64, tag="13")]
     pub captured_at_ms: i64,
+    /// Set only for a policy-authorized OPAQUE_FRAME Challenge capture. The Node re-resolves the
+    /// exact frame boundary and compares it with the region before any pixels leave the Runtime.
+    #[prost(string, tag="14")]
+    pub opaque_frame_ref: ::prost::alloc::string::String,
 }
 /// Coarse, state-fenced Agent screenshot. The Node selects the authoritative active Page Target;
 /// callers cannot provide a CDP endpoint, Object Storage coordinate or arbitrary CDP method.

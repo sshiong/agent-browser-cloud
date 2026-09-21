@@ -842,6 +842,315 @@ export class PresignEvidenceDownloadResponse extends Message<PresignEvidenceDown
 }
 
 /**
+ * @generated from message browsercloud.node.v1.PresignRecordingPlaybackRequest
+ */
+export class PresignRecordingPlaybackRequest extends Message<PresignRecordingPlaybackRequest> {
+  /**
+   * @generated from field: string grant_id = 1;
+   */
+  grantId = "";
+
+  /**
+   * @generated from field: string tenant_id = 2;
+   */
+  tenantId = "";
+
+  /**
+   * @generated from field: string profile_id = 3;
+   */
+  profileId = "";
+
+  /**
+   * @generated from field: string session_id = 4;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string recording_id = 5;
+   */
+  recordingId = "";
+
+  /**
+   * @generated from field: string manifest_sha256 = 6;
+   */
+  manifestSha256 = "";
+
+  /**
+   * @generated from field: uint64 manifest_bytes = 7;
+   */
+  manifestBytes = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 segment_count = 8;
+   */
+  segmentCount = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 frame_count = 9;
+   */
+  frameCount = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 redacted_frame_count = 10;
+   */
+  redactedFrameCount = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 redacted_region_count = 11;
+   */
+  redactedRegionCount = protoInt64.zero;
+
+  /**
+   * @generated from field: uint32 redaction_policy_version = 12;
+   */
+  redactionPolicyVersion = 0;
+
+  /**
+   * @generated from field: int64 started_at_ms = 13;
+   */
+  startedAtMs = protoInt64.zero;
+
+  /**
+   * @generated from field: int64 ended_at_ms = 14;
+   */
+  endedAtMs = protoInt64.zero;
+
+  /**
+   * @generated from field: uint32 expires_in_seconds = 15;
+   */
+  expiresInSeconds = 0;
+
+  /**
+   * @generated from field: uint64 segment_offset = 16;
+   */
+  segmentOffset = protoInt64.zero;
+
+  /**
+   * @generated from field: uint32 segment_limit = 17;
+   */
+  segmentLimit = 0;
+
+  constructor(data?: PartialMessage<PresignRecordingPlaybackRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.PresignRecordingPlaybackRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "grant_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "tenant_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "profile_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "recording_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "manifest_sha256", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "manifest_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 8, name: "segment_count", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 9, name: "frame_count", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 10, name: "redacted_frame_count", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 11, name: "redacted_region_count", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 12, name: "redaction_policy_version", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 13, name: "started_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 14, name: "ended_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 15, name: "expires_in_seconds", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 16, name: "segment_offset", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 17, name: "segment_limit", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PresignRecordingPlaybackRequest {
+    return new PresignRecordingPlaybackRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): PresignRecordingPlaybackRequest {
+    return new PresignRecordingPlaybackRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PresignRecordingPlaybackRequest {
+    return new PresignRecordingPlaybackRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: PresignRecordingPlaybackRequest | PlainMessage<PresignRecordingPlaybackRequest> | undefined, b: PresignRecordingPlaybackRequest | PlainMessage<PresignRecordingPlaybackRequest> | undefined): boolean {
+    return proto3.util.equals(PresignRecordingPlaybackRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.RecordingPlaybackSegment
+ */
+export class RecordingPlaybackSegment extends Message<RecordingPlaybackSegment> {
+  /**
+   * @generated from field: uint64 sequence = 1;
+   */
+  sequence = protoInt64.zero;
+
+  /**
+   * @generated from field: string content_sha256 = 2;
+   */
+  contentSha256 = "";
+
+  /**
+   * @generated from field: uint64 content_bytes = 3;
+   */
+  contentBytes = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 frame_count = 4;
+   */
+  frameCount = protoInt64.zero;
+
+  /**
+   * @generated from field: int64 started_at_ms = 5;
+   */
+  startedAtMs = protoInt64.zero;
+
+  /**
+   * @generated from field: int64 ended_at_ms = 6;
+   */
+  endedAtMs = protoInt64.zero;
+
+  /**
+   * @generated from field: string download_url = 7;
+   */
+  downloadUrl = "";
+
+  constructor(data?: PartialMessage<RecordingPlaybackSegment>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.RecordingPlaybackSegment";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "sequence", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 2, name: "content_sha256", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "content_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 4, name: "frame_count", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 5, name: "started_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 6, name: "ended_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 7, name: "download_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RecordingPlaybackSegment {
+    return new RecordingPlaybackSegment().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RecordingPlaybackSegment {
+    return new RecordingPlaybackSegment().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RecordingPlaybackSegment {
+    return new RecordingPlaybackSegment().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RecordingPlaybackSegment | PlainMessage<RecordingPlaybackSegment> | undefined, b: RecordingPlaybackSegment | PlainMessage<RecordingPlaybackSegment> | undefined): boolean {
+    return proto3.util.equals(RecordingPlaybackSegment, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.PresignRecordingPlaybackResponse
+ */
+export class PresignRecordingPlaybackResponse extends Message<PresignRecordingPlaybackResponse> {
+  /**
+   * @generated from field: string grant_id = 1;
+   */
+  grantId = "";
+
+  /**
+   * @generated from field: string node_id = 2;
+   */
+  nodeId = "";
+
+  /**
+   * @generated from field: string recording_id = 3;
+   */
+  recordingId = "";
+
+  /**
+   * @generated from field: string manifest_sha256 = 4;
+   */
+  manifestSha256 = "";
+
+  /**
+   * @generated from field: uint64 frame_count = 5;
+   */
+  frameCount = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 redacted_frame_count = 6;
+   */
+  redactedFrameCount = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 redacted_region_count = 7;
+   */
+  redactedRegionCount = protoInt64.zero;
+
+  /**
+   * @generated from field: uint32 redaction_policy_version = 8;
+   */
+  redactionPolicyVersion = 0;
+
+  /**
+   * @generated from field: int64 expires_at_ms = 9;
+   */
+  expiresAtMs = protoInt64.zero;
+
+  /**
+   * @generated from field: repeated browsercloud.node.v1.RecordingPlaybackSegment segments = 10;
+   */
+  segments: RecordingPlaybackSegment[] = [];
+
+  /**
+   * @generated from field: bool complete = 11;
+   */
+  complete = false;
+
+  /**
+   * @generated from field: uint64 next_segment_offset = 12;
+   */
+  nextSegmentOffset = protoInt64.zero;
+
+  constructor(data?: PartialMessage<PresignRecordingPlaybackResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.PresignRecordingPlaybackResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "grant_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "node_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "recording_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "manifest_sha256", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "frame_count", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 6, name: "redacted_frame_count", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 7, name: "redacted_region_count", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 8, name: "redaction_policy_version", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 9, name: "expires_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 10, name: "segments", kind: "message", T: RecordingPlaybackSegment, repeated: true },
+    { no: 11, name: "complete", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 12, name: "next_segment_offset", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PresignRecordingPlaybackResponse {
+    return new PresignRecordingPlaybackResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): PresignRecordingPlaybackResponse {
+    return new PresignRecordingPlaybackResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PresignRecordingPlaybackResponse {
+    return new PresignRecordingPlaybackResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: PresignRecordingPlaybackResponse | PlainMessage<PresignRecordingPlaybackResponse> | undefined, b: PresignRecordingPlaybackResponse | PlainMessage<PresignRecordingPlaybackResponse> | undefined): boolean {
+    return proto3.util.equals(PresignRecordingPlaybackResponse, a, b);
+  }
+}
+
+/**
  * @generated from message browsercloud.node.v1.PresignProfileExportDownloadRequest
  */
 export class PresignProfileExportDownloadRequest extends Message<PresignProfileExportDownloadRequest> {

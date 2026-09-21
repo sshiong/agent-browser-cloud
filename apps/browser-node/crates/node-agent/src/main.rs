@@ -25,8 +25,9 @@ use node_contracts::proto::{
     HumanTakeoverReadyEvent, InteractiveTargetState, OpaqueFrameState, PageStabilityState,
     PingRequest, PingResponse, PresignEvidenceDownloadRequest, PresignEvidenceDownloadResponse,
     PresignProfileExportDownloadRequest, PresignProfileExportDownloadResponse,
-    ProbeProxyBindingRequest, ProbeProxyBindingResponse, ProfileWarmTierSyncedEvent,
-    PublishRequest, PublishResponse, ReleaseAllInputCommand, RemoteDesktopParticipantEvent,
+    PresignRecordingPlaybackRequest, PresignRecordingPlaybackResponse, ProbeProxyBindingRequest,
+    ProbeProxyBindingResponse, ProfileWarmTierSyncedEvent, PublishRequest, PublishResponse,
+    RecordingPlaybackSegment, ReleaseAllInputCommand, RemoteDesktopParticipantEvent,
     ReportCapacityRequest, ReportSessionResourcesRequest, RequestStateResyncCommand,
     RevokeRemoteDesktopConnectionCommand, RuntimeResourcesAdjustedEvent, RuntimeStartedEvent,
     RuntimeStoppedEvent, SessionEvidenceCapturedEvent, SessionRecordingFinalizedEvent,
@@ -1011,6 +1012,15 @@ impl NodeCapacityReporter {
             "evidenceAccess".to_owned(),
             if evidence_storage_available {
                 "presigned-get-v1"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
+        );
+        labels.insert(
+            "recordingPlayback".to_owned(),
+            if evidence_storage_available {
+                "presigned-segments-v1"
             } else {
                 "unavailable"
             }
@@ -9991,6 +10001,125 @@ impl NodeControlServiceRpc for NodeControlService {
             evidence_id: access.evidence_id,
             download_url: access.download_url,
             expires_at_ms: access.expires_at_ms as i64,
+        }))
+    }
+
+    async fn presign_recording_playback(
+        &self,
+        request: Request<PresignRecordingPlaybackRequest>,
+    ) -> Result<Response<PresignRecordingPlaybackResponse>, Status> {
+        let request = request.into_inner();
+        let valid_identifier = |value: &str, prefix: Option<&str>| {
+            !value.is_empty()
+                && value.len() <= 128
+                && prefix
+                    .map(|expected| value.starts_with(expected))
+                    .unwrap_or(true)
+                && value.chars().all(|character| {
+                    character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
+                })
+        };
+        if !valid_identifier(&request.grant_id, Some("rgr_"))
+            || !valid_identifier(&request.tenant_id, None)
+            || !valid_identifier(&request.profile_id, None)
+            || !valid_identifier(&request.session_id, Some("ses_"))
+            || !valid_identifier(&request.recording_id, Some("rec_"))
+            || request.manifest_sha256.len() != 64
+            || !request
+                .manifest_sha256
+                .chars()
+                .all(|character| character.is_ascii_hexdigit())
+            || request.manifest_bytes == 0
+            || request.segment_offset > request.segment_count
+            || !(1..=24).contains(&request.segment_limit)
+            || request.redacted_frame_count > request.frame_count
+            || (request.redacted_frame_count > 0 && request.redacted_region_count == 0)
+            || request.redaction_policy_version != 1
+            || request.started_at_ms < 0
+            || request.ended_at_ms < request.started_at_ms
+            || !(30..=120).contains(&request.expires_in_seconds)
+        {
+            return Err(Status::invalid_argument(
+                "Recording playback request is invalid",
+            ));
+        }
+        let storage_helper = self.storage_helper.as_ref().ok_or_else(|| {
+            Status::failed_precondition("Recording playback requires the Storage Helper")
+        })?;
+        let access = storage_helper
+            .sign_recording_playback(
+                &request.tenant_id,
+                &request.profile_id,
+                &request.session_id,
+                &request.recording_id,
+                &request.manifest_sha256,
+                request.manifest_bytes,
+                request.segment_count,
+                request.frame_count,
+                request.redacted_frame_count,
+                request.redacted_region_count,
+                request.redaction_policy_version,
+                request.started_at_ms as u64,
+                request.ended_at_ms as u64,
+                request.segment_offset,
+                request.segment_limit,
+                request.expires_in_seconds,
+            )
+            .await
+            .map_err(|error| {
+                tracing::warn!(
+                    grant_id = %request.grant_id,
+                    recording_id = %request.recording_id,
+                    error = %error,
+                    "Storage Helper rejected recording playback"
+                );
+                Status::failed_precondition("Recording object is unavailable or invalid")
+            })?;
+        if access.recording_id != request.recording_id
+            || !access
+                .manifest_sha256
+                .eq_ignore_ascii_case(&request.manifest_sha256)
+            || access.frame_count != request.frame_count
+            || access.redacted_frame_count != request.redacted_frame_count
+            || access.redacted_region_count != request.redacted_region_count
+            || access.redaction_policy_version != request.redaction_policy_version
+            || access.expires_at_ms <= wall_clock_millis()
+            || access.segments.len() > request.segment_limit as usize
+            || access.segments.iter().any(|segment| {
+                segment.download_url.len() > 2048
+                    || segment.sequence < request.segment_offset
+                    || segment.sequence >= request.segment_count
+            })
+        {
+            return Err(Status::internal(
+                "Storage Helper recording playback acknowledgement mismatch",
+            ));
+        }
+        Ok(Response::new(PresignRecordingPlaybackResponse {
+            grant_id: request.grant_id,
+            node_id: self.node_id.clone(),
+            recording_id: access.recording_id,
+            manifest_sha256: access.manifest_sha256,
+            frame_count: access.frame_count,
+            redacted_frame_count: access.redacted_frame_count,
+            redacted_region_count: access.redacted_region_count,
+            redaction_policy_version: access.redaction_policy_version,
+            expires_at_ms: access.expires_at_ms as i64,
+            segments: access
+                .segments
+                .into_iter()
+                .map(|segment| RecordingPlaybackSegment {
+                    sequence: segment.sequence,
+                    content_sha256: segment.content_sha256,
+                    content_bytes: segment.content_bytes,
+                    frame_count: segment.frame_count,
+                    started_at_ms: segment.started_at_ms as i64,
+                    ended_at_ms: segment.ended_at_ms as i64,
+                    download_url: segment.download_url,
+                })
+                .collect(),
+            complete: access.next_segment_offset.is_none(),
+            next_segment_offset: access.next_segment_offset.unwrap_or_default(),
         }))
     }
 

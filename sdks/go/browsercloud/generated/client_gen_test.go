@@ -29,7 +29,7 @@ func TestGeneratedSurfaceAndRuntimeRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(Operations) != 250 || result.(map[string]any)["sessionId"] != "ses_1" {
+	if len(Operations) != 253 || result.(map[string]any)["sessionId"] != "ses_1" {
 		t.Fatalf("generated contract surface or response is incomplete")
 	}
 	var _ SessionView

@@ -26,6 +26,10 @@ service NodeControlService {
   // Storage Helper and never returns Object Storage credentials.
   rpc PresignEvidenceDownload(PresignEvidenceDownloadRequest)
       returns (PresignEvidenceDownloadResponse);
+  // Purpose-bound recording playback. The Node verifies the immutable aggregate/segment commit
+  // markers before returning short-lived URLs; object coordinates and credentials stay internal.
+  rpc PresignRecordingPlayback(PresignRecordingPlaybackRequest)
+      returns (PresignRecordingPlaybackResponse);
   // Purpose-bound Profile export. The Node delegates commit-marker and archive-integrity
   // verification plus short-lived signing to the isolated Storage Helper.
   rpc PresignProfileExportDownload(PresignProfileExportDownloadRequest)
@@ -153,6 +157,51 @@ message PresignEvidenceDownloadResponse {
   string evidence_id = 3;
   string download_url = 4;
   int64 expires_at_ms = 5;
+}
+
+message PresignRecordingPlaybackRequest {
+  string grant_id = 1;
+  string tenant_id = 2;
+  string profile_id = 3;
+  string session_id = 4;
+  string recording_id = 5;
+  string manifest_sha256 = 6;
+  uint64 manifest_bytes = 7;
+  uint64 segment_count = 8;
+  uint64 frame_count = 9;
+  uint64 redacted_frame_count = 10;
+  uint64 redacted_region_count = 11;
+  uint32 redaction_policy_version = 12;
+  int64 started_at_ms = 13;
+  int64 ended_at_ms = 14;
+  uint32 expires_in_seconds = 15;
+  uint64 segment_offset = 16;
+  uint32 segment_limit = 17;
+}
+
+message RecordingPlaybackSegment {
+  uint64 sequence = 1;
+  string content_sha256 = 2;
+  uint64 content_bytes = 3;
+  uint64 frame_count = 4;
+  int64 started_at_ms = 5;
+  int64 ended_at_ms = 6;
+  string download_url = 7;
+}
+
+message PresignRecordingPlaybackResponse {
+  string grant_id = 1;
+  string node_id = 2;
+  string recording_id = 3;
+  string manifest_sha256 = 4;
+  uint64 frame_count = 5;
+  uint64 redacted_frame_count = 6;
+  uint64 redacted_region_count = 7;
+  uint32 redaction_policy_version = 8;
+  int64 expires_at_ms = 9;
+  repeated RecordingPlaybackSegment segments = 10;
+  bool complete = 11;
+  uint64 next_segment_offset = 12;
 }
 
 message PresignProfileExportDownloadRequest {

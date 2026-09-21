@@ -1,8 +1,8 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-09-20
+> 更新日期：2026-09-21
 > 基准分支：`main`
-> 编写时基准提交：`594bf54 test: add real login and interactive challenge gates`
+> 编写时基准提交：`4b8be14 fix: close real OTP challenge flow`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -75,7 +75,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **250 Operations / 345 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **253 Operations / 350 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -258,8 +258,18 @@ progress 166。
 - [已确认] Browser Node 仅在 `FRESH/STALE` 状态转换时发布 payload-free 事件；Node 页面已删除 5 秒轮询，见 progress 144。
 - [已确认] Enterprise Overview 已用 V102 专用 PostgreSQL 投影覆盖 Validation、Cost、Media、SLO/Freeze、SLA、Retention、License、Region、GameDay/Trend/Remediation、Compliance 及时间窗口到期变化；Web/Tauri 已删除 15 秒轮询并显示断线过期状态，见 progress 145。
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
+- [已确认] Recording purpose-bound 播放授权通过 V127 一次性 Grant、五分钟 Actor-bound
+  访问窗口及 60 秒分段 URL 闭环；Node/Storage Helper 在签名前重验 aggregate Manifest、逐段
+  COMMITTED Marker 与对象大小，URL/对象 Key 不进入账本或 Audit，见 progress 200。
 
 ### 最近验证状态
+
+- Recording purpose-bound 播放授权已通过 OrbStack 真实 MinIO 与完整 Integration：25 个不可变
+  脱敏 Segment 经 Control Plane → mTLS Node → Storage Helper 分成 24+1 两页签发 60 秒 URL；
+  跨 Actor、重复兑换、Retention 到期均 fail-closed，Legal Hold 可在同一五分钟访问窗口恢复读取，
+  PostgreSQL 与 Audit 不含 URL/Signature。公开基线更新为 253 Operations / 350 Schemas，四语言
+  SDK 已同步，见 progress 200。全帧 OCR/非文本视觉分类、Object Lock/WORM 和到期物理删除 Worker
+  仍未完成。
 
 - 真实 OTP 续行已加入 OrbStack/Chrome 153 登录矩阵：Browser Node 只从标准
   `autocomplete=one-time-code` 投影隐私安全控件类别，敏感 name/value 继续为空；Control Plane
@@ -770,13 +780,11 @@ Enterprise Overview、Challenge 视觉自动化与 Agent SAFE/AUTONOMOUS 基线�
 且对应 GitHub `ci`/`desktop` 通过；V105 按需人工协助续行切片的本地 Gate 与 GitHub
 `ci`/`desktop` 也已通过。
 
-### Recording 播放授权与对象治理（后续开发切片）
+### Recording 对象治理（后续开发切片）
 
-Agent Browser 当前切片全量验证和剩余高级 Tool 收口后，下一仓库级任务为 Recording
-purpose-bound 一次性播放 Grant、目标 Bucket
-Object Lock/WORM 与到期删除 Worker；实施前必须先复核现有 Manifest、Retention、Legal
-Hold、对象存储 Helper 和 Evidence Grant 边界，不得把 PostgreSQL 删除投影冒充对象已经
-物理删除。
+Recording purpose-bound 一次性播放 Grant 已由 progress 200 闭环。下一仓库级切片为全帧
+OCR/非文本视觉敏感分类、目标 Bucket Object Lock/WORM、到期物理删除 Worker 和更深的目标云
+Legal Hold 联动；不得把 PostgreSQL 删除投影或短期签名 URL 冒充对象已经物理删除或不可变。
 
 ## 8. 尚未完成的功能
 
@@ -786,7 +794,7 @@ Hold、对象存储 Helper 和 Evidence Grant 边界，不得把 PostgreSQL 删�
 2. 目标 CRM/支付/IAM Provider 的真实凭据、字段/事务映射和 Provider 特有认证接入。
 3. 目标云 Secret 解引用/轮换/撤销、商业 Proxy Provider Adapter、高级 SLA/业务成功率路由、Challenge/黑名单与受约束探索。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
-5. Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM、到期对象删除 Worker；OCR 级敏感信息分类。
+5. Recording 全帧 OCR/非文本视觉敏感分类、目标 Bucket Object Lock/WORM、到期对象删除 Worker和目标云 Legal Hold 联动。
 
 ### P1/P2：目标环境与外部集成 Gate
 
@@ -878,7 +886,7 @@ make test-desktop
 
 | 优先级 | 任务 | 原因 |
 | --- | --- | --- |
-| P1 | Recording 播放授权、WORM/删除 Worker 和对象治理 | 涉及敏感浏览器证据、Retention/Legal Hold 的生产闭环 |
+| P1 | Recording 全帧视觉分类、WORM/删除 Worker 和对象治理 | 涉及敏感浏览器证据、Retention/Legal Hold 的生产闭环 |
 | P1 | Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore | Profile 一致性和迁移恢复的主要剩余代码缺口 |
 | P1 | 目标 Provider/Secret/Proxy Adapter | 真实客户业务接入的前提 |
 | P1 | OCR/高级 Validator/Replay | 视觉安全和生产 Agent 质量 Gate |
@@ -889,8 +897,8 @@ make test-desktop
 
 1. Clipboard Bridge 已由 progress 158 完成；不得让 Agent Planner 自动调用该操作员显式
    协作通道，也不得用它替代账号/密码/OTP 一次性敏感输入 API。
-2. 开始 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与
-   到期删除 Worker；实施前复核对象存储和 Retention/Legal Hold 当前边界。
+2. Recording purpose-bound 一次性播放 Grant 已由 progress 200 完成；继续全帧 OCR/非文本视觉
+   分类、目标 Bucket Object Lock/WORM、到期删除 Worker和目标云 Legal Hold 联动。
 3. Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore、目标 Provider/Secret/Proxy 和 OCR/Replay 按第 12 节顺序推进。
 4. 持续补齐目标 Linux/云/多 Region/桌面签名长稳和组织安全发布 Gate；仓库测试通过不等同于允许处理真实客户数据。
 

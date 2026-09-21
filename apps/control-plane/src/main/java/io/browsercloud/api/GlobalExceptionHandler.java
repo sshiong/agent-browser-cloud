@@ -78,6 +78,10 @@ import io.browsercloud.application.SessionEvidenceGovernanceService.EvidenceGove
 import io.browsercloud.application.SessionEvidenceGovernanceService.EvidenceGovernanceRejectedException;
 import io.browsercloud.application.SessionIdentityApplicationService.SessionIdentityRejectedException;
 import io.browsercloud.application.SessionMigrationApplicationService.MigrationRejectedException;
+import io.browsercloud.application.SessionRecordingPlaybackApplicationService.RecordingPlaybackNotFoundException;
+import io.browsercloud.application.SessionRecordingPlaybackApplicationService.RecordingPlaybackRejectedException;
+import io.browsercloud.application.SessionRecordingPlaybackNodeGateway.RecordingPlaybackNodeRejectedException;
+import io.browsercloud.application.SessionRecordingPlaybackNodeGateway.RecordingPlaybackNodeUnavailableException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyActionRejectedException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyNotFoundException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyPermissionException;
@@ -642,6 +646,50 @@ public class GlobalExceptionHandler {
         HttpStatus.SERVICE_UNAVAILABLE,
         "EVIDENCE_ACCESS_NODE_UNAVAILABLE",
         "Browser Node evidence access service is unavailable",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(RecordingPlaybackNotFoundException.class)
+  ResponseEntity<ApiError> recordingPlaybackNotFound(
+      RecordingPlaybackNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "RECORDING_NOT_FOUND",
+        "Session recording was not found or is no longer retained",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(RecordingPlaybackRejectedException.class)
+  ResponseEntity<ApiError> recordingPlaybackRejected(
+      RecordingPlaybackRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "RECORDING_PLAYBACK_REJECTED",
+        "Recording playback request cannot be completed",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(RecordingPlaybackNodeRejectedException.class)
+  ResponseEntity<ApiError> recordingPlaybackNodeRejected(
+      RecordingPlaybackNodeRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.BAD_GATEWAY,
+        "RECORDING_PLAYBACK_NODE_REJECTED",
+        "Browser Node rejected the recording playback request",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(RecordingPlaybackNodeUnavailableException.class)
+  ResponseEntity<ApiError> recordingPlaybackNodeUnavailable(
+      RecordingPlaybackNodeUnavailableException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "RECORDING_PLAYBACK_NODE_UNAVAILABLE",
+        "Browser Node recording playback service is unavailable",
         Map.of(),
         request);
   }

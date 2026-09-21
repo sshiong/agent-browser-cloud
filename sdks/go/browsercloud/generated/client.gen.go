@@ -102,6 +102,9 @@ var Operations = map[string]Operation{
 	"listSessionResourceEvents":                  {OperationID: "listSessionResourceEvents", Method: "GET", Path: "/api/v1/sessions/{sessionId}/resource-events", PathParameters: []string{"sessionId"}, QueryParameters: []string{"limit", "offset"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ResourceEventList"},
 	"listSessionEvidence":                        {OperationID: "listSessionEvidence", Method: "GET", Path: "/api/v1/sessions/{sessionId}/evidence", PathParameters: []string{"sessionId"}, QueryParameters: []string{"limit", "offset"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "EvidenceList"},
 	"listSessionRecordings":                      {OperationID: "listSessionRecordings", Method: "GET", Path: "/api/v1/sessions/{sessionId}/recordings", PathParameters: []string{"sessionId"}, QueryParameters: []string{"limit", "offset"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "RecordingList"},
+	"createRecordingPlaybackGrant":               {OperationID: "createRecordingPlaybackGrant", Method: "POST", Path: "/api/v1/sessions/{sessionId}/recordings/{recordingId}/playback-grants", PathParameters: []string{"recordingId", "sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "CreateRecordingPlaybackGrantRequest", RequestRequired: true, ResponseSchema: "RecordingPlaybackGrant"},
+	"redeemRecordingPlaybackGrant":               {OperationID: "redeemRecordingPlaybackGrant", Method: "POST", Path: "/api/v1/sessions/{sessionId}/recording-playback-grants/{grantId}:redeem", PathParameters: []string{"grantId", "sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "RecordingPlaybackAccess"},
+	"getRecordingPlaybackSegments":               {OperationID: "getRecordingPlaybackSegments", Method: "GET", Path: "/api/v1/sessions/{sessionId}/recording-playback-grants/{grantId}/segments", PathParameters: []string{"grantId", "sessionId"}, QueryParameters: []string{"offset"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "RecordingPlaybackAccess"},
 	"captureSessionEvidence":                     {OperationID: "captureSessionEvidence", Method: "POST", Path: "/api/v1/sessions/{sessionId}/evidence:capture", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "CaptureEvidenceRequest", RequestRequired: true, ResponseSchema: "EvidenceCapture"},
 	"getSessionEvidenceCapture":                  {OperationID: "getSessionEvidenceCapture", Method: "GET", Path: "/api/v1/sessions/{sessionId}/evidence-captures/{captureId}", PathParameters: []string{"captureId", "sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "EvidenceCapture"},
 	"createSessionEvidenceAccessGrant":           {OperationID: "createSessionEvidenceAccessGrant", Method: "POST", Path: "/api/v1/sessions/{sessionId}/evidence/{evidenceId}/access-grants", PathParameters: []string{"evidenceId", "sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "CreateEvidenceAccessGrantRequest", RequestRequired: true, ResponseSchema: "EvidenceAccessGrant"},
@@ -560,6 +563,15 @@ func (c *Client) ListSessionEvidence(ctx context.Context, request Request) (any,
 }
 func (c *Client) ListSessionRecordings(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "listSessionRecordings", request)
+}
+func (c *Client) CreateRecordingPlaybackGrant(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "createRecordingPlaybackGrant", request)
+}
+func (c *Client) RedeemRecordingPlaybackGrant(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "redeemRecordingPlaybackGrant", request)
+}
+func (c *Client) GetRecordingPlaybackSegments(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "getRecordingPlaybackSegments", request)
 }
 func (c *Client) CaptureSessionEvidence(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "captureSessionEvidence", request)

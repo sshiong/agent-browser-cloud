@@ -131,6 +131,7 @@ export type { CreateEvidenceAccessGrantRequest } from './models/CreateEvidenceAc
 export type { CreateKeyRotationRequest } from './models/CreateKeyRotationRequest.js';
 export type { CreateProfileExportGrantRequest } from './models/CreateProfileExportGrantRequest.js';
 export type { CreateProfileRequest } from './models/CreateProfileRequest.js';
+export type { CreateRecordingPlaybackGrantRequest } from './models/CreateRecordingPlaybackGrantRequest.js';
 export type { CreateRuntimeDisableRequest } from './models/CreateRuntimeDisableRequest.js';
 export type { CreateRuntimeReleaseRequest } from './models/CreateRuntimeReleaseRequest.js';
 export type { CreateSafetyLeaseRequest } from './models/CreateSafetyLeaseRequest.js';
@@ -234,6 +235,10 @@ export type { RebindSessionApplicationRequest } from './models/RebindSessionAppl
 export type { RecordExtensionSampleRequest } from './models/RecordExtensionSampleRequest.js';
 export type { Recording } from './models/Recording.js';
 export type { RecordingList } from './models/RecordingList.js';
+export type { RecordingPlaybackAccess } from './models/RecordingPlaybackAccess.js';
+export type { RecordingPlaybackGrant } from './models/RecordingPlaybackGrant.js';
+export type { RecordingPlaybackPurpose } from './models/RecordingPlaybackPurpose.js';
+export type { RecordingPlaybackSegment } from './models/RecordingPlaybackSegment.js';
 export type { RecordNodePressureRequest } from './models/RecordNodePressureRequest.js';
 export type { RecordServiceLevelEventRequest } from './models/RecordServiceLevelEventRequest.js';
 export type { RecoveryContract } from './models/RecoveryContract.js';

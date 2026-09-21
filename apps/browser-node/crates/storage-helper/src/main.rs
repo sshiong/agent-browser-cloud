@@ -2,8 +2,9 @@ use anyhow::Context;
 use bytes::Bytes;
 use helper_contracts::{
     read_frame, write_frame, StorageCheckpoint, StorageCommand, StorageEvidence,
-    StorageEvidenceAccess, StorageProfileExportAccess, StorageRecording, StorageRequest,
-    StorageResponse, StorageRestoreStatus, StorageWarmTierSync, StorageWorkspace, SCHEMA_VERSION,
+    StorageEvidenceAccess, StorageProfileExportAccess, StorageRecording,
+    StorageRecordingPlaybackAccess, StorageRequest, StorageResponse, StorageRestoreStatus,
+    StorageWarmTierSync, StorageWorkspace, SCHEMA_VERSION,
 };
 use nix::sys::socket::getsockopt;
 use nix::unistd::Uid;
@@ -14,7 +15,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use storage_helper::object_archive::{
     EvidenceDownloadRequest, ObjectArchive, ProfileArchiveCrypto, ProfileExportDownloadRequest,
-    S3ArchiveConfig,
+    RecordingPlaybackRequest, S3ArchiveConfig,
 };
 use storage_helper::{LocalProfileStore, ProfileRestoreStatus, ProfileWorkspace};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
@@ -53,10 +54,11 @@ impl StorageService {
         Option<StorageRecording>,
         Option<StorageEvidence>,
         Option<StorageEvidenceAccess>,
+        Option<StorageRecordingPlaybackAccess>,
         Option<StorageProfileExportAccess>,
     )> {
         let Some((tenant_id, profile_id)) = command_profile(command) else {
-            return Ok((None, None, None, None, None, None, None));
+            return Ok((None, None, None, None, None, None, None, None));
         };
         let stripe = profile_lock_stripe(tenant_id, profile_id, self.profile_locks.len());
         let _guard = self.profile_locks[stripe].lock().await;
@@ -137,6 +139,7 @@ async fn serve_connection(
                 recording,
                 evidence,
                 evidence_access,
+                recording_playback_access,
                 profile_export_access,
             )) => StorageResponse {
                 schema_version: SCHEMA_VERSION,
@@ -148,6 +151,7 @@ async fn serve_connection(
                 recording,
                 evidence,
                 evidence_access,
+                recording_playback_access,
                 profile_export_access,
                 error_code: None,
                 error_message: None,
@@ -177,10 +181,11 @@ async fn execute_storage_operation(
     Option<StorageRecording>,
     Option<StorageEvidence>,
     Option<StorageEvidenceAccess>,
+    Option<StorageRecordingPlaybackAccess>,
     Option<StorageProfileExportAccess>,
 )> {
     match command {
-        StorageCommand::Ping => Ok((None, None, None, None, None, None, None)),
+        StorageCommand::Ping => Ok((None, None, None, None, None, None, None, None)),
         StorageCommand::Acquire {
             tenant_id,
             profile_id,
@@ -207,6 +212,7 @@ async fn execute_storage_operation(
                 .await?;
             Ok((
                 Some(workspace_response(workspace)),
+                None,
                 None,
                 None,
                 None,
@@ -242,6 +248,7 @@ async fn execute_storage_operation(
                 None,
                 None,
                 None,
+                None,
             ))
         }
         StorageCommand::SyncWarmTier {
@@ -269,6 +276,7 @@ async fn execute_storage_operation(
                     manifest_sha256: sync.content_hash,
                     committed_at_ms: sync.committed_at_ms,
                 }),
+                None,
                 None,
                 None,
                 None,
@@ -392,6 +400,7 @@ async fn execute_storage_operation(
                 None,
                 None,
                 None,
+                None,
             ))
         }
         StorageCommand::PrepareRecording {
@@ -426,6 +435,7 @@ async fn execute_storage_operation(
                     manifest_bytes: 0,
                     completed: false,
                 }),
+                None,
                 None,
                 None,
                 None,
@@ -551,6 +561,7 @@ async fn execute_storage_operation(
                 None,
                 None,
                 None,
+                None,
             ))
         }
         StorageCommand::CompleteRecording {
@@ -611,6 +622,7 @@ async fn execute_storage_operation(
                     manifest_bytes: committed.manifest_bytes,
                     completed: true,
                 }),
+                None,
                 None,
                 None,
                 None,
@@ -709,6 +721,7 @@ async fn execute_storage_operation(
                 }),
                 None,
                 None,
+                None,
             ))
         }
         StorageCommand::SignEvidenceDownload {
@@ -761,6 +774,97 @@ async fn execute_storage_operation(
                     expires_at_ms,
                 }),
                 None,
+                None,
+            ))
+        }
+        StorageCommand::SignRecordingPlayback {
+            tenant_id,
+            profile_id,
+            session_id,
+            recording_id,
+            manifest_sha256,
+            manifest_bytes,
+            segment_count,
+            frame_count,
+            redacted_frame_count,
+            redacted_region_count,
+            redaction_policy_version,
+            started_at_ms,
+            ended_at_ms,
+            segment_offset,
+            segment_limit,
+            expires_in_seconds,
+        } => {
+            validate_recording_identifier("recording_id", recording_id)?;
+            anyhow::ensure!(
+                manifest_sha256.len() == 64
+                    && manifest_sha256
+                        .chars()
+                        .all(|character| character.is_ascii_hexdigit())
+                    && *manifest_bytes > 0
+                    && *segment_offset <= *segment_count
+                    && (1..=24).contains(segment_limit)
+                    && *redacted_frame_count <= *frame_count
+                    && *redaction_policy_version == 1
+                    && *ended_at_ms >= *started_at_ms
+                    && (30..=120).contains(expires_in_seconds),
+                "recording playback request is invalid"
+            );
+            let archive =
+                archive.ok_or_else(|| anyhow::anyhow!("Object Storage is not configured"))?;
+            let signed = archive
+                .sign_recording_playback(RecordingPlaybackRequest {
+                    tenant_id,
+                    profile_id,
+                    session_id,
+                    recording_id,
+                    manifest_sha256,
+                    manifest_bytes: *manifest_bytes,
+                    segment_count: *segment_count,
+                    frame_count: *frame_count,
+                    redacted_frame_count: *redacted_frame_count,
+                    redacted_region_count: *redacted_region_count,
+                    redaction_policy_version: *redaction_policy_version,
+                    started_at_ms: *started_at_ms,
+                    ended_at_ms: *ended_at_ms,
+                    segment_offset: *segment_offset,
+                    segment_limit: *segment_limit,
+                    expires_in: Duration::from_secs((*expires_in_seconds).into()),
+                })
+                .await?;
+            Ok((
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(StorageRecordingPlaybackAccess {
+                    recording_id: signed.recording_id,
+                    manifest_sha256: signed.manifest_sha256,
+                    frame_count: signed.frame_count,
+                    redacted_frame_count: signed.redacted_frame_count,
+                    redacted_region_count: signed.redacted_region_count,
+                    redaction_policy_version: signed.redaction_policy_version,
+                    expires_at_ms: signed.expires_at_ms,
+                    next_segment_offset: signed.next_segment_offset,
+                    segments: signed
+                        .segments
+                        .into_iter()
+                        .map(
+                            |segment| helper_contracts::StorageRecordingPlaybackSegment {
+                                sequence: segment.sequence,
+                                content_sha256: segment.content_sha256,
+                                content_bytes: segment.content_bytes,
+                                frame_count: segment.frame_count,
+                                started_at_ms: segment.started_at_ms,
+                                ended_at_ms: segment.ended_at_ms,
+                                download_url: segment.download_url,
+                            },
+                        )
+                        .collect(),
+                }),
+                None,
             ))
         }
         StorageCommand::SignProfileExportDownload {
@@ -791,6 +895,7 @@ async fn execute_storage_operation(
                 None,
                 None,
                 None,
+                None,
                 Some(StorageProfileExportAccess {
                     profile_id: profile_id.clone(),
                     checkpoint_id: checkpoint_id.clone(),
@@ -809,7 +914,7 @@ async fn execute_storage_operation(
             store
                 .release_writer_by_identity(tenant_id, profile_id, session_id)
                 .await?;
-            Ok((None, None, None, None, None, None, None))
+            Ok((None, None, None, None, None, None, None, None))
         }
     }
 }
@@ -904,6 +1009,11 @@ fn command_profile(command: &StorageCommand) -> Option<(&str, &str)> {
             ..
         }
         | StorageCommand::SignEvidenceDownload {
+            tenant_id,
+            profile_id,
+            ..
+        }
+        | StorageCommand::SignRecordingPlayback {
             tenant_id,
             profile_id,
             ..
@@ -1138,6 +1248,7 @@ fn rejected(request_id: String, code: &str, message: &str) -> StorageResponse {
         recording: None,
         evidence: None,
         evidence_access: None,
+        recording_playback_access: None,
         profile_export_access: None,
         error_code: Some(code.to_owned()),
         error_message: Some(message.to_owned()),

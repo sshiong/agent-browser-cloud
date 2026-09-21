@@ -2349,6 +2349,56 @@ type RecordingList struct {
 	Offset int         `json:"offset,omitempty"`
 }
 
+type RecordingPlaybackPurpose string
+
+const (
+	RecordingPlaybackPurposeINCIDENTRESPONSE      RecordingPlaybackPurpose = "INCIDENT_RESPONSE"
+	RecordingPlaybackPurposeSUPPORTDIAGNOSTICS    RecordingPlaybackPurpose = "SUPPORT_DIAGNOSTICS"
+	RecordingPlaybackPurposeCOMPLIANCEAUDIT       RecordingPlaybackPurpose = "COMPLIANCE_AUDIT"
+	RecordingPlaybackPurposeSECURITYINVESTIGATION RecordingPlaybackPurpose = "SECURITY_INVESTIGATION"
+)
+
+type CreateRecordingPlaybackGrantRequest struct {
+	Purpose RecordingPlaybackPurpose `json:"purpose,omitempty"`
+}
+
+type RecordingPlaybackGrant struct {
+	GrantId     string                   `json:"grantId,omitempty"`
+	SessionId   string                   `json:"sessionId,omitempty"`
+	RecordingId string                   `json:"recordingId,omitempty"`
+	Purpose     RecordingPlaybackPurpose `json:"purpose,omitempty"`
+	State       string                   `json:"state,omitempty"`
+	ExpiresAt   string                   `json:"expiresAt,omitempty"`
+	CreatedAt   string                   `json:"createdAt,omitempty"`
+	RedeemedAt  any                      `json:"redeemedAt,omitempty"`
+	ErrorCode   any                      `json:"errorCode,omitempty"`
+	RequestId   any                      `json:"requestId,omitempty"`
+}
+
+type RecordingPlaybackSegment struct {
+	Sequence      int64  `json:"sequence,omitempty"`
+	ContentSha256 string `json:"contentSha256,omitempty"`
+	ContentBytes  int64  `json:"contentBytes,omitempty"`
+	FrameCount    int64  `json:"frameCount,omitempty"`
+	StartedAtMs   int64  `json:"startedAtMs,omitempty"`
+	EndedAtMs     int64  `json:"endedAtMs,omitempty"`
+	DownloadUrl   string `json:"downloadUrl,omitempty"`
+}
+
+type RecordingPlaybackAccess struct {
+	GrantId                string                     `json:"grantId,omitempty"`
+	RecordingId            string                     `json:"recordingId,omitempty"`
+	ManifestSha256         string                     `json:"manifestSha256,omitempty"`
+	FrameCount             int64                      `json:"frameCount,omitempty"`
+	RedactedFrameCount     int64                      `json:"redactedFrameCount,omitempty"`
+	RedactedRegionCount    int64                      `json:"redactedRegionCount,omitempty"`
+	RedactionPolicyVersion int                        `json:"redactionPolicyVersion,omitempty"`
+	ExpiresAt              string                     `json:"expiresAt,omitempty"`
+	AccessExpiresAt        string                     `json:"accessExpiresAt,omitempty"`
+	NextSegmentOffset      any                        `json:"nextSegmentOffset,omitempty"`
+	Segments               []RecordingPlaybackSegment `json:"segments,omitempty"`
+}
+
 type EvidencePurpose string
 
 const (

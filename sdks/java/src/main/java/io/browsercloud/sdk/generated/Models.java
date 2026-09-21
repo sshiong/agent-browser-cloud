@@ -417,6 +417,16 @@ public final class Models {
 
   public record RecordingList(List<Recording> items, Integer limit, Integer offset) {}
 
+  public enum RecordingPlaybackPurpose { INCIDENTRESPONSE, SUPPORTDIAGNOSTICS, COMPLIANCEAUDIT, SECURITYINVESTIGATION }
+
+  public record CreateRecordingPlaybackGrantRequest(RecordingPlaybackPurpose purpose) {}
+
+  public record RecordingPlaybackGrant(String grantId, String sessionId, String recordingId, RecordingPlaybackPurpose purpose, String state, String expiresAt, String createdAt, Object redeemedAt, Object errorCode, Object requestId) {}
+
+  public record RecordingPlaybackSegment(Long sequence, String contentSha256, Long contentBytes, Long frameCount, Long startedAtMs, Long endedAtMs, String downloadUrl) {}
+
+  public record RecordingPlaybackAccess(String grantId, String recordingId, String manifestSha256, Long frameCount, Long redactedFrameCount, Long redactedRegionCount, Integer redactionPolicyVersion, String expiresAt, String accessExpiresAt, Object nextSegmentOffset, List<RecordingPlaybackSegment> segments) {}
+
   public enum EvidencePurpose { INCIDENTRESPONSE, CHANGEVALIDATION, SUPPORTDIAGNOSTICS, COMPLIANCEAUDIT, AGENTPERCEPTION }
 
   public record CaptureEvidenceRequest(EvidencePurpose purpose) {}

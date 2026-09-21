@@ -78,6 +78,9 @@ public final class BrowserCloudGeneratedClient {
     operation("listSessionResourceEvents", "GET", "/api/v1/sessions/{sessionId}/resource-events", List.of("sessionId"), List.of("limit", "offset"), List.of("X-Tenant-Id"), "", false, "ResourceEventList"),
     operation("listSessionEvidence", "GET", "/api/v1/sessions/{sessionId}/evidence", List.of("sessionId"), List.of("limit", "offset"), List.of("X-Tenant-Id"), "", false, "EvidenceList"),
     operation("listSessionRecordings", "GET", "/api/v1/sessions/{sessionId}/recordings", List.of("sessionId"), List.of("limit", "offset"), List.of("X-Tenant-Id"), "", false, "RecordingList"),
+    operation("createRecordingPlaybackGrant", "POST", "/api/v1/sessions/{sessionId}/recordings/{recordingId}/playback-grants", List.of("recordingId", "sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CreateRecordingPlaybackGrantRequest", true, "RecordingPlaybackGrant"),
+    operation("redeemRecordingPlaybackGrant", "POST", "/api/v1/sessions/{sessionId}/recording-playback-grants/{grantId}:redeem", List.of("grantId", "sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "RecordingPlaybackAccess"),
+    operation("getRecordingPlaybackSegments", "GET", "/api/v1/sessions/{sessionId}/recording-playback-grants/{grantId}/segments", List.of("grantId", "sessionId"), List.of("offset"), List.of("X-Tenant-Id"), "", false, "RecordingPlaybackAccess"),
     operation("captureSessionEvidence", "POST", "/api/v1/sessions/{sessionId}/evidence:capture", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CaptureEvidenceRequest", true, "EvidenceCapture"),
     operation("getSessionEvidenceCapture", "GET", "/api/v1/sessions/{sessionId}/evidence-captures/{captureId}", List.of("captureId", "sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "EvidenceCapture"),
     operation("createSessionEvidenceAccessGrant", "POST", "/api/v1/sessions/{sessionId}/evidence/{evidenceId}/access-grants", List.of("evidenceId", "sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CreateEvidenceAccessGrantRequest", true, "EvidenceAccessGrant"),
@@ -360,6 +363,9 @@ public final class BrowserCloudGeneratedClient {
   public Response listSessionResourceEvents(Request request) { return call("listSessionResourceEvents", request); }
   public Response listSessionEvidence(Request request) { return call("listSessionEvidence", request); }
   public Response listSessionRecordings(Request request) { return call("listSessionRecordings", request); }
+  public Response createRecordingPlaybackGrant(Request request) { return call("createRecordingPlaybackGrant", request); }
+  public Response redeemRecordingPlaybackGrant(Request request) { return call("redeemRecordingPlaybackGrant", request); }
+  public Response getRecordingPlaybackSegments(Request request) { return call("getRecordingPlaybackSegments", request); }
   public Response captureSessionEvidence(Request request) { return call("captureSessionEvidence", request); }
   public Response getSessionEvidenceCapture(Request request) { return call("getSessionEvidenceCapture", request); }
   public Response createSessionEvidenceAccessGrant(Request request) { return call("createSessionEvidenceAccessGrant", request); }

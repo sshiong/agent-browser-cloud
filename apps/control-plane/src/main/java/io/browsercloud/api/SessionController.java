@@ -10,6 +10,7 @@ import io.browsercloud.application.SessionEvidenceApplicationService;
 import io.browsercloud.application.SessionEvidenceGovernanceService;
 import io.browsercloud.application.SessionMigrationApplicationService;
 import io.browsercloud.application.SessionRecordingApplicationService;
+import io.browsercloud.application.SessionRecordingPlaybackApplicationService;
 import io.browsercloud.application.SessionResourceApplicationService;
 import io.browsercloud.application.SessionResourceEventStreamService;
 import io.browsercloud.application.SessionSafetyLeaseApplicationService;
@@ -56,6 +57,7 @@ public class SessionController {
   private final SessionEvidenceGovernanceService evidenceGovernance;
   private final CoordinatorCommandRoutingService commandRouting;
   private final SessionRecordingApplicationService recordingService;
+  private final SessionRecordingPlaybackApplicationService recordingPlaybackService;
 
   public SessionController(
       SessionApplicationService service,
@@ -69,7 +71,8 @@ public class SessionController {
       SessionEvidenceApplicationService evidenceService,
       SessionEvidenceGovernanceService evidenceGovernance,
       CoordinatorCommandRoutingService commandRouting,
-      SessionRecordingApplicationService recordingService) {
+      SessionRecordingApplicationService recordingService,
+      SessionRecordingPlaybackApplicationService recordingPlaybackService) {
     this.service = service;
     this.stateGateway = stateGateway;
     this.identity = identity;
@@ -82,6 +85,7 @@ public class SessionController {
     this.evidenceGovernance = evidenceGovernance;
     this.commandRouting = commandRouting;
     this.recordingService = recordingService;
+    this.recordingPlaybackService = recordingPlaybackService;
   }
 
   /**
@@ -296,6 +300,54 @@ public class SessionController {
       @RequestParam(defaultValue = "50") @Min(1) @Max(100) int limit,
       @RequestParam(defaultValue = "0") @Min(0) int offset) {
     return recordingService.list(sessionId, identity.current().tenantId(), limit, offset);
+  }
+
+  /** Creates a purpose-bound, actor-bound five-minute grant for one immutable recording. */
+  @PostMapping("/{sessionId}/recordings/{recordingId}/playback-grants")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public ResponseEntity<SessionRecordingModels.RecordingPlaybackGrantView>
+      createRecordingPlaybackGrant(
+          @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+          @PathVariable @Pattern(regexp = "^rec_[0-9a-f]{32}$") String recordingId,
+          @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey,
+          @Valid @RequestBody SessionRecordingModels.CreateRecordingPlaybackGrantRequest body,
+          HttpServletRequest request) {
+    var principal = identity.current();
+    return ResponseEntity.status(201)
+        .body(
+            recordingPlaybackService.create(
+                sessionId,
+                recordingId,
+                principal.tenantId(),
+                principal.actorId(),
+                idempotencyKey,
+                requestId(request),
+                body));
+  }
+
+  /** Redeems a playback grant once; returned segment URLs expire after 60 seconds. */
+  @PostMapping("/{sessionId}/recording-playback-grants/{grantId}:redeem")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public SessionRecordingModels.RedeemRecordingPlaybackGrantResponse redeemRecordingPlaybackGrant(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @PathVariable @Pattern(regexp = "^rgr_[0-9a-f]{32}$") String grantId,
+      HttpServletRequest request) {
+    var principal = identity.current();
+    return recordingPlaybackService.redeem(
+        sessionId, grantId, principal.tenantId(), principal.actorId(), requestId(request));
+  }
+
+  /** Signs the next bounded segment page for the same actor during the redeemed access window. */
+  @GetMapping("/{sessionId}/recording-playback-grants/{grantId}/segments")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public SessionRecordingModels.RedeemRecordingPlaybackGrantResponse getRecordingPlaybackSegments(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @PathVariable @Pattern(regexp = "^rgr_[0-9a-f]{32}$") String grantId,
+      @RequestParam @Min(0) long offset,
+      HttpServletRequest request) {
+    var principal = identity.current();
+    return recordingPlaybackService.page(
+        sessionId, grantId, offset, principal.tenantId(), principal.actorId(), requestId(request));
   }
 
   /** Requests a real Browser screenshot. Completion arrives through SessionEvidenceCaptured. */

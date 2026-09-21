@@ -197,6 +197,90 @@ pub struct PresignEvidenceDownloadResponse {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PresignRecordingPlaybackRequest {
+    #[prost(string, tag="1")]
+    pub grant_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub tenant_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub profile_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub recording_id: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub manifest_sha256: ::prost::alloc::string::String,
+    #[prost(uint64, tag="7")]
+    pub manifest_bytes: u64,
+    #[prost(uint64, tag="8")]
+    pub segment_count: u64,
+    #[prost(uint64, tag="9")]
+    pub frame_count: u64,
+    #[prost(uint64, tag="10")]
+    pub redacted_frame_count: u64,
+    #[prost(uint64, tag="11")]
+    pub redacted_region_count: u64,
+    #[prost(uint32, tag="12")]
+    pub redaction_policy_version: u32,
+    #[prost(int64, tag="13")]
+    pub started_at_ms: i64,
+    #[prost(int64, tag="14")]
+    pub ended_at_ms: i64,
+    #[prost(uint32, tag="15")]
+    pub expires_in_seconds: u32,
+    #[prost(uint64, tag="16")]
+    pub segment_offset: u64,
+    #[prost(uint32, tag="17")]
+    pub segment_limit: u32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordingPlaybackSegment {
+    #[prost(uint64, tag="1")]
+    pub sequence: u64,
+    #[prost(string, tag="2")]
+    pub content_sha256: ::prost::alloc::string::String,
+    #[prost(uint64, tag="3")]
+    pub content_bytes: u64,
+    #[prost(uint64, tag="4")]
+    pub frame_count: u64,
+    #[prost(int64, tag="5")]
+    pub started_at_ms: i64,
+    #[prost(int64, tag="6")]
+    pub ended_at_ms: i64,
+    #[prost(string, tag="7")]
+    pub download_url: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PresignRecordingPlaybackResponse {
+    #[prost(string, tag="1")]
+    pub grant_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub node_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub recording_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub manifest_sha256: ::prost::alloc::string::String,
+    #[prost(uint64, tag="5")]
+    pub frame_count: u64,
+    #[prost(uint64, tag="6")]
+    pub redacted_frame_count: u64,
+    #[prost(uint64, tag="7")]
+    pub redacted_region_count: u64,
+    #[prost(uint32, tag="8")]
+    pub redaction_policy_version: u32,
+    #[prost(int64, tag="9")]
+    pub expires_at_ms: i64,
+    #[prost(message, repeated, tag="10")]
+    pub segments: ::prost::alloc::vec::Vec<RecordingPlaybackSegment>,
+    #[prost(bool, tag="11")]
+    pub complete: bool,
+    #[prost(uint64, tag="12")]
+    pub next_segment_offset: u64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PresignProfileExportDownloadRequest {
     #[prost(string, tag="1")]
     pub grant_id: ::prost::alloc::string::String,

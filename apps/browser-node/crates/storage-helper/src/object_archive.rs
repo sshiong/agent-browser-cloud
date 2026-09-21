@@ -40,6 +40,47 @@ pub struct EvidenceDownloadRequest<'a> {
     pub expires_in: Duration,
 }
 
+pub struct RecordingPlaybackRequest<'a> {
+    pub tenant_id: &'a str,
+    pub profile_id: &'a str,
+    pub session_id: &'a str,
+    pub recording_id: &'a str,
+    pub manifest_sha256: &'a str,
+    pub manifest_bytes: u64,
+    pub segment_count: u64,
+    pub frame_count: u64,
+    pub redacted_frame_count: u64,
+    pub redacted_region_count: u64,
+    pub redaction_policy_version: u32,
+    pub started_at_ms: u64,
+    pub ended_at_ms: u64,
+    pub segment_offset: u64,
+    pub segment_limit: u32,
+    pub expires_in: Duration,
+}
+
+pub struct SignedRecordingPlaybackSegment {
+    pub sequence: u64,
+    pub content_sha256: String,
+    pub content_bytes: u64,
+    pub frame_count: u64,
+    pub started_at_ms: u64,
+    pub ended_at_ms: u64,
+    pub download_url: String,
+}
+
+pub struct SignedRecordingPlayback {
+    pub recording_id: String,
+    pub manifest_sha256: String,
+    pub frame_count: u64,
+    pub redacted_frame_count: u64,
+    pub redacted_region_count: u64,
+    pub redaction_policy_version: u32,
+    pub expires_at_ms: u64,
+    pub next_segment_offset: Option<u64>,
+    pub segments: Vec<SignedRecordingPlaybackSegment>,
+}
+
 pub struct ProfileExportDownloadRequest<'a> {
     pub tenant_id: &'a str,
     pub profile_id: &'a str,
@@ -512,6 +553,34 @@ struct RecordingCommitMarker<'a> {
     ended_at_ms: u64,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct StoredRecordingSegmentMarker {
+    recording_id: String,
+    segment_sequence: u64,
+    content_sha256: String,
+    content_bytes: u64,
+    frame_count: u64,
+    redacted_frame_count: u64,
+    redacted_region_count: u64,
+    redaction_policy_version: u32,
+    started_at_ms: u64,
+    ended_at_ms: u64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct StoredRecordingCommitMarker {
+    recording_id: String,
+    segment_count: u64,
+    frame_count: u64,
+    redacted_frame_count: u64,
+    redacted_region_count: u64,
+    redaction_policy_version: u32,
+    started_at_ms: u64,
+    ended_at_ms: u64,
+}
+
 pub struct RecordingCommitResult {
     pub object_key: String,
     pub manifest_sha256: String,
@@ -848,6 +917,121 @@ impl ObjectArchive {
             .ok_or_else(|| anyhow::anyhow!("evidence access expiry overflow"))?
             .as_millis() as u64;
         Ok((signed_url.to_string(), expires_at_ms))
+    }
+
+    pub async fn sign_recording_playback(
+        &self,
+        request: RecordingPlaybackRequest<'_>,
+    ) -> anyhow::Result<SignedRecordingPlayback> {
+        anyhow::ensure!(
+            (Duration::from_secs(30)..=Duration::from_secs(120)).contains(&request.expires_in)
+                && (1..=24).contains(&request.segment_limit)
+                && request.segment_offset <= request.segment_count
+                && request.redaction_policy_version == 1
+                && request.redacted_frame_count <= request.frame_count
+                && (request.redacted_frame_count == 0 || request.redacted_region_count > 0)
+                && request.ended_at_ms >= request.started_at_ms,
+            "recording playback request is invalid"
+        );
+        let base = self.recording_key_for(
+            request.tenant_id,
+            request.profile_id,
+            request.session_id,
+            request.recording_id,
+        );
+        let manifest_bytes = self.get(&format!("{base}/COMMITTED")).await?;
+        anyhow::ensure!(
+            manifest_bytes.len() as u64 == request.manifest_bytes
+                && hex_sha256(&manifest_bytes).eq_ignore_ascii_case(request.manifest_sha256),
+            "recording aggregate manifest integrity does not match the access request"
+        );
+        let manifest: StoredRecordingCommitMarker = serde_json::from_slice(&manifest_bytes)?;
+        anyhow::ensure!(
+            manifest.recording_id == request.recording_id
+                && manifest.segment_count == request.segment_count
+                && manifest.frame_count == request.frame_count
+                && manifest.redacted_frame_count == request.redacted_frame_count
+                && manifest.redacted_region_count == request.redacted_region_count
+                && manifest.redaction_policy_version == request.redaction_policy_version
+                && manifest.started_at_ms == request.started_at_ms
+                && manifest.ended_at_ms == request.ended_at_ms,
+            "recording aggregate manifest does not match the access request"
+        );
+        let page_end = request
+            .segment_offset
+            .saturating_add(u64::from(request.segment_limit))
+            .min(request.segment_count);
+        let mut segments = Vec::with_capacity((page_end - request.segment_offset) as usize);
+        for sequence in request.segment_offset..page_end {
+            let marker_key = format!("{base}/segments/{sequence:020}.COMMITTED");
+            let marker_bytes = self.get(&marker_key).await?;
+            let marker: StoredRecordingSegmentMarker = serde_json::from_slice(&marker_bytes)?;
+            anyhow::ensure!(
+                marker.recording_id == request.recording_id
+                    && marker.segment_sequence == sequence
+                    && marker.content_sha256.len() == 64
+                    && marker
+                        .content_sha256
+                        .chars()
+                        .all(|character| character.is_ascii_hexdigit())
+                    && marker.content_bytes > 0
+                    && marker.redacted_frame_count <= marker.frame_count
+                    && (marker.redacted_frame_count == 0 || marker.redacted_region_count > 0)
+                    && marker.redaction_policy_version == request.redaction_policy_version
+                    && marker.ended_at_ms >= marker.started_at_ms
+                    && marker.started_at_ms >= request.started_at_ms
+                    && marker.ended_at_ms <= request.ended_at_ms,
+                "recording segment marker is invalid"
+            );
+            let object_key = format!("{base}/segments/{sequence:020}.ndjson");
+            let object_path = Path::from(object_key.as_str());
+            let metadata =
+                tokio::time::timeout(self.operation_timeout, self.store.head(&object_path))
+                    .await
+                    .context("Object Storage operation timed out")?
+                    .with_context(|| format!("Object Storage HEAD failed for {object_key}"))?;
+            anyhow::ensure!(
+                metadata.size == marker.content_bytes,
+                "recording segment size does not match its commit marker"
+            );
+            let signed_url = tokio::time::timeout(
+                self.operation_timeout,
+                self.store
+                    .signed_url(Method::GET, &object_path, request.expires_in),
+            )
+            .await
+            .context("Object Storage signing timed out")?
+            .context("Object Storage recording segment signing failed")?;
+            anyhow::ensure!(
+                signed_url.as_str().len() <= 2048,
+                "recording segment signed URL exceeds the bounded playback response"
+            );
+            segments.push(SignedRecordingPlaybackSegment {
+                sequence,
+                content_sha256: marker.content_sha256,
+                content_bytes: marker.content_bytes,
+                frame_count: marker.frame_count,
+                started_at_ms: marker.started_at_ms,
+                ended_at_ms: marker.ended_at_ms,
+                download_url: signed_url.to_string(),
+            });
+        }
+        let expires_at_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)?
+            .checked_add(request.expires_in)
+            .ok_or_else(|| anyhow::anyhow!("recording playback expiry overflow"))?
+            .as_millis() as u64;
+        Ok(SignedRecordingPlayback {
+            recording_id: request.recording_id.to_owned(),
+            manifest_sha256: request.manifest_sha256.to_ascii_lowercase(),
+            frame_count: request.frame_count,
+            redacted_frame_count: request.redacted_frame_count,
+            redacted_region_count: request.redacted_region_count,
+            redaction_policy_version: request.redaction_policy_version,
+            expires_at_ms,
+            next_segment_offset: (page_end < request.segment_count).then_some(page_end),
+            segments,
+        })
     }
 
     pub async fn sign_profile_export_download(
@@ -1440,7 +1624,7 @@ mod tests {
                     "session-test",
                     "rec-test",
                     0,
-                    recording_content,
+                    recording_content.clone(),
                     &recording_hash,
                     1,
                     1,
@@ -1496,6 +1680,60 @@ mod tests {
                 .unwrap();
             assert_eq!(completed.manifest_sha256, hex_sha256(&manifest));
             assert_eq!(completed.manifest_bytes, manifest.len() as u64);
+            let rejected_playback = archive
+                .sign_recording_playback(RecordingPlaybackRequest {
+                    tenant_id: "tenant-test",
+                    profile_id: "profile-test",
+                    session_id: "session-test",
+                    recording_id: "rec-test",
+                    manifest_sha256: &"0".repeat(64),
+                    manifest_bytes: completed.manifest_bytes,
+                    segment_count: 1,
+                    frame_count: 1,
+                    redacted_frame_count: 1,
+                    redacted_region_count: 2,
+                    redaction_policy_version: 1,
+                    started_at_ms: 1,
+                    ended_at_ms: 2,
+                    segment_offset: 0,
+                    segment_limit: 24,
+                    expires_in: Duration::from_secs(60),
+                })
+                .await;
+            assert!(rejected_playback.is_err());
+            let playback = archive
+                .sign_recording_playback(RecordingPlaybackRequest {
+                    tenant_id: "tenant-test",
+                    profile_id: "profile-test",
+                    session_id: "session-test",
+                    recording_id: "rec-test",
+                    manifest_sha256: &completed.manifest_sha256,
+                    manifest_bytes: completed.manifest_bytes,
+                    segment_count: 1,
+                    frame_count: 1,
+                    redacted_frame_count: 1,
+                    redacted_region_count: 2,
+                    redaction_policy_version: 1,
+                    started_at_ms: 1,
+                    ended_at_ms: 2,
+                    segment_offset: 0,
+                    segment_limit: 24,
+                    expires_in: Duration::from_secs(60),
+                })
+                .await
+                .unwrap();
+            assert_eq!(playback.segments.len(), 1);
+            assert_eq!(playback.segments[0].content_sha256, recording_hash);
+            assert!(playback.next_segment_offset.is_none());
+            let downloaded_recording = reqwest::get(&playback.segments[0].download_url)
+                .await
+                .unwrap()
+                .error_for_status()
+                .unwrap()
+                .bytes()
+                .await
+                .unwrap();
+            assert_eq!(downloaded_recording.as_ref(), recording_content.as_ref());
             let evidence_content = Bytes::from_static(&[0xff, 0xd8, 0xff, 0xd9]);
             let evidence_hash = hex_sha256(&evidence_content);
             let evidence_key = archive

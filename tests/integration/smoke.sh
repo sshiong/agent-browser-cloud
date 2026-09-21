@@ -729,7 +729,7 @@ for _ in $(seq 1 30); do
   sleep 0.25
 done
 printf '%s' "$browser_nodes" | python3 -c \
-  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["safePointBrowserTransactions"] == "cdp-transaction-v1"; assert node["labels"]["safePointBrowserTransactionPolicy"] == "approved-route-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileArchiveEncryption"] == "aead-envelope-v1"; assert node["labels"]["profileExport"] == "presigned-encrypted-checkpoint-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["evidenceRedaction"] == "dom-overlay-script-freeze-v1"; assert node["labels"]["recordingRedaction"] == "frame-mask-v1"; assert node["labels"]["agentScreenshot"] == "state-fenced-region-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["safePointBrowserTransactions"] == "cdp-transaction-v1"; assert node["labels"]["safePointBrowserTransactionPolicy"] == "approved-route-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileArchiveEncryption"] == "aead-envelope-v1"; assert node["labels"]["profileExport"] == "presigned-encrypted-checkpoint-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["evidenceRedaction"] == "dom-overlay-script-freeze-v1"; assert node["labels"]["recordingRedaction"] == "frame-mask-v1"; assert node["labels"]["recordingPlayback"] == "presigned-segments-v1"; assert node["labels"]["agentScreenshot"] == "state-fenced-region-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
 printf 'safe_point_browser_transaction_policy=true\n'
 printf '%s' "$browser_nodes" | python3 -c \
   'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["labels"]["opaqueFrameChallengeClick"] == "state-fenced-click-v1"'
@@ -6353,6 +6353,127 @@ observer_audit_leaks="$(docker exec "$postgres_name" psql -U browsercloud -d bro
    where resource_id='${observer_access_grant_id}'
      and (details::text ilike '%http%' or details::text ilike '%signature%')")"
 test "$observer_audit_leaks" = "0"
+
+recording_fixture_id="rec_11111111111111111111111111111111"
+recording_profile_id="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select profile_id from sessions where id='${session_one}'")"
+recording_fixture="$(cargo run --quiet --locked \
+  --manifest-path apps/browser-node/Cargo.toml \
+  -p storage-helper --example create_recording_fixture -- \
+  "http://127.0.0.1:${minio_port}" "$minio_bucket" "$minio_access_key" \
+  "$minio_secret_key" "$temp_dir/profile-archive-keyring.json" \
+  tenant-integration "$recording_profile_id" "$session_one" "$recording_fixture_id")"
+recording_manifest_key="$(printf '%s' "$recording_fixture" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["manifestObjectKey"])')"
+recording_manifest_sha="$(printf '%s' "$recording_fixture" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["manifestSha256"])')"
+recording_manifest_bytes="$(printf '%s' "$recording_fixture" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["manifestBytes"])')"
+recording_first_segment_sha="$(printf '%s' "$recording_fixture" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["firstSegmentSha256"])')"
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -v ON_ERROR_STOP=1 -c \
+  "insert into session_recordings(
+     recording_id, event_id, tenant_id, session_id, node_id, segment_count, frame_count,
+     dropped_frames, redacted_frame_count, redacted_region_count, redaction_policy_version,
+     manifest_object_key, manifest_sha256, manifest_bytes, started_at, ended_at,
+     retention_until, legal_hold)
+   values (
+     '${recording_fixture_id}', 'evt_recording_playback_fixture', 'tenant-integration',
+     '${session_one}', 'node_integration', 25, 25, 0, 25, 25, 1,
+     '${recording_manifest_key}', '${recording_manifest_sha}', ${recording_manifest_bytes},
+     to_timestamp(0.001), to_timestamp(0.025), now() + interval '1 day', false)" >/dev/null
+recording_list="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/recordings?limit=20" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$recording_list" | python3 -c \
+  "import json,sys; item=next(value for value in json.load(sys.stdin)['items'] if value['recordingId'] == '${recording_fixture_id}'); assert item['segmentCount'] == 25; assert item['frameCount'] == 25; assert item['redactedFrameCount'] == 25; assert item['redactedRegionCount'] == 25; assert item['manifestSha256'] == '${recording_manifest_sha}'; assert 'manifestObjectKey' not in item"
+recording_grant_operator_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}/recordings/${recording_fixture_id}/playback-grants" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: recording-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-recording-playback-operator-denied' \
+  -d '{"purpose":"SECURITY_INVESTIGATION"}')"
+test "$recording_grant_operator_status" = "403"
+recording_grant="$(curl -fsS \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}/recordings/${recording_fixture_id}/playback-grants" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: recording-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-recording-playback-001' \
+  -d '{"purpose":"SECURITY_INVESTIGATION"}')"
+recording_grant_id="$(printf '%s' "$recording_grant" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "ISSUED"; assert item["purpose"] == "SECURITY_INVESTIGATION"; assert "segments" not in item; print(item["grantId"])')"
+recording_grant_replay="$(curl -fsS \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}/recordings/${recording_fixture_id}/playback-grants" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: recording-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-recording-playback-001' \
+  -d '{"purpose":"SECURITY_INVESTIGATION"}')"
+test "$(printf '%s' "$recording_grant_replay" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["grantId"])')" = "$recording_grant_id"
+recording_cross_actor_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}/recording-playback-grants/${recording_grant_id}:redeem" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: another-admin' \
+  -H 'X-Roles: TENANT_ADMIN')"
+test "$recording_cross_actor_status" = "409"
+recording_access="$(curl -fsS \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}/recording-playback-grants/${recording_grant_id}:redeem" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: recording-admin' \
+  -H 'X-Roles: TENANT_ADMIN')"
+recording_first_url="$(printf '%s' "$recording_access" | python3 -c \
+  "import json,sys,urllib.parse; item=json.load(sys.stdin); assert item['grantId'] == '${recording_grant_id}'; assert item['recordingId'] == '${recording_fixture_id}'; assert item['manifestSha256'] == '${recording_manifest_sha}'; assert len(item['segments']) == 24; assert [value['sequence'] for value in item['segments']] == list(range(24)); assert item['nextSegmentOffset'] == 24; parsed=urllib.parse.urlparse(item['segments'][0]['downloadUrl']); assert parsed.scheme == 'http'; assert parsed.hostname == '127.0.0.1'; print(item['segments'][0]['downloadUrl'])")"
+curl -fsS "$recording_first_url" -o "$temp_dir/recording-segment-0.ndjson"
+test "$(openssl dgst -sha256 -r "$temp_dir/recording-segment-0.ndjson" | awk '{print $1}')" = "$recording_first_segment_sha"
+recording_access_page="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/recording-playback-grants/${recording_grant_id}/segments?offset=24" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: recording-admin' \
+  -H 'X-Roles: TENANT_ADMIN')"
+printf '%s' "$recording_access_page" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert len(item["segments"]) == 1; assert item["segments"][0]["sequence"] == 24; assert item["nextSegmentOffset"] is None'
+recording_redeem_replay_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}/recording-playback-grants/${recording_grant_id}:redeem" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: recording-admin' \
+  -H 'X-Roles: TENANT_ADMIN')"
+test "$recording_redeem_replay_status" = "409"
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -c \
+  "update session_recordings set retention_until=now() - interval '1 second'
+   where recording_id='${recording_fixture_id}'" >/dev/null
+recording_expired_page_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/recording-playback-grants/${recording_grant_id}/segments?offset=0" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: recording-admin' \
+  -H 'X-Roles: TENANT_ADMIN')"
+test "$recording_expired_page_status" = "409"
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -c \
+  "update session_recordings set legal_hold=true where recording_id='${recording_fixture_id}'" >/dev/null
+curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/recording-playback-grants/${recording_grant_id}/segments?offset=0" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: recording-admin' \
+  -H 'X-Roles: TENANT_ADMIN' | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert len(item["segments"]) == 24'
+recording_access_state="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select state from session_recording_playback_grants where grant_id='${recording_grant_id}'")"
+test "$recording_access_state" = "REDEEMED"
+recording_url_columns="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from information_schema.columns
+   where table_name='session_recording_playback_grants' and column_name like '%url%'")"
+test "$recording_url_columns" = "0"
+recording_audit_leaks="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from audit_events
+   where resource_id='${recording_grant_id}'
+     and (details::text ilike '%http%' or details::text ilike '%signature%')")"
+test "$recording_audit_leaks" = "0"
+echo "recording_playback_access=true"
 
 confirmation_task="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-tasks" \

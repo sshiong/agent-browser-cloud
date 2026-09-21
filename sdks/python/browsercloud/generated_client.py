@@ -88,6 +88,9 @@ OPERATIONS: dict[str, Operation] = {
     'listSessionResourceEvents': Operation('listSessionResourceEvents', 'GET', '/api/v1/sessions/{sessionId}/resource-events', ('sessionId',), ('limit', 'offset'), ('X-Tenant-Id',), '', False, 'ResourceEventList'),
     'listSessionEvidence': Operation('listSessionEvidence', 'GET', '/api/v1/sessions/{sessionId}/evidence', ('sessionId',), ('limit', 'offset'), ('X-Tenant-Id',), '', False, 'EvidenceList'),
     'listSessionRecordings': Operation('listSessionRecordings', 'GET', '/api/v1/sessions/{sessionId}/recordings', ('sessionId',), ('limit', 'offset'), ('X-Tenant-Id',), '', False, 'RecordingList'),
+    'createRecordingPlaybackGrant': Operation('createRecordingPlaybackGrant', 'POST', '/api/v1/sessions/{sessionId}/recordings/{recordingId}/playback-grants', ('recordingId', 'sessionId'), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CreateRecordingPlaybackGrantRequest', True, 'RecordingPlaybackGrant'),
+    'redeemRecordingPlaybackGrant': Operation('redeemRecordingPlaybackGrant', 'POST', '/api/v1/sessions/{sessionId}/recording-playback-grants/{grantId}:redeem', ('grantId', 'sessionId'), (), ('X-Tenant-Id',), '', False, 'RecordingPlaybackAccess'),
+    'getRecordingPlaybackSegments': Operation('getRecordingPlaybackSegments', 'GET', '/api/v1/sessions/{sessionId}/recording-playback-grants/{grantId}/segments', ('grantId', 'sessionId'), ('offset',), ('X-Tenant-Id',), '', False, 'RecordingPlaybackAccess'),
     'captureSessionEvidence': Operation('captureSessionEvidence', 'POST', '/api/v1/sessions/{sessionId}/evidence:capture', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CaptureEvidenceRequest', True, 'EvidenceCapture'),
     'getSessionEvidenceCapture': Operation('getSessionEvidenceCapture', 'GET', '/api/v1/sessions/{sessionId}/evidence-captures/{captureId}', ('captureId', 'sessionId'), (), ('X-Tenant-Id',), '', False, 'EvidenceCapture'),
     'createSessionEvidenceAccessGrant': Operation('createSessionEvidenceAccessGrant', 'POST', '/api/v1/sessions/{sessionId}/evidence/{evidenceId}/access-grants', ('evidenceId', 'sessionId'), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CreateEvidenceAccessGrantRequest', True, 'EvidenceAccessGrant'),
@@ -501,6 +504,15 @@ class BrowserCloudGeneratedClient:
 
     def listSessionRecordings(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('listSessionRecordings', path=path, query=query, body=body, headers=headers)
+
+    def createRecordingPlaybackGrant(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('createRecordingPlaybackGrant', path=path, query=query, body=body, headers=headers)
+
+    def redeemRecordingPlaybackGrant(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('redeemRecordingPlaybackGrant', path=path, query=query, body=body, headers=headers)
+
+    def getRecordingPlaybackSegments(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getRecordingPlaybackSegments', path=path, query=query, body=body, headers=headers)
 
     def captureSessionEvidence(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('captureSessionEvidence', path=path, query=query, body=body, headers=headers)

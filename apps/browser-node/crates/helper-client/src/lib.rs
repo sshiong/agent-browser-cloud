@@ -6,7 +6,7 @@ use helper_contracts::{
 };
 pub use helper_contracts::{
     StorageCheckpoint, StorageEvidence, StorageEvidenceAccess, StorageRecording,
-    StorageRestoreStatus, StorageWarmTierSync, StorageWorkspace,
+    StorageRecordingPlaybackAccess, StorageRestoreStatus, StorageWarmTierSync, StorageWorkspace,
 };
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -441,6 +441,70 @@ impl StorageHelperClient {
         .await?
         .evidence_access
         .ok_or_else(|| anyhow::anyhow!("storage helper omitted evidence access result"))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn sign_recording_playback(
+        &self,
+        tenant_id: &str,
+        profile_id: &str,
+        session_id: &str,
+        recording_id: &str,
+        manifest_sha256: &str,
+        manifest_bytes: u64,
+        segment_count: u64,
+        frame_count: u64,
+        redacted_frame_count: u64,
+        redacted_region_count: u64,
+        redaction_policy_version: u32,
+        started_at_ms: u64,
+        ended_at_ms: u64,
+        segment_offset: u64,
+        segment_limit: u32,
+        expires_in_seconds: u32,
+    ) -> anyhow::Result<StorageRecordingPlaybackAccess> {
+        validate_identifier("tenant_id", tenant_id)?;
+        validate_identifier("profile_id", profile_id)?;
+        validate_identifier("session_id", session_id)?;
+        validate_identifier("recording_id", recording_id)?;
+        anyhow::ensure!(
+            manifest_sha256.len() == 64
+                && manifest_sha256
+                    .chars()
+                    .all(|character| character.is_ascii_hexdigit()),
+            "recording manifest SHA-256 is invalid"
+        );
+        anyhow::ensure!(
+            manifest_bytes > 0
+                && segment_offset <= segment_count
+                && (1..=24).contains(&segment_limit)
+                && redacted_frame_count <= frame_count
+                && redaction_policy_version == 1
+                && ended_at_ms >= started_at_ms
+                && (30..=120).contains(&expires_in_seconds),
+            "recording playback request is invalid"
+        );
+        self.call(StorageCommand::SignRecordingPlayback {
+            tenant_id: tenant_id.to_owned(),
+            profile_id: profile_id.to_owned(),
+            session_id: session_id.to_owned(),
+            recording_id: recording_id.to_owned(),
+            manifest_sha256: manifest_sha256.to_ascii_lowercase(),
+            manifest_bytes,
+            segment_count,
+            frame_count,
+            redacted_frame_count,
+            redacted_region_count,
+            redaction_policy_version,
+            started_at_ms,
+            ended_at_ms,
+            segment_offset,
+            segment_limit,
+            expires_in_seconds,
+        })
+        .await?
+        .recording_playback_access
+        .ok_or_else(|| anyhow::anyhow!("storage helper omitted recording playback result"))
     }
 
     pub async fn sign_profile_export_download(

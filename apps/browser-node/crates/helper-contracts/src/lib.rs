@@ -155,6 +155,24 @@ pub enum StorageCommand {
         content_bytes: u64,
         expires_in_seconds: u32,
     },
+    SignRecordingPlayback {
+        tenant_id: String,
+        profile_id: String,
+        session_id: String,
+        recording_id: String,
+        manifest_sha256: String,
+        manifest_bytes: u64,
+        segment_count: u64,
+        frame_count: u64,
+        redacted_frame_count: u64,
+        redacted_region_count: u64,
+        redaction_policy_version: u32,
+        started_at_ms: u64,
+        ended_at_ms: u64,
+        segment_offset: u64,
+        segment_limit: u32,
+        expires_in_seconds: u32,
+    },
     SignProfileExportDownload {
         tenant_id: String,
         profile_id: String,
@@ -184,6 +202,8 @@ pub struct StorageResponse {
     pub evidence: Option<StorageEvidence>,
     #[serde(default)]
     pub evidence_access: Option<StorageEvidenceAccess>,
+    #[serde(default)]
+    pub recording_playback_access: Option<StorageRecordingPlaybackAccess>,
     #[serde(default)]
     pub profile_export_access: Option<StorageProfileExportAccess>,
     pub error_code: Option<String>,
@@ -274,6 +294,32 @@ pub struct StorageEvidenceAccess {
     pub evidence_id: String,
     pub download_url: String,
     pub expires_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageRecordingPlaybackSegment {
+    pub sequence: u64,
+    pub content_sha256: String,
+    pub content_bytes: u64,
+    pub frame_count: u64,
+    pub started_at_ms: u64,
+    pub ended_at_ms: u64,
+    pub download_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageRecordingPlaybackAccess {
+    pub recording_id: String,
+    pub manifest_sha256: String,
+    pub frame_count: u64,
+    pub redacted_frame_count: u64,
+    pub redacted_region_count: u64,
+    pub redaction_policy_version: u32,
+    pub expires_at_ms: u64,
+    pub next_segment_offset: Option<u64>,
+    pub segments: Vec<StorageRecordingPlaybackSegment>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

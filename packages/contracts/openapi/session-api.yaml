@@ -1281,6 +1281,118 @@ paths:
                 $ref: "#/components/schemas/RecordingList"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/recordings/{recordingId}/playback-grants:
+    post:
+      operationId: createRecordingPlaybackGrant
+      summary: Create a purpose-bound recording playback grant
+      description: >
+        Requires a tenant/security/platform administrator. Creates an actor-, tenant-, Session-,
+        recording- and purpose-bound grant that expires after five minutes. The recording must
+        still be retained or held. Object-storage coordinates and signed URLs are not persisted or
+        returned by this operation.
+      tags: [Session, Recording]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: recordingId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^rec_[0-9a-f]{32}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRecordingPlaybackGrantRequest"
+      responses:
+        "201":
+          description: Purpose-bound playback grant created or idempotently replayed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordingPlaybackGrant"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}/recording-playback-grants/{grantId}:redeem:
+    post:
+      operationId: redeemRecordingPlaybackGrant
+      summary: Redeem a recording playback grant once
+      description: >
+        The issuing actor may redeem an unexpired grant exactly once. Browser Node and Storage
+        Helper verify the aggregate manifest and every returned segment commit marker before
+        issuing 60-second URLs. At most 24 segments are returned; nextSegmentOffset continues the
+        same five-minute actor-bound playback window without redeeming the grant again.
+      tags: [Session, Recording]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: grantId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^rgr_[0-9a-f]{32}$"
+      responses:
+        "200":
+          description: First integrity-verified segment page with ephemeral URLs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordingPlaybackAccess"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/sessions/{sessionId}/recording-playback-grants/{grantId}/segments:
+    get:
+      operationId: getRecordingPlaybackSegments
+      summary: Get a bounded recording segment page
+      description: >
+        Signs a bounded segment page only for the same actor while the redeemed five-minute access
+        window and recording retention/Legal Hold state remain valid. The offset must be smaller
+        than the immutable segment count; callers may re-request a page after an interrupted
+        download. URLs expire after 60 seconds and are never stored.
+      tags: [Session, Recording]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: grantId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^rgr_[0-9a-f]{32}$"
+        - name: offset
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        "200":
+          description: Integrity-verified segment page with ephemeral URLs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordingPlaybackAccess"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/v1/sessions/{sessionId}/evidence:capture:
     post:
       operationId: captureSessionEvidence
@@ -13148,6 +13260,130 @@ components:
         offset:
           type: integer
           minimum: 0
+    RecordingPlaybackPurpose:
+      type: string
+      enum: [INCIDENT_RESPONSE, SUPPORT_DIAGNOSTICS, COMPLIANCE_AUDIT, SECURITY_INVESTIGATION]
+    CreateRecordingPlaybackGrantRequest:
+      type: object
+      additionalProperties: false
+      required: [purpose]
+      properties:
+        purpose:
+          $ref: "#/components/schemas/RecordingPlaybackPurpose"
+    RecordingPlaybackGrant:
+      type: object
+      additionalProperties: false
+      required:
+        [grantId, sessionId, recordingId, purpose, state, expiresAt, createdAt]
+      properties:
+        grantId:
+          type: string
+          pattern: "^rgr_[0-9a-f]{32}$"
+        sessionId:
+          type: string
+          pattern: "^ses_[a-zA-Z0-9]{16,}$"
+        recordingId:
+          type: string
+          pattern: "^rec_[0-9a-f]{32}$"
+        purpose:
+          $ref: "#/components/schemas/RecordingPlaybackPurpose"
+        state:
+          type: string
+          enum: [ISSUED, REDEEMING, REDEEMED, FAILED]
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        redeemedAt:
+          type: [string, "null"]
+          format: date-time
+        errorCode:
+          type: [string, "null"]
+        requestId:
+          type: [string, "null"]
+    RecordingPlaybackSegment:
+      type: object
+      additionalProperties: false
+      required:
+        [sequence, contentSha256, contentBytes, frameCount, startedAtMs, endedAtMs, downloadUrl]
+      properties:
+        sequence:
+          type: integer
+          format: int64
+          minimum: 0
+        contentSha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        contentBytes:
+          type: integer
+          format: int64
+          minimum: 1
+        frameCount:
+          type: integer
+          format: int64
+          minimum: 0
+        startedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        endedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        downloadUrl:
+          type: string
+          format: uri
+          maxLength: 2048
+    RecordingPlaybackAccess:
+      type: object
+      additionalProperties: false
+      required:
+        [grantId, recordingId, manifestSha256, frameCount, redactedFrameCount,
+         redactedRegionCount, redactionPolicyVersion, expiresAt, accessExpiresAt, segments]
+      properties:
+        grantId:
+          type: string
+          pattern: "^rgr_[0-9a-f]{32}$"
+        recordingId:
+          type: string
+          pattern: "^rec_[0-9a-f]{32}$"
+        manifestSha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        frameCount:
+          type: integer
+          format: int64
+          minimum: 0
+        redactedFrameCount:
+          type: integer
+          format: int64
+          minimum: 0
+        redactedRegionCount:
+          type: integer
+          format: int64
+          minimum: 0
+        redactionPolicyVersion:
+          type: integer
+          minimum: 1
+        expiresAt:
+          type: string
+          format: date-time
+          description: Expiry shared by the signed URLs in this response page.
+        accessExpiresAt:
+          type: string
+          format: date-time
+          description: End of the actor-bound playback session; new pages are rejected afterward.
+        nextSegmentOffset:
+          type: [integer, "null"]
+          format: int64
+          minimum: 0
+        segments:
+          type: array
+          maxItems: 24
+          items:
+            $ref: "#/components/schemas/RecordingPlaybackSegment"
     EvidencePurpose:
       type: string
       enum:
@@ -17359,6 +17595,12 @@ components:
             $ref: "#/components/schemas/Error"
     TooManyRequests:
       description: The bounded concurrent stream capacity has been reached.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    BadGateway:
+      description: Browser Node or Object Storage rejected the integrity-bound playback request.
       content:
         application/json:
           schema:

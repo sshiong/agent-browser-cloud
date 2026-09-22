@@ -2,7 +2,7 @@
 
 > 更新日期：2026-09-22
 > 基准分支：`main`
-> 编写时基准提交：`eaea507 feat: enforce full-frame recording privacy`
+> 编写时基准提交：`94e1724 feat: add application-aware profile warm tier`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -157,6 +157,10 @@ progress 166。
 - [已确认] 环境列表三点菜单已接详情与 Tenant/RBAC 隔离的 PostgreSQL 重命名；无 Workflow 的超期 START/TERMINATE Operation 会由 deadline scanner 收敛，不再长期显示“启动中”，见 progress 159。
 - [已确认] 环境列表已增加左侧复选框、当前页全选和批量删除；V113 软删除仅允许 CREATED/TERMINATED 且无 ACTIVE Operation 的 Session，按 Tenant/RBAC 原子、幂等处理，保留 Audit/Recording/Recovery 证据并释放实时 Coordinator Route/Ownership，见 progress 160。
 - [已确认] Profile 导入/用途绑定一次性导出、Proxy Provider/Binding/探测/自动路由、Safe Point Rebind 已实现。
+- [已确认] Warm Tier v2 已对活动 SQLite/WAL 使用 Online Backup，对 LevelDB 使用
+  CURRENT/MANIFEST 与复制前后内容屏障、隔离打开和全量迭代验证；非正常停止后新 Session
+  可恢复并再次验证精确数据库集合，同 Epoch 干净 Checkpoint 优先，旧 v1 部分清单不会混合恢复，
+  见 progress 205。Multipart Resume、跨 Region Restore 和目标云 KMS/IAM 仍未完成。
 - [已确认] Tauri 2 容器、OS 安全存储、系统浏览器 OIDC/Deep Link 和 Updater Gate 已实现；Web 与 Desktop 复用业务 UI。
 - [已确认] Validation Matrix、Recovery GameDay、Cost/SLO/Retention/Compliance/Residency/DR Registry、Error Budget Freeze、Terraform、四语言 SDK 和统一发布包已实现。
 - [已确认] 独立 Personal Secure 单机部署层只绑定 loopback，强制非 Local OIDC/API Audience、
@@ -820,8 +824,9 @@ Enterprise Overview、Challenge 视觉自动化与 Agent SAFE/AUTONOMOUS 基线�
 
 Recording purpose-bound 一次性播放 Grant、到期物理删除 Worker、AWS Object Lock/WORM
 仓库基线与全帧 OCR/PII/正面人脸/二维码零残留复检已由 progress 200—203 闭环。
-恢复重启失败的 Profile Writer/Proxy 所有权缺口已由 progress 204 闭环。下一仓库级切片为
-Warm Tier 应用感知恢复；客户视觉数据集 Replay 和更深的目标云
+恢复重启失败的 Profile Writer/Proxy 所有权缺口已由 progress 204 闭环；Warm Tier
+SQLite/LevelDB 应用感知恢复已由 progress 205 闭环。下一仓库级切片为 Multipart Resume/
+跨 Region Restore；客户视觉数据集 Replay 和更深的目标云
 Legal Hold 联动仍待完成。目标账户仍须真实 Apply/IAM 验收，不得把仓库 Terraform 定义、普通
 Delete API 或短期签名 URL 冒充目标云监管保留。
 
@@ -829,7 +834,7 @@ Delete API 或短期签名 URL 冒充目标云监管保留。
 
 ### P0/P1：仓库内代码产品化
 
-1. Warm Tier SQLite/LevelDB 应用感知 Adapter、Multipart Resume、跨 Region Restore、Profile 对象保留/Legal Hold 深度联动。
+1. Warm Tier Multipart Resume、跨 Region Restore、Profile 对象保留/Legal Hold 深度联动；SQLite/LevelDB 应用感知 Adapter 已由 progress 205 完成。
 2. 目标 CRM/支付/IAM Provider 的真实凭据、字段/事务映射和 Provider 特有认证接入。
 3. 目标云 Secret 解引用/轮换/撤销、商业 Proxy Provider Adapter、高级 SLA/业务成功率路由、Challenge/黑名单与受约束探索。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。

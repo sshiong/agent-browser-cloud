@@ -314,7 +314,7 @@ class BrowserCapacityApplicationServiceTest {
             true,
             "[]",
             now);
-    var node = standardNode(now, "{\"recordingRedaction\":\"frame-mask-v1\"}");
+    var node = standardNode(now, "{\"recordingRedaction\":\"full-frame-privacy-v2\"}");
     when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
     when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
     when(extensionRepository.findAllById(any())).thenReturn(List.of());

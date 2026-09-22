@@ -480,7 +480,7 @@ impl StorageHelperClient {
                 && segment_offset <= segment_count
                 && (1..=24).contains(&segment_limit)
                 && redacted_frame_count <= frame_count
-                && redaction_policy_version == 1
+                && (1..=2).contains(&redaction_policy_version)
                 && ended_at_ms >= started_at_ms
                 && (30..=120).contains(&expires_in_seconds),
             "recording playback request is invalid"

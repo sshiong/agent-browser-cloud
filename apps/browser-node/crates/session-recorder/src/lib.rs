@@ -17,7 +17,8 @@ use std::io::Cursor;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::sync::{mpsc, oneshot, watch, Mutex};
 use tokio::task::JoinHandle;
 use tokio_tungstenite::tungstenite::Message;
@@ -27,7 +28,10 @@ const SEGMENT_MAX_BYTES: u64 = 4 * 1024 * 1024;
 const SEGMENT_MAX_DURATION_MS: u64 = 10_000;
 const CDP_TIMEOUT: Duration = Duration::from_secs(5);
 const EVIDENCE_MAX_BYTES: usize = 8 * 1024 * 1024;
-const RECORDING_REDACTION_POLICY_VERSION: u32 = 1;
+const RECORDING_DOM_REDACTION_POLICY_VERSION: u32 = 1;
+const RECORDING_REDACTION_POLICY_VERSION: u32 = 2;
+const RECORDING_PRIVACY_SCAN_VERSION: &str = "tesseract-opencv-pii-face-qr-v2";
+const RECORDING_PRIVACY_SCAN_TIMEOUT: Duration = Duration::from_secs(30);
 const RECORDING_MAX_SENSITIVE_REGIONS: usize = 256;
 const RECORDING_MAX_WIDTH: usize = 1920;
 const RECORDING_MAX_HEIGHT: usize = 1080;
@@ -38,6 +42,7 @@ pub struct RecordingSpec {
     pub cdp_endpoint: String,
     pub workspace: StorageWorkspace,
     pub storage_helper: Arc<StorageHelperClient>,
+    pub privacy_scanner_path: PathBuf,
 }
 
 struct RegisteredRecording {
@@ -526,6 +531,21 @@ struct CapturedFrame {
     metadata: Value,
     redaction_state: &'static str,
     redacted_region_count: u32,
+    privacy_scan: RecordingPrivacyAttestation,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RecordingPrivacyAttestation {
+    scan_version: String,
+    sanitized_image_base64: String,
+    sanitized_image_sha256: String,
+    ocr_detected_signal_count: u32,
+    ocr_masked_region_count: u32,
+    ocr_residual_signal_count: u32,
+    visual_detected_signal_count: u32,
+    visual_masked_region_count: u32,
+    visual_residual_signal_count: u32,
 }
 
 async fn run_recording(
@@ -555,11 +575,13 @@ async fn run_recording(
     });
     let (capture_stop_tx, capture_stop_rx) = watch::channel(false);
     let capture_endpoint = spec.cdp_endpoint.clone();
+    let privacy_scanner_path = spec.privacy_scanner_path.clone();
     let capture_drops = Arc::clone(&dropped_frames);
     let capture_completion_signal = Arc::clone(&capture_failed);
     let mut capture = tokio::spawn(async move {
         capture_frames(
             &capture_endpoint,
+            &privacy_scanner_path,
             frames_tx,
             capture_stop_rx,
             ready,
@@ -606,12 +628,14 @@ async fn run_recording(
 
 async fn capture_frames(
     cdp_endpoint: &str,
+    privacy_scanner_path: &std::path::Path,
     frames: mpsc::Sender<CapturedFrame>,
     mut stop: watch::Receiver<bool>,
     ready: oneshot::Sender<Result<(), String>>,
     dropped_frames: &std::sync::atomic::AtomicU64,
     capture_failed: &std::sync::atomic::AtomicBool,
 ) -> anyhow::Result<()> {
+    let mut privacy_scanner = RecordingPrivacyScanner::start(privacy_scanner_path).await?;
     let websocket_url = target_websocket(cdp_endpoint, None).await?;
     require_loopback_websocket(&websocket_url)?;
     let (mut socket, _) = tokio::time::timeout(
@@ -680,8 +704,14 @@ async fn capture_frames(
                 } else {
                     redact_recording_frame(&mut socket, raw_data, session_id).await
                 };
-                // CDP must always receive the ACK for the raw frame. On any redaction error the
-                // frame is discarded and the recording terminates; raw pixels are never queued.
+                let privacy_scan_result = match redaction_result.as_ref() {
+                    Ok(redacted) => Some(privacy_scanner.scan(&redacted.data).await),
+                    Err(_) => None,
+                };
+                // ACK only after the full-frame scan to make Chromium's screencast protocol the
+                // privacy pipeline's backpressure boundary. On any failure this frame is still
+                // acknowledged, then discarded; raw or partially sanitized pixels are never
+                // queued.
                 socket
                     .send(Message::Text(
                         json!({
@@ -693,17 +723,25 @@ async fn capture_frames(
                     ))
                     .await?;
                 let redacted = redaction_result?;
+                let privacy_scan = privacy_scan_result
+                    .ok_or_else(|| anyhow::anyhow!("recording privacy scan was not attempted"))??;
+                let total_redacted_regions = redacted
+                    .redacted_region_count
+                    .checked_add(privacy_scan.ocr_masked_region_count)
+                    .and_then(|count| count.checked_add(privacy_scan.visual_masked_region_count))
+                    .ok_or_else(|| anyhow::anyhow!("recording privacy region count overflow"))?;
                 let frame = CapturedFrame {
                     captured_at_ms: now_millis(),
                     session_id,
-                    data: redacted.data,
+                    data: privacy_scan.sanitized_image_base64.clone(),
                     metadata: params.get("metadata").cloned().unwrap_or_else(|| json!({})),
-                    redaction_state: if redacted.redacted_region_count > 0 {
+                    redaction_state: if total_redacted_regions > 0 {
                         "MASKED"
                     } else {
                         "NOT_REQUIRED"
                     },
-                    redacted_region_count: redacted.redacted_region_count,
+                    redacted_region_count: total_redacted_regions,
+                    privacy_scan,
                 };
                 if frames.try_send(frame).is_err() {
                     dropped_frames.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -714,6 +752,92 @@ async fn capture_frames(
     capture_failed.store(false, std::sync::atomic::Ordering::Release);
     drop(frames);
     Ok(())
+}
+
+struct RecordingPrivacyScanner {
+    _child: Child,
+    stdin: ChildStdin,
+    stdout: BufReader<ChildStdout>,
+}
+
+impl RecordingPrivacyScanner {
+    async fn start(scanner_path: &std::path::Path) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            scanner_path.is_absolute(),
+            "recording privacy scanner path is not absolute"
+        );
+        let mut child = Command::new(scanner_path)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .env_clear()
+            .env("PATH", "/usr/bin:/bin")
+            .env("LANG", "C.UTF-8")
+            .kill_on_drop(true)
+            .spawn()
+            .map_err(|error| {
+                anyhow::anyhow!("recording privacy scanner could not start: {error}")
+            })?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("recording privacy scanner stdin is unavailable"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("recording privacy scanner stdout is unavailable"))?;
+        Ok(Self {
+            _child: child,
+            stdin,
+            stdout: BufReader::new(stdout),
+        })
+    }
+
+    async fn scan(&mut self, encoded: &str) -> anyhow::Result<RecordingPrivacyAttestation> {
+        let mut request = serde_json::to_vec(&json!({"imageBase64": encoded}))?;
+        anyhow::ensure!(
+            request.len() <= EVIDENCE_MAX_BYTES.saturating_mul(2),
+            "recording privacy scan request exceeds the bound"
+        );
+        request.push(b'\n');
+        self.stdin.write_all(&request).await?;
+        self.stdin.flush().await?;
+        let mut output = Vec::new();
+        let bytes = tokio::time::timeout(
+            RECORDING_PRIVACY_SCAN_TIMEOUT,
+            self.stdout.read_until(b'\n', &mut output),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("recording privacy scanner timed out"))??;
+        anyhow::ensure!(
+            bytes > 0 && output.len() <= EVIDENCE_MAX_BYTES.saturating_mul(2),
+            "recording privacy scanner failed closed"
+        );
+        let attestation: RecordingPrivacyAttestation = serde_json::from_slice(&output)
+            .map_err(|_| anyhow::anyhow!("recording privacy scanner returned invalid output"))?;
+        anyhow::ensure!(
+            attestation.scan_version == RECORDING_PRIVACY_SCAN_VERSION
+                && attestation.ocr_residual_signal_count == 0
+                && attestation.visual_residual_signal_count == 0
+                && attestation.sanitized_image_sha256.len() == 64
+                && attestation.ocr_masked_region_count <= RECORDING_MAX_SENSITIVE_REGIONS as u32
+                && attestation.visual_masked_region_count <= RECORDING_MAX_SENSITIVE_REGIONS as u32,
+            "recording privacy attestation failed validation"
+        );
+        let sanitized = base64::engine::general_purpose::STANDARD
+            .decode(&attestation.sanitized_image_base64)
+            .map_err(|_| {
+                anyhow::anyhow!("recording privacy scanner returned invalid image base64")
+            })?;
+        anyhow::ensure!(
+            sanitized.starts_with(&[0xff, 0xd8, 0xff])
+                && sanitized.len() <= EVIDENCE_MAX_BYTES
+                && format!("{:x}", Sha256::digest(&sanitized))
+                    == attestation.sanitized_image_sha256,
+            "recording privacy scanner image proof does not match its pixels"
+        );
+        Ok(attestation)
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -827,7 +951,7 @@ where
             .ok_or_else(|| anyhow::anyhow!("recording redaction response omitted region data"))?,
     )?;
     anyhow::ensure!(
-        snapshot.version == RECORDING_REDACTION_POLICY_VERSION && snapshot.error.is_none(),
+        snapshot.version == RECORDING_DOM_REDACTION_POLICY_VERSION && snapshot.error.is_none(),
         "recording redaction region collection failed closed: {}",
         snapshot
             .error
@@ -1105,6 +1229,15 @@ impl SegmentWriter {
             "redactionState": frame.redaction_state,
             "redactedRegionCount": frame.redacted_region_count,
             "redactionPolicyVersion": RECORDING_REDACTION_POLICY_VERSION,
+            "privacyScanState": "VERIFIED",
+            "privacyScanVersion": frame.privacy_scan.scan_version,
+            "sanitizedImageSha256": frame.privacy_scan.sanitized_image_sha256,
+            "ocrDetectedSignalCount": frame.privacy_scan.ocr_detected_signal_count,
+            "ocrMaskedRegionCount": frame.privacy_scan.ocr_masked_region_count,
+            "ocrResidualSignalCount": frame.privacy_scan.ocr_residual_signal_count,
+            "visualDetectedSignalCount": frame.privacy_scan.visual_detected_signal_count,
+            "visualMaskedRegionCount": frame.privacy_scan.visual_masked_region_count,
+            "visualResidualSignalCount": frame.privacy_scan.visual_residual_signal_count,
             "data": frame.data
         }))?;
         line.push(b'\n');
@@ -1882,6 +2015,7 @@ fn now_millis() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::os::unix::fs::PermissionsExt;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
     use tokio_tungstenite::accept_async;
@@ -1896,6 +2030,42 @@ mod tests {
             .encode(&pixels, width, height, ColorType::Rgb)
             .unwrap();
         base64::engine::general_purpose::STANDARD.encode(jpeg)
+    }
+
+    async fn passthrough_privacy_scanner() -> PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "browsercloud-recording-privacy-fixture-{}",
+            uuid::Uuid::new_v4()
+        ));
+        tokio::fs::write(
+            &path,
+            r#"#!/usr/bin/python3
+import base64, hashlib, json, sys
+for line in sys.stdin:
+  request = json.loads(line)
+  image = base64.b64decode(request["imageBase64"], validate=True)
+  digest = hashlib.sha256(image).hexdigest()
+  print(json.dumps({
+    "scanVersion": "tesseract-opencv-pii-face-qr-v2",
+    "sanitizedImageBase64": request["imageBase64"],
+    "sanitizedImageSha256": digest,
+    "ocrDetectedSignalCount": 0,
+    "ocrMaskedRegionCount": 0,
+    "ocrResidualSignalCount": 0,
+    "visualDetectedSignalCount": 0,
+    "visualMaskedRegionCount": 0,
+    "visualResidualSignalCount": 0
+  }), flush=True)
+"#,
+        )
+        .await
+        .unwrap();
+        let mut permissions = tokio::fs::metadata(&path).await.unwrap().permissions();
+        permissions.set_mode(0o500);
+        tokio::fs::set_permissions(&path, permissions)
+            .await
+            .unwrap();
+        path
     }
 
     #[test]
@@ -2304,9 +2474,12 @@ mod tests {
         let capture_dropped = Arc::clone(&dropped);
         let capture_failed = Arc::new(std::sync::atomic::AtomicBool::new(true));
         let capture_failure_signal = Arc::clone(&capture_failed);
+        let privacy_scanner_path = passthrough_privacy_scanner().await;
+        let capture_privacy_scanner_path = privacy_scanner_path.clone();
         let capture = tokio::spawn(async move {
             capture_frames(
                 &format!("http://{http_address}"),
+                &capture_privacy_scanner_path,
                 frames_tx,
                 stop_rx,
                 ready_tx,
@@ -2316,10 +2489,17 @@ mod tests {
             .await
         });
         ready_rx.await.unwrap().unwrap();
-        let frame = tokio::time::timeout(Duration::from_secs(1), frames_rx.recv())
+        // Full-frame privacy scanning runs before the CDP ACK and can contend with the parallel
+        // test suite on cold builders. Keep this bounded by the same deadline as CDP operations.
+        let frame = tokio::time::timeout(CDP_TIMEOUT, frames_rx.recv())
             .await
-            .unwrap()
             .unwrap();
+        let Some(frame) = frame else {
+            panic!(
+                "capture stopped before a safe frame: {:?}",
+                capture.await.unwrap()
+            );
+        };
         assert_eq!(frame.session_id, 7);
         assert_ne!(frame.data, raw_frame);
         assert_eq!(frame.redaction_state, "MASKED");
@@ -2429,9 +2609,11 @@ mod tests {
         let (ready_tx, ready_rx) = oneshot::channel();
         let dropped = std::sync::atomic::AtomicU64::new(0);
         let capture_failed = std::sync::atomic::AtomicBool::new(true);
+        let privacy_scanner_path = passthrough_privacy_scanner().await;
         let cdp_endpoint = format!("http://{http_address}");
         let capture = capture_frames(
             &cdp_endpoint,
+            &privacy_scanner_path,
             frames_tx,
             stop_rx,
             ready_tx,
@@ -2441,10 +2623,8 @@ mod tests {
         let (ready, result) = tokio::join!(ready_rx, capture);
 
         ready.unwrap().unwrap();
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("JPEG decode failed"));
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("JPEG decode failed"), "{error}");
         assert!(frames_rx.recv().await.is_none());
         assert!(capture_failed.load(std::sync::atomic::Ordering::Acquire));
         assert_eq!(dropped.load(std::sync::atomic::Ordering::Relaxed), 0);
@@ -2481,6 +2661,7 @@ mod tests {
                         restore_status: helper_client::StorageRestoreStatus::Empty,
                     },
                     storage_helper: helper,
+                    privacy_scanner_path: PathBuf::from("/privacy-scanner-not-reached"),
                 },
                 active: Some(ActiveRecording {
                     stop,

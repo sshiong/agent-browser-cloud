@@ -77,6 +77,8 @@ const MICRO_BATCH_SETTLE_TIMEOUT: Duration = Duration::from_secs(5);
 const MICRO_BATCH_SETTLE_POLL: Duration = Duration::from_millis(100);
 const MICRO_BATCH_NETWORK_QUIET: u64 = 250;
 const MICRO_BATCH_COMPONENT_QUIET: u64 = 250;
+const DEFAULT_RECORDING_PRIVACY_SCANNER_PATH: &str =
+    "/usr/local/libexec/browsercloud/recording-privacy-scanner";
 
 fn component_stability_ready(state: &CurrentState) -> bool {
     let stability = &state.page_stability;
@@ -991,6 +993,17 @@ impl NodeCapacityReporter {
             .map(|value| !value.trim().is_empty())
             .unwrap_or(false)
             && Self::bool_env("OBJECT_STORAGE_ENABLED", false);
+        let recording_privacy_scanner_path = std::env::var("RECORDING_PRIVACY_SCANNER_PATH")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from(DEFAULT_RECORDING_PRIVACY_SCANNER_PATH));
+        let recording_privacy_scanner_available = recording_privacy_scanner_path.is_absolute()
+            && std::process::Command::new(&recording_privacy_scanner_path)
+                .arg("--self-test")
+                .env_clear()
+                .env("PATH", "/usr/bin:/bin")
+                .env("LANG", "C.UTF-8")
+                .output()
+                .is_ok_and(|output| output.status.success());
         labels.insert(
             "observerEvidence".to_owned(),
             if evidence_storage_available {
@@ -1047,8 +1060,8 @@ impl NodeCapacityReporter {
         );
         labels.insert(
             "recordingRedaction".to_owned(),
-            if evidence_storage_available {
-                "frame-mask-v1"
+            if evidence_storage_available && recording_privacy_scanner_available {
+                "full-frame-privacy-v2"
             } else {
                 "unavailable"
             }
@@ -1746,6 +1759,23 @@ impl NodeControlService {
     }
 
     async fn release_start_resources(&self, session_id: &str, workspace: &StorageWorkspace) {
+        // A recovery StartRuntime can reuse the writer and proxy that belong to the crashed
+        // Browser context. If the replacement Chromium fails before it becomes ready, those
+        // resources still belong to the durable Session and must remain available for the
+        // authoritative StopRuntime cleanup/checkpoint. Only a start that acquired resources for
+        // a previously untracked Session owns their rollback.
+        if self
+            .profile_workspaces
+            .lock()
+            .await
+            .contains_key(session_id)
+        {
+            tracing::warn!(
+                session_id,
+                "Preserving existing Profile writer and proxy after replacement start failed"
+            );
+            return;
+        }
         self.proxy_bound_sessions.lock().await.remove(session_id);
         if let Some(network_helper) = self.network_helper.as_ref() {
             if let Err(error) = network_helper.release(session_id).await {
@@ -5375,6 +5405,15 @@ impl NodeControlService {
                                             cdp_endpoint: handle.cdp_endpoint.clone(),
                                             workspace: workspace.clone(),
                                             storage_helper: Arc::clone(storage_helper),
+                                            privacy_scanner_path: std::env::var(
+                                                "RECORDING_PRIVACY_SCANNER_PATH",
+                                            )
+                                            .map(PathBuf::from)
+                                            .unwrap_or_else(|_| {
+                                                PathBuf::from(
+                                                    DEFAULT_RECORDING_PRIVACY_SCANNER_PATH,
+                                                )
+                                            }),
                                         },
                                         video_recording_enabled,
                                     )

@@ -55,7 +55,7 @@ public class BrowserCapacityApplicationService {
   private static final String PROXY_DESCRIPTOR_CAPABILITY = "proxyProviderDescriptor";
   private static final String PROXY_DESCRIPTOR_CAPABILITY_VERSION = "v1";
   private static final String RECORDING_REDACTION_CAPABILITY = "recordingRedaction";
-  private static final String RECORDING_REDACTION_CAPABILITY_VERSION = "frame-mask-v1";
+  private static final String RECORDING_REDACTION_CAPABILITY_VERSION = "full-frame-privacy-v2";
   private static final String PROFILE_ARCHIVE_ENCRYPTION_CAPABILITY = "profileArchiveEncryption";
   private static final String PROFILE_ARCHIVE_ENCRYPTION_CAPABILITY_VERSION = "aead-envelope-v1";
   private static final Set<String> ACTIVE_PLACEMENT_STATES =

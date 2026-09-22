@@ -65,5 +65,6 @@ recording_retention_versioned_physical_deletion=true
 
 - 目标 AWS 账户的 Plan/Apply、最小权限 IAM 与 Policy-as-Code、恢复和到期删除演练仍是生产 Gate。
 - 目标云原生逐对象 Legal Hold 设置/解除需要独立治理身份、审批和审计链，不能由数据库布尔值替代。
-- Recording 全帧 OCR 和非文本视觉敏感分类仍需单独实现。
+- Recording 全帧 OCR 和非文本视觉敏感分类已在后续
+  [progress 203](203-Recording全帧OCR与非文本视觉隐私闭环.md)闭环；客户视觉数据集 Replay 仍是生产 Gate。
 - `COMPLIANCE` 期限内无法提前删除是刻意的监管语义；部署方必须在成本和法规审阅后选择期限。

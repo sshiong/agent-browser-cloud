@@ -990,7 +990,7 @@ impl ObjectArchive {
             (Duration::from_secs(30)..=Duration::from_secs(120)).contains(&request.expires_in)
                 && (1..=24).contains(&request.segment_limit)
                 && request.segment_offset <= request.segment_count
-                && request.redaction_policy_version == 1
+                && (1..=2).contains(&request.redaction_policy_version)
                 && request.redacted_frame_count <= request.frame_count
                 && (request.redacted_frame_count == 0 || request.redacted_region_count > 0)
                 && request.ended_at_ms >= request.started_at_ms,

@@ -700,7 +700,7 @@ export function CreateSessionDialog({
                       })
                     }
                     title="启用独立像素录制"
-                    detail="每帧先在 Node 内完成敏感区域遮罩，再由 Storage Helper 分段提交；遮罩失败会停止录制且不上传原帧。"
+                    detail="每帧先做 DOM 语义遮罩，再在 Node 本地执行 OCR/PII、人脸与二维码检测、像素遮罩和二次零残留复检；任一步失败都会停止录制且不上传原帧。"
                   />
                 </WizardStep>
               )}

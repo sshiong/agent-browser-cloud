@@ -1,8 +1,8 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-09-21
+> 更新日期：2026-09-22
 > 基准分支：`main`
-> 编写时基准提交：`4b8be14 fix: close real OTP challenge flow`
+> 编写时基准提交：`3b9e49b feat: enforce recording object lock baseline`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -270,8 +270,25 @@ progress 166。
   Marker，当前对象与版本列表双空后才提交证明。OrbStack 真实 MinIO 已验证提前删除失败、可删除
   Recording 的 51 个对象全部版本消失，见 progress 202；目标账户 Apply/IAM 与云原生 Legal Hold
   仍是环境 Gate。
+- [已确认] Recording 每张持久化帧在 DOM 遮罩后继续执行 Node 本地 Tesseract
+  OCR/PII、OpenCV 正面人脸/二维码检测、像素遮罩和二次零残留复检；扫描失败时
+  原始/半处理像素不入队。v2 Storage Helper 上传前重算最终像素 Hash 并验证证明，
+  历史 v1 保持可播放；Node 只在扫描器功能自检成功后声明精确能力，见 progress 203。
+  客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- Recording 全帧隐私 v2 已通过 Rust/Control Plane 定向测试和 OrbStack release 镜像
+  真实功能自检：合成邮箱文本与二维码均被检测/遮罩，二次 OCR/Face/QR 复检残留为零；
+  v2 帧证明篡改被 Storage Helper 拒绝，v1 历史兼容保留。OrbStack Browser Node
+  镜像已从最终源码构建成功，完整 Integration 和 `make ci` 通过。AWS SDK
+  重复旧 TLS feature 已移除，`rustls-webpki 0.101.7` 已移出依赖树；GitHub
+  Workflow 仍以本次推送后的最终结果为准，见 progress 203。
+
+- 完整 Integration 在 Chromium 被 `SIGKILL` 后触发了 replacement Start 未达 CDP Ready
+  的真实失败，并暴露回滚错误释放原 Session Profile Writer/Proxy 的所有权缺口。
+  Node 现仅回滚本次首启新建的资源，复用的耐久资源保留给权威 Stop/Recovery；
+  修复后 Node Agent 27 项、完整 Integration 和 `make ci` 通过，见 progress 204。
 
 - Recording Object Lock/WORM 仓库基线已通过 Control Plane 定向测试、Terraform 契约测试和
   OrbStack 真实 MinIO：受 30 天 COMPLIANCE 默认保留的对象版本无法提前删除，输出
@@ -284,8 +301,9 @@ progress 166。
   跨 Actor、重复兑换、Retention 到期均 fail-closed，Legal Hold 可在同一五分钟访问窗口恢复读取，
   PostgreSQL 与 Audit 不含 URL/Signature。公开基线更新为 253 Operations / 350 Schemas，四语言
   SDK 已同步，见 progress 200。到期物理删除 Worker 后由 progress 201 以真实 MinIO/完整
-  Integration 闭环；Object Lock 仓库基线后由 progress 202 关闭；全帧 OCR/非文本视觉分类、
-  目标账户 Apply/IAM 和目标云原生 Legal Hold 仍未完成。
+  Integration 闭环；Object Lock 仓库基线后由 progress 202 关闭；全帧隐私代码项由
+  progress 203 闭环，目标账户 Apply/IAM、客户视觉数据集 Replay 和目标云原生 Legal Hold
+  仍未完成。
 
 - 真实 OTP 续行已加入 OrbStack/Chrome 153 登录矩阵：Browser Node 只从标准
   `autocomplete=one-time-code` 投影隐私安全控件类别，敏感 name/value 继续为空；Control Plane
@@ -643,8 +661,8 @@ progress 166。
   PostgreSQL/API/Audit/模型。无安全 Target 的 Canvas/图片/PDF 不回退整页 Vision。API/四 SDK
   保持 245 Operations / 338 Schemas；Control Plane 539 项、Web 141 项、Worker 30 项、Rust、
   Desktop、N/N−1、完整 `make ci` 与 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过，
-  输出 `challenge_visual_pixel_privacy=true`。A05 仓库内通用代码项关闭；Recording 全帧 OCR、
-  非文本视觉分类、A19 Opaque Frame 与目标模型生产准入仍独立待完成。
+  输出 `challenge_visual_pixel_privacy=true`。A05 仓库内通用代码项关闭；当时独立跟踪的 Recording
+  全帧隐私和 A19 Opaque Frame 后由 progress 203、198 闭环，目标模型生产准入仍是部署 Gate。
 
 - progress 175：State Collector 将最近显式业务实体键或 `row/listitem/treeitem/tr/li` 规范化
   行语义以 Node 内 hash-only 指纹绑定 Element ID；原文在 State Hash/Registry 前清除，不进入
@@ -798,9 +816,11 @@ Enterprise Overview、Challenge 视觉自动化与 Agent SAFE/AUTONOMOUS 基线�
 
 ### Recording 对象治理（后续开发切片）
 
-Recording purpose-bound 一次性播放 Grant、到期物理删除 Worker 与 AWS Object Lock/WORM
-仓库基线已由 progress 200—202 闭环。下一仓库级切片为全帧 OCR/非文本视觉敏感分类和更深的
-目标云 Legal Hold 联动；目标账户仍须真实 Apply/IAM 验收，不得把仓库 Terraform 定义、普通
+Recording purpose-bound 一次性播放 Grant、到期物理删除 Worker、AWS Object Lock/WORM
+仓库基线与全帧 OCR/PII/正面人脸/二维码零残留复检已由 progress 200—203 闭环。
+恢复重启失败的 Profile Writer/Proxy 所有权缺口已由 progress 204 闭环。下一仓库级切片为
+Warm Tier 应用感知恢复；客户视觉数据集 Replay 和更深的目标云
+Legal Hold 联动仍待完成。目标账户仍须真实 Apply/IAM 验收，不得把仓库 Terraform 定义、普通
 Delete API 或短期签名 URL 冒充目标云监管保留。
 
 ## 8. 尚未完成的功能
@@ -811,7 +831,8 @@ Delete API 或短期签名 URL 冒充目标云监管保留。
 2. 目标 CRM/支付/IAM Provider 的真实凭据、字段/事务映射和 Provider 特有认证接入。
 3. 目标云 Secret 解引用/轮换/撤销、商业 Proxy Provider Adapter、高级 SLA/业务成功率路由、Challenge/黑名单与受约束探索。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
-5. Recording 全帧 OCR/非文本视觉敏感分类、目标账户 Object Lock Apply/IAM 和目标云原生 Legal Hold 联动；仓库 WORM 基线及到期对象删除 Worker 已由 progress 202、201 完成。
+5. Recording 目标账户 Object Lock Apply/IAM、客户视觉数据集 Replay 和目标云原生 Legal Hold
+   联动；仓库 WORM、到期对象删除 Worker 及全帧隐私 v2 已由 progress 201—203 完成。
 
 ### P1/P2：目标环境与外部集成 Gate
 
@@ -903,7 +924,7 @@ make test-desktop
 
 | 优先级 | 任务 | 原因 |
 | --- | --- | --- |
-| P1 | Recording 全帧视觉分类、目标云 Object Lock Apply/IAM、Legal Hold 和对象治理 | 涉及敏感浏览器证据与监管型保留的生产闭环；仓库 WORM 基线已完成 |
+| P1 | Recording 客户视觉 Replay、目标云 Object Lock Apply/IAM、Legal Hold 和对象治理 | 涉及敏感浏览器证据与监管型保留的生产闭环；仓库全帧隐私/WORM 基线已完成 |
 | P1 | Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore | Profile 一致性和迁移恢复的主要剩余代码缺口 |
 | P1 | 目标 Provider/Secret/Proxy Adapter | 真实客户业务接入的前提 |
 | P1 | OCR/高级 Validator/Replay | 视觉安全和生产 Agent 质量 Gate |
@@ -914,9 +935,9 @@ make test-desktop
 
 1. Clipboard Bridge 已由 progress 158 完成；不得让 Agent Planner 自动调用该操作员显式
    协作通道，也不得用它替代账号/密码/OTP 一次性敏感输入 API。
-2. Recording purpose-bound 一次性播放 Grant、到期删除 Worker 与 AWS Object Lock/WORM 仓库
-   基线已由 progress 200—202 完成；继续全帧 OCR/非文本视觉分类、目标账户 Apply/IAM 和目标云
-   原生 Legal Hold 联动。
+2. Recording purpose-bound 一次性播放 Grant、到期删除 Worker、AWS Object Lock/WORM 仓库
+   基线和全帧隐私 v2 已由 progress 200—203 完成；继续客户视觉数据集 Replay、目标账户
+   Apply/IAM 和目标云原生 Legal Hold 联动。
 3. Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore、目标 Provider/Secret/Proxy 和 OCR/Replay 按第 12 节顺序推进。
 4. 持续补齐目标 Linux/云/多 Region/桌面签名长稳和组织安全发布 Gate；仓库测试通过不等同于允许处理真实客户数据。
 

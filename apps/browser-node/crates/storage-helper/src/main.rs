@@ -1,4 +1,5 @@
 use anyhow::Context;
+use base64::Engine;
 use bytes::Bytes;
 use helper_contracts::{
     read_frame, write_frame, StorageCheckpoint, StorageCommand, StorageEvidence,
@@ -448,7 +449,7 @@ async fn execute_storage_operation(
                     frame_count: 0,
                     redacted_frame_count: 0,
                     redacted_region_count: 0,
-                    redaction_policy_version: 1,
+                    redaction_policy_version: 2,
                     manifest_sha256: None,
                     manifest_bytes: 0,
                     completed: false,
@@ -492,7 +493,7 @@ async fn execute_storage_operation(
                 "recording segment metadata is invalid"
             );
             anyhow::ensure!(
-                *redaction_policy_version == 1
+                (1..=2).contains(redaction_policy_version)
                     && *redacted_frame_count <= *frame_count
                     && (*redacted_frame_count == 0 || *redacted_region_count > 0),
                 "recording segment redaction metadata is invalid"
@@ -603,7 +604,7 @@ async fn execute_storage_operation(
                 "recording completion timestamps are invalid"
             );
             anyhow::ensure!(
-                *redaction_policy_version == 1
+                (1..=2).contains(redaction_policy_version)
                     && *redacted_frame_count <= *frame_count
                     && (*redacted_frame_count == 0 || *redacted_region_count > 0),
                 "recording completion redaction metadata is invalid"
@@ -828,7 +829,7 @@ async fn execute_storage_operation(
                     && *segment_offset <= *segment_count
                     && (1..=24).contains(segment_limit)
                     && *redacted_frame_count <= *frame_count
-                    && *redaction_policy_version == 1
+                    && (1..=2).contains(redaction_policy_version)
                     && *ended_at_ms >= *started_at_ms
                     && (30..=120).contains(expires_in_seconds),
                 "recording playback request is invalid"
@@ -1285,6 +1286,64 @@ fn verify_recording_segment_redaction(
             (state == "MASKED") == (regions > 0),
             "recording frame redaction state does not match region count"
         );
+        if expected_policy_version >= 2 {
+            anyhow::ensure!(
+                frame
+                    .get("privacyScanState")
+                    .and_then(serde_json::Value::as_str)
+                    == Some("VERIFIED")
+                    && frame
+                        .get("privacyScanVersion")
+                        .and_then(serde_json::Value::as_str)
+                        == Some("tesseract-opencv-pii-face-qr-v2"),
+                "recording frame omitted its full-frame privacy proof"
+            );
+            let count = |name: &str| {
+                frame
+                    .get(name)
+                    .and_then(serde_json::Value::as_u64)
+                    .ok_or_else(|| anyhow::anyhow!("recording frame omitted {name}"))
+            };
+            let ocr_detected = count("ocrDetectedSignalCount")?;
+            let ocr_masked = count("ocrMaskedRegionCount")?;
+            let visual_detected = count("visualDetectedSignalCount")?;
+            let visual_masked = count("visualMaskedRegionCount")?;
+            anyhow::ensure!(
+                count("ocrResidualSignalCount")? == 0
+                    && count("visualResidualSignalCount")? == 0
+                    && ocr_detected >= ocr_masked
+                    && visual_detected == visual_masked
+                    && regions >= ocr_masked.saturating_add(visual_masked),
+                "recording frame privacy counts are inconsistent"
+            );
+            let valid_hash = |name: &str| {
+                frame
+                    .get(name)
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|value| {
+                        value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+                    })
+            };
+            anyhow::ensure!(
+                valid_hash("sanitizedImageSha256"),
+                "recording frame privacy proof contains an invalid hash"
+            );
+            let image = frame
+                .get("data")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| anyhow::anyhow!("recording frame omitted sanitized pixels"))?;
+            let image = base64::engine::general_purpose::STANDARD
+                .decode(image)
+                .map_err(|_| anyhow::anyhow!("recording frame contains invalid image base64"))?;
+            let image_hash = format!("{:x}", Sha256::digest(image));
+            anyhow::ensure!(
+                frame
+                    .get("sanitizedImageSha256")
+                    .and_then(serde_json::Value::as_str)
+                    == Some(image_hash.as_str()),
+                "recording frame sanitized image hash does not match its pixels"
+            );
+        }
         frames = frames.saturating_add(1);
         if regions > 0 {
             redacted_frames = redacted_frames.saturating_add(1);
@@ -1520,5 +1579,23 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("omitted redaction state"));
+    }
+
+    #[test]
+    fn verifies_every_full_frame_privacy_proof_for_policy_v2() {
+        let content = br#"{"redactionState":"MASKED","redactedRegionCount":3,"redactionPolicyVersion":2,"privacyScanState":"VERIFIED","privacyScanVersion":"tesseract-opencv-pii-face-qr-v2","sanitizedImageSha256":"6e568e1f67fba258184c78181539e5e8fdee447e49bb706fc0ea34fbf12336a5","ocrDetectedSignalCount":1,"ocrMaskedRegionCount":1,"ocrResidualSignalCount":0,"visualDetectedSignalCount":1,"visualMaskedRegionCount":1,"visualResidualSignalCount":0,"data":"/9j/"}
+"#;
+
+        verify_recording_segment_redaction(content, 1, 1, 3, 2).unwrap();
+        let tampered = String::from_utf8(content.to_vec()).unwrap().replace(
+            "6e568e1f67fba258184c78181539e5e8fdee447e49bb706fc0ea34fbf12336a5",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        );
+        assert!(
+            verify_recording_segment_redaction(tampered.as_bytes(), 1, 1, 3, 2)
+                .unwrap_err()
+                .to_string()
+                .contains("does not match its pixels")
+        );
     }
 }

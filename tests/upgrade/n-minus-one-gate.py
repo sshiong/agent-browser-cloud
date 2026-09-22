@@ -23,19 +23,20 @@ recording_session_recorder = read(
 )
 for invariant in (
     'RECORDING_REDACTION_CAPABILITY = "recordingRedaction"',
-    'RECORDING_REDACTION_CAPABILITY_VERSION = "frame-mask-v1"',
+    'RECORDING_REDACTION_CAPABILITY_VERSION = "full-frame-privacy-v2"',
     "requiresRecordingRedaction = demand.isVideoRecordingRequested()",
     '"NO_RECORDING_REDACTION_CAPABLE_NODE"',
 ):
     assert invariant in recording_capacity_service, (
         f"recording placement lacks rolling redaction capability gate: {invariant}"
     )
-for invariant in ('"recordingRedaction".to_owned()', '"frame-mask-v1"'):
+for invariant in ('"recordingRedaction".to_owned()', '"full-frame-privacy-v2"'):
     assert invariant in recording_node_agent, (
         f"Browser Node lacks recording redaction capability advertisement: {invariant}"
     )
 for invariant in (
-    "RECORDING_REDACTION_POLICY_VERSION: u32 = 1",
+    "RECORDING_REDACTION_POLICY_VERSION: u32 = 2",
+    'RECORDING_PRIVACY_SCAN_VERSION: &str = "tesseract-opencv-pii-face-qr-v2"',
     "recording capture failed before a redaction-safe completion marker",
     "storage helper did not acknowledge the recording redaction manifest",
 ):

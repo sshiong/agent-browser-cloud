@@ -409,6 +409,7 @@ start_browser_node() {
   NODE_EXTENSION_ROOT="$repo_root/tests/integration/fixtures/extensions" \
   PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
   STORAGE_HELPER_SOCKET="$temp_dir/storage-helper.sock" \
+  RECORDING_PRIVACY_SCANNER_PATH="$repo_root/tests/fixtures/recording-privacy-scanner-protocol-fixture.py" \
   OBJECT_STORAGE_ENABLED=true \
   NETWORK_HELPER_SOCKET="$temp_dir/network-helper.sock" \
   FAKE_CHROMIUM_REQUIRE_PROXY=true \
@@ -446,6 +447,7 @@ start_browser_node_b() {
   NODE_EXTENSION_ROOT="$repo_root/tests/integration/fixtures/extensions" \
   PROFILE_STORAGE_ROOT="$temp_dir/runtime-b/profile-storage" \
   STORAGE_HELPER_SOCKET="$temp_dir/storage-helper-b.sock" \
+  RECORDING_PRIVACY_SCANNER_PATH="$repo_root/tests/fixtures/recording-privacy-scanner-protocol-fixture.py" \
   OBJECT_STORAGE_ENABLED=true \
   NETWORK_HELPER_SOCKET="$temp_dir/network-helper.sock" \
   FAKE_CHROMIUM_REQUIRE_PROXY=true \
@@ -477,6 +479,7 @@ start_browser_node_c() {
   NODE_EXTENSION_ROOT="$repo_root/tests/integration/fixtures/extensions" \
   PROFILE_STORAGE_ROOT="$temp_dir/runtime-c/profile-storage" \
   STORAGE_HELPER_SOCKET="$temp_dir/storage-helper-c.sock" \
+  RECORDING_PRIVACY_SCANNER_PATH="$repo_root/tests/fixtures/recording-privacy-scanner-protocol-fixture.py" \
   OBJECT_STORAGE_ENABLED=true \
   NETWORK_HELPER_SOCKET="$temp_dir/network-helper.sock" \
   FAKE_CHROMIUM_REQUIRE_PROXY=true \
@@ -730,7 +733,7 @@ for _ in $(seq 1 30); do
   sleep 0.25
 done
 printf '%s' "$browser_nodes" | python3 -c \
-  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["safePointBrowserTransactions"] == "cdp-transaction-v1"; assert node["labels"]["safePointBrowserTransactionPolicy"] == "approved-route-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileArchiveEncryption"] == "aead-envelope-v1"; assert node["labels"]["profileExport"] == "presigned-encrypted-checkpoint-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["evidenceRedaction"] == "dom-overlay-script-freeze-v1"; assert node["labels"]["recordingRedaction"] == "frame-mask-v1"; assert node["labels"]["recordingPlayback"] == "presigned-segments-v1"; assert node["labels"]["agentScreenshot"] == "state-fenced-region-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["safePointBrowserTransactions"] == "cdp-transaction-v1"; assert node["labels"]["safePointBrowserTransactionPolicy"] == "approved-route-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileArchiveEncryption"] == "aead-envelope-v1"; assert node["labels"]["profileExport"] == "presigned-encrypted-checkpoint-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["evidenceRedaction"] == "dom-overlay-script-freeze-v1"; assert node["labels"]["recordingRedaction"] == "full-frame-privacy-v2"; assert node["labels"]["recordingPlayback"] == "presigned-segments-v1"; assert node["labels"]["agentScreenshot"] == "state-fenced-region-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
 printf 'safe_point_browser_transaction_policy=true\n'
 printf '%s' "$browser_nodes" | python3 -c \
   'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["labels"]["opaqueFrameChallengeClick"] == "state-fenced-click-v1"'

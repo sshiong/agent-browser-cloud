@@ -989,6 +989,18 @@ impl NodeCapacityReporter {
             }
             .to_owned(),
         );
+        labels.insert(
+            "profileWarmTierApplicationAware".to_owned(),
+            if std::env::var("STORAGE_HELPER_SOCKET")
+                .map(|value| !value.trim().is_empty())
+                .unwrap_or(false)
+            {
+                "sqlite-leveldb-v1"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
+        );
         let evidence_storage_available = std::env::var("STORAGE_HELPER_SOCKET")
             .map(|value| !value.trim().is_empty())
             .unwrap_or(false)

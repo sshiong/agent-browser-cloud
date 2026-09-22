@@ -42,7 +42,8 @@ object_store = { version = "0.14.1", default-features = false, features = ["aws"
 aws-sdk-s3 = { version = "1.148.0", default-features = false, features = ["default-https-client", "http-1x", "rt-tokio"] }
 tar = "0.4"
 zstd = "0.13"
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.32", features = ["backup", "bundled"] }
+rusty-leveldb = "4.0.1"
 futures-util = "0.3"
 tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
 sysinfo = "0.33"

@@ -6865,7 +6865,30 @@ warm_tier_uploaded="$(docker exec "$postgres_name" psql -U browsercloud -d brows
   "select count(*) from profile_warm_tier_journal_commits where tenant_id='tenant-integration' and profile_id='profile-integration' and changed_file_count > 0 and uploaded_bytes > 0")"
 test "$warm_tier_uploaded" -ge "1"
 test -f "$temp_dir/runtime/profile-storage/tenants/tenant-integration/profiles/profile-integration/warm-tier/LATEST"
+python3 - "$temp_dir/runtime/profile-storage/tenants/tenant-integration/profiles/profile-integration/warm-tier" <<'PY'
+import json
+import pathlib
+import sys
+
+warm_root = pathlib.Path(sys.argv[1])
+sequence = int((warm_root / "LATEST").read_text().strip())
+manifest = json.loads(
+    (warm_root / "journal" / f"{sequence:020d}" / "manifest.json").read_text()
+)
+assert manifest["manifestVersion"] == 2, manifest
+assert manifest["deferredGroups"] == [], manifest
+barriers = {
+    (item["databaseGroup"], item["relativeRoot"]): item
+    for item in manifest["applicationBarriers"]
+}
+web_data = barriers[("SQLITE", "Default/Web Data")]
+assert web_data["adapterVersion"] == "application-aware-v1", web_data
+assert web_data["integrityState"] == "VERIFIED", web_data
+assert web_data["fileCount"] == 1, web_data
+assert len(web_data["contentHash"]) == 64, web_data
+PY
 printf 'profile_warm_tier_delta_journal=true\n'
+printf 'profile_warm_tier_application_aware=true\n'
 
 published="0"
 for _ in $(seq 1 30); do

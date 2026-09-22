@@ -49,6 +49,7 @@ import base64
 import hashlib
 import os
 import signal
+import sqlite3
 import struct
 import sys
 import threading
@@ -70,6 +71,21 @@ try:
 except (FileNotFoundError, json.JSONDecodeError):
     starts = 0
 marker.write_text(json.dumps({"starts": starts + 1, "durable": True}))
+web_data = profile_root / "Default" / "Web Data"
+profile_database = sqlite3.connect(web_data)
+profile_database.execute("PRAGMA journal_mode=WAL")
+profile_database.execute("PRAGMA wal_autocheckpoint=0")
+profile_database.execute("PRAGMA user_version=16")
+profile_database.execute(
+    "CREATE TABLE IF NOT EXISTS browsercloud_profile_state "
+    "(name TEXT PRIMARY KEY, value INTEGER NOT NULL)"
+)
+profile_database.execute(
+    "INSERT INTO browsercloud_profile_state(name, value) VALUES ('starts', ?) "
+    "ON CONFLICT(name) DO UPDATE SET value=excluded.value",
+    (starts + 1,),
+)
+profile_database.commit()
 delay_profile_fragment = os.environ.get("FAKE_CHROMIUM_DELAY_PROFILE_FRAGMENT", "")
 delay_start_number = int(os.environ.get("FAKE_CHROMIUM_DELAY_START_NUMBER", "0"))
 delay_seconds = float(os.environ.get("FAKE_CHROMIUM_STARTUP_DELAY_SECONDS", "0"))

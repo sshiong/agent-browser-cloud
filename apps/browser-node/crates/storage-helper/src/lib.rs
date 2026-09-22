@@ -14,6 +14,7 @@ use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Component, Path, PathBuf};
 
 pub mod object_archive;
+mod profile_adapter;
 
 const MAX_PROFILE_FILES: usize = 50_000;
 const MAX_PROFILE_FILE_BYTES: u64 = 512 * 1024 * 1024;
@@ -55,6 +56,8 @@ pub struct CheckpointFile {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileDeltaJournalManifest {
+    #[serde(default = "legacy_warm_tier_manifest_version")]
+    pub manifest_version: u32,
     pub tenant_id: String,
     pub profile_id: String,
     pub profile_write_epoch: u64,
@@ -67,9 +70,27 @@ pub struct ProfileDeltaJournalManifest {
     pub reused_chunk_count: u64,
     pub uploaded_bytes: u64,
     pub deferred_groups: Vec<String>,
+    #[serde(default)]
+    pub application_barriers: Vec<ApplicationAwareBarrier>,
     pub content_hash: String,
     pub committed_at_ms: u64,
     pub committed: bool,
+}
+
+fn legacy_warm_tier_manifest_version() -> u32 {
+    1
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ApplicationAwareBarrier {
+    pub database_group: String,
+    pub relative_root: String,
+    pub adapter_version: String,
+    pub source_sequence: String,
+    pub file_count: u64,
+    pub content_hash: String,
+    pub integrity_state: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -419,8 +440,17 @@ fn acquire_workspace_blocking(
         secure_create_dir_all(&ephemeral_dir)?;
 
         let latest = read_optional_text(&profile_root.join(LATEST_FILE))?;
-        let restore_status = if let Some(checkpoint_id) = latest.as_deref() {
-            restore_checkpoint(&profile_root, checkpoint_id, &core_dir)?;
+        let checkpoint_write_epoch = if let Some(checkpoint_id) = latest.as_deref() {
+            Some(restore_checkpoint(&profile_root, checkpoint_id, &core_dir)?.profile_write_epoch)
+        } else {
+            None
+        };
+        let warm_tier_restored = restore_newer_warm_tier(
+            &profile_root,
+            &core_dir,
+            checkpoint_write_epoch.unwrap_or_default(),
+        )?;
+        let restore_status = if checkpoint_write_epoch.is_some() || warm_tier_restored {
             ProfileRestoreStatus::TechnicalReady
         } else {
             ProfileRestoreStatus::Empty
@@ -801,12 +831,32 @@ fn sync_warm_tier_blocking(
         })
         .unwrap_or_default();
 
-    let mut observed = Vec::new();
-    collect_core_metadata(&workspace.core_dir, Path::new(""), &mut observed)?;
+    let mut source_observed = Vec::new();
+    collect_core_metadata(&workspace.core_dir, Path::new(""), &mut source_observed)?;
+    source_observed.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+    anyhow::ensure!(
+        source_observed.len() <= MAX_PROFILE_FILES,
+        "profile contains too many files"
+    );
+    let application_snapshot = profile_adapter::prepare_application_snapshot(
+        &workspace.core_dir,
+        &warm_root,
+        &source_observed,
+    )?;
+    let mut observed = source_observed
+        .iter()
+        .filter(|file| {
+            !application_snapshot
+                .excluded_source_paths
+                .contains(&file.relative_path)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    observed.extend(application_snapshot.files.iter().cloned());
     observed.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
     anyhow::ensure!(
         observed.len() <= MAX_PROFILE_FILES,
-        "profile contains too many files"
+        "application-aware Profile snapshot contains too many files"
     );
 
     let observed_hashes = observed
@@ -816,19 +866,11 @@ fn sync_warm_tier_blocking(
     let observed_paths = observed_hashes.keys().cloned().collect::<HashSet<_>>();
     let mut changed = Vec::new();
     let mut reused_chunk_count = 0_u64;
-    let mut deferred_groups = HashSet::new();
     for mut file in observed {
         let prior_hash = previous_by_path.get(&file.relative_path);
         file.changed = prior_hash != Some(&file.sha256);
         if file.changed {
-            if is_transactional_database_path(&file.relative_path) {
-                deferred_groups.insert(file.database_group.clone());
-                if prior_hash.is_none() {
-                    continue;
-                }
-            } else {
-                changed.push(file.relative_path.clone());
-            }
+            changed.push(file.relative_path.clone());
         } else {
             reused_chunk_count = reused_chunk_count.saturating_add(1);
         }
@@ -836,28 +878,52 @@ fn sync_warm_tier_blocking(
     let mut deleted_files = previous_by_path
         .keys()
         .filter(|path| !observed_paths.contains(*path))
-        .filter(|path| !is_transactional_database_path(path))
         .cloned()
         .collect::<Vec<_>>();
     deleted_files.sort();
 
-    // Re-scan immediately before copy and require exact metadata equality. This bounded
-    // transaction barrier prevents a changing file from being committed under an old hash.
-    let mut barrier_files = Vec::new();
-    collect_core_metadata(&workspace.core_dir, Path::new(""), &mut barrier_files)?;
-    barrier_files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
-    let barrier_hashes = barrier_files
+    // Re-scan ordinary files immediately before copy. SQLite and LevelDB are represented by the
+    // isolated, application-aware snapshots above; their adapters establish their own barriers.
+    let mut barrier_source_files = Vec::new();
+    collect_core_metadata(
+        &workspace.core_dir,
+        Path::new(""),
+        &mut barrier_source_files,
+    )?;
+    barrier_source_files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+    let source_hashes = source_observed
         .iter()
+        .filter(|file| {
+            !application_snapshot
+                .excluded_source_paths
+                .contains(&file.relative_path)
+        })
+        .map(|file| (file.relative_path.clone(), file.sha256.clone()))
+        .collect::<HashMap<_, _>>();
+    let barrier_hashes = barrier_source_files
+        .iter()
+        .filter(|file| {
+            !is_transactional_database_path(&file.relative_path)
+                && !application_snapshot
+                    .excluded_source_paths
+                    .contains(&file.relative_path)
+        })
         .map(|file| (file.relative_path.clone(), file.sha256.clone()))
         .collect::<HashMap<_, _>>();
     anyhow::ensure!(
-        barrier_hashes == observed_hashes,
+        barrier_hashes == source_hashes,
         "Profile changed before the Warm Tier transaction barrier"
     );
-    let mut eligible_files = barrier_files
+    let mut eligible_files = source_observed
         .into_iter()
-        .filter(|file| !is_transactional_database_path(&file.relative_path))
+        .filter(|file| {
+            !application_snapshot
+                .excluded_source_paths
+                .contains(&file.relative_path)
+        })
         .collect::<Vec<_>>();
+    eligible_files.extend(application_snapshot.files.iter().cloned());
+    eligible_files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
     let current_hashes = eligible_files
         .iter()
         .map(|file| (file.relative_path.clone(), file.sha256.clone()))
@@ -917,7 +983,11 @@ fn sync_warm_tier_blocking(
                 .iter()
                 .find(|file| &file.relative_path == path)
                 .ok_or_else(|| anyhow::anyhow!("Warm Tier changed file disappeared"))?;
-            let source = workspace.core_dir.join(safe_relative_path(path)?);
+            let source = application_snapshot
+                .sources
+                .get(path)
+                .cloned()
+                .unwrap_or(workspace.core_dir.join(safe_relative_path(path)?));
             let chunk = chunk_root.join(&metadata.sha256);
             if !chunk.is_file() {
                 let temporary = chunk_root.join(format!(".tmp-{}", uuid::Uuid::new_v4().simple()));
@@ -942,20 +1012,21 @@ fn sync_warm_tier_blocking(
             file.changed = changed.contains(&file.relative_path);
         }
         let content_hash = delta_manifest_content_hash(
+            2,
             workspace.profile_write_epoch,
             sequence,
             &eligible_files,
             &deleted_files,
-            &deferred_groups,
+            &[],
+            &application_snapshot.barriers,
         );
         let committed_at_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_millis()
             .try_into()
             .unwrap_or(u64::MAX);
-        let mut deferred_groups = deferred_groups.into_iter().collect::<Vec<_>>();
-        deferred_groups.sort();
         let manifest = ProfileDeltaJournalManifest {
+            manifest_version: 2,
             tenant_id: workspace.tenant_id.clone(),
             profile_id: workspace.profile_id.clone(),
             profile_write_epoch: workspace.profile_write_epoch,
@@ -967,7 +1038,8 @@ fn sync_warm_tier_blocking(
             deleted_file_count: deleted_files.len() as u64,
             reused_chunk_count,
             uploaded_bytes,
-            deferred_groups,
+            deferred_groups: Vec::new(),
+            application_barriers: application_snapshot.barriers.clone(),
             content_hash: content_hash.clone(),
             committed_at_ms,
             committed: true,
@@ -1018,8 +1090,12 @@ fn collect_core_metadata(
                 "profile file exceeds size limit"
             );
             let relative_path = path_to_manifest(&next_relative)?;
+            let mut group = database_group(&relative_path);
+            if group == "FILE" && file_has_sqlite_header(&entry.path())? {
+                group = "SQLITE".to_owned();
+            }
             files.push(DeltaJournalFile {
-                database_group: database_group(&relative_path),
+                database_group: group,
                 relative_path,
                 size: metadata.len(),
                 sha256: hash_file(&entry.path())?,
@@ -1030,11 +1106,24 @@ fn collect_core_metadata(
     Ok(())
 }
 
+fn file_has_sqlite_header(path: &Path) -> anyhow::Result<bool> {
+    let mut file = fs::File::open(path)?;
+    let mut header = [0_u8; 16];
+    match file.read_exact(&mut header) {
+        Ok(()) => Ok(&header == b"SQLite format 3\0"),
+        Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => Ok(false),
+        Err(error) => Err(error.into()),
+    }
+}
+
 fn database_group(path: &str) -> String {
     let lower = path.to_ascii_lowercase();
     if lower.ends_with(".sqlite")
         || lower.ends_with(".sqlite-wal")
         || lower.ends_with(".sqlite-shm")
+        || lower.ends_with("-wal")
+        || lower.ends_with("-shm")
+        || lower.ends_with("-journal")
         || lower.ends_with("/cookies")
         || lower.ends_with("/history")
     {
@@ -1058,13 +1147,18 @@ fn is_transactional_database_path(path: &str) -> bool {
 }
 
 fn delta_manifest_content_hash(
+    manifest_version: u32,
     write_epoch: u64,
     sequence: u64,
     files: &[DeltaJournalFile],
     deleted: &[String],
-    deferred: &HashSet<String>,
+    deferred: &[String],
+    application_barriers: &[ApplicationAwareBarrier],
 ) -> String {
     let mut hasher = Sha256::new();
+    if manifest_version >= 2 {
+        hasher.update(manifest_version.to_be_bytes());
+    }
     hasher.update(write_epoch.to_be_bytes());
     hasher.update(sequence.to_be_bytes());
     for file in files {
@@ -1083,6 +1177,24 @@ fn delta_manifest_content_hash(
     for group in deferred {
         hasher.update(b"defer\0");
         hasher.update(group.as_bytes());
+    }
+    if manifest_version >= 2 {
+        let mut barriers = application_barriers.iter().collect::<Vec<_>>();
+        barriers.sort_by(|left, right| left.relative_root.cmp(&right.relative_root));
+        for barrier in barriers {
+            hasher.update(b"adapter\0");
+            hasher.update(barrier.database_group.as_bytes());
+            hasher.update([0]);
+            hasher.update(barrier.relative_root.as_bytes());
+            hasher.update([0]);
+            hasher.update(barrier.adapter_version.as_bytes());
+            hasher.update([0]);
+            hasher.update(barrier.source_sequence.as_bytes());
+            hasher.update(barrier.file_count.to_be_bytes());
+            hasher.update(barrier.content_hash.as_bytes());
+            hasher.update([0]);
+            hasher.update(barrier.integrity_state.as_bytes());
+        }
     }
     format!("{:x}", hasher.finalize())
 }
@@ -1118,21 +1230,39 @@ fn validate_warm_tier_manifest(
         fs::read_to_string(committed.join(COMMIT_MARKER_FILE))?.trim() == manifest.content_hash,
         "Warm Tier commit marker mismatch"
     );
-    let deferred = manifest
-        .deferred_groups
-        .iter()
-        .cloned()
-        .collect::<HashSet<_>>();
     anyhow::ensure!(
         delta_manifest_content_hash(
+            manifest.manifest_version,
             manifest.profile_write_epoch,
             manifest.journal_sequence,
             &manifest.files,
             &manifest.deleted_files,
-            &deferred,
+            &manifest.deferred_groups,
+            &manifest.application_barriers,
         ) == manifest.content_hash,
         "Warm Tier manifest content hash mismatch"
     );
+    anyhow::ensure!(
+        matches!(manifest.manifest_version, 1 | 2),
+        "Warm Tier manifest version is unsupported"
+    );
+    if manifest.manifest_version >= 2 {
+        anyhow::ensure!(
+            manifest.deferred_groups.is_empty(),
+            "application-aware Warm Tier manifest deferred a database group"
+        );
+        for barrier in &manifest.application_barriers {
+            anyhow::ensure!(
+                matches!(barrier.database_group.as_str(), "SQLITE" | "LEVELDB")
+                    && barrier.adapter_version == "application-aware-v1"
+                    && barrier.integrity_state == "VERIFIED"
+                    && barrier.file_count > 0
+                    && barrier.content_hash.len() == 64,
+                "Warm Tier application adapter proof is invalid"
+            );
+            safe_relative_path(&barrier.relative_root)?;
+        }
+    }
     for file in &manifest.files {
         let chunk = warm_root.join("chunks").join(&file.sha256);
         anyhow::ensure!(
@@ -1253,6 +1383,79 @@ fn restore_checkpoint(
         secure_file_permissions(&target)?;
     }
     Ok(manifest)
+}
+
+fn restore_newer_warm_tier(
+    profile_root: &Path,
+    destination: &Path,
+    checkpoint_write_epoch: u64,
+) -> anyhow::Result<bool> {
+    let warm_root = profile_root.join(WARM_TIER_DIR);
+    let Some(manifest) = read_latest_warm_tier_manifest(&warm_root)? else {
+        return Ok(false);
+    };
+    if manifest.profile_write_epoch <= checkpoint_write_epoch {
+        // A clean Stop checkpoint is the final state for the same write epoch and must never be
+        // overwritten by an earlier periodic Warm Tier barrier.
+        return Ok(false);
+    }
+    if manifest.manifest_version == 1 && !manifest.deferred_groups.is_empty() {
+        // Legacy manifests intentionally omitted live SQLite/LevelDB groups. Applying their
+        // ordinary files over an older checkpoint would create a cross-transaction Profile that
+        // never existed. Keep the checkpoint intact until an application-aware barrier exists.
+        return Ok(false);
+    }
+
+    let desired = manifest
+        .files
+        .iter()
+        .map(|file| file.relative_path.clone())
+        .collect::<HashSet<_>>();
+    if manifest.manifest_version >= 2 {
+        let mut existing = Vec::new();
+        collect_core_metadata(destination, Path::new(""), &mut existing)?;
+        for file in existing {
+            if !desired.contains(&file.relative_path) {
+                let path = destination.join(safe_relative_path(&file.relative_path)?);
+                match fs::remove_file(path) {
+                    Ok(()) => {}
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error.into()),
+                }
+            }
+        }
+    } else {
+        for relative in &manifest.deleted_files {
+            let path = destination.join(safe_relative_path(relative)?);
+            match fs::remove_file(path) {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
+    }
+
+    for file in &manifest.files {
+        let relative = safe_relative_path(&file.relative_path)?;
+        let source = warm_root.join("chunks").join(&file.sha256);
+        let target = destination.join(relative);
+        if let Some(parent) = target.parent() {
+            secure_create_dir_all(parent)?;
+        }
+        fs::copy(&source, &target)?;
+        secure_file_permissions(&target)?;
+        anyhow::ensure!(
+            fs::metadata(&target)?.len() == file.size && hash_file(&target)? == file.sha256,
+            "restored Warm Tier file failed integrity verification"
+        );
+    }
+    if manifest.manifest_version >= 2 {
+        profile_adapter::verify_restored_application_groups(
+            destination,
+            &manifest.application_barriers,
+        )?;
+    }
+    Ok(true)
 }
 
 fn validate_committed_checkpoint(
@@ -1627,19 +1830,35 @@ mod tests {
             b"{\"theme\":1}",
         )
         .unwrap();
-        fs::write(workspace.core_dir.join("Default/Cookies"), b"sqlite-live").unwrap();
-        fs::write(
-            workspace
-                .core_dir
-                .join("Default/Local Storage/leveldb/CURRENT"),
-            b"MANIFEST-1",
-        )
-        .unwrap();
+        let sqlite =
+            rusqlite::Connection::open(workspace.core_dir.join("Default/Cookies")).unwrap();
+        sqlite
+            .execute_batch(
+                "PRAGMA journal_mode=WAL;
+                 PRAGMA user_version=7;
+                 CREATE TABLE cookies(name TEXT PRIMARY KEY, value TEXT NOT NULL);
+                 INSERT INTO cookies VALUES ('session', 'one');",
+            )
+            .unwrap();
+        let leveldb_path = workspace.core_dir.join("Default/Local Storage/leveldb");
+        let leveldb_options = rusty_leveldb::Options {
+            create_if_missing: true,
+            ..rusty_leveldb::Options::default()
+        };
+        let mut leveldb = rusty_leveldb::DB::open(&leveldb_path, leveldb_options).unwrap();
+        leveldb.put(b"session", b"one").unwrap();
+        leveldb.flush().unwrap();
 
         let first = store.sync_warm_tier(&workspace).await.unwrap();
         assert_eq!(first.journal_sequence, 1);
-        assert_eq!(first.changed_file_count, 1);
-        assert_eq!(first.deferred_groups, vec!["LEVELDB", "SQLITE"]);
+        assert!(first.changed_file_count >= 3);
+        assert!(first.deferred_groups.is_empty());
+        assert_eq!(first.manifest_version, 2);
+        assert_eq!(first.application_barriers.len(), 2);
+        assert!(first
+            .application_barriers
+            .iter()
+            .all(|barrier| barrier.integrity_state == "VERIFIED"));
         assert!(first.committed);
 
         fs::write(
@@ -1648,9 +1867,17 @@ mod tests {
         )
         .unwrap();
         fs::write(workspace.core_dir.join("Default/NewFile"), b"new-value").unwrap();
+        sqlite
+            .execute(
+                "UPDATE cookies SET value = 'two' WHERE name = 'session'",
+                [],
+            )
+            .unwrap();
+        leveldb.put(b"session", b"two").unwrap();
+        leveldb.flush().unwrap();
         let second = store.sync_warm_tier(&workspace).await.unwrap();
         assert_eq!(second.journal_sequence, 2);
-        assert_eq!(second.changed_file_count, 2);
+        assert!(second.changed_file_count >= 4);
         assert!(second.uploaded_bytes > 0);
         assert_ne!(first.content_hash, second.content_hash);
         assert!(second.transaction_barrier.starts_with("wtb_"));
@@ -1659,6 +1886,322 @@ mod tests {
         let third = store.sync_warm_tier(&workspace).await.unwrap();
         assert_eq!(third.deleted_files, vec!["Default/NewFile"]);
         assert_eq!(third.deleted_file_count, 1);
+        drop(leveldb);
+        drop(sqlite);
+        store.release_writer(&workspace).await.unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn application_aware_warm_tier_restores_sqlite_and_leveldb_after_unclean_stop() {
+        let root = temp_root();
+        let store = LocalProfileStore::open(root.clone()).await.unwrap();
+        let first = store
+            .acquire_workspace("tenant-test", "profile-test", "session-one")
+            .await
+            .unwrap();
+        fs::create_dir_all(first.core_dir.join("Default/Local Storage/leveldb")).unwrap();
+        let sqlite = rusqlite::Connection::open(first.core_dir.join("Default/Cookies")).unwrap();
+        sqlite
+            .execute_batch(
+                "PRAGMA journal_mode=WAL;
+                 CREATE TABLE cookies(name TEXT PRIMARY KEY, value TEXT NOT NULL);
+                 INSERT INTO cookies VALUES ('session', 'cold');",
+            )
+            .unwrap();
+        let leveldb_path = first.core_dir.join("Default/Local Storage/leveldb");
+        let options = rusty_leveldb::Options {
+            create_if_missing: true,
+            ..rusty_leveldb::Options::default()
+        };
+        let mut leveldb = rusty_leveldb::DB::open(&leveldb_path, options).unwrap();
+        leveldb.put(b"session", b"cold").unwrap();
+        leveldb.flush().unwrap();
+        drop(leveldb);
+        drop(sqlite);
+        store.checkpoint(&first, "runtime-test").await.unwrap();
+        store.release_writer(&first).await.unwrap();
+
+        let second = store
+            .acquire_workspace("tenant-test", "profile-test", "session-two")
+            .await
+            .unwrap();
+        let sqlite = rusqlite::Connection::open(second.core_dir.join("Default/Cookies")).unwrap();
+        sqlite
+            .execute(
+                "UPDATE cookies SET value = 'warm' WHERE name = 'session'",
+                [],
+            )
+            .unwrap();
+        let options = rusty_leveldb::Options {
+            create_if_missing: false,
+            ..rusty_leveldb::Options::default()
+        };
+        let mut leveldb = rusty_leveldb::DB::open(
+            second.core_dir.join("Default/Local Storage/leveldb"),
+            options,
+        )
+        .unwrap();
+        leveldb.put(b"session", b"warm").unwrap();
+        leveldb.flush().unwrap();
+        let warm = store.sync_warm_tier(&second).await.unwrap();
+        assert_eq!(warm.profile_write_epoch, second.profile_write_epoch);
+        assert!(warm.deferred_groups.is_empty());
+        drop(leveldb);
+        drop(sqlite);
+        // This models loss of the active Runtime without a clean Stop checkpoint.
+        store.release_writer(&second).await.unwrap();
+
+        let restored = store
+            .acquire_workspace("tenant-test", "profile-test", "session-three")
+            .await
+            .unwrap();
+        assert_eq!(
+            restored.restore_status,
+            ProfileRestoreStatus::TechnicalReady
+        );
+        let sqlite = rusqlite::Connection::open_with_flags(
+            restored.core_dir.join("Default/Cookies"),
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )
+        .unwrap();
+        let cookie: String = sqlite
+            .query_row(
+                "SELECT value FROM cookies WHERE name = 'session'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(cookie, "warm");
+        let options = rusty_leveldb::Options {
+            create_if_missing: false,
+            ..rusty_leveldb::Options::default()
+        };
+        let mut leveldb = rusty_leveldb::DB::open(
+            restored.core_dir.join("Default/Local Storage/leveldb"),
+            options,
+        )
+        .unwrap();
+        assert_eq!(leveldb.get(b"session").unwrap().as_ref(), b"warm");
+        drop(leveldb);
+        drop(sqlite);
+        store.release_writer(&restored).await.unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn warm_tier_detects_and_restores_extensionless_sqlite_by_header() {
+        let root = temp_root();
+        let store = LocalProfileStore::open(root.clone()).await.unwrap();
+        let first = store
+            .acquire_workspace("tenant-test", "profile-test", "session-one")
+            .await
+            .unwrap();
+        fs::create_dir_all(first.core_dir.join("Default")).unwrap();
+        let web_data_path = first.core_dir.join("Default/Web Data");
+        let database = rusqlite::Connection::open(&web_data_path).unwrap();
+        database
+            .execute_batch(
+                "PRAGMA journal_mode=WAL;
+                 PRAGMA user_version=11;
+                 CREATE TABLE autofill(name TEXT PRIMARY KEY, value TEXT NOT NULL);
+                 INSERT INTO autofill VALUES ('email', 'first@example.invalid');",
+            )
+            .unwrap();
+        database
+            .execute(
+                "UPDATE autofill SET value = 'warm@example.invalid' WHERE name = 'email'",
+                [],
+            )
+            .unwrap();
+
+        let warm = store.sync_warm_tier(&first).await.unwrap();
+        assert_eq!(warm.manifest_version, 2);
+        assert!(warm.deferred_groups.is_empty());
+        assert!(warm.application_barriers.iter().any(|barrier| {
+            barrier.database_group == "SQLITE"
+                && barrier.relative_root == "Default/Web Data"
+                && barrier.source_sequence.contains("user=11")
+        }));
+        drop(database);
+        store.release_writer(&first).await.unwrap();
+
+        let restored = store
+            .acquire_workspace("tenant-test", "profile-test", "session-two")
+            .await
+            .unwrap();
+        assert_eq!(
+            restored.restore_status,
+            ProfileRestoreStatus::TechnicalReady
+        );
+        let database = rusqlite::Connection::open_with_flags(
+            restored.core_dir.join("Default/Web Data"),
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )
+        .unwrap();
+        let value: String = database
+            .query_row(
+                "SELECT value FROM autofill WHERE name = 'email'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(value, "warm@example.invalid");
+        drop(database);
+        store.release_writer(&restored).await.unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn clean_checkpoint_dominates_a_warm_barrier_from_the_same_write_epoch() {
+        let root = temp_root();
+        let store = LocalProfileStore::open(root.clone()).await.unwrap();
+        let workspace = store
+            .acquire_workspace("tenant-test", "profile-test", "session-one")
+            .await
+            .unwrap();
+        fs::write(workspace.core_dir.join("Preferences"), b"warm-value").unwrap();
+        store.sync_warm_tier(&workspace).await.unwrap();
+        fs::write(workspace.core_dir.join("Preferences"), b"checkpoint-value").unwrap();
+        store.checkpoint(&workspace, "runtime-test").await.unwrap();
+        store.release_writer(&workspace).await.unwrap();
+
+        let restored = store
+            .acquire_workspace("tenant-test", "profile-test", "session-two")
+            .await
+            .unwrap();
+        assert_eq!(
+            fs::read(restored.core_dir.join("Preferences")).unwrap(),
+            b"checkpoint-value"
+        );
+        store.release_writer(&restored).await.unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn legacy_partial_warm_tier_never_overlays_a_cold_checkpoint() {
+        let root = temp_root();
+        let store = LocalProfileStore::open(root.clone()).await.unwrap();
+        let first = store
+            .acquire_workspace("tenant-test", "profile-test", "session-one")
+            .await
+            .unwrap();
+        fs::write(first.core_dir.join("Preferences"), b"cold-consistent").unwrap();
+        store.checkpoint(&first, "runtime-test").await.unwrap();
+        store.release_writer(&first).await.unwrap();
+
+        let second = store
+            .acquire_workspace("tenant-test", "profile-test", "session-two")
+            .await
+            .unwrap();
+        assert_eq!(second.profile_write_epoch, 2);
+        let profile = profile_root(&root, "tenant-test", "profile-test");
+        let warm_root = profile.join(WARM_TIER_DIR);
+        let journal = warm_root.join("journal").join(format!("{:020}", 1));
+        let chunks = warm_root.join("chunks");
+        secure_create_dir_all(&journal).unwrap();
+        secure_create_dir_all(&chunks).unwrap();
+        let unsafe_value = b"new-files-with-old-databases";
+        let unsafe_hash = format!("{:x}", Sha256::digest(unsafe_value));
+        atomic_write(&chunks.join(&unsafe_hash), unsafe_value).unwrap();
+        let files = vec![DeltaJournalFile {
+            relative_path: "Preferences".to_owned(),
+            size: unsafe_value.len() as u64,
+            sha256: unsafe_hash,
+            database_group: "PREFERENCES".to_owned(),
+            changed: true,
+        }];
+        let deferred = vec!["Default/Cookies".to_owned()];
+        let content_hash = delta_manifest_content_hash(
+            1,
+            second.profile_write_epoch,
+            1,
+            &files,
+            &[],
+            &deferred,
+            &[],
+        );
+        let manifest = ProfileDeltaJournalManifest {
+            manifest_version: 1,
+            tenant_id: "tenant-test".to_owned(),
+            profile_id: "profile-test".to_owned(),
+            profile_write_epoch: second.profile_write_epoch,
+            journal_sequence: 1,
+            transaction_barrier: "legacy-partial-barrier".to_owned(),
+            files,
+            deleted_files: Vec::new(),
+            changed_file_count: 1,
+            deleted_file_count: 0,
+            reused_chunk_count: 0,
+            uploaded_bytes: unsafe_value.len() as u64,
+            deferred_groups: deferred,
+            application_barriers: Vec::new(),
+            content_hash: content_hash.clone(),
+            committed_at_ms: 1,
+            committed: true,
+        };
+        atomic_write(
+            &journal.join(MANIFEST_FILE),
+            &serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+        atomic_write(&journal.join(COMMIT_MARKER_FILE), content_hash.as_bytes()).unwrap();
+        atomic_write(&warm_root.join(WARM_TIER_LATEST_FILE), b"1").unwrap();
+        store.release_writer(&second).await.unwrap();
+
+        let restored = store
+            .acquire_workspace("tenant-test", "profile-test", "session-three")
+            .await
+            .unwrap();
+        assert_eq!(
+            fs::read(restored.core_dir.join("Preferences")).unwrap(),
+            b"cold-consistent"
+        );
+        store.release_writer(&restored).await.unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn warm_tier_rejects_invalid_transactional_database_groups_without_a_commit() {
+        let root = temp_root();
+        let store = LocalProfileStore::open(root.clone()).await.unwrap();
+        let workspace = store
+            .acquire_workspace("tenant-test", "profile-test", "session-one")
+            .await
+            .unwrap();
+        fs::create_dir_all(workspace.core_dir.join("Default")).unwrap();
+        fs::write(workspace.core_dir.join("Default/Cookies"), b"not-sqlite").unwrap();
+        let error = store.sync_warm_tier(&workspace).await.unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("SQLite database header is invalid"));
+        let warm_root = profile_root(&root, "tenant-test", "profile-test").join(WARM_TIER_DIR);
+        assert!(!warm_root.join(WARM_TIER_LATEST_FILE).exists());
+        store.release_writer(&workspace).await.unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn warm_tier_rejects_leveldb_without_current_manifest_and_commit() {
+        let root = temp_root();
+        let store = LocalProfileStore::open(root.clone()).await.unwrap();
+        let workspace = store
+            .acquire_workspace("tenant-test", "profile-test", "session-one")
+            .await
+            .unwrap();
+        let leveldb = workspace.core_dir.join("Default/Local Storage/leveldb");
+        fs::create_dir_all(&leveldb).unwrap();
+        fs::write(leveldb.join("000003.log"), b"truncated-leveldb-log").unwrap();
+
+        let error = store.sync_warm_tier(&workspace).await.unwrap_err();
+        assert!(
+            error.to_string().contains("CURRENT")
+                || error
+                    .to_string()
+                    .contains("LevelDB restore-open verification failed")
+        );
+        let warm_root = profile_root(&root, "tenant-test", "profile-test").join(WARM_TIER_DIR);
+        assert!(!warm_root.join(WARM_TIER_LATEST_FILE).exists());
         store.release_writer(&workspace).await.unwrap();
         fs::remove_dir_all(root).unwrap();
     }

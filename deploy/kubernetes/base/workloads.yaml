@@ -370,6 +370,11 @@ spec:
               value: /var/lib/browsercloud/profiles
             - name: PROFILE_ARCHIVE_KEYRING_FILE
               value: /var/run/browsercloud/profile-archive-keys/keyring.json
+            # Must match the Browser Node placement region. Cross-region Profile restore
+            # sources are optional and are loaded from PROFILE_RESTORE_SOURCES_FILE only
+            # when an environment overlay mounts an explicit, policy-bound source list.
+            - name: NODE_REGION
+              value: primary
             - name: NODE_AGENT_UID
               value: "11001"
           volumeMounts:

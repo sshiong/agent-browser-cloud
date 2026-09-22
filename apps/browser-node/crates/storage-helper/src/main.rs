@@ -9,14 +9,16 @@ use helper_contracts::{
 };
 use nix::sys::socket::getsockopt;
 use nix::unistd::Uid;
+use serde::Deserialize;
 use sha2::{Digest, Sha256};
+use std::collections::BTreeSet;
 use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use storage_helper::object_archive::{
     EvidenceDownloadRequest, ObjectArchive, ProfileArchiveCrypto, ProfileExportDownloadRequest,
-    RecordingDeletionRequest, RecordingPlaybackRequest, S3ArchiveConfig,
+    RecordingDeletionRequest, RecordingPlaybackRequest, S3ArchiveConfig, S3RestoreSourceConfig,
 };
 use storage_helper::{LocalProfileStore, ProfileRestoreStatus, ProfileWorkspace};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
@@ -1002,6 +1004,36 @@ async fn execute_storage_operation(
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProfileRestoreSourcesFile {
+    version: u32,
+    sources: Vec<ProfileRestoreSourceFile>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProfileRestoreSourceFile {
+    region_id: String,
+    allowed_destination_region_ids: BTreeSet<String>,
+    endpoint: String,
+    bucket: String,
+    #[serde(default = "default_object_storage_region")]
+    region: String,
+    access_key_id: String,
+    secret_access_key_file: PathBuf,
+    #[serde(default)]
+    prefix: String,
+    #[serde(default)]
+    connect_timeout_ms: Option<u64>,
+    #[serde(default)]
+    operation_timeout_ms: Option<u64>,
+}
+
+fn default_object_storage_region() -> String {
+    "us-east-1".to_owned()
+}
+
 fn object_archive_from_environment() -> anyhow::Result<Option<ObjectArchive>> {
     let enabled = std::env::var("OBJECT_STORAGE_ENABLED")
         .map(|value| value.eq_ignore_ascii_case("true"))
@@ -1022,21 +1054,137 @@ fn object_archive_from_environment() -> anyhow::Result<Option<ObjectArchive>> {
     let profile_crypto = ProfileArchiveCrypto::from_keyring_file(&required_absolute_path(
         "PROFILE_ARCHIVE_KEYRING_FILE",
     )?)?;
-    Ok(Some(ObjectArchive::s3(S3ArchiveConfig {
-        bucket: required_environment("OBJECT_STORAGE_BUCKET")?,
-        region: std::env::var("OBJECT_STORAGE_REGION").unwrap_or_else(|_| "us-east-1".to_owned()),
-        endpoint,
-        access_key_id: required_environment("OBJECT_STORAGE_ACCESS_KEY_ID")?,
-        secret_access_key: required_secret_environment(
-            "OBJECT_STORAGE_SECRET_ACCESS_KEY",
-            "OBJECT_STORAGE_SECRET_ACCESS_KEY_FILE",
+    let local_region_id = std::env::var("NODE_REGION").unwrap_or_else(|_| "local".to_owned());
+    let restore_sources = match std::env::var("PROFILE_RESTORE_SOURCES_FILE") {
+        Ok(path) if !path.trim().is_empty() => load_profile_restore_sources(
+            Path::new(path.trim()),
+            &environment,
+            connect_timeout,
+            operation_timeout,
         )?,
-        prefix: std::env::var("OBJECT_STORAGE_PREFIX").unwrap_or_default(),
-        connect_timeout,
-        operation_timeout,
-        allow_http,
-        profile_crypto,
-    })?))
+        _ => Vec::new(),
+    };
+    Ok(Some(ObjectArchive::s3_with_restore_sources(
+        S3ArchiveConfig {
+            bucket: required_environment("OBJECT_STORAGE_BUCKET")?,
+            region: std::env::var("OBJECT_STORAGE_REGION")
+                .unwrap_or_else(|_| "us-east-1".to_owned()),
+            endpoint,
+            access_key_id: required_environment("OBJECT_STORAGE_ACCESS_KEY_ID")?,
+            secret_access_key: required_secret_environment(
+                "OBJECT_STORAGE_SECRET_ACCESS_KEY",
+                "OBJECT_STORAGE_SECRET_ACCESS_KEY_FILE",
+            )?,
+            prefix: std::env::var("OBJECT_STORAGE_PREFIX").unwrap_or_default(),
+            connect_timeout,
+            operation_timeout,
+            allow_http,
+            profile_crypto,
+        },
+        &local_region_id,
+        restore_sources,
+    )?))
+}
+
+fn load_profile_restore_sources(
+    path: &Path,
+    environment: &str,
+    default_connect_timeout: Duration,
+    default_operation_timeout: Duration,
+) -> anyhow::Result<Vec<S3RestoreSourceConfig>> {
+    anyhow::ensure!(
+        path.is_absolute(),
+        "PROFILE_RESTORE_SOURCES_FILE must be absolute"
+    );
+    let metadata = std::fs::symlink_metadata(path)?;
+    anyhow::ensure!(
+        metadata.file_type().is_file() && !metadata.file_type().is_symlink(),
+        "PROFILE_RESTORE_SOURCES_FILE must reference a regular non-symlink file"
+    );
+    anyhow::ensure!(
+        metadata.len() > 0 && metadata.len() <= 64 * 1024,
+        "PROFILE_RESTORE_SOURCES_FILE size is invalid"
+    );
+    let document: ProfileRestoreSourcesFile = serde_json::from_slice(&std::fs::read(path)?)?;
+    anyhow::ensure!(
+        document.version == 1,
+        "Profile restore source schema is unsupported"
+    );
+    anyhow::ensure!(
+        !document.sources.is_empty() && document.sources.len() <= 8,
+        "Profile restore source count is out of range"
+    );
+    document
+        .sources
+        .into_iter()
+        .map(|source| {
+            let allow_http = source.endpoint.starts_with("http://");
+            anyhow::ensure!(
+                (environment == "local" || environment == "test") || !allow_http,
+                "production Profile restore sources require HTTPS"
+            );
+            anyhow::ensure!(
+                !source.allowed_destination_region_ids.is_empty(),
+                "Profile restore source requires an allowed destination region"
+            );
+            let connect_timeout = duration_from_millis(
+                "Profile restore source connect timeout",
+                source
+                    .connect_timeout_ms
+                    .unwrap_or(default_connect_timeout.as_millis() as u64),
+            )?;
+            let operation_timeout = duration_from_millis(
+                "Profile restore source operation timeout",
+                source
+                    .operation_timeout_ms
+                    .unwrap_or(default_operation_timeout.as_millis() as u64),
+            )?;
+            Ok(S3RestoreSourceConfig {
+                region_id: source.region_id,
+                allowed_destination_region_ids: source.allowed_destination_region_ids,
+                bucket: source.bucket,
+                region: source.region,
+                endpoint: source.endpoint,
+                access_key_id: source.access_key_id,
+                secret_access_key: read_secret_file(
+                    &source.secret_access_key_file,
+                    "Profile restore source secret",
+                )?,
+                prefix: source.prefix,
+                connect_timeout,
+                operation_timeout,
+                allow_http,
+            })
+        })
+        .collect()
+}
+
+fn duration_from_millis(name: &str, millis: u64) -> anyhow::Result<Duration> {
+    anyhow::ensure!((100..=60_000).contains(&millis), "{name} is out of range");
+    Ok(Duration::from_millis(millis))
+}
+
+fn read_secret_file(path: &Path, name: &str) -> anyhow::Result<String> {
+    anyhow::ensure!(path.is_absolute(), "{name} file path must be absolute");
+    let metadata = std::fs::symlink_metadata(path)?;
+    anyhow::ensure!(
+        metadata.file_type().is_file() && !metadata.file_type().is_symlink(),
+        "{name} must reference a regular non-symlink file"
+    );
+    anyhow::ensure!(
+        metadata.permissions().mode() & 0o077 == 0,
+        "{name} file permissions must not grant group or other access"
+    );
+    anyhow::ensure!(
+        metadata.len() > 0 && metadata.len() <= 8192,
+        "{name} size is invalid"
+    );
+    let value = std::fs::read_to_string(path)?.trim().to_owned();
+    anyhow::ensure!(
+        !value.is_empty() && !value.contains(['\r', '\n', '\0']),
+        "{name} must contain one non-empty line"
+    );
+    Ok(value)
 }
 
 fn duration_from_environment(name: &str, default_millis: u64) -> anyhow::Result<Duration> {
@@ -1502,6 +1650,77 @@ mod tests {
         assert!(valid_evidence_kind("CHALLENGE_SCREENSHOT"));
         assert!(valid_evidence_kind("OBSERVER_MANUAL"));
         assert!(!valid_evidence_kind("ARBITRARY_SCREENSHOT"));
+    }
+
+    #[test]
+    fn profile_restore_sources_require_explicit_policy_and_private_secret_files() {
+        let sequence = TEST_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let root = std::env::temp_dir().join(format!(
+            "browsercloud-profile-restore-sources-{}-{sequence}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let secret = root.join("replica-secret");
+        std::fs::write(&secret, "replica-secret-value\n").unwrap();
+        std::fs::set_permissions(&secret, std::fs::Permissions::from_mode(0o600)).unwrap();
+        let config = root.join("sources.json");
+        std::fs::write(
+            &config,
+            serde_json::json!({
+                "version": 1,
+                "sources": [{
+                    "regionId": "primary-region",
+                    "allowedDestinationRegionIds": ["dr-region"],
+                    "endpoint": "http://127.0.0.1:9000",
+                    "bucket": "profile-replica",
+                    "region": "us-east-1",
+                    "accessKeyId": "replica-access",
+                    "secretAccessKeyFile": secret,
+                    "prefix": "replica",
+                    "connectTimeoutMs": 500,
+                    "operationTimeoutMs": 750
+                }]
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        let loaded = load_profile_restore_sources(
+            &config,
+            "test",
+            Duration::from_secs(1),
+            Duration::from_secs(2),
+        )
+        .unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].region_id, "primary-region");
+        assert!(loaded[0]
+            .allowed_destination_region_ids
+            .contains("dr-region"));
+        assert_eq!(loaded[0].secret_access_key, "replica-secret-value");
+        assert!(load_profile_restore_sources(
+            &config,
+            "production",
+            Duration::from_secs(1),
+            Duration::from_secs(2),
+        )
+        .err()
+        .unwrap()
+        .to_string()
+        .contains("require HTTPS"));
+
+        std::fs::set_permissions(&secret, std::fs::Permissions::from_mode(0o640)).unwrap();
+        assert!(load_profile_restore_sources(
+            &config,
+            "test",
+            Duration::from_secs(1),
+            Duration::from_secs(2),
+        )
+        .err()
+        .unwrap()
+        .to_string()
+        .contains("permissions"));
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]

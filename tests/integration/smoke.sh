@@ -231,7 +231,7 @@ python3 "$repo_root/tests/fixtures/fake-http-proxy.py" \
   >"$temp_dir/proxy.log" 2>&1 &
 proxy_pid=$!
 proxy_ready="false"
-for _ in $(seq 1 40); do
+for _ in $(seq 1 200); do
   if python3 - "$proxy_port" <<'PY' >/dev/null 2>&1
 import socket
 import sys
@@ -247,7 +247,8 @@ PY
   sleep 0.1
 done
 if [[ "$proxy_ready" != "true" ]]; then
-  echo "Fake HTTP proxy did not become ready." >&2
+  echo "Fake HTTP proxy did not become ready on 127.0.0.1:${proxy_port}." >&2
+  cat "$temp_dir/proxy.log" >&2 || true
   exit 1
 fi
 
@@ -261,7 +262,7 @@ python3 "$repo_root/tests/fixtures/fake-business-provider.py" \
   >"$temp_dir/business-provider.log" 2>&1 &
 business_provider_pid=$!
 business_provider_ready="false"
-for _ in $(seq 1 40); do
+for _ in $(seq 1 200); do
   if python3 - "$business_provider_port" <<'PY' >/dev/null 2>&1
 import socket
 import sys
@@ -316,7 +317,7 @@ start_network_helper() {
   PROXY_EXIT_CHECK_URL="http://browsercloud.invalid/exit" \
     apps/browser-node/target/debug/network-helper >>"$temp_dir/network-helper.log" 2>&1 &
   network_helper_pid=$!
-  for _ in $(seq 1 40); do
+  for _ in $(seq 1 200); do
     if [[ -S "$temp_dir/network-helper.sock" ]]; then return; fi
     if ! kill -0 "$network_helper_pid" 2>/dev/null; then exit 1; fi
     sleep 0.1
@@ -338,7 +339,7 @@ start_storage_helper() {
   NODE_AGENT_UID="$(id -u)" \
     apps/browser-node/target/debug/storage-helper >>"$temp_dir/storage-helper.log" 2>&1 &
   storage_helper_pid=$!
-  for _ in $(seq 1 40); do
+  for _ in $(seq 1 200); do
     if [[ -S "$temp_dir/storage-helper.sock" ]]; then return; fi
     if ! kill -0 "$storage_helper_pid" 2>/dev/null; then exit 1; fi
     sleep 0.1
@@ -360,7 +361,7 @@ start_storage_helper_b() {
   NODE_AGENT_UID="$(id -u)" \
     apps/browser-node/target/debug/storage-helper >>"$temp_dir/storage-helper-b.log" 2>&1 &
   storage_helper_b_pid=$!
-  for _ in $(seq 1 40); do
+  for _ in $(seq 1 200); do
     if [[ -S "$temp_dir/storage-helper-b.sock" ]]; then return; fi
     if ! kill -0 "$storage_helper_b_pid" 2>/dev/null; then exit 1; fi
     sleep 0.1
@@ -382,7 +383,7 @@ start_storage_helper_c() {
   NODE_AGENT_UID="$(id -u)" \
     apps/browser-node/target/debug/storage-helper >>"$temp_dir/storage-helper-c.log" 2>&1 &
   storage_helper_c_pid=$!
-  for _ in $(seq 1 40); do
+  for _ in $(seq 1 200); do
     if [[ -S "$temp_dir/storage-helper-c.sock" ]]; then return; fi
     if ! kill -0 "$storage_helper_c_pid" 2>/dev/null; then exit 1; fi
     sleep 0.1

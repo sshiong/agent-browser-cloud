@@ -33,10 +33,30 @@ pub struct ObjectArchive {
     version_store: aws_sdk_s3::Client,
     bucket: String,
     prefix: String,
+    local_region_id: String,
+    profile_restore_sources: Vec<ProfileRestoreSource>,
     operation_timeout: Duration,
     profile_crypto: Arc<ProfileArchiveCrypto>,
     #[cfg(test)]
     multipart_fail_after_parts: usize,
+}
+
+#[derive(Clone)]
+struct ProfileRestoreSource {
+    region_id: String,
+    store: Arc<AmazonS3>,
+    prefix: String,
+    operation_timeout: Duration,
+}
+
+struct ProfileRestoreCandidate {
+    marker: StoredArchiveCommitMarker,
+    archive: Bytes,
+}
+
+enum ProfileRestoreCandidateError {
+    Unavailable(anyhow::Error),
+    Invalid(anyhow::Error),
 }
 
 pub struct EvidenceDownloadRequest<'a> {
@@ -696,24 +716,72 @@ struct StoredEvidenceCommitMarker {
 
 impl ObjectArchive {
     pub fn s3(config: S3ArchiveConfig) -> anyhow::Result<Self> {
+        Self::s3_with_restore_sources(config, "local", Vec::new())
+    }
+
+    pub fn s3_with_restore_sources(
+        config: S3ArchiveConfig,
+        local_region_id: &str,
+        restore_sources: Vec<S3RestoreSourceConfig>,
+    ) -> anyhow::Result<Self> {
         anyhow::ensure!(
             config.operation_timeout >= Duration::from_millis(100),
             "object storage timeout must be at least 100ms"
         );
-        let client_options = ClientOptions::new()
-            .with_timeout(config.operation_timeout)
-            .with_connect_timeout(config.connect_timeout)
-            .with_allow_http(config.allow_http);
-        let store = AmazonS3Builder::new()
-            .with_bucket_name(config.bucket.clone())
-            .with_region(config.region.clone())
-            .with_endpoint(config.endpoint.clone())
-            .with_access_key_id(config.access_key_id.clone())
-            .with_secret_access_key(config.secret_access_key.clone())
-            .with_allow_http(config.allow_http)
-            .with_client_options(client_options)
-            .build()
-            .context("build S3-compatible Object Storage client")?;
+        validate_region_id("local Object Storage region", local_region_id)?;
+        anyhow::ensure!(
+            restore_sources.len() <= 8,
+            "at most eight Profile restore sources are supported"
+        );
+        let mut source_region_ids = BTreeSet::new();
+        let mut profile_restore_sources = Vec::with_capacity(restore_sources.len());
+        for source in restore_sources {
+            validate_region_id("Profile restore source region", &source.region_id)?;
+            anyhow::ensure!(
+                source.region_id != local_region_id,
+                "Profile restore source must be in a different region"
+            );
+            anyhow::ensure!(
+                source
+                    .allowed_destination_region_ids
+                    .contains(local_region_id),
+                "Profile restore source is not authorized for the local region"
+            );
+            anyhow::ensure!(
+                source_region_ids.insert(source.region_id.clone()),
+                "Profile restore source region is duplicated"
+            );
+            anyhow::ensure!(
+                source.operation_timeout >= Duration::from_millis(100),
+                "Profile restore source timeout must be at least 100ms"
+            );
+            let store = build_s3_store(
+                &source.bucket,
+                &source.region,
+                &source.endpoint,
+                &source.access_key_id,
+                &source.secret_access_key,
+                source.connect_timeout,
+                source.operation_timeout,
+                source.allow_http,
+            )?;
+            profile_restore_sources.push(ProfileRestoreSource {
+                region_id: source.region_id,
+                store: Arc::new(store),
+                prefix: source.prefix.trim_matches('/').to_owned(),
+                operation_timeout: source.operation_timeout,
+            });
+        }
+        let store = build_s3_store(
+            &config.bucket,
+            &config.region,
+            &config.endpoint,
+            &config.access_key_id,
+            &config.secret_access_key,
+            config.connect_timeout,
+            config.operation_timeout,
+            config.allow_http,
+        )?;
         let version_store_config = aws_sdk_s3::Config::builder()
             .behavior_version(BehaviorVersion::latest())
             .region(Region::new(config.region))
@@ -732,6 +800,8 @@ impl ObjectArchive {
             version_store: aws_sdk_s3::Client::from_conf(version_store_config),
             bucket: config.bucket,
             prefix: config.prefix.trim_matches('/').to_owned(),
+            local_region_id: local_region_id.to_owned(),
+            profile_restore_sources,
             operation_timeout: config.operation_timeout,
             profile_crypto: Arc::new(config.profile_crypto),
             #[cfg(test)]
@@ -1247,21 +1317,62 @@ impl ObjectArchive {
         profile_id: &str,
         checkpoint_id: &str,
     ) -> anyhow::Result<ProfileCheckpointManifest> {
-        let base = self.object_key_for(tenant_id, profile_id, checkpoint_id);
-        let marker_bytes = self.get(&format!("{base}/COMMITTED")).await?;
-        let marker: StoredArchiveCommitMarker = serde_json::from_slice(&marker_bytes)?;
-        anyhow::ensure!(
-            marker.checkpoint_id == checkpoint_id,
-            "archive commit marker checkpoint mismatch"
-        );
-        let archive = self
-            .get(&format!("{base}/{}", marker.archive_object))
-            .await?;
-        anyhow::ensure!(
-            archive.len() == marker.archive_bytes && hex_sha256(&archive) == marker.archive_sha256,
-            "checkpoint archive integrity verification failed"
-        );
+        let primary_base =
+            object_key_for_prefix(&self.prefix, tenant_id, profile_id, checkpoint_id);
+        let mut unavailable_regions = Vec::new();
+        let mut selected_region = self.local_region_id.as_str();
+        let mut selected_is_replica = false;
+        let mut candidate = match fetch_profile_restore_candidate(
+            &self.store,
+            self.operation_timeout,
+            &primary_base,
+            checkpoint_id,
+        )
+        .await
+        {
+            Ok(candidate) => Some(candidate),
+            Err(ProfileRestoreCandidateError::Invalid(error)) => return Err(error),
+            Err(ProfileRestoreCandidateError::Unavailable(_error)) => {
+                unavailable_regions.push(self.local_region_id.clone());
+                None
+            }
+        };
+        if candidate.is_none() {
+            for source in &self.profile_restore_sources {
+                let base =
+                    object_key_for_prefix(&source.prefix, tenant_id, profile_id, checkpoint_id);
+                match fetch_profile_restore_candidate(
+                    &source.store,
+                    source.operation_timeout,
+                    &base,
+                    checkpoint_id,
+                )
+                .await
+                {
+                    Ok(restored) => {
+                        selected_region = source.region_id.as_str();
+                        selected_is_replica = true;
+                        candidate = Some(restored);
+                        break;
+                    }
+                    Err(ProfileRestoreCandidateError::Invalid(error)) => return Err(error),
+                    Err(ProfileRestoreCandidateError::Unavailable(_error)) => {
+                        unavailable_regions.push(source.region_id.clone());
+                    }
+                }
+            }
+        }
+        let ProfileRestoreCandidate { marker, archive } = candidate.ok_or_else(|| {
+            anyhow::anyhow!(
+                "checkpoint is unavailable from every authorized Profile restore source: {}",
+                unavailable_regions.join(", ")
+            )
+        })?;
         let is_legacy = marker.archive_format == "TAR_ZSTD";
+        anyhow::ensure!(
+            !(selected_is_replica && is_legacy),
+            "cross-region Profile restore requires an encrypted checkpoint archive"
+        );
         let plaintext_archive = if is_legacy {
             archive.to_vec()
         } else {
@@ -1274,6 +1385,9 @@ impl ObjectArchive {
             let plaintext_sha256 = hex_sha256(&decrypted.plaintext);
             anyhow::ensure!(
                 marker.encryption_key_id.as_deref() == Some(decrypted.key_id.as_str())
+                    && decrypted.tenant_id == tenant_id
+                    && decrypted.profile_id == profile_id
+                    && decrypted.checkpoint_id == checkpoint_id
                     && marker.plaintext_archive_sha256.as_deref()
                         == Some(plaintext_sha256.as_str())
                     && marker.plaintext_archive_bytes == Some(decrypted.plaintext.len()),
@@ -1289,10 +1403,19 @@ impl ObjectArchive {
                 plaintext_archive.clone(),
             )
             .await?;
+        tracing::info!(
+            tenant_id,
+            profile_id,
+            checkpoint_id,
+            source_region = selected_region,
+            destination_region = self.local_region_id,
+            replica = selected_is_replica,
+            "Profile checkpoint restored from an authorized region"
+        );
         if is_legacy {
             self.commit_encrypted_checkpoint(&restored, &plaintext_archive)
                 .await?;
-            self.delete(&format!("{base}/{LEGACY_ARCHIVE_OBJECT}"))
+            self.delete(&format!("{primary_base}/{LEGACY_ARCHIVE_OBJECT}"))
                 .await?;
         }
         Ok(restored)
@@ -2268,6 +2391,133 @@ pub struct S3ArchiveConfig {
     pub profile_crypto: ProfileArchiveCrypto,
 }
 
+pub struct S3RestoreSourceConfig {
+    pub region_id: String,
+    pub allowed_destination_region_ids: BTreeSet<String>,
+    pub bucket: String,
+    pub region: String,
+    pub endpoint: String,
+    pub access_key_id: String,
+    pub secret_access_key: String,
+    pub prefix: String,
+    pub connect_timeout: Duration,
+    pub operation_timeout: Duration,
+    pub allow_http: bool,
+}
+
+fn validate_region_id(name: &str, value: &str) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        !value.is_empty()
+            && value.len() <= 64
+            && value.chars().all(|character| character.is_ascii_lowercase()
+                || character.is_ascii_digit()
+                || character == '-'),
+        "{name} is invalid"
+    );
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_s3_store(
+    bucket: &str,
+    region: &str,
+    endpoint: &str,
+    access_key_id: &str,
+    secret_access_key: &str,
+    connect_timeout: Duration,
+    operation_timeout: Duration,
+    allow_http: bool,
+) -> anyhow::Result<AmazonS3> {
+    let client_options = ClientOptions::new()
+        .with_timeout(operation_timeout)
+        .with_connect_timeout(connect_timeout)
+        .with_allow_http(allow_http);
+    AmazonS3Builder::new()
+        .with_bucket_name(bucket)
+        .with_region(region)
+        .with_endpoint(endpoint)
+        .with_access_key_id(access_key_id)
+        .with_secret_access_key(secret_access_key)
+        .with_allow_http(allow_http)
+        .with_client_options(client_options)
+        .build()
+        .context("build S3-compatible Object Storage client")
+}
+
+fn object_key_for_prefix(
+    prefix: &str,
+    tenant_id: &str,
+    profile_id: &str,
+    checkpoint_id: &str,
+) -> String {
+    let suffix = format!("tenants/{tenant_id}/profiles/{profile_id}/checkpoints/{checkpoint_id}");
+    if prefix.is_empty() {
+        suffix
+    } else {
+        format!("{prefix}/{suffix}")
+    }
+}
+
+async fn fetch_profile_restore_candidate(
+    store: &AmazonS3,
+    operation_timeout: Duration,
+    base: &str,
+    checkpoint_id: &str,
+) -> Result<ProfileRestoreCandidate, ProfileRestoreCandidateError> {
+    let marker_key = format!("{base}/COMMITTED");
+    let marker_bytes = get_profile_restore_object(store, operation_timeout, &marker_key)
+        .await
+        .map_err(ProfileRestoreCandidateError::Unavailable)?;
+    let marker: StoredArchiveCommitMarker =
+        serde_json::from_slice(&marker_bytes).map_err(|error| {
+            ProfileRestoreCandidateError::Invalid(anyhow::anyhow!(
+                "Profile restore commit marker is invalid for {checkpoint_id}: {error}"
+            ))
+        })?;
+    if marker.checkpoint_id != checkpoint_id {
+        return Err(ProfileRestoreCandidateError::Invalid(anyhow::anyhow!(
+            "archive commit marker checkpoint mismatch"
+        )));
+    }
+    let supported_object = match marker.archive_format.as_str() {
+        "TAR_ZSTD" => marker.archive_object == LEGACY_ARCHIVE_OBJECT,
+        "BROWSERCLOUD_PROFILE_AEAD_V1" => marker.archive_object == ENCRYPTED_ARCHIVE_OBJECT,
+        _ => false,
+    };
+    if !supported_object {
+        return Err(ProfileRestoreCandidateError::Invalid(anyhow::anyhow!(
+            "checkpoint archive format or object name is unsupported"
+        )));
+    }
+    let archive_key = format!("{base}/{}", marker.archive_object);
+    let archive = get_profile_restore_object(store, operation_timeout, &archive_key)
+        .await
+        .map_err(ProfileRestoreCandidateError::Unavailable)?;
+    if archive.len() != marker.archive_bytes || hex_sha256(&archive) != marker.archive_sha256 {
+        return Err(ProfileRestoreCandidateError::Invalid(anyhow::anyhow!(
+            "checkpoint archive integrity verification failed"
+        )));
+    }
+    Ok(ProfileRestoreCandidate { marker, archive })
+}
+
+async fn get_profile_restore_object(
+    store: &AmazonS3,
+    operation_timeout: Duration,
+    key: &str,
+) -> anyhow::Result<Bytes> {
+    tokio::time::timeout(operation_timeout, async {
+        store
+            .get(&Path::from(key))
+            .await?
+            .bytes()
+            .await
+            .with_context(|| format!("Object Storage GET failed for {key}"))
+    })
+    .await
+    .context("Object Storage Profile restore timed out")?
+}
+
 fn profile_multipart_root(
     local: &LocalProfileStore,
     manifest: &ProfileCheckpointManifest,
@@ -2700,6 +2950,24 @@ mod tests {
                 })
                 .await
                 .is_err());
+            let substituted_restore_root = std::env::temp_dir().join(format!(
+                "browsercloud-object-archive-substituted-restore-test-{}",
+                uuid::Uuid::new_v4().simple()
+            ));
+            let substituted_restore_local =
+                LocalProfileStore::open(substituted_restore_root.clone())
+                    .await
+                    .unwrap();
+            assert!(archive
+                .restore_checkpoint(
+                    &substituted_restore_local,
+                    "tenant-test",
+                    "profile-test",
+                    &manifest.checkpoint_id,
+                )
+                .await
+                .is_err());
+            fs::remove_dir_all(substituted_restore_root).unwrap();
             archive.commit_checkpoint(&local, &manifest).await.unwrap();
             let signed_export = archive
                 .sign_profile_export_download(ProfileExportDownloadRequest {
@@ -3022,5 +3290,183 @@ mod tests {
             );
         }
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[tokio::test]
+    #[ignore = "requires TEST_CROSS_REGION_* and two independent S3-compatible servers"]
+    async fn restores_encrypted_profile_from_authorized_cross_region_replica() {
+        let primary_endpoint = std::env::var("TEST_CROSS_REGION_PRIMARY_ENDPOINT").unwrap();
+        let replica_endpoint = std::env::var("TEST_CROSS_REGION_REPLICA_ENDPOINT").unwrap();
+        let unavailable_endpoint = std::env::var("TEST_CROSS_REGION_UNAVAILABLE_ENDPOINT").unwrap();
+        let primary_bucket = std::env::var("TEST_CROSS_REGION_PRIMARY_BUCKET").unwrap();
+        let replica_bucket = std::env::var("TEST_CROSS_REGION_REPLICA_BUCKET").unwrap();
+        let access_key_id = std::env::var("TEST_OBJECT_STORAGE_ACCESS_KEY_ID").unwrap();
+        let secret_access_key = std::env::var("TEST_OBJECT_STORAGE_SECRET_ACCESS_KEY").unwrap();
+        let timeout = Duration::from_millis(750);
+        let crypto = || {
+            ProfileArchiveCrypto::for_test(
+                "cross-region-key-v1",
+                &[("cross-region-key-v1", [0x71; 32])],
+            )
+        };
+        let config = |endpoint: String, bucket: String| S3ArchiveConfig {
+            bucket,
+            region: "us-east-1".to_owned(),
+            endpoint,
+            access_key_id: access_key_id.clone(),
+            secret_access_key: secret_access_key.clone(),
+            prefix: "cross-region".to_owned(),
+            connect_timeout: timeout,
+            operation_timeout: timeout,
+            allow_http: true,
+            profile_crypto: crypto(),
+        };
+
+        let seed_root = std::env::temp_dir().join(format!(
+            "browsercloud-cross-region-seed-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let seed_local = LocalProfileStore::open(seed_root.clone()).await.unwrap();
+        let workspace = seed_local
+            .acquire_workspace(
+                "tenant-cross-region",
+                "profile-cross-region",
+                "session-seed",
+            )
+            .await
+            .unwrap();
+        fs::write(
+            workspace.core_dir.join("Cookies"),
+            b"cross-region-cookie-state",
+        )
+        .unwrap();
+        let manifest = seed_local
+            .checkpoint(&workspace, "runtime-cross-region")
+            .await
+            .unwrap();
+        let primary = ObjectArchive::s3(config(primary_endpoint, primary_bucket.clone())).unwrap();
+        primary
+            .commit_checkpoint(&seed_local, &manifest)
+            .await
+            .unwrap();
+
+        let replica =
+            ObjectArchive::s3(config(replica_endpoint.clone(), replica_bucket.clone())).unwrap();
+        let primary_base = primary.object_key(&manifest);
+        let replica_base = replica.object_key(&manifest);
+        for object in [ENCRYPTED_ARCHIVE_OBJECT, "manifest.json", "COMMITTED"] {
+            let bytes = primary
+                .get(&format!("{primary_base}/{object}"))
+                .await
+                .unwrap();
+            replica
+                .put(&format!("{replica_base}/{object}"), bytes)
+                .await
+                .unwrap();
+        }
+
+        let source = S3RestoreSourceConfig {
+            region_id: "primary-region".to_owned(),
+            allowed_destination_region_ids: BTreeSet::from(["dr-region".to_owned()]),
+            bucket: replica_bucket,
+            region: "us-east-1".to_owned(),
+            endpoint: replica_endpoint,
+            access_key_id: access_key_id.clone(),
+            secret_access_key: secret_access_key.clone(),
+            prefix: "cross-region".to_owned(),
+            connect_timeout: timeout,
+            operation_timeout: timeout,
+            allow_http: true,
+        };
+        let failover = ObjectArchive::s3_with_restore_sources(
+            config(unavailable_endpoint, primary_bucket),
+            "dr-region",
+            vec![source],
+        )
+        .unwrap();
+        let restored_root = std::env::temp_dir().join(format!(
+            "browsercloud-cross-region-restore-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let restored_local = LocalProfileStore::open(restored_root.clone())
+            .await
+            .unwrap();
+        let restored = failover
+            .restore_checkpoint(
+                &restored_local,
+                "tenant-cross-region",
+                "profile-cross-region",
+                &manifest.checkpoint_id,
+            )
+            .await
+            .unwrap();
+        assert_eq!(restored.content_hash, manifest.content_hash);
+        let restored_workspace = restored_local
+            .acquire_workspace(
+                "tenant-cross-region",
+                "profile-cross-region",
+                "session-restored",
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            fs::read(restored_workspace.core_dir.join("Cookies")).unwrap(),
+            b"cross-region-cookie-state"
+        );
+
+        let committed_key = format!("{replica_base}/COMMITTED");
+        let committed = replica.get(&committed_key).await.unwrap();
+        let mut redirected_marker: serde_json::Value = serde_json::from_slice(&committed).unwrap();
+        redirected_marker["archiveObject"] =
+            serde_json::Value::String("../../another-profile/checkpoint.tar.zst.enc".to_owned());
+        replica
+            .put(
+                &committed_key,
+                Bytes::from(serde_json::to_vec(&redirected_marker).unwrap()),
+            )
+            .await
+            .unwrap();
+        let redirected_root = std::env::temp_dir().join(format!(
+            "browsercloud-cross-region-redirected-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let redirected_local = LocalProfileStore::open(redirected_root.clone())
+            .await
+            .unwrap();
+        let redirected_error = failover
+            .restore_checkpoint(
+                &redirected_local,
+                "tenant-cross-region",
+                "profile-cross-region",
+                &manifest.checkpoint_id,
+            )
+            .await
+            .unwrap_err();
+        assert!(redirected_error
+            .to_string()
+            .contains("object name is unsupported"));
+
+        let denied_source = S3RestoreSourceConfig {
+            region_id: "primary-region".to_owned(),
+            allowed_destination_region_ids: BTreeSet::from(["another-region".to_owned()]),
+            bucket: "unused".to_owned(),
+            region: "us-east-1".to_owned(),
+            endpoint: "http://127.0.0.1:1".to_owned(),
+            access_key_id: access_key_id.clone(),
+            secret_access_key: secret_access_key.clone(),
+            prefix: "cross-region".to_owned(),
+            connect_timeout: timeout,
+            operation_timeout: timeout,
+            allow_http: true,
+        };
+        assert!(ObjectArchive::s3_with_restore_sources(
+            config("http://127.0.0.1:1".to_owned(), "unused".to_owned()),
+            "dr-region",
+            vec![denied_source],
+        )
+        .is_err());
+        let _ = fs::remove_dir_all(seed_root);
+        let _ = fs::remove_dir_all(restored_root);
+        let _ = fs::remove_dir_all(redirected_root);
     }
 }

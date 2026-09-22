@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "regionId": "primary-region",
+      "allowedDestinationRegionIds": [
+        "dr-region"
+      ],
+      "endpoint": "https://s3.primary.example.com",
+      "bucket": "browsercloud-profile-replica",
+      "region": "us-east-1",
+      "accessKeyId": "replace-with-workload-scoped-access-id",
+      "secretAccessKeyFile": "/var/run/browsercloud/profile-restore-primary/secret-access-key",
+      "prefix": "profiles",
+      "connectTimeoutMs": 1000,
+      "operationTimeoutMs": 3000
+    }
+  ]
+}

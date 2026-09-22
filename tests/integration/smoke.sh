@@ -537,7 +537,7 @@ done
 test "$minio_ready" = "true"
 docker run --rm --network "$minio_network" --entrypoint /bin/sh \
   quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z \
-  -c "mc alias set integration http://${minio_name}:9000 '${minio_access_key}' '${minio_secret_key}' >/dev/null && mc mb integration/${minio_bucket} >/dev/null"
+  -c "mc alias set integration http://${minio_name}:9000 '${minio_access_key}' '${minio_secret_key}' >/dev/null && mc mb --with-lock integration/${minio_bucket} >/dev/null"
 
 {
   printf '%s\n' \
@@ -6522,12 +6522,16 @@ if docker run --rm --network "$minio_network" --entrypoint /bin/sh \
   echo "retention worker left the Recording manifest in Object Storage" >&2
   exit 1
 fi
+docker run --rm --network "$minio_network" --entrypoint /bin/sh \
+  quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z \
+  -c "mc alias set integration http://${minio_name}:9000 '${minio_access_key}' '${minio_secret_key}' >/dev/null && test -z \"\$(mc ls --versions --recursive 'integration/${minio_bucket}/${recording_manifest_key%/COMMITTED}')\""
 recording_deletion_audit_leaks="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from audit_events
     where resource_id='${recording_fixture_id}'
       and (details::text ilike '%http%' or details::text ilike '%signature%' or details::text ilike '%objectkey%')")"
 test "$recording_deletion_audit_leaks" = "0"
 echo "recording_retention_physical_deletion=true"
+echo "recording_retention_versioned_physical_deletion=true"
 
 confirmation_task="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-tasks" \

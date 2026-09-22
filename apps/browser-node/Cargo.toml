@@ -39,6 +39,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 bytes = "1"
 object_store = { version = "0.14.1", default-features = false, features = ["aws"] }
+aws-sdk-s3 = { version = "1.148.0", default-features = false, features = ["default-https-client", "http-1x", "rt-tokio", "rustls"] }
 tar = "0.4"
 zstd = "0.13"
 rusqlite = { version = "0.32", features = ["bundled"] }

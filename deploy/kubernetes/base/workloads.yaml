@@ -97,6 +97,11 @@ spec:
               value: "60000"
             - name: BROWSER_NODE_FRESHNESS_PROJECTION_INTERVAL_MS
               value: "5000"
+            # Must equal Terraform output recording_policy_minimum_retention_days.
+            # The archive bucket defaults to 30-day COMPLIANCE Object Lock; one extra
+            # day prevents upload-time/recording-end and clock-skew deletion races.
+            - name: RECORDING_OBJECT_LOCK_POLICY_MINIMUM_RETENTION_DAYS
+              value: "31"
             - name: REMOTE_DESKTOP_CONTROL_ACTOR_BITRATE_LIMIT_KBPS
               value: "8000"
             - name: REMOTE_DESKTOP_CONTROL_ACTOR_FRAME_RATE_LIMIT_FPS

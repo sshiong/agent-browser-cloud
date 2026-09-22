@@ -7,6 +7,7 @@ import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.coordinator.exceptions.SessionNotFoundException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,10 +19,21 @@ public class SessionRecordingApplicationService {
   private static final int DEFAULT_RETENTION_DAYS = 30;
   private final JdbcTemplate jdbc;
   private final SessionRepository sessions;
+  private final int defaultRetentionDays;
 
-  public SessionRecordingApplicationService(JdbcTemplate jdbc, SessionRepository sessions) {
+  public SessionRecordingApplicationService(
+      JdbcTemplate jdbc,
+      SessionRepository sessions,
+      @Value("${recording.object-lock.policy-minimum-retention-days:0}")
+          int objectLockPolicyMinimumRetentionDays) {
+    if (objectLockPolicyMinimumRetentionDays < 0 || objectLockPolicyMinimumRetentionDays > 3650) {
+      throw new IllegalStateException(
+          "Recording Object Lock policy minimum retention must be between 0 and 3650 days");
+    }
     this.jdbc = jdbc;
     this.sessions = sessions;
+    this.defaultRetentionDays =
+        Math.max(DEFAULT_RETENTION_DAYS, objectLockPolicyMinimumRetentionDays);
   }
 
   @Transactional
@@ -60,7 +72,7 @@ public class SessionRecordingApplicationService {
         Timestamp.from(Instant.ofEpochMilli(recording.startedAtMs())),
         Timestamp.from(Instant.ofEpochMilli(recording.endedAtMs())),
         Timestamp.from(Instant.ofEpochMilli(recording.endedAtMs())),
-        DEFAULT_RETENTION_DAYS,
+        defaultRetentionDays,
         tenantId);
   }
 

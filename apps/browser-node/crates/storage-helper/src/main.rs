@@ -73,8 +73,18 @@ impl StorageService {
     }
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+const STORAGE_HELPER_WORKER_STACK_BYTES: usize = 8 * 1024 * 1024;
+
+fn main() -> anyhow::Result<()> {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_stack_size(STORAGE_HELPER_WORKER_STACK_BYTES)
+        .build()
+        .context("build Storage Helper runtime")?
+        .block_on(run())
+}
+
+async fn run() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()

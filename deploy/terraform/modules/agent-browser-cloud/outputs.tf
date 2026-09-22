@@ -2,6 +2,19 @@ output "archive_bucket" {
   value = aws_s3_bucket.archive.bucket
 }
 
+output "archive_object_lock_mode" {
+  value = var.archive_object_lock_mode
+}
+
+output "archive_object_lock_retention_days" {
+  value = var.archive_object_lock_retention_days
+}
+
+output "recording_policy_minimum_retention_days" {
+  description = "Configure RECORDING_OBJECT_LOCK_POLICY_MINIMUM_RETENTION_DAYS to this value; the extra day prevents upload-time/recording-end skew."
+  value       = var.archive_object_lock_retention_days + 1
+}
+
 output "data_kms_key_arn" {
   value = aws_kms_key.data.arn
 }

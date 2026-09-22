@@ -87,6 +87,7 @@ public class EnterpriseOperationsApplicationService {
   private final String auditExportSigningKey;
   private final String auditExportSigningKeyId;
   private final boolean gameDayProductionEnabled;
+  private final int recordingObjectLockPolicyMinimumRetentionDays;
 
   public EnterpriseOperationsApplicationService(
       JdbcTemplate jdbc,
@@ -98,7 +99,20 @@ public class EnterpriseOperationsApplicationService {
           String auditExportSigningKey,
       @Value("${enterprise.audit-export.signing-key-id:local-development}") String signingKeyId,
       @Value("${enterprise.gameday-worker.production-enabled:false}")
-          boolean gameDayProductionEnabled) {
+          boolean gameDayProductionEnabled,
+      @Value("${recording.object-lock.policy-minimum-retention-days:0}")
+          int recordingObjectLockPolicyMinimumRetentionDays,
+      @Value("${app.environment:local}") String environment) {
+    if (recordingObjectLockPolicyMinimumRetentionDays < 0
+        || recordingObjectLockPolicyMinimumRetentionDays > 3650) {
+      throw new IllegalStateException(
+          "Recording Object Lock policy minimum retention must be between 0 and 3650 days");
+    }
+    if ("production".equalsIgnoreCase(environment)
+        && recordingObjectLockPolicyMinimumRetentionDays == 0) {
+      throw new IllegalStateException(
+          "Production requires a Recording Object Lock policy minimum retention");
+    }
     this.jdbc = jdbc;
     this.objectMapper = objectMapper;
     this.auditService = auditService;
@@ -107,6 +121,8 @@ public class EnterpriseOperationsApplicationService {
     this.auditExportSigningKey = auditExportSigningKey;
     this.auditExportSigningKeyId = signingKeyId;
     this.gameDayProductionEnabled = gameDayProductionEnabled;
+    this.recordingObjectLockPolicyMinimumRetentionDays =
+        recordingObjectLockPolicyMinimumRetentionDays;
   }
 
   @Transactional
@@ -639,6 +655,10 @@ public class EnterpriseOperationsApplicationService {
   @Transactional
   public RetentionPolicyView upsertRetention(
       String tenantId, UpsertRetentionPolicyRequest request, String actorId) {
+    if ("REMOTE_DESKTOP_RECORDING".equals(request.dataClass())
+        && request.retentionDays() < recordingObjectLockPolicyMinimumRetentionDays) {
+      throw new GovernanceRejectedException("OBJECT_LOCK_RETENTION_MINIMUM");
+    }
     requireExists(
         "SELECT count(*) FROM enterprise_regions WHERE region_id = ?",
         request.residencyRegion(),

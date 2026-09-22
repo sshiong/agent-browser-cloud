@@ -5,6 +5,8 @@ locals {
   })
 }
 
+data "aws_caller_identity" "current" {}
+
 resource "aws_kms_key" "data" {
   description             = "${var.name} envelope encryption"
   deletion_window_in_days = 30
@@ -19,9 +21,10 @@ resource "aws_kms_alias" "data" {
 }
 
 resource "aws_s3_bucket" "archive" {
-  bucket_prefix = "${var.name}-archive-"
-  force_destroy = false
-  tags          = local.tags
+  bucket_prefix       = "${var.name}-archive-"
+  force_destroy       = false
+  object_lock_enabled = true
+  tags                = local.tags
 }
 
 resource "aws_s3_bucket_versioning" "archive" {
@@ -29,6 +32,21 @@ resource "aws_s3_bucket_versioning" "archive" {
   versioning_configuration {
     status = "Enabled"
   }
+}
+
+resource "aws_s3_bucket_object_lock_configuration" "archive" {
+  bucket                = aws_s3_bucket.archive.id
+  object_lock_enabled   = "Enabled"
+  expected_bucket_owner = data.aws_caller_identity.current.account_id
+
+  rule {
+    default_retention {
+      mode = var.archive_object_lock_mode
+      days = var.archive_object_lock_retention_days
+    }
+  }
+
+  depends_on = [aws_s3_bucket_versioning.archive]
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "archive" {

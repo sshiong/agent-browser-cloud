@@ -8,6 +8,8 @@ network_name="${container_name}-network"
 access_key="browsercloud-test"
 secret_key="browsercloud-test-secret"
 bucket="profile-checkpoints"
+legacy_bucket="${bucket}-legacy"
+worm_bucket="${bucket}-worm"
 port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')"
 
 cleanup() {
@@ -36,10 +38,22 @@ done
 test "$ready" = "true"
 
 docker run --rm --network "$network_name" --entrypoint /bin/sh "$mc_image" \
-  -c "mc alias set acceptance http://${container_name}:9000 '${access_key}' '${secret_key}' >/dev/null && mc mb acceptance/${bucket} >/dev/null"
+  -c "mc alias set acceptance http://${container_name}:9000 '${access_key}' '${secret_key}' >/dev/null && mc mb --with-lock acceptance/${bucket} >/dev/null && mc mb acceptance/${legacy_bucket} >/dev/null && mc mb --with-lock acceptance/${worm_bucket} >/dev/null && mc retention set --default compliance 1d acceptance/${worm_bucket} >/dev/null"
+
+docker run --rm --network "$network_name" --entrypoint /bin/sh "$mc_image" \
+  -c "mc alias set acceptance http://${container_name}:9000 '${access_key}' '${secret_key}' >/dev/null && printf 'immutable-recording-evidence' | mc pipe acceptance/${worm_bucket}/recording-segment.ndjson >/dev/null && retention_info=\$(mc retention info acceptance/${worm_bucket}/recording-segment.ndjson) && case \"\$retention_info\" in *COMPLIANCE*) ;; *) echo 'Object Lock compliance retention was not applied' >&2; exit 1 ;; esac && if mc rm --versions --force acceptance/${worm_bucket}/recording-segment.ndjson >/dev/null 2>&1; then echo 'Object Lock allowed a protected version to be deleted' >&2; exit 1; fi && mc stat acceptance/${worm_bucket}/recording-segment.ndjson >/dev/null"
 
 TEST_OBJECT_STORAGE_ENDPOINT="http://127.0.0.1:${port}" \
 TEST_OBJECT_STORAGE_BUCKET="$bucket" \
+TEST_OBJECT_STORAGE_ACCESS_KEY_ID="$access_key" \
+TEST_OBJECT_STORAGE_SECRET_ACCESS_KEY="$secret_key" \
+TEST_OBJECT_STORAGE_TIMEOUT_MS=1000 \
+  cargo test --locked --manifest-path apps/browser-node/Cargo.toml \
+  -p storage-helper object_archive::tests::archives_checkpoint_or_fails_within_bound \
+  -- --ignored --exact
+
+TEST_OBJECT_STORAGE_ENDPOINT="http://127.0.0.1:${port}" \
+TEST_OBJECT_STORAGE_BUCKET="$legacy_bucket" \
 TEST_OBJECT_STORAGE_ACCESS_KEY_ID="$access_key" \
 TEST_OBJECT_STORAGE_SECRET_ACCESS_KEY="$secret_key" \
 TEST_OBJECT_STORAGE_TIMEOUT_MS=1000 \
@@ -59,4 +73,4 @@ TEST_OBJECT_STORAGE_EXPECT_FAILURE=true \
   -- --ignored --exact
 docker unpause "$container_name" >/dev/null
 
-printf 'OBJECT_STORAGE_GAMEDAY_OK commit_marker_last=true timeout_ms=500 local_checkpoint_retryable=true\n'
+printf 'OBJECT_STORAGE_GAMEDAY_OK commit_marker_last=true timeout_ms=500 local_checkpoint_retryable=true legacy_unversioned_compatible=true compliance_worm_delete_rejected=true\n'

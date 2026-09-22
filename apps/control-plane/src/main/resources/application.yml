@@ -84,6 +84,8 @@ remote-desktop:
   participant-history-retention-cron: ${REMOTE_DESKTOP_PARTICIPANT_HISTORY_RETENTION_CRON:0 29 * * * *}
 
 recording:
+  object-lock:
+    policy-minimum-retention-days: ${RECORDING_OBJECT_LOCK_POLICY_MINIMUM_RETENTION_DAYS:0}
   retention-deletion:
     interval-ms: ${RECORDING_RETENTION_DELETION_INTERVAL_MS:30000}
     batch-size: ${RECORDING_RETENTION_DELETION_BATCH_SIZE:10}

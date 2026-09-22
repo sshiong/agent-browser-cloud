@@ -264,16 +264,28 @@ progress 166。
 - [已确认] Recording 到期物理删除通过 V128 权威队列、Recording 行锁、mTLS Node 能力和
   Storage Helper PREPARED/COMMITTED tombstone 闭环；Legal Hold 与删除严格排序，只有真实对象
   前缀清空并返回 proof 后才写 Receipt。真实 MinIO 已验证 25 段对应 51 个对象删除，见 progress 201。
+- [已确认] AWS Terraform Archive Bucket 创建时永久启用 Versioning 与 Object Lock，默认施加
+  30 天 COMPLIANCE；生产 Control Plane 以 31 天策略下限在启动、Retention Policy 写入和新
+  Recording 默认期限三处 fail-closed。Storage Helper 以 Version ID 删除全部数据版本和 Delete
+  Marker，当前对象与版本列表双空后才提交证明。OrbStack 真实 MinIO 已验证提前删除失败、可删除
+  Recording 的 51 个对象全部版本消失，见 progress 202；目标账户 Apply/IAM 与云原生 Legal Hold
+  仍是环境 Gate。
 
 ### 最近验证状态
+
+- Recording Object Lock/WORM 仓库基线已通过 Control Plane 定向测试、Terraform 契约测试和
+  OrbStack 真实 MinIO：受 30 天 COMPLIANCE 默认保留的对象版本无法提前删除，输出
+  `compliance_worm_delete_rejected=true`；Versioned Integration 另验证普通 Delete Marker 不再
+  冒充物理删除，输出 `recording_retention_versioned_physical_deletion=true`。该证据不冒充目标
+  AWS 账户 Apply、IAM Policy-as-Code 或原生 Legal Hold 已验收，见 progress 202。
 
 - Recording purpose-bound 播放授权已通过 OrbStack 真实 MinIO 与完整 Integration：25 个不可变
   脱敏 Segment 经 Control Plane → mTLS Node → Storage Helper 分成 24+1 两页签发 60 秒 URL；
   跨 Actor、重复兑换、Retention 到期均 fail-closed，Legal Hold 可在同一五分钟访问窗口恢复读取，
   PostgreSQL 与 Audit 不含 URL/Signature。公开基线更新为 253 Operations / 350 Schemas，四语言
   SDK 已同步，见 progress 200。到期物理删除 Worker 后由 progress 201 以真实 MinIO/完整
-  Integration 闭环；全帧 OCR/非文本视觉分类、目标 Bucket Object Lock/WORM 和目标云原生 Legal
-  Hold 仍未完成。
+  Integration 闭环；Object Lock 仓库基线后由 progress 202 关闭；全帧 OCR/非文本视觉分类、
+  目标账户 Apply/IAM 和目标云原生 Legal Hold 仍未完成。
 
 - 真实 OTP 续行已加入 OrbStack/Chrome 153 登录矩阵：Browser Node 只从标准
   `autocomplete=one-time-code` 投影隐私安全控件类别，敏感 name/value 继续为空；Control Plane
@@ -786,9 +798,10 @@ Enterprise Overview、Challenge 视觉自动化与 Agent SAFE/AUTONOMOUS 基线�
 
 ### Recording 对象治理（后续开发切片）
 
-Recording purpose-bound 一次性播放 Grant 与到期物理删除 Worker 已由 progress 200、201 闭环。
-下一仓库级切片为全帧 OCR/非文本视觉敏感分类、目标 Bucket Object Lock/WORM 和更深的目标云
-Legal Hold 联动；不得把普通 Delete API 或短期签名 URL 冒充对象不可变或目标云监管保留。
+Recording purpose-bound 一次性播放 Grant、到期物理删除 Worker 与 AWS Object Lock/WORM
+仓库基线已由 progress 200—202 闭环。下一仓库级切片为全帧 OCR/非文本视觉敏感分类和更深的
+目标云 Legal Hold 联动；目标账户仍须真实 Apply/IAM 验收，不得把仓库 Terraform 定义、普通
+Delete API 或短期签名 URL 冒充目标云监管保留。
 
 ## 8. 尚未完成的功能
 
@@ -798,7 +811,7 @@ Legal Hold 联动；不得把普通 Delete API 或短期签名 URL 冒充对象�
 2. 目标 CRM/支付/IAM Provider 的真实凭据、字段/事务映射和 Provider 特有认证接入。
 3. 目标云 Secret 解引用/轮换/撤销、商业 Proxy Provider Adapter、高级 SLA/业务成功率路由、Challenge/黑名单与受约束探索。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
-5. Recording 全帧 OCR/非文本视觉敏感分类、目标 Bucket Object Lock/WORM 和目标云原生 Legal Hold 联动；到期对象删除 Worker 已由 progress 201 完成。
+5. Recording 全帧 OCR/非文本视觉敏感分类、目标账户 Object Lock Apply/IAM 和目标云原生 Legal Hold 联动；仓库 WORM 基线及到期对象删除 Worker 已由 progress 202、201 完成。
 
 ### P1/P2：目标环境与外部集成 Gate
 
@@ -890,7 +903,7 @@ make test-desktop
 
 | 优先级 | 任务 | 原因 |
 | --- | --- | --- |
-| P1 | Recording 全帧视觉分类、WORM/目标云 Legal Hold 和对象治理 | 涉及敏感浏览器证据与监管型保留的生产闭环 |
+| P1 | Recording 全帧视觉分类、目标云 Object Lock Apply/IAM、Legal Hold 和对象治理 | 涉及敏感浏览器证据与监管型保留的生产闭环；仓库 WORM 基线已完成 |
 | P1 | Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore | Profile 一致性和迁移恢复的主要剩余代码缺口 |
 | P1 | 目标 Provider/Secret/Proxy Adapter | 真实客户业务接入的前提 |
 | P1 | OCR/高级 Validator/Replay | 视觉安全和生产 Agent 质量 Gate |
@@ -901,8 +914,9 @@ make test-desktop
 
 1. Clipboard Bridge 已由 progress 158 完成；不得让 Agent Planner 自动调用该操作员显式
    协作通道，也不得用它替代账号/密码/OTP 一次性敏感输入 API。
-2. Recording purpose-bound 一次性播放 Grant 与到期删除 Worker 已由 progress 200、201 完成；
-   继续全帧 OCR/非文本视觉分类、目标 Bucket Object Lock/WORM 和目标云原生 Legal Hold 联动。
+2. Recording purpose-bound 一次性播放 Grant、到期删除 Worker 与 AWS Object Lock/WORM 仓库
+   基线已由 progress 200—202 完成；继续全帧 OCR/非文本视觉分类、目标账户 Apply/IAM 和目标云
+   原生 Legal Hold 联动。
 3. Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore、目标 Provider/Secret/Proxy 和 OCR/Replay 按第 12 节顺序推进。
 4. 持续补齐目标 Linux/云/多 Region/桌面签名长稳和组织安全发布 Gate；仓库测试通过不等同于允许处理真实客户数据。
 

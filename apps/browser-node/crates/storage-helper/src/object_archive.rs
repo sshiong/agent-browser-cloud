@@ -1,5 +1,6 @@
 use crate::{LocalProfileStore, ProfileCheckpointManifest};
 use anyhow::Context;
+use aws_sdk_s3::config::{BehaviorVersion, Credentials, Region};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use bytes::Bytes;
@@ -26,6 +27,8 @@ use zeroize::{Zeroize, Zeroizing};
 #[derive(Clone)]
 pub struct ObjectArchive {
     store: Arc<AmazonS3>,
+    version_store: aws_sdk_s3::Client,
+    bucket: String,
     prefix: String,
     operation_timeout: Duration,
     profile_crypto: Arc<ProfileArchiveCrypto>,
@@ -79,6 +82,11 @@ pub struct RecordingDeletionResult {
     pub deletion_proof_hash: String,
     pub deleted_object_count: u64,
     pub completed_at_ms: u64,
+}
+
+struct RecordingObjectVersion {
+    key: String,
+    version_id: String,
 }
 
 pub struct SignedRecordingPlaybackSegment {
@@ -656,17 +664,32 @@ impl ObjectArchive {
             .with_connect_timeout(config.connect_timeout)
             .with_allow_http(config.allow_http);
         let store = AmazonS3Builder::new()
-            .with_bucket_name(config.bucket)
-            .with_region(config.region)
-            .with_endpoint(config.endpoint)
-            .with_access_key_id(config.access_key_id)
-            .with_secret_access_key(config.secret_access_key)
+            .with_bucket_name(config.bucket.clone())
+            .with_region(config.region.clone())
+            .with_endpoint(config.endpoint.clone())
+            .with_access_key_id(config.access_key_id.clone())
+            .with_secret_access_key(config.secret_access_key.clone())
             .with_allow_http(config.allow_http)
             .with_client_options(client_options)
             .build()
             .context("build S3-compatible Object Storage client")?;
+        let version_store_config = aws_sdk_s3::Config::builder()
+            .behavior_version(BehaviorVersion::latest())
+            .region(Region::new(config.region))
+            .endpoint_url(config.endpoint)
+            .credentials_provider(Credentials::new(
+                config.access_key_id,
+                config.secret_access_key,
+                None,
+                None,
+                "browsercloud-object-archive",
+            ))
+            .force_path_style(true)
+            .build();
         Ok(Self {
             store: Arc::new(store),
+            version_store: aws_sdk_s3::Client::from_conf(version_store_config),
+            bucket: config.bucket,
             prefix: config.prefix.trim_matches('/').to_owned(),
             operation_timeout: config.operation_timeout,
             profile_crypto: Arc::new(config.profile_crypto),
@@ -1147,16 +1170,37 @@ impl ObjectArchive {
 
         let remaining_keys = self.recording_object_keys(&base).await?;
         self.validate_recording_object_key_subset(&base, request.segment_count, &remaining_keys)?;
-        let manifest_key = format!("{base}/COMMITTED");
-        for key in remaining_keys.iter().filter(|key| *key != &manifest_key) {
-            self.delete(key).await?;
-        }
-        if remaining_keys.iter().any(|key| key == &manifest_key) {
-            self.delete(&manifest_key).await?;
+        let maximum_version_count = expected_object_count
+            .checked_mul(2)
+            .ok_or_else(|| anyhow::anyhow!("recording version count bound overflow"))?;
+        let remaining_versions = self
+            .recording_object_versions(&base, maximum_version_count)
+            .await?;
+        let version_keys = remaining_versions
+            .iter()
+            .map(|version| version.key.clone())
+            .collect::<Vec<_>>();
+        self.validate_recording_object_key_subset(&base, request.segment_count, &version_keys)?;
+        if remaining_versions.is_empty() {
+            let manifest_key = format!("{base}/COMMITTED");
+            for key in remaining_keys.iter().filter(|key| *key != &manifest_key) {
+                self.delete(key).await?;
+            }
+            if remaining_keys.iter().any(|key| key == &manifest_key) {
+                self.delete(&manifest_key).await?;
+            }
+        } else {
+            for version in &remaining_versions {
+                self.delete_version(version).await?;
+            }
         }
         anyhow::ensure!(
-            self.recording_object_keys(&base).await?.is_empty(),
-            "recording object prefix is not empty after deletion"
+            self.recording_object_keys(&base).await?.is_empty()
+                && self
+                    .recording_object_versions(&base, maximum_version_count)
+                    .await?
+                    .is_empty(),
+            "recording object prefix still contains current objects or retained versions after deletion"
         );
         let completed_at_ms = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as u64;
         let committed = recording_deletion_marker(&request, "COMMITTED", Some(completed_at_ms));
@@ -1186,6 +1230,87 @@ impl ObjectArchive {
         .await
         .context("Object Storage listing timed out")?
         .context("Object Storage recording listing failed")
+    }
+
+    async fn recording_object_versions(
+        &self,
+        base: &str,
+        maximum_version_count: u64,
+    ) -> anyhow::Result<Vec<RecordingObjectVersion>> {
+        let prefix = format!("{base}/");
+        let mut versions = Vec::new();
+        let mut key_marker = None;
+        let mut version_id_marker = None;
+        loop {
+            let response = tokio::time::timeout(
+                self.operation_timeout,
+                self.version_store
+                    .list_object_versions()
+                    .bucket(&self.bucket)
+                    .prefix(&prefix)
+                    .set_key_marker(key_marker)
+                    .set_version_id_marker(version_id_marker)
+                    .send(),
+            )
+            .await
+            .context("Object Storage version listing timed out")?
+            .context("Object Storage recording version listing failed")?;
+
+            for version in response.versions() {
+                let key = version
+                    .key()
+                    .ok_or_else(|| anyhow::anyhow!("Object Storage version omitted its key"))?;
+                let version_id = version.version_id().ok_or_else(|| {
+                    anyhow::anyhow!("Object Storage version omitted its version id")
+                })?;
+                versions.push(RecordingObjectVersion {
+                    key: key.to_owned(),
+                    version_id: version_id.to_owned(),
+                });
+            }
+            for marker in response.delete_markers() {
+                let key = marker.key().ok_or_else(|| {
+                    anyhow::anyhow!("Object Storage delete marker omitted its key")
+                })?;
+                let version_id = marker.version_id().ok_or_else(|| {
+                    anyhow::anyhow!("Object Storage delete marker omitted its version id")
+                })?;
+                versions.push(RecordingObjectVersion {
+                    key: key.to_owned(),
+                    version_id: version_id.to_owned(),
+                });
+            }
+            anyhow::ensure!(
+                versions.len() as u64 <= maximum_version_count,
+                "recording object prefix contains too many object versions"
+            );
+            if !response.is_truncated().unwrap_or(false) {
+                break;
+            }
+            key_marker = response.next_key_marker().map(str::to_owned);
+            version_id_marker = response.next_version_id_marker().map(str::to_owned);
+            anyhow::ensure!(
+                key_marker.is_some(),
+                "truncated Object Storage version listing omitted its next key marker"
+            );
+        }
+        Ok(versions)
+    }
+
+    async fn delete_version(&self, version: &RecordingObjectVersion) -> anyhow::Result<()> {
+        tokio::time::timeout(
+            self.operation_timeout,
+            self.version_store
+                .delete_object()
+                .bucket(&self.bucket)
+                .key(&version.key)
+                .version_id(&version.version_id)
+                .send(),
+        )
+        .await
+        .context("Object Storage version deletion timed out")?
+        .with_context(|| format!("Object Storage version DELETE failed for {}", version.key))?;
+        Ok(())
     }
 
     fn validate_recording_object_key_subset(

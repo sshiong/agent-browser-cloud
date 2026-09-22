@@ -27,7 +27,7 @@ class SessionRecordingApplicationServiceTest {
   private final JdbcTemplate jdbc = Mockito.mock(JdbcTemplate.class);
   private final SessionRepository sessions = Mockito.mock(SessionRepository.class);
   private final SessionRecordingApplicationService service =
-      new SessionRecordingApplicationService(jdbc, sessions);
+      new SessionRecordingApplicationService(jdbc, sessions, 0);
 
   @BeforeEach
   void configureSession() {
@@ -63,6 +63,18 @@ class SessionRecordingApplicationServiceTest {
     assertThat(sql.getValue())
         .contains("ON CONFLICT DO NOTHING")
         .contains("REMOTE_DESKTOP_RECORDING");
+  }
+
+  @Test
+  void shouldRaiseDefaultRetentionAboveTheBucketLockWindow() {
+    var lockedJdbc = Mockito.mock(JdbcTemplate.class);
+    var locked = new SessionRecordingApplicationService(lockedJdbc, sessions, 31);
+
+    locked.record("tenant-test", "evt-locked-recording", recording());
+
+    var arguments = ArgumentCaptor.forClass(Object[].class);
+    verify(lockedJdbc).update(anyString(), arguments.capture());
+    assertThat(arguments.getValue()[17]).isEqualTo(31);
   }
 
   @Test

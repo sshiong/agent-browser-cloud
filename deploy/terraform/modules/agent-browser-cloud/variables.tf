@@ -13,6 +13,28 @@ variable "cluster_name" {
   type        = string
 }
 
+variable "archive_object_lock_mode" {
+  description = "Default WORM retention mode for every archive object version. COMPLIANCE is the production default."
+  type        = string
+  default     = "COMPLIANCE"
+
+  validation {
+    condition     = contains(["COMPLIANCE", "GOVERNANCE"], var.archive_object_lock_mode)
+    error_message = "archive_object_lock_mode must be COMPLIANCE or GOVERNANCE."
+  }
+}
+
+variable "archive_object_lock_retention_days" {
+  description = "Default immutable lifetime for every archive object version."
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.archive_object_lock_retention_days >= 1 && var.archive_object_lock_retention_days <= 3650 && floor(var.archive_object_lock_retention_days) == var.archive_object_lock_retention_days
+    error_message = "archive_object_lock_retention_days must be a whole number between 1 and 3650."
+  }
+}
+
 variable "private_subnet_ids" {
   description = "Private subnets spanning at least two availability zones."
   type        = list(string)

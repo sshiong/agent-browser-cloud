@@ -612,6 +612,21 @@ impl RemoteDesktopGateway {
         }
     }
 
+    fn record_server_coalesced(&self, connection_id: &str, skipped_frames: u64) {
+        if skipped_frames == 0 {
+            return;
+        }
+        let mut usage = self
+            .state
+            .connection_usage
+            .lock()
+            .expect("remote desktop usage lock poisoned");
+        let counters = usage.entry(connection_id.to_owned()).or_default();
+        // A coalesced frame is a real throttling decision, even though no stale bytes are sent.
+        // Reuse the additive N/N-1 counter instead of silently hiding weak-network pressure.
+        counters.throttled_batches = counters.throttled_batches.saturating_add(skipped_frames);
+    }
+
     fn connection_usage(&self, connection_id: &str) -> RemoteDesktopUsageCounters {
         self.state
             .connection_usage
@@ -937,10 +952,23 @@ impl RemoteDesktopGateway {
                     }
                 }
                 frame = frames.recv(), if desktop_requested && pending_server_payload.is_none() => {
-                    let frame = match frame {
-                        Ok(frame) => frame,
-                        Err(broadcast::error::RecvError::Lagged(_)) => {
-                            anyhow::bail!("remote desktop client is too slow for bounded fan-out");
+                    let (frame, skipped_frames) = match frame {
+                        Ok(frame) => (frame, 0),
+                        Err(broadcast::error::RecvError::Lagged(skipped_frames)) => {
+                            // The shared hub maintains an exact full-frame baseline after every
+                            // upstream update. A weak observer can therefore discard obsolete
+                            // incremental rectangles and safely resume from the newest pixels,
+                            // without blocking healthy collaborators or losing coordinate space.
+                            // Resubscribe before reading the baseline so retained stale
+                            // increments cannot be replayed afterwards and a racing new update
+                            // cannot be missed.
+                            frames = hub.frames.subscribe();
+                            let latest = clone_latest_frame(&hub.latest_frame)?;
+                            self.record_server_coalesced(
+                                &authorized.claims.connection_id,
+                                skipped_frames,
+                            );
+                            (latest, skipped_frames)
                         }
                         Err(broadcast::error::RecvError::Closed) => {
                             anyhow::bail!("shared remote desktop upstream closed");
@@ -951,7 +979,10 @@ impl RemoteDesktopGateway {
                         .lock()
                         .expect("frame timestamp lock poisoned")
                         .insert(authorized.claims.session_id.clone(), Instant::now());
-                    let frame = encode_viewer_frame(frame, input_parser.jpeg_quality).await?;
+                    let frame = encode_viewer_frame(
+                        frame,
+                        adaptive_viewer_quality(input_parser.jpeg_quality, skipped_frames),
+                    ).await?;
                     pending_server_quota_wait =
                         self.reserve_server_forwarding(&authorized.claims, frame.len());
                     pending_server_ready_at =
@@ -1052,6 +1083,14 @@ impl RemoteDesktopGateway {
         let _ = websocket.close(None).await;
         Ok(())
     }
+}
+
+fn clone_latest_frame(latest_frame: &Mutex<Option<Arc<Vec<u8>>>>) -> anyhow::Result<Arc<Vec<u8>>> {
+    latest_frame
+        .lock()
+        .expect("shared RFB latest frame lock poisoned")
+        .clone()
+        .context("shared remote desktop has no recovery baseline")
 }
 
 #[derive(Debug)]
@@ -1169,6 +1208,23 @@ impl RfbClientMessageParser {
         }
         Ok(parsed)
     }
+}
+
+fn adaptive_viewer_quality(negotiated_quality: Option<u8>, skipped_frames: u64) -> Option<u8> {
+    let quality = negotiated_quality?;
+    if skipped_frames == 0 {
+        return Some(quality);
+    }
+    // Only viewers that explicitly negotiated lossy Tight JPEG are adapted. Raw-only clients and
+    // quality-9 clients remain lossless. A lagged receiver gets a lower-cost full baseline; after
+    // it catches up, later incremental frames immediately return to the negotiated quality.
+    Some(
+        quality.min(if skipped_frames >= SHARED_FRAME_QUEUE_CAPACITY as u64 {
+            20
+        } else {
+            30
+        }),
+    )
 }
 
 /// Stateless Tight JPEG rectangles keep the hub's exact Raw baseline and each
@@ -1873,6 +1929,24 @@ mod tests {
         access_mode: &str,
         view_only: bool,
     ) -> String {
+        ticket_with_actor_limits(
+            session_id,
+            nonce,
+            access_mode,
+            view_only,
+            DEFAULT_ACTOR_BITRATE_LIMIT_KBPS,
+            DEFAULT_ACTOR_FRAME_RATE_LIMIT_FPS,
+        )
+    }
+
+    fn ticket_with_actor_limits(
+        session_id: &str,
+        nonce: &str,
+        access_mode: &str,
+        view_only: bool,
+        bitrate_limit_kbps: u32,
+        frame_rate_limit_fps: u32,
+    ) -> String {
         let connection_hash = format!("{:x}", Sha256::digest(nonce.as_bytes()));
         let claims = RemoteDesktopTicketClaims {
             tenant_id: "tenant-test".to_owned(),
@@ -1884,8 +1958,8 @@ mod tests {
             operation_epoch: 7,
             access_mode: access_mode.to_owned(),
             view_only,
-            actor_bitrate_limit_kbps: DEFAULT_ACTOR_BITRATE_LIMIT_KBPS,
-            actor_frame_rate_limit_fps: DEFAULT_ACTOR_FRAME_RATE_LIMIT_FPS,
+            actor_bitrate_limit_kbps: bitrate_limit_kbps,
+            actor_frame_rate_limit_fps: frame_rate_limit_fps,
             expires_at_epoch_seconds: unix_seconds() + 60,
             nonce: nonce.to_owned(),
         };
@@ -1977,6 +2051,15 @@ mod tests {
         message.extend_from_slice(&0_i32.to_be_bytes());
         message.extend_from_slice(&pixel);
         message
+    }
+
+    fn test_full_framebuffer_update(width: u16, height: u16, value: u8) -> Arc<Vec<u8>> {
+        let mut message = vec![0, 0, 0, 1, 0, 0, 0, 0];
+        message.extend_from_slice(&width.to_be_bytes());
+        message.extend_from_slice(&height.to_be_bytes());
+        message.extend_from_slice(&0_i32.to_be_bytes());
+        message.resize(16 + usize::from(width) * usize::from(height) * 4, value);
+        Arc::new(message)
     }
 
     #[test]
@@ -2093,6 +2176,25 @@ mod tests {
             Err(broadcast::error::TryRecvError::Lagged(1))
         ));
         assert_eq!(&**slow.try_recv().unwrap(), &[1]);
+    }
+
+    #[test]
+    fn lagged_viewer_recovers_latest_baseline_and_temporarily_reduces_lossy_quality() {
+        let latest = Mutex::new(Some(Arc::new(vec![0, 0, 0, 1, 9, 8, 7, 6])));
+        assert_eq!(
+            &*clone_latest_frame(&latest).unwrap(),
+            &[0, 0, 0, 1, 9, 8, 7, 6]
+        );
+        assert_eq!(adaptive_viewer_quality(Some(70), 0), Some(70));
+        assert_eq!(adaptive_viewer_quality(Some(70), 1), Some(30));
+        assert_eq!(
+            adaptive_viewer_quality(Some(70), SHARED_FRAME_QUEUE_CAPACITY as u64),
+            Some(20)
+        );
+        assert_eq!(adaptive_viewer_quality(None, 20), None);
+
+        *latest.lock().unwrap() = None;
+        assert!(clone_latest_frame(&latest).is_err());
     }
 
     #[test]
@@ -2264,13 +2366,14 @@ mod tests {
 
         gateway.record_server_forwarded(connection_id, 1_024, Duration::from_millis(25));
         gateway.record_server_forwarded(connection_id, 2_048, Duration::ZERO);
+        gateway.record_server_coalesced(connection_id, 4);
 
         assert_eq!(
             gateway.connection_usage(connection_id),
             RemoteDesktopUsageCounters {
                 forwarded_bytes: 3_072,
                 quota_wait_millis: 25,
-                throttled_batches: 1,
+                throttled_batches: 5,
             }
         );
         assert_eq!(
@@ -2772,6 +2875,85 @@ mod tests {
                 .unwrap(),
             vec![4, 1, 0, 0, 0, 0, 0, 65]
         );
+        websocket.close(None).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn weak_viewer_coalesces_stale_frames_and_stays_connected() {
+        let vnc_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let vnc_endpoint = vnc_listener.local_addr().unwrap();
+        tokio::spawn(accept_test_rfb_upstream(
+            vnc_listener,
+            Arc::new(AtomicUsize::new(0)),
+            None,
+            None,
+        ));
+
+        let gateway = RemoteDesktopGateway::new(
+            SECRET.as_bytes(),
+            ["http://console.test".to_owned()],
+            Arc::new(NoopDisconnectHandler),
+        )
+        .unwrap();
+        let session_id = "ses_weakviewer123456";
+        gateway.register_session(session_id, vnc_endpoint).unwrap();
+        let gateway_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let gateway_endpoint = gateway_listener.local_addr().unwrap();
+        tokio::spawn(gateway.clone().serve(gateway_listener));
+
+        let nonce = uuid::Uuid::new_v4().simple().to_string();
+        let connection_hash = format!("{:x}", Sha256::digest(nonce.as_bytes()));
+        let connection_id = format!("rdc_{}", &connection_hash[..20]);
+        let mut request = format!(
+            "ws://{gateway_endpoint}/desktop/v1/sessions/{session_id}?ticket={}",
+            ticket_with_actor_limits(session_id, &nonce, "COLLABORATIVE", true, 250, 60)
+        )
+        .into_client_request()
+        .unwrap();
+        request
+            .headers_mut()
+            .insert(ORIGIN, "http://console.test".parse().unwrap());
+        let (mut websocket, _) = connect_async(request).await.unwrap();
+        complete_test_rfb_client(&mut websocket).await;
+        next_binary(&mut websocket).await;
+
+        let hub = gateway
+            .state
+            .shared_hubs
+            .lock()
+            .unwrap()
+            .get(session_id)
+            .cloned()
+            .unwrap();
+        let first = test_full_framebuffer_update(64, 64, 10);
+        *hub.latest_frame.lock().unwrap() = Some(first.clone());
+        hub.frames.send(first).unwrap();
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        for value in 11..=16 {
+            let frame = test_full_framebuffer_update(64, 64, value);
+            *hub.latest_frame.lock().unwrap() = Some(frame.clone());
+            hub.frames.send(frame).unwrap();
+        }
+
+        let first_forwarded =
+            tokio::time::timeout(Duration::from_secs(2), next_binary(&mut websocket))
+                .await
+                .expect("weak viewer must receive the in-flight frame");
+        assert_eq!(first_forwarded[16], 10);
+        let recovered = tokio::time::timeout(Duration::from_secs(2), next_binary(&mut websocket))
+            .await
+            .expect("weak viewer must recover from the newest full baseline");
+        assert_eq!(recovered[16], 16);
+
+        let current = test_full_framebuffer_update(64, 64, 17);
+        *hub.latest_frame.lock().unwrap() = Some(current.clone());
+        hub.frames.send(current).unwrap();
+        let current = tokio::time::timeout(Duration::from_secs(2), next_binary(&mut websocket))
+            .await
+            .expect("recovered viewer must continue with current updates");
+        assert_eq!(current[16], 17, "stale retained increments must not replay");
+        assert!(gateway.connection_usage(&connection_id).throttled_batches >= 3);
+        assert_eq!(gateway.active_connection_count(session_id), 1);
         websocket.close(None).await.unwrap();
     }
 

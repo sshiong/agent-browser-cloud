@@ -1,6 +1,9 @@
-use crate::{LocalProfileStore, ProfileCheckpointManifest};
+use crate::{atomic_write, secure_create_dir_all, LocalProfileStore, ProfileCheckpointManifest};
 use anyhow::Context;
 use aws_sdk_s3::config::{BehaviorVersion, Credentials, Region};
+use aws_sdk_s3::error::ProvideErrorMetadata;
+use aws_sdk_s3::primitives::ByteStream;
+use aws_sdk_s3::types::{CompletedMultipartUpload, CompletedPart};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use bytes::Bytes;
@@ -15,7 +18,7 @@ use object_store::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::io::Read;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
@@ -32,6 +35,8 @@ pub struct ObjectArchive {
     prefix: String,
     operation_timeout: Duration,
     profile_crypto: Arc<ProfileArchiveCrypto>,
+    #[cfg(test)]
+    multipart_fail_after_parts: usize,
 }
 
 pub struct EvidenceDownloadRequest<'a> {
@@ -133,6 +138,12 @@ const PROFILE_ARCHIVE_MAGIC: &[u8; 8] = b"BCPAE1\0\0";
 const MAX_ENVELOPE_HEADER_BYTES: usize = 16 * 1024;
 const AES_GCM_NONCE_BYTES: usize = 12;
 const AES_GCM_TAG_BYTES: usize = 16;
+const PROFILE_MULTIPART_THRESHOLD_BYTES: usize = 8 * 1024 * 1024;
+const PROFILE_MULTIPART_PART_BYTES: usize = 8 * 1024 * 1024;
+const PROFILE_MULTIPART_MAX_PARTS: usize = 10_000;
+const PROFILE_MULTIPART_RETENTION: Duration = Duration::from_secs(24 * 60 * 60);
+const PROFILE_MULTIPART_STATE_FILE: &str = "state.json";
+const PROFILE_MULTIPART_PAYLOAD_FILE: &str = "checkpoint.tar.zst.enc";
 
 pub struct ProfileArchiveCrypto {
     active_key_id: String,
@@ -216,6 +227,36 @@ struct StoredArchiveCommitMarker {
     plaintext_archive_sha256: Option<String>,
     #[serde(default)]
     plaintext_archive_bytes: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProfileMultipartJournal {
+    version: u32,
+    tenant_id: String,
+    profile_id: String,
+    checkpoint_id: String,
+    object_key: String,
+    archive_sha256: String,
+    archive_bytes: usize,
+    plaintext_archive_sha256: String,
+    plaintext_archive_bytes: usize,
+    encryption_key_id: String,
+    part_size_bytes: usize,
+    upload_id: Option<String>,
+    completed_parts: Vec<ProfileMultipartPart>,
+    created_at_ms: u64,
+    updated_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProfileMultipartPart {
+    part_number: i32,
+    offset_bytes: usize,
+    content_bytes: usize,
+    content_sha256: String,
+    e_tag: String,
 }
 
 fn legacy_archive_object() -> String {
@@ -693,6 +734,13 @@ impl ObjectArchive {
             prefix: config.prefix.trim_matches('/').to_owned(),
             operation_timeout: config.operation_timeout,
             profile_crypto: Arc::new(config.profile_crypto),
+            #[cfg(test)]
+            multipart_fail_after_parts: std::env::var(
+                "TEST_OBJECT_STORAGE_MULTIPART_FAIL_AFTER_PARTS",
+            )
+            .ok()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or_default(),
         })
     }
 
@@ -702,7 +750,8 @@ impl ObjectArchive {
         manifest: &ProfileCheckpointManifest,
     ) -> anyhow::Result<()> {
         let archive = local.pack_checkpoint(manifest).await?;
-        self.commit_encrypted_checkpoint(manifest, &archive).await
+        self.commit_encrypted_checkpoint_resumable(local, manifest, &archive)
+            .await
     }
 
     pub fn is_encrypted_profile_archive(value: &[u8]) -> bool {
@@ -757,6 +806,438 @@ impl ObjectArchive {
             Bytes::from(serde_json::to_vec(&marker)?),
         )
         .await
+    }
+
+    async fn commit_encrypted_checkpoint_resumable(
+        &self,
+        local: &LocalProfileStore,
+        manifest: &ProfileCheckpointManifest,
+        plaintext_archive: &[u8],
+    ) -> anyhow::Result<()> {
+        let plaintext_hash = hex_sha256(plaintext_archive);
+        let base = self.object_key(manifest);
+        let object_key = format!("{base}/{ENCRYPTED_ARCHIVE_OBJECT}");
+        let resume_root = profile_multipart_root(local, manifest);
+        self.cleanup_stale_profile_uploads(local, manifest).await?;
+
+        let (encrypted_archive, mut journal) =
+            if resume_root.join(PROFILE_MULTIPART_STATE_FILE).is_file() {
+                let journal = read_profile_multipart_journal(&resume_root)?;
+                validate_profile_multipart_journal(
+                    &journal,
+                    manifest,
+                    &object_key,
+                    &plaintext_hash,
+                    plaintext_archive.len(),
+                )?;
+                let encrypted_archive = fs::read(resume_root.join(PROFILE_MULTIPART_PAYLOAD_FILE))?;
+                anyhow::ensure!(
+                    encrypted_archive.len() == journal.archive_bytes
+                        && hex_sha256(&encrypted_archive) == journal.archive_sha256,
+                    "Profile multipart spool integrity verification failed"
+                );
+                (encrypted_archive, journal)
+            } else {
+                let encrypted_archive = self.profile_crypto.encrypt(
+                    &manifest.tenant_id,
+                    &manifest.profile_id,
+                    &manifest.checkpoint_id,
+                    plaintext_archive,
+                )?;
+                if encrypted_archive.len() <= PROFILE_MULTIPART_THRESHOLD_BYTES {
+                    return self
+                        .commit_encrypted_checkpoint(manifest, plaintext_archive)
+                        .await;
+                }
+                let now = unix_time_millis()?;
+                let journal = ProfileMultipartJournal {
+                    version: 1,
+                    tenant_id: manifest.tenant_id.clone(),
+                    profile_id: manifest.profile_id.clone(),
+                    checkpoint_id: manifest.checkpoint_id.clone(),
+                    object_key: object_key.clone(),
+                    archive_sha256: hex_sha256(&encrypted_archive),
+                    archive_bytes: encrypted_archive.len(),
+                    plaintext_archive_sha256: plaintext_hash.clone(),
+                    plaintext_archive_bytes: plaintext_archive.len(),
+                    encryption_key_id: self.profile_crypto.active_key_id().to_owned(),
+                    part_size_bytes: PROFILE_MULTIPART_PART_BYTES,
+                    upload_id: None,
+                    completed_parts: Vec::new(),
+                    created_at_ms: now,
+                    updated_at_ms: now,
+                };
+                secure_create_dir_all(&resume_root)?;
+                atomic_write(
+                    &resume_root.join(PROFILE_MULTIPART_PAYLOAD_FILE),
+                    &encrypted_archive,
+                )?;
+                write_profile_multipart_journal(&resume_root, &journal)?;
+                (encrypted_archive, journal)
+            };
+
+        self.upload_profile_archive_multipart(&resume_root, &encrypted_archive, &mut journal)
+            .await?;
+        self.put(
+            &format!("{base}/manifest.json"),
+            Bytes::from(serde_json::to_vec(manifest)?),
+        )
+        .await?;
+        let marker = ArchiveCommitMarker {
+            checkpoint_id: &manifest.checkpoint_id,
+            checkpoint_epoch: manifest.checkpoint_epoch,
+            profile_write_epoch: manifest.profile_write_epoch,
+            content_hash: &manifest.content_hash,
+            archive_sha256: journal.archive_sha256.clone(),
+            archive_bytes: journal.archive_bytes,
+            archive_object: ENCRYPTED_ARCHIVE_OBJECT,
+            archive_format: "BROWSERCLOUD_PROFILE_AEAD_V1",
+            encryption_key_id: &journal.encryption_key_id,
+            plaintext_archive_sha256: plaintext_hash,
+            plaintext_archive_bytes: plaintext_archive.len(),
+        };
+        self.put(
+            &format!("{base}/COMMITTED"),
+            Bytes::from(serde_json::to_vec(&marker)?),
+        )
+        .await?;
+        fs::remove_dir_all(&resume_root)?;
+        Ok(())
+    }
+
+    async fn upload_profile_archive_multipart(
+        &self,
+        resume_root: &FilePath,
+        payload: &[u8],
+        journal: &mut ProfileMultipartJournal,
+    ) -> anyhow::Result<()> {
+        if self.multipart_object_matches(journal).await? {
+            return Ok(());
+        }
+        let upload_id = match journal.upload_id.clone() {
+            Some(upload_id) => upload_id,
+            None => {
+                let created = tokio::time::timeout(
+                    self.operation_timeout,
+                    self.version_store
+                        .create_multipart_upload()
+                        .bucket(&self.bucket)
+                        .key(&journal.object_key)
+                        .metadata("browsercloud-sha256", &journal.archive_sha256)
+                        .metadata("browsercloud-checkpoint-id", &journal.checkpoint_id)
+                        .send(),
+                )
+                .await
+                .context("Object Storage multipart create timed out")??;
+                let upload_id = created
+                    .upload_id()
+                    .filter(|value| !value.is_empty())
+                    .ok_or_else(|| anyhow::anyhow!("Object Storage omitted multipart upload ID"))?
+                    .to_owned();
+                journal.upload_id = Some(upload_id.clone());
+                journal.updated_at_ms = unix_time_millis()?;
+                write_profile_multipart_journal(resume_root, journal)?;
+                upload_id
+            }
+        };
+
+        let listed = tokio::time::timeout(
+            self.operation_timeout,
+            self.version_store
+                .list_parts()
+                .bucket(&self.bucket)
+                .key(&journal.object_key)
+                .upload_id(&upload_id)
+                .max_parts(PROFILE_MULTIPART_MAX_PARTS as i32)
+                .send(),
+        )
+        .await
+        .context("Object Storage multipart list-parts timed out")??;
+        anyhow::ensure!(
+            !listed.is_truncated().unwrap_or(false),
+            "Profile multipart upload exceeded the supported part count"
+        );
+        let remote_parts = listed
+            .parts()
+            .iter()
+            .filter_map(|part| Some((part.part_number()?, part.e_tag()?.to_owned())))
+            .collect::<BTreeMap<_, _>>();
+        let mut trusted = journal
+            .completed_parts
+            .iter()
+            .filter(|part| remote_parts.get(&part.part_number) == Some(&part.e_tag))
+            .map(|part| (part.part_number, part.clone()))
+            .collect::<BTreeMap<_, _>>();
+
+        let part_count = payload.len().div_ceil(journal.part_size_bytes);
+        anyhow::ensure!(
+            (1..=PROFILE_MULTIPART_MAX_PARTS).contains(&part_count),
+            "Profile multipart upload part count is out of range"
+        );
+        for index in 0..part_count {
+            let part_number = i32::try_from(index + 1)?;
+            let offset = index * journal.part_size_bytes;
+            let end = payload
+                .len()
+                .min(offset.saturating_add(journal.part_size_bytes));
+            let bytes = &payload[offset..end];
+            let content_hash = hex_sha256(bytes);
+            if trusted.get(&part_number).is_some_and(|part| {
+                part.offset_bytes == offset
+                    && part.content_bytes == bytes.len()
+                    && part.content_sha256 == content_hash
+            }) {
+                continue;
+            }
+            let uploaded = tokio::time::timeout(
+                self.operation_timeout,
+                self.version_store
+                    .upload_part()
+                    .bucket(&self.bucket)
+                    .key(&journal.object_key)
+                    .upload_id(&upload_id)
+                    .part_number(part_number)
+                    .body(ByteStream::from(bytes.to_vec()))
+                    .send(),
+            )
+            .await
+            .context("Object Storage multipart part timed out")??;
+            let e_tag = uploaded
+                .e_tag()
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| anyhow::anyhow!("Object Storage omitted multipart part ETag"))?
+                .to_owned();
+            trusted.insert(
+                part_number,
+                ProfileMultipartPart {
+                    part_number,
+                    offset_bytes: offset,
+                    content_bytes: bytes.len(),
+                    content_sha256: content_hash,
+                    e_tag,
+                },
+            );
+            journal.completed_parts = trusted.values().cloned().collect();
+            journal.updated_at_ms = unix_time_millis()?;
+            write_profile_multipart_journal(resume_root, journal)?;
+            #[cfg(test)]
+            if self.multipart_fail_after_parts > 0
+                && trusted.len() >= self.multipart_fail_after_parts
+            {
+                anyhow::bail!("injected Profile multipart interruption");
+            }
+        }
+        anyhow::ensure!(
+            trusted.len() == part_count,
+            "Profile multipart upload is missing a completed part"
+        );
+        let completed = CompletedMultipartUpload::builder()
+            .set_parts(Some(
+                trusted
+                    .values()
+                    .map(|part| {
+                        CompletedPart::builder()
+                            .part_number(part.part_number)
+                            .e_tag(&part.e_tag)
+                            .build()
+                    })
+                    .collect(),
+            ))
+            .build();
+        tokio::time::timeout(
+            self.operation_timeout,
+            self.version_store
+                .complete_multipart_upload()
+                .bucket(&self.bucket)
+                .key(&journal.object_key)
+                .upload_id(&upload_id)
+                .multipart_upload(completed)
+                .send(),
+        )
+        .await
+        .context("Object Storage multipart completion timed out")??;
+        anyhow::ensure!(
+            self.multipart_object_matches(journal).await?,
+            "completed Profile multipart object failed integrity metadata verification"
+        );
+        Ok(())
+    }
+
+    async fn multipart_object_matches(
+        &self,
+        journal: &ProfileMultipartJournal,
+    ) -> anyhow::Result<bool> {
+        let result = tokio::time::timeout(
+            self.operation_timeout,
+            self.version_store
+                .head_object()
+                .bucket(&self.bucket)
+                .key(&journal.object_key)
+                .send(),
+        )
+        .await
+        .context("Object Storage multipart HEAD timed out")?;
+        match result {
+            Ok(head) => Ok(head.content_length() == Some(journal.archive_bytes as i64)
+                && head
+                    .metadata()
+                    .and_then(|metadata| metadata.get("browsercloud-sha256"))
+                    == Some(&journal.archive_sha256)),
+            Err(error)
+                if matches!(
+                    error
+                        .as_service_error()
+                        .and_then(ProvideErrorMetadata::code),
+                    Some("NotFound" | "NoSuchKey" | "404")
+                ) =>
+            {
+                Ok(false)
+            }
+            Err(error) => Err(error.into()),
+        }
+    }
+
+    async fn cleanup_stale_profile_uploads(
+        &self,
+        local: &LocalProfileStore,
+        manifest: &ProfileCheckpointManifest,
+    ) -> anyhow::Result<()> {
+        let profile_root = local
+            .root
+            .join("multipart-uploads")
+            .join(&manifest.tenant_id)
+            .join(&manifest.profile_id);
+        let now = unix_time_millis()?;
+        let mut protected_uploads = BTreeSet::new();
+        if let Ok(entries) = fs::read_dir(&profile_root) {
+            for entry in entries {
+                let entry = entry?;
+                if !entry.file_type()?.is_dir() {
+                    continue;
+                }
+                let state_path = entry.path().join(PROFILE_MULTIPART_STATE_FILE);
+                let Ok(encoded) = fs::read(&state_path) else {
+                    continue;
+                };
+                let Ok(journal) = serde_json::from_slice::<ProfileMultipartJournal>(&encoded)
+                else {
+                    continue;
+                };
+                crate::validate_identifier("checkpoint_id", &journal.checkpoint_id)?;
+                let expected_key = format!(
+                    "{}/{ENCRYPTED_ARCHIVE_OBJECT}",
+                    self.object_key_for(
+                        &manifest.tenant_id,
+                        &manifest.profile_id,
+                        &journal.checkpoint_id,
+                    )
+                );
+                anyhow::ensure!(
+                    journal.version == 1
+                        && journal.tenant_id == manifest.tenant_id
+                        && journal.profile_id == manifest.profile_id
+                        && entry.file_name() == journal.checkpoint_id.as_str()
+                        && journal.object_key == expected_key,
+                    "Profile multipart retention journal escaped its Profile boundary"
+                );
+                if now.saturating_sub(journal.updated_at_ms)
+                    < PROFILE_MULTIPART_RETENTION.as_millis() as u64
+                {
+                    if let Some(upload_id) = journal.upload_id.as_deref() {
+                        protected_uploads
+                            .insert((journal.object_key.clone(), upload_id.to_owned()));
+                    }
+                    continue;
+                }
+                if let Some(upload_id) = journal.upload_id.as_deref() {
+                    self.abort_profile_multipart(&journal.object_key, upload_id)
+                        .await?;
+                }
+                fs::remove_dir_all(entry.path())?;
+            }
+        }
+        self.cleanup_stale_remote_multipart_uploads(manifest, now, &protected_uploads)
+            .await?;
+        Ok(())
+    }
+
+    async fn cleanup_stale_remote_multipart_uploads(
+        &self,
+        manifest: &ProfileCheckpointManifest,
+        now_ms: u64,
+        protected_uploads: &BTreeSet<(String, String)>,
+    ) -> anyhow::Result<()> {
+        let prefix = self.profile_checkpoint_prefix(&manifest.tenant_id, &manifest.profile_id);
+        let cutoff = now_ms.saturating_sub(PROFILE_MULTIPART_RETENTION.as_millis() as u64);
+        let mut key_marker: Option<String> = None;
+        let mut upload_marker: Option<String> = None;
+        loop {
+            let listed = tokio::time::timeout(
+                self.operation_timeout,
+                self.version_store
+                    .list_multipart_uploads()
+                    .bucket(&self.bucket)
+                    .prefix(&prefix)
+                    .set_key_marker(key_marker.clone())
+                    .set_upload_id_marker(upload_marker.clone())
+                    .send(),
+            )
+            .await
+            .context("Object Storage multipart retention listing timed out")??;
+            for upload in listed.uploads() {
+                let (Some(key), Some(upload_id), Some(initiated)) =
+                    (upload.key(), upload.upload_id(), upload.initiated())
+                else {
+                    continue;
+                };
+                let initiated_ms = u64::try_from(initiated.secs())
+                    .unwrap_or_default()
+                    .saturating_mul(1_000);
+                if initiated_ms <= cutoff
+                    && !protected_uploads.contains(&(key.to_owned(), upload_id.to_owned()))
+                {
+                    self.abort_profile_multipart(key, upload_id).await?;
+                }
+            }
+            if !listed.is_truncated().unwrap_or(false) {
+                break;
+            }
+            key_marker = listed.next_key_marker().map(str::to_owned);
+            upload_marker = listed.next_upload_id_marker().map(str::to_owned);
+            anyhow::ensure!(
+                key_marker.is_some() && upload_marker.is_some(),
+                "Object Storage multipart retention listing omitted its cursor"
+            );
+        }
+        Ok(())
+    }
+
+    async fn abort_profile_multipart(&self, key: &str, upload_id: &str) -> anyhow::Result<()> {
+        let result = tokio::time::timeout(
+            self.operation_timeout,
+            self.version_store
+                .abort_multipart_upload()
+                .bucket(&self.bucket)
+                .key(key)
+                .upload_id(upload_id)
+                .send(),
+        )
+        .await
+        .context("Object Storage stale multipart abort timed out")?;
+        match result {
+            Ok(_) => Ok(()),
+            Err(error)
+                if matches!(
+                    error
+                        .as_service_error()
+                        .and_then(ProvideErrorMetadata::code),
+                    Some("NoSuchUpload" | "NotFound" | "404")
+                ) =>
+            {
+                Ok(())
+            }
+            Err(error) => Err(error.into()),
+        }
     }
 
     pub async fn restore_checkpoint(
@@ -1637,6 +2118,15 @@ impl ObjectArchive {
         }
     }
 
+    fn profile_checkpoint_prefix(&self, tenant_id: &str, profile_id: &str) -> String {
+        let suffix = format!("tenants/{tenant_id}/profiles/{profile_id}/checkpoints/");
+        if self.prefix.is_empty() {
+            suffix
+        } else {
+            format!("{}/{}", self.prefix, suffix)
+        }
+    }
+
     fn recording_key_for(
         &self,
         tenant_id: &str,
@@ -1778,6 +2268,103 @@ pub struct S3ArchiveConfig {
     pub profile_crypto: ProfileArchiveCrypto,
 }
 
+fn profile_multipart_root(
+    local: &LocalProfileStore,
+    manifest: &ProfileCheckpointManifest,
+) -> std::path::PathBuf {
+    local
+        .root
+        .join("multipart-uploads")
+        .join(&manifest.tenant_id)
+        .join(&manifest.profile_id)
+        .join(&manifest.checkpoint_id)
+}
+
+fn read_profile_multipart_journal(
+    resume_root: &FilePath,
+) -> anyhow::Result<ProfileMultipartJournal> {
+    let journal: ProfileMultipartJournal =
+        serde_json::from_slice(&fs::read(resume_root.join(PROFILE_MULTIPART_STATE_FILE))?)?;
+    anyhow::ensure!(
+        journal.version == 1,
+        "Profile multipart journal version is unsupported"
+    );
+    Ok(journal)
+}
+
+fn write_profile_multipart_journal(
+    resume_root: &FilePath,
+    journal: &ProfileMultipartJournal,
+) -> anyhow::Result<()> {
+    atomic_write(
+        &resume_root.join(PROFILE_MULTIPART_STATE_FILE),
+        &serde_json::to_vec_pretty(journal)?,
+    )
+}
+
+fn validate_profile_multipart_journal(
+    journal: &ProfileMultipartJournal,
+    manifest: &ProfileCheckpointManifest,
+    object_key: &str,
+    plaintext_sha256: &str,
+    plaintext_bytes: usize,
+) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        journal.version == 1
+            && journal.tenant_id == manifest.tenant_id
+            && journal.profile_id == manifest.profile_id
+            && journal.checkpoint_id == manifest.checkpoint_id
+            && journal.object_key == object_key
+            && journal.archive_sha256.len() == 64
+            && journal.archive_bytes > PROFILE_MULTIPART_THRESHOLD_BYTES
+            && journal.archive_bytes <= MAX_PROFILE_ARCHIVE_BYTES
+            && journal.plaintext_archive_sha256 == plaintext_sha256
+            && journal.plaintext_archive_bytes == plaintext_bytes
+            && !journal.encryption_key_id.is_empty()
+            && journal.part_size_bytes >= 5 * 1024 * 1024
+            && journal.part_size_bytes <= MAX_PROFILE_ARCHIVE_BYTES
+            && journal.created_at_ms > 0
+            && journal.updated_at_ms >= journal.created_at_ms,
+        "Profile multipart journal does not match the checkpoint"
+    );
+    let expected_parts = journal.archive_bytes.div_ceil(journal.part_size_bytes);
+    anyhow::ensure!(
+        (1..=PROFILE_MULTIPART_MAX_PARTS).contains(&expected_parts)
+            && journal.completed_parts.len() <= expected_parts,
+        "Profile multipart journal part count is invalid"
+    );
+    let mut seen = std::collections::HashSet::new();
+    for part in &journal.completed_parts {
+        let index = usize::try_from(part.part_number.saturating_sub(1))?;
+        let expected_offset = index
+            .checked_mul(journal.part_size_bytes)
+            .ok_or_else(|| anyhow::anyhow!("Profile multipart part offset overflow"))?;
+        let expected_bytes = journal
+            .archive_bytes
+            .saturating_sub(expected_offset)
+            .min(journal.part_size_bytes);
+        anyhow::ensure!(
+            part.part_number > 0
+                && usize::try_from(part.part_number)? <= expected_parts
+                && seen.insert(part.part_number)
+                && part.offset_bytes == expected_offset
+                && part.content_bytes == expected_bytes
+                && part.content_sha256.len() == 64
+                && !part.e_tag.is_empty(),
+            "Profile multipart journal contains an invalid part"
+        );
+    }
+    Ok(())
+}
+
+fn unix_time_millis() -> anyhow::Result<u64> {
+    Ok(SystemTime::now()
+        .duration_since(UNIX_EPOCH)?
+        .as_millis()
+        .try_into()
+        .unwrap_or(u64::MAX))
+}
+
 fn hex_sha256(value: &[u8]) -> String {
     format!("{:x}", Sha256::digest(value))
 }
@@ -1847,10 +2434,76 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    #[test]
+    fn multipart_journal_is_checkpoint_bound_and_rejects_part_tampering() {
+        let manifest = ProfileCheckpointManifest {
+            checkpoint_id: "chk_test".to_owned(),
+            checkpoint_epoch: 3,
+            tenant_id: "tenant-test".to_owned(),
+            profile_id: "profile-test".to_owned(),
+            runtime_build_id: "runtime-test".to_owned(),
+            profile_write_epoch: 4,
+            files: Vec::new(),
+            core_size_bytes: 0,
+            content_hash: "a".repeat(64),
+            committed: true,
+        };
+        let plaintext_hash = "b".repeat(64);
+        let object_key = "tenant-test/profile-test/chk_test/checkpoint.tar.zst.enc";
+        let mut journal = ProfileMultipartJournal {
+            version: 1,
+            tenant_id: manifest.tenant_id.clone(),
+            profile_id: manifest.profile_id.clone(),
+            checkpoint_id: manifest.checkpoint_id.clone(),
+            object_key: object_key.to_owned(),
+            archive_sha256: "c".repeat(64),
+            archive_bytes: PROFILE_MULTIPART_PART_BYTES + 1,
+            plaintext_archive_sha256: plaintext_hash.clone(),
+            plaintext_archive_bytes: 11,
+            encryption_key_id: "key-v1".to_owned(),
+            part_size_bytes: PROFILE_MULTIPART_PART_BYTES,
+            upload_id: Some("upload-test".to_owned()),
+            completed_parts: vec![ProfileMultipartPart {
+                part_number: 1,
+                offset_bytes: 0,
+                content_bytes: PROFILE_MULTIPART_PART_BYTES,
+                content_sha256: "d".repeat(64),
+                e_tag: "etag-test".to_owned(),
+            }],
+            created_at_ms: 1,
+            updated_at_ms: 2,
+        };
+        validate_profile_multipart_journal(&journal, &manifest, object_key, &plaintext_hash, 11)
+            .unwrap();
+
+        journal.completed_parts[0].offset_bytes = 1;
+        assert!(validate_profile_multipart_journal(
+            &journal,
+            &manifest,
+            object_key,
+            &plaintext_hash,
+            11,
+        )
+        .is_err());
+        journal.completed_parts[0].offset_bytes = 0;
+        journal.plaintext_archive_sha256 = "e".repeat(64);
+        assert!(validate_profile_multipart_journal(
+            &journal,
+            &manifest,
+            object_key,
+            &plaintext_hash,
+            11,
+        )
+        .is_err());
+    }
+
     #[tokio::test]
     #[ignore = "requires TEST_OBJECT_STORAGE_* and an S3-compatible server"]
     async fn archives_checkpoint_or_fails_within_bound() {
         let endpoint = std::env::var("TEST_OBJECT_STORAGE_ENDPOINT").unwrap();
+        let multipart_resume = std::env::var("TEST_OBJECT_STORAGE_MULTIPART_RESUME")
+            .map(|value| value == "true")
+            .unwrap_or(false);
         let expect_failure = std::env::var("TEST_OBJECT_STORAGE_EXPECT_FAILURE")
             .map(|value| value == "true")
             .unwrap_or(false);
@@ -1867,27 +2520,118 @@ mod tests {
             .acquire_workspace("tenant-test", "profile-test", "session-test")
             .await
             .unwrap();
-        fs::write(workspace.core_dir.join("Cookies"), b"encrypted-test-value").unwrap();
+        if multipart_resume {
+            let mut state = 0x9e37_79b9_u32;
+            let mut content = vec![0_u8; 11 * 1024 * 1024];
+            for byte in &mut content {
+                state ^= state << 13;
+                state ^= state >> 17;
+                state ^= state << 5;
+                *byte = state as u8;
+            }
+            fs::write(workspace.core_dir.join("large-profile-state.bin"), content).unwrap();
+        } else {
+            fs::write(workspace.core_dir.join("Cookies"), b"encrypted-test-value").unwrap();
+        }
         let manifest = local.checkpoint(&workspace, "runtime-test").await.unwrap();
-        let archive = ObjectArchive::s3(S3ArchiveConfig {
-            bucket: std::env::var("TEST_OBJECT_STORAGE_BUCKET").unwrap(),
-            region: "us-east-1".to_owned(),
-            endpoint,
-            access_key_id: std::env::var("TEST_OBJECT_STORAGE_ACCESS_KEY_ID").unwrap(),
-            secret_access_key: std::env::var("TEST_OBJECT_STORAGE_SECRET_ACCESS_KEY").unwrap(),
-            prefix: "acceptance".to_owned(),
-            connect_timeout: Duration::from_millis(timeout_millis),
-            operation_timeout: Duration::from_millis(timeout_millis),
-            allow_http: true,
-            profile_crypto: ProfileArchiveCrypto::for_test(
-                "test-key-v1",
-                &[("test-key-v1", [0x41; 32])],
-            ),
-        })
-        .unwrap();
+        let bucket = std::env::var("TEST_OBJECT_STORAGE_BUCKET").unwrap();
+        let access_key_id = std::env::var("TEST_OBJECT_STORAGE_ACCESS_KEY_ID").unwrap();
+        let secret_access_key = std::env::var("TEST_OBJECT_STORAGE_SECRET_ACCESS_KEY").unwrap();
+        let make_archive = || {
+            ObjectArchive::s3(S3ArchiveConfig {
+                bucket: bucket.clone(),
+                region: "us-east-1".to_owned(),
+                endpoint: endpoint.clone(),
+                access_key_id: access_key_id.clone(),
+                secret_access_key: secret_access_key.clone(),
+                prefix: "acceptance".to_owned(),
+                connect_timeout: Duration::from_millis(timeout_millis),
+                operation_timeout: Duration::from_millis(timeout_millis),
+                allow_http: true,
+                profile_crypto: ProfileArchiveCrypto::for_test(
+                    "test-key-v1",
+                    &[("test-key-v1", [0x41; 32])],
+                ),
+            })
+            .unwrap()
+        };
+        if multipart_resume {
+            std::env::set_var("TEST_OBJECT_STORAGE_MULTIPART_FAIL_AFTER_PARTS", "1");
+        }
+        let mut archive = make_archive();
 
         let started = Instant::now();
-        let result = archive.commit_checkpoint(&local, &manifest).await;
+        let mut result = archive.commit_checkpoint(&local, &manifest).await;
+        if multipart_resume && !expect_failure {
+            assert!(result
+                .as_ref()
+                .unwrap_err()
+                .to_string()
+                .contains("injected Profile multipart interruption"));
+            let resume_root = profile_multipart_root(&local, &manifest);
+            let journal = read_profile_multipart_journal(&resume_root).unwrap();
+            assert_eq!(journal.completed_parts.len(), 1);
+            let first_upload_id = journal.upload_id.clone().unwrap();
+            assert!(resume_root.join(PROFILE_MULTIPART_PAYLOAD_FILE).is_file());
+            std::env::set_var("TEST_OBJECT_STORAGE_MULTIPART_FAIL_AFTER_PARTS", "2");
+            archive = make_archive();
+            let second_interruption = archive
+                .commit_checkpoint(&local, &manifest)
+                .await
+                .unwrap_err();
+            assert!(second_interruption
+                .to_string()
+                .contains("injected Profile multipart interruption"));
+            let journal = read_profile_multipart_journal(&resume_root).unwrap();
+            assert_eq!(journal.completed_parts.len(), 2);
+            assert_eq!(journal.upload_id.as_deref(), Some(first_upload_id.as_str()));
+            std::env::remove_var("TEST_OBJECT_STORAGE_MULTIPART_FAIL_AFTER_PARTS");
+            archive = make_archive();
+            result = archive.commit_checkpoint(&local, &manifest).await;
+            assert!(!resume_root.exists());
+
+            let profile_state = workspace.core_dir.join("large-profile-state.bin");
+            let mut changed = fs::read(&profile_state).unwrap();
+            changed[0] ^= 0xff;
+            fs::write(&profile_state, changed).unwrap();
+            let stale_manifest = local.checkpoint(&workspace, "runtime-test").await.unwrap();
+            std::env::set_var("TEST_OBJECT_STORAGE_MULTIPART_FAIL_AFTER_PARTS", "1");
+            archive = make_archive();
+            let stale_interruption = archive
+                .commit_checkpoint(&local, &stale_manifest)
+                .await
+                .unwrap_err();
+            assert!(stale_interruption
+                .to_string()
+                .contains("injected Profile multipart interruption"));
+            let stale_root = profile_multipart_root(&local, &stale_manifest);
+            let mut stale_journal = read_profile_multipart_journal(&stale_root).unwrap();
+            let stale_upload_id = stale_journal.upload_id.clone().unwrap();
+            stale_journal.updated_at_ms = 1;
+            write_profile_multipart_journal(&stale_root, &stale_journal).unwrap();
+
+            archive = make_archive();
+            let restarted_interruption = archive
+                .commit_checkpoint(&local, &stale_manifest)
+                .await
+                .unwrap_err();
+            assert!(restarted_interruption
+                .to_string()
+                .contains("injected Profile multipart interruption"));
+            let restarted_journal = read_profile_multipart_journal(&stale_root).unwrap();
+            assert_ne!(
+                restarted_journal.upload_id.as_deref(),
+                Some(stale_upload_id.as_str())
+            );
+            assert_eq!(restarted_journal.completed_parts.len(), 1);
+            std::env::remove_var("TEST_OBJECT_STORAGE_MULTIPART_FAIL_AFTER_PARTS");
+            archive = make_archive();
+            archive
+                .commit_checkpoint(&local, &stale_manifest)
+                .await
+                .unwrap();
+            assert!(!stale_root.exists());
+        }
         if expect_failure {
             assert!(result.is_err());
             assert!(started.elapsed() < Duration::from_millis(timeout_millis + 1_000));

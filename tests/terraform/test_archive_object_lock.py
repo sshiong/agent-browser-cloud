@@ -35,6 +35,10 @@ class ArchiveObjectLockModuleTest(unittest.TestCase):
             variables,
             r'variable "archive_object_lock_retention_days" \{[\s\S]*?default\s*=\s*30',
         )
+        self.assertRegex(
+            main,
+            r'id\s*=\s*"abort-incomplete-multipart"[\s\S]*?days_after_initiation\s*=\s*1',
+        )
 
     def test_runtime_retention_floor_includes_upload_skew_day(self):
         outputs = (

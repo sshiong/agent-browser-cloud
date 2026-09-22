@@ -48,6 +48,7 @@ TEST_OBJECT_STORAGE_BUCKET="$bucket" \
 TEST_OBJECT_STORAGE_ACCESS_KEY_ID="$access_key" \
 TEST_OBJECT_STORAGE_SECRET_ACCESS_KEY="$secret_key" \
 TEST_OBJECT_STORAGE_TIMEOUT_MS=1000 \
+TEST_OBJECT_STORAGE_MULTIPART_RESUME=true \
   cargo test --locked --manifest-path apps/browser-node/Cargo.toml \
   -p storage-helper object_archive::tests::archives_checkpoint_or_fails_within_bound \
   -- --ignored --exact
@@ -73,4 +74,4 @@ TEST_OBJECT_STORAGE_EXPECT_FAILURE=true \
   -- --ignored --exact
 docker unpause "$container_name" >/dev/null
 
-printf 'OBJECT_STORAGE_GAMEDAY_OK commit_marker_last=true timeout_ms=500 local_checkpoint_retryable=true legacy_unversioned_compatible=true compliance_worm_delete_rejected=true\n'
+printf 'OBJECT_STORAGE_GAMEDAY_OK commit_marker_last=true timeout_ms=500 local_checkpoint_retryable=true multipart_resume=true legacy_unversioned_compatible=true compliance_worm_delete_rejected=true\n'

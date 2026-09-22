@@ -64,12 +64,15 @@ timeout_ms=500
 local_checkpoint_retryable=true
 ```
 
-## 尚未完成
+## 后续进展与尚未完成
 
-1. 当前是 Single PUT 压缩归档；大对象 Multipart Resume、Upload ID Journal、过期
-   Orphan 清理和 API Cost 统计尚未实现。
-2. 尚未实现从 Object Storage 下载、Archive Hash 复验和跨 Node/Region Restore。
+1. 大对象 Multipart Resume、Upload ID Journal、逐段 Hash/ETag 证明、Helper 重启续传和
+   24 小时过期 Orphan 清理已由
+   [进度 206](206-Profile大型归档Multipart-Resume闭环.md)完成；小对象继续使用兼容 Single PUT。
+2. Object Storage 下载、Archive Hash 复验和跨 Node Restore 已在后续恢复链完成；真实跨 Region
+   Restore、复制延迟/带宽/一致性证书仍未完成。
 3. 应用层 Envelope Encryption 已由 progress 183 关闭；目标云 IAM/Workload Identity、KMS/HSM
    Provider、Versioning、WORM、Cross-region Replication 和 Lifecycle Policy 尚未验收。
 4. Kubernetes 基础清单默认关闭 Provider，生产 Overlay 与 Secret Rotation 待目标环境完成。
-5. 尚未将 MinIO GameDay 加入默认 CI；它需要 Docker 镜像和容器权限。
+5. MinIO GameDay 仍是独立 Docker Gate；GitHub 完整 `ci` Workflow 会执行，但纯 `make ci`
+   不运行需要容器权限的 Gate。

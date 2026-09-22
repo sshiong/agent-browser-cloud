@@ -91,6 +91,7 @@ Profile / Checkpoint Import 的仓库内核心闭环已关闭。以下是独立�
 2. Profile 导出下载、Purpose-bound 授权、Actor 隔离、一次性兑换、短期签名下载和
    敏感内容提示已由[进度 134](134-Profile-Checkpoint一次性导出闭环.md)关闭；
    仍缺 Profile 对象保留期与 Legal Hold 深度联动；
-3. Multipart Resume、Warm Tier Delta Journal、跨 Region Restore、目标云 KMS/IAM；
+3. Warm Tier Delta Journal 与 Multipart Resume 后由 progress 135、206 关闭；仍缺跨 Region
+   Restore、目标云 KMS/IAM；
 4. Group/Tags 批量生命周期、服务端组合过滤和大列表批量投影；
 5. 目标 Linux 多 Node 长稳、桌面签名、Windows 和完整辅助技术生产矩阵。

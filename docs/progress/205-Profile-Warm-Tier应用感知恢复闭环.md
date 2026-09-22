@@ -1,7 +1,8 @@
 # Profile Warm Tier 应用感知恢复闭环
 
 > 日期：2026-09-22
-> 状态：SQLite/LevelDB 应用感知 Warm Tier 仓库代码项已完成；Multipart Resume、跨 Region Restore 与目标云 KMS/IAM 仍未完成
+> 状态：SQLite/LevelDB 应用感知 Warm Tier 仓库代码项已完成；Multipart Resume 后由 progress 206
+> 完成，跨 Region Restore 与目标云 KMS/IAM 仍未完成
 > 实现提交：`94e1724 feat: add application-aware profile warm tier`
 
 ## 本轮关闭的缺口
@@ -55,7 +56,9 @@ Checkpoint，无法恢复已经提交到 WAL 或 LevelDB Manifest 的最新应�
 
 ## 仍未完成
 
-1. Warm Tier/Cold Archive 的 Multipart Resume、上传重试账本、合并与垃圾回收；
+1. 大型 Cold Archive 的 Multipart Resume、上传重试账本和过期 Orphan 回收已由
+   [进度 206](206-Profile大型归档Multipart-Resume闭环.md)完成；Warm Tier 日志合并与垃圾回收
+   仍未完成；
 2. 真实跨 Region Profile Restore、复制延迟/带宽/一致性证书与网络分区演练；
 3. 目标云 KMS/HSM、Workload Identity、IAM Policy-as-Code、CSI 断盘和多 Node Linux 长稳；
 4. Profile 对象保留期、目标云 Legal Hold/Object Lock 深度联动。

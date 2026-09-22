@@ -40,6 +40,6 @@
 
 ## 剩余边界
 
-该修复关闭单 Node 恢复重启失败时的资源所有权缺口，不替代 Warm Tier
-SQLite/LevelDB 应用感知 Adapter、Multipart Resume、真实跨 Region Restore、目标云
-KMS/IAM 和长稳 Gate。
+该修复关闭单 Node 恢复重启失败时的资源所有权缺口。Warm Tier SQLite/LevelDB 应用感知
+Adapter 与 Multipart Resume 后由 progress 205、206 关闭；真实跨 Region Restore、目标云
+KMS/IAM 和长稳 Gate 仍未完成。

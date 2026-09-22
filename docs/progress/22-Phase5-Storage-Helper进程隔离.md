@@ -50,8 +50,9 @@ WEB_CONSOLE_E2E_OK
 1. GPU Helper 尚未实现；当前 L1 无 GPU 路径保持不授予 GPU Device 权限。
 2. Storage/Network Helper 尚缺 AppArmor/SELinux/Landlock Profile 和生产集群跨 UID
    GameDay 证据。
-3. S3-compatible Cold Archive、Commit Marker 顺序和真实 MinIO 超时已完成；Warm Tier
-   仍为本地/CSI PoC，尚缺限流、Multipart Resume、跨 Region Restore 与删除 Receipt。
+3. S3-compatible Cold Archive、Commit Marker 顺序和真实 MinIO 超时已完成；Warm Tier 与
+   Multipart Resume 后由 progress 135、205、206 关闭，仍缺目标 CSI 限流/长稳、跨 Region
+   Restore 与更深的 Profile 删除治理。
 4. Profile Business Ready 验证器、敏感字段分类、加密 Key 生命周期和法规删除流程仍未完成。
 5. Helper Audit Identity 当前仅有结构化进程日志，尚未进入统一防篡改审计链。
 

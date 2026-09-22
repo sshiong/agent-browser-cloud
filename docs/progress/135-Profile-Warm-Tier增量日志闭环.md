@@ -1,7 +1,8 @@
 # Profile Warm Tier 增量日志闭环
 
 > 日期：2026-08-13
-> 状态：v1 增量日志核心闭环已完成；SQLite/LevelDB 应用感知恢复后由 progress 205 完成
+> 状态：v1 增量日志核心闭环已完成；SQLite/LevelDB 应用感知恢复和大型 Cold Archive
+> Multipart Resume 后由 progress 205、206 完成
 
 ## 本轮关闭的缺口
 
@@ -59,6 +60,8 @@ SQLite Online Backup/WAL、LevelDB Snapshot/Manifest、v2 应用屏障及非正�
 [进度 205](205-Profile-Warm-Tier应用感知恢复闭环.md)完成。当前仍未完成：
 
 1. Warm Tier 日志压缩/合并、垃圾回收和目标 CSI 性能/断盘长稳；
-2. Multipart Resume、真实跨 Region Profile Restore 和全局带宽/一致性证书；
+2. 大型 Cold Archive Multipart Resume 已由
+   [进度 206](206-Profile大型归档Multipart-Resume闭环.md)完成；真实跨 Region Profile Restore
+   和全局带宽/一致性证书仍未完成；
 3. Profile 对象保留期、Legal Hold/Object Lock 深度联动；
 4. 目标云 KMS/IAM、正式多 Node Linux 长稳及跨 Region 网络分区矩阵。

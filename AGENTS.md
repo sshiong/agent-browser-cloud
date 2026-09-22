@@ -2,7 +2,7 @@
 
 > 更新日期：2026-09-22
 > 基准分支：`main`
-> 编写时基准提交：`94e1724 feat: add application-aware profile warm tier`
+> 编写时基准提交：`757f4c8 feat: resume large profile multipart uploads`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -160,7 +160,12 @@ progress 166。
 - [已确认] Warm Tier v2 已对活动 SQLite/WAL 使用 Online Backup，对 LevelDB 使用
   CURRENT/MANIFEST 与复制前后内容屏障、隔离打开和全量迭代验证；非正常停止后新 Session
   可恢复并再次验证精确数据库集合，同 Epoch 干净 Checkpoint 优先，旧 v1 部分清单不会混合恢复，
-  见 progress 205。Multipart Resume、跨 Region Restore 和目标云 KMS/IAM 仍未完成。
+  见 progress 205。
+- [已确认] 大型加密 Profile Cold Archive 已支持 S3 Multipart Resume：本地私有 spool 与
+  checkpoint-bound journal 保存随机加密后的精确字节、Upload ID、逐段 Hash/ETag 和 commit
+  进度；Helper 重启会与服务端 ListParts 交叉校验后只补传缺段，Complete 后先以 HEAD 元数据
+  复验完整对象，再写 Manifest/COMMITTED。24 小时旧 upload 在 Helper 与 Terraform 生命周期
+  双层回收，见 progress 206。跨 Region Restore 和目标云 KMS/IAM 仍未完成。
 - [已确认] Tauri 2 容器、OS 安全存储、系统浏览器 OIDC/Deep Link 和 Updater Gate 已实现；Web 与 Desktop 复用业务 UI。
 - [已确认] Validation Matrix、Recovery GameDay、Cost/SLO/Retention/Compliance/Residency/DR Registry、Error Budget Freeze、Terraform、四语言 SDK 和统一发布包已实现。
 - [已确认] 独立 Personal Secure 单机部署层只绑定 loopback，强制非 Local OIDC/API Audience、
@@ -281,6 +286,14 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- 大型加密 Profile Cold Archive 已支持 Multipart Resume：Storage Helper 在私有本地 spool 固化
+  精确密文字节，以 checkpoint-bound journal 保存 Upload ID、逐段 Hash/ETag，并在重启后与
+  ListParts 交叉校验，只补传缺段；完整对象 HEAD 复验后才写 Manifest/COMMITTED。OrbStack 真实
+  MinIO 已验证同一 Upload ID 经两次中断继续上传，以及 24 小时过期 journal 终止旧 Upload 后换新
+  ID；Terraform S3 Lifecycle 同步收敛为 1 天回收未知 orphan。Rust Workspace、严格 Clippy、
+  N/N−1、完整 Integration、`make ci` 与七镜像构建均通过，见 progress 206。跨 Region Restore
+  与目标云 KMS/IAM 仍未完成。
 
 - Recording 全帧隐私 v2 已通过 Rust/Control Plane 定向测试和 OrbStack release 镜像
   真实功能自检：合成邮箱文本与二维码均被检测/遮罩，二次 OCR/Face/QR 复检残留为零；
@@ -825,8 +838,8 @@ Enterprise Overview、Challenge 视觉自动化与 Agent SAFE/AUTONOMOUS 基线�
 Recording purpose-bound 一次性播放 Grant、到期物理删除 Worker、AWS Object Lock/WORM
 仓库基线与全帧 OCR/PII/正面人脸/二维码零残留复检已由 progress 200—203 闭环。
 恢复重启失败的 Profile Writer/Proxy 所有权缺口已由 progress 204 闭环；Warm Tier
-SQLite/LevelDB 应用感知恢复已由 progress 205 闭环。下一仓库级切片为 Multipart Resume/
-跨 Region Restore；客户视觉数据集 Replay 和更深的目标云
+SQLite/LevelDB 应用感知恢复已由 progress 205 闭环；大型 Cold Archive Multipart Resume
+已由 progress 206 闭环。下一仓库级切片为跨 Region Restore；客户视觉数据集 Replay 和更深的目标云
 Legal Hold 联动仍待完成。目标账户仍须真实 Apply/IAM 验收，不得把仓库 Terraform 定义、普通
 Delete API 或短期签名 URL 冒充目标云监管保留。
 
@@ -834,7 +847,8 @@ Delete API 或短期签名 URL 冒充目标云监管保留。
 
 ### P0/P1：仓库内代码产品化
 
-1. Warm Tier Multipart Resume、跨 Region Restore、Profile 对象保留/Legal Hold 深度联动；SQLite/LevelDB 应用感知 Adapter 已由 progress 205 完成。
+1. 跨 Region Restore、Profile 对象保留/Legal Hold 深度联动；SQLite/LevelDB 应用感知 Adapter
+   与大型 Cold Archive Multipart Resume 已由 progress 205、206 完成。
 2. 目标 CRM/支付/IAM Provider 的真实凭据、字段/事务映射和 Provider 特有认证接入。
 3. 目标云 Secret 解引用/轮换/撤销、商业 Proxy Provider Adapter、高级 SLA/业务成功率路由、Challenge/黑名单与受约束探索。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。

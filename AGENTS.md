@@ -2,7 +2,7 @@
 
 > 更新日期：2026-09-22
 > 基准分支：`main`
-> 编写时基准提交：`3b9e49b feat: enforce recording object lock baseline`
+> 编写时基准提交：`eaea507 feat: enforce full-frame recording privacy`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -282,8 +282,10 @@ progress 166。
   真实功能自检：合成邮箱文本与二维码均被检测/遮罩，二次 OCR/Face/QR 复检残留为零；
   v2 帧证明篡改被 Storage Helper 拒绝，v1 历史兼容保留。OrbStack Browser Node
   镜像已从最终源码构建成功，完整 Integration 和 `make ci` 通过。AWS SDK
-  重复旧 TLS feature 已移除，`rustls-webpki 0.101.7` 已移出依赖树；GitHub
-  Workflow 仍以本次推送后的最终结果为准，见 progress 203。
+  重复旧 TLS feature 已移除，`rustls-webpki 0.101.7` 已移出依赖树。提交
+  `eaea507` 的 GitHub `ci` run `35706097736`（含 Trivy、完整 Integration、Object
+  Storage/Recording GameDay 和 Kubernetes Operator E2E）与 `desktop` run `35706097742`
+  （Windows/macOS）均成功，见 progress 203。
 
 - 完整 Integration 在 Chromium 被 `SIGKILL` 后触发了 replacement Start 未达 CDP Ready
   的真实失败，并暴露回滚错误释放原 Session Profile Writer/Proxy 的所有权缺口。

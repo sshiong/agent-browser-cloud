@@ -50,6 +50,9 @@ Recording fail-closed 终止。
   `ready=true` 和 `tesseract-opencv-pii-face-qr-v2`。
 - AWS TLS feature 收敛后的 `make test-object-storage` 通过，包含 archive 超时/重试、
   commit-marker-last、历史非版本 Bucket 兼容与 COMPLIANCE WORM 提前删除拒绝。
+- 提交 `eaea507` 已推送 `main`：GitHub `ci` run `35706097736` 通过 Trivy、完整
+  Integration、Object Storage/Recording GameDay 和 Kubernetes Operator E2E；`desktop`
+  run `35706097742` 的 Windows/macOS 也均成功。
 
 ## 剩余边界
 

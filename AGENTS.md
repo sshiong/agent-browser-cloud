@@ -2,7 +2,7 @@
 
 > 更新日期：2026-09-22
 > 基准分支：`main`
-> 编写时基准提交：`757f4c8 feat: resume large profile multipart uploads`
+> 编写时基准提交：`60e9234 feat: restore profiles from authorized regions`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -165,7 +165,12 @@ progress 166。
   checkpoint-bound journal 保存随机加密后的精确字节、Upload ID、逐段 Hash/ETag 和 commit
   进度；Helper 重启会与服务端 ListParts 交叉校验后只补传缺段，Complete 后先以 HEAD 元数据
   复验完整对象，再写 Manifest/COMMITTED。24 小时旧 upload 在 Helper 与 Terraform 生命周期
-  双层回收，见 progress 206。跨 Region Restore 和目标云 KMS/IAM 仍未完成。
+  双层回收，见 progress 206。
+- [已确认] Profile Cross-Region Restore 只在本地 Region 主存储不可用时读取显式配置的只读副本；
+  每个源必须声明源 Region 与允许目标 Region，恢复仍绑定精确 Tenant/Profile/Checkpoint、加密
+  Envelope 与 COMMITTED/Archive Hash，旧明文归档及损坏证明 fail-closed。OrbStack 两个独立
+  MinIO 已验证主端点不可达后的 DR 恢复，见 progress 207。真实云复制/RPO/RTO、目标 KMS/IAM
+  与流量切换仍是环境 Gate。
 - [已确认] Tauri 2 容器、OS 安全存储、系统浏览器 OIDC/Deep Link 和 Updater Gate 已实现；Web 与 Desktop 复用业务 UI。
 - [已确认] Validation Matrix、Recovery GameDay、Cost/SLO/Retention/Compliance/Residency/DR Registry、Error Budget Freeze、Terraform、四语言 SDK 和统一发布包已实现。
 - [已确认] 独立 Personal Secure 单机部署层只绑定 loopback，强制非 Local OIDC/API Audience、
@@ -287,13 +292,20 @@ progress 166。
 
 ### 最近验证状态
 
+- Profile Cross-Region Restore 已以两个独立 OrbStack MinIO 实例闭环：主 Region 端点完全不可达时，
+  DR Storage Helper 只从目的 Region allowlist 授权的只读副本读取精确加密 Checkpoint；未授权目的
+  Region、跨身份 Envelope、任意对象名、旧明文归档和 Hash 不一致均 fail-closed。主存储仍是唯一
+  写入端，副本不会被故障路径反向写入。Storage Helper 28 项、严格 Clippy、Rust Workspace、
+  N/N−1、Object Storage GameDay 与完整 OrbStack Integration 通过，见 progress 207。目标云
+  Replication Rule、真实 RPO/RTO/带宽、KMS/IAM 和 Region 流量切换仍未冒充完成。
+
 - 大型加密 Profile Cold Archive 已支持 Multipart Resume：Storage Helper 在私有本地 spool 固化
   精确密文字节，以 checkpoint-bound journal 保存 Upload ID、逐段 Hash/ETag，并在重启后与
   ListParts 交叉校验，只补传缺段；完整对象 HEAD 复验后才写 Manifest/COMMITTED。OrbStack 真实
   MinIO 已验证同一 Upload ID 经两次中断继续上传，以及 24 小时过期 journal 终止旧 Upload 后换新
   ID；Terraform S3 Lifecycle 同步收敛为 1 天回收未知 orphan。Rust Workspace、严格 Clippy、
   N/N−1、完整 Integration、`make ci` 与七镜像构建均通过，见 progress 206。跨 Region Restore
-  与目标云 KMS/IAM 仍未完成。
+  的仓库级只读故障切换随后由 progress 207 关闭；目标云 KMS/IAM 仍未完成。
 
 - Recording 全帧隐私 v2 已通过 Rust/Control Plane 定向测试和 OrbStack release 镜像
   真实功能自检：合成邮箱文本与二维码均被检测/遮罩，二次 OCR/Face/QR 复检残留为零；
@@ -839,16 +851,17 @@ Recording purpose-bound 一次性播放 Grant、到期物理删除 Worker、AWS 
 仓库基线与全帧 OCR/PII/正面人脸/二维码零残留复检已由 progress 200—203 闭环。
 恢复重启失败的 Profile Writer/Proxy 所有权缺口已由 progress 204 闭环；Warm Tier
 SQLite/LevelDB 应用感知恢复已由 progress 205 闭环；大型 Cold Archive Multipart Resume
-已由 progress 206 闭环。下一仓库级切片为跨 Region Restore；客户视觉数据集 Replay 和更深的目标云
-Legal Hold 联动仍待完成。目标账户仍须真实 Apply/IAM 验收，不得把仓库 Terraform 定义、普通
+已由 progress 206 闭环；显式 Region/目的地策略约束的只读跨 Region Restore 已由 progress 207
+闭环。客户视觉数据集 Replay 和更深的目标云 Legal Hold 联动仍待完成。目标账户仍须真实 Apply/IAM
+与复制/RPO/RTO 验收，不得把仓库 Terraform 定义、普通
 Delete API 或短期签名 URL 冒充目标云监管保留。
 
 ## 8. 尚未完成的功能
 
 ### P0/P1：仓库内代码产品化
 
-1. 跨 Region Restore、Profile 对象保留/Legal Hold 深度联动；SQLite/LevelDB 应用感知 Adapter
-   与大型 Cold Archive Multipart Resume 已由 progress 205、206 完成。
+1. Profile 对象保留/Legal Hold 深度联动；SQLite/LevelDB 应用感知 Adapter、Multipart Resume
+   与仓库级 Cross-Region Restore 已由 progress 205—207 完成。
 2. 目标 CRM/支付/IAM Provider 的真实凭据、字段/事务映射和 Provider 特有认证接入。
 3. 目标云 Secret 解引用/轮换/撤销、商业 Proxy Provider Adapter、高级 SLA/业务成功率路由、Challenge/黑名单与受约束探索。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
@@ -946,7 +959,7 @@ make test-desktop
 | 优先级 | 任务 | 原因 |
 | --- | --- | --- |
 | P1 | Recording 客户视觉 Replay、目标云 Object Lock Apply/IAM、Legal Hold 和对象治理 | 涉及敏感浏览器证据与监管型保留的生产闭环；仓库全帧隐私/WORM 基线已完成 |
-| P1 | Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore | Profile 一致性和迁移恢复的主要剩余代码缺口 |
+| P1 | 目标云 Profile 复制/KMS/IAM 与 RPO/RTO | 仓库级恢复路径已完成，仍需真实云身份、复制和灾备证书 |
 | P1 | 目标 Provider/Secret/Proxy Adapter | 真实客户业务接入的前提 |
 | P1 | OCR/高级 Validator/Replay | 视觉安全和生产 Agent 质量 Gate |
 | P2 | 目标 Linux/云/多 Region/桌面签名长稳矩阵 | 发布 Gate，需要真实环境和外部凭据 |
@@ -959,7 +972,8 @@ make test-desktop
 2. Recording purpose-bound 一次性播放 Grant、到期删除 Worker、AWS Object Lock/WORM 仓库
    基线和全帧隐私 v2 已由 progress 200—203 完成；继续客户视觉数据集 Replay、目标账户
    Apply/IAM 和目标云原生 Legal Hold 联动。
-3. Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore、目标 Provider/Secret/Proxy 和 OCR/Replay 按第 12 节顺序推进。
+3. Profile 的 Adapter/Resume/Cross-Region 仓库路径已由 progress 205—207 完成；继续目标云
+   Replication/KMS/IAM、Provider/Secret/Proxy 和 OCR/Replay。
 4. 持续补齐目标 Linux/云/多 Region/桌面签名长稳和组织安全发布 Gate；仓库测试通过不等同于允许处理真实客户数据。
 
 ## 14. 何时必须更新本文件

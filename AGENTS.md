@@ -1,8 +1,8 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-09-22
+> 更新日期：2026-09-23
 > 基准分支：`main`
-> 编写时基准提交：`60e9234 feat: restore profiles from authorized regions`
+> 编写时基准提交：`d22987d fix: keep weak remote desktop viewers connected`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -196,6 +196,10 @@ progress 166。
 - [已确认] 开启协作控制后，只有 Gateway 实际收到真人键盘/鼠标/剪贴板输入时才触发 `HUMAN_INPUT_PRIORITY`；真人停止输入 2 秒后，同一持久 Operation 自动续行。
 - [已确认] 新票据只签发 `COLLABORATIVE`；遗留 `EXCLUSIVE_TAKEOVER` 在 Gateway 中 fail-collaborative，不再踢出协作者。
 - [已确认] 多参与者、单上游 RFB Fan-out、慢消费者隔离、每 Actor 带宽/FPS/成本、在线列表、精准撤销和历史治理已实现。
+- [已确认] 弱网 Viewer 超过有界广播队列后不再被直接断开：Gateway 丢弃陈旧增量帧，先重订阅再读取
+  Hub 的最新完整基线，避免旧帧倒放或竞态漏帧；协商 Tight JPEG 的连接按积压临时降质，恢复后回到
+  原协商质量，Raw/Quality 9 保持无损。250 Kbps 真实 WebSocket/RFB 回归已验证同连接恢复和后续帧，
+  见 progress 208；目标 Linux 8 Client 长稳、独立低分辨率视图和硬件 Codec 仍是环境/产品 Gate。
 - [已确认] 低风险 `SINGLE_CLICK/IMAGE_SELECTION/PUZZLE/MULTI_ROUND` Challenge 支持脱敏截图 OCR/视觉定位，默认三次且可按 Session 调整，并可执行点击、连续点击和滑动；AUTONOMOUS 只有在自动路径耗尽后才写一次人工协助通知，原 Task 保持可续行。
 - [已确认] Vision Worker 只有 Purpose-bound 一次性截图读取和结构化动作输出权限；Browser Node 在 State Hash/Version、Operation Epoch、八次动作预算及真人输入优先级下重新校验，不接受键盘、文本、Secret 或任意 CDP。
 - [已确认] Challenge Vision 只接受精确 State/Target/Active Tab 围栏的有界 Region；隔离 Worker
@@ -291,6 +295,12 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- Remote Desktop Gateway 已关闭弱网 Viewer 的队列积压断线：250 Kbps 真实 loopback
+  TCP/WebSocket/RFB 3.8 回归以超过广播容量的帧流验证同一连接跳过旧增量、恢复最新完整基线并
+  继续接收新帧，throttled 计量同步递增。Gateway 24 项、Rust Workspace、严格 Clippy、完整
+  OrbStack Integration、`make ci` 和 Browser Node 干净 release 镜像构建均通过，见 progress 208。
+  目标 Linux 8 Client 长稳、独立低分辨率 Observer 与硬件 Codec 仍未完成。
 
 - Profile Cross-Region Restore 已以两个独立 OrbStack MinIO 实例闭环：主 Region 端点完全不可达时，
   DR Storage Helper 只从目的 Region allowlist 授权的只读副本读取精确加密 Checkpoint；未授权目的
@@ -934,7 +944,8 @@ make test-desktop
   低画质使用色彩降采样；清晰档/旧客户端保持 Raw。不是 CSS 缩放，也没有降低 Chromium
   页面分辨率或绕过 Actor/Session FPS、带宽配额。两条原环境保存后恢复 RUNNING；
   真实画面三档切换不重连，首个详情可用。2ecbfda已推送；ci33713083175、desktop33713083347
-  检查时运行中；不声称动态FPS达标。
+  检查时运行中。弱网积压后的动态合帧、最新完整基线恢复和临时 JPEG 降质随后由 progress 208
+  闭环；独立低分辨率视图、硬件 Codec 与目标 Linux 8 Client 长稳仍未完成。
 
 - 2026-09-02 操作员复测发现六条旧环境缺 Demand，其中三条缺 Profile 元数据。
   progress 163 已补启动时事务初始化：只适用于 runtimeBuild/node 均空、generation/epoch=0、

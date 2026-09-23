@@ -11,7 +11,8 @@ public record RemoteDesktopConnectionResponse(
     long operationEpoch,
     boolean viewOnly,
     int actorBitrateLimitKbps,
-    int actorFrameRateLimitFps) {
+    int actorFrameRateLimitFps,
+    int resolutionScalePercent) {
 
   public RemoteDesktopConnectionResponse(
       String connectionId,
@@ -28,6 +29,7 @@ public record RemoteDesktopConnectionResponse(
         operationEpoch,
         viewOnly,
         viewOnly ? 4_000 : 8_000,
-        viewOnly ? 15 : 30);
+        viewOnly ? 15 : 30,
+        100);
   }
 }

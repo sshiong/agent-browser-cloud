@@ -2606,6 +2606,7 @@ class RemoteDesktopConnection(TypedDict, total=False):
     viewOnly: bool
     actorBitrateLimitKbps: int
     actorFrameRateLimitFps: int
+    resolutionScalePercent: int
 
 class RemoteDesktopParticipantList(TypedDict, total=False):
     items: list[RemoteDesktopParticipant]

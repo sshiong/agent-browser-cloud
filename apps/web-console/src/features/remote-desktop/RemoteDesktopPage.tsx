@@ -76,6 +76,7 @@ export function RemoteDesktopPage() {
   // operator can explicitly opt into shared control when human input is needed.
   const [viewOnly, setViewOnly] = useState(true);
   const [quality, setQuality] = useState<DesktopQuality>('SMOOTH');
+  const [resolutionScalePercent, setResolutionScalePercent] = useState(75);
   const session = sessionQuery.data;
   const takeover = session?.currentOperation?.mode === 'HUMAN_TAKEOVER';
   const takeoverOwned =
@@ -210,6 +211,21 @@ export function RemoteDesktopPage() {
                   <option value="SHARP">清晰优先 · 原始像素</option>
                 </select>
               </label>
+              <label className="flex items-center gap-2 text-[11px] text-text-muted">
+                传输分辨率
+                <select
+                  aria-label="远程桌面传输分辨率"
+                  value={resolutionScalePercent}
+                  onChange={(event) =>
+                    setResolutionScalePercent(Number(event.target.value))
+                  }
+                  className="h-8 border border-border-default bg-surface-2 px-2 text-text-primary"
+                >
+                  <option value={50}>50% · 弱网</option>
+                  <option value={75}>75% · 推荐</option>
+                  <option value={100}>100% · 原始</option>
+                </select>
+              </label>
               <div
                 className="inline-flex h-8 border border-border-default bg-surface-2"
                 aria-label="远程桌面连接模式"
@@ -286,6 +302,7 @@ export function RemoteDesktopPage() {
                       sessionId={sessionId}
                       bindingEpoch={bindingEpoch}
                       quality={quality}
+                      resolutionScalePercent={resolutionScalePercent}
                       viewOnly={viewOnly}
                       onConnectionState={(next) => {
                         setDesktopState(next);
@@ -317,6 +334,8 @@ export function RemoteDesktopPage() {
                       : '无损原始像素，适合检查细节；大面积变化时可能明显降低帧率。'}
                   实际帧率受画面变化、网络和配额限制，不保证固定
                   FPS。切换画质不停止 Agent，也不切换控制权限。
+                  传输分辨率只改变此观察端收到的像素尺寸，切换时会重新连接；Chromium、Agent
+                  和输入坐标保持原始分辨率。
                 </p>
               </RailSection>
               <RailSection title="协作控制">

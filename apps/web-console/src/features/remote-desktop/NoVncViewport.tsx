@@ -36,6 +36,7 @@ export const NoVncViewport = forwardRef<
     bindingEpoch: number;
     viewOnly?: boolean;
     quality?: DesktopQuality;
+    resolutionScalePercent?: number;
     onConnectionState?: (state: DesktopConnectionState) => void;
     onUnexpectedDisconnect?: () => void;
     onConnectionId?: (connectionId?: string) => void;
@@ -47,6 +48,7 @@ export const NoVncViewport = forwardRef<
     bindingEpoch,
     viewOnly = false,
     quality = 'SMOOTH',
+    resolutionScalePercent = 75,
     onConnectionState,
     onUnexpectedDisconnect,
     onConnectionId,
@@ -69,6 +71,7 @@ export const NoVncViewport = forwardRef<
   const [actorQuota, setActorQuota] = useState<{
     bitrateKbps: number;
     frameRateFps: number;
+    resolutionScalePercent: number;
   }>();
   onConnectionStateRef.current = onConnectionState;
   onUnexpectedDisconnectRef.current = onUnexpectedDisconnect;
@@ -115,7 +118,8 @@ export const NoVncViewport = forwardRef<
           undefined,
           undefined,
           controller.signal,
-          viewOnly
+          viewOnly,
+          resolutionScalePercent
         );
         if (disposed || !viewportRef.current) return;
         if (connection.operationEpoch !== bindingEpoch) {
@@ -131,6 +135,7 @@ export const NoVncViewport = forwardRef<
           setActorQuota({
             bitrateKbps: connection.actorBitrateLimitKbps,
             frameRateFps: connection.actorFrameRateLimitFps,
+            resolutionScalePercent: connection.resolutionScalePercent ?? 100,
           });
         }
         const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -205,7 +210,7 @@ export const NoVncViewport = forwardRef<
       clientRef.current = undefined;
       onConnectionIdRef.current?.(undefined);
     };
-  }, [bindingEpoch, sessionId, viewOnly]);
+  }, [bindingEpoch, resolutionScalePercent, sessionId, viewOnly]);
 
   return (
     <div className="relative h-full min-h-[420px] overflow-hidden bg-[#080d13]">
@@ -245,7 +250,7 @@ export const NoVncViewport = forwardRef<
           {actorQuota && (
             <span>
               · ACTOR {actorQuota.bitrateKbps} Kbps / {actorQuota.frameRateFps}{' '}
-              FPS 上限（非实测）
+              FPS 上限 · {actorQuota.resolutionScalePercent}% 传输像素（非实测）
             </span>
           )}
         </div>

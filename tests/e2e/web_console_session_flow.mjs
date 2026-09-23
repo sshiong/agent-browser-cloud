@@ -499,13 +499,18 @@ try {
     `${baseUrl}/remote-desktop?session=${startSessionId}`,
   );
   const viewOnlyTicketResponse = await sharedObserverPage.request.post(
-    `${baseUrl}/api/v1/sessions/${startSessionId}:desktop-connection?viewOnly=true`,
+    `${baseUrl}/api/v1/sessions/${startSessionId}:desktop-connection?viewOnly=true&resolutionScalePercent=50`,
     { headers: { "X-Tenant-Id": "tenant-local" } },
   );
   const viewOnlyTicket = await viewOnlyTicketResponse.json();
   if (viewOnlyTicket.viewOnly !== true) {
     throw new Error(
       "view-only desktop mode was not bound into the server ticket",
+    );
+  }
+  if (viewOnlyTicket.resolutionScalePercent !== 50) {
+    throw new Error(
+      "remote desktop resolution scale was not bound into the signed server ticket",
     );
   }
   await expect(

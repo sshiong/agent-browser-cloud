@@ -3063,6 +3063,7 @@ type RemoteDesktopConnection struct {
 	ViewOnly               bool   `json:"viewOnly,omitempty"`
 	ActorBitrateLimitKbps  int    `json:"actorBitrateLimitKbps,omitempty"`
 	ActorFrameRateLimitFps int    `json:"actorFrameRateLimitFps,omitempty"`
+	ResolutionScalePercent int    `json:"resolutionScalePercent,omitempty"`
 }
 
 type RemoteDesktopParticipantList struct {

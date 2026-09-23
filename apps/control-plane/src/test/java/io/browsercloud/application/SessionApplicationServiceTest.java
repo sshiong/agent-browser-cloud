@@ -211,7 +211,8 @@ class SessionApplicationServiceTest {
             eq(context),
             eq(false),
             eq(8_000),
-            eq(30)))
+            eq(30),
+            eq(100)))
         .thenReturn(response);
 
     assertThat(service.createDesktopConnection("ses_test", "tenant-test", "operator-test"))
@@ -234,7 +235,7 @@ class SessionApplicationServiceTest {
             false);
     when(sessionRepository.require("ses_test")).thenReturn(context);
     when(remoteDesktopTicketService.issueCollaborative(
-            "tenant-test", "ses_test", "operator-test", context, false, 8_000, 30))
+            "tenant-test", "ses_test", "operator-test", context, false, 8_000, 30, 100))
         .thenReturn(response);
 
     assertThat(service.createDesktopConnection("ses_test", "tenant-test", "operator-test"))
@@ -256,10 +257,10 @@ class SessionApplicationServiceTest {
             true);
     when(sessionRepository.require("ses_test")).thenReturn(context);
     when(remoteDesktopTicketService.issueCollaborative(
-            "tenant-test", "ses_test", "viewer-test", context, true, 4_000, 15))
+            "tenant-test", "ses_test", "viewer-test", context, true, 4_000, 15, 50))
         .thenReturn(response);
 
-    assertThat(service.createDesktopConnection("ses_test", "tenant-test", "viewer-test", true))
+    assertThat(service.createDesktopConnection("ses_test", "tenant-test", "viewer-test", true, 50))
         .isEqualTo(response);
     verifyNoInteractions(operationRepository);
     verifyNoInteractions(coordinator);

@@ -929,10 +929,17 @@ export async function createRemoteDesktopConnection(
   tenantId = DEFAULT_TENANT_ID,
   actorId = currentActorId(),
   signal?: AbortSignal,
-  viewOnly = false
+  viewOnly = false,
+  resolutionScalePercent = 100
 ): Promise<RemoteDesktopConnection> {
+  const params = new URLSearchParams();
+  if (viewOnly) params.set('viewOnly', 'true');
+  if (resolutionScalePercent !== 100) {
+    params.set('resolutionScalePercent', String(resolutionScalePercent));
+  }
+  const query = params.size > 0 ? `?${params.toString()}` : '';
   return request<RemoteDesktopConnection>(
-    `/sessions/${sessionId}:desktop-connection${viewOnly ? '?viewOnly=true' : ''}`,
+    `/sessions/${sessionId}:desktop-connection${query}`,
     {
       method: 'POST',
       signal,

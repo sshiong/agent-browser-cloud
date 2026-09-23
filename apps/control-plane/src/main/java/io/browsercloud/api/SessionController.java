@@ -228,10 +228,11 @@ public class SessionController {
   @PreAuthorize(PlatformRoles.OPERATE)
   public RemoteDesktopConnectionResponse createDesktopConnection(
       @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
-      @RequestParam(defaultValue = "false") boolean viewOnly) {
+      @RequestParam(defaultValue = "false") boolean viewOnly,
+      @RequestParam(defaultValue = "100") @Min(25) @Max(100) int resolutionScalePercent) {
     var principal = identity.current();
     return service.createDesktopConnection(
-        sessionId, principal.tenantId(), principal.actorId(), viewOnly);
+        sessionId, principal.tenantId(), principal.actorId(), viewOnly, resolutionScalePercent);
   }
 
   /**

@@ -591,12 +591,22 @@ public class SessionApplicationService {
   @Transactional(readOnly = true)
   public RemoteDesktopConnectionResponse createDesktopConnection(
       String sessionId, String tenantId, String userId) {
-    return createDesktopConnection(sessionId, tenantId, userId, false);
+    return createDesktopConnection(sessionId, tenantId, userId, false, 100);
   }
 
   @Transactional(readOnly = true)
   public RemoteDesktopConnectionResponse createDesktopConnection(
       String sessionId, String tenantId, String userId, boolean viewOnly) {
+    return createDesktopConnection(sessionId, tenantId, userId, viewOnly, 100);
+  }
+
+  @Transactional(readOnly = true)
+  public RemoteDesktopConnectionResponse createDesktopConnection(
+      String sessionId,
+      String tenantId,
+      String userId,
+      boolean viewOnly,
+      int resolutionScalePercent) {
     var session = requireTenant(sessionId, tenantId);
     var desktopPolicy = workspaceSettingsService.resolve(tenantId);
     if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
@@ -613,7 +623,8 @@ public class SessionApplicationService {
             : desktopPolicy.remoteDesktopControlBitrateLimitKbps(),
         viewOnly
             ? desktopPolicy.remoteDesktopViewerFrameRateLimitFps()
-            : desktopPolicy.remoteDesktopControlFrameRateLimitFps());
+            : desktopPolicy.remoteDesktopControlFrameRateLimitFps(),
+        resolutionScalePercent);
   }
 
   /** 获取 Session。 */

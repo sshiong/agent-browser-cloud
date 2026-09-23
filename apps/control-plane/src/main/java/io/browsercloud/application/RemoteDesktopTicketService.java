@@ -138,6 +138,26 @@ public class RemoteDesktopTicketService {
       boolean viewOnly,
       int actorBitrateLimitKbps,
       int actorFrameRateLimitFps) {
+    return issueCollaborative(
+        tenantId,
+        sessionId,
+        actorId,
+        session,
+        viewOnly,
+        actorBitrateLimitKbps,
+        actorFrameRateLimitFps,
+        100);
+  }
+
+  public RemoteDesktopConnectionResponse issueCollaborative(
+      String tenantId,
+      String sessionId,
+      String actorId,
+      SessionContext session,
+      boolean viewOnly,
+      int actorBitrateLimitKbps,
+      int actorFrameRateLimitFps,
+      int resolutionScalePercent) {
     return issue(
         tenantId,
         sessionId,
@@ -148,7 +168,8 @@ public class RemoteDesktopTicketService {
         "COLLABORATIVE",
         viewOnly,
         actorBitrateLimitKbps,
-        actorFrameRateLimitFps);
+        actorFrameRateLimitFps,
+        resolutionScalePercent);
   }
 
   /**
@@ -184,7 +205,8 @@ public class RemoteDesktopTicketService {
         "COLLABORATIVE",
         false,
         actorBitrateLimitKbps,
-        actorFrameRateLimitFps);
+        actorFrameRateLimitFps,
+        100);
   }
 
   private RemoteDesktopConnectionResponse issue(
@@ -197,8 +219,13 @@ public class RemoteDesktopTicketService {
       String accessMode,
       boolean viewOnly,
       int actorBitrateLimitKbps,
-      int actorFrameRateLimitFps) {
+      int actorFrameRateLimitFps,
+      int resolutionScalePercent) {
     validateActorQuota("issued", actorBitrateLimitKbps, actorFrameRateLimitFps);
+    if (resolutionScalePercent < 25 || resolutionScalePercent > 100) {
+      throw new IllegalArgumentException(
+          "remote desktop resolution scale must be between 25 and 100 percent");
+    }
     var expiresAt = Instant.now(clock).plusSeconds(ttlSeconds);
     var connectionId = "rdc_" + UUID.randomUUID().toString().replace("-", "").substring(0, 20);
     var claims = new LinkedHashMap<String, Object>();
@@ -213,6 +240,7 @@ public class RemoteDesktopTicketService {
     claims.put("viewOnly", viewOnly);
     claims.put("actorBitrateLimitKbps", actorBitrateLimitKbps);
     claims.put("actorFrameRateLimitFps", actorFrameRateLimitFps);
+    claims.put("resolutionScalePercent", resolutionScalePercent);
     claims.put("expiresAtEpochSeconds", expiresAt.getEpochSecond());
     claims.put("nonce", UUID.randomUUID().toString().replace("-", ""));
     try {
@@ -229,7 +257,8 @@ public class RemoteDesktopTicketService {
           bindingEpoch,
           viewOnly,
           actorBitrateLimitKbps,
-          actorFrameRateLimitFps);
+          actorFrameRateLimitFps,
+          resolutionScalePercent);
     } catch (JsonProcessingException | GeneralSecurityException exception) {
       throw new IllegalStateException("remote desktop ticket signing failed", exception);
     }

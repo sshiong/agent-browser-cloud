@@ -204,6 +204,7 @@ describe('session API', () => {
       viewOnly: true,
       actorBitrateLimitKbps: 4000,
       actorFrameRateLimitFps: 15,
+      resolutionScalePercent: 50,
     };
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(connection), {
@@ -218,11 +219,12 @@ describe('session API', () => {
       'tenant-test',
       'viewer-test',
       undefined,
-      true
+      true,
+      50
     );
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/sessions/ses_1234567890abcdef:desktop-connection?viewOnly=true',
+      '/api/v1/sessions/ses_1234567890abcdef:desktop-connection?viewOnly=true&resolutionScalePercent=50',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({

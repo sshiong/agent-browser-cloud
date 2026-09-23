@@ -55,7 +55,8 @@ class RemoteDesktopTicketServiceTest {
         .contains("\"accessMode\":\"COLLABORATIVE\"")
         .contains("\"viewOnly\":false")
         .contains("\"actorBitrateLimitKbps\":8000")
-        .contains("\"actorFrameRateLimitFps\":30");
+        .contains("\"actorFrameRateLimitFps\":30")
+        .contains("\"resolutionScalePercent\":100");
     assertThat(response.actorBitrateLimitKbps()).isEqualTo(8_000);
     assertThat(response.actorFrameRateLimitFps()).isEqualTo(30);
 
@@ -72,7 +73,14 @@ class RemoteDesktopTicketServiceTest {
 
     var response =
         service.issueCollaborative(
-            "tenant-test", "ses_1234567890abcdef", "viewer-test", runningSession(), true);
+            "tenant-test",
+            "ses_1234567890abcdef",
+            "viewer-test",
+            runningSession(),
+            true,
+            4_000,
+            15,
+            50);
 
     assertThat(response.viewOnly()).isTrue();
     var ticket = response.webSocketPath().substring(response.webSocketPath().indexOf('=') + 1);
@@ -83,9 +91,11 @@ class RemoteDesktopTicketServiceTest {
         .contains("\"accessMode\":\"COLLABORATIVE\"")
         .contains("\"viewOnly\":true")
         .contains("\"actorBitrateLimitKbps\":4000")
-        .contains("\"actorFrameRateLimitFps\":15");
+        .contains("\"actorFrameRateLimitFps\":15")
+        .contains("\"resolutionScalePercent\":50");
     assertThat(response.actorBitrateLimitKbps()).isEqualTo(4_000);
     assertThat(response.actorFrameRateLimitFps()).isEqualTo(15);
+    assertThat(response.resolutionScalePercent()).isEqualTo(50);
   }
 
   @Test
@@ -124,6 +134,27 @@ class RemoteDesktopTicketServiceTest {
     assertThat(payload)
         .contains("\"operationEpoch\":3")
         .contains("\"accessMode\":\"COLLABORATIVE\"");
+  }
+
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(ints = {24, 101})
+  void shouldRejectUnsafeViewerResolutionScale(int scalePercent) {
+    var clock = Clock.fixed(Instant.parse("2026-07-26T00:00:00Z"), ZoneOffset.UTC);
+    var service = new RemoteDesktopTicketService(new ObjectMapper(), SECRET, 45, "test", clock);
+
+    assertThatThrownBy(
+            () ->
+                service.issueCollaborative(
+                    "tenant-test",
+                    "ses_1234567890abcdef",
+                    "viewer-test",
+                    runningSession(),
+                    true,
+                    4_000,
+                    15,
+                    scalePercent))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("between 25 and 100 percent");
   }
 
   @org.junit.jupiter.params.ParameterizedTest

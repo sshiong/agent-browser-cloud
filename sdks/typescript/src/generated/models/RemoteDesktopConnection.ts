@@ -26,4 +26,8 @@ export type RemoteDesktopConnection = {
      * Server-signed forwarding frequency ceiling shared by this actor's connections.
      */
     actorFrameRateLimitFps?: number;
+    /**
+     * Signed server-side framebuffer scale. Browser and Agent coordinates remain at the original runtime resolution.
+     */
+    resolutionScalePercent?: number;
 };

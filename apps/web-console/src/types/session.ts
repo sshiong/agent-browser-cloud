@@ -963,6 +963,7 @@ export interface RemoteDesktopConnection {
   viewOnly: boolean;
   actorBitrateLimitKbps?: number;
   actorFrameRateLimitFps?: number;
+  resolutionScalePercent?: number;
 }
 
 export interface RemoteDesktopParticipantView {

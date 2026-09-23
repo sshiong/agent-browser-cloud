@@ -2494,7 +2494,7 @@ export class SessionService {
     }
     /**
      * Issue a collaborative noVNC ticket without preempting the Agent
-     * The ticket is bound to the current Session Context rather than an exclusive HumanTakeover Operation. Connecting keeps an active Agent task alive; Browser Node gives fresh human input priority and resumes deferred Agent input after the human input idle window. Multiple collaborative clients are bounded per Session and use the shared RFB mode. A view-only ticket is enforced by both noVNC and Browser Node; attempted Key, Pointer or Clipboard input is rejected before x11vnc. An existing Agent or human governance Operation never changes this connection into exclusive mode. Legacy signed EXCLUSIVE_TAKEOVER tickets are normalized to collaborative admission by Browser Node and cannot revoke another Viewer or the Agent workflow. The Control Plane also signs an actor-specific bandwidth and forwarding-frequency ceiling into every ticket. Browser Node shares that budget across the same actor's concurrent windows, isolates different actors, and never throttles the independent human/Agent input path.
+     * The ticket is bound to the current Session Context rather than an exclusive HumanTakeover Operation. Connecting keeps an active Agent task alive; Browser Node gives fresh human input priority and resumes deferred Agent input after the human input idle window. Multiple collaborative clients are bounded per Session and use the shared RFB mode. A view-only ticket is enforced by both noVNC and Browser Node; attempted Key, Pointer or Clipboard input is rejected before x11vnc. An existing Agent or human governance Operation never changes this connection into exclusive mode. Legacy signed EXCLUSIVE_TAKEOVER tickets are normalized to collaborative admission by Browser Node and cannot revoke another Viewer or the Agent workflow. The Control Plane also signs an actor-specific bandwidth and forwarding-frequency ceiling into every ticket. Browser Node shares that budget across the same actor's concurrent windows, isolates different actors, and never throttles the independent human/Agent input path. An optional resolution scale creates a per-viewer server-side low-resolution framebuffer; it does not resize Chromium, and Browser Node maps pointer coordinates back into the original desktop coordinate space before forwarding input.
      * @returns RemoteDesktopConnection Session-bound collaborative connection ticket issued.
      * @throws ApiError
      */
@@ -2503,6 +2503,7 @@ export class SessionService {
         xTenantId,
         xActorId,
         viewOnly = false,
+        resolutionScalePercent = 100,
     }: {
         sessionId: string,
         /**
@@ -2517,6 +2518,10 @@ export class SessionService {
          * Request a server-enforced observation-only connection.
          */
         viewOnly?: boolean,
+        /**
+         * Per-connection server-side framebuffer scale. This reduces transmitted pixels without changing the Chromium viewport or Agent coordinate space.
+         */
+        resolutionScalePercent?: number,
     }): CancelablePromise<RemoteDesktopConnection> {
         return this.httpRequest.request({
             method: 'POST',
@@ -2530,6 +2535,7 @@ export class SessionService {
             },
             query: {
                 'viewOnly': viewOnly,
+                'resolutionScalePercent': resolutionScalePercent,
             },
             errors: {
                 403: `Resource is outside the caller tenant scope.`,

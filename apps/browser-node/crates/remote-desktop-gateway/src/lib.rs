@@ -40,6 +40,7 @@ const MAX_RFB_SERVER_MESSAGE_BYTES: usize = 32 * 1024 * 1024;
 const SLOW_CLIENT_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
 const DEFAULT_ACTOR_BITRATE_LIMIT_KBPS: u32 = 8_000;
 const DEFAULT_ACTOR_FRAME_RATE_LIMIT_FPS: u32 = 30;
+const DEFAULT_RESOLUTION_SCALE_PERCENT: u8 = 100;
 const RFB_VERSION_3_8: &[u8; 12] = b"RFB 003.008\n";
 // noVNC 1.7 uses this full-colour little-endian format after ServerInit. The hub owns one
 // upstream pixel format, so every downstream sees this exact canonical representation.
@@ -64,6 +65,8 @@ pub struct RemoteDesktopTicketClaims {
     pub actor_bitrate_limit_kbps: u32,
     #[serde(default = "default_actor_frame_rate_limit_fps")]
     pub actor_frame_rate_limit_fps: u32,
+    #[serde(default = "default_resolution_scale_percent")]
+    pub resolution_scale_percent: u8,
     pub expires_at_epoch_seconds: u64,
     pub nonce: String,
 }
@@ -81,6 +84,10 @@ fn default_actor_bitrate_limit_kbps() -> u32 {
 
 fn default_actor_frame_rate_limit_fps() -> u32 {
     DEFAULT_ACTOR_FRAME_RATE_LIMIT_FPS
+}
+
+fn default_resolution_scale_percent() -> u8 {
+    DEFAULT_RESOLUTION_SCALE_PERCENT
 }
 
 #[async_trait]
@@ -858,10 +865,12 @@ impl RemoteDesktopGateway {
         let hub = self.shared_hub(&authorized.claims.session_id, authorized.vnc_endpoint);
         let server_init = wait_for_shared_hub(&hub).await?;
         let mut pending_client_bytes = Vec::new();
+        let viewer_server_init =
+            scaled_server_init_wire(&server_init, authorized.claims.resolution_scale_percent)?;
         complete_downstream_rfb_handshake(
             &mut websocket,
             &mut pending_client_bytes,
-            &server_init.wire_bytes,
+            &viewer_server_init,
         )
         .await?;
         self.state
@@ -905,8 +914,13 @@ impl RemoteDesktopGateway {
         let mut pending_server_ready_at = tokio::time::Instant::now();
         let mut pending_server_quota_wait = Duration::ZERO;
         let mut last_reported_usage = RemoteDesktopUsageCounters::default();
-        let mut input_parser =
-            RfbClientMessageParser::new(pending_client_bytes, server_init.pixel_format);
+        let mut input_parser = RfbClientMessageParser::for_viewport(
+            pending_client_bytes,
+            server_init.pixel_format,
+            server_init.width,
+            server_init.height,
+            authorized.claims.resolution_scale_percent,
+        )?;
         match hub.refresh.try_send(()) {
             Ok(()) | Err(mpsc::error::TrySendError::Full(())) => {}
             Err(mpsc::error::TrySendError::Closed(())) => {
@@ -979,9 +993,17 @@ impl RemoteDesktopGateway {
                         .lock()
                         .expect("frame timestamp lock poisoned")
                         .insert(authorized.claims.session_id.clone(), Instant::now());
+                    let frame = if authorized.claims.resolution_scale_percent < 100
+                        && frame.first() == Some(&0)
+                    {
+                        clone_latest_frame(&hub.latest_frame)?
+                    } else {
+                        frame
+                    };
                     let frame = encode_viewer_frame(
                         frame,
                         adaptive_viewer_quality(input_parser.jpeg_quality, skipped_frames),
+                        authorized.claims.resolution_scale_percent,
                     ).await?;
                     pending_server_quota_wait =
                         self.reserve_server_forwarding(&authorized.claims, frame.len());
@@ -1022,7 +1044,11 @@ impl RemoteDesktopGateway {
                                     let baseline = hub.latest_frame.lock()
                                         .expect("shared RFB latest frame lock poisoned").clone();
                                     if let Some(frame) = baseline {
-                                        let frame = encode_viewer_frame(frame, input_parser.jpeg_quality).await?;
+                                        let frame = encode_viewer_frame(
+                                            frame,
+                                            input_parser.jpeg_quality,
+                                            authorized.claims.resolution_scale_percent,
+                                        ).await?;
                                         pending_server_quota_wait = self.reserve_server_forwarding(&authorized.claims, frame.len());
                                         pending_server_ready_at = tokio::time::Instant::now() + pending_server_quota_wait;
                                         pending_server_payload = Some(frame);
@@ -1048,7 +1074,11 @@ impl RemoteDesktopGateway {
                                     if !desktop_requested {
                                         desktop_requested = true;
                                         if let Some(frame) = initial_frame.take() {
-                                            let frame = encode_viewer_frame(frame, input_parser.jpeg_quality).await?;
+                                            let frame = encode_viewer_frame(
+                                                frame,
+                                                input_parser.jpeg_quality,
+                                                authorized.claims.resolution_scale_percent,
+                                            ).await?;
                                             pending_server_quota_wait = self.reserve_server_forwarding(&authorized.claims, frame.len());
                                             pending_server_ready_at = tokio::time::Instant::now() + pending_server_quota_wait;
                                             pending_server_payload = Some(frame);
@@ -1093,11 +1123,53 @@ fn clone_latest_frame(latest_frame: &Mutex<Option<Arc<Vec<u8>>>>) -> anyhow::Res
         .context("shared remote desktop has no recovery baseline")
 }
 
+fn scaled_dimensions(width: u16, height: u16, scale_percent: u8) -> anyhow::Result<(u16, u16)> {
+    anyhow::ensure!(
+        (25..=100).contains(&scale_percent),
+        "viewer resolution scale must be between 25 and 100 percent"
+    );
+    let scale = u32::from(scale_percent);
+    let scaled_width = (u32::from(width) * scale).div_ceil(100).max(1);
+    let scaled_height = (u32::from(height) * scale).div_ceil(100).max(1);
+    Ok((scaled_width as u16, scaled_height as u16))
+}
+
+fn scaled_server_init_wire(
+    server_init: &RfbServerInit,
+    scale_percent: u8,
+) -> anyhow::Result<Vec<u8>> {
+    let (width, height) = scaled_dimensions(server_init.width, server_init.height, scale_percent)?;
+    let mut wire_bytes = server_init.wire_bytes.clone();
+    anyhow::ensure!(wire_bytes.len() >= 4, "truncated RFB ServerInit");
+    wire_bytes[0..2].copy_from_slice(&width.to_be_bytes());
+    wire_bytes[2..4].copy_from_slice(&height.to_be_bytes());
+    Ok(wire_bytes)
+}
+
+fn map_viewer_coordinate(coordinate: u16, viewer_extent: u16, source_extent: u16) -> u16 {
+    if viewer_extent <= 1 || source_extent <= 1 {
+        return 0;
+    }
+    let coordinate = coordinate.min(viewer_extent - 1);
+    let numerator = u32::from(coordinate) * u32::from(source_extent - 1);
+    let denominator = u32::from(viewer_extent - 1);
+    ((numerator + denominator / 2) / denominator) as u16
+}
+
 #[derive(Debug)]
 struct RfbClientMessageParser {
     buffered: Vec<u8>,
     canonical_pixel_format: [u8; 16],
     jpeg_quality: Option<u8>,
+    pointer_coordinate_space: Option<PointerCoordinateSpace>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct PointerCoordinateSpace {
+    source_width: u16,
+    source_height: u16,
+    viewer_width: u16,
+    viewer_height: u16,
 }
 
 #[derive(Debug)]
@@ -1110,12 +1182,38 @@ struct ParsedRfbClientMessage {
 }
 
 impl RfbClientMessageParser {
+    #[cfg(test)]
     fn new(buffered: Vec<u8>, canonical_pixel_format: [u8; 16]) -> Self {
         Self {
             buffered,
             canonical_pixel_format,
             jpeg_quality: None,
+            pointer_coordinate_space: None,
         }
+    }
+
+    fn for_viewport(
+        buffered: Vec<u8>,
+        canonical_pixel_format: [u8; 16],
+        source_width: u16,
+        source_height: u16,
+        resolution_scale_percent: u8,
+    ) -> anyhow::Result<Self> {
+        let (viewer_width, viewer_height) =
+            scaled_dimensions(source_width, source_height, resolution_scale_percent)?;
+        Ok(Self {
+            buffered,
+            canonical_pixel_format,
+            jpeg_quality: None,
+            pointer_coordinate_space: (resolution_scale_percent < 100).then_some(
+                PointerCoordinateSpace {
+                    source_width,
+                    source_height,
+                    viewer_width,
+                    viewer_height,
+                },
+            ),
+        })
     }
 
     /// 识别 RFB Client → Server 的 KeyEvent、PointerEvent 与 ClientCutText。
@@ -1197,7 +1295,19 @@ impl RfbClientMessageParser {
                     })
                     .flatten();
             }
-            let bytes = self.buffered.drain(..message_length).collect();
+            let mut bytes: Vec<u8> = self.buffered.drain(..message_length).collect();
+            if message_type == 5 {
+                if let Some(space) = self.pointer_coordinate_space {
+                    let viewer_x = u16::from_be_bytes([bytes[2], bytes[3]]);
+                    let viewer_y = u16::from_be_bytes([bytes[4], bytes[5]]);
+                    let source_x =
+                        map_viewer_coordinate(viewer_x, space.viewer_width, space.source_width);
+                    let source_y =
+                        map_viewer_coordinate(viewer_y, space.viewer_height, space.source_height);
+                    bytes[2..4].copy_from_slice(&source_x.to_be_bytes());
+                    bytes[4..6].copy_from_slice(&source_y.to_be_bytes());
+                }
+            }
             parsed.push(ParsedRfbClientMessage {
                 bytes,
                 human_input,
@@ -1233,16 +1343,72 @@ fn adaptive_viewer_quality(negotiated_quality: Option<u8>, skipped_frames: u64) 
 async fn encode_viewer_frame(
     frame: Arc<Vec<u8>>,
     quality: Option<u8>,
+    resolution_scale_percent: u8,
 ) -> anyhow::Result<Arc<Vec<u8>>> {
-    let Some(quality) = quality else {
+    if quality.is_none() && resolution_scale_percent == 100 {
         return Ok(frame);
-    };
+    }
     if frame.first() != Some(&0) {
         return Ok(frame);
     }
-    tokio::task::spawn_blocking(move || encode_tight_jpeg(&frame, quality).map(Arc::new))
-        .await
-        .context("viewer encoder task failed")?
+    tokio::task::spawn_blocking(move || {
+        let scaled = if resolution_scale_percent < 100 {
+            downscale_full_raw_frame(&frame, resolution_scale_percent)?
+        } else {
+            frame.as_ref().clone()
+        };
+        quality
+            .map(|quality| encode_tight_jpeg(&scaled, quality))
+            .transpose()
+            .map(|encoded| Arc::new(encoded.unwrap_or(scaled)))
+    })
+    .await
+    .context("viewer encoder task failed")?
+}
+
+fn downscale_full_raw_frame(frame: &[u8], scale_percent: u8) -> anyhow::Result<Vec<u8>> {
+    anyhow::ensure!(
+        frame.len() >= 16 && frame[0] == 0 && u16::from_be_bytes([frame[2], frame[3]]) == 1,
+        "scaled viewer requires one full Raw framebuffer rectangle"
+    );
+    let x = u16::from_be_bytes([frame[4], frame[5]]);
+    let y = u16::from_be_bytes([frame[6], frame[7]]);
+    let source_width = u16::from_be_bytes([frame[8], frame[9]]);
+    let source_height = u16::from_be_bytes([frame[10], frame[11]]);
+    anyhow::ensure!(
+        x == 0 && y == 0 && frame[12..16] == [0, 0, 0, 0],
+        "scaled viewer requires a full-frame Raw baseline"
+    );
+    let source_bytes = usize::from(source_width)
+        .checked_mul(usize::from(source_height))
+        .and_then(|pixels| pixels.checked_mul(4))
+        .context("source framebuffer size overflow")?;
+    anyhow::ensure!(
+        frame.len() == 16 + source_bytes,
+        "scaled viewer baseline byte length mismatch"
+    );
+    let (target_width, target_height) =
+        scaled_dimensions(source_width, source_height, scale_percent)?;
+    let target_bytes = usize::from(target_width)
+        .checked_mul(usize::from(target_height))
+        .and_then(|pixels| pixels.checked_mul(4))
+        .context("target framebuffer size overflow")?;
+    let mut output = Vec::with_capacity(16 + target_bytes);
+    output.extend_from_slice(&[0, 0, 0, 1, 0, 0, 0, 0]);
+    output.extend_from_slice(&target_width.to_be_bytes());
+    output.extend_from_slice(&target_height.to_be_bytes());
+    output.extend_from_slice(&0_i32.to_be_bytes());
+    let pixels = &frame[16..];
+    for target_y in 0..target_height {
+        let source_y = map_viewer_coordinate(target_y, target_height, source_height);
+        for target_x in 0..target_width {
+            let source_x = map_viewer_coordinate(target_x, target_width, source_width);
+            let offset =
+                (usize::from(source_y) * usize::from(source_width) + usize::from(source_x)) * 4;
+            output.extend_from_slice(&pixels[offset..offset + 4]);
+        }
+    }
+    Ok(output)
 }
 
 fn encode_tight_jpeg(frame: &[u8], quality: u8) -> anyhow::Result<Vec<u8>> {
@@ -1781,6 +1947,7 @@ fn authorize(
         )
         || !(250..=100_000).contains(&claims.actor_bitrate_limit_kbps)
         || !(1..=60).contains(&claims.actor_frame_rate_limit_fps)
+        || !(25..=100).contains(&claims.resolution_scale_percent)
         || claims.nonce.len() < 16
         || claims.nonce.len() > 128
     {
@@ -1947,6 +2114,26 @@ mod tests {
         bitrate_limit_kbps: u32,
         frame_rate_limit_fps: u32,
     ) -> String {
+        ticket_with_display_options(
+            session_id,
+            nonce,
+            access_mode,
+            view_only,
+            bitrate_limit_kbps,
+            frame_rate_limit_fps,
+            100,
+        )
+    }
+
+    fn ticket_with_display_options(
+        session_id: &str,
+        nonce: &str,
+        access_mode: &str,
+        view_only: bool,
+        bitrate_limit_kbps: u32,
+        frame_rate_limit_fps: u32,
+        resolution_scale_percent: u8,
+    ) -> String {
         let connection_hash = format!("{:x}", Sha256::digest(nonce.as_bytes()));
         let claims = RemoteDesktopTicketClaims {
             tenant_id: "tenant-test".to_owned(),
@@ -1960,6 +2147,7 @@ mod tests {
             view_only,
             actor_bitrate_limit_kbps: bitrate_limit_kbps,
             actor_frame_rate_limit_fps: frame_rate_limit_fps,
+            resolution_scale_percent,
             expires_at_epoch_seconds: unix_seconds() + 60,
             nonce: nonce.to_owned(),
         };
@@ -2045,6 +2233,58 @@ mod tests {
         }
     }
 
+    async fn accept_scaled_test_rfb_upstream(
+        listener: TcpListener,
+        pointer_sender: oneshot::Sender<Vec<u8>>,
+    ) {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        stream.write_all(RFB_VERSION_3_8).await.unwrap();
+        let mut version = [0_u8; 12];
+        stream.read_exact(&mut version).await.unwrap();
+        stream.write_all(&[1, 1]).await.unwrap();
+        assert_eq!(stream.read_u8().await.unwrap(), 1);
+        stream.write_u32(0).await.unwrap();
+        assert_eq!(stream.read_u8().await.unwrap(), 1);
+        stream.write_u16(4).await.unwrap();
+        stream.write_u16(4).await.unwrap();
+        stream.write_all(&SHARED_PIXEL_FORMAT).await.unwrap();
+        stream.write_u32(4).await.unwrap();
+        stream.write_all(b"test").await.unwrap();
+
+        let mut set_pixel_format = [0_u8; 20];
+        stream.read_exact(&mut set_pixel_format).await.unwrap();
+        let mut set_encodings = [0_u8; 8];
+        stream.read_exact(&mut set_encodings).await.unwrap();
+        let mut initial_request = [0_u8; 10];
+        stream.read_exact(&mut initial_request).await.unwrap();
+        stream
+            .write_all(&test_full_framebuffer_update(4, 4, 42))
+            .await
+            .unwrap();
+
+        let mut pointer_sender = Some(pointer_sender);
+        while let Ok(message_type) = stream.read_u8().await {
+            match message_type {
+                3 => {
+                    let mut request = [0_u8; 9];
+                    stream.read_exact(&mut request).await.unwrap();
+                    stream
+                        .write_all(&test_full_framebuffer_update(4, 4, 42))
+                        .await
+                        .unwrap();
+                }
+                5 => {
+                    let mut message = vec![message_type; 6];
+                    stream.read_exact(&mut message[1..]).await.unwrap();
+                    if let Some(sender) = pointer_sender.take() {
+                        sender.send(message).unwrap();
+                    }
+                }
+                other => panic!("unexpected scaled test RFB client message {other}"),
+            }
+        }
+    }
+
     fn test_raw_framebuffer_update(pixel: [u8; 4]) -> Vec<u8> {
         let mut message = vec![0, 0, 0, 1];
         message.extend_from_slice(&[0, 0, 0, 0, 0, 1, 0, 1]);
@@ -2080,6 +2320,51 @@ mod tests {
         assert_eq!(smooth.jpeg_quality, None);
         raw.ingest(&[2, 0, 0, 1, 0, 0, 0, 0]).unwrap();
         assert_eq!(raw.jpeg_quality, None);
+    }
+
+    #[test]
+    fn independent_viewer_resolution_downscales_pixels_and_maps_pointer_coordinates() {
+        let mut source = vec![0, 0, 0, 1, 0, 0, 0, 0, 0, 4, 0, 4];
+        source.extend_from_slice(&0_i32.to_be_bytes());
+        for value in 0..16_u8 {
+            source.extend_from_slice(&[value, value, value, 0]);
+        }
+        let scaled = downscale_full_raw_frame(&source, 50).unwrap();
+        assert_eq!(&scaled[8..12], &[0, 2, 0, 2]);
+        assert_eq!(scaled.len(), 16 + 2 * 2 * 4);
+        assert_eq!(
+            &scaled[16..],
+            &[0, 0, 0, 0, 3, 3, 3, 0, 12, 12, 12, 0, 15, 15, 15, 0]
+        );
+
+        let mut parser =
+            RfbClientMessageParser::for_viewport(Vec::new(), SHARED_PIXEL_FORMAT, 1440, 900, 50)
+                .unwrap();
+        let message = parser.ingest(&[5, 1, 2, 207, 1, 193]).unwrap(); // 719, 449
+        assert_eq!(message.len(), 1);
+        assert_eq!(message[0].bytes, [5, 1, 5, 159, 3, 131]); // 1439, 899
+        assert!(message[0].human_input);
+        assert!(message[0].forward);
+    }
+
+    #[test]
+    fn independent_viewer_resolution_rewrites_only_server_dimensions() {
+        let mut wire_bytes = vec![0x05, 0xa0, 0x03, 0x84]; // 1440x900
+        wire_bytes.extend_from_slice(&SHARED_PIXEL_FORMAT);
+        wire_bytes.extend_from_slice(&4_u32.to_be_bytes());
+        wire_bytes.extend_from_slice(b"test");
+        let server_init = RfbServerInit {
+            wire_bytes: wire_bytes.clone(),
+            width: 1440,
+            height: 900,
+            pixel_format: SHARED_PIXEL_FORMAT,
+            bytes_per_pixel: 4,
+        };
+        let scaled = scaled_server_init_wire(&server_init, 75).unwrap();
+        assert_eq!(&scaled[..4], &[0x04, 0x38, 0x02, 0xa3]); // 1080x675
+        assert_eq!(&scaled[4..], &wire_bytes[4..]);
+        assert!(scaled_server_init_wire(&server_init, 24).is_err());
+        assert!(scaled_server_init_wire(&server_init, 101).is_err());
     }
 
     #[test]
@@ -2315,6 +2600,10 @@ mod tests {
             parsed.actor_frame_rate_limit_fps,
             DEFAULT_ACTOR_FRAME_RATE_LIMIT_FPS
         );
+        assert_eq!(
+            parsed.resolution_scale_percent,
+            DEFAULT_RESOLUTION_SCALE_PERCENT
+        );
     }
 
     #[test]
@@ -2340,6 +2629,7 @@ mod tests {
             view_only: true,
             actor_bitrate_limit_kbps: 250,
             actor_frame_rate_limit_fps: 60,
+            resolution_scale_percent: 100,
             expires_at_epoch_seconds: unix_seconds() + 60,
             nonce: "actor-quota-first-ticket".to_owned(),
         };
@@ -2472,6 +2762,61 @@ mod tests {
         assert_eq!(gateway.frame_age_ms("ses_test1234567890"), None);
         gateway.unregister_session("ses_test1234567890");
         assert_eq!(gateway.bitrate_limit_kbps("ses_test1234567890"), None);
+    }
+
+    #[tokio::test]
+    async fn serves_a_real_independent_low_resolution_view_and_maps_pointer_input() {
+        let vnc_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let vnc_endpoint = vnc_listener.local_addr().unwrap();
+        let (pointer_sender, pointer_receiver) = oneshot::channel();
+        tokio::spawn(accept_scaled_test_rfb_upstream(
+            vnc_listener,
+            pointer_sender,
+        ));
+
+        let gateway = RemoteDesktopGateway::new(
+            SECRET.as_bytes(),
+            ["http://console.test".to_owned()],
+            Arc::new(NoopDisconnectHandler),
+        )
+        .unwrap();
+        let session_id = "ses_lowresolution1234";
+        gateway.register_session(session_id, vnc_endpoint).unwrap();
+        let gateway_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let gateway_endpoint = gateway_listener.local_addr().unwrap();
+        tokio::spawn(gateway.clone().serve(gateway_listener));
+
+        let nonce = uuid::Uuid::new_v4().simple().to_string();
+        let ticket =
+            ticket_with_display_options(session_id, &nonce, "COLLABORATIVE", false, 8_000, 30, 50);
+        let mut request =
+            format!("ws://{gateway_endpoint}/desktop/v1/sessions/{session_id}?ticket={ticket}")
+                .into_client_request()
+                .unwrap();
+        request
+            .headers_mut()
+            .insert(ORIGIN, "http://console.test".parse().unwrap());
+        let (mut websocket, _) = connect_async(request).await.unwrap();
+        let server_init = complete_test_rfb_client(&mut websocket).await;
+        assert_eq!(&server_init[..4], &[0, 2, 0, 2]);
+        let framebuffer = tokio::time::timeout(Duration::from_secs(1), next_binary(&mut websocket))
+            .await
+            .unwrap();
+        assert_eq!(&framebuffer[8..12], &[0, 2, 0, 2]);
+        assert_eq!(framebuffer.len(), 16 + 2 * 2 * 4);
+
+        websocket
+            .send(Message::Binary(vec![5, 1, 0, 1, 0, 1]))
+            .await
+            .unwrap();
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(1), pointer_receiver)
+                .await
+                .unwrap()
+                .unwrap(),
+            vec![5, 1, 0, 3, 0, 3]
+        );
+        websocket.close(None).await.unwrap();
     }
 
     #[tokio::test]

@@ -70,7 +70,8 @@ Migration Floor 后再单独收紧。
 这个切片建立了统一接口并让现有商业 HTTP 数据面通过它执行，但不等于所有商业供应商已经接入。
 仍需：
 
-- 支持供应商动态分配/轮换/释放 API 的隔离 Adapter Worker；
+- 支持供应商动态分配/轮换/释放 API 的隔离 Adapter Worker（通用 `REMOTE_HTTP_V1` Gateway
+  协议和动态分配/释放运行链随后由 progress 215 完成；具体供应商插件仍未完成）；
 - Vault/云 Secret Manager 短期凭据、续租、撤销与 Workload Identity；
 - SOCKS5、Residential/ISP/Mobile、Country/City/ASN 选择和供应商 Webhook 主动复核；
 - 真实供应商用量/账单对账、限流、错误映射、熔断及客户 SLA Replay；

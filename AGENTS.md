@@ -117,7 +117,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V132 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V133 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -320,7 +320,9 @@ progress 166。
   获得回环 Relay，完整 OrbStack Integration 输出 `proxy_commercial_basic_auth=true` 且不回退
   直连。progress 214 又增加 V16 `capabilities/allocate/health/rotate/release/usage` 统一 SPI、八类
   规范化错误与 V132 独立供应商 Endpoint 身份；现有商业 HTTP 分配/释放已通过 Adapter 执行。
-  动态供应商分配/轮换 API、目标云 Secret、供应商特有认证/账单与客户 SLA Replay 仍未完成。
+  progress 215 又增加生产 HTTPS、私有服务身份、有界 JSON 和幂等键约束的 `REMOTE_HTTP_V1`，
+  动态分配/释放已进入真实 OrbStack 运行链。具体供应商插件、目标云 Secret、供应商特有认证/
+  账单与客户 SLA Replay 仍未完成。
 
 - 环境配置复制与无敏感数据导出已闭环：正式 API 复用既有 Session 创建、幂等、RBAC、审计及
   Group/Tag/Proxy/Resource/Identity 校验；导出与 Environment Import schema-v1 兼容，默认复制到

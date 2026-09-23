@@ -296,6 +296,90 @@ try {
     page.getByText(importedEnvironmentName, { exact: true }),
   ).toBeVisible();
 
+  const importedEnvironmentRow = page
+    .locator("tr")
+    .filter({ hasText: importedEnvironmentName });
+  await importedEnvironmentRow
+    .getByRole("button", {
+      name: `打开 ${importedEnvironmentName} 的更多操作`,
+    })
+    .click();
+  const [environmentExportResponse, environmentDownload] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().includes(":export-configuration") &&
+        response.request().method() === "POST",
+    ),
+    page.waitForEvent("download"),
+    page.getByRole("menuitem", { name: "导出环境配置" }).click(),
+  ]);
+  if (environmentExportResponse.status() !== 200) {
+    throw new Error(
+      `Environment configuration export failed with ${environmentExportResponse.status()}: ${await environmentExportResponse.text()}`,
+    );
+  }
+  const environmentDownloadPath = await environmentDownload.path();
+  if (!environmentDownloadPath) {
+    throw new Error("environment configuration download path is unavailable");
+  }
+  const exportedManifest = JSON.parse(
+    readFileSync(environmentDownloadPath, "utf8"),
+  );
+  if (
+    exportedManifest.schemaVersion !== 1 ||
+    exportedManifest.environments?.[0]?.displayName !== importedEnvironmentName
+  ) {
+    throw new Error("downloaded environment manifest is not import-compatible");
+  }
+
+  await importedEnvironmentRow
+    .getByRole("button", {
+      name: `打开 ${importedEnvironmentName} 的更多操作`,
+    })
+    .click();
+  await page.getByRole("menuitem", { name: "复制环境配置" }).click();
+  const cloneDialog = page.getByRole("dialog", { name: "复制环境配置" });
+  await expect(cloneDialog).toBeVisible();
+  await expect(cloneDialog.getByLabel("Profile 策略")).toHaveValue(
+    "NEW_EMPTY_PROFILE",
+  );
+  const clonedEnvironmentName = `E2E Clone ${runSuffix}`;
+  await cloneDialog.getByLabel("新环境名称").fill(clonedEnvironmentName);
+  const cloneResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes(":clone") &&
+      response.request().method() === "POST",
+  );
+  await cloneDialog.getByRole("button", { name: "创建副本" }).click();
+  const cloneResponse = await cloneResponsePromise;
+  if (cloneResponse.status() !== 201) {
+    throw new Error(
+      `Environment configuration clone failed with ${cloneResponse.status()}: ${await cloneResponse.text()}`,
+    );
+  }
+  const clonedEnvironment = await cloneResponse.json();
+  if (
+    clonedEnvironment.profileMode !== "NEW_EMPTY_PROFILE" ||
+    !clonedEnvironment.targetProfileId?.startsWith("profile_clone_")
+  ) {
+    throw new Error("Web Console clone did not use a distinct empty Profile");
+  }
+  const clonedProfilesResponse = await page.request.get(
+    `${baseUrl}/api/v1/profiles`,
+    { headers: { "X-Tenant-Id": "tenant-local" } },
+  );
+  const clonedProfiles = await clonedProfilesResponse.json();
+  const clonedProfile = clonedProfiles.items?.find(
+    (item) => item.profileId === clonedEnvironment.targetProfileId,
+  );
+  if (clonedProfile?.name !== `${clonedEnvironmentName} Profile`) {
+    throw new Error("configuration clone Profile does not have a readable name");
+  }
+  await expect(cloneDialog).toBeHidden();
+  await expect(
+    page.getByText(clonedEnvironmentName, { exact: true }),
+  ).toBeVisible();
+
   await page.getByRole("button", { name: "新建环境" }).first().click();
   await expect(
     page.getByRole("heading", { name: "新建浏览器环境" }),

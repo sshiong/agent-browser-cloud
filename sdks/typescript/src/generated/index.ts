@@ -107,6 +107,9 @@ export type { ClaimAgentReviewJobRequest } from './models/ClaimAgentReviewJobReq
 export type { ClaimChallengeVisualJobRequest } from './models/ClaimChallengeVisualJobRequest.js';
 export type { ClaimRecoveryGameDayJobRequest } from './models/ClaimRecoveryGameDayJobRequest.js';
 export type { ClaimRuntimeValidationJobRequest } from './models/ClaimRuntimeValidationJobRequest.js';
+export type { CloneEnvironmentRequest } from './models/CloneEnvironmentRequest.js';
+export type { CloneEnvironmentResponse } from './models/CloneEnvironmentResponse.js';
+export type { CloneProfileMode } from './models/CloneProfileMode.js';
 export type { CommitEnvironmentImportRequest } from './models/CommitEnvironmentImportRequest.js';
 export type { CompleteAgentClipboardBridgeRequest } from './models/CompleteAgentClipboardBridgeRequest.js';
 export type { CompleteAgentOutcomeJobRequest } from './models/CompleteAgentOutcomeJobRequest.js';
@@ -145,6 +148,7 @@ export type { EnterpriseOverview } from './models/EnterpriseOverview.js';
 export type { EnterpriseOverviewStreamChange } from './models/EnterpriseOverviewStreamChange.js';
 export type { EnterpriseOverviewStreamControl } from './models/EnterpriseOverviewStreamControl.js';
 export type { EnterpriseRegion } from './models/EnterpriseRegion.js';
+export type { EnvironmentConfigurationExport } from './models/EnvironmentConfigurationExport.js';
 export type { EnvironmentImport } from './models/EnvironmentImport.js';
 export type { EnvironmentImportExecutionState } from './models/EnvironmentImportExecutionState.js';
 export type { EnvironmentImportItem } from './models/EnvironmentImportItem.js';

@@ -203,6 +203,37 @@ export async function updateSession(
   );
 }
 
+export async function exportSessionConfiguration(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<import('@/types/session').EnvironmentConfigurationExport> {
+  return request<import('@/types/session').EnvironmentConfigurationExport>(
+    `/sessions/${encodeURIComponent(sessionId)}:export-configuration`,
+    { method: 'POST', signal },
+    tenantId
+  );
+}
+
+export async function cloneSessionConfiguration(
+  sessionId: string,
+  body: import('@/types/session').CloneEnvironmentRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<import('@/types/session').CloneEnvironmentResponse> {
+  return request<import('@/types/session').CloneEnvironmentResponse>(
+    `/sessions/${encodeURIComponent(sessionId)}:clone`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+    tenantId
+  );
+}
+
 export async function batchDeleteSessions(
   body: BatchDeleteSessionsRequest,
   idempotencyKey: string,

@@ -481,9 +481,17 @@ public final class Models {
 
   public enum EnvironmentImportExecutionState { PENDING, SUCCEEDED }
 
-  public record EnvironmentImportSpec(String displayName, Object description, String profileId, Object runtimeBuildId, Object applicationId, Object groupId, Object tagIds, Object region, ResourcePolicyRequest resourcePolicy, Integer requestedTabs, Integer agentActionsPerMinute, Boolean remoteDesktop, Object humanTakeoverEnabled, AgentPolicy agentPolicy, Boolean web3Workload, Boolean mediaWorkload, Integer requestedMediaStreams, Integer mediaBitrateKbps, Boolean videoRecording, Object extensionIds) {}
+  public record EnvironmentImportSpec(String displayName, Object description, String profileId, Object runtimeBuildId, Object applicationId, Object groupId, Object tagIds, Object region, Object proxyBindingProfileId, ResourcePolicyRequest resourcePolicy, Integer requestedTabs, Integer agentActionsPerMinute, Boolean remoteDesktop, Object humanTakeoverEnabled, AgentPolicy agentPolicy, Boolean web3Workload, Boolean mediaWorkload, Integer requestedMediaStreams, Integer mediaBitrateKbps, Boolean videoRecording, Object extensionIds, SessionIdentitySpecInput identitySpec) {}
 
   public record PreviewEnvironmentImportRequest(Integer schemaVersion, String name, List<EnvironmentImportSpec> environments) {}
+
+  public enum CloneProfileMode { NEWEMPTYPROFILE, REUSESOURCEPROFILE }
+
+  public record CloneEnvironmentRequest(String displayName, CloneProfileMode profileMode) {}
+
+  public record CloneEnvironmentResponse(String sourceSessionId, CloneProfileMode profileMode, String targetProfileId, CreateSessionResponse session) {}
+
+  public record EnvironmentConfigurationExport(String sourceSessionId, String exportedAt, String manifestHash, PreviewEnvironmentImportRequest manifest, List<String> excludedData) {}
 
   public record CommitEnvironmentImportRequest(Long expectedVersion) {}
 

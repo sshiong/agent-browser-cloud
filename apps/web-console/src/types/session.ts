@@ -168,6 +168,28 @@ export interface UpdateSessionRequest {
   displayName: string;
 }
 
+export type CloneProfileMode = 'NEW_EMPTY_PROFILE' | 'REUSE_SOURCE_PROFILE';
+
+export interface CloneEnvironmentRequest {
+  displayName: string;
+  profileMode: CloneProfileMode;
+}
+
+export interface CloneEnvironmentResponse {
+  sourceSessionId: string;
+  profileMode: CloneProfileMode;
+  targetProfileId: string;
+  session: CreateSessionResponse;
+}
+
+export interface EnvironmentConfigurationExport {
+  sourceSessionId: string;
+  exportedAt: string;
+  manifestHash: string;
+  manifest: import('./environmentImport').PreviewEnvironmentImportRequest;
+  excludedData: string[];
+}
+
 export interface BatchDeleteSessionsRequest {
   sessionIds: string[];
 }

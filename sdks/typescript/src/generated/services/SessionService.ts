@@ -21,6 +21,8 @@ import type { BrowserState } from '../models/BrowserState.js';
 import type { BusinessRecoveryValidation } from '../models/BusinessRecoveryValidation.js';
 import type { CaptureAgentBrowserScreenshotRequest } from '../models/CaptureAgentBrowserScreenshotRequest.js';
 import type { CaptureEvidenceRequest } from '../models/CaptureEvidenceRequest.js';
+import type { CloneEnvironmentRequest } from '../models/CloneEnvironmentRequest.js';
+import type { CloneEnvironmentResponse } from '../models/CloneEnvironmentResponse.js';
 import type { CommitEnvironmentImportRequest } from '../models/CommitEnvironmentImportRequest.js';
 import type { CompleteAgentClipboardBridgeRequest } from '../models/CompleteAgentClipboardBridgeRequest.js';
 import type { CreateAgentBrowserEvaluationRequest } from '../models/CreateAgentBrowserEvaluationRequest.js';
@@ -32,6 +34,7 @@ import type { CreateSafetyLeaseRequest } from '../models/CreateSafetyLeaseReques
 import type { CreateSessionIdentityChangeRequest } from '../models/CreateSessionIdentityChangeRequest.js';
 import type { CreateSessionRequest } from '../models/CreateSessionRequest.js';
 import type { CreateSessionResponse } from '../models/CreateSessionResponse.js';
+import type { EnvironmentConfigurationExport } from '../models/EnvironmentConfigurationExport.js';
 import type { EnvironmentImport } from '../models/EnvironmentImport.js';
 import type { EnvironmentImportListResponse } from '../models/EnvironmentImportListResponse.js';
 import type { EnvironmentSavedView } from '../models/EnvironmentSavedView.js';
@@ -275,6 +278,79 @@ export class SessionService {
                 400: `Invalid request.`,
                 403: `Resource is outside the caller tenant scope.`,
                 404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * Export a portable, secret-free Session configuration manifest
+     * Returns an Environment Import compatible manifest containing governed creation-time configuration. Runtime state, Profile bytes, cookies, credentials, secrets, evidence, recordings, and execution history are explicitly excluded.
+     *
+     * @returns EnvironmentConfigurationExport Audited configuration export.
+     * @throws ApiError
+     */
+    public exportSessionConfiguration({
+        sessionId,
+        xTenantId,
+    }: {
+        sessionId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<EnvironmentConfigurationExport> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}:export-configuration',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * Clone a Session configuration into a new environment
+     * Creates a distinct Session identity from the source configuration. NEW_EMPTY_PROFILE is the safe default and does not copy browser storage or login state. REUSE_SOURCE_PROFILE is explicit and retains the existing Profile reference.
+     *
+     * @returns CloneEnvironmentResponse Configuration clone created, or the original idempotent result.
+     * @throws ApiError
+     */
+    public cloneSessionConfiguration({
+        sessionId,
+        idempotencyKey,
+        requestBody,
+        xTenantId,
+    }: {
+        sessionId: string,
+        idempotencyKey: string,
+        requestBody: CloneEnvironmentRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<CloneEnvironmentResponse> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}:clone',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                400: `Invalid request.`,
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
             },
         });
     }

@@ -52,6 +52,12 @@ public class ProfileApplicationService {
 
   @Transactional
   public void ensureExists(String tenantId, String profileId) {
+    ensureExists(tenantId, profileId, profileId, null);
+  }
+
+  /** Idempotently creates a Profile with operator-facing presentation fields when absent. */
+  @Transactional
+  public void ensureExists(String tenantId, String profileId, String name, String description) {
     var existing = repository.findById(profileId);
     if (existing.isPresent()) {
       requireTenant(existing.get(), tenantId);
@@ -60,7 +66,12 @@ public class ProfileApplicationService {
     var now = Instant.now();
     repository.save(
         new ProfileEntity(
-            profileId, tenantId, profileId, null, storagePath(tenantId, profileId), now));
+            profileId,
+            tenantId,
+            name == null || name.isBlank() ? profileId : name.strip(),
+            description == null || description.isBlank() ? null : description.strip(),
+            storagePath(tenantId, profileId),
+            now));
   }
 
   /**

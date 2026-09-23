@@ -54,6 +54,7 @@ public class EnvironmentImportApplicationService {
   private final WorkspaceTagApplicationService tags;
   private final WorkspaceSettingsApplicationService settings;
   private final ApplicationBusinessRecoveryService recovery;
+  private final StaticProxyApplicationService proxies;
   private final SessionApplicationService sessions;
   private final AuditApplicationService audit;
 
@@ -68,6 +69,7 @@ public class EnvironmentImportApplicationService {
       WorkspaceTagApplicationService tags,
       WorkspaceSettingsApplicationService settings,
       ApplicationBusinessRecoveryService recovery,
+      StaticProxyApplicationService proxies,
       SessionApplicationService sessions,
       AuditApplicationService audit) {
     this.jobs = jobs;
@@ -80,6 +82,7 @@ public class EnvironmentImportApplicationService {
     this.tags = tags;
     this.settings = settings;
     this.recovery = recovery;
+    this.proxies = proxies;
     this.sessions = sessions;
     this.audit = audit;
   }
@@ -296,6 +299,18 @@ public class EnvironmentImportApplicationService {
     } catch (RecoveryContractRejectedException exception) {
       errors.add("RECOVERY_CONTRACT_INVALID");
     }
+    try {
+      proxies.validateBindingProfileForAssignment(
+          tenantId,
+          specification.proxyBindingProfileId(),
+          specification.region() == null
+              ? settings.resolve(tenantId).defaultRegion()
+              : specification.region());
+    } catch (StaticProxyApplicationService.ProxyBindingNotFoundException exception) {
+      errors.add("PROXY_BINDING_NOT_FOUND");
+    } catch (StaticProxyApplicationService.ProxyBindingRejectedException exception) {
+      errors.add("PROXY_" + exception.getMessage());
+    }
     ResourcePolicyRequest effectivePolicy = null;
     try {
       effectivePolicy =
@@ -336,7 +351,7 @@ public class EnvironmentImportApplicationService {
         specification.groupId(),
         specification.tagIds(),
         specification.region(),
-        null,
+        specification.proxyBindingProfileId(),
         specification.resourcePolicy() == null
             ? new ResourcePolicyRequest(
                 ResourcePolicyMode.AUTO,
@@ -365,7 +380,8 @@ public class EnvironmentImportApplicationService {
         specification.mediaBitrateKbps(),
         specification.videoRecording(),
         specification.extensionIds(),
-        metadata);
+        metadata,
+        specification.identitySpec());
   }
 
   private EnvironmentImportView toView(

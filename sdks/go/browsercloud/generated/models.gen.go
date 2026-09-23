@@ -2690,32 +2690,61 @@ const (
 )
 
 type EnvironmentImportSpec struct {
-	DisplayName           string                 `json:"displayName,omitempty"`
-	Description           any                    `json:"description,omitempty"`
-	ProfileId             string                 `json:"profileId,omitempty"`
-	RuntimeBuildId        any                    `json:"runtimeBuildId,omitempty"`
-	ApplicationId         any                    `json:"applicationId,omitempty"`
-	GroupId               any                    `json:"groupId,omitempty"`
-	TagIds                any                    `json:"tagIds,omitempty"`
-	Region                any                    `json:"region,omitempty"`
-	ResourcePolicy        *ResourcePolicyRequest `json:"resourcePolicy,omitempty"`
-	RequestedTabs         int                    `json:"requestedTabs,omitempty"`
-	AgentActionsPerMinute int                    `json:"agentActionsPerMinute,omitempty"`
-	RemoteDesktop         bool                   `json:"remoteDesktop,omitempty"`
-	HumanTakeoverEnabled  any                    `json:"humanTakeoverEnabled,omitempty"`
-	AgentPolicy           *AgentPolicy           `json:"agentPolicy,omitempty"`
-	Web3Workload          bool                   `json:"web3Workload,omitempty"`
-	MediaWorkload         bool                   `json:"mediaWorkload,omitempty"`
-	RequestedMediaStreams int                    `json:"requestedMediaStreams,omitempty"`
-	MediaBitrateKbps      int                    `json:"mediaBitrateKbps,omitempty"`
-	VideoRecording        bool                   `json:"videoRecording,omitempty"`
-	ExtensionIds          any                    `json:"extensionIds,omitempty"`
+	DisplayName           string                    `json:"displayName,omitempty"`
+	Description           any                       `json:"description,omitempty"`
+	ProfileId             string                    `json:"profileId,omitempty"`
+	RuntimeBuildId        any                       `json:"runtimeBuildId,omitempty"`
+	ApplicationId         any                       `json:"applicationId,omitempty"`
+	GroupId               any                       `json:"groupId,omitempty"`
+	TagIds                any                       `json:"tagIds,omitempty"`
+	Region                any                       `json:"region,omitempty"`
+	ProxyBindingProfileId any                       `json:"proxyBindingProfileId,omitempty"`
+	ResourcePolicy        *ResourcePolicyRequest    `json:"resourcePolicy,omitempty"`
+	RequestedTabs         int                       `json:"requestedTabs,omitempty"`
+	AgentActionsPerMinute int                       `json:"agentActionsPerMinute,omitempty"`
+	RemoteDesktop         bool                      `json:"remoteDesktop,omitempty"`
+	HumanTakeoverEnabled  any                       `json:"humanTakeoverEnabled,omitempty"`
+	AgentPolicy           *AgentPolicy              `json:"agentPolicy,omitempty"`
+	Web3Workload          bool                      `json:"web3Workload,omitempty"`
+	MediaWorkload         bool                      `json:"mediaWorkload,omitempty"`
+	RequestedMediaStreams int                       `json:"requestedMediaStreams,omitempty"`
+	MediaBitrateKbps      int                       `json:"mediaBitrateKbps,omitempty"`
+	VideoRecording        bool                      `json:"videoRecording,omitempty"`
+	ExtensionIds          any                       `json:"extensionIds,omitempty"`
+	IdentitySpec          *SessionIdentitySpecInput `json:"identitySpec,omitempty"`
 }
 
 type PreviewEnvironmentImportRequest struct {
 	SchemaVersion int                     `json:"schemaVersion,omitempty"`
 	Name          string                  `json:"name,omitempty"`
 	Environments  []EnvironmentImportSpec `json:"environments,omitempty"`
+}
+
+type CloneProfileMode string
+
+const (
+	CloneProfileModeNEWEMPTYPROFILE    CloneProfileMode = "NEW_EMPTY_PROFILE"
+	CloneProfileModeREUSESOURCEPROFILE CloneProfileMode = "REUSE_SOURCE_PROFILE"
+)
+
+type CloneEnvironmentRequest struct {
+	DisplayName string           `json:"displayName,omitempty"`
+	ProfileMode CloneProfileMode `json:"profileMode,omitempty"`
+}
+
+type CloneEnvironmentResponse struct {
+	SourceSessionId string                `json:"sourceSessionId,omitempty"`
+	ProfileMode     CloneProfileMode      `json:"profileMode,omitempty"`
+	TargetProfileId string                `json:"targetProfileId,omitempty"`
+	Session         CreateSessionResponse `json:"session,omitempty"`
+}
+
+type EnvironmentConfigurationExport struct {
+	SourceSessionId string                          `json:"sourceSessionId,omitempty"`
+	ExportedAt      string                          `json:"exportedAt,omitempty"`
+	ManifestHash    string                          `json:"manifestHash,omitempty"`
+	Manifest        PreviewEnvironmentImportRequest `json:"manifest,omitempty"`
+	ExcludedData    []string                        `json:"excludedData,omitempty"`
 }
 
 type CommitEnvironmentImportRequest struct {

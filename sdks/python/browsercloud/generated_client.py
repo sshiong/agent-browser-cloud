@@ -56,6 +56,8 @@ OPERATIONS: dict[str, Operation] = {
     'batchDeleteSessions': Operation('batchDeleteSessions', 'POST', '/api/v1/sessions:batch-delete', (), (), ('Idempotency-Key', 'X-Tenant-Id'), 'BatchDeleteSessionsRequest', True, 'BatchDeleteSessionsResponse'),
     'getSession': Operation('getSession', 'GET', '/api/v1/sessions/{sessionId}', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'SessionView'),
     'updateSession': Operation('updateSession', 'PATCH', '/api/v1/sessions/{sessionId}', ('sessionId',), (), ('X-Tenant-Id',), 'UpdateSessionRequest', True, 'SessionView'),
+    'exportSessionConfiguration': Operation('exportSessionConfiguration', 'POST', '/api/v1/sessions/{sessionId}:export-configuration', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'EnvironmentConfigurationExport'),
+    'cloneSessionConfiguration': Operation('cloneSessionConfiguration', 'POST', '/api/v1/sessions/{sessionId}:clone', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CloneEnvironmentRequest', True, 'CloneEnvironmentResponse'),
     'getBrowserState': Operation('getBrowserState', 'GET', '/api/v1/sessions/{sessionId}/state', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'BrowserState'),
     'getAgentBrowserSnapshot': Operation('getAgentBrowserSnapshot', 'GET', '/api/v1/sessions/{sessionId}/agent-browser/snapshot', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'AgentBrowserSnapshot'),
     'inspectAgentBrowserElements': Operation('inspectAgentBrowserElements', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/inspect', ('sessionId',), (), ('X-Tenant-Id',), 'AgentBrowserInspectRequest', True, 'AgentBrowserTargetList'),
@@ -408,6 +410,12 @@ class BrowserCloudGeneratedClient:
 
     def updateSession(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('updateSession', path=path, query=query, body=body, headers=headers)
+
+    def exportSessionConfiguration(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('exportSessionConfiguration', path=path, query=query, body=body, headers=headers)
+
+    def cloneSessionConfiguration(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('cloneSessionConfiguration', path=path, query=query, body=body, headers=headers)
 
     def getBrowserState(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('getBrowserState', path=path, query=query, body=body, headers=headers)

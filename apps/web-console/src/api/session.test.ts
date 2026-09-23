@@ -9,6 +9,7 @@ import {
   createSession,
   createAgentInputSecret,
   createClipboardBridge,
+  cloneSessionConfiguration,
   completeClipboardBridge,
   submitChallengeInputResponse,
   getBrowserState,
@@ -48,6 +49,7 @@ import {
   validateBusinessRecovery,
   updateChallengeAutomationPolicy,
   updateSession,
+  exportSessionConfiguration,
 } from './session';
 
 describe('session API', () => {
@@ -104,6 +106,61 @@ describe('session API', () => {
         method: 'PATCH',
         body: JSON.stringify({ displayName: 'Personal Browser' }),
         headers: expect.objectContaining({ 'X-Tenant-Id': 'tenant-test' }),
+      })
+    );
+  });
+
+  it('exports an audited portable environment manifest', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ manifest: { schemaVersion: 1 } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await exportSessionConfiguration('ses_1234567890abcdef', 'tenant-test');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/sessions/ses_1234567890abcdef:export-configuration',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'X-Tenant-Id': 'tenant-test' }),
+      })
+    );
+  });
+
+  it('clones environment configuration with explicit Profile semantics', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ sourceSessionId: 'ses_1234567890abcdef' }),
+        {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await cloneSessionConfiguration(
+      'ses_1234567890abcdef',
+      { displayName: 'Copy', profileMode: 'NEW_EMPTY_PROFILE' },
+      'clone-key',
+      'tenant-test'
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/sessions/ses_1234567890abcdef:clone',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          displayName: 'Copy',
+          profileMode: 'NEW_EMPTY_PROFILE',
+        }),
+        headers: expect.objectContaining({
+          'Idempotency-Key': 'clone-key',
+          'X-Tenant-Id': 'tenant-test',
+        }),
       })
     );
   });

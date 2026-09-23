@@ -70,6 +70,8 @@ var Operations = map[string]Operation{
 	"batchDeleteSessions":                        {OperationID: "batchDeleteSessions", Method: "POST", Path: "/api/v1/sessions:batch-delete", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "BatchDeleteSessionsRequest", RequestRequired: true, ResponseSchema: "BatchDeleteSessionsResponse"},
 	"getSession":                                 {OperationID: "getSession", Method: "GET", Path: "/api/v1/sessions/{sessionId}", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "SessionView"},
 	"updateSession":                              {OperationID: "updateSession", Method: "PATCH", Path: "/api/v1/sessions/{sessionId}", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "UpdateSessionRequest", RequestRequired: true, ResponseSchema: "SessionView"},
+	"exportSessionConfiguration":                 {OperationID: "exportSessionConfiguration", Method: "POST", Path: "/api/v1/sessions/{sessionId}:export-configuration", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "EnvironmentConfigurationExport"},
+	"cloneSessionConfiguration":                  {OperationID: "cloneSessionConfiguration", Method: "POST", Path: "/api/v1/sessions/{sessionId}:clone", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "CloneEnvironmentRequest", RequestRequired: true, ResponseSchema: "CloneEnvironmentResponse"},
 	"getBrowserState":                            {OperationID: "getBrowserState", Method: "GET", Path: "/api/v1/sessions/{sessionId}/state", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "BrowserState"},
 	"getAgentBrowserSnapshot":                    {OperationID: "getAgentBrowserSnapshot", Method: "GET", Path: "/api/v1/sessions/{sessionId}/agent-browser/snapshot", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentBrowserSnapshot"},
 	"inspectAgentBrowserElements":                {OperationID: "inspectAgentBrowserElements", Method: "POST", Path: "/api/v1/sessions/{sessionId}/agent-browser/inspect", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "AgentBrowserInspectRequest", RequestRequired: true, ResponseSchema: "AgentBrowserTargetList"},
@@ -467,6 +469,12 @@ func (c *Client) GetSession(ctx context.Context, request Request) (any, *http.Re
 }
 func (c *Client) UpdateSession(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "updateSession", request)
+}
+func (c *Client) ExportSessionConfiguration(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "exportSessionConfiguration", request)
+}
+func (c *Client) CloneSessionConfiguration(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "cloneSessionConfiguration", request)
 }
 func (c *Client) GetBrowserState(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "getBrowserState", request)

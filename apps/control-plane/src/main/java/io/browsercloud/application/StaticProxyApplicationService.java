@@ -645,6 +645,24 @@ public class StaticProxyApplicationService {
             Instant.now()));
   }
 
+  /** Read-only validation used by portable environment import before it creates any resources. */
+  @Transactional(readOnly = true)
+  public void validateBindingProfileForAssignment(
+      String tenantId, String bindingProfileId, String sessionRegion) {
+    if (bindingProfileId == null || bindingProfileId.isBlank()) return;
+    var profile = requireBindingForAssignment(bindingProfileId, tenantId);
+    if (!profile.isEnabled()) {
+      throw new ProxyBindingRejectedException("BINDING_IS_DISABLED");
+    }
+    if (profile.getRegion() != null && !profile.getRegion().equals(sessionRegion)) {
+      throw new ProxyBindingRejectedException("BINDING_REGION_MISMATCH");
+    }
+    var provider =
+        requireConfiguredProvider(
+            profile.getProviderId(), profile.getCredentialRef(), profile.getExpectedExitIp());
+    requireProviderRegion(provider, sessionRegion);
+  }
+
   private void assignAutomaticBindingProfile(
       SessionContext session, String sessionRegion, String actorId, Instant now) {
     var candidates =

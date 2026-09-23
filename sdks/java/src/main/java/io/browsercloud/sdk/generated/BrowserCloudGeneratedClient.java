@@ -46,6 +46,8 @@ public final class BrowserCloudGeneratedClient {
     operation("batchDeleteSessions", "POST", "/api/v1/sessions:batch-delete", List.of(), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "BatchDeleteSessionsRequest", true, "BatchDeleteSessionsResponse"),
     operation("getSession", "GET", "/api/v1/sessions/{sessionId}", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "SessionView"),
     operation("updateSession", "PATCH", "/api/v1/sessions/{sessionId}", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "UpdateSessionRequest", true, "SessionView"),
+    operation("exportSessionConfiguration", "POST", "/api/v1/sessions/{sessionId}:export-configuration", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "EnvironmentConfigurationExport"),
+    operation("cloneSessionConfiguration", "POST", "/api/v1/sessions/{sessionId}:clone", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CloneEnvironmentRequest", true, "CloneEnvironmentResponse"),
     operation("getBrowserState", "GET", "/api/v1/sessions/{sessionId}/state", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "BrowserState"),
     operation("getAgentBrowserSnapshot", "GET", "/api/v1/sessions/{sessionId}/agent-browser/snapshot", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "AgentBrowserSnapshot"),
     operation("inspectAgentBrowserElements", "POST", "/api/v1/sessions/{sessionId}/agent-browser/inspect", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "AgentBrowserInspectRequest", true, "AgentBrowserTargetList"),
@@ -331,6 +333,8 @@ public final class BrowserCloudGeneratedClient {
   public Response batchDeleteSessions(Request request) { return call("batchDeleteSessions", request); }
   public Response getSession(Request request) { return call("getSession", request); }
   public Response updateSession(Request request) { return call("updateSession", request); }
+  public Response exportSessionConfiguration(Request request) { return call("exportSessionConfiguration", request); }
+  public Response cloneSessionConfiguration(Request request) { return call("cloneSessionConfiguration", request); }
   public Response getBrowserState(Request request) { return call("getBrowserState", request); }
   public Response getAgentBrowserSnapshot(Request request) { return call("getAgentBrowserSnapshot", request); }
   public Response inspectAgentBrowserElements(Request request) { return call("inspectAgentBrowserElements", request); }

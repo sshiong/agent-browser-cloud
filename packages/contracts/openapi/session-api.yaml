@@ -460,6 +460,63 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}:export-configuration:
+    post:
+      operationId: exportSessionConfiguration
+      summary: Export a portable, secret-free Session configuration manifest
+      description: >
+        Returns an Environment Import compatible manifest containing governed creation-time
+        configuration. Runtime state, Profile bytes, cookies, credentials, secrets, evidence,
+        recordings, and execution history are explicitly excluded.
+      tags: [Session]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Audited configuration export.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvironmentConfigurationExport"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}:clone:
+    post:
+      operationId: cloneSessionConfiguration
+      summary: Clone a Session configuration into a new environment
+      description: >
+        Creates a distinct Session identity from the source configuration. NEW_EMPTY_PROFILE is
+        the safe default and does not copy browser storage or login state. REUSE_SOURCE_PROFILE
+        is explicit and retains the existing Profile reference.
+      tags: [Session]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CloneEnvironmentRequest"
+      responses:
+        "201":
+          description: Configuration clone created, or the original idempotent result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CloneEnvironmentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/sessions/{sessionId}/state:
     get:
       operationId: getBrowserState
@@ -14116,7 +14173,7 @@ components:
         displayName:
           type: string
           minLength: 1
-          maxLength: 96
+          maxLength: 128
         description:
           type: [string, "null"]
           maxLength: 512
@@ -14142,6 +14199,9 @@ components:
         region:
           type: [string, "null"]
           pattern: "^[a-z0-9-]{1,32}$"
+        proxyBindingProfileId:
+          type: [string, "null"]
+          pattern: "^pbind_[a-zA-Z0-9]{16,32}$"
         resourcePolicy:
           oneOf:
             - $ref: "#/components/schemas/ResourcePolicyRequest"
@@ -14191,6 +14251,10 @@ components:
           items:
             type: string
             pattern: "^[a-zA-Z0-9_.-]{1,128}$"
+        identitySpec:
+          oneOf:
+            - $ref: "#/components/schemas/SessionIdentitySpecInput"
+            - type: "null"
     PreviewEnvironmentImportRequest:
       type: object
       additionalProperties: false
@@ -14209,6 +14273,57 @@ components:
           maxItems: 25
           items:
             $ref: "#/components/schemas/EnvironmentImportSpec"
+    CloneProfileMode:
+      type: string
+      enum: [NEW_EMPTY_PROFILE, REUSE_SOURCE_PROFILE]
+    CloneEnvironmentRequest:
+      type: object
+      additionalProperties: false
+      required: [displayName, profileMode]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 128
+        profileMode:
+          $ref: "#/components/schemas/CloneProfileMode"
+    CloneEnvironmentResponse:
+      type: object
+      additionalProperties: false
+      required: [sourceSessionId, profileMode, targetProfileId, session]
+      properties:
+        sourceSessionId:
+          type: string
+          pattern: "^ses_[a-zA-Z0-9]{16,}$"
+        profileMode:
+          $ref: "#/components/schemas/CloneProfileMode"
+        targetProfileId:
+          type: string
+          pattern: "^[a-zA-Z0-9_-]{1,128}$"
+        session:
+          $ref: "#/components/schemas/CreateSessionResponse"
+    EnvironmentConfigurationExport:
+      type: object
+      additionalProperties: false
+      required: [sourceSessionId, exportedAt, manifestHash, manifest, excludedData]
+      properties:
+        sourceSessionId:
+          type: string
+          pattern: "^ses_[a-zA-Z0-9]{16,}$"
+        exportedAt:
+          type: string
+          format: date-time
+        manifestHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        manifest:
+          $ref: "#/components/schemas/PreviewEnvironmentImportRequest"
+        excludedData:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
     CommitEnvironmentImportRequest:
       type: object
       additionalProperties: false

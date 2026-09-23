@@ -14,6 +14,7 @@ export interface EnvironmentImportSpec {
   groupId?: string;
   tagIds?: string[];
   region?: string;
+  proxyBindingProfileId?: string;
   resourcePolicy?: ResourcePolicyRequest;
   requestedTabs?: number;
   agentActionsPerMinute?: number;
@@ -26,6 +27,7 @@ export interface EnvironmentImportSpec {
   mediaBitrateKbps?: number;
   videoRecording?: boolean;
   extensionIds?: string[];
+  identitySpec?: import('./session').SessionIdentitySpecInput;
 }
 
 export interface PreviewEnvironmentImportRequest {

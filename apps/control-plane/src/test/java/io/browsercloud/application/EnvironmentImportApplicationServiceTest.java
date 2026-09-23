@@ -35,6 +35,7 @@ class EnvironmentImportApplicationServiceTest {
   @Mock private WorkspaceTagApplicationService tags;
   @Mock private WorkspaceSettingsApplicationService settings;
   @Mock private ApplicationBusinessRecoveryService recovery;
+  @Mock private StaticProxyApplicationService proxies;
   @Mock private SessionApplicationService sessions;
   @Mock private AuditApplicationService audit;
 
@@ -56,6 +57,7 @@ class EnvironmentImportApplicationServiceTest {
             tags,
             settings,
             recovery,
+            proxies,
             sessions,
             audit);
   }

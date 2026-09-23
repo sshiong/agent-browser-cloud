@@ -33,7 +33,7 @@ public final class EnvironmentImportModels {
   }
 
   public record EnvironmentImportSpec(
-      @NotBlank @Size(max = 96) String displayName,
+      @NotBlank @Size(max = 128) String displayName,
       @Size(max = 512) String description,
       @NotBlank @Pattern(regexp = "^[a-zA-Z0-9_-]{1,128}$") String profileId,
       @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") String runtimeBuildId,
@@ -41,6 +41,7 @@ public final class EnvironmentImportModels {
       @Pattern(regexp = "^grp_[a-zA-Z0-9]{16,32}$") String groupId,
       @Size(max = 16) List<@NotBlank @Pattern(regexp = "^tag_[a-zA-Z0-9]{16,32}$") String> tagIds,
       @Pattern(regexp = "^[a-z0-9-]{1,32}$") String region,
+      @Pattern(regexp = "^pbind_[a-zA-Z0-9]{16,32}$") String proxyBindingProfileId,
       @Valid ResourcePolicyRequest resourcePolicy,
       @Min(0) @Max(64) int requestedTabs,
       @Min(0) @Max(600) int agentActionsPerMinute,
@@ -53,7 +54,55 @@ public final class EnvironmentImportModels {
       @Min(0) @Max(1_000_000) int mediaBitrateKbps,
       boolean videoRecording,
       @Size(max = 32)
-          List<@NotBlank @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String> extensionIds) {
+          List<@NotBlank @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String> extensionIds,
+      @Valid SessionIdentityModels.SessionIdentitySpecRequest identitySpec) {
+
+    /** Backward-compatible constructor for schema-v1 manifests written before additive fields. */
+    public EnvironmentImportSpec(
+        String displayName,
+        String description,
+        String profileId,
+        String runtimeBuildId,
+        String applicationId,
+        String groupId,
+        List<String> tagIds,
+        String region,
+        ResourcePolicyRequest resourcePolicy,
+        int requestedTabs,
+        int agentActionsPerMinute,
+        boolean remoteDesktop,
+        Boolean humanTakeoverEnabled,
+        AgentPolicy agentPolicy,
+        boolean web3Workload,
+        boolean mediaWorkload,
+        int requestedMediaStreams,
+        int mediaBitrateKbps,
+        boolean videoRecording,
+        List<String> extensionIds) {
+      this(
+          displayName,
+          description,
+          profileId,
+          runtimeBuildId,
+          applicationId,
+          groupId,
+          tagIds,
+          region,
+          null,
+          resourcePolicy,
+          requestedTabs,
+          agentActionsPerMinute,
+          remoteDesktop,
+          humanTakeoverEnabled,
+          agentPolicy,
+          web3Workload,
+          mediaWorkload,
+          requestedMediaStreams,
+          mediaBitrateKbps,
+          videoRecording,
+          extensionIds,
+          null);
+    }
 
     @AssertTrue(message = "tagIds must contain unique values")
     public boolean hasUniqueTagIds() {

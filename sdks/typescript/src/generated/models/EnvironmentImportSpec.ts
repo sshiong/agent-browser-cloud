@@ -4,6 +4,7 @@
 /* eslint-disable */
 import type { AgentPolicy } from './AgentPolicy.js';
 import type { ResourcePolicyRequest } from './ResourcePolicyRequest.js';
+import type { SessionIdentitySpecInput } from './SessionIdentitySpecInput.js';
 export type EnvironmentImportSpec = {
     displayName: string;
     description?: string | null;
@@ -13,6 +14,7 @@ export type EnvironmentImportSpec = {
     groupId?: string | null;
     tagIds?: any[] | null;
     region?: string | null;
+    proxyBindingProfileId?: string | null;
     resourcePolicy?: (ResourcePolicyRequest | null);
     requestedTabs?: number;
     agentActionsPerMinute?: number;
@@ -25,4 +27,5 @@ export type EnvironmentImportSpec = {
     mediaBitrateKbps?: number;
     videoRecording?: boolean;
     extensionIds?: any[] | null;
+    identitySpec?: (SessionIdentitySpecInput | null);
 };

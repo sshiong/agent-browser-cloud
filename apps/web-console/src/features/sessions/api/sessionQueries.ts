@@ -58,6 +58,8 @@ import {
   readAgentClipboard,
   createClipboardBridge,
   completeClipboardBridge,
+  cloneSessionConfiguration,
+  exportSessionConfiguration,
 } from '@/api/session';
 import type {
   CreateSessionRequest,
@@ -75,6 +77,7 @@ import type {
   UpdateChallengeAutomationPolicyRequest,
   CreateClipboardBridgeRequest,
   BatchDeleteSessionsRequest,
+  CloneEnvironmentRequest,
 } from '@/types/session';
 import type { ProxyRebindRequest } from '@/types/proxy';
 
@@ -970,6 +973,27 @@ export function useUpdateSession(sessionId: string) {
       queryClient.setQueryData(sessionKeys.detail(sessionId), session);
       await queryClient.invalidateQueries({ queryKey: sessionKeys.all });
     },
+  });
+}
+
+export function useCloneSessionConfiguration(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: CloneEnvironmentRequest) =>
+      cloneSessionConfiguration(
+        sessionId,
+        request,
+        `session-clone-${crypto.randomUUID()}`
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: sessionKeys.all });
+    },
+  });
+}
+
+export function useExportSessionConfiguration(sessionId: string) {
+  return useMutation({
+    mutationFn: () => exportSessionConfiguration(sessionId),
   });
 }
 

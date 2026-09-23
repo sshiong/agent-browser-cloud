@@ -116,6 +116,14 @@ spec:
                   fieldPath: metadata.name
             - name: PROXY_PROVIDER_CONFIG_FILE
               value: /var/run/browsercloud/proxy-providers/providers.json
+            # Optional Secret key. When present its value must be the absolute path to the
+            # private mapping document mounted by proxy-provider-credentials below.
+            - name: PROXY_CREDENTIAL_CONFIG_FILE
+              valueFrom:
+                secretKeyRef:
+                  name: browser-node-proxy-provider-credentials
+                  key: config-file
+                  optional: true
           envFrom:
             - secretRef:
                 name: control-plane-runtime-secrets
@@ -125,6 +133,9 @@ spec:
               readOnly: true
             - name: proxy-provider-catalog
               mountPath: /var/run/browsercloud/proxy-providers
+              readOnly: true
+            - name: proxy-provider-credentials
+              mountPath: /var/run/browsercloud/proxy-credentials
               readOnly: true
           readinessProbe:
             httpGet:
@@ -419,6 +430,11 @@ spec:
         - name: proxy-provider-catalog
           secret:
             secretName: browser-node-proxy-provider-catalog
+            defaultMode: 0440
+        - name: proxy-provider-credentials
+          secret:
+            secretName: browser-node-proxy-provider-credentials
+            optional: true
             defaultMode: 0440
         - name: profile-archive-keyring
           secret:

@@ -102,6 +102,7 @@ flowchart LR
 | Chromium/CDP | Node loopback | Runtime boundary | Restricted tools and loopback validation | `crates/state-collector/src/lib.rs` |
 | Remote desktop | WebSocket ticket | Browser → Node | HMAC, origin, nonce, actor binding and signed per-Actor output quota | `crates/remote-desktop-gateway/src/lib.rs` |
 | Profile filesystem | Node helper | Runtime → durable data | Single writer and commit marker | `crates/storage-helper/src/lib.rs` |
+| Commercial proxy credentials | Private files → Network Helper | Secret → egress helper | Strict files, opaque refs and loopback auth relay | `crates/network-helper/src/lib.rs` |
 | Build pipeline | GitHub Actions | Source → artifact | SBOM and high/critical scan | `.github/workflows/ci.yml` |
 
 ## Top abuse paths
@@ -116,11 +117,14 @@ flowchart LR
    rotation is accepted only under the configured trust root.
 5. Proxy provider fails → Network Helper opens its circuit and refuses direct fallback → Session
    startup fails without leaking the tenant egress.
-6. Worker dies after dispatch → durable phase deadline expires → scanner times out the operation and
+6. Browser or hostile page tries to obtain/inject upstream proxy credentials → Browser receives only
+   a loopback Relay and Browser-supplied `Proxy-Authorization` is rejected → isolated Network Helper
+   injects the private authoritative header and clears credential buffers on release.
+7. Worker dies after dispatch → durable phase deadline expires → scanner times out the operation and
    executes safe compensation or records a Dead Letter.
-7. Runtime artifact is substituted → production Runtime policy requires Stable validation,
+8. Runtime artifact is substituted → production Runtime policy requires Stable validation,
    sha256 signature identity and SBOM URI before dispatch.
-8. Audit row is modified → tenant sequence and previous-hash verification reports the chain invalid.
+9. Audit row is modified → tenant sequence and previous-hash verification reports the chain invalid.
 
 ## Threat model table
 

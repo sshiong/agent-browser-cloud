@@ -2,7 +2,7 @@
 
 > 更新日期：2026-09-23
 > 基准分支：`main`
-> 编写时基准提交：`defebf4 feat: clone and export environment configuration`
+> 编写时基准提交：`fdb0f3d feat: learn proxy routes from verified outcomes`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -117,7 +117,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V128 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V130 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -160,7 +160,9 @@ progress 166。
   Environment Import 可直接预检/执行的 schema-v1 JSON；默认新建独立空 Profile，也可显式复用
   源 Profile。导出固定排除 Cookie、Checkpoint 字节、Credential、Secret、Recording/Screenshot
   和执行历史，Web/Tauri 共用菜单已接入，见 progress 210。
-- [已确认] Profile 导入/用途绑定一次性导出、Proxy Provider/Binding/探测/自动路由、Safe Point Rebind 已实现。
+- [已确认] Profile 导入/用途绑定一次性导出、Proxy Provider/Binding/探测/自动路由、Safe Point
+  Rebind 已实现；独立 Outcome 结果已以低权重、最小化账本进入业务成功率学习，同一 Browser
+  Profile 具备有界粘性，样本不足候选具备确定性受约束探索，见 progress 211。
 - [已确认] Warm Tier v2 已对活动 SQLite/WAL 使用 Online Backup，对 LevelDB 使用
   CURRENT/MANIFEST 与复制前后内容屏障、隔离打开和全量迭代验证；非正常停止后新 Session
   可恢复并再次验证精确数据库集合，同 Epoch 干净 Checkpoint 优先，旧 v1 部分清单不会混合恢复，
@@ -304,6 +306,14 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- Proxy 业务结果学习、Profile 粘性和受约束探索已闭环：只有独立 Outcome Verifier 精确终态可写
+  Tenant/Binding/Provider 隔离的最小账本；5 个样本前保持中性，之后业务结果只占路由分 10%。
+  Profile 粘性和 5% 探索均要求候选继续通过健康、新鲜度、Region、身份、容量和质量硬门槛，且
+  距最优不超过 8 分；Provider 变化会使旧证据失效。V129/V130、Java/Web、N/N−1、OpenAPI/
+  四语言 SDK 与完整 OrbStack Integration 通过，Integration 输出
+  `proxy_business_outcome_learning=true`，见 progress 211。Challenge/站点黑名单、商业 Provider
+  Adapter、目标云 Secret/账单与客户 SLA Replay 仍未完成。
 
 - 环境配置复制与无敏感数据导出已闭环：正式 API 复用既有 Session 创建、幂等、RBAC、审计及
   Group/Tag/Proxy/Resource/Identity 校验；导出与 Environment Import schema-v1 兼容，默认复制到

@@ -315,8 +315,10 @@ progress 166。
   四语言 SDK 与完整 OrbStack Integration 通过，Integration 输出
   `proxy_business_outcome_learning=true`。确认的反自动化 Challenge 另以不含 URL/正文的站点 Hash
   账本形成三 Session、30 分钟临时隔离，Integration 输出
-  `proxy_site_challenge_quarantine=true`，见 progress 211—212。商业 Provider Adapter、目标云
-  Secret/账单与客户 SLA Replay 仍未完成。
+  `proxy_site_challenge_quarantine=true`，见 progress 211—212。通用商业 HTTP Proxy Basic Auth
+  Adapter 随后由 progress 213 闭环：凭据只由隔离 Network Helper 从私有映射读取，Browser 仅
+  获得回环 Relay，完整 OrbStack Integration 输出 `proxy_commercial_basic_auth=true` 且不回退
+  直连。目标云动态 Secret、供应商特有认证/账单与客户 SLA Replay 仍未完成。
 
 - 环境配置复制与无敏感数据导出已闭环：正式 API 复用既有 Session 创建、幂等、RBAC、审计及
   Group/Tag/Proxy/Resource/Identity 校验；导出与 Environment Import schema-v1 兼容，默认复制到
@@ -910,7 +912,9 @@ Delete API 或短期签名 URL 冒充目标云监管保留。
 1. Profile 对象保留/Legal Hold 深度联动；SQLite/LevelDB 应用感知 Adapter、Multipart Resume
    与仓库级 Cross-Region Restore 已由 progress 205—207 完成。
 2. 目标 CRM/支付/IAM Provider 的真实凭据、字段/事务映射和 Provider 特有认证接入。
-3. 目标云 Secret 解引用/轮换/撤销、商业 Proxy Provider Adapter、高级 SLA/业务成功率路由、Challenge/黑名单与受约束探索。
+3. 目标云 Secret 解引用/轮换/撤销、供应商特有 Proxy 认证与账单、高级 SLA 路由；通用商业
+   HTTP Proxy Basic Auth Adapter、业务成功率路由、Challenge 临时隔离与受约束探索已由
+   progress 211—213 完成。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
 5. Recording 目标账户 Object Lock Apply/IAM、客户视觉数据集 Replay 和目标云原生 Legal Hold
    联动；仓库 WORM、到期对象删除 Worker 及全帧隐私 v2 已由 progress 201—203 完成。

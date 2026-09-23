@@ -442,15 +442,11 @@ public class StaticProxyApplicationService {
         .findFirstBySessionIdAndStateIn(sessionId, ACTIVE_STATES)
         .ifPresent(
             allocation -> {
-              var adapter =
-                  providerAdapters.get(
-                      new ProviderKey(allocation.getProvider(), allocation.getCredentialRef()));
-              if (adapter != null) {
-                adapter.release(
-                    allocation.getProviderEndpointId() == null
-                        ? allocation.getAllocationId()
-                        : allocation.getProviderEndpointId());
-              }
+              var adapter = requireProviderAdapter(allocation);
+              adapter.release(
+                  allocation.getProviderEndpointId() == null
+                      ? allocation.getAllocationId()
+                      : allocation.getProviderEndpointId());
               allocation.release(Instant.now());
               repository.save(allocation);
             });
@@ -1259,6 +1255,33 @@ public class StaticProxyApplicationService {
           "proxy provider adapter is not configured");
     }
     return adapter;
+  }
+
+  private ProxyProviderAdapter requireProviderAdapter(ProxyAllocationEntity allocation) {
+    var adapterType = allocation.getProviderAdapterType();
+    if (adapterType == null || adapterType.isBlank()) {
+      adapterType = "CONFIGURED_HTTP";
+    }
+    if (!"CONFIGURED_HTTP".equals(adapterType)) {
+      throw new ProxyProviderAdapter.ProxyProviderException(
+          ProxyProviderAdapter.ErrorCode.RELEASE_FAILED,
+          true,
+          "proxy provider adapter type is unavailable for release");
+    }
+    var configured =
+        providerAdapters.get(
+            new ProviderKey(allocation.getProvider(), allocation.getCredentialRef()));
+    if (configured != null) {
+      return configured;
+    }
+    // Fixed HTTP endpoints have no vendor-side lease. Reconstruct only this safe, idempotent
+    // adapter from the persisted allocation so catalog rotation cannot strand old Sessions.
+    return new ConfiguredHttpProxyProviderAdapter(
+        allocation.getProvider(),
+        allocation.getEndpoint(),
+        allocation.getExpectedExitIp(),
+        allocation.getCredentialRef(),
+        List.of());
   }
 
   private static void requireProviderRegion(ProviderDescriptor provider, String region) {

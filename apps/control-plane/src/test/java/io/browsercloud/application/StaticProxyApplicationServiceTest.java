@@ -176,6 +176,60 @@ class StaticProxyApplicationServiceTest {
   }
 
   @Test
+  void shouldFailClosedInsteadOfFalselyReleasingAnUnknownDynamicAdapter() {
+    var allocation =
+        new ProxyAllocationEntity(
+            "pxy_dynamic",
+            "tenant-test",
+            "ses_test",
+            "dynamic-provider",
+            "http://127.0.0.1:8082",
+            "vendor-endpoint-1",
+            "REMOTE_WORKER",
+            null,
+            null,
+            "203.0.113.10",
+            "vault://tenant-test/proxy/dynamic",
+            Instant.parse("2026-09-24T00:00:00Z"));
+    when(repository.findFirstBySessionIdAndStateIn(any(), any()))
+        .thenReturn(Optional.of(allocation));
+
+    assertThatThrownBy(() -> service.release("ses_test"))
+        .isInstanceOfSatisfying(
+            ProxyProviderAdapter.ProxyProviderException.class,
+            error -> {
+              assertThat(error.code()).isEqualTo(ProxyProviderAdapter.ErrorCode.RELEASE_FAILED);
+              assertThat(error.retryable()).isTrue();
+            });
+    assertThat(allocation.getState()).isEqualTo("ALLOCATED");
+  }
+
+  @Test
+  void shouldReleasePersistedConfiguredHttpAllocationAfterCatalogRotation() {
+    var allocation =
+        new ProxyAllocationEntity(
+            "pxy_retired",
+            "tenant-test",
+            "ses_test",
+            "retired-provider",
+            "http://127.0.0.1:8082",
+            "retired-endpoint-1",
+            "CONFIGURED_HTTP",
+            null,
+            null,
+            "203.0.113.20",
+            "vault://tenant-test/proxy/retired",
+            Instant.parse("2026-09-24T00:00:00Z"));
+    when(repository.findFirstBySessionIdAndStateIn(any(), any()))
+        .thenReturn(Optional.of(allocation));
+
+    service.release("ses_test");
+
+    assertThat(allocation.getState()).isEqualTo("RELEASED");
+    verify(repository).save(allocation);
+  }
+
+  @Test
   void shouldForbidDirectFallbackInProduction() {
     assertThatThrownBy(
             () ->

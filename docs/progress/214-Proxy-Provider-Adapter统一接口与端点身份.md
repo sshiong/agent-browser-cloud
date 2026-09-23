@@ -37,6 +37,10 @@ Provider Catalog 创建 `proxy_allocations`，没有 V16 规定的统一 Adapter
 
 Session 启动前的实际 Proxy Allocation 以及 Runtime 停止后的 Release 已通过 SPI，不再绕过
 Adapter。Browser Runtime 仍只看到 Network Helper 创建的回环 Relay，供应商凭据边界不变。
+Release 只有在 Adapter 成功确认后才把权威 Allocation 标记为 `RELEASED`；未知动态 Adapter
+类型会返回可重试的 `RELEASE_FAILED` 并保持原状态，避免把供应商端资源泄漏伪装成释放成功。
+固定 HTTP Endpoint 没有供应商端 Lease，因此当前 Catalog 已轮换时可从持久化 Allocation
+重建同一无状态 Adapter，继续安全、幂等地完成释放。
 
 ## V132 供应商端点身份
 
@@ -55,6 +59,7 @@ Migration Floor 后再单独收紧。
 - `ConfiguredHttpProxyProviderAdapterTest`：能力真实性、无凭据泄漏、Region/IP Family Gate、
   规范化错误、权威健康和非计量用量；
 - `StaticProxyApplicationServiceTest`：实际分配写入独立 Provider Endpoint ID 和 Adapter 类型；
+  未知动态 Adapter 释放 fail-closed，固定 HTTP Provider 从 Catalog 移除后仍可释放；
 - Control Plane Java 全量测试通过；
 - `make test-upgrade-compatibility` 明确验证 V132 只做 N/N−1 可兼容的 Expand；
 - OrbStack 完整 `make test-integration` 验证真实 PostgreSQL、商业 Basic Auth Relay、出口探测、

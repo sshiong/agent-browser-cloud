@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -478,6 +479,113 @@ class StaticProxyApplicationServiceTest {
     assertThat(allocation.getValue().getEndpoint()).isEqualTo("http://127.0.0.1:8102");
     assertThat(allocation.getValue().getExpectedExitIp()).isEqualTo("203.0.113.20");
     assertThat(allocation.getValue().getCredentialRef()).isEqualTo("vault://tenant-test/proxy/b");
+  }
+
+  @Test
+  void shouldAllocateAndReleaseThroughTheRemoteProviderAdapterWithoutTrustingCatalogEndpointState()
+      throws Exception {
+    var released = new java.util.concurrent.atomic.AtomicBoolean();
+    var server =
+        com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/",
+        exchange -> {
+          assertThat(exchange.getRequestHeaders().getFirst("Authorization"))
+              .isEqualTo("Bearer adapter-service-token");
+          assertThat(exchange.getRequestHeaders().getFirst("Idempotency-Key")).isNotBlank();
+          if ("POST".equals(exchange.getRequestMethod())) {
+            var response =
+                """
+                {"endpointId":"vendor-endpoint-51","providerId":"dynamic-provider",
+                 "endpoint":"http://127.0.0.1:18551","expectedExitIp":"203.0.113.51",
+                 "credentialRef":"vault://tenant-test/proxy/dynamic","protocol":"HTTP",
+                 "productType":"DATACENTER"}
+                """
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(201, response.length);
+            exchange.getResponseBody().write(response);
+          } else {
+            released.set(true);
+            exchange.sendResponseHeaders(204, -1);
+          }
+          exchange.close();
+        });
+    server.start();
+    try {
+      var token = tempDir.resolve("remote-adapter-token");
+      Files.writeString(token, "adapter-service-token\n");
+      Files.setPosixFilePermissions(
+          token, java.nio.file.attribute.PosixFilePermissions.fromString("rw-r-----"));
+      var catalog = tempDir.resolve("remote-proxy-provider.json");
+      Files.writeString(
+          catalog,
+          """
+          {"version":2,"providers":[{
+            "providerId":"dynamic-provider",
+            "endpoint":"http://127.0.0.1:18051",
+            "expectedExitIp":"203.0.113.99",
+            "credentialRef":"vault://tenant-test/proxy/dynamic",
+            "adapterType":"REMOTE_HTTP_V1",
+            "adapterBaseUrl":"http://127.0.0.1:%d",
+            "adapterServiceTokenFile":"%s",
+            "adapterAllowedEndpointHosts":["127.0.0.1"]
+          }]}
+          """
+              .formatted(server.getAddress().getPort(), token));
+      Files.setPosixFilePermissions(
+          catalog, java.nio.file.attribute.PosixFilePermissions.fromString("rw-r-----"));
+      var remoteService =
+          new StaticProxyApplicationService(
+              repository,
+              bindingProfiles,
+              bindingAssignments,
+              sessionRepository,
+              idempotency,
+              audit,
+              "unused-fallback",
+              "",
+              "",
+              "",
+              catalog.toString(),
+              false,
+              "test");
+      when(repository.findFirstBySessionIdAndStateIn(any(), any())).thenReturn(Optional.empty());
+      when(bindingAssignments.findBySessionIdAndTenantId("ses_test", "tenant-test"))
+          .thenReturn(
+              Optional.of(
+                  new SessionProxyBindingAssignmentEntity(
+                      "ses_test",
+                      "tenant-test",
+                      "pbind_dynamic",
+                      7,
+                      "dynamic-provider",
+                      null,
+                      "203.0.113.99",
+                      "vault://tenant-test/proxy/dynamic",
+                      "admin-test",
+                      Instant.parse("2026-09-24T00:00:00Z"))));
+
+      remoteService.ensureBinding(session());
+
+      var saved = ArgumentCaptor.forClass(ProxyAllocationEntity.class);
+      verify(repository).save(saved.capture());
+      var allocation = saved.getValue();
+      assertThat(allocation.getProviderAdapterType()).isEqualTo("REMOTE_HTTP_V1");
+      assertThat(allocation.getProviderEndpointId()).isEqualTo("vendor-endpoint-51");
+      assertThat(allocation.getEndpoint()).isEqualTo("http://127.0.0.1:18551");
+      assertThat(allocation.getExpectedExitIp()).isEqualTo("203.0.113.51");
+
+      when(repository.findFirstBySessionIdAndStateIn(any(), any()))
+          .thenReturn(Optional.of(allocation));
+      remoteService.release("ses_test");
+
+      assertThat(released).isTrue();
+      assertThat(allocation.getState()).isEqualTo("RELEASED");
+      verify(repository, times(2)).save(allocation);
+    } finally {
+      server.stop(0);
+    }
   }
 
   @Test

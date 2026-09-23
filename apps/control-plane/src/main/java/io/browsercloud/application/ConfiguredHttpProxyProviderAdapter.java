@@ -69,6 +69,11 @@ final class ConfiguredHttpProxyProviderAdapter implements ProxyProviderAdapter {
   }
 
   @Override
+  public String adapterType() {
+    return "CONFIGURED_HTTP";
+  }
+
+  @Override
   public ProxyProviderCapabilities capabilities() {
     return capabilities;
   }

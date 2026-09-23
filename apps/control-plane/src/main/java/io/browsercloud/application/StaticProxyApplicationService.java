@@ -94,19 +94,16 @@ public class StaticProxyApplicationService {
             List.of(),
             BigDecimal.ZERO,
             50,
-            10000);
+            10000,
+            "CONFIGURED_HTTP",
+            "",
+            "",
+            List.of());
     this.providers = loadProviderCatalog(providerConfigFile, fallbackProvider);
     var configuredAdapters = new HashMap<ProviderKey, ProxyProviderAdapter>();
     this.providers.forEach(
         (key, provider) ->
-            configuredAdapters.put(
-                key,
-                new ConfiguredHttpProxyProviderAdapter(
-                    provider.providerId(),
-                    provider.endpoint(),
-                    provider.expectedExitIp(),
-                    provider.credentialRef(),
-                    provider.regions())));
+            configuredAdapters.put(key, createProviderAdapter(provider, environment)));
     this.providerAdapters = Map.copyOf(configuredAdapters);
     this.defaultProvider =
         this.providers.size() == 1 ? this.providers.values().iterator().next() : null;
@@ -285,7 +282,7 @@ public class StaticProxyApplicationService {
         // Non-POSIX deployments rely on the platform ACL of the mounted Secret volume.
       }
       var document = new ObjectMapper().readValue(path.toFile(), ProviderConfigDocument.class);
-      if (document.version() != 1
+      if (document.version() != 1 && document.version() != 2
           || document.providers() == null
           || document.providers().isEmpty()
           || document.providers().size() > 256) {
@@ -303,7 +300,19 @@ public class StaticProxyApplicationService {
                 normalizeRegions(entry.regions()),
                 entry.costPerGibUsd() == null ? BigDecimal.ZERO : entry.costPerGibUsd(),
                 entry.reputationScore() == null ? 50 : entry.reputationScore(),
-                entry.maxConcurrentSessions() == null ? 10000 : entry.maxConcurrentSessions());
+                entry.maxConcurrentSessions() == null ? 10000 : entry.maxConcurrentSessions(),
+                entry.adapterType() == null || entry.adapterType().isBlank()
+                    ? "CONFIGURED_HTTP"
+                    : entry.adapterType().strip(),
+                entry.adapterBaseUrl() == null ? "" : entry.adapterBaseUrl().strip(),
+                entry.adapterServiceTokenFile() == null
+                    ? ""
+                    : entry.adapterServiceTokenFile().strip(),
+                normalizeEndpointHosts(entry.adapterAllowedEndpointHosts()));
+        if (document.version() == 1 && !"CONFIGURED_HTTP".equals(descriptor.adapterType())) {
+          throw new IllegalStateException(
+              "proxy provider config version 1 supports only configured HTTP adapters");
+        }
         validateProvider(descriptor);
         var previous =
             configured.put(
@@ -360,19 +369,19 @@ public class StaticProxyApplicationService {
                     requireConfiguredProvider(
                         item.getProviderId(), item.getCredentialRef(), item.getExpectedExitIp()))
             .orElseGet(this::requireDefaultProvider);
+    var adapter = requireProviderAdapter(selectedProvider);
     var allocatedEndpoint =
-        requireProviderAdapter(selectedProvider)
-            .allocate(
-                new ProxyProviderAdapter.ProxyAllocationRequest(
-                    allocationId,
-                    session.tenantId(),
-                    session.sessionId(),
-                    assignment.map(SessionProxyBindingAssignmentEntity::getRegion).orElse(null),
-                    null,
-                    null,
-                    null,
-                    null,
-                    true));
+        adapter.allocate(
+            new ProxyProviderAdapter.ProxyAllocationRequest(
+                allocationId,
+                session.tenantId(),
+                session.sessionId(),
+                assignment.map(SessionProxyBindingAssignmentEntity::getRegion).orElse(null),
+                null,
+                null,
+                null,
+                null,
+                true));
     repository.save(
         new ProxyAllocationEntity(
             allocationId,
@@ -381,15 +390,11 @@ public class StaticProxyApplicationService {
             allocatedEndpoint.providerId(),
             allocatedEndpoint.endpoint(),
             allocatedEndpoint.endpointId(),
-            "CONFIGURED_HTTP",
+            adapter.adapterType(),
             assignment.map(SessionProxyBindingAssignmentEntity::getBindingProfileId).orElse(null),
             assignment.map(SessionProxyBindingAssignmentEntity::getBindingVersion).orElse(null),
-            assignment
-                .map(SessionProxyBindingAssignmentEntity::getExpectedExitIp)
-                .orElse(allocatedEndpoint.expectedExitIp()),
-            assignment
-                .map(SessionProxyBindingAssignmentEntity::getCredentialRef)
-                .orElse(allocatedEndpoint.credentialRef()),
+            allocatedEndpoint.expectedExitIp(),
+            allocatedEndpoint.credentialRef(),
             Instant.now()));
     var boundContext = session.withProxyBinding(allocationId);
     sessionRepository.updateWithExpectedEpoch(boundContext, session.contextEpoch());
@@ -1262,17 +1267,17 @@ public class StaticProxyApplicationService {
     if (adapterType == null || adapterType.isBlank()) {
       adapterType = "CONFIGURED_HTTP";
     }
+    var configured =
+        providerAdapters.get(
+            new ProviderKey(allocation.getProvider(), allocation.getCredentialRef()));
+    if (configured != null && adapterType.equals(configured.adapterType())) {
+      return configured;
+    }
     if (!"CONFIGURED_HTTP".equals(adapterType)) {
       throw new ProxyProviderAdapter.ProxyProviderException(
           ProxyProviderAdapter.ErrorCode.RELEASE_FAILED,
           true,
           "proxy provider adapter type is unavailable for release");
-    }
-    var configured =
-        providerAdapters.get(
-            new ProviderKey(allocation.getProvider(), allocation.getCredentialRef()));
-    if (configured != null) {
-      return configured;
     }
     // Fixed HTTP endpoints have no vendor-side lease. Reconstruct only this safe, idempotent
     // adapter from the persisted allocation so catalog rotation cannot strand old Sessions.
@@ -1479,6 +1484,45 @@ public class StaticProxyApplicationService {
       throw new IllegalStateException(
           "proxy provider max concurrent Sessions must be between 1 and 1000000");
     }
+    if ("CONFIGURED_HTTP".equals(provider.adapterType())) {
+      if (!provider.adapterBaseUrl().isEmpty()
+          || !provider.adapterServiceTokenFile().isEmpty()
+          || !provider.adapterAllowedEndpointHosts().isEmpty()) {
+        throw new IllegalStateException(
+            "configured HTTP provider cannot declare remote adapter settings");
+      }
+    } else if (RemoteHttpProxyProviderAdapter.TYPE.equals(provider.adapterType())) {
+      if (provider.adapterBaseUrl().isEmpty()
+          || provider.adapterServiceTokenFile().isEmpty()
+          || provider.adapterAllowedEndpointHosts().isEmpty()) {
+        throw new IllegalStateException(
+            "remote proxy provider requires adapter URL, service token file, and endpoint hosts");
+      }
+    } else {
+      throw new IllegalStateException("proxy provider adapter type is unsupported");
+    }
+  }
+
+  private static ProxyProviderAdapter createProviderAdapter(
+      ProviderDescriptor provider, String environment) {
+    return switch (provider.adapterType()) {
+      case "CONFIGURED_HTTP" ->
+          new ConfiguredHttpProxyProviderAdapter(
+              provider.providerId(),
+              provider.endpoint(),
+              provider.expectedExitIp(),
+              provider.credentialRef(),
+              provider.regions());
+      case RemoteHttpProxyProviderAdapter.TYPE ->
+          new RemoteHttpProxyProviderAdapter(
+              provider.providerId(),
+              provider.adapterBaseUrl(),
+              provider.credentialRef(),
+              provider.adapterServiceTokenFile(),
+              Set.copyOf(provider.adapterAllowedEndpointHosts()),
+              environment);
+      default -> throw new IllegalStateException("proxy provider adapter type is unsupported");
+    };
   }
 
   private static List<String> normalizeRegions(List<String> regions) {
@@ -1510,6 +1554,32 @@ public class StaticProxyApplicationService {
     return normalized;
   }
 
+  private static List<String> normalizeEndpointHosts(List<String> hosts) {
+    if (hosts == null || hosts.isEmpty()) {
+      return List.of();
+    }
+    var normalized =
+        hosts.stream()
+            .map(String::strip)
+            .map(value -> value.toLowerCase(java.util.Locale.ROOT))
+            .distinct()
+            .sorted()
+            .toList();
+    if (normalized.size() != hosts.size()
+        || normalized.size() > 64
+        || normalized.stream()
+            .anyMatch(
+                value ->
+                    value.isEmpty()
+                        || value.length() > 253
+                        || value.contains("/")
+                        || value.contains("*")
+                        || !value.matches("[a-z0-9.:-]+"))) {
+      throw new IllegalStateException("proxy provider adapter endpoint hosts are invalid");
+    }
+    return normalized;
+  }
+
   private record ProviderKey(String providerId, String credentialRef) {}
 
   private record ProviderDescriptor(
@@ -1520,7 +1590,11 @@ public class StaticProxyApplicationService {
       List<String> regions,
       BigDecimal costPerGibUsd,
       int reputationScore,
-      int maxConcurrentSessions) {}
+      int maxConcurrentSessions,
+      String adapterType,
+      String adapterBaseUrl,
+      String adapterServiceTokenFile,
+      List<String> adapterAllowedEndpointHosts) {}
 
   private record ProviderConfigDocument(int version, List<ProviderConfigEntry> providers) {}
 
@@ -1533,7 +1607,11 @@ public class StaticProxyApplicationService {
       List<String> regions,
       BigDecimal costPerGibUsd,
       Integer reputationScore,
-      Integer maxConcurrentSessions) {}
+      Integer maxConcurrentSessions,
+      String adapterType,
+      String adapterBaseUrl,
+      String adapterServiceTokenFile,
+      List<String> adapterAllowedEndpointHosts) {}
 
   private record AutoRouteCandidate(
       ProxyBindingProfileEntity profile,

@@ -57,6 +57,7 @@ storage_helper_pid=""
 storage_helper_b_pid=""
 storage_helper_c_pid=""
 proxy_pid=""
+proxy_provider_adapter_pid=""
 business_provider_pid=""
 reviewer_model_pid=""
 resource_stream_pid=""
@@ -106,6 +107,9 @@ cleanup() {
   if [[ -n "$storage_helper_b_pid" ]]; then kill "$storage_helper_b_pid" 2>/dev/null || true; fi
   if [[ -n "$storage_helper_c_pid" ]]; then kill "$storage_helper_c_pid" 2>/dev/null || true; fi
   if [[ -n "$proxy_pid" ]]; then kill "$proxy_pid" 2>/dev/null || true; fi
+  if [[ -n "$proxy_provider_adapter_pid" ]]; then
+    kill "$proxy_provider_adapter_pid" 2>/dev/null || true
+  fi
   if [[ -n "$business_provider_pid" ]]; then
     kill "$business_provider_pid" 2>/dev/null || true
   fi
@@ -223,6 +227,7 @@ desktop_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); p
 desktop_b_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 desktop_c_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 proxy_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+proxy_provider_adapter_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 business_provider_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 reviewer_model_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 
@@ -253,6 +258,37 @@ done
 if [[ "$proxy_ready" != "true" ]]; then
   echo "Fake HTTP proxy did not become ready on 127.0.0.1:${proxy_port}." >&2
   cat "$temp_dir/proxy.log" >&2 || true
+  exit 1
+fi
+
+proxy_provider_adapter_token="proxy-provider-adapter-integration-token"
+proxy_provider_credential_ref="vault://tenant-integration/proxy/primary"
+printf '%s\n' "$proxy_provider_adapter_token" >"$temp_dir/proxy-provider-adapter-token"
+chmod 600 "$temp_dir/proxy-provider-adapter-token"
+python3 "$repo_root/tests/fixtures/fake-proxy-provider-adapter.py" \
+  "$proxy_provider_adapter_port" "$proxy_provider_adapter_token" "$proxy_port" \
+  "$proxy_provider_credential_ref" "$temp_dir/proxy-provider-adapter-events.jsonl" \
+  >"$temp_dir/proxy-provider-adapter.log" 2>&1 &
+proxy_provider_adapter_pid=$!
+proxy_provider_adapter_ready="false"
+for _ in $(seq 1 200); do
+  if python3 - "$proxy_provider_adapter_port" <<'PY' >/dev/null 2>&1
+import socket
+import sys
+
+with socket.create_connection(("127.0.0.1", int(sys.argv[1])), timeout=0.2):
+    pass
+PY
+  then
+    proxy_provider_adapter_ready="true"
+    break
+  fi
+  if ! kill -0 "$proxy_provider_adapter_pid" 2>/dev/null; then break; fi
+  sleep 0.1
+done
+if [[ "$proxy_provider_adapter_ready" != "true" ]]; then
+  echo "Fake proxy Provider Adapter did not become ready." >&2
+  cat "$temp_dir/proxy-provider-adapter.log" >&2 || true
   exit 1
 fi
 
@@ -306,6 +342,39 @@ with open(path, "w", encoding="utf-8") as handle:
                     "costPerGibUsd": 0.1250,
                     "reputationScore": 92,
                     "maxConcurrentSessions": 400,
+                }
+            ],
+        },
+        handle,
+    )
+os.chmod(path, 0o640)
+PY
+
+python3 - "$temp_dir/proxy-provider-control-config.json" "$proxy_port" \
+  "$proxy_provider_adapter_port" "$temp_dir/proxy-provider-adapter-token" <<'PY'
+import json
+import os
+import sys
+
+path, proxy_port, adapter_port, token_file = sys.argv[1:]
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(
+        {
+            "version": 2,
+            "providers": [
+                {
+                    "providerId": "static-local",
+                    "endpoint": f"http://127.0.0.1:{proxy_port}",
+                    "expectedExitIp": "203.0.113.10",
+                    "credentialRef": "vault://tenant-integration/proxy/primary",
+                    "regions": ["local"],
+                    "costPerGibUsd": 0.1250,
+                    "reputationScore": 92,
+                    "maxConcurrentSessions": 400,
+                    "adapterType": "REMOTE_HTTP_V1",
+                    "adapterBaseUrl": f"http://127.0.0.1:{adapter_port}",
+                    "adapterServiceTokenFile": token_file,
+                    "adapterAllowedEndpointHosts": ["127.0.0.1"],
                 }
             ],
         },
@@ -730,7 +799,7 @@ GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
 GRPC_TLS_CERT="$temp_dir/control-plane.crt" \
 GRPC_TLS_KEY="$temp_dir/control-plane.key" \
 BROWSER_NODE_TLS_SERVER_NAME=browser-node.internal \
-PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-config.json" \
+PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-control-config.json" \
 COORDINATOR_INSTANCE_ID=coordinator-integration-a \
 COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
@@ -2606,7 +2675,7 @@ GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
 GRPC_TLS_CERT="$temp_dir/control-plane.crt" \
 GRPC_TLS_KEY="$temp_dir/control-plane.key" \
 BROWSER_NODE_TLS_SERVER_NAME=browser-node.internal \
-PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-config.json" \
+PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-control-config.json" \
 COORDINATOR_INSTANCE_ID=coordinator-integration-b \
 COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
@@ -3127,7 +3196,7 @@ proxy_binding_db_summary="$(docker exec "$postgres_name" psql -U browsercloud -d
      (select count(*) from proxy_allocations
       where tenant_id='tenant-integration' and session_id='${session_one}'
         and provider_endpoint_id=allocation_id
-        and provider_adapter_type='CONFIGURED_HTTP')")"
+        and provider_adapter_type='REMOTE_HTTP_V1')")"
 test "$proxy_binding_db_summary" = "1:1:1"
 grep -q 'http://browsercloud.invalid/exit' "$temp_dir/proxy-events.jsonl"
 python3 - "$temp_dir/proxy-events.jsonl" <<'PY'
@@ -3772,7 +3841,7 @@ GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
 GRPC_TLS_CERT="$temp_dir/control-plane.crt" \
 GRPC_TLS_KEY="$temp_dir/control-plane.key" \
 BROWSER_NODE_TLS_SERVER_NAME=browser-node.internal \
-PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-config.json" \
+PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-control-config.json" \
 COORDINATOR_INSTANCE_ID=coordinator-integration-b \
 COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
@@ -4030,7 +4099,7 @@ GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
 GRPC_TLS_CERT="$temp_dir/control-plane.crt" \
 GRPC_TLS_KEY="$temp_dir/control-plane.key" \
 BROWSER_NODE_TLS_SERVER_NAME=browser-node.internal \
-PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-config.json" \
+PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-control-config.json" \
 COORDINATOR_INSTANCE_ID=coordinator-integration-c \
 COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
@@ -4389,7 +4458,7 @@ GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
 GRPC_TLS_CERT="$temp_dir/control-plane.crt" \
 GRPC_TLS_KEY="$temp_dir/control-plane.key" \
 BROWSER_NODE_TLS_SERVER_NAME=browser-node.internal \
-PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-config.json" \
+PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-control-config.json" \
 COORDINATOR_INSTANCE_ID=coordinator-integration-d \
 COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
@@ -5705,7 +5774,7 @@ GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
 GRPC_TLS_CERT="$temp_dir/control-plane.crt" \
 GRPC_TLS_KEY="$temp_dir/control-plane.key" \
 BROWSER_NODE_TLS_SERVER_NAME=browser-node.internal \
-PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-config.json" \
+PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-control-config.json" \
 COORDINATOR_INSTANCE_ID=coordinator-integration-d \
 COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
@@ -5884,7 +5953,7 @@ GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
 GRPC_TLS_CERT="$temp_dir/control-plane.crt" \
 GRPC_TLS_KEY="$temp_dir/control-plane.key" \
 BROWSER_NODE_TLS_SERVER_NAME=browser-node.internal \
-PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-config.json" \
+PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-control-config.json" \
 COORDINATOR_INSTANCE_ID=coordinator-agent-worker-integration \
 COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
@@ -7528,6 +7597,19 @@ for _ in $(seq 1 80); do
   sleep 0.25
 done
 test "$proxy_rebind_session_state" = "TERMINATED"
+python3 - "$temp_dir/proxy-provider-adapter-events.jsonl" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    events = [json.loads(line) for line in handle if line.strip()]
+allocations = [event for event in events if event["path"].endswith("/allocate")]
+releases = [event for event in events if event["method"] == "DELETE"]
+assert allocations, events
+assert releases, events
+assert all(event["idempotencyKey"] for event in allocations + releases), events
+assert all(event["credentialReferenceOnly"] for event in allocations), events
+PY
 
 docker exec "$postgres_name" psql -U browsercloud -d browsercloud -c \
   "insert into durable_workflows(workflow_id,tenant_id,session_id,operation_id,workflow_type,attempt,priority,state,phase,coordinator_term,context_epoch,operation_epoch,phase_deadline,operation_deadline,idempotency_key,compensation_action,created_at,updated_at) values ('wf_smoke_deadletter','tenant-integration','${second_session}','op_missing_fault','FAULT_INJECTION',1,1,'RUNNING','PREPARING',0,0,999,now()-interval '1 second',now()-interval '1 second','smoke-deadletter','NONE',now(),now())" \
@@ -8896,3 +8978,4 @@ printf 'worker_queue_long_poll_notify=true\n'
 printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\nsession_rename=true\nsession_configuration_export=true\nsession_configuration_clone=true\nsession_batch_delete=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\ncoordinator_command_routed=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ndual_node_migration=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_commercial_basic_auth=true\nproxy_provider_adapter=true\nproxy_cold_health=true\nproxy_active_health=true\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nrelease_freeze=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nworkspace_notification_center=true\nworkspace_overview=true\nenterprise_overview_event_stream=true\nworkspace_theme_preferences=true\nruntime_validation_farm=true\nruntime_validation_worker_queue=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\nagent_reviewer=true\nreviewer_model_provider=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\nrecording_frame_redaction=true\nscreenshot_evidence=true\nobserver_manual_evidence=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"
+printf 'proxy_remote_provider_adapter=true\n'

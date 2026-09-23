@@ -13,6 +13,8 @@ import java.util.Set;
  */
 public interface ProxyProviderAdapter {
 
+  String adapterType();
+
   ProxyProviderCapabilities capabilities();
 
   ProxyEndpoint allocate(ProxyAllocationRequest request);

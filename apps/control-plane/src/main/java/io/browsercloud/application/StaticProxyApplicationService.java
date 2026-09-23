@@ -21,7 +21,6 @@ import io.browsercloud.persistence.SessionProxyBindingAssignmentEntity;
 import io.browsercloud.persistence.SessionProxyBindingAssignmentJpaRepository;
 import io.browsercloud.security.DeploymentEnvironment;
 import java.math.BigDecimal;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -54,6 +53,7 @@ public class StaticProxyApplicationService {
   private final ProxyBindingHealthApplicationService bindingHealth;
   private final ProxyRouteLearningApplicationService routeLearning;
   private final Map<ProviderKey, ProviderDescriptor> providers;
+  private final Map<ProviderKey, ProxyProviderAdapter> providerAdapters;
   private final ProviderDescriptor defaultProvider;
   private final String providerId;
   private final String endpoint;
@@ -96,6 +96,18 @@ public class StaticProxyApplicationService {
             50,
             10000);
     this.providers = loadProviderCatalog(providerConfigFile, fallbackProvider);
+    var configuredAdapters = new HashMap<ProviderKey, ProxyProviderAdapter>();
+    this.providers.forEach(
+        (key, provider) ->
+            configuredAdapters.put(
+                key,
+                new ConfiguredHttpProxyProviderAdapter(
+                    provider.providerId(),
+                    provider.endpoint(),
+                    provider.expectedExitIp(),
+                    provider.credentialRef(),
+                    provider.regions())));
+    this.providerAdapters = Map.copyOf(configuredAdapters);
     this.defaultProvider =
         this.providers.size() == 1 ? this.providers.values().iterator().next() : null;
     this.providerId = defaultProvider == null ? "provider-catalog" : defaultProvider.providerId();
@@ -348,21 +360,36 @@ public class StaticProxyApplicationService {
                     requireConfiguredProvider(
                         item.getProviderId(), item.getCredentialRef(), item.getExpectedExitIp()))
             .orElseGet(this::requireDefaultProvider);
+    var allocatedEndpoint =
+        requireProviderAdapter(selectedProvider)
+            .allocate(
+                new ProxyProviderAdapter.ProxyAllocationRequest(
+                    allocationId,
+                    session.tenantId(),
+                    session.sessionId(),
+                    assignment.map(SessionProxyBindingAssignmentEntity::getRegion).orElse(null),
+                    null,
+                    null,
+                    null,
+                    null,
+                    true));
     repository.save(
         new ProxyAllocationEntity(
             allocationId,
             session.tenantId(),
             session.sessionId(),
-            selectedProvider.providerId(),
-            selectedProvider.endpoint(),
+            allocatedEndpoint.providerId(),
+            allocatedEndpoint.endpoint(),
+            allocatedEndpoint.endpointId(),
+            "CONFIGURED_HTTP",
             assignment.map(SessionProxyBindingAssignmentEntity::getBindingProfileId).orElse(null),
             assignment.map(SessionProxyBindingAssignmentEntity::getBindingVersion).orElse(null),
             assignment
                 .map(SessionProxyBindingAssignmentEntity::getExpectedExitIp)
-                .orElse(selectedProvider.expectedExitIp()),
+                .orElse(allocatedEndpoint.expectedExitIp()),
             assignment
                 .map(SessionProxyBindingAssignmentEntity::getCredentialRef)
-                .orElse(selectedProvider.credentialRef()),
+                .orElse(allocatedEndpoint.credentialRef()),
             Instant.now()));
     var boundContext = session.withProxyBinding(allocationId);
     sessionRepository.updateWithExpectedEpoch(boundContext, session.contextEpoch());
@@ -415,6 +442,15 @@ public class StaticProxyApplicationService {
         .findFirstBySessionIdAndStateIn(sessionId, ACTIVE_STATES)
         .ifPresent(
             allocation -> {
+              var adapter =
+                  providerAdapters.get(
+                      new ProviderKey(allocation.getProvider(), allocation.getCredentialRef()));
+              if (adapter != null) {
+                adapter.release(
+                    allocation.getProviderEndpointId() == null
+                        ? allocation.getAllocationId()
+                        : allocation.getProviderEndpointId());
+              }
               allocation.release(Instant.now());
               repository.save(allocation);
             });
@@ -1213,6 +1249,18 @@ public class StaticProxyApplicationService {
     return provider;
   }
 
+  private ProxyProviderAdapter requireProviderAdapter(ProviderDescriptor provider) {
+    var adapter =
+        providerAdapters.get(new ProviderKey(provider.providerId(), provider.credentialRef()));
+    if (adapter == null) {
+      throw new ProxyProviderAdapter.ProxyProviderException(
+          ProxyProviderAdapter.ErrorCode.PROVIDER_OUTAGE,
+          true,
+          "proxy provider adapter is not configured");
+    }
+    return adapter;
+  }
+
   private static void requireProviderRegion(ProviderDescriptor provider, String region) {
     if (!provider.regions().isEmpty() && !provider.regions().contains(region)) {
       throw new ProxyBindingRejectedException("PROVIDER_REGION_NOT_SUPPORTED");
@@ -1358,16 +1406,7 @@ public class StaticProxyApplicationService {
   }
 
   private static void validateEndpoint(String value) {
-    var uri = URI.create(value);
-    if (!"http".equals(uri.getScheme())
-        || uri.getHost() == null
-        || uri.getPort() <= 0
-        || uri.getUserInfo() != null
-        || (uri.getPath() != null && !uri.getPath().isBlank())
-        || uri.getQuery() != null
-        || uri.getFragment() != null) {
-      throw new IllegalStateException("Static proxy endpoint must be http://host:port");
-    }
+    ConfiguredHttpProxyProviderAdapter.validateEndpoint(value);
   }
 
   private static void validateProvider(ProviderDescriptor provider) {

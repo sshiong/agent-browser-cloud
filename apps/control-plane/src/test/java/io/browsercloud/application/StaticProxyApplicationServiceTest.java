@@ -80,6 +80,9 @@ class StaticProxyApplicationServiceTest {
     assertThat(allocation.getValue().getTenantId()).isEqualTo("tenant-test");
     assertThat(allocation.getValue().getSessionId()).isEqualTo("ses_test");
     assertThat(allocation.getValue().getState()).isEqualTo("ALLOCATED");
+    assertThat(allocation.getValue().getProviderEndpointId())
+        .isEqualTo(allocation.getValue().getAllocationId());
+    assertThat(allocation.getValue().getProviderAdapterType()).isEqualTo("CONFIGURED_HTTP");
     verify(sessionRepository).updateWithExpectedEpoch(bound, 3);
   }
 

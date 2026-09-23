@@ -26,6 +26,12 @@ public class ProxyAllocationEntity {
   @Column(name = "endpoint", nullable = false)
   private String endpoint;
 
+  @Column(name = "provider_endpoint_id")
+  private String providerEndpointId;
+
+  @Column(name = "provider_adapter_type")
+  private String providerAdapterType;
+
   @Column(name = "protocol", nullable = false)
   private String protocol;
 
@@ -94,11 +100,41 @@ public class ProxyAllocationEntity {
       String expectedExitIp,
       String credentialRef,
       Instant now) {
+    this(
+        allocationId,
+        tenantId,
+        sessionId,
+        provider,
+        endpoint,
+        allocationId,
+        "CONFIGURED_HTTP",
+        bindingProfileId,
+        bindingVersion,
+        expectedExitIp,
+        credentialRef,
+        now);
+  }
+
+  public ProxyAllocationEntity(
+      String allocationId,
+      String tenantId,
+      String sessionId,
+      String provider,
+      String endpoint,
+      String providerEndpointId,
+      String providerAdapterType,
+      String bindingProfileId,
+      Long bindingVersion,
+      String expectedExitIp,
+      String credentialRef,
+      Instant now) {
     this.allocationId = allocationId;
     this.tenantId = tenantId;
     this.sessionId = sessionId;
     this.provider = provider;
     this.endpoint = endpoint;
+    this.providerEndpointId = providerEndpointId;
+    this.providerAdapterType = providerAdapterType;
     this.protocol = "HTTP";
     this.ipType = "STATIC";
     this.credentialRef = credentialRef == null ? "" : credentialRef;
@@ -128,6 +164,14 @@ public class ProxyAllocationEntity {
 
   public String getEndpoint() {
     return endpoint;
+  }
+
+  public String getProviderEndpointId() {
+    return providerEndpointId;
+  }
+
+  public String getProviderAdapterType() {
+    return providerAdapterType;
   }
 
   public String getProtocol() {

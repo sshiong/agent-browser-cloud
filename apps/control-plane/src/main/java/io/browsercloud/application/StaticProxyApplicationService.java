@@ -52,6 +52,7 @@ public class StaticProxyApplicationService {
   private final IdempotencyService idempotency;
   private final AuditApplicationService audit;
   private final ProxyBindingHealthApplicationService bindingHealth;
+  private final ProxyRouteLearningApplicationService routeLearning;
   private final Map<ProviderKey, ProviderDescriptor> providers;
   private final ProviderDescriptor defaultProvider;
   private final String providerId;
@@ -68,6 +69,7 @@ public class StaticProxyApplicationService {
       IdempotencyService idempotency,
       AuditApplicationService audit,
       ProxyBindingHealthApplicationService bindingHealth,
+      ProxyRouteLearningApplicationService routeLearning,
       @Value("${proxy.static.provider-id:static-local}") String providerId,
       @Value("${proxy.static.endpoint:}") String endpoint,
       @Value("${proxy.static.expected-exit-ip:}") String expectedExitIp,
@@ -82,6 +84,7 @@ public class StaticProxyApplicationService {
     this.idempotency = idempotency;
     this.audit = audit;
     this.bindingHealth = bindingHealth;
+    this.routeLearning = routeLearning;
     var fallbackProvider =
         new ProviderDescriptor(
             requireIdentifier(providerId, "proxy provider ID"),
@@ -131,7 +134,40 @@ public class StaticProxyApplicationService {
         sessionRepository,
         idempotency,
         audit,
+        providerId,
+        endpoint,
+        expectedExitIp,
+        credentialRef,
+        providerConfigFile,
+        allowDirect,
+        environment,
+        null);
+  }
+
+  StaticProxyApplicationService(
+      ProxyAllocationJpaRepository repository,
+      ProxyBindingProfileJpaRepository bindingProfiles,
+      SessionProxyBindingAssignmentJpaRepository bindingAssignments,
+      SessionRepository sessionRepository,
+      IdempotencyService idempotency,
+      AuditApplicationService audit,
+      String providerId,
+      String endpoint,
+      String expectedExitIp,
+      String credentialRef,
+      String providerConfigFile,
+      boolean allowDirect,
+      String environment,
+      ProxyRouteLearningApplicationService routeLearning) {
+    this(
+        repository,
+        bindingProfiles,
+        bindingAssignments,
+        sessionRepository,
+        idempotency,
+        audit,
         null,
+        routeLearning,
         providerId,
         endpoint,
         expectedExitIp,
@@ -665,6 +701,15 @@ public class StaticProxyApplicationService {
 
   private void assignAutomaticBindingProfile(
       SessionContext session, String sessionRegion, String actorId, Instant now) {
+    var outcomeEvidence =
+        routeLearning == null
+            ? Map.<String, ProxyRouteLearningApplicationService.BusinessOutcomeEvidence>of()
+            : routeLearning.evidence(session.tenantId());
+    var stickyBindingProfileId =
+        routeLearning == null
+            ? null
+            : routeLearning.previousBindingForProfile(
+                session.tenantId(), session.profileId(), session.sessionId());
     var candidates =
         bindingProfiles.findAllForAutomaticRouting(session.tenantId()).stream()
             .filter(ProxyBindingProfileEntity::isEnabled)
@@ -677,7 +722,14 @@ public class StaticProxyApplicationService {
                             .isBefore(now.minusSeconds(HEALTH_FRESHNESS_SECONDS)))
             .filter(
                 profile -> profile.getRegion() == null || profile.getRegion().equals(sessionRegion))
-            .map(profile -> automaticCandidate(session.tenantId(), sessionRegion, profile))
+            .map(
+                profile ->
+                    automaticCandidate(
+                        session.tenantId(),
+                        sessionRegion,
+                        profile,
+                        currentProviderEvidence(profile, outcomeEvidence),
+                        profile.getBindingProfileId().equals(stickyBindingProfileId)))
             .flatMap(java.util.Optional::stream)
             .toList();
     if (candidates.isEmpty()) {
@@ -697,7 +749,7 @@ public class StaticProxyApplicationService {
         candidates.stream()
             .map(candidate -> scoreCandidate(candidate, sessionRegion, minimumCost, maximumCost))
             .toList();
-    var ranked =
+    var scoreWinner =
         scored.stream()
             .sorted(
                 Comparator.comparingDouble(AutoRouteSelection::routingScore)
@@ -709,6 +761,31 @@ public class StaticProxyApplicationService {
                         selection -> selection.candidate().profile().getBindingProfileId()))
             .findFirst()
             .orElseThrow();
+    var stickyWinner =
+        scored.stream()
+            .filter(selection -> selection.candidate().profileSticky())
+            .filter(selection -> selection.routingScore() >= scoreWinner.routingScore() - 8.0)
+            .max(Comparator.comparingDouble(AutoRouteSelection::routingScore));
+    var explorationWinner =
+        stickyWinner.isPresent() || !shouldExplore(session.tenantId(), session.sessionId())
+            ? java.util.Optional.<AutoRouteSelection>empty()
+            : scored.stream()
+                .filter(selection -> selection != scoreWinner)
+                .filter(AutoRouteSelection::explorationEligible)
+                .filter(selection -> selection.qualityScore() >= 60)
+                .filter(selection -> selection.routingScore() >= scoreWinner.routingScore() - 8.0)
+                .sorted(
+                    Comparator.comparingLong(
+                            (AutoRouteSelection selection) ->
+                                selection.candidate().businessOutcome().sampleCount())
+                        .thenComparing(
+                            selection -> selection.candidate().profile().getBindingProfileId()))
+                .findFirst();
+    var ranked = explorationWinner.or(() -> stickyWinner).orElse(scoreWinner);
+    var selectionReason =
+        explorationWinner.isPresent()
+            ? "CONSTRAINED_EXPLORATION"
+            : stickyWinner.isPresent() ? "PROFILE_STICKY" : "SCORE";
     var candidateScores =
         scored.stream()
             .sorted(Comparator.comparingDouble(AutoRouteSelection::routingScore).reversed())
@@ -733,6 +810,7 @@ public class StaticProxyApplicationService {
             profile.getCostPerGibUsd(),
             Math.toIntExact(ranked.candidate().activeReservations()),
             profile.getMaxConcurrentSessions(),
+            selectionReason,
             candidateScores));
     appendBindingAudit(
         session.tenantId(),
@@ -740,21 +818,29 @@ public class StaticProxyApplicationService {
         profile.getBindingProfileId(),
         "SESSION_PROXY_ROUTE_SELECTED",
         "proxy-route-" + session.sessionId(),
-        Map.of(
-            "sessionId", session.sessionId(),
-            "providerId", profile.getProviderId(),
-            "region", profile.getRegion() == null ? "ANY" : profile.getRegion(),
-            "routingScore", ranked.routingScore(),
-            "qualityScore", ranked.qualityScore(),
-            "reputationScore", profile.getReputationScore(),
-            "costPerGibUsd", profile.getCostPerGibUsd(),
-            "activeReservations", ranked.candidate().activeReservations(),
-            "maxConcurrentSessions", profile.getMaxConcurrentSessions(),
-            "candidateScores", candidateScores));
+        Map.ofEntries(
+            Map.entry("sessionId", session.sessionId()),
+            Map.entry("providerId", profile.getProviderId()),
+            Map.entry("region", profile.getRegion() == null ? "ANY" : profile.getRegion()),
+            Map.entry("routingScore", ranked.routingScore()),
+            Map.entry("selectionReason", selectionReason),
+            Map.entry("qualityScore", ranked.qualityScore()),
+            Map.entry("businessOutcomeScore", ranked.businessOutcomeScore()),
+            Map.entry(
+                "businessOutcomeSampleCount", ranked.candidate().businessOutcome().sampleCount()),
+            Map.entry("reputationScore", profile.getReputationScore()),
+            Map.entry("costPerGibUsd", profile.getCostPerGibUsd()),
+            Map.entry("activeReservations", ranked.candidate().activeReservations()),
+            Map.entry("maxConcurrentSessions", profile.getMaxConcurrentSessions()),
+            Map.entry("candidateScores", candidateScores)));
   }
 
   private java.util.Optional<AutoRouteCandidate> automaticCandidate(
-      String tenantId, String sessionRegion, ProxyBindingProfileEntity profile) {
+      String tenantId,
+      String sessionRegion,
+      ProxyBindingProfileEntity profile,
+      ProxyRouteLearningApplicationService.BusinessOutcomeEvidence businessOutcome,
+      boolean profileSticky) {
     ProviderDescriptor provider;
     try {
       provider =
@@ -776,7 +862,17 @@ public class StaticProxyApplicationService {
     if (quality == null) {
       return java.util.Optional.empty();
     }
-    return java.util.Optional.of(new AutoRouteCandidate(profile, provider, active, quality));
+    return java.util.Optional.of(
+        new AutoRouteCandidate(profile, provider, active, quality, businessOutcome, profileSticky));
+  }
+
+  static ProxyRouteLearningApplicationService.BusinessOutcomeEvidence currentProviderEvidence(
+      ProxyBindingProfileEntity profile,
+      Map<String, ProxyRouteLearningApplicationService.BusinessOutcomeEvidence> evidence) {
+    var learned = evidence.get(profile.getBindingProfileId());
+    return learned != null && profile.getProviderId().equals(learned.providerId())
+        ? learned
+        : ProxyRouteLearningApplicationService.neutralEvidence();
   }
 
   private static AutoRouteSelection scoreCandidate(
@@ -800,13 +896,23 @@ public class StaticProxyApplicationService {
             * (profile.getMaxConcurrentSessions() - candidate.activeReservations())
             / profile.getMaxConcurrentSessions();
     var routingScore =
-        candidate.qualityScore() * 0.45
-            + profile.getReputationScore() * 0.20
+        candidate.qualityScore() * 0.35
+            + profile.getReputationScore() * 0.15
+            + candidate.businessOutcome().score() * 0.10
             + costScore * 0.15
             + regionScore * 0.10
-            + headroomScore * 0.10;
+            + headroomScore * 0.10
+            + (candidate.profileSticky() ? 5.0 : 0.0);
     return new AutoRouteSelection(
-        candidate, candidate.qualityScore(), costScore, regionScore, headroomScore, routingScore);
+        candidate,
+        candidate.qualityScore(),
+        costScore,
+        regionScore,
+        headroomScore,
+        candidate.businessOutcome().score(),
+        candidate.businessOutcome().sampleCount()
+            < ProxyRouteLearningApplicationService.EXPLORATION_TARGET_SAMPLES,
+        routingScore);
   }
 
   private static Map<String, Object> candidateScoreEvidence(AutoRouteSelection selection) {
@@ -821,6 +927,11 @@ public class StaticProxyApplicationService {
         Map.entry("costScore", selection.costScore()),
         Map.entry("regionScore", selection.regionScore()),
         Map.entry("headroomScore", selection.headroomScore()),
+        Map.entry("businessOutcomeScore", selection.businessOutcomeScore()),
+        Map.entry(
+            "businessOutcomeSampleCount", selection.candidate().businessOutcome().sampleCount()),
+        Map.entry("profileSticky", selection.candidate().profileSticky()),
+        Map.entry("explorationEligible", selection.explorationEligible()),
         Map.entry("activeReservations", selection.candidate().activeReservations()),
         Map.entry("maxConcurrentSessions", profile.getMaxConcurrentSessions()));
   }
@@ -860,6 +971,7 @@ public class StaticProxyApplicationService {
         assignment.getBindingProfileId(),
         assignment.getProviderId(),
         assignment.getSelectionMode(),
+        assignment.getSelectionReason(),
         assignment.getRoutingScore(),
         assignment.getQualityScore(),
         assignment.getReputationScore(),
@@ -882,6 +994,10 @@ public class StaticProxyApplicationService {
         number(value, "costScore").doubleValue(),
         number(value, "regionScore").doubleValue(),
         number(value, "headroomScore").doubleValue(),
+        optionalNumber(value, "businessOutcomeScore", 50.0).doubleValue(),
+        optionalNumber(value, "businessOutcomeSampleCount", 0).longValue(),
+        optionalBoolean(value, "profileSticky"),
+        optionalBoolean(value, "explorationEligible"),
         number(value, "activeReservations").intValue(),
         number(value, "maxConcurrentSessions").intValue());
   }
@@ -892,6 +1008,20 @@ public class StaticProxyApplicationService {
       return number;
     }
     throw new IllegalStateException("persisted proxy routing evidence is invalid");
+  }
+
+  private static Number optionalNumber(Map<String, Object> value, String key, Number fallback) {
+    var raw = value.get(key);
+    return raw == null ? fallback : number(value, key);
+  }
+
+  private static boolean optionalBoolean(Map<String, Object> value, String key) {
+    var raw = value.get(key);
+    return raw instanceof Boolean flag && flag;
+  }
+
+  static boolean shouldExplore(String tenantId, String sessionId) {
+    return Math.floorMod((tenantId + "|" + sessionId).hashCode(), 20) == 0;
   }
 
   @Transactional(readOnly = true)
@@ -1285,7 +1415,9 @@ public class StaticProxyApplicationService {
       ProxyBindingProfileEntity profile,
       ProviderDescriptor provider,
       long activeReservations,
-      int qualityScore) {}
+      int qualityScore,
+      ProxyRouteLearningApplicationService.BusinessOutcomeEvidence businessOutcome,
+      boolean profileSticky) {}
 
   private record AutoRouteSelection(
       AutoRouteCandidate candidate,
@@ -1293,6 +1425,8 @@ public class StaticProxyApplicationService {
       double costScore,
       double regionScore,
       double headroomScore,
+      double businessOutcomeScore,
+      boolean explorationEligible,
       double routingScore) {}
 
   public record RebindTargetSnapshot(

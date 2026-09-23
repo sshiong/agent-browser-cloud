@@ -8,6 +8,10 @@ export type ProxyRoutingDecision = {
     bindingProfileId: string;
     providerId: string;
     selectionMode: 'EXPLICIT' | 'AUTO';
+    /**
+     * Immutable reason for a new AUTO decision; null on explicit and historical assignments.
+     */
+    selectionReason?: 'SCORE' | 'PROFILE_STICKY' | 'CONSTRAINED_EXPLORATION';
     routingScore?: number | null;
     qualityScore?: number | null;
     reputationScore?: number | null;

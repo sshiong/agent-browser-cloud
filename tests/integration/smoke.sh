@@ -5716,7 +5716,17 @@ test "$reviewer_model_ready" = "true"
 # dedicated Session through the authoritative event receiver before starting the API-only Worker
 # instance. This establishes live Coordinator ownership on the sole Node event target and prevents
 # the second instance from racing the initial Browser State observation lease.
-reviewer_session_request='{"tenantId":"tenant-integration","profileId":"profile-reviewer-worker","runtimeBuildId":"runtime_local_chromium","region":"local","resourcePolicy":{"mode":"AUTO"},"requestedTabs":2,"agentActionsPerMinute":60,"agentPolicy":"INTERACTIVE","metadata":{"displayName":"Reviewer worker integration"}}'
+proxy_learning_binding="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/proxy-bindings" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: proxy-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-proxy-learning-binding-001' \
+  -d '{"name":"Outcome learning route","description":"Dedicated enabled route for independently verified outcome feedback","providerId":"static-local","region":"local","expectedExitIp":"203.0.113.10","credentialRef":"vault://tenant-integration/proxy/primary","enabled":true}')"
+proxy_learning_binding_id="$(printf '%s' "$proxy_learning_binding" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["enabled"] is True; print(item["bindingProfileId"])')"
+reviewer_session_request="{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-reviewer-worker\",\"runtimeBuildId\":\"runtime_local_chromium\",\"region\":\"local\",\"proxyBindingProfileId\":\"${proxy_learning_binding_id}\",\"resourcePolicy\":{\"mode\":\"AUTO\"},\"requestedTabs\":2,\"agentActionsPerMinute\":60,\"agentPolicy\":\"INTERACTIVE\",\"metadata\":{\"displayName\":\"Reviewer worker integration\"}}"
 reviewer_session_status="$(curl -sS -o "$temp_dir/reviewer-session-created.json" -w '%{http_code}' -X POST \
   "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
@@ -6259,12 +6269,27 @@ test "$outcome_committed_rows" = "2"
 outcome_rejected_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from agent_outcome_verification_jobs where state='NOT_VERIFIED' and decision='NOT_VERIFIED' and reason_codes='[\"EXPECTED_OUTCOME_NOT_MET\"]'::jsonb")"
 test "$outcome_rejected_rows" = "1"
+proxy_business_learning_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select stats.sample_count || ':' || stats.verified_count || ':' || stats.rejected_count || ':' ||
+          (select count(*) from proxy_route_business_outcomes outcome
+            where outcome.tenant_id=stats.tenant_id
+              and outcome.binding_profile_id=stats.binding_profile_id)
+     from proxy_route_business_stats stats
+    where stats.tenant_id='tenant-integration'
+      and stats.binding_profile_id='${proxy_learning_binding_id}'")"
+test "$proxy_business_learning_summary" = "3:2:1:3"
+proxy_business_learning_sensitive_columns="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from information_schema.columns
+    where table_name='proxy_route_business_outcomes'
+      and column_name ~ '(goal|url|content|credential|capability|model_output)'")"
+test "$proxy_business_learning_sensitive_columns" = "0"
 expected_outcome_secret_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from agent_tasks where task_id='${false_success_task_id}' and (expected_outcomes::text like '%Intent verification must reject this title%' or outcome_expected_results::text like '%Intent verification must reject this title%')")"
 test "$expected_outcome_secret_rows" = "0"
 echo "agent_task_outcome_verification=true"
 echo "agent_task_expected_outcomes=true"
 echo "agent_reviewer_risk_routing=true"
+echo "proxy_business_outcome_learning=true"
 
 curl -fsS -X POST \
   "http://localhost:${control_b_port}/api/v1/sessions/${reviewer_session}:terminate" \

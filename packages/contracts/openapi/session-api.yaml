@@ -10358,6 +10358,21 @@ components:
           type: number
           minimum: 0
           maximum: 100
+        businessOutcomeScore:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Tenant/Binding-scoped score learned only from independently verified outcomes; neutral until five samples. Absent on N-1 servers.
+        businessOutcomeSampleCount:
+          type: integer
+          format: int64
+          minimum: 0
+        profileSticky:
+          type: boolean
+          description: The candidate matches the most recent healthy route for the same Browser Profile. Absent on N-1 servers.
+        explorationEligible:
+          type: boolean
+          description: The candidate has fewer than twenty verified outcome samples; selection remains constrained by health, capacity, quality and score distance.
         activeReservations:
           type: integer
           minimum: 0
@@ -10387,6 +10402,10 @@ components:
         selectionMode:
           type: string
           enum: [EXPLICIT, AUTO]
+        selectionReason:
+          type: [string, "null"]
+          enum: [SCORE, PROFILE_STICKY, CONSTRAINED_EXPLORATION, null]
+          description: Immutable reason for a new AUTO decision; null on explicit and historical assignments.
         routingScore:
           type: [number, "null"]
           minimum: 0

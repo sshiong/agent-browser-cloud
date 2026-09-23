@@ -1303,17 +1303,21 @@ type ProxyBindingList struct {
 }
 
 type ProxyRoutingCandidateScore struct {
-	BindingProfileId      string  `json:"bindingProfileId,omitempty"`
-	ProviderId            string  `json:"providerId,omitempty"`
-	RoutingScore          float64 `json:"routingScore,omitempty"`
-	QualityScore          int     `json:"qualityScore,omitempty"`
-	ReputationScore       int     `json:"reputationScore,omitempty"`
-	CostPerGibUsd         float64 `json:"costPerGibUsd,omitempty"`
-	CostScore             float64 `json:"costScore,omitempty"`
-	RegionScore           float64 `json:"regionScore,omitempty"`
-	HeadroomScore         float64 `json:"headroomScore,omitempty"`
-	ActiveReservations    int     `json:"activeReservations,omitempty"`
-	MaxConcurrentSessions int     `json:"maxConcurrentSessions,omitempty"`
+	BindingProfileId           string  `json:"bindingProfileId,omitempty"`
+	ProviderId                 string  `json:"providerId,omitempty"`
+	RoutingScore               float64 `json:"routingScore,omitempty"`
+	QualityScore               int     `json:"qualityScore,omitempty"`
+	ReputationScore            int     `json:"reputationScore,omitempty"`
+	CostPerGibUsd              float64 `json:"costPerGibUsd,omitempty"`
+	CostScore                  float64 `json:"costScore,omitempty"`
+	RegionScore                float64 `json:"regionScore,omitempty"`
+	HeadroomScore              float64 `json:"headroomScore,omitempty"`
+	BusinessOutcomeScore       float64 `json:"businessOutcomeScore,omitempty"`
+	BusinessOutcomeSampleCount int64   `json:"businessOutcomeSampleCount,omitempty"`
+	ProfileSticky              bool    `json:"profileSticky,omitempty"`
+	ExplorationEligible        bool    `json:"explorationEligible,omitempty"`
+	ActiveReservations         int     `json:"activeReservations,omitempty"`
+	MaxConcurrentSessions      int     `json:"maxConcurrentSessions,omitempty"`
 }
 
 type ProxyRoutingDecision struct {
@@ -1321,6 +1325,7 @@ type ProxyRoutingDecision struct {
 	BindingProfileId      string                       `json:"bindingProfileId,omitempty"`
 	ProviderId            string                       `json:"providerId,omitempty"`
 	SelectionMode         string                       `json:"selectionMode,omitempty"`
+	SelectionReason       any                          `json:"selectionReason,omitempty"`
 	RoutingScore          any                          `json:"routingScore,omitempty"`
 	QualityScore          any                          `json:"qualityScore,omitempty"`
 	ReputationScore       any                          `json:"reputationScore,omitempty"`

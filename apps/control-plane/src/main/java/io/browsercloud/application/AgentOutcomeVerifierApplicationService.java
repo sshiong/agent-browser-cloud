@@ -69,6 +69,7 @@ public class AgentOutcomeVerifierApplicationService {
   private final AgentTaskJpaRepository tasks;
   private final BrowserStateRepository browserStates;
   private final AuditApplicationService audit;
+  private final ProxyRouteLearningApplicationService proxyRouteLearning;
   private final ObjectMapper objectMapper;
   private final boolean enabled;
   private final Duration claimLease;
@@ -81,6 +82,7 @@ public class AgentOutcomeVerifierApplicationService {
       AgentTaskJpaRepository tasks,
       BrowserStateRepository browserStates,
       AuditApplicationService audit,
+      ProxyRouteLearningApplicationService proxyRouteLearning,
       ObjectMapper objectMapper,
       @Value("${agent.outcome-verifier.external.enabled:false}") boolean enabled,
       @Value("${agent.outcome-verifier.external.claim-lease-seconds:90}") long leaseSeconds,
@@ -118,6 +120,7 @@ public class AgentOutcomeVerifierApplicationService {
     this.tasks = tasks;
     this.browserStates = browserStates;
     this.audit = audit;
+    this.proxyRouteLearning = proxyRouteLearning;
     this.objectMapper = objectMapper;
     this.enabled = enabled;
     this.claimLease = Duration.ofSeconds(leaseSeconds);
@@ -406,6 +409,12 @@ public class AgentOutcomeVerifierApplicationService {
       task.rejectOutcome(write(outcome.reasons()), now);
     }
     tasks.save(task);
+    proxyRouteLearning.recordVerifiedOutcome(
+        task,
+        job.verificationId(),
+        outcome.decision() == OutcomeDecision.VERIFIED,
+        outcome.reasons(),
+        now);
     appendEvent(
         jobId,
         finalState,

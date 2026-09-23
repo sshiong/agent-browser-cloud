@@ -91,6 +91,10 @@ export interface ProxyRoutingCandidateScore {
   costScore: number;
   regionScore: number;
   headroomScore: number;
+  businessOutcomeScore?: number;
+  businessOutcomeSampleCount?: number;
+  profileSticky?: boolean;
+  explorationEligible?: boolean;
   activeReservations: number;
   maxConcurrentSessions: number;
 }
@@ -100,6 +104,8 @@ export interface ProxyRoutingDecision {
   bindingProfileId: string;
   providerId: string;
   selectionMode: 'EXPLICIT' | 'AUTO';
+  selectionReason?:
+    'SCORE' | 'PROFILE_STICKY' | 'CONSTRAINED_EXPLORATION' | null;
   routingScore: number | null;
   qualityScore: number | null;
   reputationScore: number | null;

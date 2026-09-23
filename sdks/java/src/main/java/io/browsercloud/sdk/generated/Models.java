@@ -243,9 +243,9 @@ public final class Models {
 
   public record ProxyBindingList(List<ProxyBinding> items, Integer total) {}
 
-  public record ProxyRoutingCandidateScore(String bindingProfileId, String providerId, Double routingScore, Integer qualityScore, Integer reputationScore, Double costPerGibUsd, Double costScore, Double regionScore, Double headroomScore, Integer activeReservations, Integer maxConcurrentSessions) {}
+  public record ProxyRoutingCandidateScore(String bindingProfileId, String providerId, Double routingScore, Integer qualityScore, Integer reputationScore, Double costPerGibUsd, Double costScore, Double regionScore, Double headroomScore, Double businessOutcomeScore, Long businessOutcomeSampleCount, Boolean profileSticky, Boolean explorationEligible, Integer activeReservations, Integer maxConcurrentSessions) {}
 
-  public record ProxyRoutingDecision(String sessionId, String bindingProfileId, String providerId, String selectionMode, Object routingScore, Object qualityScore, Object reputationScore, Object costPerGibUsd, Object activeReservations, Object maxConcurrentSessions, Integer candidateCount, List<ProxyRoutingCandidateScore> candidateScores, String selectedAt) {}
+  public record ProxyRoutingDecision(String sessionId, String bindingProfileId, String providerId, String selectionMode, Object selectionReason, Object routingScore, Object qualityScore, Object reputationScore, Object costPerGibUsd, Object activeReservations, Object maxConcurrentSessions, Integer candidateCount, List<ProxyRoutingCandidateScore> candidateScores, String selectedAt) {}
 
   public record ProxyRebindRequest(String targetBindingProfileId, String reason) {}
 

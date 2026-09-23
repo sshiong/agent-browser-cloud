@@ -75,6 +75,10 @@ public final class ProxyBindingModels {
       double costScore,
       double regionScore,
       double headroomScore,
+      double businessOutcomeScore,
+      long businessOutcomeSampleCount,
+      boolean profileSticky,
+      boolean explorationEligible,
       int activeReservations,
       int maxConcurrentSessions) {}
 
@@ -83,6 +87,7 @@ public final class ProxyBindingModels {
       String bindingProfileId,
       String providerId,
       String selectionMode,
+      String selectionReason,
       Double routingScore,
       Integer qualityScore,
       Integer reputationScore,

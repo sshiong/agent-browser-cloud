@@ -48,6 +48,9 @@ public class SessionProxyBindingAssignmentEntity {
   @Column(name = "selection_mode", nullable = false)
   private String selectionMode;
 
+  @Column(name = "selection_reason")
+  private String selectionReason;
+
   @Column(name = "routing_score")
   private BigDecimal routingScore;
 
@@ -113,6 +116,7 @@ public class SessionProxyBindingAssignmentEntity {
       BigDecimal costPerGibUsd,
       int activeReservations,
       int maxConcurrentSessions,
+      String selectionReason,
       List<Map<String, Object>> candidateScores) {
     var entity =
         new SessionProxyBindingAssignmentEntity(
@@ -134,6 +138,7 @@ public class SessionProxyBindingAssignmentEntity {
     entity.costPerGibUsd = costPerGibUsd;
     entity.activeReservations = activeReservations;
     entity.maxConcurrentSessions = maxConcurrentSessions;
+    entity.selectionReason = selectionReason;
     entity.candidateScores = List.copyOf(candidateScores);
     return entity;
   }
@@ -176,6 +181,10 @@ public class SessionProxyBindingAssignmentEntity {
 
   public String getSelectionMode() {
     return selectionMode;
+  }
+
+  public String getSelectionReason() {
+    return selectionReason;
   }
 
   public Double getRoutingScore() {

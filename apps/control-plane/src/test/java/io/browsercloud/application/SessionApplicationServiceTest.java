@@ -316,6 +316,7 @@ class SessionApplicationServiceTest {
             null,
             null,
             null,
+            null,
             0,
             List.of(),
             now);

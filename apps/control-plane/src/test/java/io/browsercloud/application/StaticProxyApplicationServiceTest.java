@@ -43,6 +43,7 @@ class StaticProxyApplicationServiceTest {
   @Mock private SessionRepository sessionRepository;
   @Mock private IdempotencyService idempotency;
   @Mock private AuditApplicationService audit;
+  @Mock private ProxyRouteLearningApplicationService routeLearning;
 
   private StaticProxyApplicationService service;
 
@@ -394,7 +395,8 @@ class StaticProxyApplicationServiceTest {
             "",
             catalog.toString(),
             false,
-            "test");
+            "test",
+            routeLearning);
     when(repository.findFirstBySessionIdAndStateIn(any(), any())).thenReturn(Optional.empty());
     when(bindingAssignments.findBySessionIdAndTenantId("ses_test", "tenant-test"))
         .thenReturn(
@@ -484,7 +486,8 @@ class StaticProxyApplicationServiceTest {
   }
 
   @Test
-  void shouldAutomaticallyRouteUsingFreshQualityCostReputationRegionAndHeadroom() throws Exception {
+  void shouldUseVerifiedBusinessOutcomesAndBoundedProfileStickinessWithoutBypassingGates()
+      throws Exception {
     var catalog = tempDir.resolve("proxy-routing-providers.json");
     Files.writeString(
         catalog,
@@ -530,7 +533,33 @@ class StaticProxyApplicationServiceTest {
             "",
             catalog.toString(),
             false,
-            "test");
+            "test",
+            routeLearning);
+    when(routeLearning.evidence("tenant-test"))
+        .thenReturn(
+            java.util.Map.of(
+                "pbind_premium000000001",
+                new ProxyRouteLearningApplicationService.BusinessOutcomeEvidence(
+                    "provider-premium",
+                    10,
+                    2,
+                    8,
+                    0.2,
+                    20.0,
+                    4,
+                    Instant.parse("2026-07-25T23:59:00Z")),
+                "pbind_efficient0000001",
+                new ProxyRouteLearningApplicationService.BusinessOutcomeEvidence(
+                    "provider-efficient",
+                    10,
+                    9,
+                    1,
+                    0.9,
+                    90.0,
+                    0,
+                    Instant.parse("2026-07-25T23:59:00Z"))));
+    when(routeLearning.previousBindingForProfile("tenant-test", "profile-test", "ses_test"))
+        .thenReturn("pbind_premium000000001");
     var premium =
         routingProfile(
             "pbind_premium000000001",
@@ -569,18 +598,23 @@ class StaticProxyApplicationServiceTest {
     var assignment = ArgumentCaptor.forClass(SessionProxyBindingAssignmentEntity.class);
     verify(bindingAssignments).save(assignment.capture());
     assertThat(assignment.getValue().getSelectionMode()).isEqualTo("AUTO");
-    assertThat(assignment.getValue().getBindingProfileId()).isEqualTo("pbind_efficient0000001");
-    assertThat(assignment.getValue().getRoutingScore()).isGreaterThan(80.0);
-    assertThat(assignment.getValue().getQualityScore()).isEqualTo(82);
-    assertThat(assignment.getValue().getCostPerGibUsd()).isEqualByComparingTo("0.1000");
+    assertThat(assignment.getValue().getSelectionReason()).isEqualTo("PROFILE_STICKY");
+    assertThat(assignment.getValue().getBindingProfileId()).isEqualTo("pbind_premium000000001");
+    assertThat(assignment.getValue().getRoutingScore()).isGreaterThan(70.0);
+    assertThat(assignment.getValue().getQualityScore()).isEqualTo(99);
+    assertThat(assignment.getValue().getCostPerGibUsd()).isEqualByComparingTo("2.0000");
     assertThat(assignment.getValue().getCandidateScores())
         .hasSize(2)
         .extracting(candidate -> candidate.get("providerId"))
         .containsExactly("provider-efficient", "provider-premium");
+    assertThat(assignment.getValue().getCandidateScores())
+        .extracting(candidate -> candidate.get("businessOutcomeScore"))
+        .containsExactly(90.0, 20.0);
     when(bindingAssignments.findBySessionIdAndTenantId("ses_test", "tenant-test"))
         .thenReturn(Optional.of(assignment.getValue()));
     var decision = catalogService.assignedRoutingDecision("ses_test", "tenant-test");
     assertThat(decision.selectionMode()).isEqualTo("AUTO");
+    assertThat(decision.selectionReason()).isEqualTo("PROFILE_STICKY");
     assertThat(decision.candidateScores())
         .extracting("providerId")
         .containsExactly("provider-efficient", "provider-premium");
@@ -621,6 +655,51 @@ class StaticProxyApplicationServiceTest {
             () -> catalogService.assignBindingProfile(session(), null, "singapore", "admin-test"))
         .isInstanceOf(StaticProxyApplicationService.ProxyUnavailableException.class)
         .hasMessage("NO_HEALTHY_PROXY_ROUTE");
+  }
+
+  @Test
+  void shouldUseAStableFivePercentExplorationBucket() {
+    var selected =
+        java.util.stream.IntStream.range(0, 200)
+            .filter(
+                index ->
+                    StaticProxyApplicationService.shouldExplore(
+                        "tenant-test", "ses_explore_" + index))
+            .boxed()
+            .toList();
+
+    assertThat(selected).hasSizeBetween(8, 12);
+    assertThat(selected)
+        .allMatch(
+            index ->
+                StaticProxyApplicationService.shouldExplore("tenant-test", "ses_explore_" + index));
+  }
+
+  @Test
+  void shouldNotCarryLearnedEvidenceAcrossAProviderChange() {
+    var profile =
+        new ProxyBindingProfileEntity(
+            "pbind_1234567890123456",
+            "tenant-test",
+            "Changed provider",
+            null,
+            "provider-new",
+            "singapore",
+            "203.0.113.10",
+            "vault://tenant-test/proxy/new",
+            true,
+            "admin-test",
+            Instant.parse("2026-09-23T00:00:00Z"));
+    var stale =
+        new ProxyRouteLearningApplicationService.BusinessOutcomeEvidence(
+            "provider-old", 100, 99, 1, 0.99, 99.0, 0, Instant.parse("2026-09-23T00:00:00Z"));
+
+    var result =
+        StaticProxyApplicationService.currentProviderEvidence(
+            profile, java.util.Map.of(profile.getBindingProfileId(), stale));
+
+    assertThat(result.sampleCount()).isZero();
+    assertThat(result.score()).isEqualTo(50.0);
   }
 
   @Test

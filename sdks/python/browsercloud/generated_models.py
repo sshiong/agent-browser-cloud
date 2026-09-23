@@ -1137,6 +1137,10 @@ class ProxyRoutingCandidateScore(TypedDict, total=False):
     costScore: float
     regionScore: float
     headroomScore: float
+    businessOutcomeScore: float
+    businessOutcomeSampleCount: int
+    profileSticky: bool
+    explorationEligible: bool
     activeReservations: int
     maxConcurrentSessions: int
 
@@ -1145,6 +1149,7 @@ class ProxyRoutingDecision(TypedDict, total=False):
     bindingProfileId: str
     providerId: str
     selectionMode: Literal['EXPLICIT', 'AUTO']
+    selectionReason: Literal['SCORE', 'PROFILE_STICKY', 'CONSTRAINED_EXPLORATION', None]
     routingScore: Any
     qualityScore: Any
     reputationScore: Any

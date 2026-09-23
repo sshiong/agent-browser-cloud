@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "c200feceeeb6b67bd64d0a6df73e3e30fb7c8f7db172ef4c86bfd1ea44b13482",
+  "contractSha256": "78c929bc20c5a6517fd1ca0f32edf583272653d5941c05b51d0a188b7a065f8b",
   "files": {
     "BrowserCloudGeneratedClient.ts": "9af238a7342b4202ace30c93c8fac304d101b48a600224c76ce2d59908979c4c",
     "core/ApiError.ts": "1340dca2bdae61fcf8c1d1a52004c43fb070eb6f084a20c56423ee00f9d3a798",
@@ -235,8 +235,8 @@
     "models/ProxyRebind.ts": "e5f6832d88861e207ccdd8aef268ba2bc1862a603e698b27c183b57ea0daf976",
     "models/ProxyRebindOperation.ts": "8a6480bb2cab86f7faab2f0a0e19947bcc46893a487bdb61aded9462a7e0355f",
     "models/ProxyRebindRequest.ts": "ae0c576e99236ca2d4d677f71137552f9cd697f36f8ceb62ee8dcfacae38147e",
-    "models/ProxyRoutingCandidateScore.ts": "ec86be614957e083540515d74604c9e054ee407a6cf7e8025b5fe3bd6f0803aa",
-    "models/ProxyRoutingDecision.ts": "0f9cfceba1c09f3d7f4c55a311f1b3a5ef4b32ad8bf851cba806185250a40f5d",
+    "models/ProxyRoutingCandidateScore.ts": "c506831e0d2e8bcb5f5ef8f6acf18f399b03a9a7f3db595ad6aedd9292800b72",
+    "models/ProxyRoutingDecision.ts": "f5e24d99b84ca33a0bc3629ffc802e1f31ba1fb8888524437596e8bcf97c8479",
     "models/RebindSessionApplicationRequest.ts": "ad3ba6e47a04caefc4b0979130d2a7a7741d4eeef6cb119474645fd4a9108779",
     "models/RecordExtensionSampleRequest.ts": "d595748079d9e75cc31047cf386409f51ff7ddc2c94cb962aaf0f73707b13102",
     "models/RecordNodePressureRequest.ts": "37a1f846b3345f045b47fac3497eff608b9a952e6538115c4f908dd7a1c79f9e",

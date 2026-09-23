@@ -150,7 +150,11 @@ export function ProxyRebindPanel({
           <IdentityCell label="Region" value={sessionRegion} />
           <IdentityCell
             label="Selection"
-            value={routingDecision?.selectionMode ?? 'SYSTEM DEFAULT'}
+            value={
+              routingDecision?.selectionReason ??
+              routingDecision?.selectionMode ??
+              'SYSTEM DEFAULT'
+            }
           />
           <IdentityCell
             label="Route score"
@@ -175,6 +179,25 @@ export function ProxyRebindPanel({
               {routingDecision.activeReservations ?? '—'}/
               {routingDecision.maxConcurrentSessions ?? '—'} reservations
             </p>
+            {routingDecision.candidateScores.length > 0 && (
+              <p className="mt-1 text-[10px] leading-4 text-text-secondary">
+                Business outcome{' '}
+                {routingDecision.candidateScores
+                  .find(
+                    (candidate) =>
+                      candidate.bindingProfileId ===
+                      routingDecision.bindingProfileId
+                  )
+                  ?.businessOutcomeScore?.toFixed(1) ?? '50.0'}{' '}
+                / 100 ·{' '}
+                {routingDecision.candidateScores.find(
+                  (candidate) =>
+                    candidate.bindingProfileId ===
+                    routingDecision.bindingProfileId
+                )?.businessOutcomeSampleCount ?? 0}{' '}
+                verified samples
+              </p>
+            )}
             <p className="mt-1 font-mono text-[9px] text-text-muted">
               {routingDecision.candidateCount} candidates · selected{' '}
               {new Date(routingDecision.selectedAt).toLocaleString()}

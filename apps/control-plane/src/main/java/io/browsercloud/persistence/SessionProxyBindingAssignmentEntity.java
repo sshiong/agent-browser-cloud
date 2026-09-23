@@ -51,6 +51,9 @@ public class SessionProxyBindingAssignmentEntity {
   @Column(name = "selection_reason")
   private String selectionReason;
 
+  @Column(name = "routing_site_domain_hash")
+  private String routingSiteDomainHash;
+
   @Column(name = "routing_score")
   private BigDecimal routingScore;
 
@@ -118,6 +121,48 @@ public class SessionProxyBindingAssignmentEntity {
       int maxConcurrentSessions,
       String selectionReason,
       List<Map<String, Object>> candidateScores) {
+    return automatic(
+        sessionId,
+        tenantId,
+        bindingProfileId,
+        bindingVersion,
+        providerId,
+        region,
+        expectedExitIp,
+        credentialRef,
+        assignedBy,
+        assignedAt,
+        routingScore,
+        qualityScore,
+        reputationScore,
+        costPerGibUsd,
+        activeReservations,
+        maxConcurrentSessions,
+        selectionReason,
+        null,
+        candidateScores);
+  }
+
+  public static SessionProxyBindingAssignmentEntity automatic(
+      String sessionId,
+      String tenantId,
+      String bindingProfileId,
+      long bindingVersion,
+      String providerId,
+      String region,
+      String expectedExitIp,
+      String credentialRef,
+      String assignedBy,
+      Instant assignedAt,
+      double routingScore,
+      int qualityScore,
+      int reputationScore,
+      BigDecimal costPerGibUsd,
+      int activeReservations,
+      int maxConcurrentSessions,
+      String selectionReason,
+      String routingSiteDomainHash,
+      List<Map<String, Object>> candidateScores) {
     var entity =
         new SessionProxyBindingAssignmentEntity(
             sessionId,
@@ -139,6 +184,7 @@ public class SessionProxyBindingAssignmentEntity {
     entity.activeReservations = activeReservations;
     entity.maxConcurrentSessions = maxConcurrentSessions;
     entity.selectionReason = selectionReason;
+    entity.routingSiteDomainHash = routingSiteDomainHash;
     entity.candidateScores = List.copyOf(candidateScores);
     return entity;
   }
@@ -185,6 +231,10 @@ public class SessionProxyBindingAssignmentEntity {
 
   public String getSelectionReason() {
     return selectionReason;
+  }
+
+  public String getRoutingSiteDomainHash() {
+    return routingSiteDomainHash;
   }
 
   public Double getRoutingScore() {

@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -49,16 +50,29 @@ public class ChallengeDetectionService {
   private final ObjectMapper objectMapper;
   private final AuditApplicationService audit;
   private final JdbcTemplate jdbc;
+  private final ProxyRouteLearningApplicationService proxyRouteLearning;
 
+  @Autowired
   public ChallengeDetectionService(
       ChallengeEventJpaRepository events,
       ObjectMapper objectMapper,
       AuditApplicationService audit,
-      JdbcTemplate jdbc) {
+      JdbcTemplate jdbc,
+      ProxyRouteLearningApplicationService proxyRouteLearning) {
     this.events = events;
     this.objectMapper = objectMapper;
     this.audit = audit;
     this.jdbc = jdbc;
+    this.proxyRouteLearning = proxyRouteLearning;
+  }
+
+  /** Compatibility constructor for isolated detector tests. */
+  ChallengeDetectionService(
+      ChallengeEventJpaRepository events,
+      ObjectMapper objectMapper,
+      AuditApplicationService audit,
+      JdbcTemplate jdbc) {
+    this(events, objectMapper, audit, jdbc, null);
   }
 
   /** Returns the event that must pause an active Agent after its verified step, if any. */
@@ -134,7 +148,12 @@ public class ChallengeDetectionService {
             now,
             now.plusSeconds(120),
             now.plusSeconds(300));
-    events.save(event);
+    // The independent Proxy signal uses JDBC and references this row immediately. Flush the JPA
+    // insert first so the foreign key remains valid inside the surrounding ingestion transaction.
+    events.saveAndFlush(event);
+    if (proxyRouteLearning != null) {
+      proxyRouteLearning.recordChallenge(event, state.url());
+    }
     audit.append(
         new AuditApplicationService.AuditRecord(
             envelope.tenantId(),

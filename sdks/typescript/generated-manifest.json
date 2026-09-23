@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "78c929bc20c5a6517fd1ca0f32edf583272653d5941c05b51d0a188b7a065f8b",
+  "contractSha256": "c54854fc4eecd3d2a3b562d01edc187f40bf0c98148b7add743a0ddf1f5dbf75",
   "files": {
     "BrowserCloudGeneratedClient.ts": "9af238a7342b4202ace30c93c8fac304d101b48a600224c76ce2d59908979c4c",
     "core/ApiError.ts": "1340dca2bdae61fcf8c1d1a52004c43fb070eb6f084a20c56423ee00f9d3a798",
@@ -141,7 +141,7 @@
     "models/CreateRuntimeReleaseRequest.ts": "67b156cb4b2f357342da731e6393ea86b184b8e014e0fdf906f444a2b8002e03",
     "models/CreateSafetyLeaseRequest.ts": "f02c838496f08cdf996115a11d0b21040ae824759e6e0ce4c14c0cd27f878765",
     "models/CreateSessionIdentityChangeRequest.ts": "a6b4fe3fa430b72ed49aa21d3065b6f0dcefd64dfc996b2a0e982eee174abad7",
-    "models/CreateSessionRequest.ts": "f2cd68c3b021af826349e0ecbb758e0bf2384145347bdd8b6f1ce71e41733496",
+    "models/CreateSessionRequest.ts": "32f6ffebf5a59428bbd2b2241fa3f23a3245a3a39ead10349a0cf0c203ecb507",
     "models/CreateSessionResponse.ts": "1c4ff35ceec89cf1280b68da6fe1c3be4efc57c8fb50fb08f97163b667ee7fc9",
     "models/CreateWorkspaceBatchOperationRequest.ts": "2bdfe991b02b7365b78ff01b35f1cfc0b4a0e5c4db832af8b7d9a0fe7e2fe849",
     "models/CreateWorkspaceMetadataBatchOperationRequest.ts": "9f568431f53371728f4287ae5ba291471071869f83e72a8ca39ba9493fbd9a46",

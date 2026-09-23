@@ -658,6 +658,76 @@ class StaticProxyApplicationServiceTest {
   }
 
   @Test
+  void shouldExcludeAProviderQuarantinedForTheExplicitRoutingSite() throws Exception {
+    var catalog = tempDir.resolve("proxy-routing-site-risk.json");
+    Files.writeString(
+        catalog,
+        """
+        {"version":1,"providers":[
+          {"providerId":"provider-a","endpoint":"http://127.0.0.1:8121","expectedExitIp":"203.0.113.21","credentialRef":"vault://tenant-test/proxy/a"},
+          {"providerId":"provider-b","endpoint":"http://127.0.0.1:8122","expectedExitIp":"203.0.113.22","credentialRef":"vault://tenant-test/proxy/b"}
+        ]}
+        """);
+    Files.setPosixFilePermissions(
+        catalog, java.nio.file.attribute.PosixFilePermissions.fromString("rw-r-----"));
+    var catalogService =
+        new StaticProxyApplicationService(
+            repository,
+            bindingProfiles,
+            bindingAssignments,
+            sessionRepository,
+            idempotency,
+            audit,
+            "unused-fallback",
+            "",
+            "",
+            "",
+            catalog.toString(),
+            false,
+            "test",
+            routeLearning);
+    var blocked = mock(ProxyBindingProfileEntity.class);
+    when(blocked.getBindingProfileId()).thenReturn("pbind_blocked000000001");
+    when(blocked.getProviderId()).thenReturn("provider-a");
+    when(blocked.isEnabled()).thenReturn(true);
+    when(blocked.getHealthState()).thenReturn("HEALTHY");
+    when(blocked.getLastHealthCheckedAt()).thenReturn(Instant.now());
+    when(blocked.getRegion()).thenReturn(null);
+    var admitted =
+        routingProfile(
+            "pbind_admitted00000001",
+            "provider-b",
+            "vault://tenant-test/proxy/b",
+            "203.0.113.22",
+            null,
+            0.9,
+            100.0,
+            "0.2000",
+            80,
+            100);
+    when(bindingProfiles.findAllForAutomaticRouting("tenant-test"))
+        .thenReturn(java.util.List.of(blocked, admitted));
+    when(routeLearning.evidence("tenant-test")).thenReturn(java.util.Map.of());
+    when(routeLearning.siteChallengeEvidence(
+            org.mockito.ArgumentMatchers.eq("tenant-test"),
+            org.mockito.ArgumentMatchers.eq("example.com"),
+            any()))
+        .thenReturn(
+            java.util.Map.of(
+                "pbind_blocked000000001",
+                new ProxyRouteLearningApplicationService.SiteChallengeEvidence(
+                    "provider-a", 4, 3, true, Instant.now())));
+
+    catalogService.assignBindingProfile(session(), null, "singapore", "admin-test", "Example.COM");
+
+    var assignment = ArgumentCaptor.forClass(SessionProxyBindingAssignmentEntity.class);
+    verify(bindingAssignments).save(assignment.capture());
+    assertThat(assignment.getValue().getBindingProfileId()).isEqualTo("pbind_admitted00000001");
+    assertThat(assignment.getValue().getRoutingSiteDomainHash())
+        .isEqualTo(ProxyRouteLearningApplicationService.siteDomainHash("example.com"));
+  }
+
+  @Test
   void shouldUseAStableFivePercentExplorationBucket() {
     var selected =
         java.util.stream.IntStream.range(0, 200)
@@ -700,6 +770,33 @@ class StaticProxyApplicationServiceTest {
 
     assertThat(result.sampleCount()).isZero();
     assertThat(result.score()).isEqualTo(50.0);
+  }
+
+  @Test
+  void shouldNotCarrySiteQuarantineAcrossAProviderChange() {
+    var profile =
+        new ProxyBindingProfileEntity(
+            "pbind_1234567890123456",
+            "tenant-test",
+            "Changed provider",
+            null,
+            "provider-new",
+            "singapore",
+            "203.0.113.10",
+            "vault://tenant-test/proxy/new",
+            true,
+            "admin-test",
+            Instant.parse("2026-09-23T00:00:00Z"));
+    var stale =
+        new ProxyRouteLearningApplicationService.SiteChallengeEvidence(
+            "provider-old", 5, 3, true, Instant.parse("2026-09-23T00:00:00Z"));
+
+    var result =
+        StaticProxyApplicationService.currentSiteEvidence(
+            profile, java.util.Map.of(profile.getBindingProfileId(), stale));
+
+    assertThat(result.quarantined()).isFalse();
+    assertThat(result.challengeCount()).isZero();
   }
 
   @Test

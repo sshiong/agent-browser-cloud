@@ -12822,6 +12822,10 @@ components:
           type: string
           pattern: "^pbind_[a-zA-Z0-9]{16,32}$"
           description: Optional tenant Binding profile snapshotted immutably at Session creation.
+        proxyRoutingDomain:
+          type: string
+          maxLength: 253
+          description: Optional normalized destination hostname used only for AUTO Proxy site-risk admission. URLs, paths and credentials are rejected.
         resourcePolicy:
           $ref: "#/components/schemas/ResourcePolicyRequest"
         requestedTabs:

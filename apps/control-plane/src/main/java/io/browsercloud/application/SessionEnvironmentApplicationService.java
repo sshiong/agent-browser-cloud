@@ -234,6 +234,7 @@ public class SessionEnvironmentApplicationService {
         source.tagIds(),
         source.region(),
         source.proxyBindingProfileId(),
+        null,
         source.resourcePolicy(),
         null,
         source.requestedTabs(),

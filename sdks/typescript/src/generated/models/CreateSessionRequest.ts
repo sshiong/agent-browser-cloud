@@ -33,6 +33,10 @@ export type CreateSessionRequest = {
      * Optional tenant Binding profile snapshotted immutably at Session creation.
      */
     proxyBindingProfileId?: string;
+    /**
+     * Optional normalized destination hostname used only for AUTO Proxy site-risk admission. URLs, paths and credentials are rejected.
+     */
+    proxyRoutingDomain?: string;
     resourcePolicy?: ResourcePolicyRequest;
     requestedTabs?: number;
     agentActionsPerMinute?: number;

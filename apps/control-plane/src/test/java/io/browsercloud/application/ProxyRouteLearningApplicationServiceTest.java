@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.persistence.AgentTaskEntity;
+import io.browsercloud.persistence.ChallengeEventEntity;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -91,6 +92,58 @@ class ProxyRouteLearningApplicationServiceTest {
     assertThat(
             ProxyRouteLearningApplicationService.businessScore(10, 8, new BigDecimal("0.7500000")))
         .isEqualTo(72.857);
+  }
+
+  @Test
+  void normalizesOnlyBareSiteDomainsAndUsesAMultiSessionQuarantineThreshold() {
+    assertThat(ProxyRouteLearningApplicationService.normalizeSiteDomain("BÜCHER.Example"))
+        .isEqualTo("xn--bcher-kva.example");
+    assertThat(ProxyRouteLearningApplicationService.normalizeSiteDomain("https://example.com"))
+        .isNull();
+    assertThat(ProxyRouteLearningApplicationService.siteDomainFromUrl("https://EXAMPLE.com/a?b=1"))
+        .isEqualTo("example.com");
+    assertThat(ProxyRouteLearningApplicationService.siteDomainFromUrl("chrome://newtab")).isNull();
+    assertThat(ProxyRouteLearningApplicationService.siteQuarantined(2)).isFalse();
+    assertThat(ProxyRouteLearningApplicationService.siteQuarantined(3)).isTrue();
+    assertThat(ProxyRouteLearningApplicationService.siteDomainHash("example.com"))
+        .hasSize(64)
+        .doesNotContain("example");
+  }
+
+  @Test
+  void recordsOnlyConfirmedProxyRelevantChallengeEvidenceAfterAssignment() {
+    var jdbc = mock(JdbcTemplate.class);
+    var service = new ProxyRouteLearningApplicationService(jdbc, new ObjectMapper());
+    var event = mock(ChallengeEventEntity.class);
+    when(event.getChallengeEventId()).thenReturn("chl_12345678901234567890");
+    when(event.getTenantId()).thenReturn("tenant-test");
+    when(event.getSessionId()).thenReturn("ses_test");
+    when(event.getAccessOutcome()).thenReturn("CHALLENGE_CONFIRMED");
+    when(event.getConfidence()).thenReturn(0.99);
+    when(event.getSuspectedType()).thenReturn("SINGLE_CLICK");
+    when(event.getDetectedAt()).thenReturn(Instant.parse("2026-09-23T00:02:00Z"));
+    when(jdbc.query(anyString(), any(org.springframework.jdbc.core.RowMapper.class), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              org.springframework.jdbc.core.RowMapper<?> mapper = invocation.getArgument(1);
+              var result = mock(java.sql.ResultSet.class);
+              when(result.getString("binding_profile_id")).thenReturn("pbind_1234567890123456");
+              when(result.getString("provider_id")).thenReturn("provider-a");
+              when(result.getTimestamp("assigned_at"))
+                  .thenReturn(Timestamp.from(Instant.parse("2026-09-23T00:01:00Z")));
+              return List.of(mapper.mapRow(result, 0));
+            });
+    when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
+
+    assertThat(service.recordChallenge(event, "https://EXAMPLE.com/login?secret=no")).isTrue();
+
+    var sql = ArgumentCaptor.forClass(String.class);
+    var parameters = ArgumentCaptor.forClass(Object[].class);
+    verify(jdbc).update(sql.capture(), parameters.capture());
+    assertThat(sql.getValue()).contains("proxy_route_site_challenges", "ON CONFLICT DO NOTHING");
+    assertThat(parameters.getValue())
+        .contains(ProxyRouteLearningApplicationService.siteDomainHash("example.com"))
+        .doesNotContain("https://EXAMPLE.com/login?secret=no");
   }
 
   private static AgentTaskEntity task(Instant createdAt) {

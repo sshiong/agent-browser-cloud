@@ -24,6 +24,7 @@ import java.util.Map;
  * @param tagIds 可选的租户 Workspace Tag 集合
  * @param region 部署区域
  * @param proxyBindingProfileId 可选的租户 Proxy Binding 配置档案；创建时固化快照
+ * @param proxyRoutingDomain 可选的目标站点域名提示；仅用于 AUTO Proxy 站点风险准入
  * @param resourcePolicy 用户可见的自动资源策略
  * @param resourceClass 仅供旧版 SDK 兼容的内部资源等级；新客户端不得提交
  * @param requestedTabs 预期最大 Tab 数；省略时为 1
@@ -48,6 +49,7 @@ public record CreateSessionRequest(
     @Size(max = 16) List<@NotBlank @Pattern(regexp = "^tag_[a-zA-Z0-9]{16,32}$") String> tagIds,
     @Pattern(regexp = "^[a-z0-9-]{1,32}$") String region,
     @Pattern(regexp = "^pbind_[a-zA-Z0-9]{16,32}$") String proxyBindingProfileId,
+    @Size(max = 253) String proxyRoutingDomain,
     @Valid ResourcePolicyRequest resourcePolicy,
     ResourceClass resourceClass,
     @Min(0) @Max(64) int requestedTabs,
@@ -98,6 +100,7 @@ public record CreateSessionRequest(
         tagIds,
         region,
         proxyBindingProfileId,
+        null,
         resourcePolicy,
         resourceClass,
         requestedTabs,

@@ -3,13 +3,19 @@ package io.browsercloud.application;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.persistence.AgentTaskEntity;
+import io.browsercloud.persistence.ChallengeEventEntity;
 import java.math.BigDecimal;
+import java.net.IDN;
+import java.net.URI;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +32,11 @@ public class ProxyRouteLearningApplicationService {
 
   static final long MINIMUM_LEARNING_SAMPLES = 5;
   static final long EXPLORATION_TARGET_SAMPLES = 20;
+  static final int SITE_QUARANTINE_SESSION_THRESHOLD = 3;
+  static final Duration SITE_QUARANTINE_WINDOW = Duration.ofMinutes(30);
+  private static final Set<String> PROXY_RELEVANT_CHALLENGES =
+      Set.of(
+          "SINGLE_CLICK", "OPAQUE_FRAME_SINGLE_CLICK", "IMAGE_SELECTION", "PUZZLE", "MULTI_ROUND");
 
   private final JdbcTemplate jdbc;
   private final ObjectMapper objectMapper;
@@ -128,6 +139,124 @@ public class ProxyRouteLearningApplicationService {
     return true;
   }
 
+  /** Records an independent anti-automation signal without storing a URL or page content. */
+  @Transactional
+  public boolean recordChallenge(ChallengeEventEntity event, String pageUrl) {
+    if (!"CHALLENGE_CONFIRMED".equals(event.getAccessOutcome())
+        || event.getConfidence() < 0.9
+        || !PROXY_RELEVANT_CHALLENGES.contains(event.getSuspectedType())) {
+      return false;
+    }
+    var domain = siteDomainFromUrl(pageUrl);
+    if (domain == null) return false;
+    var assignments =
+        jdbc.query(
+            """
+            SELECT binding_profile_id, provider_id, assigned_at
+              FROM session_proxy_binding_assignments
+             WHERE tenant_id = ? AND session_id = ?
+            """,
+            (result, row) ->
+                new Assignment(
+                    result.getString("binding_profile_id"),
+                    result.getString("provider_id"),
+                    result.getTimestamp("assigned_at").toInstant()),
+            event.getTenantId(),
+            event.getSessionId());
+    if (assignments.size() != 1
+        || assignments.getFirst().assignedAt().isAfter(event.getDetectedAt())) {
+      return false;
+    }
+    var assignment = assignments.getFirst();
+    return jdbc.update(
+            """
+            INSERT INTO proxy_route_site_challenges(
+              challenge_event_id, tenant_id, session_id, binding_profile_id, provider_id,
+              site_domain_hash, challenge_type, detected_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT DO NOTHING
+            """,
+            event.getChallengeEventId(),
+            event.getTenantId(),
+            event.getSessionId(),
+            assignment.bindingProfileId(),
+            assignment.providerId(),
+            siteDomainHash(domain),
+            event.getSuspectedType(),
+            Timestamp.from(event.getDetectedAt()))
+        == 1;
+  }
+
+  /** Returns only bindings that crossed the bounded multi-Session quarantine threshold. */
+  @Transactional(readOnly = true)
+  public Map<String, SiteChallengeEvidence> siteChallengeEvidence(
+      String tenantId, String routingDomain, Instant now) {
+    var domain = normalizeSiteDomain(routingDomain);
+    if (domain == null) return Map.of();
+    var result = new LinkedHashMap<String, SiteChallengeEvidence>();
+    jdbc.query(
+        """
+        SELECT binding_profile_id, provider_id, COUNT(*) AS challenge_count,
+               COUNT(DISTINCT session_id) AS session_count, MAX(detected_at) AS last_detected_at
+          FROM proxy_route_site_challenges
+         WHERE tenant_id = ? AND site_domain_hash = ? AND detected_at >= ?
+         GROUP BY binding_profile_id, provider_id
+        """,
+        row -> {
+          var sessionCount = row.getLong("session_count");
+          result.put(
+              row.getString("binding_profile_id"),
+              new SiteChallengeEvidence(
+                  row.getString("provider_id"),
+                  row.getLong("challenge_count"),
+                  sessionCount,
+                  siteQuarantined(sessionCount),
+                  row.getTimestamp("last_detected_at").toInstant()));
+        },
+        tenantId,
+        siteDomainHash(domain),
+        Timestamp.from(now.minus(SITE_QUARANTINE_WINDOW)));
+    return Map.copyOf(result);
+  }
+
+  public static String normalizeSiteDomain(String value) {
+    if (value == null || value.isBlank()) return null;
+    try {
+      var normalized = IDN.toASCII(value.trim(), IDN.USE_STD3_ASCII_RULES).toLowerCase(Locale.ROOT);
+      if (normalized.length() > 253
+          || normalized.startsWith(".")
+          || normalized.endsWith(".")
+          || normalized.contains("..")) {
+        return null;
+      }
+      return normalized;
+    } catch (IllegalArgumentException exception) {
+      return null;
+    }
+  }
+
+  static String siteDomainFromUrl(String value) {
+    try {
+      var uri = URI.create(value);
+      if (!Set.of("http", "https").contains(uri.getScheme().toLowerCase(Locale.ROOT))
+          || uri.getHost() == null
+          || uri.getUserInfo() != null) {
+        return null;
+      }
+      return normalizeSiteDomain(uri.getHost());
+    } catch (IllegalArgumentException | NullPointerException exception) {
+      return null;
+    }
+  }
+
+  public static String siteDomainHash(String normalizedDomain) {
+    return PromptSecurityService.sha256("proxy-site-domain-v1\n" + normalizedDomain);
+  }
+
+  static boolean siteQuarantined(long distinctSessionCount) {
+    return distinctSessionCount >= SITE_QUARANTINE_SESSION_THRESHOLD;
+  }
+
   @Transactional(readOnly = true)
   public Map<String, BusinessOutcomeEvidence> evidence(String tenantId) {
     var result = new LinkedHashMap<String, BusinessOutcomeEvidence>();
@@ -219,4 +348,11 @@ public class ProxyRouteLearningApplicationService {
       double score,
       int consecutiveFailures,
       Instant lastObservedAt) {}
+
+  public record SiteChallengeEvidence(
+      String providerId,
+      long challengeCount,
+      long distinctSessionCount,
+      boolean quarantined,
+      Instant lastDetectedAt) {}
 }

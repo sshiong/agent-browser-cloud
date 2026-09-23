@@ -352,6 +352,7 @@ public class EnvironmentImportApplicationService {
         specification.tagIds(),
         specification.region(),
         specification.proxyBindingProfileId(),
+        null,
         specification.resourcePolicy() == null
             ? new ResourcePolicyRequest(
                 ResourcePolicyMode.AUTO,

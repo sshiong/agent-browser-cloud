@@ -5726,6 +5726,47 @@ proxy_learning_binding="$(curl -fsS -X POST \
   -d '{"name":"Outcome learning route","description":"Dedicated enabled route for independently verified outcome feedback","providerId":"static-local","region":"local","expectedExitIp":"203.0.113.10","credentialRef":"vault://tenant-integration/proxy/primary","enabled":true}')"
 proxy_learning_binding_id="$(printf '%s' "$proxy_learning_binding" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["enabled"] is True; print(item["bindingProfileId"])')"
+
+# Site Challenge evidence is an independent signal: three confirmed anti-automation events from
+# distinct Sessions temporarily quarantine only this Binding/Provider for the explicit site hint.
+# The ledger stores the normalized domain hash and never the URL, path, page content or credential.
+proxy_site_domain_hash="$(printf 'proxy-site-domain-v1\nchallenge.example' | shasum -a 256 | awk '{print $1}')"
+for proxy_site_index in 1 2 3; do
+  proxy_site_session="$(curl -fsS -X POST \
+    "http://localhost:${control_port}/api/v1/sessions" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H "Idempotency-Key: smoke-proxy-site-signal-session-${proxy_site_index}" \
+    -d "{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-proxy-site-${proxy_site_index}\",\"runtimeBuildId\":\"runtime_local_chromium\",\"region\":\"local\",\"proxyBindingProfileId\":\"${proxy_learning_binding_id}\",\"resourcePolicy\":{\"mode\":\"AUTO\"},\"metadata\":{\"displayName\":\"Proxy site signal ${proxy_site_index}\"}}" | \
+    python3 -c 'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+  proxy_site_event_id="chl_$(printf '%020d' "$proxy_site_index")"
+  docker exec "$postgres_name" psql -v ON_ERROR_STOP=1 -U browsercloud -d browsercloud -c \
+    "insert into challenge_events(challenge_event_id,tenant_id,session_id,context_epoch,state_version,target_revision,confidence,evidence,suspected_type,access_outcome,target_ref,target_summary,visual_anchor_hash,status,detected_at,authorization_deadline,expires_at,updated_at,version) values ('${proxy_site_event_id}','tenant-integration','${proxy_site_session}',1,1,1,0.99,'{\"detector\":\"integration\"}'::jsonb,'IMAGE_SELECTION','CHALLENGE_CONFIRMED',null,'integration challenge',null,'RESOLVED',now(),now()+interval '2 minutes',now()+interval '5 minutes',now(),0); insert into proxy_route_site_challenges(challenge_event_id,tenant_id,session_id,binding_profile_id,provider_id,site_domain_hash,challenge_type,detected_at) select '${proxy_site_event_id}',assignment.tenant_id,assignment.session_id,assignment.binding_profile_id,assignment.provider_id,'${proxy_site_domain_hash}','IMAGE_SELECTION',now() from session_proxy_binding_assignments assignment where assignment.session_id='${proxy_site_session}' and assignment.tenant_id='tenant-integration';" >/dev/null
+done
+proxy_site_quarantine_status="$(curl -sS -o "$temp_dir/proxy-site-quarantine.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-proxy-site-quarantine-session-001' \
+  -d "{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-proxy-site-quarantined\",\"runtimeBuildId\":\"runtime_local_chromium\",\"region\":\"local\",\"proxyBindingProfileId\":\"${proxy_learning_binding_id}\",\"proxyRoutingDomain\":\"challenge.example\",\"resourcePolicy\":{\"mode\":\"AUTO\"}}")"
+test "$proxy_site_quarantine_status" = "409"
+python3 - "$temp_dir/proxy-site-quarantine.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    error = json.load(handle)
+assert error["code"] == "PROXY_BINDING_REJECTED", error
+assert error["details"]["reason"] == "PROXY_BINDING_QUARANTINED_FOR_SITE", error
+PY
+proxy_site_signal_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) || ':' || count(distinct session_id) || ':' || count(distinct site_domain_hash) from proxy_route_site_challenges where tenant_id='tenant-integration' and binding_profile_id='${proxy_learning_binding_id}'")"
+test "$proxy_site_signal_summary" = "3:3:1"
+proxy_site_signal_sensitive_columns="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from information_schema.columns where table_name='proxy_route_site_challenges' and column_name ~ '(url|path|content|credential|goal|model_output)'")"
+test "$proxy_site_signal_sensitive_columns" = "0"
+echo "proxy_site_challenge_quarantine=true"
+
 reviewer_session_request="{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-reviewer-worker\",\"runtimeBuildId\":\"runtime_local_chromium\",\"region\":\"local\",\"proxyBindingProfileId\":\"${proxy_learning_binding_id}\",\"resourcePolicy\":{\"mode\":\"AUTO\"},\"requestedTabs\":2,\"agentActionsPerMinute\":60,\"agentPolicy\":\"INTERACTIVE\",\"metadata\":{\"displayName\":\"Reviewer worker integration\"}}"
 reviewer_session_status="$(curl -sS -o "$temp_dir/reviewer-session-created.json" -w '%{http_code}' -X POST \
   "http://localhost:${control_port}/api/v1/sessions" \
@@ -7112,7 +7153,7 @@ printf '%s' "$proxy_after_terminate" | python3 -c \
 profile_list="$(curl -fsS "http://localhost:${control_port}/api/v1/profiles" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$profile_list" | python3 -c \
-  "import json,sys; result=json.load(sys.stdin); assert result['total'] == 11; assert {item['profileId'] for item in result['items']} == {'profile-integration','profile-agent-browser-tabs','profile-reviewer-worker','profile-rebind','profile-auto-recovery','profile-lifecycle-failover','profile-stopping-failover','profile-recovering-failover','profile-barrier-preparing','profile-barrier-completing','${environment_clone_profile}'}"
+  "import json,sys; result=json.load(sys.stdin); assert result['total'] == 14; assert {item['profileId'] for item in result['items']} == {'profile-integration','profile-agent-browser-tabs','profile-reviewer-worker','profile-proxy-site-1','profile-proxy-site-2','profile-proxy-site-3','profile-rebind','profile-auto-recovery','profile-lifecycle-failover','profile-stopping-failover','profile-recovering-failover','profile-barrier-preparing','profile-barrier-completing','${environment_clone_profile}'}"
 profile_forbidden_status="$(curl -sS -o "$temp_dir/profile-forbidden.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/profiles/profile-integration" \
   -H 'X-Tenant-Id: different-tenant')"

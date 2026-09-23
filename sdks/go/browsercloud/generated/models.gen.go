@@ -2166,6 +2166,7 @@ type CreateSessionRequest struct {
 	TagIds                []string                 `json:"tagIds,omitempty"`
 	Region                string                   `json:"region,omitempty"`
 	ProxyBindingProfileId string                   `json:"proxyBindingProfileId,omitempty"`
+	ProxyRoutingDomain    string                   `json:"proxyRoutingDomain,omitempty"`
 	ResourcePolicy        ResourcePolicyRequest    `json:"resourcePolicy,omitempty"`
 	RequestedTabs         int                      `json:"requestedTabs,omitempty"`
 	AgentActionsPerMinute int                      `json:"agentActionsPerMinute,omitempty"`

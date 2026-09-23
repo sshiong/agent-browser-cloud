@@ -30,12 +30,14 @@ class ChallengeDetectionServiceTest {
 
   @Test
   void createsAnInputFreeSingleClickEventBoundToTheVisualAnchor() {
+    var routeLearning = mock(ProxyRouteLearningApplicationService.class);
     var service =
         new ChallengeDetectionService(
             events,
             new ObjectMapper(),
             audit,
-            mock(org.springframework.jdbc.core.JdbcTemplate.class));
+            mock(org.springframework.jdbc.core.JdbcTemplate.class),
+            routeLearning);
     var target =
         new NodeEvent.InteractiveTarget(
             "target:7:abc",
@@ -50,13 +52,14 @@ class ChallengeDetectionServiceTest {
 
     assertThat(result).isPresent();
     var captured = ArgumentCaptor.forClass(ChallengeEventEntity.class);
-    verify(events).save(captured.capture());
+    verify(events).saveAndFlush(captured.capture());
     assertThat(captured.getValue().getSuspectedType()).isEqualTo("SINGLE_CLICK");
     assertThat(captured.getValue().getStatus()).isEqualTo("CONFIRMED");
     assertThat(captured.getValue().getVisualAnchorHash())
         .isEqualTo("6dc7a8367775c215991f36f2d4553d38a64f6e5df58b813cc77d8d8e448647a5");
     assertThat(captured.getValue().getEvidence()).contains("\"automaticInteraction\":false");
     assertThat(captured.getValue().getEvidence()).contains("\"downstreamAutomationEligible\":true");
+    verify(routeLearning).recordChallenge(captured.getValue(), "https://example.test");
     verify(audit).append(any());
   }
 
@@ -96,7 +99,7 @@ class ChallengeDetectionServiceTest {
             null);
     assertThat(service.observe(envelope(), state("Confirm", List.of(otp)))).isPresent();
     var captured = ArgumentCaptor.forClass(ChallengeEventEntity.class);
-    verify(events).save(captured.capture());
+    verify(events).saveAndFlush(captured.capture());
     assertThat(captured.getValue().getSuspectedType()).isEqualTo("OTP");
     assertThat(captured.getValue().getStatus()).isEqualTo("TAKEOVER_REQUIRED");
     assertThat(captured.getValue().getTargetRef()).isEqualTo("target:7:otp");
@@ -124,7 +127,7 @@ class ChallengeDetectionServiceTest {
     assertThat(service.observe(envelope(), state("Verify", List.of(target)))).isPresent();
 
     var captured = ArgumentCaptor.forClass(ChallengeEventEntity.class);
-    verify(events).save(captured.capture());
+    verify(events).saveAndFlush(captured.capture());
     assertThat(captured.getValue().getSuspectedType()).isEqualTo("IMAGE_SELECTION");
     assertThat(captured.getValue().getTargetRef()).isEqualTo("target:7:visual");
     assertThat(captured.getValue().getVisualAnchorHash()).hasSize(64);
@@ -179,7 +182,7 @@ class ChallengeDetectionServiceTest {
     assertThat(service.observe(envelope(), state)).isPresent();
 
     var captured = ArgumentCaptor.forClass(ChallengeEventEntity.class);
-    verify(events).save(captured.capture());
+    verify(events).saveAndFlush(captured.capture());
     assertThat(captured.getValue().getSuspectedType()).isEqualTo("OPAQUE_FRAME_SINGLE_CLICK");
     assertThat(captured.getValue().getTargetRef()).isEqualTo(frame.frameRef());
     assertThat(captured.getValue().getStatus()).isEqualTo("CONFIRMED");

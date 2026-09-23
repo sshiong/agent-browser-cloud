@@ -217,7 +217,11 @@ public class SessionApplicationService {
           context.sessionId(), context.tenantId(), request.identitySpec(), now);
     }
     proxyApplicationService.assignBindingProfile(
-        context, request.proxyBindingProfileId(), effectiveRegion, actorId);
+        context,
+        request.proxyBindingProfileId(),
+        effectiveRegion,
+        actorId,
+        request.proxyRoutingDomain());
     tenantRouteService.bindNewSession(context.sessionId(), context.tenantId());
     workspaceTagService.assignInitial(
         context.tenantId(), actorId, context.sessionId(), request.tagIds(), requestId);

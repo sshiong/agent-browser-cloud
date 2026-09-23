@@ -383,7 +383,7 @@ public final class Models {
 
   public record SessionIdentityChangeRequest(String requestId, String sessionId, Long expectedVersion, String proposedSpecHash, SessionIdentitySpecInput proposedSpec, String reason, String state, String createdBy, Object decidedBy, String createdAt, Object decidedAt, Object appliedAt) {}
 
-  public record CreateSessionRequest(String tenantId, String profileId, String runtimeBuildId, String applicationId, String groupId, List<String> tagIds, String region, String proxyBindingProfileId, ResourcePolicyRequest resourcePolicy, Integer requestedTabs, Integer agentActionsPerMinute, Boolean remoteDesktop, Boolean humanTakeoverEnabled, AgentPolicy agentPolicy, Boolean web3Workload, Boolean mediaWorkload, Integer requestedMediaStreams, Integer mediaBitrateKbps, Boolean videoRecording, List<String> extensionIds, Map<String, String> metadata, SessionIdentitySpecInput identitySpec) {}
+  public record CreateSessionRequest(String tenantId, String profileId, String runtimeBuildId, String applicationId, String groupId, List<String> tagIds, String region, String proxyBindingProfileId, String proxyRoutingDomain, ResourcePolicyRequest resourcePolicy, Integer requestedTabs, Integer agentActionsPerMinute, Boolean remoteDesktop, Boolean humanTakeoverEnabled, AgentPolicy agentPolicy, Boolean web3Workload, Boolean mediaWorkload, Integer requestedMediaStreams, Integer mediaBitrateKbps, Boolean videoRecording, List<String> extensionIds, Map<String, String> metadata, SessionIdentitySpecInput identitySpec) {}
 
   public record CreateSessionResponse(String sessionId, Object operationId, String state, ResourcePolicy resourcePolicy, SessionContext context) {}
 

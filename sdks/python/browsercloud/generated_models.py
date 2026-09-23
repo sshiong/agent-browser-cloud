@@ -1889,6 +1889,7 @@ class CreateSessionRequest(TypedDict, total=False):
     tagIds: list[str]
     region: str
     proxyBindingProfileId: str
+    proxyRoutingDomain: str
     resourcePolicy: ResourcePolicyRequest
     requestedTabs: int
     agentActionsPerMinute: int

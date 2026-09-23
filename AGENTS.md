@@ -2,7 +2,7 @@
 
 > 更新日期：2026-09-23
 > 基准分支：`main`
-> 编写时基准提交：`f47e2c7 feat: add independent remote desktop resolution`
+> 编写时基准提交：`defebf4 feat: clone and export environment configuration`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -75,7 +75,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **253 Operations / 350 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **255 Operations / 354 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -156,6 +156,10 @@ progress 166。
 - [已确认] 环境管理、创建向导、Session Detail、Workspace Overview、Groups/Tags、批量生命周期/归属、Saved View、全局搜索、通知、主题、用户菜单、Settings 已接正式 API/PostgreSQL。
 - [已确认] 环境列表三点菜单已接详情与 Tenant/RBAC 隔离的 PostgreSQL 重命名；无 Workflow 的超期 START/TERMINATE Operation 会由 deadline scanner 收敛，不再长期显示“启动中”，见 progress 159。
 - [已确认] 环境列表已增加左侧复选框、当前页全选和批量删除；V113 软删除仅允许 CREATED/TERMINATED 且无 ACTIVE Operation 的 Session，按 Tenant/RBAC 原子、幂等处理，保留 Audit/Recording/Recovery 证据并释放实时 Coordinator Route/Ownership，见 progress 160。
+- [已确认] 环境配置可通过正式 `:clone` API 复制，并通过 `:export-configuration` 导出为现有
+  Environment Import 可直接预检/执行的 schema-v1 JSON；默认新建独立空 Profile，也可显式复用
+  源 Profile。导出固定排除 Cookie、Checkpoint 字节、Credential、Secret、Recording/Screenshot
+  和执行历史，Web/Tauri 共用菜单已接入，见 progress 210。
 - [已确认] Profile 导入/用途绑定一次性导出、Proxy Provider/Binding/探测/自动路由、Safe Point Rebind 已实现。
 - [已确认] Warm Tier v2 已对活动 SQLite/WAL 使用 Online Backup，对 LevelDB 使用
   CURRENT/MANIFEST 与复制前后内容屏障、隔离打开和全量迭代验证；非正常停止后新 Session
@@ -300,6 +304,13 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- 环境配置复制与无敏感数据导出已闭环：正式 API 复用既有 Session 创建、幂等、RBAC、审计及
+  Group/Tag/Proxy/Resource/Identity 校验；导出与 Environment Import schema-v1 兼容，默认复制到
+  独立空 Profile，且不复制 Cookie、Checkpoint、Credential、Secret 或执行历史。完整 OrbStack
+  Integration 输出 `session_configuration_export=true` 与 `session_configuration_clone=true`，
+  真实 Web Console/Viewer RBAC E2E、Web 145 项、OpenAPI 与四语言 SDK 均通过；公开契约为
+  255 Operations / 354 Schemas，见 progress 210。目标环境生产 Gate 未因此改变。
 
 - Remote Desktop 独立低分辨率视图已闭环：Control Plane 将 25%—100% 比例绑定进短期 HMAC
   Ticket，Gateway 为每个连接独立改写尺寸、降采样最新完整基线并反向映射输入坐标。真实

@@ -20,6 +20,37 @@ Production requirements:
 - allow network only to the Control Plane and the approved validation fixture/provider endpoints;
 - keep `--heartbeat-seconds` below one third of the server lease.
 
+The mounted `suites.json` catalog must carry authorization metadata for every dataset. The
+runner rejects the entire dataset before opening any case URL if the declaration is missing,
+contains production or personal data or credentials, has no approved hosts, or includes a case
+outside those exact hosts. Prepare the Secret with these fields before rolling out the new Worker:
+
+```json
+{
+  "datasets": {
+    "synthetic-v1": {
+      "suiteVersion": "v1",
+      "persona": "default",
+      "authorization": {
+        "basis": "Repository-owned synthetic fixture reviewed for validation",
+        "containsProductionData": false,
+        "personalData": false,
+        "credentials": false,
+        "allowedHosts": ["fixture.example.test"]
+      },
+      "declaredCapabilities": {"navigate": true},
+      "cases": [{"id": "NAVIGATE_FIXTURE", "required": true,
+                 "url": "https://fixture.example.test/", "capability": "navigate"}]
+    }
+  }
+}
+```
+
+The declaration is an admission check, not proof that a customer authorized a dataset or that
+redirects remain on those hosts. Keep approval evidence outside the catalog, mount it only from a
+trusted deployment, and enforce destination egress with the sandbox network policy. The runner
+does not ingest raw customer data or Provider credentials.
+
 Example local invocation:
 
 ```bash

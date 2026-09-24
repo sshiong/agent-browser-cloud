@@ -21,6 +21,7 @@ from typing import Any
 MAX_CATALOG_BYTES = 1024 * 1024
 MAX_DOM_BYTES = 4 * 1024 * 1024
 MAX_BROWSER_STDERR_BYTES = 1024 * 1024
+MAX_REPLAY_CASES = 1000
 
 
 class RunnerError(RuntimeError):
@@ -167,6 +168,76 @@ def run_case(
     )
 
 
+def validate_replay_dataset(dataset: dict[str, Any], *, allow_http: bool) -> list[dict[str, Any]]:
+    """Reject an unapproved or malformed catalog before any case starts a browser."""
+    authorization = dataset.get("authorization")
+    if not isinstance(authorization, dict) or (
+        authorization.get("containsProductionData") is not False
+        or authorization.get("personalData") is not False
+        or authorization.get("credentials") is not False
+        or not isinstance(authorization.get("basis"), str)
+        or not authorization["basis"].strip()
+    ):
+        raise RunnerError("REPLAY_AUTHORIZATION_INVALID")
+    hosts = authorization.get("allowedHosts")
+    if not isinstance(hosts, list) or not hosts or len(hosts) > 100:
+        raise RunnerError("REPLAY_AUTHORIZED_HOSTS_INVALID")
+    if any(not isinstance(host, str) or not valid_host(host) for host in hosts):
+        raise RunnerError("REPLAY_AUTHORIZED_HOSTS_INVALID")
+    authorized_hosts = set(hosts)
+    if len(authorized_hosts) != len(hosts):
+        raise RunnerError("REPLAY_AUTHORIZED_HOSTS_INVALID")
+    cases = dataset.get("cases")
+    if not isinstance(cases, list) or not 1 <= len(cases) <= MAX_REPLAY_CASES:
+        raise RunnerError("REPLAY_DATASET_INVALID")
+    seen_ids: set[str] = set()
+    required_count = 0
+    for case in cases:
+        if not isinstance(case, dict) or not re.fullmatch(
+            r"[A-Z][A-Z0-9_]{1,127}", str(case.get("id", ""))
+        ):
+            raise RunnerError("REPLAY_CASE_INVALID")
+        if case["id"] in seen_ids or type(case.get("required", True)) is not bool:
+            raise RunnerError("REPLAY_CASE_INVALID")
+        seen_ids.add(case["id"])
+        required_count += case.get("required", True)
+        url = case.get("url")
+        if not isinstance(url, str):
+            raise RunnerError("REPLAY_CASE_URL_REJECTED")
+        try:
+            parsed = urllib.parse.urlsplit(url)
+            host = parsed.hostname
+            port = parsed.port
+        except ValueError as error:
+            raise RunnerError("REPLAY_CASE_URL_REJECTED") from error
+        if (
+            parsed.scheme not in ({"https", "http"} if allow_http else {"https"})
+            or not host
+            or not valid_host(host)
+            or host not in authorized_hosts
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.fragment
+            or (port is not None and not 1 <= port <= 65535)
+        ):
+            raise RunnerError("REPLAY_CASE_URL_REJECTED")
+    if required_count < 1:
+        raise RunnerError("REPLAY_REQUIRED_CASE_MISSING")
+    return cases
+
+
+def valid_host(host: str) -> bool:
+    return (
+        host == host.lower()
+        and len(host) <= 253
+        and all(
+            1 <= len(label) <= 63
+            and re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label) is not None
+            for label in host.split(".")
+        )
+    )
+
+
 def execute(args: argparse.Namespace, validation: dict[str, Any]) -> dict[str, Any]:
     job = validation.get("job")
     if not isinstance(job, dict):
@@ -184,20 +255,16 @@ def execute(args: argparse.Namespace, validation: dict[str, Any]) -> dict[str, A
     if dataset.get("persona") != validation.get("persona"):
         raise RunnerError("PERSONA_MISMATCH")
     declared = dataset.get("declaredCapabilities")
-    cases = dataset.get("cases")
-    if not isinstance(declared, dict) or not isinstance(cases, list):
+    if not isinstance(declared, dict):
         raise RunnerError("REPLAY_DATASET_INVALID")
     if any(not isinstance(key, str) or not isinstance(value, bool) for key, value in declared.items()):
         raise RunnerError("REPLAY_DATASET_INVALID")
+    cases = validate_replay_dataset(dataset, allow_http=args.allow_http)
     required_tests = required_failures = optional_tests = optional_failures = 0
     optional_codes: list[str] = []
     observed = {key: False for key in declared}
     for case in cases:
-        if not isinstance(case, dict) or not re.fullmatch(
-            r"[A-Z][A-Z0-9_]{1,127}", str(case.get("id", ""))
-        ):
-            raise RunnerError("REPLAY_CASE_INVALID")
-        required = bool(case.get("required", True))
+        required = case.get("required", True)
         passed = run_case(
             args.browser,
             args.browser_arg,

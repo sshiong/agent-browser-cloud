@@ -11,6 +11,7 @@ import threading
 import unittest
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from unittest.mock import patch
 
 
 MODULE_PATH = pathlib.Path(__file__).with_name("validation_worker.py")
@@ -254,6 +255,13 @@ class ValidationWorkerTest(unittest.TestCase):
                             "dataset-v1": {
                                 "suiteVersion": "suite-v1",
                                 "persona": "default",
+                                "authorization": {
+                                    "basis": "Repository-owned synthetic validation fixture",
+                                    "containsProductionData": False,
+                                    "personalData": False,
+                                    "credentials": False,
+                                    "allowedHosts": ["example.test"],
+                                },
                                 "declaredCapabilities": {"navigate": True},
                                 "cases": [
                                     {
@@ -284,6 +292,61 @@ class ValidationWorkerTest(unittest.TestCase):
             )
         self.assertEqual(result["requiredFailures"], 0)
         self.assertEqual(result["observedCapabilities"], {"navigate": True})
+
+    def test_replay_catalog_rejects_unsafe_cases_before_browser_navigation(self):
+        base = {
+            "authorization": {
+                "basis": "Repository-owned synthetic fixture",
+                "containsProductionData": False,
+                "personalData": False,
+                "credentials": False,
+                "allowedHosts": ["example.test"],
+            },
+            "cases": [{"id": "AUTHORIZED", "url": "https://example.test/"}],
+        }
+        self.assertEqual(
+            runtime_runner.validate_replay_dataset(base, allow_http=False), base["cases"]
+        )
+        for mutation, reason in (
+            (lambda dataset: dataset["authorization"].update(credentials=True), "REPLAY_AUTHORIZATION_INVALID"),
+            (lambda dataset: dataset["authorization"].update(containsProductionData=True), "REPLAY_AUTHORIZATION_INVALID"),
+            (lambda dataset: dataset["authorization"].update(basis="  "), "REPLAY_AUTHORIZATION_INVALID"),
+            (lambda dataset: dataset["authorization"].update(allowedHosts=["*.example.test"]), "REPLAY_AUTHORIZED_HOSTS_INVALID"),
+            (lambda dataset: dataset["cases"].append({"id": "EXTERNAL", "url": "https://unapproved.test/"}), "REPLAY_CASE_URL_REJECTED"),
+            (lambda dataset: dataset["cases"].append(dict(dataset["cases"][0])), "REPLAY_CASE_INVALID"),
+            (lambda dataset: dataset["cases"][0].update(required=False), "REPLAY_REQUIRED_CASE_MISSING"),
+            (lambda dataset: dataset["cases"][0].update(url="https://example.test:99999/"), "REPLAY_CASE_URL_REJECTED"),
+            (lambda dataset: dataset["cases"][0].update(url="http://example.test/"), "REPLAY_CASE_URL_REJECTED"),
+        ):
+            dataset = json.loads(json.dumps(base))
+            mutation(dataset)
+            with self.subTest(reason=reason), self.assertRaisesRegex(runtime_runner.RunnerError, reason):
+                runtime_runner.validate_replay_dataset(dataset, allow_http=False)
+
+        unsafe = json.loads(json.dumps(base))
+        unsafe["suiteVersion"] = "suite-v1"
+        unsafe["persona"] = "default"
+        unsafe["declaredCapabilities"] = {"navigate": True}
+        unsafe["cases"].append({"id": "UNAUTHORIZED", "url": "https://unapproved.test/"})
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = pathlib.Path(directory) / "suites.json"
+            catalog.write_text(json.dumps({"datasets": {"dataset-v1": unsafe}}))
+            args = runtime_runner.build_parser().parse_args(
+                ["--browser", "/unused/chromium", "--suite-catalog", str(catalog)]
+            )
+            with patch.object(runtime_runner, "browser_version", return_value="128.0.6613.84"), patch.object(
+                runtime_runner, "run_case", side_effect=AssertionError("browser navigation started")
+            ) as run_case, self.assertRaisesRegex(runtime_runner.RunnerError, "REPLAY_CASE_URL_REJECTED"):
+                runtime_runner.execute(
+                    args,
+                    {
+                        "replayDatasetId": "dataset-v1",
+                        "suiteVersion": "suite-v1",
+                        "persona": "default",
+                        "job": {"browserVersion": "128.0.6613.84"},
+                    },
+                )
+            run_case.assert_not_called()
 
 
 if __name__ == "__main__":

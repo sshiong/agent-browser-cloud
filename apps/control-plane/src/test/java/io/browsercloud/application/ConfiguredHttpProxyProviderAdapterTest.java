@@ -86,7 +86,12 @@ class ConfiguredHttpProxyProviderAdapterTest {
               assertThat(error.retryable()).isFalse();
             });
 
-    assertThatThrownBy(() -> adapter.rotate("pbind-test", new RotationPolicy(true, "challenge")))
+    assertThatThrownBy(
+            () ->
+                adapter.rotate(
+                    "pbind-test",
+                    new RotationPolicy(
+                        true, "challenge", "prb_testrotation01", "vendor-endpoint-old")))
         .isInstanceOfSatisfying(
             ProxyProviderException.class,
             error -> assertThat(error.code()).isEqualTo(ErrorCode.ROTATION_UNSUPPORTED));

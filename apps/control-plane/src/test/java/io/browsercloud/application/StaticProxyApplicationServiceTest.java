@@ -1015,6 +1015,198 @@ class StaticProxyApplicationServiceTest {
     verify(audit).append(any());
   }
 
+  @Test
+  void shouldRejectSameBindingRotationWhenTheProviderHasNoRotationCapability() {
+    var now = Instant.parse("2026-09-24T00:00:00Z");
+    var profile =
+        new ProxyBindingProfileEntity(
+            "pbind_static0000000001",
+            "tenant-test",
+            "Static route",
+            null,
+            "static-test",
+            "singapore",
+            "203.0.113.10",
+            "vault://tenant-test/proxy/primary",
+            true,
+            "admin-test",
+            now);
+    var assignment =
+        new SessionProxyBindingAssignmentEntity(
+            "ses_test",
+            "tenant-test",
+            "pbind_static0000000001",
+            0,
+            "static-test",
+            "singapore",
+            "203.0.113.10",
+            "vault://tenant-test/proxy/primary",
+            "admin-test",
+            now);
+    when(bindingProfiles.findByBindingProfileIdAndTenantId("pbind_static0000000001", "tenant-test"))
+        .thenReturn(Optional.of(profile));
+    when(bindingAssignments.findBySessionIdAndTenantId("ses_test", "tenant-test"))
+        .thenReturn(Optional.of(assignment));
+
+    assertThatThrownBy(
+            () ->
+                service.validateRebindTarget(
+                    "ses_test", "tenant-test", "pbind_static0000000001", "singapore"))
+        .isInstanceOf(StaticProxyApplicationService.ProxyBindingRejectedException.class)
+        .hasMessage("PROVIDER_ROTATION_UNSUPPORTED");
+  }
+
+  @Test
+  void shouldRotateTheSameDynamicBindingOnlyAfterTheSourceWasReleased() throws Exception {
+    var rotationIdempotencyKey = new java.util.concurrent.atomic.AtomicReference<String>();
+    var server =
+        com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/",
+        exchange -> {
+          assertThat(exchange.getRequestHeaders().getFirst("Authorization"))
+              .isEqualTo("Bearer adapter-service-token");
+          var path = exchange.getRequestURI().getPath();
+          byte[] response;
+          if (path.endsWith("/capabilities")) {
+            response =
+                """
+                {"protocols":["HTTP"],"productTypes":["DATACENTER"],
+                 "stickySession":true,"countrySelection":false,"citySelection":false,
+                 "asnSelection":false,"ipFamilies":["IPV4"],"rotation":true,
+                 "bandwidthMetering":true,"providerWebhook":false}
+                """
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+          } else {
+            assertThat(path).endsWith("/bindings/pbind_dynamic00000001/rotate");
+            rotationIdempotencyKey.set(exchange.getRequestHeaders().getFirst("Idempotency-Key"));
+            response =
+                """
+                {"previousEndpointId":"vendor-endpoint-old","endpoint":{
+                  "endpointId":"vendor-endpoint-new","providerId":"dynamic-provider",
+                  "endpoint":"http://127.0.0.1:18552","expectedExitIp":"203.0.113.52",
+                  "credentialRef":"vault://tenant-test/proxy/dynamic","protocol":"HTTP",
+                  "productType":"DATACENTER"}}
+                """
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+          }
+          exchange.getResponseHeaders().add("Content-Type", "application/json");
+          exchange.sendResponseHeaders(200, response.length);
+          exchange.getResponseBody().write(response);
+          exchange.close();
+        });
+    server.start();
+    try {
+      var token = tempDir.resolve("rotation-adapter-token");
+      Files.writeString(token, "adapter-service-token\n");
+      Files.setPosixFilePermissions(
+          token, java.nio.file.attribute.PosixFilePermissions.fromString("rw-r-----"));
+      var catalog = tempDir.resolve("rotation-provider.json");
+      Files.writeString(
+          catalog,
+          """
+          {"version":2,"providers":[{
+            "providerId":"dynamic-provider",
+            "endpoint":"http://127.0.0.1:18051",
+            "expectedExitIp":"203.0.113.99",
+            "credentialRef":"vault://tenant-test/proxy/dynamic",
+            "adapterType":"REMOTE_HTTP_V1",
+            "adapterBaseUrl":"http://127.0.0.1:%d",
+            "adapterServiceTokenFile":"%s",
+            "adapterAllowedEndpointHosts":["127.0.0.1"]
+          }]}
+          """
+              .formatted(server.getAddress().getPort(), token));
+      Files.setPosixFilePermissions(
+          catalog, java.nio.file.attribute.PosixFilePermissions.fromString("rw-r-----"));
+      var remoteService =
+          new StaticProxyApplicationService(
+              repository,
+              bindingProfiles,
+              bindingAssignments,
+              sessionRepository,
+              idempotency,
+              audit,
+              "unused-fallback",
+              "",
+              "",
+              "",
+              catalog.toString(),
+              false,
+              "test");
+      var now = Instant.parse("2026-09-24T00:00:00Z");
+      var hibernated = session().withState(SessionState.HIBERNATED).withProxyBinding("pxy_source");
+      var source =
+          new ProxyAllocationEntity(
+              "pxy_source",
+              "tenant-test",
+              "ses_test",
+              "dynamic-provider",
+              "http://127.0.0.1:18551",
+              "vendor-endpoint-old",
+              "REMOTE_HTTP_V1",
+              "pbind_dynamic00000001",
+              0L,
+              "203.0.113.51",
+              "vault://tenant-test/proxy/dynamic",
+              now);
+      source.release(now);
+      var profile =
+          new ProxyBindingProfileEntity(
+              "pbind_dynamic00000001",
+              "tenant-test",
+              "Dynamic route",
+              null,
+              "dynamic-provider",
+              null,
+              "203.0.113.99",
+              "vault://tenant-test/proxy/dynamic",
+              true,
+              "admin-test",
+              now);
+      var assignment =
+          new SessionProxyBindingAssignmentEntity(
+              "ses_test",
+              "tenant-test",
+              "pbind_dynamic00000001",
+              0,
+              "dynamic-provider",
+              null,
+              "203.0.113.99",
+              "vault://tenant-test/proxy/dynamic",
+              "admin-test",
+              now);
+      when(sessionRepository.requireForUpdate("ses_test")).thenReturn(hibernated);
+      when(repository.findById("pxy_source")).thenReturn(Optional.of(source));
+      when(bindingProfiles.findForAssignment("pbind_dynamic00000001", "tenant-test"))
+          .thenReturn(Optional.of(profile));
+      when(bindingAssignments.findBySessionIdAndTenantId("ses_test", "tenant-test"))
+          .thenReturn(Optional.of(assignment));
+
+      var rebound =
+          remoteService.commitRebindAfterHibernate(
+              "ses_test",
+              "tenant-test",
+              "pbind_dynamic00000001",
+              0,
+              "admin-test",
+              "req-rotate",
+              "prb_rotationworkflow0000000000001",
+              "singapore");
+
+      var saved = ArgumentCaptor.forClass(ProxyAllocationEntity.class);
+      verify(repository).save(saved.capture());
+      assertThat(rebound.proxyBindingId()).isEqualTo(saved.getValue().getAllocationId());
+      assertThat(saved.getValue().getProviderEndpointId()).isEqualTo("vendor-endpoint-new");
+      assertThat(saved.getValue().getExpectedExitIp()).isEqualTo("203.0.113.52");
+      assertThat(saved.getValue().getProviderAdapterType()).isEqualTo("REMOTE_HTTP_V1");
+      assertThat(rotationIdempotencyKey.get()).isEqualTo("prb_rotationworkflow0000000000001");
+      verify(sessionRepository).updateWithExpectedEpoch(rebound, hibernated.contextEpoch());
+    } finally {
+      server.stop(0);
+    }
+  }
+
   private static SessionContext session() {
     var now = Instant.parse("2026-07-26T00:00:00Z");
     return new SessionContext(

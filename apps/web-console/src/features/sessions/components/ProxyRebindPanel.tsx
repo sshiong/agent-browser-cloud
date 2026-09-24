@@ -78,10 +78,9 @@ export function ProxyRebindPanel({
       bindings.filter(
         (binding) =>
           binding.enabled &&
-          binding.bindingProfileId !== currentBindingProfileId &&
           (!binding.region || binding.region === sessionRegion)
       ),
-    [bindings, currentBindingProfileId, sessionRegion]
+    [bindings, sessionRegion]
   );
   const canOpen =
     canAdminister &&
@@ -332,6 +331,9 @@ export function ProxyRebindPanel({
                     >
                       {binding.name} · {binding.providerId} ·{' '}
                       {binding.expectedExitIp}
+                      {binding.bindingProfileId === currentBindingProfileId
+                        ? ' · 轮换当前端点（需 Provider 支持）'
+                        : ''}
                     </option>
                   ))}
                 </select>

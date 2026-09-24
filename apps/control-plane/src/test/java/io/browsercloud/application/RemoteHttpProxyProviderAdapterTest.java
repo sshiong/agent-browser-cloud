@@ -128,7 +128,10 @@ class RemoteHttpProxyProviderAdapterTest {
     assertThat(health.state()).isEqualTo(HealthState.HEALTHY);
     assertThat(health.checkedAt()).isEqualTo(Instant.parse("2026-09-24T01:00:00Z"));
 
-    var rotated = adapter.rotate("binding-1", new RotationPolicy(true, "site challenge"));
+    var rotated =
+        adapter.rotate(
+            "binding-1",
+            new RotationPolicy(true, "site challenge", "rotation-request-1", "vendor-endpoint-1"));
     assertThat(rotated.previousEndpointId()).isEqualTo("vendor-endpoint-1");
     assertThat(rotated.endpoint().endpointId()).isEqualTo("vendor-endpoint-2");
 
@@ -152,8 +155,12 @@ class RemoteHttpProxyProviderAdapterTest {
     assertThat(requests)
         .filteredOn(item -> item.path().endsWith("/rotate"))
         .singleElement()
-        .extracting(RequestEvidence::idempotencyKey)
-        .isEqualTo("binding-1");
+        .satisfies(
+            item -> {
+              assertThat(item.idempotencyKey()).isEqualTo("rotation-request-1");
+              assertThat(item.body())
+                  .contains("\"expectedPreviousEndpointId\":\"vendor-endpoint-1\"");
+            });
     assertThat(requests)
         .filteredOn(item -> "DELETE".equals(item.method()))
         .singleElement()

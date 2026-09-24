@@ -7584,6 +7584,60 @@ proxy_rebind_db_summary="$(docker exec "$postgres_name" psql -U browsercloud -d 
        where migration_id='${proxy_rebind_workflow_id}'
          and workflow_type='PROXY_REBIND' and phase='COMPLETED')")"
 test "$proxy_rebind_db_summary" = "1:1:1:1"
+
+# Rebinding to the current dynamic Binding is an endpoint rotation, not a no-op. The same durable
+# Safe Point workflow releases the old vendor endpoint before the Adapter receives a workflow-bound
+# idempotent rotate request, then restores Chromium on the preallocated replacement endpoint.
+proxy_rotation_safe="false"
+for _ in $(seq 1 80); do
+  proxy_rotation_safe="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${proxy_rebind_session}/safe-point" \
+    -H 'X-Tenant-Id: tenant-integration' | python3 -c \
+    'import json,sys; print(str(json.load(sys.stdin)["safe"]).lower())')"
+  if [[ "$proxy_rotation_safe" = "true" ]]; then break; fi
+  sleep 0.25
+done
+test "$proxy_rotation_safe" = "true"
+proxy_rotation_operation="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${proxy_rebind_session}/proxy-binding:rebind" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: proxy-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-proxy-rotation-001' \
+  -d "{\"targetBindingProfileId\":\"${proxy_rebind_target_id}\",\"reason\":\"Rotate the current dynamic endpoint after challenge evidence\"}")"
+proxy_rotation_workflow_id="$(printf '%s' "$proxy_rotation_operation" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["phase"] == "CHECKPOINTING"; print(item["workflowId"])')"
+proxy_rotation_phase=""
+for _ in $(seq 1 240); do
+  proxy_rotation_view="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${proxy_rebind_session}/proxy-rebind" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  proxy_rotation_phase="$(printf '%s' "$proxy_rotation_view" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["phase"])')"
+  if [[ "$proxy_rotation_phase" = "COMPLETED" ]] \
+    || [[ "$proxy_rotation_phase" = "DEGRADED" ]] \
+    || [[ "$proxy_rotation_phase" = "FAILED" ]]; then
+    break
+  fi
+  sleep 0.25
+done
+test "$proxy_rotation_phase" = "COMPLETED"
+printf '%s' "$proxy_rotation_view" | python3 -c \
+  "import json,sys; item=json.load(sys.stdin); assert item['workflowId'] == '${proxy_rotation_workflow_id}'; assert item['sourceBindingProfileId'] == '${proxy_rebind_target_id}'; assert item['targetBindingProfileId'] == '${proxy_rebind_target_id}'; assert item['failureReason'] is None"
+proxy_rotation_db_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select
+     (select count(*) from proxy_allocations
+       where session_id='${proxy_rebind_session}' and state='RELEASED') || ':' ||
+     (select count(*) from proxy_allocations
+       where session_id='${proxy_rebind_session}' and state='BOUND'
+         and binding_profile_id='${proxy_rebind_target_id}'
+         and provider_adapter_type='REMOTE_HTTP_V1'
+         and provider_endpoint_id like '%-rotated-%') || ':' ||
+     (select count(*) from session_migrations
+       where migration_id='${proxy_rotation_workflow_id}'
+         and workflow_type='PROXY_REBIND' and phase='COMPLETED')")"
+test "$proxy_rotation_db_summary" = "2:1:1"
 curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${proxy_rebind_session}:terminate" \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -7604,11 +7658,14 @@ import sys
 with open(sys.argv[1], encoding="utf-8") as handle:
     events = [json.loads(line) for line in handle if line.strip()]
 allocations = [event for event in events if event["path"].endswith("/allocate")]
+rotations = [event for event in events if event["path"].endswith("/rotate")]
 releases = [event for event in events if event["method"] == "DELETE"]
 assert allocations, events
+assert len(rotations) == 1, events
 assert releases, events
-assert all(event["idempotencyKey"] for event in allocations + releases), events
-assert all(event["credentialReferenceOnly"] for event in allocations), events
+assert all(event["idempotencyKey"] for event in allocations + rotations + releases), events
+assert rotations[0]["idempotencyKey"].startswith("prb_"), events
+assert all(event["credentialReferenceOnly"] for event in allocations + rotations), events
 PY
 
 docker exec "$postgres_name" psql -U browsercloud -d browsercloud -c \
@@ -8979,3 +9036,4 @@ printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"
 printf 'proxy_remote_provider_adapter=true\n'
+printf 'proxy_safe_endpoint_rotation=true\n'

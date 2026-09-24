@@ -1143,7 +1143,10 @@ public class StaticProxyApplicationService {
             .map(SessionProxyBindingAssignmentEntity::getBindingProfileId)
             .orElse(null);
     if (bindingProfileId.equals(sourceProfileId)) {
-      throw new ProxyBindingRejectedException("BINDING_ALREADY_ASSIGNED");
+      var adapter = requireProviderAdapter(provider);
+      if (!adapter.capabilities().rotation()) {
+        throw new ProxyBindingRejectedException("PROVIDER_ROTATION_UNSUPPORTED");
+      }
     }
     return new RebindTargetSnapshot(
         sourceProfileId, profile.getBindingProfileId(), profile.getVersion());
@@ -1151,7 +1154,8 @@ public class StaticProxyApplicationService {
 
   /**
    * Commits only after RuntimeStopped released the source allocation and the Session reached
-   * HIBERNATED. The next Session start allocates a fresh per-Session binding from this snapshot.
+   * HIBERNATED. A different target is allocated on the next start; the same dynamic target is
+   * rotated through the Provider Adapter and persisted before restart.
    */
   @Transactional
   public SessionContext commitRebindAfterHibernate(
@@ -1167,8 +1171,9 @@ public class StaticProxyApplicationService {
     if (!session.tenantId().equals(tenantId) || session.state() != SessionState.HIBERNATED) {
       throw new ProxyBindingRejectedException("REBIND_REQUIRES_HIBERNATED_SESSION");
     }
+    ProxyAllocationEntity sourceAllocation = null;
     if (session.proxyBindingId() != null && !session.proxyBindingId().isBlank()) {
-      var sourceAllocation =
+      sourceAllocation =
           repository
               .findById(session.proxyBindingId())
               .orElseThrow(() -> new ProxyBindingRejectedException("SOURCE_ALLOCATION_NOT_FOUND"));
@@ -1187,10 +1192,12 @@ public class StaticProxyApplicationService {
         requireConfiguredProvider(
             profile.getProviderId(), profile.getCredentialRef(), profile.getExpectedExitIp());
     requireProviderRegion(provider, sessionRegion);
-    requireProviderCapacity(
-        tenantId,
-        profile,
-        bindingAssignments.findBySessionIdAndTenantId(sessionId, tenantId).orElse(null));
+    var replacedAssignment =
+        bindingAssignments.findBySessionIdAndTenantId(sessionId, tenantId).orElse(null);
+    requireProviderCapacity(tenantId, profile, replacedAssignment);
+    var rotatingEndpoint =
+        replacedAssignment != null
+            && profile.getBindingProfileId().equals(replacedAssignment.getBindingProfileId());
     bindingAssignments.save(
         new SessionProxyBindingAssignmentEntity(
             sessionId,
@@ -1203,7 +1210,45 @@ public class StaticProxyApplicationService {
             profile.getCredentialRef(),
             actorId,
             Instant.now()));
-    var rebound = session.withProxyBinding(null);
+    String rotatedAllocationId = null;
+    if (rotatingEndpoint) {
+      if (sourceAllocation == null) {
+        throw new ProxyBindingRejectedException("ROTATION_SOURCE_ALLOCATION_REQUIRED");
+      }
+      var adapter = requireProviderAdapter(provider);
+      if (!adapter.capabilities().rotation()) {
+        throw new ProxyBindingRejectedException("PROVIDER_ROTATION_UNSUPPORTED");
+      }
+      var previousEndpointId = sourceAllocation.getProviderEndpointId();
+      if (previousEndpointId == null || previousEndpointId.isBlank()) {
+        throw new ProxyBindingRejectedException("ROTATION_SOURCE_CHANGED");
+      }
+      var rotation =
+          adapter.rotate(
+              profile.getBindingProfileId(),
+              new ProxyProviderAdapter.RotationPolicy(
+                  true, "safe point endpoint rotation", workflowId, previousEndpointId));
+      if (!previousEndpointId.equals(rotation.previousEndpointId())
+          || previousEndpointId.equals(rotation.endpoint().endpointId())) {
+        throw new ProxyBindingRejectedException("ROTATION_SOURCE_CHANGED");
+      }
+      rotatedAllocationId = "pxy_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+      repository.save(
+          new ProxyAllocationEntity(
+              rotatedAllocationId,
+              tenantId,
+              sessionId,
+              rotation.endpoint().providerId(),
+              rotation.endpoint().endpoint(),
+              rotation.endpoint().endpointId(),
+              adapter.adapterType(),
+              profile.getBindingProfileId(),
+              profile.getVersion(),
+              rotation.endpoint().expectedExitIp(),
+              rotation.endpoint().credentialRef(),
+              Instant.now()));
+    }
+    var rebound = session.withProxyBinding(rotatedAllocationId);
     sessionRepository.updateWithExpectedEpoch(rebound, session.contextEpoch());
     appendBindingAudit(
         tenantId,
@@ -1214,7 +1259,8 @@ public class StaticProxyApplicationService {
         Map.of(
             "sessionId", sessionId,
             "workflowId", workflowId,
-            "bindingVersion", profile.getVersion()));
+            "bindingVersion", profile.getVersion(),
+            "endpointRotated", rotatingEndpoint));
     return rebound;
   }
 

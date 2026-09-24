@@ -139,20 +139,21 @@ final class RemoteHttpProxyProviderAdapter implements ProxyProviderAdapter {
   @Override
   public RotationResult rotate(String bindingId, RotationPolicy policy) {
     var safeBindingId = requireIdentifier(bindingId, "binding ID");
+    var idempotencyKey = requireIdentifier(policy.idempotencyKey(), "rotation idempotency key");
+    var previousEndpointId =
+        requireIdentifier(policy.expectedPreviousEndpointId(), "previous endpoint ID");
     var body =
-        Map.of(
-            "preserveGeography",
-            policy.preserveGeography(),
-            "reason",
-            nullable(policy.reason()),
-            "credentialRef",
-            credentialRef);
+        Map.ofEntries(
+            Map.entry("expectedPreviousEndpointId", previousEndpointId),
+            Map.entry("preserveGeography", policy.preserveGeography()),
+            Map.entry("reason", nullable(policy.reason())),
+            Map.entry("credentialRef", credentialRef));
     var root =
         exchange(
             "POST",
             providerPath("/bindings/" + safeBindingId + "/rotate"),
             body,
-            safeBindingId,
+            idempotencyKey,
             Set.of(200));
     return new RotationResult(
         requireIdentifier(requiredText(root, "previousEndpointId", 256), "endpoint ID"),

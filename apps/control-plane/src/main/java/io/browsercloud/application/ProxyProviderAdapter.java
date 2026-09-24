@@ -102,7 +102,17 @@ public interface ProxyProviderAdapter {
 
   record ProxyHealth(HealthState state, Instant checkedAt, String reason) {}
 
-  record RotationPolicy(boolean preserveGeography, String reason) {}
+  /**
+   * A rotation request bound to one durable control-plane workflow.
+   *
+   * <p>The idempotency key must remain stable when the workflow is reconciled after a crash, but
+   * must differ for later rotations of the same logical binding.
+   */
+  record RotationPolicy(
+      boolean preserveGeography,
+      String reason,
+      String idempotencyKey,
+      String expectedPreviousEndpointId) {}
 
   record RotationResult(String previousEndpointId, ProxyEndpoint endpoint) {}
 

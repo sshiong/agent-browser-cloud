@@ -129,13 +129,21 @@ class Handler(BaseHTTPRequestHandler):
                 },
             )
         elif self.path.endswith("/rotate"):
-            previous = self.headers.get("Idempotency-Key")
+            previous = body.get("expectedPreviousEndpointId")
+            rotation_key = self.headers.get("Idempotency-Key")
+            if (
+                not previous
+                or not rotation_key
+                or body.get("credentialRef") != credential_ref
+            ):
+                self._send(400, {"code": "AUTH_FAILED", "retryable": False})
+                return
             self._send(
                 200,
                 {
                     "previousEndpointId": previous,
                     "endpoint": {
-                        "endpointId": f"{previous}-rotated",
+                        "endpointId": f"{previous}-rotated-{rotation_key[-8:]}",
                         "providerId": "static-local",
                         "endpoint": f"http://127.0.0.1:{proxy_port}",
                         "expectedExitIp": "203.0.113.10",

@@ -23,7 +23,9 @@ Production requirements:
 The mounted `suites.json` catalog must carry authorization metadata for every dataset. The
 runner rejects the entire dataset before opening any case URL if the declaration is missing,
 contains production or personal data or credentials, has no approved hosts, or includes a case
-outside those exact hosts. Prepare the Secret with these fields before rolling out the new Worker:
+outside those exact hosts. Every case capability must also appear in `declaredCapabilities`; the
+runner checks all references before opening the first case. Prepare the Secret with these fields
+before rolling out the new Worker:
 
 ```json
 {

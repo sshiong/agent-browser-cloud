@@ -168,7 +168,9 @@ def run_case(
     )
 
 
-def validate_replay_dataset(dataset: dict[str, Any], *, allow_http: bool) -> list[dict[str, Any]]:
+def validate_replay_dataset(
+    dataset: dict[str, Any], *, allow_http: bool, declared_capabilities: set[str]
+) -> list[dict[str, Any]]:
     """Reject an unapproved or malformed catalog before any case starts a browser."""
     authorization = dataset.get("authorization")
     if not isinstance(authorization, dict) or (
@@ -199,6 +201,11 @@ def validate_replay_dataset(dataset: dict[str, Any], *, allow_http: bool) -> lis
             raise RunnerError("REPLAY_CASE_INVALID")
         if case["id"] in seen_ids or type(case.get("required", True)) is not bool:
             raise RunnerError("REPLAY_CASE_INVALID")
+        capability = case.get("capability")
+        if capability is not None and (
+            not isinstance(capability, str) or capability not in declared_capabilities
+        ):
+            raise RunnerError("REPLAY_CASE_CAPABILITY_INVALID")
         seen_ids.add(case["id"])
         required_count += case.get("required", True)
         url = case.get("url")
@@ -259,7 +266,9 @@ def execute(args: argparse.Namespace, validation: dict[str, Any]) -> dict[str, A
         raise RunnerError("REPLAY_DATASET_INVALID")
     if any(not isinstance(key, str) or not isinstance(value, bool) for key, value in declared.items()):
         raise RunnerError("REPLAY_DATASET_INVALID")
-    cases = validate_replay_dataset(dataset, allow_http=args.allow_http)
+    cases = validate_replay_dataset(
+        dataset, allow_http=args.allow_http, declared_capabilities=set(declared)
+    )
     required_tests = required_failures = optional_tests = optional_failures = 0
     optional_codes: list[str] = []
     observed = {key: False for key in declared}
@@ -274,8 +283,6 @@ def execute(args: argparse.Namespace, validation: dict[str, Any]) -> dict[str, A
         )
         capability = case.get("capability")
         if capability is not None:
-            if capability not in observed:
-                raise RunnerError("REPLAY_CASE_CAPABILITY_INVALID")
             observed[capability] = observed[capability] or passed
         if required:
             required_tests += 1

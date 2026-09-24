@@ -321,7 +321,9 @@ progress 166。
   直连。progress 214 又增加 V16 `capabilities/allocate/health/rotate/release/usage` 统一 SPI、八类
   规范化错误与 V132 独立供应商 Endpoint 身份；现有商业 HTTP 分配/释放已通过 Adapter 执行。
   progress 215 又增加生产 HTTPS、私有服务身份、有界 JSON 和幂等键约束的 `REMOTE_HTTP_V1`，
-  动态分配/释放已进入真实 OrbStack 运行链。具体供应商插件、目标云 Secret、供应商特有认证/
+  动态分配/释放已进入真实 OrbStack 运行链。progress 216 再把同 Binding 轮换接入 Safe Point
+  HIBERNATE/Checkpoint/释放/恢复链，使用 Workflow ID 幂等键与 previous Endpoint 围栏，Web/Tauri
+  可发起且完整 Integration 输出 `proxy_safe_endpoint_rotation=true`。具体供应商插件、目标云 Secret、供应商特有认证/
   账单与客户 SLA Replay 仍未完成。
 
 - 环境配置复制与无敏感数据导出已闭环：正式 API 复用既有 Session 创建、幂等、RBAC、审计及
@@ -916,9 +918,10 @@ Delete API 或短期签名 URL 冒充目标云监管保留。
 1. Profile 对象保留/Legal Hold 深度联动；SQLite/LevelDB 应用感知 Adapter、Multipart Resume
    与仓库级 Cross-Region Restore 已由 progress 205—207 完成。
 2. 目标 CRM/支付/IAM Provider 的真实凭据、字段/事务映射和 Provider 特有认证接入。
-3. 目标云 Secret 解引用/轮换/撤销、动态供应商分配/轮换 API、供应商特有 Proxy 认证与账单、
+3. 目标云 Secret 解引用/轮换/撤销、具体动态供应商插件、供应商特有 Proxy 认证与账单、
    高级 SLA 路由；通用商业 HTTP Proxy Basic Auth Adapter、统一 Provider SPI/Endpoint 身份、
-   业务成功率路由、Challenge 临时隔离与受约束探索已由 progress 211—214 完成。
+   业务成功率路由、Challenge 临时隔离、受约束探索、动态 Gateway 与 Safe Point 端点轮换已由
+   progress 211—216 完成。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
 5. Recording 目标账户 Object Lock Apply/IAM、客户视觉数据集 Replay 和目标云原生 Legal Hold
    联动；仓库 WORM、到期对象删除 Worker 及全帧隐私 v2 已由 progress 201—203 完成。

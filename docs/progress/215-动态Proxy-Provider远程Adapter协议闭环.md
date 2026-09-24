@@ -12,8 +12,9 @@ Adapter 类型硬编码为 `CONFIGURED_HTTP`，也没有真正调用隔离供应
 本次增加 `REMOTE_HTTP_V1`：
 
 - `capabilities / allocate / health / rotate / release / usage` 六操作通过隔离 HTTP Adapter Gateway；
-- `allocate` 使用控制面 Allocation ID 作为 `Idempotency-Key`，`rotate` 使用 Binding ID，`release`
-  使用供应商 Endpoint ID，供应商重试不会重复租用或释放错误资源；
+- `allocate` 使用控制面 Allocation ID 作为 `Idempotency-Key`，`release` 使用供应商 Endpoint ID；
+  `rotate` 后续由 progress 216 接入 Safe Point 业务链，使用每次 Workflow ID 作为幂等键并携带旧
+  Endpoint ID 围栏，供应商重试不会重复租用、重复轮换或释放错误资源；
 - Control Plane 只发送不透明 `credentialRef`。供应商 OAuth、请求签名和 Secret Manager 解引用留在
   隔离 Gateway，Browser Runtime、Node IPC、数据库和普通审计不接触供应商 Secret 正文；
 - 服务身份从绝对路径私有文件读取，拒绝符号链接、超大/多行或不安全权限文件；生产环境只接受
@@ -69,7 +70,8 @@ V133 只扩展既有 `provider_adapter_type` Check Constraint，允许 `REMOTE_H
 
 ## 仍未完成
 
-这个切片关闭通用动态供应商控制面协议和仓库级运行链，不冒充任何具体商业供应商已经生产准入。
+这个切片关闭通用动态供应商控制面协议和分配/释放运行链；Safe Point 端点轮换随后由 progress 216
+关闭。不冒充任何具体商业供应商已经生产准入。
 仍需目标供应商插件、真实账户 OAuth/签名认证、云 Secret Manager/Workload Identity、供应商限流与
 故障 Replay、真实用量/账单对账、Webhook 提示后的主动复核，以及 Provider/Region/Product 维度的
 生产熔断和客户 SLA 验收。

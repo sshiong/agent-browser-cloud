@@ -6,13 +6,16 @@ RUNTIME_CAPACITY_CYCLES ?= 500
 BROWSER_DENSITY_CONCURRENCY ?= 4
 REAL_CHROMIUM_PATH ?=
 
-.PHONY: docs-generate docs-check
+.PHONY: docs-generate docs-check test-replay-gate
 docs-generate:
 	python3 tools/docs/check_readme.py --write
 
 docs-check:
 	python3 -m unittest discover -s tools/docs -p 'test_*.py'
 	python3 tools/docs/check_readme.py
+
+test-replay-gate:
+	python3 -m unittest discover -s tests/validation -p 'test_*.py' -v
 
 # Install workspace dependencies
 install:
@@ -46,6 +49,7 @@ build-desktop:
 
 # Run all tests
 test:
+	$(MAKE) test-replay-gate
 	./gradlew -p apps/control-plane test
 	cargo test --locked --workspace --manifest-path apps/browser-node/Cargo.toml
 	pnpm --dir apps/web-console test

@@ -13,16 +13,17 @@ import urllib.error
 import urllib.request
 import uuid
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "validation"))
+from replay_gate import ReplayGate
+
 
 BASE_URL = sys.argv[1].rstrip("/")
 TENANT = "tenant-real-url"
 DATASET_PATH = pathlib.Path(sys.argv[2])
 DATASET_BYTES = DATASET_PATH.read_bytes()
 DATASET = json.loads(DATASET_BYTES)
-if DATASET["containsProductionData"] is not False:
-    raise AssertionError("Replay Dataset must not contain unauthorized production data")
-if DATASET["authorization"]["personalData"] or DATASET["authorization"]["credentials"]:
-    raise AssertionError("Replay Dataset authorization metadata is unsafe")
+REPLAY_GATE = ReplayGate(DATASET)
+OPAQUE_CASE = REPLAY_GATE.cases["synthetic-opaque-frame-single-click"]
 DATASET_DIGEST = hashlib.sha256(DATASET_BYTES).hexdigest()
 
 
@@ -209,6 +210,7 @@ for label, url, domain in sites:
     navigation = task["executionResults"][0]["output"]
     if navigation["domain"] != domain or not navigation["finalUrl"].startswith(url):
         raise AssertionError(f"navigation left authorized domain: {navigation}")
+    REPLAY_GATE.pass_case(label)
 
 control_url = "http://agent-controls.invalid/form"
 control_task = create_execute_task(
@@ -282,6 +284,7 @@ scrolled = create_execute_task(
     "scroll",
 )
 require_verified(scrolled, ["GET_CURRENT_STATE", "SCROLL", "GET_URL", "GET_PAGE_SUMMARY"])
+REPLAY_GATE.pass_case("synthetic-form-controls")
 
 challenge_url = "http://agent-controls.invalid/challenge"
 try:
@@ -343,6 +346,7 @@ if simple_challenge is None or simple_challenge["status"] == "AUTHORIZED":
 challenge_state = current_state(session_id)
 if challenge_state["title"] != "Challenge passed":
     raise AssertionError(f"simple Challenge outcome was not observed: {challenge_state}")
+REPLAY_GATE.pass_case("synthetic-simple-challenge")
 
 # A real cross-origin iframe remains DOM-opaque. Automation is allowed only after an exact
 # Session-origin opt-in and Task allowedDomains intersection, then only through the screenshot
@@ -361,7 +365,7 @@ require_status(
             "allowMultiClick": True,
             "allowSlide": True,
             "opaqueFrameClickEnabled": True,
-            "opaqueFrameClickOrigins": ["http://opaque-challenge.invalid"],
+            "opaqueFrameClickOrigins": [OPAQUE_CASE["frameOrigin"]],
         },
         actor_id="opaque-challenge-operator",
         roles="TENANT_OPERATOR",
@@ -373,8 +377,8 @@ opaque_navigation = create_execute_task(
     session_id,
     {
         "goal": "Open the authorized hosted verification page",
-        "startUrl": "http://agent-controls.invalid/opaque-challenge",
-        "allowedDomains": ["agent-controls.invalid", "opaque-challenge.invalid"],
+        "startUrl": OPAQUE_CASE["url"],
+        "allowedDomains": OPAQUE_CASE["allowedDomains"],
         "maxActions": 8,
         "replanBudget": 1,
     },
@@ -392,7 +396,7 @@ opaque_frame_state = wait_for(
     f"/api/v1/sessions/{session_id}/state",
     lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
     and any(
-        frame.get("origin") == "http://opaque-challenge.invalid"
+        frame.get("origin") == OPAQUE_CASE["frameOrigin"]
         and frame.get("frameRef", "").startswith("ofr_")
         and frame.get("boundaryReason") == "CROSS_ORIGIN"
         for frame in state.get("opaqueFrames", [])
@@ -402,13 +406,23 @@ if opaque_frame_state.get("title") != "Verify you are human":
     raise AssertionError(
         f"opaque Challenge parent page changed before task binding: {opaque_frame_state}"
     )
+opaque_frames = [
+    frame for frame in opaque_frame_state["opaqueFrames"]
+    if frame.get("origin") == OPAQUE_CASE["frameOrigin"]
+]
+if len(opaque_frames) != 1 or any(
+    target.get("targetRef") == opaque_frames[0]["frameRef"]
+    or target.get("elementId") == opaque_frames[0]["frameRef"]
+    for target in opaque_frame_state.get("targets", [])
+):
+    raise AssertionError("opaque frame became an executable target")
 opaque_created = require_status(
     request(
         "POST",
         f"/api/v1/sessions/{session_id}/agent-tasks",
         {
             "goal": "Wait for the authorized hosted verification and continue after one bounded click",
-            "allowedDomains": ["agent-controls.invalid", "opaque-challenge.invalid"],
+            "allowedDomains": OPAQUE_CASE["allowedDomains"],
             "maxActions": 8,
             "replanBudget": 1,
             "actions": [
@@ -553,6 +567,7 @@ if opaque_event is None or not opaque_event["targetRef"].startswith("ofr_"):
 opaque_state = current_state(session_id)
 if opaque_state["title"] != "Opaque challenge passed":
     raise AssertionError(f"opaque Challenge click did not reach the hosted frame: {opaque_state}")
+REPLAY_GATE.pass_case("synthetic-opaque-frame-single-click")
 
 example_task = create_execute_task(
     session_id,
@@ -602,8 +617,9 @@ failed_click = create_execute_task(
 )
 if "POST_ACTION_DOMAIN_NOT_ALLOWED" not in (failed_click.get("lastError") or ""):
     raise AssertionError(f"cross-domain click did not fail closed: {failed_click}")
+REPLAY_GATE.pass_case("cross-domain-fail-closed")
 
-proxy_denied_status, _ = request(
+proxy_denied_status, proxy_denied_task = request(
     "POST",
     f"/api/v1/sessions/{session_id}/agent-tasks",
     {
@@ -615,6 +631,9 @@ proxy_denied_status, _ = request(
 )
 if proxy_denied_status != 201:
     raise AssertionError(f"blocked Agent plan should be persisted, got {proxy_denied_status}")
+if proxy_denied_task.get("state") != "BLOCKED" or proxy_denied_task.get("blockedReason") != "DOMAIN_NOT_ALLOWED":
+    raise AssertionError(f"non-allowlisted Agent plan was not blocked: {proxy_denied_task}")
+REPLAY_GATE.pass_case("non-allowlisted-plan")
 
 require_status(
     request("POST", f"/api/v1/sessions/{session_id}:terminate"),
@@ -712,7 +731,7 @@ validation = require_status(
         {
             "claimToken": validation_claim["claimToken"],
             "result": {
-                "requiredTests": len(DATASET["cases"]),
+                "requiredTests": REPLAY_GATE.required_tests(),
                 "requiredFailures": 0,
                 "optionalTests": 0,
                 "optionalFailures": 0,
@@ -757,7 +776,7 @@ print(
             "publicUrls": [url for _, url, _ in sites],
             "controlFixture": control_url,
             "challengeFixture": challenge_url,
-            "opaqueChallengeFixture": "http://agent-controls.invalid/opaque-challenge",
+            "opaqueChallengeFixture": OPAQUE_CASE["url"],
             "verifiedControls": [
                 "NAVIGATE",
                 "READ",

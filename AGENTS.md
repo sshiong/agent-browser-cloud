@@ -644,7 +644,7 @@ progress 166。
 
 ### 2026-09-24 会话交接快照（新会话从这里开始）
 
-当前权威基线为 `main@ccc8fd5`，已与 `origin/main` 同步。该基线最近完成动态 Proxy Endpoint
+接手时权威基线为 `main@0f2764e`，已与 `origin/main` 同步。此前完成动态 Proxy Endpoint
 的 Safe Point 轮换：复用既有 HIBERNATE/Checkpoint/Release/Restore Workflow，以 Workflow ID
 作为 Provider 幂等键，并用 previous Endpoint 围栏拒绝陈旧轮换；静态或不支持轮换的 Provider
 保持 fail-closed。OrbStack 完整 Integration 输出 `proxy_safe_endpoint_rotation=true`，`make ci`
@@ -660,7 +660,7 @@ progress 166。
 | # | 目标 | 当前状态 | 尚未完成/边界 |
 | --- | --- | --- | --- |
 | 1 | 极端重复元素与 DOM 复用 | **仓库通用方案已确认并闭环**：稳定 Element ID、语义/实体 Hash、JIT Rebind，Adapter 可提供 HMAC 实体属性，见 progress 167/175/197 | 页面没有业务实体键且可见语义完全相同时必须 fail-closed；具体客户站点 Adapter/Replay 仍需外部样本 |
-| 2 | Cross-Origin iframe | **部分完成**：Opaque Frame 安全投影已闭环；仅对精确 Origin/Task 授权的托管低风险 Challenge 开放一次左键，见 progress 185/198 | 跨域文本、密码、OTP、键盘、滑动、多击、第三方登录/支付/账号决策仍 Human Handoff；进一步自动化需显式 Provider 协议、授权和 Replay |
+| 2 | Cross-Origin iframe | **部分完成**：Opaque Frame 安全投影与精确授权单击已闭环；真实 Chrome Replay 的逐 case 证据 Gate 见 progress 217 | 跨域文本、密码、OTP、键盘、滑动、多击、第三方登录/支付/账号决策仍 Human Handoff；进一步自动化需显式 Provider 协议、授权 Replay 和可信结果回执 |
 | 3 | 真实网站与真实浏览器验证 | **仓库 Fixture/公开页面链已闭环**：真实 Chrome 登录结果、OTP Fixture、Turnstile 测试 Widget、Profile 恢复、Vision、Cloudflare trace | 真实企业 IdP、真实 SMS/Email/TOTP、支付页和客户 SPA Replay 是外部 Gate |
 | 4 | 外部模型请求快速取消 | **客户端链已确认并闭环**：lease/epoch/cancel 会终止 HTTP transport/socket，迟到结果受围栏，见 progress 181/196 | Provider 服务端推理/计费强取消只有供应商提供 Cancel API 才可实现，不能由通用 OpenAI-compatible HTTP 客户端保证 |
 | 5 | Recording 治理与隐私 | **仓库链已闭环**：用途绑定播放、物理删除、Object Lock/WORM 基线、全帧 OCR/PII/正面人脸/二维码遮罩，见 progress 200—203 | 目标云 Apply/IAM、云原生 Legal Hold 深度联动、客户视觉集与侧脸/证件/医学影像等扩展类别 |
@@ -671,11 +671,11 @@ progress 166。
 | 10 | 环境配置复制/导出 | **已确认并闭环**：正式 Clone API 与无敏感配置导出，见 progress 210 | 真实外部导入生态兼容只作为持续验证，不再重做仓库主链 |
 | 11 | 开源许可证 | **待确认，发布阻断** | 权利人必须明确选择 MIT、其他许可证或 UNLICENSED；Agent 不得擅自替权利人作法律选择 |
 
-**当前正在处理的主任务**：继续关闭上述持续目标中仍可在仓库内推进的缺口。下一切片优先评估并
-实现 Cross-Origin iframe 的显式受信 Provider Bridge，只允许有协议、来源、租户/Session/Task
-授权和精确 State/Frame 围栏的非 Secret、低风险动作；密码/OTP、支付、账号安全和任意键盘输入
-不得因该切片降级。若审计证明没有安全、通用且可验证的增量，则不要硬做，转向具体 Provider
-插件骨架与 Replay/Canary Gate，并把需要用户选择的供应商/凭据明确标为“待确认”。
+**当前正在处理的主任务**：继续关闭上述持续目标中仍可在仓库内推进的缺口。Cross-Origin
+审计确认现有 Application Adapter 缺少第三方 iframe 动作协议、可信身份绑定与事务结果回执；
+progress 217 因而先建立真实 Chrome Replay 的逐 case 证据 Gate，不开放通用动作 Bridge。下一步
+需确定具体 Provider、授权 Origin/凭据及业务 Outcome 协议，再评估受信 Adapter 和 Canary；
+密码/OTP、支付、账号安全及任意键盘输入保持既有 Human Handoff/fail-closed 边界。
 
 新会话开始时应先读取本文件并检查 Git；不得重新实现 progress 167—216 已有的闭环。任何新增
 公开 API/RPC 必须同步 OpenAPI/Protobuf、四语言 SDK、N/N-1 和 Integration；完成后更新本文件、
@@ -1062,7 +1062,7 @@ make test-desktop
 
 | 优先级 | 任务 | 原因 |
 | --- | --- | --- |
-| P1 | Cross-Origin 显式受信 Provider Bridge 或对应 Replay Gate | Opaque Frame 与单击已安全闭环；下一增量必须保持 Secret/支付/账号操作 Human Handoff |
+| P1 | 具体 Cross-Origin Provider 协议与授权 Replay/Canary | progress 217 已建立逐 case Replay Gate；进一步动作必须有可信 Provider 身份、精确动作契约与业务结果回执，Secret/支付/账号操作保持既有门禁 |
 | P1 | Recording 客户视觉 Replay、目标云 Object Lock Apply/IAM、Legal Hold 和对象治理 | 涉及敏感浏览器证据与监管型保留的生产闭环；仓库全帧隐私/WORM 基线已完成 |
 | P1 | 目标云 Profile 复制/KMS/IAM 与 RPO/RTO | 仓库级恢复路径已完成，仍需真实云身份、复制和灾备证书 |
 | P1 | 目标 Provider/Secret/Proxy Adapter | 真实客户业务接入的前提 |
@@ -1072,10 +1072,10 @@ make test-desktop
 
 ## 13. 下一步开发计划
 
-1. 先审计 Cross-Origin iframe 的现有 Opaque Frame、Challenge Policy、Vision/Handoff 和
-   Provider 边界；仅在能够维持来源授权、动作白名单、State/Frame 围栏和 Outcome Verification
-   时实现受信 Provider Bridge，并补真实 Chromium 回归。不能满足时保持 fail-closed，记录阻断，
-   转向具体 Provider 插件骨架与 Replay/Canary Gate。
+1. Cross-Origin iframe 的 Opaque Frame、Challenge、Vision/Handoff 与 Application Adapter
+   已审计，逐 case Replay Gate 由 progress 217 建立。下一步取得具体 Provider 协议、授权
+   测试 Origin/凭据、动作白名单和业务 Outcome 回执后再评估受信 Bridge 与 Canary；未满足前
+   继续 Human Handoff/fail-closed，不扩大通用跨域动作权限。
 2. Clipboard Bridge 已由 progress 158 完成；不得让 Agent Planner 自动调用该操作员显式
    协作通道，也不得用它替代账号/密码/OTP 一次性敏感输入 API。
 3. Recording purpose-bound 一次性播放 Grant、到期删除 Worker、AWS Object Lock/WORM 仓库

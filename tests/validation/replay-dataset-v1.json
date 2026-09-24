@@ -46,6 +46,15 @@
       "requiredControls": ["NAVIGATE", "AUTOMATIC_SINGLE_CLICK", "READ"]
     },
     {
+      "caseId": "synthetic-opaque-frame-single-click",
+      "kind": "SYNTHETIC_OPAQUE_FRAME",
+      "url": "http://agent-controls.invalid/opaque-challenge",
+      "frameOrigin": "http://opaque-challenge.invalid",
+      "allowedDomains": ["agent-controls.invalid", "opaque-challenge.invalid"],
+      "allowedAction": "SINGLE_LEFT_CLICK",
+      "forbiddenActions": ["TEXT", "KEYBOARD", "SECRET", "PAYMENT", "ACCOUNT_SECURITY"]
+    },
+    {
       "caseId": "cross-domain-fail-closed",
       "kind": "SECURITY_NEGATIVE",
       "url": "https://example.com/",

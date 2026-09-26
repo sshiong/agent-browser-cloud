@@ -12,6 +12,8 @@ trap report_failure ERR
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
+minio_image="${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z}"
+mc_image="${MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z}"
 
 java_bin=""
 if [[ -n "${JAVA_HOME:-}" ]] && [[ -x "${JAVA_HOME}/bin/java" ]] \
@@ -93,6 +95,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+python3 "$repo_root/tests/fixtures/build_minio_source_images.py"
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 \
   -subj '/CN=BrowserCloud Real URL CA' \
   -keyout "$temp_dir/ca.key" -out "$temp_dir/ca.crt" >/dev/null 2>&1
@@ -126,7 +129,7 @@ docker run -d --name "$minio_name" \
   -p 127.0.0.1::9000 \
   -e "MINIO_ROOT_USER=${minio_access_key}" \
   -e "MINIO_ROOT_PASSWORD=${minio_secret_key}" \
-  quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z server /data >/dev/null
+  "$minio_image" server /data >/dev/null
 
 postgres_port="$(docker port "$postgres_name" 5432/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 redis_port="$(docker port "$redis_name" 6379/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
@@ -169,7 +172,7 @@ for _ in $(seq 1 60); do
 done
 curl -fsS "http://127.0.0.1:${minio_port}/minio/health/live" >/dev/null
 docker run --rm --network "$minio_network" --entrypoint /bin/sh \
-  quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z \
+  "$mc_image" \
   -c "mc alias set real-url http://${minio_name}:9000 '${minio_access_key}' '${minio_secret_key}' >/dev/null && mc mb real-url/${minio_bucket} >/dev/null"
 
 APP_ENVIRONMENT=local \

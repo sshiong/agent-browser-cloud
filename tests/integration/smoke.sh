@@ -12,6 +12,8 @@ trap report_failure ERR
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
+minio_image="${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z}"
+mc_image="${MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z}"
 
 java_bin=""
 if [[ -n "${JAVA_HOME:-}" ]] && [[ -x "${JAVA_HOME}/bin/java" ]] \
@@ -196,6 +198,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+python3 "$repo_root/tests/fixtures/build_minio_source_images.py"
 docker run -d --name "$postgres_name" \
   -e POSTGRES_DB=browsercloud \
   -e POSTGRES_USER=browsercloud \
@@ -211,7 +214,7 @@ docker run -d --name "$minio_name" \
   -p 127.0.0.1::9000 \
   -e "MINIO_ROOT_USER=${minio_access_key}" \
   -e "MINIO_ROOT_PASSWORD=${minio_secret_key}" \
-  quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z server /data >/dev/null
+  "$minio_image" server /data >/dev/null
 
 postgres_port="$(docker port "$postgres_name" 5432/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 redis_port="$(docker port "$redis_name" 6379/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
@@ -641,7 +644,7 @@ for _ in $(seq 1 80); do
 done
 test "$minio_ready" = "true"
 docker run --rm --network "$minio_network" --entrypoint /bin/sh \
-  quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z \
+  "$mc_image" \
   -c "mc alias set integration http://${minio_name}:9000 '${minio_access_key}' '${minio_secret_key}' >/dev/null && mc mb --with-lock integration/${minio_bucket} >/dev/null"
 
 {
@@ -6745,13 +6748,13 @@ recording_list_after_deletion="$(curl -fsS \
 printf '%s' "$recording_list_after_deletion" | python3 -c \
   "import json,sys; assert all(value['recordingId'] != '${recording_fixture_id}' for value in json.load(sys.stdin)['items'])"
 if docker run --rm --network "$minio_network" --entrypoint /bin/sh \
-  quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z \
+  "$mc_image" \
   -c "mc alias set integration http://${minio_name}:9000 '${minio_access_key}' '${minio_secret_key}' >/dev/null && mc stat 'integration/${minio_bucket}/${recording_manifest_key}' >/dev/null 2>&1"; then
   echo "retention worker left the Recording manifest in Object Storage" >&2
   exit 1
 fi
 docker run --rm --network "$minio_network" --entrypoint /bin/sh \
-  quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z \
+  "$mc_image" \
   -c "mc alias set integration http://${minio_name}:9000 '${minio_access_key}' '${minio_secret_key}' >/dev/null && test -z \"\$(mc ls --versions --recursive 'integration/${minio_bucket}/${recording_manifest_key%/COMMITTED}')\""
 recording_deletion_audit_leaks="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from audit_events

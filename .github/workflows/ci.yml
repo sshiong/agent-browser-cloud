@@ -102,6 +102,9 @@ jobs:
           path: browsercloud-sbom.cdx.json
           if-no-files-found: error
 
+      - name: Build pinned MinIO test images from source
+        run: python3 tests/fixtures/build_minio_source_images.py
+
       - name: Integration smoke test
         run: make test-integration
 

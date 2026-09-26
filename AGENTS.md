@@ -655,8 +655,9 @@ progress 166。
 仍必须使用 OrbStack；最近核验为 `Running`、context `orbstack`、`OS=OrbStack`。
 
 2026-09-26 发现 Quay 匿名拉取固定 MinIO 测试镜像返回 `unauthorized`，导致干净 CI runner
-在 Integration 启动前失败；测试镜像现由官方精确源码提交构建，见 progress 220。已有本地镜像
-缓存不证明干净 runner 可重复性；远端 CI 仍须核对最终结果。
+在 Integration 启动前失败；测试镜像现由官方精确源码提交构建，见 progress 220。功能提交
+`22d3740` 的 GitHub `ci` run `36231892787`（含 Integration/Object Storage GameDay/Operator）
+与 `desktop` run `36231892730` 均成功；已有本地镜像缓存不证明干净 runner 可重复性。
 
 本阶段 11 项持续目标的真实状态如下。表中“仓库闭环”只代表通用代码和可重复测试已完成，
 不等于目标云、真实客户系统或 V16 生产发布 Gate 已通过。

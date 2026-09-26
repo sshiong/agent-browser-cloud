@@ -32,8 +32,11 @@
 - 同一镜像运行真实 Chrome 153 `make test-real-url-agent` 通过，Replay Dataset Digest
   `sha256:60c80eabf4a7ff23bcb825a29cafc57f7b6b9a55cb581c5048374aa023f16f93`，
   Validation Evidence Hash `965c7c2578b882c2e07c90f026c39bf71bcde2edb7609d3d9dbb1884e557b4cc`。
+- 功能提交 `22d3740` 的 GitHub `ci` run `36231892787` 成功：干净 runner 完成固定源码镜像构建、
+  Integration smoke test、Object Storage GameDay（输出 `OBJECT_STORAGE_GAMEDAY_OK`）和 Kubernetes
+  Operator E2E。`desktop` run `36231892730` 的 Windows/macOS 均成功。
 
 ## 边界
 
 这只恢复测试镜像的可重复获取，不更改生产对象存储选择或目标云 KMS/IAM、Legal Hold
-和多 Region 发布 Gate。CI 的完整 Integration 与后续 GameDay 仍须在新提交上实际通过。
+和多 Region 发布 Gate。后续提交仍须分别核对对应 CI 结果。

@@ -34,6 +34,13 @@ class ReplayGateTest(unittest.TestCase):
             with self.subTest(field=field), self.assertRaisesRegex(ValueError, "REPLAY_OPAQUE_POLICY_INVALID"):
                 ReplayGate(dataset)
 
+    def test_public_form_case_is_locked_to_selenium_site(self):
+        dataset = copy.deepcopy(DATASET)
+        case = next(item for item in dataset["cases"] if item["kind"] == "PUBLIC_FORM")
+        case["url"] = "https://other.example/form"
+        with self.assertRaisesRegex(ValueError, "REPLAY_PUBLIC_FORM_POLICY_INVALID"):
+            ReplayGate(dataset)
+
     def test_missing_or_unsafe_authorization_is_rejected(self):
         for mutation in (
             lambda value: value["authorization"].update(credentials=True),

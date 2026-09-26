@@ -32,6 +32,13 @@
       "requiredTools": ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"]
     },
     {
+      "caseId": "public-selenium-form",
+      "kind": "PUBLIC_FORM",
+      "url": "https://www.selenium.dev/selenium/web/web-form.html",
+      "allowedDomains": ["www.selenium.dev"],
+      "requiredControls": ["NAVIGATE", "TYPE_TEXT", "SCROLL", "CLICK_TARGET", "READ"]
+    },
+    {
       "caseId": "synthetic-form-controls",
       "kind": "SYNTHETIC_CONTROL",
       "url": "http://agent-controls.invalid/form",

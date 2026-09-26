@@ -42,9 +42,22 @@ if [[ -z "$chromium_path" ]] || [[ ! -x "$chromium_path" ]]; then
   exit 1
 fi
 
-./gradlew -p apps/control-plane bootJar
-cargo build --locked --manifest-path apps/browser-node/Cargo.toml \
-  --bin network-helper --bin storage-helper --bin node-agent
+if [[ "${REAL_URL_SKIP_BUILD:-false}" == "true" ]]; then
+  for artifact in \
+    apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
+    apps/browser-node/target/debug/network-helper \
+    apps/browser-node/target/debug/storage-helper \
+    apps/browser-node/target/debug/node-agent; do
+    if [[ ! -f "$artifact" ]]; then
+      echo "Prebuilt real-URL artifact is missing: $artifact" >&2
+      exit 1
+    fi
+  done
+else
+  ./gradlew -p apps/control-plane bootJar
+  cargo build --locked --manifest-path apps/browser-node/Cargo.toml \
+    --bin network-helper --bin storage-helper --bin node-agent
+fi
 
 run_id="$(date +%s)-$$"
 postgres_name="agentbrowser-postgres-real-url-${run_id}"
@@ -127,7 +140,7 @@ event_port="$(free_port)"
 desktop_port="$(free_port)"
 proxy_port="$(free_port)"
 
-PROXY_ALLOWED_HOSTS="example.com,www.w3.org,www.cloudflare.com,agent-controls.invalid,opaque-challenge.invalid" \
+PROXY_ALLOWED_HOSTS="example.com,www.w3.org,www.cloudflare.com,www.selenium.dev,code.jquery.com,cdn.jsdelivr.net,unpkg.com,agent-controls.invalid,opaque-challenge.invalid" \
 PROXY_EVENT_LOG="$temp_dir/proxy-events.jsonl" \
   python3 "$repo_root/tests/fixtures/allowlist-forward-proxy.py" "$proxy_port" \
   >"$temp_dir/proxy.log" 2>&1 &
@@ -261,6 +274,7 @@ python3 "$repo_root/tests/compatibility/real_url_agent_matrix.py" \
 grep -q '"event": "connect_allowed".*"host": "example.com"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "www.w3.org"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "www.cloudflare.com"' "$temp_dir/proxy-events.jsonl"
+grep -q '"event": "connect_allowed".*"host": "www.selenium.dev"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "control_fixture".*"host": "agent-controls.invalid"' "$temp_dir/proxy-events.jsonl"
 grep -Eq '"event": "connect_denied".*"target": "(www\\.)?iana.org:443"' "$temp_dir/proxy-events.jsonl"
 

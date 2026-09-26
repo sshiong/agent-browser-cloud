@@ -160,6 +160,38 @@ def current_state(session_id):
     return wait_for_executable_state(session_id)
 
 
+def wait_for_named_target(session_id, name, role="button", timeout=45):
+    deadline = time.monotonic() + timeout
+    last = None
+    while time.monotonic() < deadline:
+        status, state = request("GET", f"/api/v1/sessions/{session_id}/state")
+        if status not in {200, 204}:
+            raise AssertionError(f"poll named target {name}: HTTP {status}: {state}")
+        if status == 200:
+            last = state
+            if state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}:
+                target = next(
+                    (
+                        target
+                        for target in state.get("targets", [])
+                        if target.get("role") == role
+                        and target.get("name") == name
+                        and target.get("visible")
+                        and target.get("enabled")
+                    ),
+                    None,
+                )
+                if target is not None:
+                    return state, target
+        time.sleep(0.25)
+    raise AssertionError(
+        f"timed out waiting for {name} target: quality={(last or {}).get('stateQuality')} "
+        f"revision={(last or {}).get('targetRevision')} "
+        f"buttons={[(target.get('name'), target.get('visible'), target.get('enabled'), target.get('inViewport')) for target in (last or {}).get('targets', []) if target.get('role') == 'button']} "
+        f"matches={[target for target in (last or {}).get('targets', []) if target.get('name') == name]}"
+    )
+
+
 session = require_status(
     request(
         "POST",
@@ -211,6 +243,99 @@ for label, url, domain in sites:
     if navigation["domain"] != domain or not navigation["finalUrl"].startswith(url):
         raise AssertionError(f"navigation left authorized domain: {navigation}")
     REPLAY_GATE.pass_case(label)
+
+form_case = REPLAY_GATE.cases["public-selenium-form"]
+form_domain = form_case["allowedDomains"][0]
+public_form = create_execute_task(
+    session_id,
+    {
+        "goal": "Open Selenium's public web form practice page",
+        "startUrl": form_case["url"],
+        "allowedDomains": [form_domain],
+        "maxActions": 8,
+        "replanBudget": 1,
+    },
+    "navigate-public-selenium-form",
+)
+require_verified(
+    public_form, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"]
+)
+form_navigation = public_form["executionResults"][0]["output"]
+if form_navigation["domain"] != form_domain or not form_navigation["finalUrl"].startswith(form_case["url"]):
+    raise AssertionError(f"Selenium form navigation left authorized page: {form_navigation}")
+public_state, public_textbox = wait_for_named_target(session_id, "Text input", role="textbox")
+if public_textbox["role"] != "textbox" or public_textbox["sensitive"]:
+    raise AssertionError(f"Selenium text input was not actionable: {public_textbox}")
+public_marker = "agent-browser-public-form"
+public_typed = create_execute_task(
+    session_id,
+    {
+        "goal": "Fill Selenium's public practice form with a harmless test marker",
+        "allowedDomains": [form_domain],
+        "maxActions": 8,
+        "replanBudget": 1,
+        "actions": [{
+            "toolId": "TYPE_TEXT",
+            "targetRef": public_textbox["targetRef"],
+            "targetRevision": public_state["targetRevision"],
+            "value": public_marker,
+            "dataClass": "PUBLIC",
+        }],
+    },
+    "public-selenium-form-type",
+)
+require_verified(public_typed, ["GET_CURRENT_STATE", "TYPE_TEXT", "GET_URL", "GET_PAGE_SUMMARY"])
+if public_marker in json.dumps(public_typed):
+    raise AssertionError("public Selenium form marker leaked into Agent task response")
+public_after_type = current_state(session_id)
+if not any(
+    target.get("name") == "Text input" and target.get("value") == public_marker
+    for target in public_after_type["targets"]
+):
+    raise AssertionError("public Selenium form did not retain typed text")
+public_scrolled = create_execute_task(
+    session_id,
+    {
+        "goal": "Reveal Selenium's public form submit button",
+        "allowedDomains": [form_domain],
+        "maxActions": 8,
+        "replanBudget": 1,
+        "actions": [{"toolId": "SCROLL", "scrollDeltaY": 500}],
+    },
+    "public-selenium-form-scroll",
+)
+require_verified(public_scrolled, ["GET_CURRENT_STATE", "SCROLL", "GET_URL", "GET_PAGE_SUMMARY"])
+public_after_type, public_submit = wait_for_named_target(session_id, "Submit")
+public_submitted = create_execute_task(
+    session_id,
+    {
+        "goal": "Submit Selenium's public practice form",
+        "allowedDomains": [form_domain],
+        "maxActions": 8,
+        "replanBudget": 1,
+        "actions": [{
+            "toolId": "CLICK_TARGET",
+            "targetRef": public_submit["targetRef"],
+            "targetRevision": public_after_type["targetRevision"],
+        }],
+    },
+    "public-selenium-form-submit",
+)
+require_verified(public_submitted, ["GET_CURRENT_STATE", "CLICK_TARGET", "GET_URL", "GET_PAGE_SUMMARY"])
+public_result = current_state(session_id)
+for _ in range(40):
+    if "/selenium/web/submitted-form.html" in public_result.get("url", ""):
+        break
+    time.sleep(0.25)
+    public_result = current_state(session_id)
+if "/selenium/web/submitted-form.html" not in public_result.get("url", ""):
+    raise AssertionError(
+        f"public Selenium form did not submit: {public_result.get('url')}; "
+        f"submit={public_submit}; click={public_submitted['executionResults'][1].get('output')}"
+    )
+if public_marker not in public_result["url"]:
+    raise AssertionError("public Selenium form submission omitted the test marker")
+REPLAY_GATE.pass_case("public-selenium-form")
 
 control_url = "http://agent-controls.invalid/form"
 control_task = create_execute_task(
@@ -773,7 +898,7 @@ print(
             "validationId": validation["validationId"],
             "validationEvidenceHash": validation["evidenceHash"],
             "sessionId": session_id,
-            "publicUrls": [url for _, url, _ in sites],
+            "publicUrls": [url for _, url, _ in sites] + [form_case["url"]],
             "controlFixture": control_url,
             "challengeFixture": challenge_url,
             "opaqueChallengeFixture": OPAQUE_CASE["url"],
@@ -782,6 +907,7 @@ print(
                 "READ",
                 "TYPE_TEXT",
                 "SCROLL",
+                "CLICK_TARGET",
                 "AUTOMATIC_SINGLE_CLICK_CHALLENGE",
                 "AUTOMATIC_OPAQUE_FRAME_SINGLE_CLICK_CHALLENGE",
             ],

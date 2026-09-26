@@ -11,6 +11,7 @@ EXPECTED_CASES = {
     "public-example-navigation": "PUBLIC_PAGE",
     "public-w3c-navigation": "PUBLIC_PAGE",
     "public-cloudflare-trace": "PUBLIC_PAGE",
+    "public-selenium-form": "PUBLIC_FORM",
     "synthetic-form-controls": "SYNTHETIC_CONTROL",
     "synthetic-simple-challenge": "SYNTHETIC_CHALLENGE",
     "synthetic-opaque-frame-single-click": "SYNTHETIC_OPAQUE_FRAME",
@@ -55,6 +56,12 @@ class ReplayGate:
                     or domains != ["agent-controls.invalid", "opaque-challenge.invalid"]
                 ):
                     raise ValueError("REPLAY_OPAQUE_POLICY_INVALID")
+            if case["kind"] == "PUBLIC_FORM" and (
+                case.get("url") != "https://www.selenium.dev/selenium/web/web-form.html"
+                or domains != ["www.selenium.dev"]
+                or case.get("requiredControls") != ["NAVIGATE", "TYPE_TEXT", "SCROLL", "CLICK_TARGET", "READ"]
+            ):
+                raise ValueError("REPLAY_PUBLIC_FORM_POLICY_INVALID")
         self.cases = {case["caseId"]: case for case in cases}
         self.passed = set()
 

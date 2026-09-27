@@ -4894,11 +4894,13 @@ for _ in $(seq 1 80); do
 done
 test "$high_level_act_state" = "COMPLETED"
 
-high_level_wait_snapshot="$(curl -fsS \
-  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
-  -H 'X-Tenant-Id: tenant-integration' \
-  -H 'X-Roles: TENANT_VIEWER')"
-high_level_wait_request="$(python3 - "$high_level_wait_snapshot" <<'PY'
+high_level_wait_task=""
+for wait_attempt in 1 2 3; do
+  high_level_wait_snapshot="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: TENANT_VIEWER')"
+  high_level_wait_request="$(python3 - "$high_level_wait_snapshot" <<'PY'
 import json
 import sys
 snapshot = json.loads(sys.argv[1])
@@ -4910,13 +4912,31 @@ print(json.dumps({
 }, separators=(",", ":")))
 PY
 )"
-high_level_wait_task="$(curl -fsS -X POST \
-  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/wait" \
-  -H 'Content-Type: application/json' \
-  -H 'X-Tenant-Id: tenant-integration' \
-  -H 'X-Roles: TENANT_OPERATOR' \
-  -H 'Idempotency-Key: smoke-agent-browser-high-level-wait-001' \
-  -d "$high_level_wait_request")"
+  wait_status="$(curl -sS -o "$temp_dir/high-level-wait-response.json" -w '%{http_code}' -X POST \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/wait" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: TENANT_OPERATOR' \
+    -H "Idempotency-Key: smoke-agent-browser-high-level-wait-${wait_attempt}" \
+    -d "$high_level_wait_request")"
+  if [[ "$wait_status" = 200 || "$wait_status" = 201 || "$wait_status" = 202 ]]; then
+    high_level_wait_task="$(cat "$temp_dir/high-level-wait-response.json")"
+    break
+  fi
+  if [[ "$wait_status" = 409 ]] && python3 - "$temp_dir/high-level-wait-response.json" <<'PY'
+import json
+import sys
+error = json.load(open(sys.argv[1], encoding="utf-8"))
+assert error.get("code") == "AGENT_BROWSER_ACTION_REJECTED"
+assert error.get("details", {}).get("reason") == "STATE_CURSOR_STALE"
+PY
+  then
+    continue
+  fi
+  cat "$temp_dir/high-level-wait-response.json" >&2
+  exit 1
+done
+test -n "$high_level_wait_task"
 high_level_wait_task_id="$(printf '%s' "$high_level_wait_task" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["taskId"])')"
 for _ in $(seq 1 80); do

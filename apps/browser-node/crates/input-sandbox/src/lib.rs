@@ -282,6 +282,41 @@ impl CdpDesktopInput {
         }
     }
 
+    fn key_event_params(
+        key: &InputKey,
+        event_type: &str,
+        modifiers: u8,
+    ) -> anyhow::Result<serde_json::Value> {
+        let mut params = serde_json::json!({
+            "type": event_type,
+            "key": Self::input_key_name(key)?,
+            "modifiers": modifiers,
+        });
+        let physical_key = match key {
+            InputKey::Enter => Some(("Enter", 13)),
+            InputKey::Tab => Some(("Tab", 9)),
+            InputKey::Escape => Some(("Escape", 27)),
+            InputKey::Backspace => Some(("Backspace", 8)),
+            InputKey::Delete => Some(("Delete", 46)),
+            InputKey::ArrowUp => Some(("ArrowUp", 38)),
+            InputKey::ArrowDown => Some(("ArrowDown", 40)),
+            InputKey::ArrowLeft => Some(("ArrowLeft", 37)),
+            InputKey::ArrowRight => Some(("ArrowRight", 39)),
+            _ => None,
+        };
+        if let Some((code, virtual_key_code)) = physical_key {
+            params["code"] = serde_json::json!(code);
+            params["windowsVirtualKeyCode"] = serde_json::json!(virtual_key_code);
+            params["nativeVirtualKeyCode"] = serde_json::json!(virtual_key_code);
+        }
+        if event_type == "keyDown" {
+            if let InputKey::Character(value) = key {
+                params["text"] = serde_json::json!(value);
+            }
+        }
+        Ok(params)
+    }
+
     fn button_name(button: u8) -> anyhow::Result<&'static str> {
         match button {
             0 => Ok("left"),
@@ -364,11 +399,7 @@ impl CdpDesktopInput {
         for key in ledger.pressed_keys.clone() {
             self.send(
                 "Input.dispatchKeyEvent",
-                serde_json::json!({
-                    "type": "keyUp",
-                    "key": Self::input_key_name(&key)?,
-                    "modifiers": 0
-                }),
+                Self::key_event_params(&key, "keyUp", 0)?,
             )
             .await?;
         }
@@ -508,15 +539,7 @@ impl DesktopInput for CdpDesktopInput {
         if !Self::validate_sequence(&ledger, sequence)? {
             return Ok(());
         }
-        let key_name = Self::input_key_name(&key)?;
-        let mut params = serde_json::json!({
-            "type": "keyDown",
-            "key": key_name.clone(),
-            "modifiers": Self::modifiers(&ledger)
-        });
-        if matches!(key, InputKey::Character(_)) {
-            params["text"] = serde_json::Value::String(key_name);
-        }
+        let params = Self::key_event_params(&key, "keyDown", Self::modifiers(&ledger))?;
         self.send("Input.dispatchKeyEvent", params).await?;
         ledger.press_key(key);
         ledger.last_sequence = sequence;
@@ -529,14 +552,9 @@ impl DesktopInput for CdpDesktopInput {
         if !Self::validate_sequence(&ledger, sequence)? {
             return Ok(());
         }
-        let key_name = Self::input_key_name(&key)?;
         self.send(
             "Input.dispatchKeyEvent",
-            serde_json::json!({
-                "type": "keyUp",
-                "key": key_name,
-                "modifiers": Self::modifiers(&ledger)
-            }),
+            Self::key_event_params(&key, "keyUp", Self::modifiers(&ledger))?,
         )
         .await?;
         ledger.release_key(&key);
@@ -729,6 +747,18 @@ mod tests {
         assert_eq!(CdpDesktopInput::button_mask(1).unwrap(), 4);
         assert_eq!(CdpDesktopInput::button_mask(2).unwrap(), 2);
         assert!(CdpDesktopInput::button_mask(3).is_err());
+    }
+
+    #[test]
+    fn enter_key_preserves_dom_keycode_on_down_up_and_release() {
+        for event_type in ["keyDown", "keyUp"] {
+            let params =
+                CdpDesktopInput::key_event_params(&InputKey::Enter, event_type, 0).unwrap();
+            assert_eq!(params["key"], "Enter");
+            assert_eq!(params["code"], "Enter");
+            assert_eq!(params["windowsVirtualKeyCode"], 13);
+            assert_eq!(params["nativeVirtualKeyCode"], 13);
+        }
     }
 
     #[tokio::test]

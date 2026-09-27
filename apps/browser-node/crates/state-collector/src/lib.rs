@@ -1991,7 +1991,7 @@ impl CdpStateCollector {
             (() => {
               const requestedRoot = __REQUESTED_ROOT__;
               const selector = [
-                'a[href]', 'button', 'input', 'select', 'textarea', 'summary',
+                'a[href]', 'button', 'input', 'select', 'textarea', 'summary', 'label[for]',
                 '[contenteditable]:not([contenteditable="false"])',
                 '[role="button"]', '[role="link"]', '[role="checkbox"]',
                 '[role="radio"]', '[role="textbox"]', '[role="combobox"]',
@@ -2221,6 +2221,14 @@ impl CdpStateCollector {
               const candidates = [];
               const opaqueFrames = [];
               const visited = new Set();
+              const interactiveCandidate = (element) => {
+                if (!element.matches?.(selector)) return false;
+                if (!element.matches('label[for]')) return true;
+                const control = element.control;
+                return !!control && ['checkbox', 'radio'].includes(
+                  (control.getAttribute('type') || '').toLowerCase())
+                  && !control.disabled && !sensitiveFor(control);
+              };
               const walk = (walkRoot, frameId = 'main', offsetX = 0, offsetY = 0, prefix = '') => {
                 const elements = walkRoot === document
                   ? Array.from(document.querySelectorAll('*'))
@@ -2230,7 +2238,7 @@ impl CdpStateCollector {
                     ];
                 for (const element of elements) {
                   const path = `${prefix}${pathFor(element)}`;
-                  if (element.matches?.(selector) && !visited.has(`${frameId}:${path}`)) {
+                  if (interactiveCandidate(element) && !visited.has(`${frameId}:${path}`)) {
                     visited.add(`${frameId}:${path}`);
                     candidates.push({ element, path, frameId, offsetX, offsetY });
                   }
@@ -2319,7 +2327,7 @@ impl CdpStateCollector {
                     focused: element.ownerDocument.activeElement === element,
                     checked: 'checked' in element ? !!element.checked : null,
                     selected: 'selected' in element ? !!element.selected : null,
-                    interactive: element.matches(selector),
+                    interactive: interactiveCandidate(element),
                     frameId,
                     inViewport: visibility.inViewport,
                     occluded: visibility.occluded,

@@ -308,6 +308,12 @@ progress 166。
 
 ### 最近验证状态
 
+- 公开 React TodoMVC SPA 新增真实 Chrome Replay：Agent 经结构化 Target 输入并以正确
+  CDP Enter 键码提交，再点击页面可见的 `label[for]` 完成唯一待办，验证 `#/completed`
+  与离开页面后重新打开的浏览器本地状态。透明复选框仍不可直接执行；公开站首次空渲染
+  只允许一次普通导航重试。定向 Replay 与完整 14 例矩阵已通过，见 progress 223。
+  该证据不代替客户 SPA、真实企业 IdP 或支付 Gate。
+
 - 公开 OTP 练习站新增真实 Chrome Replay：网站发布的邮箱与固定验证码只经一次性
   `USERNAME/OTP` Secret 输入；错误码必须保留在验证页，正确码必须进入 `/secure`。
   检测器现在要求可交互的敏感验证码框，不会因入口页标题写有 OTP 而挡住邮箱步骤；

@@ -16,6 +16,7 @@ EXPECTED_CASES = {
     "public-expandtesting-login-success": "PUBLIC_LOGIN",
     "public-expandtesting-otp-invalid": "PUBLIC_OTP",
     "public-expandtesting-otp-success": "PUBLIC_OTP",
+    "public-playwright-todomvc-spa": "PUBLIC_SPA",
     "synthetic-form-controls": "SYNTHETIC_CONTROL",
     "synthetic-simple-challenge": "SYNTHETIC_CHALLENGE",
     "synthetic-opaque-frame-single-click": "SYNTHETIC_OPAQUE_FRAME",
@@ -84,6 +85,13 @@ class ReplayGate:
                 or case.get("requiredControls") != ["NAVIGATE", "SCROLL", "SECRET_EMAIL", "CLICK_TARGET", "SECRET_OTP", "CLICK_TARGET", "READ"]
             ):
                 raise ValueError("REPLAY_PUBLIC_OTP_POLICY_INVALID")
+            if case["kind"] == "PUBLIC_SPA" and (
+                case.get("url") != "https://demo.playwright.dev/todomvc/"
+                or domains != ["demo.playwright.dev"]
+                or case.get("expectedRoute") != "#/completed"
+                or case.get("requiredControls") != ["NAVIGATE", "TYPE_TEXT", "PRESS_KEY", "CLICK_TARGET", "REVISIT", "READ"]
+            ):
+                raise ValueError("REPLAY_PUBLIC_SPA_POLICY_INVALID")
         self.cases = {case["caseId"]: case for case in cases}
         self.passed = set()
 

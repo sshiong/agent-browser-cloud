@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "containsProductionData": false,
   "authorization": {
-    "basis": "Public documentation and practice pages with site-published test credentials, plus a repository-owned synthetic control fixture; no credential values are stored in this dataset",
+    "basis": "Public documentation, practice pages with site-published test credentials, a public browser-testing TodoMVC demo, and a repository-owned synthetic control fixture; no credential values are stored in this dataset",
     "personalData": false,
     "credentials": false,
-    "reviewedAt": "2026-07-26T00:00:00Z"
+    "reviewedAt": "2026-09-27T00:00:00Z"
   },
   "persona": "default",
   "cases": [
@@ -69,6 +69,14 @@
       "allowedDomains": ["practice.expandtesting.com"],
       "expectedPath": "/secure",
       "requiredControls": ["NAVIGATE", "SCROLL", "SECRET_EMAIL", "CLICK_TARGET", "SECRET_OTP", "CLICK_TARGET", "READ"]
+    },
+    {
+      "caseId": "public-playwright-todomvc-spa",
+      "kind": "PUBLIC_SPA",
+      "url": "https://demo.playwright.dev/todomvc/",
+      "allowedDomains": ["demo.playwright.dev"],
+      "expectedRoute": "#/completed",
+      "requiredControls": ["NAVIGATE", "TYPE_TEXT", "PRESS_KEY", "CLICK_TARGET", "REVISIT", "READ"]
     },
     {
       "caseId": "synthetic-form-controls",

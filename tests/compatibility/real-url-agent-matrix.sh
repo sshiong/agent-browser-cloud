@@ -143,7 +143,7 @@ event_port="$(free_port)"
 desktop_port="$(free_port)"
 proxy_port="$(free_port)"
 
-PROXY_ALLOWED_HOSTS="example.com,www.w3.org,www.cloudflare.com,www.selenium.dev,practice.expandtesting.com,code.jquery.com,cdn.jsdelivr.net,unpkg.com,agent-controls.invalid,opaque-challenge.invalid" \
+PROXY_ALLOWED_HOSTS="example.com,www.w3.org,www.cloudflare.com,www.selenium.dev,practice.expandtesting.com,demo.playwright.dev,code.jquery.com,cdn.jsdelivr.net,unpkg.com,agent-controls.invalid,opaque-challenge.invalid" \
 PROXY_EVENT_LOG="$temp_dir/proxy-events.jsonl" \
   python3 "$repo_root/tests/fixtures/allowlist-forward-proxy.py" "$proxy_port" \
   >"$temp_dir/proxy.log" 2>&1 &
@@ -285,9 +285,15 @@ if [[ "${REAL_URL_OTP_ONLY:-false}" == "true" ]]; then
   echo "Public practice OTP Replay passed with real Chrome and exact-host egress allowlist."
   exit 0
 fi
+if [[ "${REAL_URL_SPA_ONLY:-false}" == "true" ]]; then
+  grep -q '"event": "connect_allowed".*"host": "demo.playwright.dev"' "$temp_dir/proxy-events.jsonl"
+  echo "Public SPA Replay passed with real Chrome and exact-host egress allowlist."
+  exit 0
+fi
 
 grep -q '"event": "connect_allowed".*"host": "example.com"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "www.w3.org"' "$temp_dir/proxy-events.jsonl"
+grep -q '"event": "connect_allowed".*"host": "demo.playwright.dev"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "www.cloudflare.com"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "www.selenium.dev"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "practice.expandtesting.com"' "$temp_dir/proxy-events.jsonl"

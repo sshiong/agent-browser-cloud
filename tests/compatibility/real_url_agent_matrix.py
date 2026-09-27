@@ -24,6 +24,7 @@ DATASET_BYTES = DATASET_PATH.read_bytes()
 DATASET = json.loads(DATASET_BYTES)
 REPLAY_GATE = ReplayGate(DATASET)
 OPAQUE_CASE = REPLAY_GATE.cases["synthetic-opaque-frame-single-click"]
+SPA_URL = REPLAY_GATE.cases["public-playwright-todomvc-spa"]["url"]
 DATASET_DIGEST = hashlib.sha256(DATASET_BYTES).hexdigest()
 
 
@@ -174,7 +175,7 @@ def wait_for_named_target(session_id, name, role="button", timeout=45):
                     (
                         target
                         for target in state.get("targets", [])
-                        if target.get("role") == role
+                        if (role is None or target.get("role") == role)
                         and target.get("name") == name
                         and target.get("visible")
                         and target.get("enabled")
@@ -186,8 +187,10 @@ def wait_for_named_target(session_id, name, role="button", timeout=45):
         time.sleep(0.25)
     raise AssertionError(
         f"timed out waiting for {name} target: quality={(last or {}).get('stateQuality')} "
+        f"url={(last or {}).get('url')} title={(last or {}).get('title')} "
         f"revision={(last or {}).get('targetRevision')} "
         f"buttons={[(target.get('name'), target.get('visible'), target.get('enabled'), target.get('inViewport')) for target in (last or {}).get('targets', []) if target.get('role') == 'button']} "
+        f"textboxes={[(target.get('name'), target.get('value'), target.get('visible'), target.get('enabled'), target.get('inViewport')) for target in (last or {}).get('targets', []) if target.get('role') == 'textbox']} "
         f"matches={[target for target in (last or {}).get('targets', []) if target.get('name') == name]}"
     )
 
@@ -218,6 +221,180 @@ wait_for(
     f"/api/v1/sessions/{session_id}",
     lambda item: item["state"] == "RUNNING",
 )
+
+def run_public_spa(session_id):
+    spa_case = REPLAY_GATE.cases["public-playwright-todomvc-spa"]
+    spa_url = spa_case["url"]
+    spa_domain = spa_case["allowedDomains"][0]
+    spa_opened = create_execute_task(
+        session_id,
+        {
+            "goal": "Open the public TodoMVC browser-testing SPA",
+            "startUrl": spa_url,
+            "allowedDomains": [spa_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+        },
+        "public-spa-open",
+    )
+    require_verified(spa_opened, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"])
+    try:
+        spa_state, new_todo = wait_for_named_target(session_id, "What needs to be done?", role="textbox", timeout=30)
+    except AssertionError:
+        # The public demo occasionally leaves its React root empty on first load.
+        # One normal Agent navigation retries that external page initialization.
+        spa_reopened = create_execute_task(
+            session_id,
+            {
+                "goal": "Retry loading the public TodoMVC SPA after an empty first render",
+                "startUrl": spa_url,
+                "allowedDomains": [spa_domain],
+                "maxActions": 8,
+                "replanBudget": 1,
+            },
+            "public-spa-reopen",
+        )
+        require_verified(spa_reopened, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"])
+        spa_state, new_todo = wait_for_named_target(session_id, "What needs to be done?", role="textbox", timeout=30)
+    if new_todo.get("sensitive") or not spa_state.get("url", "").startswith(spa_url):
+        raise AssertionError(f"public SPA entry was not an actionable test page: {new_todo}")
+    if any(target.get("name") == "Toggle Todo" for target in spa_state["targets"]):
+        raise AssertionError("public SPA started with a preexisting todo in the isolated Browser Profile")
+    spa_marker = "agent-browser-public-spa-" + uuid.uuid4().hex[:12]
+    spa_typed = create_execute_task(
+        session_id,
+        {
+            "goal": "Enter a harmless marker into the public TodoMVC SPA",
+            "allowedDomains": [spa_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [{
+                "toolId": "TYPE_TEXT",
+                "targetRef": new_todo["targetRef"],
+                "targetRevision": spa_state["targetRevision"],
+                "value": spa_marker,
+                "dataClass": "PUBLIC",
+            }],
+        },
+        "public-spa-type",
+    )
+    require_verified(spa_typed, ["GET_CURRENT_STATE", "TYPE_TEXT", "GET_URL", "GET_PAGE_SUMMARY"])
+    if spa_marker in json.dumps(spa_typed):
+        raise AssertionError("public SPA marker leaked into Agent task response")
+    spa_state, new_todo = wait_for_named_target(session_id, "What needs to be done?", role="textbox")
+    if new_todo.get("value") != spa_marker:
+        raise AssertionError(f"public SPA controlled input did not retain typed marker: {new_todo}")
+    spa_added = create_execute_task(
+        session_id,
+        {
+            "goal": "Add the public test todo using the exact current textbox",
+            "allowedDomains": [spa_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [{
+                "toolId": "PRESS_KEY",
+                "targetRef": new_todo["targetRef"],
+                "targetRevision": spa_state["targetRevision"],
+                "key": "Enter",
+            }],
+        },
+        "public-spa-add",
+    )
+    require_verified(spa_added, ["GET_CURRENT_STATE", "PRESS_KEY", "GET_URL", "GET_PAGE_SUMMARY"])
+    spa_state = wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and any(target.get("name") == "Toggle Todo" for target in state.get("targets", [])),
+    )
+    todo_checkbox = next(target for target in spa_state["targets"] if target.get("name") == "Toggle Todo")
+    if todo_checkbox.get("checked") is not False:
+        raise AssertionError(f"new public SPA todo was not active: {todo_checkbox}")
+    spa_state, toggle_label = wait_for_named_target(session_id, "Mark all as complete", role=None)
+    spa_checked = create_execute_task(
+        session_id,
+        {
+            "goal": "Complete the only public test todo through its visible associated label",
+            "allowedDomains": [spa_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [{
+                "toolId": "CLICK_TARGET",
+                "targetRef": toggle_label["targetRef"],
+                "targetRevision": spa_state["targetRevision"],
+            }],
+        },
+        "public-spa-check",
+    )
+    require_verified(spa_checked, ["GET_CURRENT_STATE", "CLICK_TARGET", "GET_URL", "GET_PAGE_SUMMARY"])
+    wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and any(target.get("name") == "Toggle Todo" and target.get("checked") is True for target in state.get("targets", [])),
+    )
+    spa_state, completed_filter = wait_for_named_target(session_id, "Completed", role="link")
+    spa_filtered = create_execute_task(
+        session_id,
+        {
+            "goal": "Open the completed filter in the public SPA",
+            "allowedDomains": [spa_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [{
+                "toolId": "CLICK_TARGET",
+                "targetRef": completed_filter["targetRef"],
+                "targetRevision": spa_state["targetRevision"],
+            }],
+        },
+        "public-spa-completed-route",
+    )
+    require_verified(spa_filtered, ["GET_CURRENT_STATE", "CLICK_TARGET", "GET_URL", "GET_PAGE_SUMMARY"])
+    completed_url = spa_url + spa_case["expectedRoute"]
+    completed_state = wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and state.get("url") == completed_url
+        and any(target.get("name") == "Toggle Todo" and target.get("checked") is True for target in state.get("targets", [])),
+    )
+    away = create_execute_task(
+        session_id,
+        {
+            "goal": "Leave the public SPA so its React document is discarded",
+            "startUrl": "https://example.com/",
+            "allowedDomains": ["example.com"],
+            "maxActions": 8,
+            "replanBudget": 1,
+        },
+        "public-spa-leave",
+    )
+    require_verified(away, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"])
+    returned = create_execute_task(
+        session_id,
+        {
+            "goal": "Reopen the completed SPA route and verify browser-local recovery",
+            "startUrl": completed_url,
+            "allowedDomains": [spa_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+        },
+        "public-spa-return",
+    )
+    require_verified(returned, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"])
+    recovered_state = wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and state.get("stateVersion", 0) > completed_state["stateVersion"]
+        and state.get("url") == completed_url
+        and any(target.get("name") == "Toggle Todo" and target.get("checked") is True for target in state.get("targets", [])),
+    )
+    if recovered_state["title"] != "React • TodoMVC":
+        raise AssertionError(f"public SPA title changed after recovery: {recovered_state['title']}")
+    REPLAY_GATE.pass_case("public-playwright-todomvc-spa")
+
+
+if os.environ.get("REAL_URL_SPA_ONLY") == "true":
+    run_public_spa(session_id)
+    print(json.dumps({"publicSpa": "verified", "cases": sorted(REPLAY_GATE.passed)}))
+    sys.exit(0)
 
 public_cases = [case for case in DATASET["cases"] if case["kind"] == "PUBLIC_PAGE"]
 sites = [
@@ -770,6 +947,8 @@ for label, code, expected_path in (
 if os.environ.get("REAL_URL_OTP_ONLY") == "true":
     print(json.dumps({"practiceOtp": "verified", "cases": sorted(REPLAY_GATE.passed)}))
     sys.exit(0)
+
+run_public_spa(session_id)
 
 control_url = "http://agent-controls.invalid/form"
 control_task = create_execute_task(
@@ -1332,7 +1511,7 @@ print(
             "validationId": validation["validationId"],
             "validationEvidenceHash": validation["evidenceHash"],
             "sessionId": session_id,
-            "publicUrls": [url for _, url, _ in sites] + [form_case["url"], practice_url, otp_url],
+            "publicUrls": [url for _, url, _ in sites] + [form_case["url"], practice_url, otp_url, SPA_URL],
             "controlFixture": control_url,
             "challengeFixture": challenge_url,
             "opaqueChallengeFixture": OPAQUE_CASE["url"],

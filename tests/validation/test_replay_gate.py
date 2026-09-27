@@ -69,6 +69,21 @@ class ReplayGateTest(unittest.TestCase):
             ):
                 ReplayGate(dataset)
 
+    def test_public_spa_case_is_locked_to_browser_testing_demo(self):
+        for field, value in (
+            ("url", "https://other.example/todomvc/"),
+            ("allowedDomains", ["other.example"]),
+            ("expectedRoute", "#/active"),
+            ("requiredControls", ["NAVIGATE"]),
+        ):
+            dataset = copy.deepcopy(DATASET)
+            case = next(item for item in dataset["cases"] if item["kind"] == "PUBLIC_SPA")
+            case[field] = value
+            with self.subTest(field=field), self.assertRaisesRegex(
+                ValueError, "REPLAY_PUBLIC_SPA_POLICY_INVALID"
+            ):
+                ReplayGate(dataset)
+
     def test_missing_or_unsafe_authorization_is_rejected(self):
         for mutation in (
             lambda value: value["authorization"].update(credentials=True),

@@ -2023,7 +2023,7 @@ impl CdpStateCollector {
                   const type = (element.getAttribute('type') || 'text').toLowerCase();
                   if (type === 'checkbox') return 'checkbox';
                   if (type === 'radio') return 'radio';
-                  if (type === 'submit' || type === 'button') return 'button';
+                  if (type === 'submit' || type === 'button' || type === 'reset') return 'button';
                   return 'textbox';
                 }
                 return 'generic';
@@ -2047,6 +2047,10 @@ impl CdpStateCollector {
                 }
                 const type = (element.getAttribute('type') || '').toLowerCase();
                 if (type === 'password') return null;
+                if (['submit', 'button', 'reset'].includes(type)) {
+                  const label = String(element.value || '').trim();
+                  if (label) return label.slice(0, 256);
+                }
                 const text = element.innerText || element.getAttribute('alt')
                   || element.getAttribute('title') || element.getAttribute('placeholder') || '';
                 return text.trim().slice(0, 256) || null;

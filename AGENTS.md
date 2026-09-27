@@ -308,6 +308,12 @@ progress 166。
 
 ### 最近验证状态
 
+- 用户 11 项专项复核见 progress 224：原清单中的仓库代码项、目标环境 Gate 和供应商/权利人
+  决策已逐项分开判定。公开 Sauce Labs 演示站新增真实 Chrome Replay：网站公布的测试账号
+  只经一次性 Secret 输入，登录后进入唯一商品详情并将商品加入购物车，验证 Cart 商品；
+  不点击 Checkout 或提交支付。`input[type=submit]` 的非敏感 `value` 已作为按钮名称投影，
+  完整 15 例真实 URL 矩阵通过；真实支付、客户 SPA、企业 IdP 和外部 OTP 仍是独立 Gate。
+
 - 公开 React TodoMVC SPA 新增真实 Chrome Replay：Agent 经结构化 Target 输入并以正确
   CDP Enter 键码提交，再点击页面可见的 `label[for]` 完成唯一待办，验证 `#/completed`
   与离开页面后重新打开的浏览器本地状态。透明复选框仍不可直接执行；公开站首次空渲染

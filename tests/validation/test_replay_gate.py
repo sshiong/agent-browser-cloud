@@ -84,6 +84,21 @@ class ReplayGateTest(unittest.TestCase):
             ):
                 ReplayGate(dataset)
 
+    def test_public_commerce_case_is_locked_to_sauce_demo(self):
+        for field, value in (
+            ("url", "https://other.example/"),
+            ("allowedDomains", ["other.example"]),
+            ("expectedCartPath", "/checkout-complete.html"),
+            ("requiredControls", ["NAVIGATE"]),
+        ):
+            dataset = copy.deepcopy(DATASET)
+            case = next(item for item in dataset["cases"] if item["kind"] == "PUBLIC_COMMERCE_DEMO")
+            case[field] = value
+            with self.subTest(field=field), self.assertRaisesRegex(
+                ValueError, "REPLAY_PUBLIC_COMMERCE_DEMO_POLICY_INVALID"
+            ):
+                ReplayGate(dataset)
+
     def test_missing_or_unsafe_authorization_is_rejected(self):
         for mutation in (
             lambda value: value["authorization"].update(credentials=True),

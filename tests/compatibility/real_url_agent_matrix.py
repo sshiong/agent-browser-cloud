@@ -25,6 +25,7 @@ DATASET = json.loads(DATASET_BYTES)
 REPLAY_GATE = ReplayGate(DATASET)
 OPAQUE_CASE = REPLAY_GATE.cases["synthetic-opaque-frame-single-click"]
 SPA_URL = REPLAY_GATE.cases["public-playwright-todomvc-spa"]["url"]
+COMMERCE_URL = REPLAY_GATE.cases["public-saucedemo-cart"]["url"]
 DATASET_DIGEST = hashlib.sha256(DATASET_BYTES).hexdigest()
 
 
@@ -389,6 +390,195 @@ def run_public_spa(session_id):
     if recovered_state["title"] != "React • TodoMVC":
         raise AssertionError(f"public SPA title changed after recovery: {recovered_state['title']}")
     REPLAY_GATE.pass_case("public-playwright-todomvc-spa")
+
+
+def run_public_commerce(session_id):
+    commerce_case = REPLAY_GATE.cases["public-saucedemo-cart"]
+    commerce_url = commerce_case["url"]
+    commerce_domain = commerce_case["allowedDomains"][0]
+    require_status(
+        request(
+            "PUT",
+            f"/api/v1/sessions/{session_id}/challenge-automation/policy",
+            {
+                "controlMode": "AUTONOMOUS",
+                "sensitiveInputMaximumAttempts": 3,
+                "enabled": True,
+                "maximumAttempts": 3,
+                "minimumConfidence": 0.9,
+                "allowMultiClick": True,
+                "allowSlide": True,
+            },
+            actor_id="public-commerce-operator",
+            roles="TENANT_OPERATOR",
+        ),
+        200,
+        "enable bounded public demo secret input",
+    )
+    opened = create_execute_task(
+        session_id,
+        {
+            "goal": "Open the public Sauce Labs automation demo login",
+            "startUrl": commerce_url,
+            "allowedDomains": [commerce_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+        },
+        "public-commerce-open",
+    )
+    require_verified(opened, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"])
+    login_state, _ = wait_for_named_target(session_id, "Login", role="button")
+    for purpose, value in (("USERNAME", "standard_user"), ("PASSWORD", "secret_sauce")):
+        if purpose == "USERNAME":
+            target = next(
+                (item for item in login_state["targets"] if item.get("role") == "textbox"
+                 and item.get("name") == "Username" and item.get("visible") and item.get("enabled")),
+                None,
+            )
+        else:
+            target = next(
+                (item for item in login_state["targets"] if item.get("role") == "textbox"
+                 and item.get("sensitive") is True and item.get("visible") and item.get("enabled")),
+                None,
+            )
+        if target is None:
+            raise AssertionError(f"public commerce {purpose.lower()} target unavailable")
+        secret = require_status(
+            request(
+                "POST",
+                f"/api/v1/sessions/{session_id}/agent-input-secrets",
+                {"purpose": purpose, "value": value},
+                f"public-commerce-{purpose.lower()}-{uuid.uuid4().hex}",
+                actor_id="public-commerce-operator",
+                roles="TENANT_OPERATOR",
+            ),
+            201,
+            f"create one-time public commerce {purpose.lower()}",
+        )
+        if "value" in secret or secret.get("consumed") is not False:
+            raise AssertionError("public commerce secret response was not write-only")
+        typed = create_execute_task(
+            session_id,
+            {
+                "goal": f"Enter the published demo {purpose.lower()} through one-time input",
+                "allowedDomains": [commerce_domain],
+                "maxActions": 8,
+                "replanBudget": 1,
+                "actions": [{
+                    "toolId": "TYPE_TEXT",
+                    "targetRef": target["targetRef"],
+                    "targetRevision": login_state["targetRevision"],
+                    "secretId": secret["secretId"],
+                    "dataClass": "CREDENTIAL",
+                }],
+            },
+            f"public-commerce-{purpose.lower()}",
+        )
+        require_verified(typed, ["GET_CURRENT_STATE", "TYPE_TEXT", "GET_URL", "GET_PAGE_SUMMARY"])
+        if value in json.dumps(typed):
+            raise AssertionError("public commerce credential leaked in Agent task response")
+        login_state = wait_for(
+            f"/api/v1/sessions/{session_id}/state",
+            lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+            and state.get("stateVersion", 0) > login_state["stateVersion"]
+            and state.get("url") == commerce_url,
+        )
+        if purpose == "PASSWORD" and value in json.dumps(login_state):
+            raise AssertionError("public commerce password leaked in Browser State")
+    login_button = next(
+        (item for item in login_state["targets"] if item.get("role") == "button"
+         and item.get("name") == "Login" and item.get("visible") and item.get("enabled")),
+        None,
+    )
+    if login_button is None:
+        raise AssertionError("public commerce Login button unavailable after secret input")
+    logged_in = create_execute_task(
+        session_id,
+        {
+            "goal": "Sign in to the public automation demo",
+            "allowedDomains": [commerce_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [{
+                "toolId": "CLICK_TARGET",
+                "targetRef": login_button["targetRef"],
+                "targetRevision": login_state["targetRevision"],
+            }],
+        },
+        "public-commerce-login",
+    )
+    require_verified(logged_in, ["GET_CURRENT_STATE", "CLICK_TARGET", "GET_URL", "GET_PAGE_SUMMARY"])
+    wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and state.get("url") == commerce_url + "inventory.html"
+        and any(item.get("name") == "Sort products" for item in state.get("targets", [])),
+    )
+    detail_url = commerce_url + "inventory-item.html?id=4"
+    detail = create_execute_task(
+        session_id,
+        {
+            "goal": "Open the public demo's Backpack product detail",
+            "startUrl": detail_url,
+            "allowedDomains": [commerce_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+        },
+        "public-commerce-detail",
+    )
+    require_verified(detail, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"])
+    detail_state, add_button = wait_for_named_target(session_id, "Add to cart", role="button")
+    if detail_state.get("url") != detail_url:
+        raise AssertionError(f"public commerce detail route changed: {detail_state.get('url')}")
+    added = create_execute_task(
+        session_id,
+        {
+            "goal": "Add the published demo Backpack item to the cart",
+            "allowedDomains": [commerce_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [{
+                "toolId": "CLICK_TARGET",
+                "targetRef": add_button["targetRef"],
+                "targetRevision": detail_state["targetRevision"],
+            }],
+        },
+        "public-commerce-add",
+    )
+    require_verified(added, ["GET_CURRENT_STATE", "CLICK_TARGET", "GET_URL", "GET_PAGE_SUMMARY"])
+    cart_state, cart_button = wait_for_named_target(session_id, "Cart, 1 items", role="button")
+    opened_cart = create_execute_task(
+        session_id,
+        {
+            "goal": "Inspect the public demo cart without starting checkout",
+            "allowedDomains": [commerce_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [{
+                "toolId": "CLICK_TARGET",
+                "targetRef": cart_button["targetRef"],
+                "targetRevision": cart_state["targetRevision"],
+            }],
+        },
+        "public-commerce-cart",
+    )
+    require_verified(opened_cart, ["GET_CURRENT_STATE", "CLICK_TARGET", "GET_URL", "GET_PAGE_SUMMARY"])
+    cart_result = wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and state.get("url") == commerce_url.rstrip("/") + commerce_case["expectedCartPath"]
+        and any(item.get("name") == "View details for Sauce Labs Backpack" for item in state.get("targets", []))
+        and any(item.get("name") == "Checkout" for item in state.get("targets", [])),
+    )
+    if cart_result.get("title") != "Swag Labs":
+        raise AssertionError(f"public commerce cart title changed: {cart_result.get('title')}")
+    REPLAY_GATE.pass_case("public-saucedemo-cart")
+
+
+if os.environ.get("REAL_URL_COMMERCE_ONLY") == "true":
+    run_public_commerce(session_id)
+    print(json.dumps({"publicCommerce": "verified", "cases": sorted(REPLAY_GATE.passed)}))
+    sys.exit(0)
 
 
 if os.environ.get("REAL_URL_SPA_ONLY") == "true":
@@ -949,6 +1139,7 @@ if os.environ.get("REAL_URL_OTP_ONLY") == "true":
     sys.exit(0)
 
 run_public_spa(session_id)
+run_public_commerce(session_id)
 
 control_url = "http://agent-controls.invalid/form"
 control_task = create_execute_task(
@@ -1511,7 +1702,7 @@ print(
             "validationId": validation["validationId"],
             "validationEvidenceHash": validation["evidenceHash"],
             "sessionId": session_id,
-            "publicUrls": [url for _, url, _ in sites] + [form_case["url"], practice_url, otp_url, SPA_URL],
+            "publicUrls": [url for _, url, _ in sites] + [form_case["url"], practice_url, otp_url, SPA_URL, COMMERCE_URL],
             "controlFixture": control_url,
             "challengeFixture": challenge_url,
             "opaqueChallengeFixture": OPAQUE_CASE["url"],

@@ -2296,7 +2296,12 @@ impl CdpStateCollector {
                     (element.getAttribute('type') || element.type || '').slice(0, 64) || null;
                   const autocompleteTokens =
                     (element.getAttribute('autocomplete') || '').toLowerCase().split(/\s+/);
-                  const controlType = sensitive && autocompleteTokens.includes('one-time-code')
+                  const otpIdentity = [
+                    element.getAttribute('name'), element.getAttribute('id'),
+                    element.getAttribute('aria-label'), element.getAttribute('placeholder')
+                  ].filter(Boolean).join(' ');
+                  const explicitOtpIdentity = /(^|[^a-z])(otp|one.?time.?code)([^a-z]|$)/i.test(otpIdentity);
+                  const controlType = sensitive && (autocompleteTokens.includes('one-time-code') || explicitOtpIdentity)
                     ? 'one-time-code' : rawControlType;
                   const rawValue = !sensitive && 'value' in element
                     ? String(element.value ?? '').slice(0, 512) : null;

@@ -14,6 +14,8 @@ EXPECTED_CASES = {
     "public-selenium-form": "PUBLIC_FORM",
     "public-expandtesting-login-invalid-password": "PUBLIC_LOGIN",
     "public-expandtesting-login-success": "PUBLIC_LOGIN",
+    "public-expandtesting-otp-invalid": "PUBLIC_OTP",
+    "public-expandtesting-otp-success": "PUBLIC_OTP",
     "synthetic-form-controls": "SYNTHETIC_CONTROL",
     "synthetic-simple-challenge": "SYNTHETIC_CHALLENGE",
     "synthetic-opaque-frame-single-click": "SYNTHETIC_OPAQUE_FRAME",
@@ -73,6 +75,15 @@ class ReplayGate:
                 or case.get("requiredControls") != ["NAVIGATE", "SCROLL", "SECRET_USERNAME", "SECRET_PASSWORD", "CLICK_TARGET", "READ"]
             ):
                 raise ValueError("REPLAY_PUBLIC_LOGIN_POLICY_INVALID")
+            if case["kind"] == "PUBLIC_OTP" and (
+                case.get("url") != "https://practice.expandtesting.com/otp-login"
+                or domains != ["practice.expandtesting.com"]
+                or case.get("expectedPath") != (
+                    "/otp-verification" if case["caseId"].endswith("invalid") else "/secure"
+                )
+                or case.get("requiredControls") != ["NAVIGATE", "SCROLL", "SECRET_EMAIL", "CLICK_TARGET", "SECRET_OTP", "CLICK_TARGET", "READ"]
+            ):
+                raise ValueError("REPLAY_PUBLIC_OTP_POLICY_INVALID")
         self.cases = {case["caseId"]: case for case in cases}
         self.passed = set()
 

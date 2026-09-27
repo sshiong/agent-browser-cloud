@@ -517,6 +517,260 @@ if os.environ.get("REAL_URL_LOGIN_ONLY") == "true":
     print(json.dumps({"practiceLogin": "verified", "cases": sorted(REPLAY_GATE.passed)}))
     sys.exit(0)
 
+# The practice server keeps the successful login cookie. Log out through the Browser so the
+# following OTP cases exercise their unauthenticated entry point instead of a redirect.
+logged_out = create_execute_task(
+    session_id,
+    {
+        "goal": "End the public practice login before testing the separate OTP flow",
+        "startUrl": f"https://{practice_domain}/logout",
+        "allowedDomains": [practice_domain],
+        "maxActions": 8,
+        "replanBudget": 1,
+    },
+    "practice-login-logout",
+)
+require_verified(logged_out, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"])
+wait_for(
+    f"/api/v1/sessions/{session_id}/state",
+    lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+    and state.get("url", "").split("?", 1)[0] != f"https://{practice_domain}/secure",
+)
+
+# This separate public practice flow publishes a fixed mailbox and OTP. The test never reads
+# a real inbox and never places the six-digit code in an Agent plan or Replay catalog.
+practice_email = "practice@expandtesting.com"
+practice_otp = "214365"
+otp_url = "https://practice.expandtesting.com/otp-login"
+for label, code, expected_path in (
+    ("invalid", "111111", "/otp-verification"),
+    ("success", practice_otp, "/secure"),
+):
+    landing = create_execute_task(
+        session_id,
+        {
+            "goal": "Open the site's public OTP automation-practice page",
+            "startUrl": otp_url,
+            "allowedDomains": [practice_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+        },
+        f"practice-otp-{label}-navigate",
+    )
+    require_verified(landing, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"])
+    revealed = create_execute_task(
+        session_id,
+        {
+            "goal": "Reveal the public OTP practice email form",
+            "allowedDomains": [practice_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [{"toolId": "SCROLL", "scrollDeltaY": 500}],
+        },
+        f"practice-otp-{label}-scroll-email",
+    )
+    require_verified(revealed, ["GET_CURRENT_STATE", "SCROLL", "GET_URL", "GET_PAGE_SUMMARY"])
+    email_state = wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and state.get("url", "").split("?", 1)[0] == otp_url
+        and any(target.get("name") == "Your Email Address" and target.get("visible") for target in state.get("targets", [])),
+    )
+    email_target = practice_target(email_state, "textbox", "Your Email Address")
+    email_secret = practice_secret("USERNAME", practice_email, f"otp-{label}-email")
+    typed_email = create_execute_task(
+        session_id,
+        {
+            "goal": "Enter the site's published practice mailbox through one-time input",
+            "allowedDomains": [practice_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [{
+                "toolId": "TYPE_TEXT",
+                "targetRef": email_target["targetRef"],
+                "targetRevision": email_state["targetRevision"],
+                "secretId": email_secret,
+                "dataClass": "CREDENTIAL",
+            }],
+        },
+        f"practice-otp-{label}-email",
+    )
+    require_verified(typed_email, ["GET_CURRENT_STATE", "TYPE_TEXT", "GET_URL", "GET_PAGE_SUMMARY"])
+    email_state = wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and state.get("stateVersion", 0) > email_state["stateVersion"]
+        and any(target.get("name") == "Your Email Address" and target.get("visible") for target in state.get("targets", [])),
+    )
+    # Its id contains "otp", so the Browser State intentionally redacts the button name.
+    send = practice_target(email_state, "button", "<sensitive>")
+    sent = create_execute_task(
+        session_id,
+        {
+            "goal": "Request the site's published practice OTP flow",
+            "allowedDomains": [practice_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [{
+                "toolId": "CLICK_TARGET",
+                "targetRef": send["targetRef"],
+                "targetRevision": email_state["targetRevision"],
+            }],
+        },
+        f"practice-otp-{label}-send",
+    )
+    require_verified(sent, ["GET_CURRENT_STATE", "CLICK_TARGET", "GET_URL", "GET_PAGE_SUMMARY"])
+    otp_stage = wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and state.get("url", "").split("?", 1)[0] == otp_url
+        and state.get("title") == "OTP Verification page for Automation Testing Practice"
+        and any(target.get("sensitive") is True and target.get("role") == "textbox" for target in state.get("targets", [])),
+    )
+    otp_target = next(
+        target for target in otp_stage["targets"]
+        if target.get("sensitive") is True and target.get("role") == "textbox"
+    )
+    if not otp_target.get("visible"):
+        scrolled = create_execute_task(
+            session_id,
+            {
+                "goal": "Reveal the public OTP verification field",
+                "allowedDomains": [practice_domain],
+                "maxActions": 8,
+                "replanBudget": 1,
+                "actions": [{"toolId": "SCROLL", "scrollDeltaY": 500}],
+            },
+            f"practice-otp-{label}-scroll-code",
+        )
+        require_verified(scrolled, ["GET_CURRENT_STATE", "SCROLL", "GET_URL", "GET_PAGE_SUMMARY"])
+        otp_stage = wait_for(
+            f"/api/v1/sessions/{session_id}/state",
+            lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+            and state.get("title") == "OTP Verification page for Automation Testing Practice"
+            and any(target.get("sensitive") is True and target.get("visible") for target in state.get("targets", [])),
+        )
+    revealed_submit = create_execute_task(
+        session_id,
+        {
+            "goal": "Reveal the site's public OTP verification submit button",
+            "allowedDomains": [practice_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [{"toolId": "SCROLL", "scrollDeltaY": 160}],
+        },
+        f"practice-otp-{label}-scroll-submit",
+        terminal_states=("COMPLETED", "WAITING_FOR_HUMAN"),
+    )
+    code_entered = False
+    if revealed_submit["state"] == "WAITING_FOR_HUMAN":
+        challenge_event_id = revealed_submit.get("challengeEventId")
+        otp_challenge_state = wait_for(
+            f"/api/v1/sessions/{session_id}/state",
+            lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+            and any(target.get("sensitive") is True and target.get("visible") for target in state.get("targets", [])),
+        )
+        otp_challenge_target = practice_target(otp_challenge_state, "textbox", "<sensitive>")
+        timeline = require_status(
+            request("GET", f"/api/v1/sessions/{session_id}/challenges"),
+            200,
+            "read practice OTP Challenge timeline",
+        )
+        challenge = next(
+            (event for event in timeline.get("items", []) if event.get("challengeEventId") == challenge_event_id),
+            None,
+        )
+        if challenge is None or challenge.get("suspectedType") != "OTP" or challenge.get("targetRef") != otp_challenge_target["targetRef"]:
+            raise AssertionError(f"practice OTP Challenge did not bind the exact sensitive target: {challenge}")
+        otp_secret = practice_secret("OTP", code, f"otp-{label}-code")
+        response = require_status(
+            request(
+                "POST",
+                f"/api/v1/challenges/{challenge_event_id}/input-responses",
+                {"secretId": otp_secret},
+                f"real-practice-otp-{label}-response-{uuid.uuid4().hex}",
+                actor_id="public-practice-operator",
+                roles="TENANT_OPERATOR",
+            ),
+            202,
+            f"respond to practice OTP {label} Challenge",
+        )
+        if response.get("purpose") != "OTP" or response.get("taskId") != revealed_submit["taskId"]:
+            raise AssertionError(f"practice OTP response was not bound to original Task: {response}")
+        revealed_submit = wait_for(
+            f"/api/v1/agent-tasks/{revealed_submit['taskId']}",
+            lambda task: task.get("state") in {"COMPLETED", "FAILED", "BLOCKED"},
+            timeout=90,
+        )
+        if revealed_submit.get("state") != "COMPLETED":
+            raise AssertionError(f"practice OTP {label} Task did not resume: {revealed_submit}")
+        code_entered = True
+    require_verified(revealed_submit, ["GET_CURRENT_STATE", "SCROLL", "GET_URL", "GET_PAGE_SUMMARY"])
+    otp_stage = wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and state.get("title") == "OTP Verification page for Automation Testing Practice"
+        and any(target.get("sensitive") is True and target.get("visible") for target in state.get("targets", []))
+        and any(target.get("name") == "Verify OTP Code" and target.get("visible") for target in state.get("targets", [])),
+    )
+    if not code_entered:
+        otp_target = practice_target(otp_stage, "textbox", "<sensitive>")
+        otp_secret = practice_secret("OTP", code, f"otp-{label}-code")
+        typed_otp = create_execute_task(
+            session_id,
+            {
+                "goal": "Enter the site's published practice code through one-time OTP input",
+                "allowedDomains": [practice_domain],
+                "maxActions": 8,
+                "replanBudget": 1,
+                "actions": [{
+                    "toolId": "TYPE_TEXT",
+                    "targetRef": otp_target["targetRef"],
+                    "targetRevision": otp_stage["targetRevision"],
+                    "secretId": otp_secret,
+                    "dataClass": "OTP",
+                }],
+            },
+            f"practice-otp-{label}-code",
+        )
+        require_verified(typed_otp, ["GET_CURRENT_STATE", "TYPE_TEXT", "GET_URL", "GET_PAGE_SUMMARY"])
+        if code in json.dumps(typed_otp):
+            raise AssertionError("practice OTP leaked in Agent task response")
+    elif code in json.dumps(revealed_submit):
+        raise AssertionError("practice OTP leaked in resumed Agent task response")
+    submit_state, submit_button = wait_for_named_target(session_id, "Verify OTP Code")
+    submitted = create_execute_task(
+        session_id,
+        {
+            "goal": "Submit the site's published practice OTP and observe its result",
+            "allowedDomains": [practice_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [{
+                "toolId": "CLICK_TARGET",
+                "targetRef": submit_button["targetRef"],
+                "targetRevision": submit_state["targetRevision"],
+            }],
+        },
+        f"practice-otp-{label}-submit",
+    )
+    require_verified(submitted, ["GET_CURRENT_STATE", "CLICK_TARGET", "GET_URL", "GET_PAGE_SUMMARY"])
+    result = wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and state.get("stateVersion", 0) > otp_stage["stateVersion"]
+        and state.get("url", "").split("?", 1)[0] == f"https://{practice_domain}{expected_path}"
+        and (label != "invalid" or state.get("title") == "OTP Page page for Automation Testing Practice")
+        and (label != "success" or any("Logout" in (target.get("name") or "") for target in state.get("targets", []))),
+    )
+    if code in json.dumps(result):
+        raise AssertionError("practice OTP leaked in final Browser State")
+    REPLAY_GATE.pass_case(f"public-expandtesting-otp-{label}")
+
+if os.environ.get("REAL_URL_OTP_ONLY") == "true":
+    print(json.dumps({"practiceOtp": "verified", "cases": sorted(REPLAY_GATE.passed)}))
+    sys.exit(0)
+
 control_url = "http://agent-controls.invalid/form"
 control_task = create_execute_task(
     session_id,
@@ -1078,7 +1332,7 @@ print(
             "validationId": validation["validationId"],
             "validationEvidenceHash": validation["evidenceHash"],
             "sessionId": session_id,
-            "publicUrls": [url for _, url, _ in sites] + [form_case["url"]],
+            "publicUrls": [url for _, url, _ in sites] + [form_case["url"], practice_url, otp_url],
             "controlFixture": control_url,
             "challengeFixture": challenge_url,
             "opaqueChallengeFixture": OPAQUE_CASE["url"],

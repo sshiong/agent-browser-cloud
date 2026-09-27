@@ -94,6 +94,22 @@ public class ChallengeDetectionService {
 
     var classification = classify(envelope.tenantId(), state);
     if (classification == null) return Optional.empty();
+    // The one-time input response has already consumed its Secret and resumed this Task.
+    // Focus/submit changes can produce new State versions before navigation completes;
+    // re-detecting the same field would pause the resumed Task a second time. A different
+    // input element or page location re-arms detection for a new form.
+    if ("OTP".equals(classification.type())
+        && classification.target() != null
+        && classification.target().elementId() != null
+        && events.existsRecentlyResolvedOtpElement(
+            envelope.tenantId(),
+            state.sessionId(),
+            envelope.contextEpoch(),
+            hash(state.sessionId() + "\n" + classification.target().elementId()),
+            pageLocationHash(state),
+            now.minusSeconds(15))) {
+      return Optional.empty();
+    }
     var duplicate =
         events.findDuplicate(
             envelope.tenantId(),
@@ -120,6 +136,12 @@ public class ChallengeDetectionService {
     evidence.put("signalCode", classification.signalCode());
     evidence.put("stateHash", state.stateHash());
     evidence.put("targetNameHash", target == null ? "NONE" : hash(target.name()));
+    evidence.put(
+        "targetElementIdHash",
+        target == null || target.elementId() == null
+            ? "NONE"
+            : hash(state.sessionId() + "\n" + target.elementId()));
+    evidence.put("pageLocationHash", pageLocationHash(state));
     evidence.put(
         "opaqueFrameOriginHash",
         classification.opaqueFrame() == null
@@ -196,6 +218,11 @@ public class ChallengeDetectionService {
             canonical(bounds.height())));
   }
 
+  private static String pageLocationHash(NodeEvent.StateUpdated state) {
+    return hash(
+        state.sessionId() + "\n" + (state.url() == null ? "" : state.url().split("[?#]", 2)[0]));
+  }
+
   static String visualAnchor(NodeEvent.StateUpdated state, NodeEvent.OpaqueFrame frame) {
     var bounds = frame.bounds();
     if (bounds == null) return "";
@@ -232,7 +259,21 @@ public class ChallengeDetectionService {
                 target -> java.util.Set.of("textbox", "combobox").contains(safeRole(target.role())))
             .findFirst()
             .orElse(null);
-    if (OTP.matcher(text).find() || otpTarget != null) {
+    // Informational OTP instructions can appear before the code field exists. Pausing that
+    // page would strand the Agent before it can submit the practice mailbox. Require an
+    // actionable sensitive input; an unclassified field still fails closed with no target.
+    var unclassifiedSensitiveInput =
+        OTP.matcher(text).find()
+            && state.targets().stream()
+                .anyMatch(
+                    target ->
+                        target.sensitive()
+                            && target.visible()
+                            && target.enabled()
+                            && java.util.Set.of("textbox", "combobox")
+                                .contains(safeRole(target.role()))
+                            && !"password".equalsIgnoreCase(target.controlType()));
+    if (otpTarget != null || unclassifiedSensitiveInput) {
       return new Classification(
           "OTP", "OTP_OR_SENSITIVE_INPUT_SIGNAL", "验证码需要人工提供或自行填写", 0.98, otpTarget, null, false);
     }

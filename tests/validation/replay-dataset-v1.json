@@ -55,6 +55,22 @@
       "requiredControls": ["NAVIGATE", "SCROLL", "SECRET_USERNAME", "SECRET_PASSWORD", "CLICK_TARGET", "READ"]
     },
     {
+      "caseId": "public-expandtesting-otp-invalid",
+      "kind": "PUBLIC_OTP",
+      "url": "https://practice.expandtesting.com/otp-login",
+      "allowedDomains": ["practice.expandtesting.com"],
+      "expectedPath": "/otp-verification",
+      "requiredControls": ["NAVIGATE", "SCROLL", "SECRET_EMAIL", "CLICK_TARGET", "SECRET_OTP", "CLICK_TARGET", "READ"]
+    },
+    {
+      "caseId": "public-expandtesting-otp-success",
+      "kind": "PUBLIC_OTP",
+      "url": "https://practice.expandtesting.com/otp-login",
+      "allowedDomains": ["practice.expandtesting.com"],
+      "expectedPath": "/secure",
+      "requiredControls": ["NAVIGATE", "SCROLL", "SECRET_EMAIL", "CLICK_TARGET", "SECRET_OTP", "CLICK_TARGET", "READ"]
+    },
+    {
       "caseId": "synthetic-form-controls",
       "kind": "SYNTHETIC_CONTROL",
       "url": "http://agent-controls.invalid/form",

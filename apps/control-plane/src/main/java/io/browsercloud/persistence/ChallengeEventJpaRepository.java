@@ -37,6 +37,25 @@ public interface ChallengeEventJpaRepository extends JpaRepository<ChallengeEven
       @Param("targetRef") String targetRef);
 
   @Query(
+      value =
+          """
+          select exists(select 1 from challenge_events event
+            where event.tenant_id = :tenantId and event.session_id = :sessionId
+              and event.context_epoch = :contextEpoch and event.suspected_type = 'OTP'
+              and event.status = 'RESOLVED' and event.updated_at >= :since
+              and event.evidence ->> 'targetElementIdHash' = :elementIdHash
+              and event.evidence ->> 'pageLocationHash' = :pageLocationHash)
+          """,
+      nativeQuery = true)
+  boolean existsRecentlyResolvedOtpElement(
+      @Param("tenantId") String tenantId,
+      @Param("sessionId") String sessionId,
+      @Param("contextEpoch") long contextEpoch,
+      @Param("elementIdHash") String elementIdHash,
+      @Param("pageLocationHash") String pageLocationHash,
+      @Param("since") Instant since);
+
+  @Query(
       """
       select count(event) > 0 from ChallengeEventEntity event
       where event.tenantId = :tenantId and event.sessionId = :sessionId

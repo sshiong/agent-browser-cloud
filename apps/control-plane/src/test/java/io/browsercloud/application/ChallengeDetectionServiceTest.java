@@ -3,6 +3,7 @@ package io.browsercloud.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -12,6 +13,7 @@ import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.NodeEventReceived;
 import io.browsercloud.persistence.ChallengeEventEntity;
 import io.browsercloud.persistence.ChallengeEventJpaRepository;
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -77,6 +79,11 @@ class ChallengeDetectionServiceTest {
 
     assertThat(service.observe(envelope(), state("Sign in", List.of(ordinaryPassword)))).isEmpty();
 
+    var email =
+        new NodeEvent.InteractiveTarget(
+            "target:7:email", "textbox", "Your Email Address", null, true, true, false);
+    assertThat(service.observe(envelope(), state("OTP Login page", List.of(email)))).isEmpty();
+
     var otp =
         new NodeEvent.InteractiveTarget(
             "target:7:otp",
@@ -104,6 +111,47 @@ class ChallengeDetectionServiceTest {
     assertThat(captured.getValue().getStatus()).isEqualTo("TAKEOVER_REQUIRED");
     assertThat(captured.getValue().getTargetRef()).isEqualTo("target:7:otp");
     assertThat(captured.getValue().getTargetSummary()).isEqualTo("验证码需要人工提供或自行填写");
+  }
+
+  @Test
+  void doesNotPauseResumedOtpTaskAgainForTheSameResolvedElementAndPage() {
+    var service =
+        new ChallengeDetectionService(
+            events,
+            new ObjectMapper(),
+            audit,
+            mock(org.springframework.jdbc.core.JdbcTemplate.class));
+    var otp =
+        new NodeEvent.InteractiveTarget(
+            "target:7:otp",
+            "textbox",
+            null,
+            null,
+            true,
+            true,
+            true,
+            "element-otp",
+            null,
+            "one-time-code",
+            false,
+            null,
+            null,
+            true,
+            "main",
+            true,
+            false,
+            null);
+    when(events.existsRecentlyResolvedOtpElement(
+            eq("tenant-test"),
+            eq("ses-test"),
+            eq(2L),
+            anyString(),
+            anyString(),
+            any(Instant.class)))
+        .thenReturn(true);
+
+    assertThat(service.observe(envelope(), state("Confirm", List.of(otp)))).isEmpty();
+    org.mockito.Mockito.verify(events, org.mockito.Mockito.never()).saveAndFlush(any());
   }
 
   @Test

@@ -280,6 +280,11 @@ if [[ "${REAL_URL_LOGIN_ONLY:-false}" == "true" ]]; then
   echo "Public practice login Replay passed with real Chrome and exact-host egress allowlist."
   exit 0
 fi
+if [[ "${REAL_URL_OTP_ONLY:-false}" == "true" ]]; then
+  grep -q '"event": "connect_allowed".*"host": "practice.expandtesting.com"' "$temp_dir/proxy-events.jsonl"
+  echo "Public practice OTP Replay passed with real Chrome and exact-host egress allowlist."
+  exit 0
+fi
 
 grep -q '"event": "connect_allowed".*"host": "example.com"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "www.w3.org"' "$temp_dir/proxy-events.jsonl"

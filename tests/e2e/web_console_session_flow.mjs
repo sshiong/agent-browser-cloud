@@ -578,6 +578,14 @@ try {
   const sharedObserverContext = await browser.newContext({
     viewport: { width: 1024, height: 768 },
   });
+  await sharedObserverContext.route('**/api/v1/**', (route) =>
+    route.continue({
+      headers: {
+        ...route.request().headers(),
+        'x-actor-id': 'viewer-shared',
+      },
+    }),
+  );
   const sharedObserverPage = await sharedObserverContext.newPage();
   await sharedObserverPage.goto(
     `${baseUrl}/remote-desktop?session=${startSessionId}`,
@@ -603,7 +611,81 @@ try {
   await expect(
     sharedObserverPage.getByText("· VIEW ONLY", { exact: true }),
   ).toBeVisible();
+  const additionalObserverContexts = [];
+  const additionalObserverPages = [];
+  for (let index = 0; index < 6; index += 1) {
+    const observerContext = await browser.newContext({
+      viewport: { width: 1024, height: 768 },
+    });
+    await observerContext.route('**/api/v1/**', (route) =>
+      route.continue({
+        headers: {
+          ...route.request().headers(),
+          'x-actor-id': `viewer-${index}`,
+        },
+      }),
+    );
+    additionalObserverContexts.push(observerContext);
+    const observerPage = await observerContext.newPage();
+    await observerPage.goto(
+      `${baseUrl}/remote-desktop?session=${startSessionId}`,
+    );
+    try {
+      await expect(
+        observerPage.getByText("RFB LIVE", { exact: true }),
+      ).toBeVisible({ timeout: 20_000 });
+    } catch (error) {
+      throw new Error(`additional viewer ${index} did not connect: ${error}`);
+    }
+    additionalObserverPages.push(observerPage);
+  }
+  let onlineParticipants = 0;
+  let participantItems = [];
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const response = await page.request.get(
+      `${baseUrl}/api/v1/sessions/${startSessionId}/desktop-participants`,
+      { headers: { "X-Tenant-Id": "tenant-local" } },
+    );
+    if (!response.ok()) {
+      throw new Error(`desktop participants API returned ${response.status()}`);
+    }
+    const participants = await response.json();
+    onlineParticipants = participants.onlineCount;
+    participantItems = participants.items;
+    if (onlineParticipants === 8) break;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  if (onlineParticipants !== 8) {
+    throw new Error(`expected eight live noVNC participants, got ${onlineParticipants}`);
+  }
+  const actorIds = participantItems.map((participant) => participant.actorId);
+  const expectedActorIds = ['user-local', 'viewer-shared', ...Array.from(
+    { length: 6 },
+    (_, index) => `viewer-${index}`,
+  )];
+  if (
+    actorIds.length !== 8 ||
+    expectedActorIds.some((actorId) => !actorIds.includes(actorId))
+  ) {
+    throw new Error(`eight noVNC participants did not retain distinct Actor IDs: ${actorIds.join(',')}`);
+  }
+  for (const observerPage of additionalObserverPages) {
+    await expect(observerPage.getByText("RFB LIVE", { exact: true })).toBeVisible();
+  }
+  const vncEventLog = process.env.VNC_EVENT_LOG;
+  if (!vncEventLog) throw new Error("VNC_EVENT_LOG is required");
+  const eightViewerUpstreamConnections = (
+    readFileSync(vncEventLog, "utf8").match(/"type":"connected"/g) ?? []
+  ).length;
+  if (eightViewerUpstreamConnections !== 1) {
+    throw new Error(
+      `eight live noVNC viewers opened ${eightViewerUpstreamConnections} upstream RFB connections`,
+    );
+  }
   await expect(page.getByText("RFB LIVE", { exact: true })).toBeVisible();
+  for (const observerContext of additionalObserverContexts) {
+    await observerContext.close();
+  }
   await sharedObserverContext.close();
   await expect(page.getByText("RFB LIVE", { exact: true })).toBeVisible();
   const desktopSessionAfter = await (
@@ -626,8 +708,6 @@ try {
   await expect(remoteCanvas).toBeVisible();
   await remoteCanvas.click({ position: { x: 96, y: 72 } });
   await page.keyboard.press("A");
-  const vncEventLog = process.env.VNC_EVENT_LOG;
-  if (!vncEventLog) throw new Error("VNC_EVENT_LOG is required");
   let inputLoopClosed = false;
   for (let attempt = 0; attempt < 40; attempt += 1) {
     if (existsSync(vncEventLog)) {

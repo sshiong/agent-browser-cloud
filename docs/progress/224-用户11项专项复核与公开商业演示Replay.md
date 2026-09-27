@@ -13,7 +13,7 @@
 | 4 外部模型取消 | [196](196-外部模型请求传输取消闭环.md) 已在 Lease 失效时关闭 Reviewer/Outcome/Vision 的客户端 HTTP(S) socket，停止本地等待和迟到回写。 | Provider 服务端推理与计费是否停止，须该供应商的 Cancel API 与计费回执证明。 |
 | 5 Recording 治理 | [200](200-Recording用途绑定播放授权闭环.md)—[203](203-Recording全帧OCR与非文本视觉隐私闭环.md) 已完成一次性播放 Grant、对象物理删除、仓库 Object Lock 和逐帧 OCR/人脸/二维码复检。 | 客户视觉数据集扩展分类 Replay、目标账户 Object Lock Apply/IAM 和云原生 Legal Hold。 |
 | 6 Profile 恢复 | [205](205-Profile-Warm-Tier应用感知恢复闭环.md)—[207](207-Profile跨Region只读恢复闭环.md) 已完成 SQLite/LevelDB、Multipart Resume 与仓库级跨 Region 只读恢复。 | 真实云复制、KMS/IAM、RPO/RTO 和区域流量切换。 |
-| 7 远程桌面 | [208](208-远程桌面弱网动态合帧恢复闭环.md)、[209](209-远程桌面独立低分辨率视图闭环.md) 已验证弱网恢复、临时 JPEG 降质和逐连接服务端低分辨率；[225](225-远程桌面八协作者本机实链回归.md) 补充八个独立 Actor 的短时实链回归。 | 目标 Linux 8 Client 小时级长稳与硬件 Codec。 |
+| 7 远程桌面 | [208](208-远程桌面弱网动态合帧恢复闭环.md)、[209](209-远程桌面独立低分辨率视图闭环.md) 已验证弱网恢复、临时 JPEG 降质和逐连接服务端低分辨率；[225](225-远程桌面八协作者本机实链回归.md)—[226](226-八协作者真实WebConsole与noVNC链路回归.md) 补充八个独立 Actor 的 Gateway 与完整 Web/noVNC 短时回归。 | 目标 Linux 8 Client 小时级长稳与硬件 Codec。 |
 | 8 Proxy 路由 | [211](211-Proxy业务结果学习Profile粘性与受约束探索闭环.md)—[216](216-动态Proxy端点Safe-Point轮换闭环.md) 已覆盖结果学习、站点 Challenge 隔离、粘性、受约束探索、统一 SPI、远程 Adapter 和安全轮换。 | 具体商业 Provider 插件、目标云 Secret、特有认证/账单与真实 SLA Replay。 |
 | 9 生产设施 | 本机容量、Kind N/N−1、Operator E2E 和 CI 是已验证仓库 Gate。 | 目标 Linux/云多节点、GPU/Media、KMS/HSM、跨 Region、Pager/GameDay、组织发布签字仍未通过；不得处理真实客户数据。 |
 | 10 环境管理 | [210](210-环境配置复制与无敏感数据导出闭环.md) 已提供正式配置复制与 schema-v1 无敏感数据导出。 | 该原始代码项已关闭；生产环境发布 Gate 仍独立。 |

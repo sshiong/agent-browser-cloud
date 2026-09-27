@@ -41,6 +41,14 @@ const SLOW_CLIENT_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
 const DEFAULT_ACTOR_BITRATE_LIMIT_KBPS: u32 = 8_000;
 const DEFAULT_ACTOR_FRAME_RATE_LIMIT_FPS: u32 = 30;
 const DEFAULT_RESOLUTION_SCALE_PERCENT: u8 = 100;
+const RFB_FENCE_ENCODING: [u8; 4] = (-312_i32).to_be_bytes();
+const RFB_FENCE_MESSAGE_TYPE: u8 = 248;
+const RFB_FENCE_REQUEST_FLAG: u32 = 1 << 31;
+const VIEWER_FENCE_PREFIX: [u8; 4] = *b"ABCF";
+const VIEWER_FEEDBACK_SLOW: Duration = Duration::from_millis(400);
+const VIEWER_FEEDBACK_FAST: Duration = Duration::from_millis(120);
+const VIEWER_FEEDBACK_TIMEOUT: Duration = Duration::from_secs(2);
+const VIEWER_RECOVERY_INTERVAL: Duration = Duration::from_millis(500);
 const RFB_VERSION_3_8: &[u8; 12] = b"RFB 003.008\n";
 // noVNC 1.7 uses this full-colour little-endian format after ServerInit. The hub owns one
 // upstream pixel format, so every downstream sees this exact canonical representation.
@@ -133,6 +141,7 @@ struct GatewayState {
     observer_frame_rates_fps: Mutex<HashMap<String, u32>>,
     actor_forwarding: Mutex<HashMap<ActorQuotaKey, ActorForwardingState>>,
     connection_usage: Mutex<HashMap<String, RemoteDesktopUsageCounters>>,
+    adaptive_viewer_fps: Mutex<HashMap<String, u32>>,
     used_nonces: Mutex<HashMap<String, u64>>,
     disconnect_grace: Duration,
     heartbeat_interval: Duration,
@@ -145,6 +154,112 @@ struct ActorQuotaKey {
     tenant_id: String,
     session_id: String,
     actor_id: String,
+}
+
+/// Connection-local pacing based on noVNC's standard RFB Fence response. The response proves
+/// that the client parsed preceding RFB messages; it does not claim that pixels reached display.
+struct ViewerFramePacer {
+    cap_fps: u32,
+    fps: u32,
+    next_frame_ready_at: Option<Instant>,
+    fast_replies: u8,
+    last_recovery: Instant,
+    next_fence_id: u32,
+    pending_fence: Option<(u32, Instant)>,
+}
+
+impl ViewerFramePacer {
+    fn new(fps: u32, cap_fps: u32) -> Self {
+        Self {
+            cap_fps,
+            fps,
+            next_frame_ready_at: None,
+            fast_replies: 0,
+            last_recovery: Instant::now(),
+            next_fence_id: 1,
+            pending_fence: None,
+        }
+    }
+
+    fn pressure(&mut self) {
+        self.fps = (self.fps / 2).max(1);
+        self.fast_replies = 0;
+        self.last_recovery = Instant::now();
+    }
+
+    fn disable_feedback(&mut self) {
+        self.fps = self.cap_fps;
+        self.next_frame_ready_at = None;
+        self.fast_replies = 0;
+        self.pending_fence = None;
+    }
+
+    fn additional_pacing_delay(&mut self, policy_fps: u32) -> Duration {
+        self.additional_pacing_delay_at(policy_fps, Instant::now())
+    }
+
+    fn additional_pacing_delay_at(&mut self, policy_fps: u32, now: Instant) -> Duration {
+        if self.fps >= policy_fps {
+            self.next_frame_ready_at = None;
+            return Duration::ZERO;
+        }
+        let ready = self.next_frame_ready_at.unwrap_or(now).max(now);
+        self.next_frame_ready_at = Some(ready + Duration::from_secs_f64(1.0 / f64::from(self.fps)));
+        ready.saturating_duration_since(now)
+    }
+
+    fn expire_feedback(&mut self) {
+        if self
+            .pending_fence
+            .is_some_and(|(_, sent)| sent.elapsed() >= VIEWER_FEEDBACK_TIMEOUT)
+        {
+            self.pending_fence = None;
+            self.pressure();
+        }
+    }
+
+    fn fence_wire(&mut self) -> Option<Vec<u8>> {
+        if self.pending_fence.is_some() {
+            return None;
+        }
+        let id = self.next_fence_id;
+        self.next_fence_id = self.next_fence_id.wrapping_add(1);
+        self.pending_fence = Some((id, Instant::now()));
+        let mut wire = Vec::with_capacity(17);
+        wire.extend_from_slice(&[RFB_FENCE_MESSAGE_TYPE, 0, 0, 0]);
+        wire.extend_from_slice(&RFB_FENCE_REQUEST_FLAG.to_be_bytes());
+        wire.push(8);
+        wire.extend_from_slice(&VIEWER_FENCE_PREFIX);
+        wire.extend_from_slice(&id.to_be_bytes());
+        Some(wire)
+    }
+
+    fn feedback(&mut self, payload: &[u8]) {
+        if payload.len() != 8 || payload[..4] != VIEWER_FENCE_PREFIX {
+            return;
+        }
+        let id = u32::from_be_bytes(payload[4..8].try_into().expect("checked fence length"));
+        let Some((pending_id, sent)) = self.pending_fence else {
+            return;
+        };
+        if id != pending_id {
+            return;
+        }
+        self.pending_fence = None;
+        let delay = sent.elapsed();
+        if delay >= VIEWER_FEEDBACK_SLOW {
+            self.pressure();
+        } else if delay <= VIEWER_FEEDBACK_FAST {
+            self.fast_replies = self.fast_replies.saturating_add(1);
+            if self.fast_replies >= 3 && self.last_recovery.elapsed() >= VIEWER_RECOVERY_INTERVAL {
+                self.fps = self.fps.saturating_add(1).min(self.cap_fps);
+                self.fast_replies = 0;
+                self.last_recovery = Instant::now();
+            }
+        } else {
+            self.fast_replies = 0;
+        }
+    }
 }
 
 impl From<&RemoteDesktopTicketClaims> for ActorQuotaKey {
@@ -307,6 +422,7 @@ impl RemoteDesktopGateway {
                 observer_frame_rates_fps: Mutex::new(HashMap::new()),
                 actor_forwarding: Mutex::new(HashMap::new()),
                 connection_usage: Mutex::new(HashMap::new()),
+                adaptive_viewer_fps: Mutex::new(HashMap::new()),
                 used_nonces: Mutex::new(HashMap::new()),
                 disconnect_grace,
                 heartbeat_interval,
@@ -603,6 +719,24 @@ impl RemoteDesktopGateway {
             .saturating_duration_since(now)
     }
 
+    fn reserve_viewer_forwarding(
+        &self,
+        claims: &RemoteDesktopTicketClaims,
+        bytes: usize,
+        pacer: &mut ViewerFramePacer,
+        supports_fence: bool,
+    ) -> Duration {
+        let actor_delay = self.reserve_server_forwarding(claims, bytes);
+        if !supports_fence {
+            return actor_delay;
+        }
+        let policy_fps = self
+            .observer_frame_rate_fps(&claims.session_id)
+            .unwrap_or(30)
+            .min(claims.actor_frame_rate_limit_fps);
+        actor_delay.max(pacer.additional_pacing_delay(policy_fps))
+    }
+
     fn record_server_forwarded(&self, connection_id: &str, bytes: usize, quota_wait: Duration) {
         let mut usage = self
             .state
@@ -651,6 +785,28 @@ impl RemoteDesktopGateway {
             .expect("remote desktop usage lock poisoned")
             .remove(connection_id)
             .unwrap_or_default()
+    }
+
+    pub fn adaptive_viewer_frame_rate_fps(&self, connection_id: &str) -> Option<u32> {
+        self.state
+            .adaptive_viewer_fps
+            .lock()
+            .expect("adaptive viewer FPS lock poisoned")
+            .get(connection_id)
+            .copied()
+    }
+
+    fn record_adaptive_viewer_fps(&self, claims: &RemoteDesktopTicketClaims, fps: u32) {
+        let effective_fps = self
+            .observer_frame_rate_fps(&claims.session_id)
+            .unwrap_or(30)
+            .min(claims.actor_frame_rate_limit_fps)
+            .min(fps);
+        self.state
+            .adaptive_viewer_fps
+            .lock()
+            .expect("adaptive viewer FPS lock poisoned")
+            .insert(claims.connection_id.clone(), effective_fps);
     }
 
     /// 返回当前活跃远程桌面连接距离最近一批 VNC Server 数据的年龄。
@@ -822,6 +978,11 @@ impl RemoteDesktopGateway {
                 .expect("actor forwarding lock poisoned")
                 .remove(&ActorQuotaKey::from(&authorized.claims));
         }
+        self.state
+            .adaptive_viewer_fps
+            .lock()
+            .expect("adaptive viewer FPS lock poisoned")
+            .remove(&authorized.claims.connection_id);
         let usage = self.take_connection_usage(&authorized.claims.connection_id);
         self.state
             .disconnect_handler
@@ -914,6 +1075,13 @@ impl RemoteDesktopGateway {
         let mut pending_server_ready_at = tokio::time::Instant::now();
         let mut pending_server_quota_wait = Duration::ZERO;
         let mut last_reported_usage = RemoteDesktopUsageCounters::default();
+        let initial_fps = self
+            .observer_frame_rate_fps(&authorized.claims.session_id)
+            .unwrap_or(30)
+            .min(authorized.claims.actor_frame_rate_limit_fps);
+        let mut viewer_pacer =
+            ViewerFramePacer::new(initial_fps, authorized.claims.actor_frame_rate_limit_fps);
+        self.record_adaptive_viewer_fps(&authorized.claims, initial_fps);
         let mut input_parser = RfbClientMessageParser::for_viewport(
             pending_client_bytes,
             server_init.pixel_format,
@@ -993,6 +1161,11 @@ impl RemoteDesktopGateway {
                         .lock()
                         .expect("frame timestamp lock poisoned")
                         .insert(authorized.claims.session_id.clone(), Instant::now());
+                    viewer_pacer.expire_feedback();
+                    if input_parser.supports_fence && skipped_frames > 0 {
+                        viewer_pacer.pressure();
+                    }
+                    self.record_adaptive_viewer_fps(&authorized.claims, viewer_pacer.fps);
                     let frame = if authorized.claims.resolution_scale_percent < 100
                         && frame.first() == Some(&0)
                     {
@@ -1005,8 +1178,9 @@ impl RemoteDesktopGateway {
                         adaptive_viewer_quality(input_parser.jpeg_quality, skipped_frames),
                         authorized.claims.resolution_scale_percent,
                     ).await?;
-                    pending_server_quota_wait =
-                        self.reserve_server_forwarding(&authorized.claims, frame.len());
+                    pending_server_quota_wait = self.reserve_viewer_forwarding(
+                        &authorized.claims, frame.len(), &mut viewer_pacer, input_parser.supports_fence,
+                    );
                     pending_server_ready_at =
                         tokio::time::Instant::now() + pending_server_quota_wait;
                     pending_server_payload = Some(frame);
@@ -1026,6 +1200,13 @@ impl RemoteDesktopGateway {
                         payload.len(),
                         pending_server_quota_wait,
                     );
+                    if input_parser.supports_fence {
+                        if let Some(fence) = viewer_pacer.fence_wire() {
+                            tokio::time::timeout(SLOW_CLIENT_WRITE_TIMEOUT, websocket.send(Message::Binary(fence)))
+                                .await
+                                .context("remote desktop fence write timed out")??;
+                        }
+                    }
                     pending_server_quota_wait = Duration::ZERO;
                 }
                 message = websocket.next() => {
@@ -1037,6 +1218,14 @@ impl RemoteDesktopGateway {
                                 "VNC client frame exceeds 1 MiB"
                             );
                             for message in input_parser.ingest(&payload)? {
+                                if message.reset_baseline && !input_parser.supports_fence {
+                                    viewer_pacer.disable_feedback();
+                                    self.record_adaptive_viewer_fps(&authorized.claims, viewer_pacer.fps);
+                                }
+                                if let Some(reply) = &message.fence_reply {
+                                    viewer_pacer.feedback(reply);
+                                    self.record_adaptive_viewer_fps(&authorized.claims, viewer_pacer.fps);
+                                }
                                 if message.reset_baseline && desktop_requested {
                                     // A live quality switch must replace old lossy pixels even on
                                     // an idle page. Resubscribe before reading the exact baseline.
@@ -1049,7 +1238,7 @@ impl RemoteDesktopGateway {
                                             input_parser.jpeg_quality,
                                             authorized.claims.resolution_scale_percent,
                                         ).await?;
-                                        pending_server_quota_wait = self.reserve_server_forwarding(&authorized.claims, frame.len());
+                                        pending_server_quota_wait = self.reserve_viewer_forwarding(&authorized.claims, frame.len(), &mut viewer_pacer, input_parser.supports_fence);
                                         pending_server_ready_at = tokio::time::Instant::now() + pending_server_quota_wait;
                                         pending_server_payload = Some(frame);
                                     }
@@ -1079,7 +1268,7 @@ impl RemoteDesktopGateway {
                                                 input_parser.jpeg_quality,
                                                 authorized.claims.resolution_scale_percent,
                                             ).await?;
-                                            pending_server_quota_wait = self.reserve_server_forwarding(&authorized.claims, frame.len());
+                                            pending_server_quota_wait = self.reserve_viewer_forwarding(&authorized.claims, frame.len(), &mut viewer_pacer, input_parser.supports_fence);
                                             pending_server_ready_at = tokio::time::Instant::now() + pending_server_quota_wait;
                                             pending_server_payload = Some(frame);
                                         }
@@ -1161,6 +1350,8 @@ struct RfbClientMessageParser {
     buffered: Vec<u8>,
     canonical_pixel_format: [u8; 16],
     jpeg_quality: Option<u8>,
+    supports_fence: bool,
+    ever_supported_fence: bool,
     pointer_coordinate_space: Option<PointerCoordinateSpace>,
 }
 
@@ -1179,6 +1370,7 @@ struct ParsedRfbClientMessage {
     forward: bool,
     refresh: bool,
     reset_baseline: bool,
+    fence_reply: Option<Vec<u8>>,
 }
 
 impl RfbClientMessageParser {
@@ -1188,6 +1380,8 @@ impl RfbClientMessageParser {
             buffered,
             canonical_pixel_format,
             jpeg_quality: None,
+            supports_fence: false,
+            ever_supported_fence: false,
             pointer_coordinate_space: None,
         }
     }
@@ -1205,6 +1399,8 @@ impl RfbClientMessageParser {
             buffered,
             canonical_pixel_format,
             jpeg_quality: None,
+            supports_fence: false,
+            ever_supported_fence: false,
             pointer_coordinate_space: (resolution_scale_percent < 100).then_some(
                 PointerCoordinateSpace {
                     source_width,
@@ -1257,6 +1453,17 @@ impl RfbClientMessageParser {
                     (8usize.saturating_add(text_length), true, true, false)
                 }
                 150 => (10, false, false, true), // hub owns continuous updates
+                RFB_FENCE_MESSAGE_TYPE => {
+                    if self.buffered.len() < 9 {
+                        break;
+                    }
+                    let length = usize::from(self.buffered[8]);
+                    anyhow::ensure!(
+                        self.ever_supported_fence && length <= 64,
+                        "unnegotiated RFB fence reply"
+                    );
+                    (9 + length, false, false, false)
+                }
                 _ => {
                     self.buffered.clear();
                     anyhow::bail!("unsupported RFB client message type {message_type}");
@@ -1294,8 +1501,21 @@ impl RfbClientMessageParser {
                         })
                     })
                     .flatten();
+                self.supports_fence = encodings
+                    .iter()
+                    .any(|encoding| encoding == &RFB_FENCE_ENCODING);
+                self.ever_supported_fence |= self.supports_fence;
             }
             let mut bytes: Vec<u8> = self.buffered.drain(..message_length).collect();
+            let fence_reply = if message_type == RFB_FENCE_MESSAGE_TYPE {
+                anyhow::ensure!(
+                    u32::from_be_bytes(bytes[4..8].try_into().expect("complete fence flags")) == 0,
+                    "RFB fence reply has unsupported flags"
+                );
+                Some(bytes[9..].to_vec())
+            } else {
+                None
+            };
             if message_type == 5 {
                 if let Some(space) = self.pointer_coordinate_space {
                     let viewer_x = u16::from_be_bytes([bytes[2], bytes[3]]);
@@ -1314,6 +1534,7 @@ impl RfbClientMessageParser {
                 forward,
                 refresh,
                 reset_baseline: message_type == 2,
+                fence_reply,
             });
         }
         Ok(parsed)
@@ -2536,6 +2757,29 @@ mod tests {
         init
     }
 
+    async fn complete_test_rfb_fence_client(
+        websocket: &mut WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>,
+    ) -> Vec<u8> {
+        assert_eq!(next_binary(websocket).await, RFB_VERSION_3_8);
+        websocket
+            .send(Message::Binary(RFB_VERSION_3_8.to_vec()))
+            .await
+            .unwrap();
+        assert_eq!(next_binary(websocket).await, [1, 1]);
+        websocket.send(Message::Binary(vec![1])).await.unwrap();
+        assert_eq!(next_binary(websocket).await, [0, 0, 0, 0]);
+        websocket.send(Message::Binary(vec![1])).await.unwrap();
+        let init = next_binary(websocket).await;
+        let mut encodings = vec![2, 0, 0, 2, 0, 0, 0, 0];
+        encodings.extend_from_slice(&RFB_FENCE_ENCODING);
+        websocket.send(Message::Binary(encodings)).await.unwrap();
+        websocket
+            .send(Message::Binary(vec![3, 0, 0, 0, 0, 0, 0, 1, 0, 1]))
+            .await
+            .unwrap();
+        init
+    }
+
     async fn next_binary(
         websocket: &mut WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>,
     ) -> Vec<u8> {
@@ -2569,6 +2813,125 @@ mod tests {
         assert_eq!(messages.len(), 1);
         assert!(messages[0].human_input);
         assert!(messages[0].forward);
+    }
+
+    #[test]
+    fn fence_feedback_is_bounded_nonhuman_and_requires_negotiation() {
+        let mut parser = RfbClientMessageParser::new(Vec::new(), SHARED_PIXEL_FORMAT);
+        let mut reply = vec![RFB_FENCE_MESSAGE_TYPE, 0, 0, 0, 0, 0, 0, 0, 8];
+        reply.extend_from_slice(&VIEWER_FENCE_PREFIX);
+        reply.extend_from_slice(&1_u32.to_be_bytes());
+        assert!(parser.ingest(&reply).is_err());
+
+        let mut parser = RfbClientMessageParser::new(Vec::new(), SHARED_PIXEL_FORMAT);
+        let mut encodings = vec![2, 0, 0, 2, 0, 0, 0, 0];
+        encodings.extend_from_slice(&RFB_FENCE_ENCODING);
+        parser.ingest(&encodings).unwrap();
+        assert!(parser.ingest(&reply[..7]).unwrap().is_empty());
+        let messages = parser.ingest(&reply[7..]).unwrap();
+        assert_eq!(messages.len(), 1);
+        assert!(!messages[0].human_input);
+        assert!(!messages[0].forward);
+        assert!(!messages[0].refresh);
+        assert_eq!(messages[0].fence_reply.as_deref(), Some(&reply[9..]));
+        parser.ingest(&[2, 0, 0, 1, 0, 0, 0, 0]).unwrap();
+        assert!(!parser.supports_fence);
+        assert_eq!(
+            parser.ingest(&reply).unwrap()[0].fence_reply.as_deref(),
+            Some(&reply[9..]),
+            "a late response to a formerly negotiated fence is harmless"
+        );
+        let mut malformed = reply;
+        malformed[7] = 1;
+        assert!(parser.ingest(&malformed).is_err());
+    }
+
+    #[test]
+    fn viewer_fence_feedback_backs_off_and_recovers_with_a_cap() {
+        let mut pacer = ViewerFramePacer::new(30, 30);
+        let fence = pacer.fence_wire().unwrap();
+        assert_eq!(fence.len(), 17);
+        assert_eq!(fence[0], RFB_FENCE_MESSAGE_TYPE);
+        assert_eq!(&fence[4..8], &RFB_FENCE_REQUEST_FLAG.to_be_bytes());
+        assert!(
+            pacer.fence_wire().is_none(),
+            "only one fence can be outstanding"
+        );
+        pacer.pending_fence.as_mut().unwrap().1 = Instant::now() - VIEWER_FEEDBACK_SLOW;
+        pacer.feedback(&fence[9..]);
+        assert_eq!(pacer.fps, 15);
+
+        pacer.last_recovery = Instant::now() - VIEWER_RECOVERY_INTERVAL;
+        for id in 2_u32..=4 {
+            let fence = pacer.fence_wire().unwrap();
+            assert_eq!(&fence[13..17], &id.to_be_bytes());
+            pacer.feedback(&fence[9..]);
+        }
+        assert_eq!(pacer.fps, 16);
+        pacer.pressure();
+        assert_eq!(pacer.fps, 8);
+        let fence = pacer.fence_wire().unwrap();
+        pacer.pending_fence.as_mut().unwrap().1 = Instant::now() - VIEWER_FEEDBACK_TIMEOUT;
+        pacer.expire_feedback();
+        assert_eq!(pacer.fps, 4);
+        pacer.feedback(&fence[9..]);
+        assert_eq!(pacer.fps, 4, "expired feedback cannot change pacing");
+        let sample_at = Instant::now();
+        assert_eq!(
+            pacer.additional_pacing_delay_at(30, sample_at),
+            Duration::ZERO
+        );
+        assert_eq!(
+            pacer.additional_pacing_delay_at(30, sample_at + Duration::from_millis(10)),
+            Duration::from_millis(240)
+        );
+        pacer.disable_feedback();
+        assert_eq!(pacer.fps, 30, "legacy clients keep the fixed policy cap");
+    }
+
+    #[test]
+    fn adaptive_fps_paces_only_its_connection_while_actor_quota_stays_shared() {
+        let gateway = RemoteDesktopGateway::new(
+            SECRET.as_bytes(),
+            ["http://console.test".to_owned()],
+            Arc::new(NoopDisconnectHandler),
+        )
+        .unwrap();
+        let slow_claims = verify_ticket(
+            SECRET.as_bytes(),
+            &ticket("ses_adaptivefps1234", "adaptive-fps-ticket-nonce"),
+        )
+        .unwrap();
+        let mut fast_claims = slow_claims.clone();
+        fast_claims.connection_id = "rdc_otherconnection123".to_owned();
+        let actor_key = ActorQuotaKey::from(&slow_claims);
+        let anchor = Instant::now() + Duration::from_secs(5);
+        gateway.state.actor_forwarding.lock().unwrap().insert(
+            actor_key.clone(),
+            ActorForwardingState {
+                bitrate_ready_at: Some(anchor),
+                frame_ready_at: Some(anchor),
+            },
+        );
+        let mut slow = ViewerFramePacer::new(30, 30);
+        slow.pressure();
+        let mut fast = ViewerFramePacer::new(30, 30);
+        let _ = gateway.reserve_viewer_forwarding(&slow_claims, 0, &mut slow, true);
+        let _ = gateway.reserve_viewer_forwarding(&slow_claims, 0, &mut slow, true);
+        let actor_after_slow = gateway.state.actor_forwarding.lock().unwrap()[&actor_key]
+            .frame_ready_at
+            .unwrap();
+        let _ = gateway.reserve_viewer_forwarding(&fast_claims, 0, &mut fast, true);
+        let actor_after_fast = gateway.state.actor_forwarding.lock().unwrap()[&actor_key]
+            .frame_ready_at
+            .unwrap();
+        assert_eq!(
+            actor_after_fast.duration_since(actor_after_slow),
+            Duration::from_secs_f64(1.0 / 30.0),
+            "slow connection must not write its private 15 FPS into shared Actor quota"
+        );
+        assert!(slow.next_frame_ready_at.is_some());
+        assert!(fast.next_frame_ready_at.is_none());
     }
 
     #[test]
@@ -3308,8 +3671,92 @@ mod tests {
             .expect("recovered viewer must continue with current updates");
         assert_eq!(current[16], 17, "stale retained increments must not replay");
         assert!(gateway.connection_usage(&connection_id).throttled_batches >= 3);
+        assert_eq!(
+            gateway.adaptive_viewer_frame_rate_fps(&connection_id),
+            Some(30)
+        );
         assert_eq!(gateway.active_connection_count(session_id), 1);
         websocket.close(None).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn real_rfb_fence_feedback_reduces_viewer_fps_without_human_input() {
+        let vnc_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let vnc_endpoint = vnc_listener.local_addr().unwrap();
+        tokio::spawn(accept_test_rfb_upstream(
+            vnc_listener,
+            Arc::new(AtomicUsize::new(0)),
+            None,
+            None,
+        ));
+        let gateway = RemoteDesktopGateway::new(
+            SECRET.as_bytes(),
+            ["http://console.test".to_owned()],
+            Arc::new(NoopDisconnectHandler),
+        )
+        .unwrap();
+        let session_id = "ses_fencefeedback1234";
+        gateway.register_session(session_id, vnc_endpoint).unwrap();
+        let gateway_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let gateway_endpoint = gateway_listener.local_addr().unwrap();
+        tokio::spawn(gateway.clone().serve(gateway_listener));
+
+        let nonce = uuid::Uuid::new_v4().simple().to_string();
+        let connection_hash = format!("{:x}", Sha256::digest(nonce.as_bytes()));
+        let connection_id = format!("rdc_{}", &connection_hash[..20]);
+        let mut request = format!(
+            "ws://{gateway_endpoint}/desktop/v1/sessions/{session_id}?ticket={}",
+            ticket_with_actor_limits(session_id, &nonce, "COLLABORATIVE", true, 8_000, 30)
+        )
+        .into_client_request()
+        .unwrap();
+        request
+            .headers_mut()
+            .insert(ORIGIN, "http://console.test".parse().unwrap());
+        let (mut websocket, _) = connect_async(request).await.unwrap();
+        complete_test_rfb_fence_client(&mut websocket).await;
+        assert_eq!(
+            next_binary(&mut websocket).await,
+            test_raw_framebuffer_update([1, 2, 3, 4])
+        );
+        let fence = next_binary(&mut websocket).await;
+        assert_eq!(fence[0], RFB_FENCE_MESSAGE_TYPE);
+        assert_eq!(&fence[9..13], &VIEWER_FENCE_PREFIX);
+        assert_eq!(
+            gateway.adaptive_viewer_frame_rate_fps(&connection_id),
+            Some(30)
+        );
+
+        tokio::time::sleep(VIEWER_FEEDBACK_SLOW + Duration::from_millis(30)).await;
+        let mut reply = fence;
+        reply[4..8].copy_from_slice(&0_u32.to_be_bytes());
+        websocket.send(Message::Binary(reply)).await.unwrap();
+        tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if gateway.adaptive_viewer_frame_rate_fps(&connection_id) == Some(15) {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("slow client fence must reduce only its own FPS");
+        assert!(!gateway.human_input_active(session_id, Duration::from_secs(2)));
+        assert_eq!(gateway.active_connection_count(session_id), 1);
+        websocket.close(None).await.unwrap();
+        tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if gateway
+                    .adaptive_viewer_frame_rate_fps(&connection_id)
+                    .is_none()
+                {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("disconnected viewer feedback state must be removed");
     }
 
     #[tokio::test]

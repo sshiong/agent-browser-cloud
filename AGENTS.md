@@ -308,6 +308,12 @@ progress 166。
 
 ### 最近验证状态
 
+- 公开 Duende IdentityServer 演示站新增真实 Chrome Replay：固定官方 Host、登录 URL、动作与
+  结果契约，网站公布的 `bob/bob` 测试用户只经一次性 `USERNAME/PASSWORD` Secret 输入；
+  Agent 滚动并点击可见 Login，最终验证 `/diagnostics/` 与 `bob Logout`。定向 Replay 与完整
+  16 例矩阵通过，见 progress 227。该站内登录不证明独立 OIDC Client 授权码交换、企业
+  租户映射、MFA/ACR 或真实客户 IdP。
+
 - 用户 11 项专项复核见 progress 224：原清单中的仓库代码项、目标环境 Gate 和供应商/权利人
   决策已逐项分开判定。公开 Sauce Labs 演示站新增真实 Chrome Replay：网站公布的测试账号
   只经一次性 Secret 输入，登录后进入唯一商品详情并将商品加入购物车，验证 Cart 商品；
@@ -690,11 +696,11 @@ progress 166。
 | --- | --- | --- | --- |
 | 1 | 极端重复元素与 DOM 复用 | **仓库通用方案已确认并闭环**：稳定 Element ID、语义/实体 Hash、JIT Rebind，Adapter 可提供 HMAC 实体属性，见 progress 167/175/197 | 页面没有业务实体键且可见语义完全相同时必须 fail-closed；具体客户站点 Adapter/Replay 仍需外部样本 |
 | 2 | Cross-Origin iframe | **部分完成**：Opaque Frame 安全投影与精确授权单击已闭环；真实 Chrome Replay 的逐 case 证据 Gate 见 progress 217 | 跨域文本、密码、OTP、键盘、滑动、多击、第三方登录/支付/账号决策仍 Human Handoff；进一步自动化需显式 Provider 协议、授权 Replay 和可信结果回执 |
-| 3 | 真实网站与真实浏览器验证 | **仓库 Fixture/公开页面链已闭环**：真实 Chrome 登录结果、OTP Fixture 与公开 OTP 练习站的错误码/正确码、Turnstile 测试 Widget、Profile 恢复、Vision、Cloudflare trace；Selenium 官方公开表单的结构化输入与提交见 progress 219；隔离 Runner 的 Dataset 授权/Host/Case Capability 预检见 progress 218 | 真实企业 IdP、真实 SMS/Email/TOTP 交付、支付页和客户 SPA Replay 是外部 Gate；Catalog 声明不替代客户授权证明 |
+| 3 | 真实网站与真实浏览器验证 | **仓库 Fixture/公开页面链已闭环**：真实 Chrome 登录结果、OTP Fixture 与公开 OTP 练习站的错误码/正确码、Turnstile 测试 Widget、Profile 恢复、Vision、Cloudflare trace；Selenium 官方公开表单见 progress 219，Duende IdP 演示站站内登录与完整 16 例矩阵见 progress 227；隔离 Runner 的 Dataset 授权/Host/Case Capability 预检见 progress 218 | 独立 OIDC Client/真实企业 IdP、真实 SMS/Email/TOTP 交付、支付页和客户 SPA Replay 是外部 Gate；Catalog 声明不替代客户授权证明 |
 | 4 | 外部模型请求快速取消 | **客户端链已确认并闭环**：lease/epoch/cancel 会终止 HTTP transport/socket，迟到结果受围栏，见 progress 181/196 | Provider 服务端推理/计费强取消只有供应商提供 Cancel API 才可实现，不能由通用 OpenAI-compatible HTTP 客户端保证 |
 | 5 | Recording 治理与隐私 | **仓库链已闭环**：用途绑定播放、物理删除、Object Lock/WORM 基线、全帧 OCR/PII/正面人脸/二维码遮罩，见 progress 200—203 | 目标云 Apply/IAM、云原生 Legal Hold 深度联动、客户视觉集与侧脸/证件/医学影像等扩展类别 |
 | 6 | Profile 安全与灾备 | **仓库链已闭环**：应用层加密、SQLite/LevelDB 感知恢复、Multipart Resume、只读跨 Region Restore，见 progress 183/205—207 | 目标云 KMS/IAM/Replication、真实 RPO/RTO 和 Region 切换证书 |
-| 7 | Remote Desktop 弱网与规模 | **仓库链已闭环**：弱网 Viewer 动态合帧/基线恢复/临时降质和逐连接低分辨率，八个独立 Actor 的 Gateway 与 Web/noVNC 本机短时回归，见 progress 208—209/225—226 | 硬件 Codec、目标 Linux 八客户端小时级多协作者长稳 |
+| 7 | Remote Desktop 弱网与规模 | **仓库基础链已闭环**：弱网 Viewer 动态合帧/基线恢复/临时降质和逐连接低分辨率，八个独立 Actor 的 Gateway 与 Web/noVNC 本机短时回归，见 progress 208—209/225—226 | Viewer 展示帧龄/网络反馈驱动的自适应 FPS、硬件 Codec、目标 Linux 八客户端小时级多协作者长稳 |
 | 8 | Proxy 生产能力 | **通用仓库链已闭环**：业务结果学习、Profile 粘性、受约束探索、Challenge 隔离、商业 Basic Auth、统一 SPI、远程 Gateway、Safe Point Endpoint 轮换，见 progress 211—216 | 具体供应商插件、真实账号 OAuth/签名、云 Secret、账单对账、客户 SLA Replay/熔断仍未完成 |
 | 9 | V16 生产基础设施 | **未完成，发布阻断** | 目标 Linux/云 CNI、CSI、KMS、IAM、LSM、多 Region、HSM、Pager/GameDay 和组织审批 |
 | 10 | 环境配置复制/导出 | **已确认并闭环**：正式 Clone API 与无敏感配置导出，见 progress 210 | 真实外部导入生态兼容只作为持续验证，不再重做仓库主链 |

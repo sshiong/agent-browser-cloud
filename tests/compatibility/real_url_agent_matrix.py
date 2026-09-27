@@ -12,6 +12,7 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+from urllib.parse import urlsplit
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "validation"))
 from replay_gate import ReplayGate
@@ -26,6 +27,7 @@ REPLAY_GATE = ReplayGate(DATASET)
 OPAQUE_CASE = REPLAY_GATE.cases["synthetic-opaque-frame-single-click"]
 SPA_URL = REPLAY_GATE.cases["public-playwright-todomvc-spa"]["url"]
 COMMERCE_URL = REPLAY_GATE.cases["public-saucedemo-cart"]["url"]
+IDP_URL = REPLAY_GATE.cases["public-duende-idp-login"]["url"]
 DATASET_DIGEST = hashlib.sha256(DATASET_BYTES).hexdigest()
 
 
@@ -575,9 +577,162 @@ def run_public_commerce(session_id):
     REPLAY_GATE.pass_case("public-saucedemo-cart")
 
 
+def run_public_idp(session_id):
+    idp_case = REPLAY_GATE.cases["public-duende-idp-login"]
+    idp_domain = idp_case["allowedDomains"][0]
+    require_status(
+        request(
+            "PUT",
+            f"/api/v1/sessions/{session_id}/challenge-automation/policy",
+            {
+                "controlMode": "AUTONOMOUS",
+                "sensitiveInputMaximumAttempts": 3,
+                "enabled": True,
+                "maximumAttempts": 3,
+                "minimumConfidence": 0.9,
+                "allowMultiClick": True,
+                "allowSlide": True,
+            },
+            actor_id="public-idp-operator",
+            roles="TENANT_OPERATOR",
+        ),
+        200,
+        "enable bounded public IdP demo secret input",
+    )
+    opened = create_execute_task(
+        session_id,
+        {
+            "goal": "Open the published Duende IdentityServer demo login",
+            "startUrl": idp_case["url"],
+            "allowedDomains": [idp_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+        },
+        "public-idp-open",
+    )
+    require_verified(opened, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"])
+    login_state, _ = wait_for_named_target(session_id, "Username", role="textbox")
+    if urlsplit(login_state.get("url", "")).hostname != idp_domain:
+        raise AssertionError("public IdP login escaped its exact allowed host")
+    for purpose, value in (("USERNAME", "bob"), ("PASSWORD", "bob")):
+        for attempt in range(3):
+            login_state, _ = wait_for_named_target(session_id, "Username", role="textbox")
+            if urlsplit(login_state.get("url", "")).hostname != idp_domain:
+                raise AssertionError("public IdP login moved to another host before input")
+            target = next(
+                (
+                    item for item in login_state["targets"]
+                    if item.get("role") == "textbox"
+                    and item.get("visible") and item.get("enabled")
+                    and (
+                        item.get("name") == "Username" if purpose == "USERNAME"
+                        else item.get("sensitive") is True
+                    )
+                ),
+                None,
+            )
+            if target is None:
+                raise AssertionError(f"public IdP {purpose.lower()} target unavailable")
+            secret = require_status(
+                request(
+                    "POST",
+                    f"/api/v1/sessions/{session_id}/agent-input-secrets",
+                    {"purpose": purpose, "value": value},
+                    f"public-idp-{purpose.lower()}-{uuid.uuid4().hex}",
+                    actor_id="public-idp-operator",
+                    roles="TENANT_OPERATOR",
+                ),
+                201,
+                f"create one-time public IdP {purpose.lower()} input",
+            )
+            if "value" in secret or secret.get("consumed") is not False:
+                raise AssertionError("public IdP secret response was not write-only")
+            typed = create_execute_task(
+                session_id,
+                {
+                    "goal": f"Enter the published demo {purpose.lower()} through one-time input",
+                    "allowedDomains": [idp_domain],
+                    "maxActions": 8,
+                    "replanBudget": 1,
+                    "actions": [{
+                        "toolId": "TYPE_TEXT",
+                        "targetRef": target["targetRef"],
+                        "targetRevision": login_state["targetRevision"],
+                        "secretId": secret["secretId"],
+                        "dataClass": "CREDENTIAL",
+                    }],
+                },
+                f"public-idp-{purpose.lower()}-{attempt}",
+                terminal_states=("COMPLETED", "FAILED"),
+            )
+            if typed["state"] == "COMPLETED":
+                require_verified(typed, ["GET_CURRENT_STATE", "TYPE_TEXT", "GET_URL", "GET_PAGE_SUMMARY"])
+                break
+            if typed.get("lastError") != "STATE_STALE" or any(
+                result.get("toolId") == "TYPE_TEXT" and result.get("status") == "VERIFIED"
+                for result in typed.get("executionResults", [])
+            ):
+                raise AssertionError(f"public IdP {purpose.lower()} failed: {typed.get('lastError')}")
+            if attempt == 2:
+                raise AssertionError(f"public IdP {purpose.lower()} stayed stale after bounded retries")
+            time.sleep(0.5)
+        login_state = wait_for(
+            f"/api/v1/sessions/{session_id}/state",
+            lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+            and state.get("stateVersion", 0) > login_state["stateVersion"]
+            and urlsplit(state.get("url", "")).hostname == idp_domain
+            and urlsplit(state.get("url", "")).path == "/Account/Login",
+        )
+    revealed = create_execute_task(
+        session_id,
+        {
+            "goal": "Reveal the published IdP demo Login button",
+            "allowedDomains": [idp_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [{"toolId": "SCROLL", "scrollDeltaY": 350}],
+        },
+        "public-idp-reveal-submit",
+    )
+    require_verified(revealed, ["GET_CURRENT_STATE", "SCROLL", "GET_URL", "GET_PAGE_SUMMARY"])
+    login_state, submit = wait_for_named_target(session_id, "Login", role="button")
+    submitted = create_execute_task(
+        session_id,
+        {
+            "goal": "Submit the published Duende demo account and verify its claims page",
+            "allowedDomains": [idp_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [{
+                "toolId": "CLICK_TARGET",
+                "targetRef": submit["targetRef"],
+                "targetRevision": login_state["targetRevision"],
+            }],
+        },
+        "public-idp-submit",
+    )
+    require_verified(submitted, ["GET_CURRENT_STATE", "CLICK_TARGET", "GET_URL", "GET_PAGE_SUMMARY"])
+    wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and urlsplit(state.get("url", "")).hostname == idp_domain
+        and urlsplit(state.get("url", "")).path == idp_case["expectedPath"]
+        and any(
+            "bob Logout" in re.sub(r"\s+", " ", item.get("name") or "")
+            for item in state.get("targets", [])
+        ),
+    )
+    REPLAY_GATE.pass_case("public-duende-idp-login")
+
+
 if os.environ.get("REAL_URL_COMMERCE_ONLY") == "true":
     run_public_commerce(session_id)
     print(json.dumps({"publicCommerce": "verified", "cases": sorted(REPLAY_GATE.passed)}))
+    sys.exit(0)
+
+if os.environ.get("REAL_URL_IDP_ONLY") == "true":
+    run_public_idp(session_id)
+    print(json.dumps({"publicIdp": "verified", "cases": sorted(REPLAY_GATE.passed)}))
     sys.exit(0)
 
 
@@ -1140,6 +1295,7 @@ if os.environ.get("REAL_URL_OTP_ONLY") == "true":
 
 run_public_spa(session_id)
 run_public_commerce(session_id)
+run_public_idp(session_id)
 
 control_url = "http://agent-controls.invalid/form"
 control_task = create_execute_task(
@@ -1702,7 +1858,7 @@ print(
             "validationId": validation["validationId"],
             "validationEvidenceHash": validation["evidenceHash"],
             "sessionId": session_id,
-            "publicUrls": [url for _, url, _ in sites] + [form_case["url"], practice_url, otp_url, SPA_URL, COMMERCE_URL],
+            "publicUrls": [url for _, url, _ in sites] + [form_case["url"], practice_url, otp_url, SPA_URL, COMMERCE_URL, IDP_URL],
             "controlFixture": control_url,
             "challengeFixture": challenge_url,
             "opaqueChallengeFixture": OPAQUE_CASE["url"],

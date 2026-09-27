@@ -84,6 +84,21 @@ class ReplayGateTest(unittest.TestCase):
             ):
                 ReplayGate(dataset)
 
+    def test_public_idp_case_is_locked_to_official_demo(self):
+        for field, value in (
+            ("url", "https://other.example/Account/Login"),
+            ("allowedDomains", ["other.example"]),
+            ("expectedPath", "/Account/Logout"),
+            ("requiredControls", ["NAVIGATE"]),
+        ):
+            dataset = copy.deepcopy(DATASET)
+            case = next(item for item in dataset["cases"] if item["kind"] == "PUBLIC_IDP_DEMO")
+            case[field] = value
+            with self.subTest(field=field), self.assertRaisesRegex(
+                ValueError, "REPLAY_PUBLIC_IDP_DEMO_POLICY_INVALID"
+            ):
+                ReplayGate(dataset)
+
     def test_public_commerce_case_is_locked_to_sauce_demo(self):
         for field, value in (
             ("url", "https://other.example/"),

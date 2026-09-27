@@ -16,6 +16,7 @@ EXPECTED_CASES = {
     "public-expandtesting-login-success": "PUBLIC_LOGIN",
     "public-expandtesting-otp-invalid": "PUBLIC_OTP",
     "public-expandtesting-otp-success": "PUBLIC_OTP",
+    "public-duende-idp-login": "PUBLIC_IDP_DEMO",
     "public-playwright-todomvc-spa": "PUBLIC_SPA",
     "public-saucedemo-cart": "PUBLIC_COMMERCE_DEMO",
     "synthetic-form-controls": "SYNTHETIC_CONTROL",
@@ -86,6 +87,13 @@ class ReplayGate:
                 or case.get("requiredControls") != ["NAVIGATE", "SCROLL", "SECRET_EMAIL", "CLICK_TARGET", "SECRET_OTP", "CLICK_TARGET", "READ"]
             ):
                 raise ValueError("REPLAY_PUBLIC_OTP_POLICY_INVALID")
+            if case["kind"] == "PUBLIC_IDP_DEMO" and (
+                case.get("url") != "https://demo.duendesoftware.com/Account/Login?ReturnUrl=%2Fdiagnostics%2F"
+                or domains != ["demo.duendesoftware.com"]
+                or case.get("expectedPath") != "/diagnostics/"
+                or case.get("requiredControls") != ["NAVIGATE", "SECRET_USERNAME", "SECRET_PASSWORD", "SCROLL", "CLICK_TARGET", "READ"]
+            ):
+                raise ValueError("REPLAY_PUBLIC_IDP_DEMO_POLICY_INVALID")
             if case["kind"] == "PUBLIC_SPA" and (
                 case.get("url") != "https://demo.playwright.dev/todomvc/"
                 or domains != ["demo.playwright.dev"]

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "containsProductionData": false,
   "authorization": {
-    "basis": "Public documentation, practice pages with site-published test credentials, public TodoMVC and Sauce Labs browser-testing demos, and a repository-owned synthetic control fixture; no credential values are stored in this dataset",
+    "basis": "Public documentation, practice pages with site-published test credentials, the Duende IdentityServer demo with published test users, public TodoMVC and Sauce Labs browser-testing demos, and a repository-owned synthetic control fixture; no credential values are stored in this dataset",
     "personalData": false,
     "credentials": false,
     "reviewedAt": "2026-09-27T00:00:00Z"
@@ -69,6 +69,14 @@
       "allowedDomains": ["practice.expandtesting.com"],
       "expectedPath": "/secure",
       "requiredControls": ["NAVIGATE", "SCROLL", "SECRET_EMAIL", "CLICK_TARGET", "SECRET_OTP", "CLICK_TARGET", "READ"]
+    },
+    {
+      "caseId": "public-duende-idp-login",
+      "kind": "PUBLIC_IDP_DEMO",
+      "url": "https://demo.duendesoftware.com/Account/Login?ReturnUrl=%2Fdiagnostics%2F",
+      "allowedDomains": ["demo.duendesoftware.com"],
+      "expectedPath": "/diagnostics/",
+      "requiredControls": ["NAVIGATE", "SECRET_USERNAME", "SECRET_PASSWORD", "SCROLL", "CLICK_TARGET", "READ"]
     },
     {
       "caseId": "public-playwright-todomvc-spa",

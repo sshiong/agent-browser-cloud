@@ -12,6 +12,8 @@ EXPECTED_CASES = {
     "public-w3c-navigation": "PUBLIC_PAGE",
     "public-cloudflare-trace": "PUBLIC_PAGE",
     "public-selenium-form": "PUBLIC_FORM",
+    "public-expandtesting-login-invalid-password": "PUBLIC_LOGIN",
+    "public-expandtesting-login-success": "PUBLIC_LOGIN",
     "synthetic-form-controls": "SYNTHETIC_CONTROL",
     "synthetic-simple-challenge": "SYNTHETIC_CHALLENGE",
     "synthetic-opaque-frame-single-click": "SYNTHETIC_OPAQUE_FRAME",
@@ -62,6 +64,15 @@ class ReplayGate:
                 or case.get("requiredControls") != ["NAVIGATE", "TYPE_TEXT", "SCROLL", "CLICK_TARGET", "READ"]
             ):
                 raise ValueError("REPLAY_PUBLIC_FORM_POLICY_INVALID")
+            if case["kind"] == "PUBLIC_LOGIN" and (
+                case.get("url") != "https://practice.expandtesting.com/login"
+                or domains != ["practice.expandtesting.com"]
+                or case.get("expectedPath") != (
+                    "/login" if case["caseId"].endswith("invalid-password") else "/secure"
+                )
+                or case.get("requiredControls") != ["NAVIGATE", "SCROLL", "SECRET_USERNAME", "SECRET_PASSWORD", "CLICK_TARGET", "READ"]
+            ):
+                raise ValueError("REPLAY_PUBLIC_LOGIN_POLICY_INVALID")
         self.cases = {case["caseId"]: case for case in cases}
         self.passed = set()
 

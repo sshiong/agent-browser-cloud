@@ -1,4 +1,4 @@
-.PHONY: install install-desktop build build-desktop build-sdk-release test test-desktop test-application-adapter test-validation-worker test-gameday-worker test-agent-worker test-default-compose test-personal-secure test-terraform-provider test-terraform-module lint lint-desktop fmt compose-check compose-up compose-verify compose-down personal-secure-init personal-secure-check personal-secure-up personal-secure-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check sdk-multilang-generate sdk-multilang-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-real-login-agent test-real-login-agent-provider test-turnstile-interactive test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
+.PHONY: install install-desktop build build-desktop build-sdk-release test test-desktop test-application-adapter test-validation-worker test-gameday-worker test-agent-worker test-default-compose test-personal-secure test-terraform-provider test-terraform-module lint lint-desktop fmt compose-check compose-up compose-verify compose-down personal-secure-init personal-secure-check personal-secure-up personal-secure-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check sdk-multilang-generate sdk-multilang-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-real-public-login test-real-login-agent test-real-login-agent-provider test-turnstile-interactive test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
 CAPACITY_BUILD_ID ?= $(shell git rev-parse HEAD)
@@ -218,6 +218,10 @@ test-integration:
 # Run authorized public URLs through the real Browser Node and Chrome
 test-real-url-agent:
 	./tests/compatibility/real-url-agent-matrix.sh
+
+# Isolate the public practice site's negative and positive login outcomes.
+test-real-public-login:
+	REAL_URL_LOGIN_ONLY=true ./tests/compatibility/real-url-agent-matrix.sh
 
 # Exercise successful, rejected and false-positive login outcomes through real Chrome.
 test-real-login-agent:

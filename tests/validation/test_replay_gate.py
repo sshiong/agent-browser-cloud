@@ -41,6 +41,20 @@ class ReplayGateTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "REPLAY_PUBLIC_FORM_POLICY_INVALID"):
             ReplayGate(dataset)
 
+    def test_public_login_cases_are_locked_to_practice_site_and_outcomes(self):
+        for case_id, field, value in (
+            ("public-expandtesting-login-invalid-password", "expectedPath", "/secure"),
+            ("public-expandtesting-login-success", "allowedDomains", ["other.example"]),
+            ("public-expandtesting-login-success", "requiredControls", ["NAVIGATE"]),
+        ):
+            dataset = copy.deepcopy(DATASET)
+            case = next(item for item in dataset["cases"] if item["caseId"] == case_id)
+            case[field] = value
+            with self.subTest(case_id=case_id, field=field), self.assertRaisesRegex(
+                ValueError, "REPLAY_PUBLIC_LOGIN_POLICY_INVALID"
+            ):
+                ReplayGate(dataset)
+
     def test_missing_or_unsafe_authorization_is_rejected(self):
         for mutation in (
             lambda value: value["authorization"].update(credentials=True),

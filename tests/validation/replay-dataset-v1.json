@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "containsProductionData": false,
   "authorization": {
-    "basis": "Public documentation pages and a repository-owned synthetic control fixture",
+    "basis": "Public documentation and practice pages with site-published test credentials, plus a repository-owned synthetic control fixture; no credential values are stored in this dataset",
     "personalData": false,
     "credentials": false,
     "reviewedAt": "2026-07-26T00:00:00Z"
@@ -37,6 +37,22 @@
       "url": "https://www.selenium.dev/selenium/web/web-form.html",
       "allowedDomains": ["www.selenium.dev"],
       "requiredControls": ["NAVIGATE", "TYPE_TEXT", "SCROLL", "CLICK_TARGET", "READ"]
+    },
+    {
+      "caseId": "public-expandtesting-login-invalid-password",
+      "kind": "PUBLIC_LOGIN",
+      "url": "https://practice.expandtesting.com/login",
+      "allowedDomains": ["practice.expandtesting.com"],
+      "expectedPath": "/login",
+      "requiredControls": ["NAVIGATE", "SCROLL", "SECRET_USERNAME", "SECRET_PASSWORD", "CLICK_TARGET", "READ"]
+    },
+    {
+      "caseId": "public-expandtesting-login-success",
+      "kind": "PUBLIC_LOGIN",
+      "url": "https://practice.expandtesting.com/login",
+      "allowedDomains": ["practice.expandtesting.com"],
+      "expectedPath": "/secure",
+      "requiredControls": ["NAVIGATE", "SCROLL", "SECRET_USERNAME", "SECRET_PASSWORD", "CLICK_TARGET", "READ"]
     },
     {
       "caseId": "synthetic-form-controls",

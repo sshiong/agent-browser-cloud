@@ -308,6 +308,11 @@ progress 166。
 
 ### 最近验证状态
 
+- 公开练习站登录新增真实 Chrome Replay：经一次性 Secret 输入网站公开测试账号，错误密码需观察到
+  `/login` 的明确 `alert`，正确密码需观察到 `/secure` 与 `Logout`；定向六例与完整 11 例
+  真实 URL 矩阵均通过，见 progress 221。矩阵延后与用例无关的 Warm Tier 周期同步，产品
+  默认间隔不变。真实企业 IdP、外部 OTP、支付和客户 SPA 仍是后续 Gate。
+
 - Proxy 业务结果学习、Profile 粘性、受约束探索和站点 Challenge 临时隔离已闭环：只有独立 Outcome Verifier 精确终态可写
   Tenant/Binding/Provider 隔离的最小账本；5 个样本前保持中性，之后业务结果只占路由分 10%。
   Profile 粘性和 5% 探索均要求候选继续通过健康、新鲜度、Region、身份、容量和质量硬门槛，且

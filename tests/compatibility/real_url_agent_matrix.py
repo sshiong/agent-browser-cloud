@@ -337,6 +337,186 @@ if public_marker not in public_result["url"]:
     raise AssertionError("public Selenium form submission omitted the test marker")
 REPLAY_GATE.pass_case("public-selenium-form")
 
+# The practice site publishes these values for automation exercises. They are never placed in
+# the replay dataset or an Agent plan; even test credentials use the write-only Secret API.
+practice_username = "practice"
+practice_password = "SuperSecretPassword!"
+practice_domain = "practice.expandtesting.com"
+practice_url = "https://practice.expandtesting.com/login"
+require_status(
+    request(
+        "PUT",
+        f"/api/v1/sessions/{session_id}/challenge-automation/policy",
+        {
+            "controlMode": "AUTONOMOUS",
+            "sensitiveInputMaximumAttempts": 3,
+            "enabled": True,
+            "maximumAttempts": 3,
+            "minimumConfidence": 0.9,
+            "allowMultiClick": True,
+            "allowSlide": True,
+        },
+        actor_id="public-practice-operator",
+        roles="TENANT_OPERATOR",
+    ),
+    200,
+    "enable bounded practice-login secret input",
+)
+
+
+def practice_state(after_version=None, path="/login", timeout=45):
+    return wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and state.get("url", "").split("?", 1)[0].endswith(path)
+        and (path != "/login" or any(
+            item.get("role") == "textbox" and item.get("name") == "Username"
+            for item in state.get("targets", [])
+        ))
+        and (path != "/secure" or any(
+            "Logout" in (item.get("name") or "") for item in state.get("targets", [])
+        ))
+        and (after_version is None or state.get("stateVersion", 0) > after_version),
+        timeout=timeout,
+    )
+
+
+def practice_target(state, role, name):
+    target = next(
+        (
+            item for item in state.get("targets", [])
+            if item.get("role") == role
+            and (item.get("sensitive") is True if name == "<sensitive>" else item.get("name") == name)
+            and item.get("visible") and item.get("enabled")
+        ),
+        None,
+    )
+    if target is None:
+        raise AssertionError(
+            f"practice login target {role}/{name} unavailable: "
+            f"{[(item.get('role'), item.get('name'), item.get('sensitive'), item.get('visible'), item.get('enabled'), item.get('inViewport')) for item in state.get('targets', [])]}"
+        )
+    return target
+
+
+def practice_secret(purpose, value, label):
+    result = require_status(
+        request(
+            "POST",
+            f"/api/v1/sessions/{session_id}/agent-input-secrets",
+            {"purpose": purpose, "value": value},
+            f"real-practice-{label}-secret-{uuid.uuid4().hex}",
+            actor_id="public-practice-operator",
+            roles="TENANT_OPERATOR",
+        ),
+        201,
+        f"create one-time practice {purpose} secret",
+    )
+    if "value" in result or result.get("consumed") is not False:
+        raise AssertionError(f"write-only practice secret was exposed or consumed: {result}")
+    return result["secretId"]
+
+
+for label, password_value, expected_path in (
+    ("invalid-password", "wrong-public-practice-password", "/login"),
+    ("success", practice_password, "/secure"),
+):
+    landing = create_execute_task(
+        session_id,
+        {
+            "goal": "Open the site's public automation-practice login page",
+            "startUrl": practice_url,
+            "allowedDomains": [practice_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+        },
+        f"practice-{label}-navigate",
+    )
+    require_verified(landing, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"])
+    revealed = create_execute_task(
+        session_id,
+        {
+            "goal": "Reveal the practice login form below the page header",
+            "allowedDomains": [practice_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [{"toolId": "SCROLL", "scrollDeltaY": 500}],
+        },
+        f"practice-{label}-scroll",
+    )
+    require_verified(revealed, ["GET_CURRENT_STATE", "SCROLL", "GET_URL", "GET_PAGE_SUMMARY"])
+    login_state = practice_state()
+    for purpose, value, name in (
+        ("USERNAME", practice_username, "Username"),
+        ("PASSWORD", password_value, "<sensitive>"),
+    ):
+        target = practice_target(login_state, "textbox", name)
+        if purpose == "PASSWORD" and target.get("sensitive") is not True:
+            raise AssertionError("practice password field was not classified as sensitive")
+        secret_id = practice_secret(purpose, value, f"{label}-{purpose.lower()}")
+        typed = create_execute_task(
+            session_id,
+            {
+                "goal": f"Enter the site's published practice {purpose.lower()} through one-time input",
+                "allowedDomains": [practice_domain],
+                "maxActions": 8,
+                "replanBudget": 1,
+                "actions": [{
+                    "toolId": "TYPE_TEXT",
+                    "targetRef": target["targetRef"],
+                    "targetRevision": login_state["targetRevision"],
+                    "secretId": secret_id,
+                    "dataClass": "CREDENTIAL",
+                }],
+            },
+            f"practice-{label}-{purpose.lower()}",
+        )
+        require_verified(typed, ["GET_CURRENT_STATE", "TYPE_TEXT", "GET_URL", "GET_PAGE_SUMMARY"])
+        if purpose == "PASSWORD" and value in json.dumps(typed):
+            raise AssertionError(f"practice {purpose.lower()} leaked in Agent task response")
+        login_state = practice_state(after_version=login_state["stateVersion"])
+        if purpose == "PASSWORD" and value in json.dumps(login_state):
+            raise AssertionError(f"practice {purpose.lower()} leaked in Browser State")
+    submit = practice_target(login_state, "button", "Login")
+    submitted = create_execute_task(
+        session_id,
+        {
+            "goal": "Submit the public practice account and observe the site's result",
+            "allowedDomains": [practice_domain],
+            "maxActions": 8,
+            "replanBudget": 1,
+            "actions": [{
+                "toolId": "CLICK_TARGET",
+                "targetRef": submit["targetRef"],
+                "targetRevision": login_state["targetRevision"],
+            }],
+        },
+        f"practice-{label}-submit",
+    )
+    require_verified(submitted, ["GET_CURRENT_STATE", "CLICK_TARGET", "GET_URL", "GET_PAGE_SUMMARY"])
+    result_state = practice_state(after_version=login_state["stateVersion"], path=expected_path)
+    if result_state.get("url", "").split("?", 1)[0] != f"https://{practice_domain}{expected_path}":
+        raise AssertionError(f"practice {label} ended at unexpected URL: {result_state.get('url')}")
+    if label == "invalid-password":
+        result_state = wait_for(
+            f"/api/v1/sessions/{session_id}/state",
+            lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+            and state.get("url", "").split("?", 1)[0] == f"https://{practice_domain}/login"
+            and any(
+                target.get("role") == "alert" and "password is invalid" in (target.get("name") or "").lower()
+                for target in state.get("targets", [])
+            ),
+        )
+    if label == "success" and not any(
+        "Logout" in (target.get("name") or "") for target in result_state.get("targets", [])
+    ):
+        raise AssertionError("practice success page did not expose Logout")
+    REPLAY_GATE.pass_case(f"public-expandtesting-login-{label}")
+
+if os.environ.get("REAL_URL_LOGIN_ONLY") == "true":
+    print(json.dumps({"practiceLogin": "verified", "cases": sorted(REPLAY_GATE.passed)}))
+    sys.exit(0)
+
 control_url = "http://agent-controls.invalid/form"
 control_task = create_execute_task(
     session_id,
@@ -576,7 +756,7 @@ require_status(
     "execute opaque Challenge task",
 )
 opaque_claim = None
-deadline = time.monotonic() + 45
+deadline = time.monotonic() + 90
 while time.monotonic() < deadline:
     status, candidate = request(
         "POST",

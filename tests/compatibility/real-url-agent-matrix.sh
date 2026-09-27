@@ -143,7 +143,7 @@ event_port="$(free_port)"
 desktop_port="$(free_port)"
 proxy_port="$(free_port)"
 
-PROXY_ALLOWED_HOSTS="example.com,www.w3.org,www.cloudflare.com,www.selenium.dev,code.jquery.com,cdn.jsdelivr.net,unpkg.com,agent-controls.invalid,opaque-challenge.invalid" \
+PROXY_ALLOWED_HOSTS="example.com,www.w3.org,www.cloudflare.com,www.selenium.dev,practice.expandtesting.com,code.jquery.com,cdn.jsdelivr.net,unpkg.com,agent-controls.invalid,opaque-challenge.invalid" \
 PROXY_EVENT_LOG="$temp_dir/proxy-events.jsonl" \
   python3 "$repo_root/tests/fixtures/allowlist-forward-proxy.py" "$proxy_port" \
   >"$temp_dir/proxy.log" 2>&1 &
@@ -208,6 +208,7 @@ CONTROL_PLANE_TLS_SERVER_NAME=control-plane.internal \
 REMOTE_DESKTOP_GATEWAY_PORT="$desktop_port" \
 RUNTIME_ROOT="$temp_dir/runtime" \
 PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
+PROFILE_WARM_TIER_SYNC_INTERVAL_SECONDS=3600 \
 STORAGE_HELPER_SOCKET="$temp_dir/storage-helper.sock" \
 OBJECT_STORAGE_ENABLED=true \
 NETWORK_HELPER_SOCKET="$temp_dir/network-helper.sock" \
@@ -274,10 +275,17 @@ python3 "$repo_root/tests/compatibility/real_url_agent_matrix.py" \
   "http://localhost:${control_port}" \
   "$repo_root/tests/validation/replay-dataset-v1.json"
 
+if [[ "${REAL_URL_LOGIN_ONLY:-false}" == "true" ]]; then
+  grep -q '"event": "connect_allowed".*"host": "practice.expandtesting.com"' "$temp_dir/proxy-events.jsonl"
+  echo "Public practice login Replay passed with real Chrome and exact-host egress allowlist."
+  exit 0
+fi
+
 grep -q '"event": "connect_allowed".*"host": "example.com"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "www.w3.org"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "www.cloudflare.com"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "www.selenium.dev"' "$temp_dir/proxy-events.jsonl"
+grep -q '"event": "connect_allowed".*"host": "practice.expandtesting.com"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "control_fixture".*"host": "agent-controls.invalid"' "$temp_dir/proxy-events.jsonl"
 grep -Eq '"event": "connect_denied".*"target": "(www\\.)?iana.org:443"' "$temp_dir/proxy-events.jsonl"
 

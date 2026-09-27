@@ -2158,6 +2158,16 @@ mod tests {
         format!("{payload}.{signature}")
     }
 
+    fn ticket_for_actor(ticket: &str, actor_id: &str) -> String {
+        let mut claims = verify_ticket(SECRET.as_bytes(), ticket).unwrap();
+        claims.actor_id = actor_id.to_owned();
+        let payload = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&claims).unwrap());
+        let mut mac = HmacSha256::new_from_slice(SECRET.as_bytes()).unwrap();
+        mac.update(payload.as_bytes());
+        let signature = URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes());
+        format!("{payload}.{signature}")
+    }
+
     async fn accept_test_rfb_upstream(
         listener: TcpListener,
         accepted: Arc<AtomicUsize>,
@@ -3300,6 +3310,118 @@ mod tests {
         assert!(gateway.connection_usage(&connection_id).throttled_batches >= 3);
         assert_eq!(gateway.active_connection_count(session_id), 1);
         websocket.close(None).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn eight_viewers_isolate_weak_observer_and_share_one_upstream() {
+        let vnc_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let vnc_endpoint = vnc_listener.local_addr().unwrap();
+        let upstream_connections = Arc::new(AtomicUsize::new(0));
+        tokio::spawn(accept_test_rfb_upstream(
+            vnc_listener,
+            upstream_connections.clone(),
+            None,
+            None,
+        ));
+
+        let gateway = RemoteDesktopGateway::new(
+            SECRET.as_bytes(),
+            ["http://console.test".to_owned()],
+            Arc::new(NoopDisconnectHandler),
+        )
+        .unwrap();
+        let session_id = "ses_eightviewers1234";
+        gateway.register_session(session_id, vnc_endpoint).unwrap();
+        let gateway_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let gateway_endpoint = gateway_listener.local_addr().unwrap();
+        tokio::spawn(gateway.clone().serve(gateway_listener));
+
+        let mut viewers = Vec::new();
+        let mut weak_connection_id = String::new();
+        for index in 0..MAX_ACTIVE_CONNECTIONS_PER_SESSION {
+            let nonce = uuid::Uuid::new_v4().simple().to_string();
+            if index == 0 {
+                let hash = format!("{:x}", Sha256::digest(nonce.as_bytes()));
+                weak_connection_id = format!("rdc_{}", &hash[..20]);
+            }
+            let bitrate_kbps = if index == 0 { 250 } else { 8_000 };
+            let ticket = ticket_for_actor(
+                &ticket_with_actor_limits(
+                    session_id,
+                    &nonce,
+                    "COLLABORATIVE",
+                    true,
+                    bitrate_kbps,
+                    60,
+                ),
+                &format!("viewer-{index}"),
+            );
+            let mut request =
+                format!("ws://{gateway_endpoint}/desktop/v1/sessions/{session_id}?ticket={ticket}")
+                    .into_client_request()
+                    .unwrap();
+            request
+                .headers_mut()
+                .insert(ORIGIN, "http://console.test".parse().unwrap());
+            let (mut websocket, _) = connect_async(request).await.unwrap();
+            complete_test_rfb_client(&mut websocket).await;
+            next_binary(&mut websocket).await;
+            viewers.push(websocket);
+        }
+        assert_eq!(gateway.active_connection_count(session_id), 8);
+        assert_eq!(upstream_connections.load(Ordering::SeqCst), 1);
+
+        let hub = gateway
+            .state
+            .shared_hubs
+            .lock()
+            .unwrap()
+            .get(session_id)
+            .cloned()
+            .unwrap();
+        let first = test_full_framebuffer_update(64, 64, 10);
+        *hub.latest_frame.lock().unwrap() = Some(first.clone());
+        hub.frames.send(first).unwrap();
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        for value in 11..=16 {
+            let frame = test_full_framebuffer_update(64, 64, value);
+            *hub.latest_frame.lock().unwrap() = Some(frame.clone());
+            hub.frames.send(frame).unwrap();
+        }
+
+        for (index, websocket) in viewers.iter_mut().enumerate() {
+            tokio::time::timeout(Duration::from_secs(4), async {
+                loop {
+                    let frame = next_binary(websocket).await;
+                    if frame[16] == 16 {
+                        break;
+                    }
+                }
+            })
+            .await
+            .unwrap_or_else(|_| panic!("viewer {index} did not receive the latest baseline"));
+        }
+        assert!(
+            gateway
+                .connection_usage(&weak_connection_id)
+                .throttled_batches
+                > 0
+        );
+        assert_eq!(gateway.active_connection_count(session_id), 8);
+
+        let current = test_full_framebuffer_update(64, 64, 17);
+        *hub.latest_frame.lock().unwrap() = Some(current.clone());
+        hub.frames.send(current).unwrap();
+        for (index, websocket) in viewers.iter_mut().enumerate() {
+            let frame = tokio::time::timeout(Duration::from_secs(2), next_binary(websocket))
+                .await
+                .unwrap_or_else(|_| panic!("viewer {index} stopped receiving updates"));
+            assert_eq!(frame[16], 17, "viewer {index} replayed a stale frame");
+        }
+        assert_eq!(upstream_connections.load(Ordering::SeqCst), 1);
+        for websocket in &mut viewers {
+            websocket.close(None).await.unwrap();
+        }
     }
 
     #[tokio::test]

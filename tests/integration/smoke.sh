@@ -219,20 +219,28 @@ docker run -d --name "$minio_name" \
 postgres_port="$(docker port "$postgres_name" 5432/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 redis_port="$(docker port "$redis_name" 6379/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 minio_port="$(docker port "$minio_name" 9000/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
-node_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-node_b_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-node_c_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-control_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-control_b_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-event_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-event_b_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-desktop_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-desktop_b_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-desktop_c_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-proxy_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-proxy_provider_adapter_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-business_provider_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-reviewer_model_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+# Hold every candidate socket until all ports are selected. Independent bind/close calls can
+# return the same ephemeral port for two services (for example event gRPC and HTTP), which
+# makes a later control-plane restart fail even when no external process stole a port.
+integration_ports="$(python3 - <<'PY'
+import socket
+
+sockets = []
+try:
+    for _ in range(14):
+        candidate = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        candidate.bind(("0.0.0.0", 0))
+        sockets.append(candidate)
+    print(" ".join(str(candidate.getsockname()[1]) for candidate in sockets))
+finally:
+    for candidate in sockets:
+        candidate.close()
+PY
+)"
+read -r node_port node_b_port node_c_port control_port control_b_port \
+  event_port event_b_port desktop_port desktop_b_port desktop_c_port \
+  proxy_port proxy_provider_adapter_port business_provider_port reviewer_model_port \
+  <<< "$integration_ports"
 
 proxy_username="commercial-integration-user"
 proxy_password="commercial-integration-password"

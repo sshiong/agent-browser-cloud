@@ -40,6 +40,7 @@ function receiver(payload, displayPromise = Promise.resolve()) {
     rQshift8: () => payload.length,
     rQshiftStr: () => payload,
     sQpush8(value) { sent.push(value); },
+    sQpush16(value) { sent.push(value); },
     sQpush32(value) { sent.push(value); },
     sQpushString(value) { sent.push(value); },
     flush() { sent.push('flush'); },
@@ -84,6 +85,11 @@ test('frame ID fence keeps its 16-byte payload through the draw barrier', async 
   assert.deepEqual(sent, []);
   pendingAnimationFrame();
   assert.deepEqual(sent, [248, 0, 0, 0, 0, 16, payload, 'flush']);
+  assert.equal(fake._agentBrowserDisplayedFrameId, payload.slice(8));
+  fake._sendAgentBrowserInputFrame = RFB.prototype._sendAgentBrowserInputFrame;
+  fake._viewOnly = false;
+  RFB.prototype.sendKey.call(fake, 65, '', true);
+  assert.deepEqual(sent.slice(8, 16), [248, 0, 0, 0, 0, 12, 'ABCI' + payload.slice(8), 'flush']);
 });
 
 test('an abandoned connection never acknowledges a displayed frame', async () => {

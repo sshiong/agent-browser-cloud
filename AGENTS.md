@@ -316,7 +316,9 @@ progress 166。
   Web 145 项、补丁协议 3 项与真实 Web/noVNC E2E 通过，见 progress 230。该回执仍不证明
   物理显示器呈现。progress 231 修正上游帧时间只由真实上游帧更新，并新增 N−1 兼容的
   Viewer 未确认帧等待指标用于资源压力；progress 232 将图像 Frame ID/采样时间绑定到
-  广播和恢复基线，在绘制后 Fence 中逐图像回执来源 ID，超时恢复最新完整基线。端到端展示帧龄、Frame ID 输入围栏、目标 Linux 8 Client 长稳与硬件 Codec
+  广播和恢复基线，在绘制后 Fence 中逐图像回执来源 ID，超时恢复最新完整基线。
+  progress 233 让本仓库 noVNC 在输入前携带已绘制 Frame ID，Gateway 拒绝旧画面输入并释放按下状态；
+  旧 Viewer 不声明私有能力时仍无此围栏。端到端展示帧龄、目标 Linux 8 Client 长稳与硬件 Codec
   仍未完成。
 
 - 公开 Duende IdentityServer 演示站新增真实 Chrome Replay：固定官方 Host、登录 URL、动作与
@@ -711,7 +713,7 @@ progress 166。
 | 4 | 外部模型请求快速取消 | **客户端链已确认并闭环**：lease/epoch/cancel 会终止 HTTP transport/socket，迟到结果受围栏，见 progress 181/196 | Provider 服务端推理/计费强取消只有供应商提供 Cancel API 才可实现，不能由通用 OpenAI-compatible HTTP 客户端保证 |
 | 5 | Recording 治理与隐私 | **仓库链已闭环**：用途绑定播放、物理删除、Object Lock/WORM 基线、全帧 OCR/PII/正面人脸/二维码遮罩，见 progress 200—203 | 目标云 Apply/IAM、云原生 Legal Hold 深度联动、客户视觉集与侧脸/证件/医学影像等扩展类别 |
 | 6 | Profile 安全与灾备 | **仓库链已闭环**：应用层加密、SQLite/LevelDB 感知恢复、Multipart Resume、只读跨 Region Restore，见 progress 183/205—207 | 目标云 KMS/IAM/Replication、真实 RPO/RTO 和 Region 切换证书 |
-| 7 | Remote Desktop 弱网与规模 | **仓库反馈调速链已闭环**：弱网 Viewer 动态合帧/基线恢复/临时降质、逐连接低分辨率和绘制后 RFB Fence 回执驱动的连接私有 FPS，八个独立 Actor 的 Gateway 与 Web/noVNC 本机短时回归，见 progress 208—209/225—226/228/230 | Viewer 端到端展示帧龄与 Frame ID 输入围栏、硬件 Codec、目标 Linux 八客户端小时级多协作者长稳 |
+| 7 | Remote Desktop 弱网与规模 | **仓库反馈调速与本仓库 noVNC 输入围栏已闭环**：弱网 Viewer 动态合帧/基线恢复/临时降质、逐连接低分辨率、绘制后 RFB Fence 调速、已绘制 Frame ID 输入核对与过期释放，见 progress 208—209/225—226/228/230/232—233 | 旧 Viewer 输入围栏覆盖、端到端展示帧龄、硬件 Codec、目标 Linux 八客户端小时级多协作者长稳 |
 | 8 | Proxy 生产能力 | **通用仓库链已闭环**：业务结果学习、Profile 粘性、受约束探索、Challenge 隔离、商业 Basic Auth、统一 SPI、远程 Gateway、Safe Point Endpoint 轮换，见 progress 211—216 | 具体供应商插件、真实账号 OAuth/签名、云 Secret、账单对账、客户 SLA Replay/熔断仍未完成 |
 | 9 | V16 生产基础设施 | **未完成，发布阻断** | 目标 Linux/云 CNI、CSI、KMS、IAM、LSM、多 Region、HSM、Pager/GameDay 和组织审批 |
 | 10 | 环境配置复制/导出 | **已确认并闭环**：正式 Clone API 与无敏感配置导出，见 progress 210 | 真实外部导入生态兼容只作为持续验证，不再重做仓库主链 |

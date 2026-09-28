@@ -42,12 +42,15 @@ const DEFAULT_ACTOR_BITRATE_LIMIT_KBPS: u32 = 8_000;
 const DEFAULT_ACTOR_FRAME_RATE_LIMIT_FPS: u32 = 30;
 const DEFAULT_RESOLUTION_SCALE_PERCENT: u8 = 100;
 const RFB_FENCE_ENCODING: [u8; 4] = (-312_i32).to_be_bytes();
+const RFB_FRAME_INPUT_ENCODING: [u8; 4] = (-0x4142_4349_i32).to_be_bytes();
 const RFB_FENCE_MESSAGE_TYPE: u8 = 248;
 const RFB_FENCE_REQUEST_FLAG: u32 = 1 << 31;
 const VIEWER_FENCE_PREFIX: [u8; 4] = *b"ABCF";
+const VIEWER_INPUT_PREFIX: [u8; 4] = *b"ABCI";
 const VIEWER_FEEDBACK_SLOW: Duration = Duration::from_millis(400);
 const VIEWER_FEEDBACK_FAST: Duration = Duration::from_millis(120);
 const VIEWER_FEEDBACK_TIMEOUT: Duration = Duration::from_secs(2);
+const MAX_TRACKED_PRESSED_KEYS: usize = 64;
 const VIEWER_RECOVERY_INTERVAL: Duration = Duration::from_millis(500);
 const RFB_VERSION_3_8: &[u8; 12] = b"RFB 003.008\n";
 // noVNC 1.7 uses this full-colour little-endian format after ServerInit. The hub owns one
@@ -1143,6 +1146,13 @@ impl RemoteDesktopGateway {
             .min(authorized.claims.actor_frame_rate_limit_fps);
         let mut viewer_pacer =
             ViewerFramePacer::new(initial_fps, authorized.claims.actor_frame_rate_limit_fps);
+        let mut pending_fence_source: Option<FrameSource> = None;
+        let mut displayed_frame_source: Option<FrameSource> = None;
+        let mut based_on_frame_id: Option<u64> = None;
+        let mut pressed_keys = HashSet::new();
+        let mut pressed_pointer_mask = 0_u8;
+        let mut last_pointer_coordinates = [0_u8; 4];
+        let mut suppress_pointer_until_release = false;
         self.record_adaptive_viewer_fps(&authorized.claims, initial_fps);
         let mut input_parser = RfbClientMessageParser::for_viewport(
             pending_client_bytes,
@@ -1201,6 +1211,7 @@ impl RemoteDesktopGateway {
                         .unwrap_or_else(|| tokio::time::Instant::now() + VIEWER_FEEDBACK_TIMEOUT)
                 ), if viewer_pacer.pending_fence.is_some() => {
                     viewer_pacer.expire_feedback();
+                    pending_fence_source = None;
                     self.record_adaptive_viewer_fps(&authorized.claims, viewer_pacer.fps);
                     // The queued deltas were produced while this viewer was waiting
                     // for a drawing acknowledgement. Resume from the newest exact
@@ -1284,6 +1295,7 @@ impl RemoteDesktopGateway {
                     );
                     if input_parser.supports_fence {
                         if let Some(fence) = source.and_then(|source| viewer_pacer.fence_wire(source.id)) {
+                            pending_fence_source = source;
                             tokio::time::timeout(SLOW_CLIENT_WRITE_TIMEOUT, websocket.send(Message::Binary(fence)))
                                 .await
                                 .context("remote desktop fence write timed out")??;
@@ -1308,13 +1320,18 @@ impl RemoteDesktopGateway {
                                 "VNC client frame exceeds 1 MiB"
                             );
                             for message in input_parser.ingest(&payload)? {
+                                if let Some(frame_id) = message.input_frame_id {
+                                    based_on_frame_id = Some(frame_id);
+                                }
                                 if message.reset_baseline && !input_parser.supports_fence {
                                     viewer_pacer.disable_feedback();
+                                    pending_fence_source = None;
                                     self.clear_pending_viewer_frame(&authorized.claims);
                                     self.record_adaptive_viewer_fps(&authorized.claims, viewer_pacer.fps);
                                 }
                                 if let Some(reply) = &message.fence_reply {
                                     if viewer_pacer.feedback(reply) {
+                                        displayed_frame_source = pending_fence_source.take();
                                         self.clear_pending_viewer_frame(&authorized.claims);
                                     }
                                     self.record_adaptive_viewer_fps(&authorized.claims, viewer_pacer.fps);
@@ -1325,6 +1342,7 @@ impl RemoteDesktopGateway {
                                     // replacement baseline, so retire it before sending a new one.
                                     if input_parser.supports_fence {
                                         viewer_pacer.pending_fence = None;
+                                        pending_fence_source = None;
                                         self.clear_pending_viewer_frame(&authorized.claims);
                                     }
                                     // Resubscribe before reading the exact baseline.
@@ -1346,10 +1364,56 @@ impl RemoteDesktopGateway {
                                     !authorized.claims.view_only || !message.human_input,
                                     "view-only remote desktop attempted human input"
                                 );
+                                if message.human_input && input_parser.ever_supported_frame_input {
+                                    if message.bytes[0] == 5 && message.bytes[1] == 0 {
+                                        suppress_pointer_until_release = false;
+                                    }
+                                    let latest_source = hub.latest_frame.lock()
+                                        .expect("shared RFB latest frame lock poisoned")
+                                        .as_ref().and_then(|frame| frame.source);
+                                    if !frame_input_is_current(
+                                        based_on_frame_id.take(), displayed_frame_source, latest_source,
+                                    ) {
+                                        if message.bytes[0] == 5 && message.bytes[1] != 0 {
+                                            suppress_pointer_until_release = true;
+                                        }
+                                        release_pressed_input(
+                                            &hub.input, &mut pressed_keys,
+                                            &mut pressed_pointer_mask, last_pointer_coordinates,
+                                        ).await?;
+                                        match hub.refresh.try_send(()) {
+                                            Ok(()) | Err(mpsc::error::TrySendError::Full(())) => {}
+                                            Err(mpsc::error::TrySendError::Closed(())) => {
+                                                anyhow::bail!("shared RFB refresh queue closed");
+                                            }
+                                        }
+                                        continue;
+                                    }
+                                    if message.bytes[0] == 5 && suppress_pointer_until_release {
+                                        // A stale down was rejected. Do not synthesize a fresh
+                                        // press from the same held mouse button after redraw.
+                                        continue;
+                                    }
+                                }
                                 if message.human_input {
                                     self.mark_human_input(&authorized.claims.session_id);
                                 }
                                 if message.forward {
+                                    if input_parser.ever_supported_frame_input && message.bytes[0] == 4 {
+                                        let key = u32::from_be_bytes(message.bytes[4..8].try_into().expect("complete key"));
+                                        if message.bytes[1] == 0 { pressed_keys.remove(&key); }
+                                        else {
+                                            if pressed_keys.len() >= MAX_TRACKED_PRESSED_KEYS && !pressed_keys.contains(&key) {
+                                                release_pressed_input(&hub.input, &mut pressed_keys,
+                                                    &mut pressed_pointer_mask, last_pointer_coordinates).await?;
+                                                anyhow::bail!("too many simultaneously pressed keys");
+                                            }
+                                            pressed_keys.insert(key);
+                                        }
+                                    } else if input_parser.ever_supported_frame_input && message.bytes[0] == 5 {
+                                        pressed_pointer_mask = message.bytes[1];
+                                        last_pointer_coordinates.copy_from_slice(&message.bytes[2..6]);
+                                    }
                                     tokio::time::timeout(
                                         Duration::from_millis(250),
                                         hub.input.send(message.bytes),
@@ -1398,6 +1462,15 @@ impl RemoteDesktopGateway {
                 }
             }
         }
+        if input_parser.ever_supported_frame_input {
+            release_pressed_input(
+                &hub.input,
+                &mut pressed_keys,
+                &mut pressed_pointer_mask,
+                last_pointer_coordinates,
+            )
+            .await?;
+        }
         let _ = websocket.close(None).await;
         Ok(())
     }
@@ -1411,6 +1484,45 @@ fn clone_latest_frame(
         .expect("shared RFB latest frame lock poisoned")
         .clone()
         .context("shared remote desktop has no recovery baseline")
+}
+
+fn frame_input_is_current(
+    based_on_frame_id: Option<u64>,
+    displayed: Option<FrameSource>,
+    latest: Option<FrameSource>,
+) -> bool {
+    // Frame IDs, rather than wall clocks, establish whether the user's pixels
+    // still describe the current coordinate space. An unchanged static page
+    // remains usable even if its last image sample is old.
+    matches!((based_on_frame_id, displayed, latest),
+        (Some(input), Some(drawn), Some(current))
+            if input == drawn.id && drawn.id == current.id)
+}
+
+async fn release_pressed_input(
+    input: &mpsc::Sender<Vec<u8>>,
+    keys: &mut HashSet<u32>,
+    pointer_mask: &mut u8,
+    pointer_coordinates: [u8; 4],
+) -> anyhow::Result<()> {
+    if *pointer_mask != 0 {
+        let mut release = vec![5, 0];
+        release.extend_from_slice(&pointer_coordinates);
+        tokio::time::timeout(Duration::from_millis(250), input.send(release))
+            .await
+            .context("pointer release timed out")?
+            .context("shared RFB input queue closed")?;
+        *pointer_mask = 0;
+    }
+    for key in keys.drain() {
+        let mut release = vec![4, 0, 0, 0];
+        release.extend_from_slice(&key.to_be_bytes());
+        tokio::time::timeout(Duration::from_millis(250), input.send(release))
+            .await
+            .context("key release timed out")?
+            .context("shared RFB input queue closed")?;
+    }
+    Ok(())
 }
 
 fn scaled_dimensions(width: u16, height: u16, scale_percent: u8) -> anyhow::Result<(u16, u16)> {
@@ -1453,6 +1565,8 @@ struct RfbClientMessageParser {
     jpeg_quality: Option<u8>,
     supports_fence: bool,
     ever_supported_fence: bool,
+    supports_frame_input: bool,
+    ever_supported_frame_input: bool,
     pointer_coordinate_space: Option<PointerCoordinateSpace>,
 }
 
@@ -1472,6 +1586,7 @@ struct ParsedRfbClientMessage {
     refresh: bool,
     reset_baseline: bool,
     fence_reply: Option<Vec<u8>>,
+    input_frame_id: Option<u64>,
 }
 
 impl RfbClientMessageParser {
@@ -1483,6 +1598,8 @@ impl RfbClientMessageParser {
             jpeg_quality: None,
             supports_fence: false,
             ever_supported_fence: false,
+            supports_frame_input: false,
+            ever_supported_frame_input: false,
             pointer_coordinate_space: None,
         }
     }
@@ -1502,6 +1619,8 @@ impl RfbClientMessageParser {
             jpeg_quality: None,
             supports_fence: false,
             ever_supported_fence: false,
+            supports_frame_input: false,
+            ever_supported_frame_input: false,
             pointer_coordinate_space: (resolution_scale_percent < 100).then_some(
                 PointerCoordinateSpace {
                     source_width,
@@ -1605,15 +1724,32 @@ impl RfbClientMessageParser {
                 self.supports_fence = encodings
                     .iter()
                     .any(|encoding| encoding == &RFB_FENCE_ENCODING);
+                self.supports_frame_input = self.supports_fence
+                    && encodings
+                        .iter()
+                        .any(|encoding| encoding == &RFB_FRAME_INPUT_ENCODING);
                 self.ever_supported_fence |= self.supports_fence;
+                self.ever_supported_frame_input |= self.supports_frame_input;
             }
             let mut bytes: Vec<u8> = self.buffered.drain(..message_length).collect();
+            let mut input_frame_id = None;
             let fence_reply = if message_type == RFB_FENCE_MESSAGE_TYPE {
                 anyhow::ensure!(
                     u32::from_be_bytes(bytes[4..8].try_into().expect("complete fence flags")) == 0,
                     "RFB fence reply has unsupported flags"
                 );
-                Some(bytes[9..].to_vec())
+                if bytes.len() == 21 && bytes[9..13] == VIEWER_INPUT_PREFIX {
+                    anyhow::ensure!(
+                        self.ever_supported_frame_input,
+                        "unnegotiated input frame ID"
+                    );
+                    input_frame_id = Some(u64::from_be_bytes(
+                        bytes[13..21].try_into().expect("complete input frame ID"),
+                    ));
+                    None
+                } else {
+                    Some(bytes[9..].to_vec())
+                }
             } else {
                 None
             };
@@ -1636,6 +1772,7 @@ impl RfbClientMessageParser {
                 refresh,
                 reset_baseline: message_type == 2,
                 fence_reply,
+                input_frame_id,
             });
         }
         Ok(parsed)
@@ -2532,6 +2669,7 @@ mod tests {
             input_sender,
             release_second_frame,
             None,
+            None,
         )
         .await;
     }
@@ -2542,6 +2680,7 @@ mod tests {
         input_sender: Option<oneshot::Sender<Vec<u8>>>,
         mut release_second_frame: Option<oneshot::Receiver<()>>,
         mut release_bell: Option<oneshot::Receiver<()>>,
+        captured_input: Option<mpsc::UnboundedSender<Vec<u8>>>,
     ) {
         let (mut stream, _) = listener.accept().await.unwrap();
         accepted.fetch_add(1, Ordering::SeqCst);
@@ -2621,8 +2760,18 @@ mod tests {
                 4 => {
                     let mut message = vec![message_type; 8];
                     stream.read_exact(&mut message[1..]).await.unwrap();
+                    if let Some(capture) = &captured_input {
+                        capture.send(message.clone()).unwrap();
+                    }
                     if let Some(sender) = input_sender.take() {
                         sender.send(message).unwrap();
+                    }
+                }
+                5 => {
+                    let mut message = vec![message_type; 6];
+                    stream.read_exact(&mut message[1..]).await.unwrap();
+                    if let Some(capture) = &captured_input {
+                        capture.send(message).unwrap();
                     }
                 }
                 other => panic!("unexpected test RFB client message {other}"),
@@ -2928,6 +3077,7 @@ mod tests {
 
     async fn complete_test_rfb_fence_client(
         websocket: &mut WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>,
+        frame_input: bool,
     ) -> Vec<u8> {
         assert_eq!(next_binary(websocket).await, RFB_VERSION_3_8);
         websocket
@@ -2939,8 +3089,11 @@ mod tests {
         assert_eq!(next_binary(websocket).await, [0, 0, 0, 0]);
         websocket.send(Message::Binary(vec![1])).await.unwrap();
         let init = next_binary(websocket).await;
-        let mut encodings = vec![2, 0, 0, 2, 0, 0, 0, 0];
+        let mut encodings = vec![2, 0, 0, if frame_input { 3 } else { 2 }, 0, 0, 0, 0];
         encodings.extend_from_slice(&RFB_FENCE_ENCODING);
+        if frame_input {
+            encodings.extend_from_slice(&RFB_FRAME_INPUT_ENCODING);
+        }
         websocket.send(Message::Binary(encodings)).await.unwrap();
         websocket
             .send(Message::Binary(vec![3, 0, 0, 0, 0, 0, 0, 1, 0, 1]))
@@ -2959,6 +3112,13 @@ mod tests {
                 other => panic!("unexpected WebSocket message: {other:?}"),
             }
         }
+    }
+
+    fn displayed_input_marker(frame_id: u64) -> Vec<u8> {
+        let mut marker = vec![RFB_FENCE_MESSAGE_TYPE, 0, 0, 0, 0, 0, 0, 0, 12];
+        marker.extend_from_slice(&VIEWER_INPUT_PREFIX);
+        marker.extend_from_slice(&frame_id.to_be_bytes());
+        marker
     }
 
     #[test]
@@ -3014,6 +3174,74 @@ mod tests {
         let mut malformed = reply;
         malformed[7] = 1;
         assert!(parser.ingest(&malformed).is_err());
+    }
+
+    #[test]
+    fn input_frame_marker_requires_private_capability_and_carries_exact_id() {
+        let mut marker = vec![RFB_FENCE_MESSAGE_TYPE, 0, 0, 0, 0, 0, 0, 0, 12];
+        marker.extend_from_slice(&VIEWER_INPUT_PREFIX);
+        marker.extend_from_slice(&42_u64.to_be_bytes());
+        let mut parser = RfbClientMessageParser::new(Vec::new(), SHARED_PIXEL_FORMAT);
+        let mut standard = vec![2, 0, 0, 2, 0, 0, 0, 0];
+        standard.extend_from_slice(&RFB_FENCE_ENCODING);
+        parser.ingest(&standard).unwrap();
+        assert!(parser.ingest(&marker).is_err());
+
+        let mut parser = RfbClientMessageParser::new(Vec::new(), SHARED_PIXEL_FORMAT);
+        let mut aligned = vec![2, 0, 0, 3, 0, 0, 0, 0];
+        aligned.extend_from_slice(&RFB_FENCE_ENCODING);
+        aligned.extend_from_slice(&RFB_FRAME_INPUT_ENCODING);
+        parser.ingest(&aligned).unwrap();
+        let messages = parser.ingest(&marker).unwrap();
+        assert_eq!(messages[0].input_frame_id, Some(42));
+        assert!(!messages[0].forward);
+        assert!(!messages[0].human_input);
+        parser.ingest(&[2, 0, 0, 1, 0, 0, 0, 0]).unwrap();
+        assert!(!parser.supports_frame_input);
+        assert!(
+            parser.ever_supported_frame_input,
+            "a client cannot disable input alignment mid-connection"
+        );
+        assert_eq!(parser.ingest(&marker).unwrap()[0].input_frame_id, Some(42));
+    }
+
+    #[tokio::test]
+    async fn stale_input_releases_pressed_pointer_and_keys() {
+        let displayed = FrameSource {
+            id: 7,
+            observed_at: Instant::now() - Duration::from_secs(60),
+        };
+        let latest = FrameSource {
+            id: 8,
+            observed_at: Instant::now(),
+        };
+        assert!(
+            frame_input_is_current(Some(7), Some(displayed), Some(displayed)),
+            "an unchanged static page remains usable regardless of frame age"
+        );
+        assert!(!frame_input_is_current(
+            Some(7),
+            Some(displayed),
+            Some(latest)
+        ));
+        assert!(!frame_input_is_current(
+            None,
+            Some(displayed),
+            Some(displayed)
+        ));
+        let (sender, mut receiver) = mpsc::channel(2);
+        let mut pressed_keys = HashSet::from([65_u32]);
+        let mut pointer_mask = 1;
+        release_pressed_input(&sender, &mut pressed_keys, &mut pointer_mask, [0, 2, 0, 3])
+            .await
+            .unwrap();
+        assert_eq!(receiver.recv().await.unwrap(), vec![5, 0, 0, 2, 0, 3]);
+        assert_eq!(
+            receiver.recv().await.unwrap(),
+            vec![4, 0, 0, 0, 0, 0, 0, 65]
+        );
+        assert_eq!(pointer_mask, 0);
+        assert!(pressed_keys.is_empty());
     }
 
     #[test]
@@ -3235,6 +3463,7 @@ mod tests {
             None,
             None,
             Some(bell_signal),
+            None,
         ));
 
         let disconnects = Arc::new(CountDisconnects(AtomicUsize::new(0)));
@@ -3958,7 +4187,7 @@ mod tests {
             .headers_mut()
             .insert(ORIGIN, "http://console.test".parse().unwrap());
         let (mut websocket, _) = connect_async(request).await.unwrap();
-        complete_test_rfb_fence_client(&mut websocket).await;
+        complete_test_rfb_fence_client(&mut websocket, false).await;
         assert_eq!(
             next_binary(&mut websocket).await,
             test_raw_framebuffer_update([1, 2, 3, 4])
@@ -4049,6 +4278,80 @@ mod tests {
         })
         .await
         .expect("disconnected viewer feedback state must be removed");
+    }
+
+    #[tokio::test]
+    async fn real_rfb_stale_click_is_rejected_and_releases_pressed_button() {
+        let vnc_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let vnc_endpoint = vnc_listener.local_addr().unwrap();
+        let (capture, mut inputs) = mpsc::unbounded_channel();
+        tokio::spawn(accept_test_rfb_upstream_with_bell(
+            vnc_listener,
+            Arc::new(AtomicUsize::new(0)),
+            None,
+            None,
+            None,
+            Some(capture),
+        ));
+        let gateway = RemoteDesktopGateway::new(
+            SECRET.as_bytes(),
+            ["http://console.test".to_owned()],
+            Arc::new(NoopDisconnectHandler),
+        )
+        .unwrap();
+        let session_id = "ses_alignedinput1234";
+        gateway.register_session(session_id, vnc_endpoint).unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = listener.local_addr().unwrap();
+        tokio::spawn(gateway.clone().serve(listener));
+        let nonce = uuid::Uuid::new_v4().simple().to_string();
+        let ticket = ticket_with_options(session_id, &nonce, "COLLABORATIVE", false);
+        let mut request =
+            format!("ws://{endpoint}/desktop/v1/sessions/{session_id}?ticket={ticket}")
+                .into_client_request()
+                .unwrap();
+        request
+            .headers_mut()
+            .insert(ORIGIN, "http://console.test".parse().unwrap());
+        let (mut websocket, _) = connect_async(request).await.unwrap();
+        complete_test_rfb_fence_client(&mut websocket, true).await;
+        assert_eq!(
+            next_binary(&mut websocket).await,
+            test_raw_framebuffer_update([1, 2, 3, 4])
+        );
+        let fence = next_binary(&mut websocket).await;
+        assert_eq!(u64::from_be_bytes(fence[17..25].try_into().unwrap()), 1);
+        let mut reply = fence;
+        reply[4..8].copy_from_slice(&0_u32.to_be_bytes());
+        websocket.send(Message::Binary(reply)).await.unwrap();
+
+        let mut first_click = displayed_input_marker(1);
+        first_click.extend_from_slice(&[5, 1, 0, 0, 0, 0]);
+        websocket.send(Message::Binary(first_click)).await.unwrap();
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(2), inputs.recv())
+                .await
+                .unwrap()
+                .unwrap(),
+            vec![5, 1, 0, 0, 0, 0],
+        );
+
+        let hub = gateway.shared_hub(session_id, vnc_endpoint);
+        let newer = test_frame(Arc::new(test_raw_framebuffer_update([5, 6, 7, 8])), 42);
+        *hub.latest_frame.lock().unwrap() = Some(newer.clone());
+        hub.frames.send(newer).unwrap();
+        let mut stale_click = displayed_input_marker(1);
+        stale_click.extend_from_slice(&[5, 1, 0, 0, 0, 0]);
+        websocket.send(Message::Binary(stale_click)).await.unwrap();
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(2), inputs.recv())
+                .await
+                .unwrap()
+                .unwrap(),
+            vec![5, 0, 0, 0, 0, 0],
+            "the rejected click must release the previously pressed button upstream",
+        );
+        websocket.close(None).await.unwrap();
     }
 
     #[tokio::test]

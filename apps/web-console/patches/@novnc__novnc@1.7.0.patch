@@ -1,11 +1,26 @@
 diff --git a/core/rfb.js b/core/rfb.js
-index 80011e4a10203806f14df1ffc3b8425861a965a7..73afdab7092453d50cec8a2c0f97ccfffc5069b5 100644
 --- a/core/rfb.js
 +++ b/core/rfb.js
-@@ -2528,4 +2528,17 @@ export default class RFB extends EventTargetMixin {
-         // BlockBefore and BlockAfter are automatically handled by
-         // the fact that we process each incoming message
-         // synchronuosly.
+@@ -475,0 +476,2 @@
++        this._sendAgentBrowserInputFrame();
++
+@@ -491,0 +494,6 @@
++    _sendAgentBrowserInputFrame() {
++        if (this._agentBrowserDisplayedFrameId?.length === 8) {
++            RFB.messages.clientFence(this._sock, 0, "ABCI" + this._agentBrowserDisplayedFrameId);
++        }
++    }
++
+@@ -501,0 +510,2 @@
++
++        this._sendAgentBrowserInputFrame();
+@@ -1208,0 +1219,2 @@
++
++        this._sendAgentBrowserInputFrame();
+@@ -2258,0 +2271,2 @@
++        // Private Agent Browser input-frame capability; other RFB servers ignore it.
++        encs.push(-0x41424349);
+@@ -2531 +2545,17 @@
 -        RFB.messages.clientFence(this._sock, flags, payload);
 +        if (payload.startsWith("ABCF") && (payload.length === 8 || payload.length === 16)) {
 +            // A normal Fence reply only proves protocol parsing. The gateway's private frame
@@ -14,6 +29,9 @@ index 80011e4a10203806f14df1ffc3b8425861a965a7..73afdab7092453d50cec8a2c0f97ccff
 +            this._display.flush().then(() => {
 +                window.requestAnimationFrame(() => {
 +                    if (this._rfbConnectionState === 'connected') {
++                        if (payload.length === 16) {
++                            this._agentBrowserDisplayedFrameId = payload.slice(8);
++                        }
 +                        RFB.messages.clientFence(this._sock, flags, payload);
 +                    }
 +                });

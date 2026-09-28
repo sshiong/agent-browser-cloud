@@ -1,5 +1,5 @@
 diff --git a/core/rfb.js b/core/rfb.js
-index 80011e4a10203806f14df1ffc3b8425861a965a7..b0867c2e6e052943abab71de0a0be2de1ace33d8 100644
+index 80011e4a10203806f14df1ffc3b8425861a965a7..73afdab7092453d50cec8a2c0f97ccfffc5069b5 100644
 --- a/core/rfb.js
 +++ b/core/rfb.js
 @@ -2528,4 +2528,17 @@ export default class RFB extends EventTargetMixin {
@@ -7,7 +7,7 @@ index 80011e4a10203806f14df1ffc3b8425861a965a7..b0867c2e6e052943abab71de0a0be2de
          // the fact that we process each incoming message
          // synchronuosly.
 -        RFB.messages.clientFence(this._sock, flags, payload);
-+        if (payload.startsWith("ABCF") && payload.length === 8) {
++        if (payload.startsWith("ABCF") && (payload.length === 8 || payload.length === 16)) {
 +            // A normal Fence reply only proves protocol parsing. The gateway's private frame
 +            // fence is replied to after queued image decoding/drawing and the next browser
 +            // animation frame. Do not acknowledge an abandoned connection.

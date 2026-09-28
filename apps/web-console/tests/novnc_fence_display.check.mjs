@@ -74,6 +74,18 @@ test('gateway frame fence waits for the draw queue and an animation frame', asyn
   assert.deepEqual(sent, [248, 0, 0, 0, 0, 8, 'ABCF\x00\x00\x00\x01', 'flush']);
 });
 
+test('frame ID fence keeps its 16-byte payload through the draw barrier', async () => {
+  const payload = 'ABCF\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x2a';
+  const { fake, sent, displayFlushes } = receiver(payload);
+  pendingAnimationFrame = undefined;
+  assert.equal(RFB.prototype._handleServerFenceMsg.call(fake), true);
+  assert.equal(displayFlushes(), 1);
+  await Promise.resolve();
+  assert.deepEqual(sent, []);
+  pendingAnimationFrame();
+  assert.deepEqual(sent, [248, 0, 0, 0, 0, 16, payload, 'flush']);
+});
+
 test('an abandoned connection never acknowledges a displayed frame', async () => {
   const { fake, sent } = receiver('ABCF\x00\x00\x00\x02');
   pendingAnimationFrame = undefined;

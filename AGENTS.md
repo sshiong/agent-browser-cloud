@@ -315,7 +315,8 @@ progress 166。
   可重现 pnpm 补丁只对 Gateway 私有帧 Fence 延后到 Canvas 绘制队列清空和下一动画帧才回执；
   Web 145 项、补丁协议 3 项与真实 Web/noVNC E2E 通过，见 progress 230。该回执仍不证明
   物理显示器呈现。progress 231 修正上游帧时间只由真实上游帧更新，并新增 N−1 兼容的
-  Viewer 未确认帧等待指标用于资源压力；端到端展示帧龄、Frame ID 输入围栏、目标 Linux 8 Client 长稳与硬件 Codec
+  Viewer 未确认帧等待指标用于资源压力；progress 232 将图像 Frame ID/采样时间绑定到
+  广播和恢复基线，在绘制后 Fence 中回执来源 ID。端到端展示帧龄、Frame ID 输入围栏、目标 Linux 8 Client 长稳与硬件 Codec
   仍未完成。
 
 - 公开 Duende IdentityServer 演示站新增真实 Chrome Replay：固定官方 Host、登录 URL、动作与

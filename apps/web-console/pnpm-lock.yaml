@@ -9,7 +9,7 @@ overrides:
 
 patchedDependencies:
   '@novnc/novnc@1.7.0':
-    hash: 720c5377a3aaeae59d28c24d6c2c927c86dce508b7c04799d06274c28f5f4a07
+    hash: 6547a2fcf127dfae636e7ab4016b2268c4bb5c5f560bba5a1342bdf4d8ba9ef6
     path: patches/@novnc__novnc@1.7.0.patch
 
 importers:
@@ -24,7 +24,7 @@ importers:
         version: 2.2.0
       '@novnc/novnc':
         specifier: 1.7.0
-        version: 1.7.0(patch_hash=720c5377a3aaeae59d28c24d6c2c927c86dce508b7c04799d06274c28f5f4a07)
+        version: 1.7.0(patch_hash=6547a2fcf127dfae636e7ab4016b2268c4bb5c5f560bba5a1342bdf4d8ba9ef6)
       '@radix-ui/react-dialog':
         specifier: ^1.1.6
         version: 1.1.21(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -2626,7 +2626,7 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
 
-  '@novnc/novnc@1.7.0(patch_hash=720c5377a3aaeae59d28c24d6c2c927c86dce508b7c04799d06274c28f5f4a07)': {}
+  '@novnc/novnc@1.7.0(patch_hash=6547a2fcf127dfae636e7ab4016b2268c4bb5c5f560bba5a1342bdf4d8ba9ef6)': {}
 
   '@playwright/test@1.61.1':
     dependencies:

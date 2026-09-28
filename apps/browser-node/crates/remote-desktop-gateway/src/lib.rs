@@ -166,7 +166,7 @@ struct ViewerFramePacer {
     fast_replies: u8,
     last_recovery: Instant,
     next_fence_id: u32,
-    pending_fence: Option<(u32, Instant)>,
+    pending_fence: Option<(u32, u64, Instant)>,
 }
 
 impl ViewerFramePacer {
@@ -212,38 +212,40 @@ impl ViewerFramePacer {
     fn expire_feedback(&mut self) {
         if self
             .pending_fence
-            .is_some_and(|(_, sent)| sent.elapsed() >= VIEWER_FEEDBACK_TIMEOUT)
+            .is_some_and(|(_, _, sent)| sent.elapsed() >= VIEWER_FEEDBACK_TIMEOUT)
         {
             self.pending_fence = None;
             self.pressure();
         }
     }
 
-    fn fence_wire(&mut self) -> Option<Vec<u8>> {
+    fn fence_wire(&mut self, frame_id: u64) -> Option<Vec<u8>> {
         if self.pending_fence.is_some() {
             return None;
         }
         let id = self.next_fence_id;
         self.next_fence_id = self.next_fence_id.wrapping_add(1);
-        self.pending_fence = Some((id, Instant::now()));
-        let mut wire = Vec::with_capacity(17);
+        self.pending_fence = Some((id, frame_id, Instant::now()));
+        let mut wire = Vec::with_capacity(25);
         wire.extend_from_slice(&[RFB_FENCE_MESSAGE_TYPE, 0, 0, 0]);
         wire.extend_from_slice(&RFB_FENCE_REQUEST_FLAG.to_be_bytes());
-        wire.push(8);
+        wire.push(16);
         wire.extend_from_slice(&VIEWER_FENCE_PREFIX);
         wire.extend_from_slice(&id.to_be_bytes());
+        wire.extend_from_slice(&frame_id.to_be_bytes());
         Some(wire)
     }
 
     fn feedback(&mut self, payload: &[u8]) -> bool {
-        if payload.len() != 8 || payload[..4] != VIEWER_FENCE_PREFIX {
+        if payload.len() != 16 || payload[..4] != VIEWER_FENCE_PREFIX {
             return false;
         }
         let id = u32::from_be_bytes(payload[4..8].try_into().expect("checked fence length"));
-        let Some((pending_id, sent)) = self.pending_fence else {
+        let frame_id = u64::from_be_bytes(payload[8..16].try_into().expect("checked fence length"));
+        let Some((pending_id, pending_frame_id, sent)) = self.pending_fence else {
             return false;
         };
-        if id != pending_id {
+        if id != pending_id || frame_id != pending_frame_id {
             return false;
         }
         self.pending_fence = None;
@@ -308,13 +310,41 @@ struct RfbServerInit {
     bytes_per_pixel: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct FrameSource {
+    id: u64,
+    observed_at: Instant,
+}
+
+#[derive(Debug, Clone)]
+struct SharedRfbFrame {
+    bytes: Arc<Vec<u8>>,
+    source: Option<FrameSource>,
+}
+
+impl SharedRfbFrame {
+    fn image(bytes: Arc<Vec<u8>>, source: FrameSource) -> Arc<Self> {
+        Arc::new(Self {
+            bytes,
+            source: Some(source),
+        })
+    }
+
+    fn non_image(bytes: Vec<u8>) -> Arc<Self> {
+        Arc::new(Self {
+            bytes: Arc::new(bytes),
+            source: None,
+        })
+    }
+}
+
 #[derive(Debug)]
 struct SharedRfbHub {
     endpoint: SocketAddr,
     input: mpsc::Sender<Vec<u8>>,
     refresh: mpsc::Sender<()>,
-    frames: broadcast::Sender<Arc<Vec<u8>>>,
-    latest_frame: Mutex<Option<Arc<Vec<u8>>>>,
+    frames: broadcast::Sender<Arc<SharedRfbFrame>>,
+    latest_frame: Mutex<Option<Arc<SharedRfbFrame>>>,
     status: watch::Receiver<SharedRfbHubStatus>,
     shutdown: watch::Sender<bool>,
 }
@@ -322,7 +352,7 @@ struct SharedRfbHub {
 struct SharedRfbHubTask {
     input: mpsc::Receiver<Vec<u8>>,
     refresh: mpsc::Receiver<()>,
-    frames: broadcast::Sender<Arc<Vec<u8>>>,
+    frames: broadcast::Sender<Arc<SharedRfbFrame>>,
     hub: Arc<SharedRfbHub>,
     status: watch::Sender<SharedRfbHubStatus>,
     shutdown: watch::Receiver<bool>,
@@ -1103,7 +1133,7 @@ impl RemoteDesktopGateway {
         // Wait for the first framebuffer request: noVNC sends SetEncodings before it.
         // Charging a multi-megabyte Raw baseline before negotiation defeats low-bandwidth mode.
         let mut desktop_requested = false;
-        let mut pending_server_payload: Option<Arc<Vec<u8>>> = None;
+        let mut pending_server_payload: Option<(Arc<Vec<u8>>, Option<FrameSource>)> = None;
         let mut pending_server_ready_at = tokio::time::Instant::now();
         let mut pending_server_quota_wait = Duration::ZERO;
         let mut last_reported_usage = RemoteDesktopUsageCounters::default();
@@ -1194,26 +1224,26 @@ impl RemoteDesktopGateway {
                     }
                     self.record_adaptive_viewer_fps(&authorized.claims, viewer_pacer.fps);
                     let frame = if authorized.claims.resolution_scale_percent < 100
-                        && frame.first() == Some(&0)
+                        && frame.bytes.first() == Some(&0)
                     {
                         clone_latest_frame(&hub.latest_frame)?
                     } else {
                         frame
                     };
-                    let frame = encode_viewer_frame(
-                        frame,
+                    let payload = encode_viewer_frame(
+                        frame.bytes.clone(),
                         adaptive_viewer_quality(input_parser.jpeg_quality, skipped_frames),
                         authorized.claims.resolution_scale_percent,
                     ).await?;
                     pending_server_quota_wait = self.reserve_viewer_forwarding(
-                        &authorized.claims, frame.len(), &mut viewer_pacer, input_parser.supports_fence,
+                        &authorized.claims, payload.len(), &mut viewer_pacer, input_parser.supports_fence,
                     );
                     pending_server_ready_at =
                         tokio::time::Instant::now() + pending_server_quota_wait;
-                    pending_server_payload = Some(frame);
+                    pending_server_payload = Some((payload, frame.source));
                 }
                 _ = tokio::time::sleep_until(pending_server_ready_at), if pending_server_payload.is_some() => {
-                    let payload = pending_server_payload
+                    let (payload, source) = pending_server_payload
                         .take()
                         .expect("guarded pending Observer payload");
                     tokio::time::timeout(
@@ -1228,7 +1258,7 @@ impl RemoteDesktopGateway {
                         pending_server_quota_wait,
                     );
                     if input_parser.supports_fence {
-                        if let Some(fence) = viewer_pacer.fence_wire() {
+                        if let Some(fence) = source.and_then(|source| viewer_pacer.fence_wire(source.id)) {
                             tokio::time::timeout(SLOW_CLIENT_WRITE_TIMEOUT, websocket.send(Message::Binary(fence)))
                                 .await
                                 .context("remote desktop fence write timed out")??;
@@ -1271,14 +1301,14 @@ impl RemoteDesktopGateway {
                                     let baseline = hub.latest_frame.lock()
                                         .expect("shared RFB latest frame lock poisoned").clone();
                                     if let Some(frame) = baseline {
-                                        let frame = encode_viewer_frame(
-                                            frame,
+                                        let payload = encode_viewer_frame(
+                                            frame.bytes.clone(),
                                             input_parser.jpeg_quality,
                                             authorized.claims.resolution_scale_percent,
                                         ).await?;
-                                        pending_server_quota_wait = self.reserve_viewer_forwarding(&authorized.claims, frame.len(), &mut viewer_pacer, input_parser.supports_fence);
+                                        pending_server_quota_wait = self.reserve_viewer_forwarding(&authorized.claims, payload.len(), &mut viewer_pacer, input_parser.supports_fence);
                                         pending_server_ready_at = tokio::time::Instant::now() + pending_server_quota_wait;
-                                        pending_server_payload = Some(frame);
+                                        pending_server_payload = Some((payload, frame.source));
                                     }
                                 }
                                 anyhow::ensure!(
@@ -1301,14 +1331,14 @@ impl RemoteDesktopGateway {
                                     if !desktop_requested {
                                         desktop_requested = true;
                                         if let Some(frame) = initial_frame.take() {
-                                            let frame = encode_viewer_frame(
-                                                frame,
+                                            let payload = encode_viewer_frame(
+                                                frame.bytes.clone(),
                                                 input_parser.jpeg_quality,
                                                 authorized.claims.resolution_scale_percent,
                                             ).await?;
-                                            pending_server_quota_wait = self.reserve_viewer_forwarding(&authorized.claims, frame.len(), &mut viewer_pacer, input_parser.supports_fence);
+                                            pending_server_quota_wait = self.reserve_viewer_forwarding(&authorized.claims, payload.len(), &mut viewer_pacer, input_parser.supports_fence);
                                             pending_server_ready_at = tokio::time::Instant::now() + pending_server_quota_wait;
-                                            pending_server_payload = Some(frame);
+                                            pending_server_payload = Some((payload, frame.source));
                                         }
                                     }
                                     match hub.refresh.try_send(()) {
@@ -1342,7 +1372,9 @@ impl RemoteDesktopGateway {
     }
 }
 
-fn clone_latest_frame(latest_frame: &Mutex<Option<Arc<Vec<u8>>>>) -> anyhow::Result<Arc<Vec<u8>>> {
+fn clone_latest_frame(
+    latest_frame: &Mutex<Option<Arc<SharedRfbFrame>>>,
+) -> anyhow::Result<Arc<SharedRfbFrame>> {
     latest_frame
         .lock()
         .expect("shared RFB latest frame lock poisoned")
@@ -1824,13 +1856,21 @@ async fn run_shared_rfb_hub(
     let incremental_framebuffer_request = framebuffer_update_request(&server_init, true);
     let mut framebuffer = RfbFramebuffer::new(&server_init)?;
     vnc.write_all(&full_framebuffer_request).await?;
-    let initial_frame = Arc::new(read_upstream_server_message(&mut vnc, &server_init).await?);
-    framebuffer.apply(&initial_frame)?;
+    let initial_bytes = read_upstream_server_message(&mut vnc, &server_init).await?;
+    framebuffer.apply(&initial_bytes)?;
+    let initial_source = FrameSource {
+        id: 1,
+        observed_at: Instant::now(),
+    };
+    let initial_frame = SharedRfbFrame::image(Arc::new(initial_bytes), initial_source);
     *task
         .hub
         .latest_frame
         .lock()
-        .expect("shared RFB latest frame lock poisoned") = Some(framebuffer.full_update());
+        .expect("shared RFB latest frame lock poisoned") = Some(SharedRfbFrame::image(
+        framebuffer.full_update(),
+        initial_source,
+    ));
     let _ = task.frames.send(initial_frame);
     task.status
         .send_replace(SharedRfbHubStatus::Ready(server_init.clone()));
@@ -1838,8 +1878,9 @@ async fn run_shared_rfb_hub(
         .last_server_frame_at
         .lock()
         .expect("frame timestamp lock poisoned")
-        .insert(session_id.to_owned(), Instant::now());
+        .insert(session_id.to_owned(), initial_source.observed_at);
     let mut update_request_in_flight = false;
+    let mut next_frame_id = 2_u64;
 
     loop {
         tokio::select! {
@@ -1862,21 +1903,32 @@ async fn run_shared_rfb_hub(
                 }
             }
             message = read_upstream_server_message(&mut vnc, &server_init) => {
-                let message = Arc::new(message?);
-                if message.first() == Some(&0) {
+                let bytes = message?;
+                let message = if bytes.first() == Some(&0) {
                     update_request_in_flight = false;
-                    framebuffer.apply(&message)?;
+                    framebuffer.apply(&bytes)?;
+                    let source = FrameSource {
+                        id: next_frame_id,
+                        observed_at: Instant::now(),
+                    };
+                    next_frame_id = next_frame_id.checked_add(1).context("RFB frame ID exhausted")?;
                     *task
                         .hub
                         .latest_frame
                         .lock()
-                        .expect("shared RFB latest frame lock poisoned") = Some(framebuffer.full_update());
+                        .expect("shared RFB latest frame lock poisoned") = Some(SharedRfbFrame::image(
+                            framebuffer.full_update(),
+                            source,
+                        ));
                     state
                         .last_server_frame_at
                         .lock()
                         .expect("frame timestamp lock poisoned")
-                        .insert(session_id.to_owned(), Instant::now());
-                }
+                        .insert(session_id.to_owned(), source.observed_at);
+                    SharedRfbFrame::image(Arc::new(bytes), source)
+                } else {
+                    SharedRfbFrame::non_image(bytes)
+                };
                 let _ = task.frames.send(message);
             }
         }
@@ -2326,6 +2378,16 @@ mod tests {
     use super::*;
     use futures_util::{SinkExt, StreamExt};
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    fn test_frame(bytes: Arc<Vec<u8>>, id: u64) -> Arc<SharedRfbFrame> {
+        SharedRfbFrame::image(
+            bytes,
+            FrameSource {
+                id,
+                observed_at: Instant::now(),
+            },
+        )
+    }
     use tokio::sync::oneshot;
     use tokio_tungstenite::connect_async;
     use tokio_tungstenite::tungstenite::client::IntoClientRequest;
@@ -2757,23 +2819,26 @@ mod tests {
         let mut slow = frames.subscribe();
         let mut current = frames.subscribe();
         for value in 0..3_u8 {
-            frames.send(Arc::new(vec![value])).unwrap();
-            assert_eq!(&**current.try_recv().unwrap(), &[value]);
+            frames
+                .send(test_frame(Arc::new(vec![value]), u64::from(value) + 1))
+                .unwrap();
+            assert_eq!(current.try_recv().unwrap().bytes.as_slice(), &[value]);
         }
         assert!(matches!(
             slow.try_recv(),
             Err(broadcast::error::TryRecvError::Lagged(1))
         ));
-        assert_eq!(&**slow.try_recv().unwrap(), &[1]);
+        assert_eq!(slow.try_recv().unwrap().bytes.as_slice(), &[1]);
     }
 
     #[test]
     fn lagged_viewer_recovers_latest_baseline_and_temporarily_reduces_lossy_quality() {
-        let latest = Mutex::new(Some(Arc::new(vec![0, 0, 0, 1, 9, 8, 7, 6])));
+        let latest = Mutex::new(Some(test_frame(Arc::new(vec![0, 0, 0, 1, 9, 8, 7, 6]), 9)));
         assert_eq!(
-            &*clone_latest_frame(&latest).unwrap(),
+            clone_latest_frame(&latest).unwrap().bytes.as_slice(),
             &[0, 0, 0, 1, 9, 8, 7, 6]
         );
+        assert_eq!(clone_latest_frame(&latest).unwrap().source.unwrap().id, 9);
         assert_eq!(adaptive_viewer_quality(Some(70), 0), Some(70));
         assert_eq!(adaptive_viewer_quality(Some(70), 1), Some(30));
         assert_eq!(
@@ -2891,9 +2956,10 @@ mod tests {
     #[test]
     fn fence_feedback_is_bounded_nonhuman_and_requires_negotiation() {
         let mut parser = RfbClientMessageParser::new(Vec::new(), SHARED_PIXEL_FORMAT);
-        let mut reply = vec![RFB_FENCE_MESSAGE_TYPE, 0, 0, 0, 0, 0, 0, 0, 8];
+        let mut reply = vec![RFB_FENCE_MESSAGE_TYPE, 0, 0, 0, 0, 0, 0, 0, 16];
         reply.extend_from_slice(&VIEWER_FENCE_PREFIX);
         reply.extend_from_slice(&1_u32.to_be_bytes());
+        reply.extend_from_slice(&42_u64.to_be_bytes());
         assert!(parser.ingest(&reply).is_err());
 
         let mut parser = RfbClientMessageParser::new(Vec::new(), SHARED_PIXEL_FORMAT);
@@ -2922,29 +2988,33 @@ mod tests {
     #[test]
     fn viewer_fence_feedback_backs_off_and_recovers_with_a_cap() {
         let mut pacer = ViewerFramePacer::new(30, 30);
-        let fence = pacer.fence_wire().unwrap();
-        assert_eq!(fence.len(), 17);
+        let fence = pacer.fence_wire(42).unwrap();
+        assert_eq!(fence.len(), 25);
         assert_eq!(fence[0], RFB_FENCE_MESSAGE_TYPE);
         assert_eq!(&fence[4..8], &RFB_FENCE_REQUEST_FLAG.to_be_bytes());
+        assert_eq!(&fence[17..25], &42_u64.to_be_bytes());
         assert!(
-            pacer.fence_wire().is_none(),
+            pacer.fence_wire(43).is_none(),
             "only one fence can be outstanding"
         );
-        pacer.pending_fence.as_mut().unwrap().1 = Instant::now() - VIEWER_FEEDBACK_SLOW;
+        let mut wrong_frame = fence[9..].to_vec();
+        wrong_frame[15] ^= 1;
+        assert!(!pacer.feedback(&wrong_frame));
+        pacer.pending_fence.as_mut().unwrap().2 = Instant::now() - VIEWER_FEEDBACK_SLOW;
         pacer.feedback(&fence[9..]);
         assert_eq!(pacer.fps, 15);
 
         pacer.last_recovery = Instant::now() - VIEWER_RECOVERY_INTERVAL;
         for id in 2_u32..=4 {
-            let fence = pacer.fence_wire().unwrap();
+            let fence = pacer.fence_wire(u64::from(id)).unwrap();
             assert_eq!(&fence[13..17], &id.to_be_bytes());
             pacer.feedback(&fence[9..]);
         }
         assert_eq!(pacer.fps, 16);
         pacer.pressure();
         assert_eq!(pacer.fps, 8);
-        let fence = pacer.fence_wire().unwrap();
-        pacer.pending_fence.as_mut().unwrap().1 = Instant::now() - VIEWER_FEEDBACK_TIMEOUT;
+        let fence = pacer.fence_wire(5).unwrap();
+        pacer.pending_fence.as_mut().unwrap().2 = Instant::now() - VIEWER_FEEDBACK_TIMEOUT;
         pacer.expire_feedback();
         assert_eq!(pacer.fps, 4);
         pacer.feedback(&fence[9..]);
@@ -3225,7 +3295,10 @@ mod tests {
         );
         let hub = gateway.shared_hub("ses_test1234567890", vnc_endpoint);
         hub.frames
-            .send(Arc::new(test_raw_framebuffer_update([1, 2, 3, 4])))
+            .send(test_frame(
+                Arc::new(test_raw_framebuffer_update([1, 2, 3, 4])),
+                1,
+            ))
             .unwrap();
         let replayed = tokio::time::timeout(Duration::from_secs(1), next_binary(&mut websocket))
             .await
@@ -3780,12 +3853,15 @@ mod tests {
             .get(session_id)
             .cloned()
             .unwrap();
-        let first = test_full_framebuffer_update(64, 64, 10);
+        let first = test_frame(test_full_framebuffer_update(64, 64, 10), 10);
         *hub.latest_frame.lock().unwrap() = Some(first.clone());
         hub.frames.send(first).unwrap();
         tokio::time::sleep(Duration::from_millis(20)).await;
         for value in 11..=16 {
-            let frame = test_full_framebuffer_update(64, 64, value);
+            let frame = test_frame(
+                test_full_framebuffer_update(64, 64, value),
+                u64::from(value),
+            );
             *hub.latest_frame.lock().unwrap() = Some(frame.clone());
             hub.frames.send(frame).unwrap();
         }
@@ -3800,7 +3876,7 @@ mod tests {
             .expect("weak viewer must recover from the newest full baseline");
         assert_eq!(recovered[16], 16);
 
-        let current = test_full_framebuffer_update(64, 64, 17);
+        let current = test_frame(test_full_framebuffer_update(64, 64, 17), 17);
         *hub.latest_frame.lock().unwrap() = Some(current.clone());
         hub.frames.send(current).unwrap();
         let current = tokio::time::timeout(Duration::from_secs(2), next_binary(&mut websocket))
@@ -3859,6 +3935,8 @@ mod tests {
         let fence = next_binary(&mut websocket).await;
         assert_eq!(fence[0], RFB_FENCE_MESSAGE_TYPE);
         assert_eq!(&fence[9..13], &VIEWER_FENCE_PREFIX);
+        assert_eq!(fence[8], 16);
+        assert_eq!(u64::from_be_bytes(fence[17..25].try_into().unwrap()), 1);
         assert!(gateway.unacknowledged_frame_age_ms(session_id).is_some());
         assert_eq!(
             gateway.adaptive_viewer_frame_rate_fps(&connection_id),
@@ -3883,6 +3961,22 @@ mod tests {
         .await
         .expect("slow client fence must reduce only its own FPS");
         assert_eq!(gateway.unacknowledged_frame_age_ms(session_id), None);
+        let hub = gateway.shared_hub(session_id, vnc_endpoint);
+        hub.frames
+            .send(test_frame(
+                Arc::new(test_raw_framebuffer_update([5, 6, 7, 8])),
+                42,
+            ))
+            .unwrap();
+        assert_eq!(
+            next_binary(&mut websocket).await,
+            test_raw_framebuffer_update([5, 6, 7, 8])
+        );
+        let next_fence = next_binary(&mut websocket).await;
+        assert_eq!(
+            u64::from_be_bytes(next_fence[17..25].try_into().unwrap()),
+            42
+        );
         assert!(!gateway.human_input_active(session_id, Duration::from_secs(2)));
         assert_eq!(gateway.active_connection_count(session_id), 1);
         websocket.close(None).await.unwrap();
@@ -3968,12 +4062,15 @@ mod tests {
             .get(session_id)
             .cloned()
             .unwrap();
-        let first = test_full_framebuffer_update(64, 64, 10);
+        let first = test_frame(test_full_framebuffer_update(64, 64, 10), 10);
         *hub.latest_frame.lock().unwrap() = Some(first.clone());
         hub.frames.send(first).unwrap();
         tokio::time::sleep(Duration::from_millis(20)).await;
         for value in 11..=16 {
-            let frame = test_full_framebuffer_update(64, 64, value);
+            let frame = test_frame(
+                test_full_framebuffer_update(64, 64, value),
+                u64::from(value),
+            );
             *hub.latest_frame.lock().unwrap() = Some(frame.clone());
             hub.frames.send(frame).unwrap();
         }
@@ -3998,7 +4095,7 @@ mod tests {
         );
         assert_eq!(gateway.active_connection_count(session_id), 8);
 
-        let current = test_full_framebuffer_update(64, 64, 17);
+        let current = test_frame(test_full_framebuffer_update(64, 64, 17), 17);
         *hub.latest_frame.lock().unwrap() = Some(current.clone());
         hub.frames.send(current).unwrap();
         for (index, websocket) in viewers.iter_mut().enumerate() {

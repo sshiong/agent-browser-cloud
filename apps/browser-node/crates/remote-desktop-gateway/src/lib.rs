@@ -1535,12 +1535,18 @@ fn frame_input_is_current(
     displayed: Option<FrameSource>,
     latest: Option<FrameSource>,
 ) -> bool {
-    // Frame IDs, rather than wall clocks, establish whether the user's pixels
-    // still describe the current coordinate space. An unchanged static page
-    // remains usable even if its last image sample is old.
+    // Continuous RFB updates can arrive while a Viewer is drawing a frame.
+    // Accept that small source-to-source lag, but reject input based on a
+    // genuinely old image. An unchanged static page remains usable.
+    const MAX_SOURCE_LAG: Duration = Duration::from_millis(750);
     matches!((based_on_frame_id, displayed, latest),
         (Some(input), Some(drawn), Some(current))
-            if input == drawn.id && drawn.id == current.id)
+            if input == drawn.id
+                && (drawn.id == current.id
+                    || (current.id > drawn.id
+                        && current.observed_at >= drawn.observed_at
+                        && current.observed_at.duration_since(drawn.observed_at)
+                            <= MAX_SOURCE_LAG)))
 }
 
 async fn release_pressed_input(
@@ -3263,6 +3269,30 @@ mod tests {
             frame_input_is_current(Some(7), Some(displayed), Some(displayed)),
             "an unchanged static page remains usable regardless of frame age"
         );
+        assert!(frame_input_is_current(
+            Some(7),
+            Some(FrameSource {
+                id: 7,
+                observed_at: latest.observed_at - Duration::from_millis(100),
+            }),
+            Some(latest),
+        ));
+        assert!(!frame_input_is_current(
+            Some(7),
+            Some(FrameSource {
+                id: 7,
+                observed_at: latest.observed_at - Duration::from_millis(751),
+            }),
+            Some(latest),
+        ));
+        assert!(!frame_input_is_current(
+            Some(7),
+            Some(FrameSource {
+                id: 7,
+                observed_at: latest.observed_at + Duration::from_millis(1),
+            }),
+            Some(latest),
+        ));
         assert!(!frame_input_is_current(
             Some(7),
             Some(displayed),
@@ -4432,6 +4462,7 @@ mod tests {
         assert!(gateway.effective_frame_age_ms(&connection_id).is_some());
 
         let hub = gateway.shared_hub(session_id, vnc_endpoint);
+        tokio::time::sleep(Duration::from_millis(800)).await;
         let newer = test_frame(Arc::new(test_raw_framebuffer_update([5, 6, 7, 8])), 42);
         *hub.latest_frame.lock().unwrap() = Some(newer.clone());
         hub.frames.send(newer).unwrap();

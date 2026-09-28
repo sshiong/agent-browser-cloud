@@ -20,7 +20,14 @@ else
   exit 1
 fi
 
-./gradlew -p apps/control-plane bootJar
+control_plane_jar="${E2E_CONTROL_PLANE_JAR:-$repo_root/apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar}"
+if [[ -z "${E2E_CONTROL_PLANE_JAR:-}" ]]; then
+  ./gradlew -p apps/control-plane bootJar
+fi
+if [[ ! -f "$control_plane_jar" ]]; then
+  echo "Control Plane E2E Jar does not exist: $control_plane_jar" >&2
+  exit 1
+fi
 cargo build --locked --manifest-path apps/browser-node/Cargo.toml \
   --bin network-helper --bin storage-helper --bin node-agent
 
@@ -76,14 +83,24 @@ docker run -d --name "$redis_name" \
 
 postgres_port="$(docker port "$postgres_name" 5432/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 redis_port="$(docker port "$redis_name" 6379/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
-node_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-control_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-event_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-web_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-viewer_web_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-desktop_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-desktop_fault_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
-proxy_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+# Keep the ephemeral sockets open until all services have distinct ports.
+e2e_ports="$(python3 - <<'PY'
+import socket
+
+sockets = []
+try:
+    for _ in range(8):
+        candidate = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        candidate.bind(("0.0.0.0", 0))
+        sockets.append(candidate)
+    print(" ".join(str(candidate.getsockname()[1]) for candidate in sockets))
+finally:
+    for candidate in sockets:
+        candidate.close()
+PY
+)"
+read -r node_port control_port event_port web_port viewer_web_port \
+  desktop_port desktop_fault_port proxy_port <<< "$e2e_ports"
 screenshot_path="${WEB_CONSOLE_SCREENSHOT:-/tmp/agent-browser-cloud-session-flow.png}"
 ticket_secret="browsercloud-e2e-remote-desktop-ticket-secret-v1"
 
@@ -164,7 +181,7 @@ REMOTE_DESKTOP_TICKET_SECRET="$ticket_secret" \
 STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
 STATIC_PROXY_EXPECTED_EXIT_IP="203.0.113.10" \
 SERVER_PORT="$control_port" \
-  "$java_bin" -jar apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
+  "$java_bin" -jar "$control_plane_jar" \
   >"$temp_dir/control-plane.log" 2>&1 &
 control_pid=$!
 

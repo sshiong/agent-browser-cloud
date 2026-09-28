@@ -317,9 +317,11 @@ progress 166。
   物理显示器呈现。progress 231 修正上游帧时间只由真实上游帧更新，并新增 N−1 兼容的
   Viewer 未确认帧等待指标用于资源压力；progress 232 将图像 Frame ID/采样时间绑定到
   广播和恢复基线，在绘制后 Fence 中逐图像回执来源 ID，超时恢复最新完整基线。
-  progress 233 让本仓库 noVNC 在输入前携带已绘制 Frame ID，Gateway 拒绝旧画面输入并释放按下状态；
+  progress 233 让本仓库 noVNC 在输入前携带已绘制 Frame ID，Gateway 拒绝过旧画面输入并释放按下状态；
   progress 234 补充 Gateway 连接私有有效帧龄和 Web/Tauri 最近一帧“来源→绘制”下界估计，
-  并修复 noVNC 补丁重装时的上下文错位。旧 Viewer 不声明私有能力时仍无输入围栏；
+  并修复 noVNC 补丁重装时的上下文错位。progress 235 以精确已绘制 Frame ID 和 750 毫秒
+  源帧差距上限修复连续 30 FPS 上游使输入持续拒绝的问题，完整 Web/noVNC 和 Viewer RBAC
+  E2E 已通过。旧 Viewer 不声明私有能力时仍无输入围栏；
   精确物理显示帧龄、目标 Linux 8 Client 长稳与硬件 Codec 仍未完成。
 
 - 公开 Duende IdentityServer 演示站新增真实 Chrome Replay：固定官方 Host、登录 URL、动作与

@@ -7,8 +7,11 @@ globalThis.document = {
   documentElement: {},
   createElement: () => ({ style: { cursor: '' }, getContext: () => ({}) }),
 };
+if (!globalThis.navigator) {
+  globalThis.navigator = { maxTouchPoints: 0, msMaxTouchPoints: 0 };
+}
 globalThis.window = {
-  navigator,
+  navigator: globalThis.navigator,
   document,
   addEventListener() {},
   removeEventListener() {},

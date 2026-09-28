@@ -1871,12 +1871,12 @@ async fn run_shared_rfb_hub(
                         .latest_frame
                         .lock()
                         .expect("shared RFB latest frame lock poisoned") = Some(framebuffer.full_update());
+                    state
+                        .last_server_frame_at
+                        .lock()
+                        .expect("frame timestamp lock poisoned")
+                        .insert(session_id.to_owned(), Instant::now());
                 }
-                state
-                    .last_server_frame_at
-                    .lock()
-                    .expect("frame timestamp lock poisoned")
-                    .insert(session_id.to_owned(), Instant::now());
                 let _ = task.frames.send(message);
             }
         }
@@ -2431,7 +2431,24 @@ mod tests {
         listener: TcpListener,
         accepted: Arc<AtomicUsize>,
         input_sender: Option<oneshot::Sender<Vec<u8>>>,
+        release_second_frame: Option<oneshot::Receiver<()>>,
+    ) {
+        accept_test_rfb_upstream_with_bell(
+            listener,
+            accepted,
+            input_sender,
+            release_second_frame,
+            None,
+        )
+        .await;
+    }
+
+    async fn accept_test_rfb_upstream_with_bell(
+        listener: TcpListener,
+        accepted: Arc<AtomicUsize>,
+        input_sender: Option<oneshot::Sender<Vec<u8>>>,
         mut release_second_frame: Option<oneshot::Receiver<()>>,
+        mut release_bell: Option<oneshot::Receiver<()>>,
     ) {
         let (mut stream, _) = listener.accept().await.unwrap();
         accepted.fetch_add(1, Ordering::SeqCst);
@@ -2467,7 +2484,25 @@ mod tests {
             .unwrap();
 
         let mut input_sender = input_sender;
-        while let Ok(message_type) = stream.read_u8().await {
+        loop {
+            let message_type = tokio::select! {
+                message_type = stream.read_u8() => match message_type {
+                    Ok(message_type) => message_type,
+                    Err(_) => break,
+                },
+                released = async {
+                    match &mut release_bell {
+                        Some(release) => release.await,
+                        None => std::future::pending().await,
+                    }
+                } => {
+                    release_bell = None;
+                    if released.is_ok() {
+                        stream.write_all(&[2]).await.unwrap();
+                    }
+                    continue;
+                },
+            };
             match message_type {
                 3 => {
                     let mut request = [0_u8; 9];
@@ -3092,11 +3127,13 @@ mod tests {
         let vnc_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let vnc_endpoint = vnc_listener.local_addr().unwrap();
         let upstream_connections = Arc::new(AtomicUsize::new(0));
-        tokio::spawn(accept_test_rfb_upstream(
+        let (release_bell, bell_signal) = oneshot::channel();
+        tokio::spawn(accept_test_rfb_upstream_with_bell(
             vnc_listener,
             upstream_connections.clone(),
             None,
             None,
+            Some(bell_signal),
         ));
 
         let disconnects = Arc::new(CountDisconnects(AtomicUsize::new(0)));
@@ -3171,6 +3208,20 @@ mod tests {
         gateway.state.last_server_frame_at.lock().unwrap().insert(
             "ses_test1234567890".to_owned(),
             Instant::now() - Duration::from_secs(5),
+        );
+        release_bell.send(()).unwrap();
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(1), next_binary(&mut websocket))
+                .await
+                .unwrap(),
+            vec![2],
+            "a non-image RFB Bell must still reach the Viewer"
+        );
+        assert!(
+            gateway
+                .frame_age_ms("ses_test1234567890")
+                .is_some_and(|age| age >= 5_000),
+            "a non-image upstream message must not refresh the last image-frame timestamp"
         );
         let hub = gateway.shared_hub("ses_test1234567890", vnc_endpoint);
         hub.frames

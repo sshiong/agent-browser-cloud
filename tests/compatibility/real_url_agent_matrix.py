@@ -1732,7 +1732,19 @@ example_task = create_execute_task(
 require_verified(
     example_task, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"]
 )
-example_state = current_state(session_id)
+example_state = wait_for(
+    f"/api/v1/sessions/{session_id}/state",
+    lambda state: state.get("url") == "https://example.com/"
+    and state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+    and state.get("freshness") == "FRESH"
+    and state.get("pageActivity") == "STABLE"
+    and any(
+        target.get("role") == "link"
+        and target.get("visible")
+        and target.get("enabled")
+        for target in state.get("targets", [])
+    ),
+)
 cross_domain_link = next(
     (
         target
@@ -1765,7 +1777,9 @@ failed_click = create_execute_task(
     terminal_states=("FAILED",),
 )
 if "POST_ACTION_DOMAIN_NOT_ALLOWED" not in (failed_click.get("lastError") or ""):
-    raise AssertionError(f"cross-domain click did not fail closed: {failed_click}")
+    raise AssertionError(
+        f"cross-domain click did not reach the domain guard: {diagnostic(failed_click)}"
+    )
 REPLAY_GATE.pass_case("cross-domain-fail-closed")
 
 proxy_denied_status, proxy_denied_task = request(

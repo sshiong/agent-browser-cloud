@@ -311,8 +311,11 @@ progress 166。
 - Remote Desktop Gateway 已对协商 RFB Fence 的 Viewer 增加连接私有自适应 FPS：慢回执、
   无响应和积压降速，快速回执有界恢复；同 Actor 另一 Viewer 只受原共享配额约束，旧
   客户端沿用固定上限。Gateway 32 项、Rust Workspace、严格 Clippy、真实 Web/noVNC E2E
-  和完整 OrbStack Integration 通过，见 progress 228。Fence 回执不证明客户端已显示画面；
-  展示帧龄、Frame ID 输入围栏、目标 Linux 8 Client 长稳与硬件 Codec 仍未完成。
+  和完整 OrbStack Integration 通过，见 progress 228。Web/Tauri 共用 noVNC 1.7 随后以
+  可重现 pnpm 补丁只对 Gateway 私有帧 Fence 延后到 Canvas 绘制队列清空和下一动画帧才回执；
+  Web 145 项、补丁协议 3 项与真实 Web/noVNC E2E 通过，见 progress 230。该回执仍不证明
+  物理显示器呈现；端到端展示帧龄、Frame ID 输入围栏、目标 Linux 8 Client 长稳与硬件 Codec
+  仍未完成。
 
 - 公开 Duende IdentityServer 演示站新增真实 Chrome Replay：固定官方 Host、登录 URL、动作与
   结果契约，网站公布的 `bob/bob` 测试用户只经一次性 `USERNAME/PASSWORD` Secret 输入；
@@ -706,7 +709,7 @@ progress 166。
 | 4 | 外部模型请求快速取消 | **客户端链已确认并闭环**：lease/epoch/cancel 会终止 HTTP transport/socket，迟到结果受围栏，见 progress 181/196 | Provider 服务端推理/计费强取消只有供应商提供 Cancel API 才可实现，不能由通用 OpenAI-compatible HTTP 客户端保证 |
 | 5 | Recording 治理与隐私 | **仓库链已闭环**：用途绑定播放、物理删除、Object Lock/WORM 基线、全帧 OCR/PII/正面人脸/二维码遮罩，见 progress 200—203 | 目标云 Apply/IAM、云原生 Legal Hold 深度联动、客户视觉集与侧脸/证件/医学影像等扩展类别 |
 | 6 | Profile 安全与灾备 | **仓库链已闭环**：应用层加密、SQLite/LevelDB 感知恢复、Multipart Resume、只读跨 Region Restore，见 progress 183/205—207 | 目标云 KMS/IAM/Replication、真实 RPO/RTO 和 Region 切换证书 |
-| 7 | Remote Desktop 弱网与规模 | **仓库反馈调速链已闭环**：弱网 Viewer 动态合帧/基线恢复/临时降质、逐连接低分辨率和 RFB Fence 回执驱动的连接私有 FPS，八个独立 Actor 的 Gateway 与 Web/noVNC 本机短时回归，见 progress 208—209/225—226/228 | Viewer 真实展示帧龄与 Frame ID 输入围栏、硬件 Codec、目标 Linux 八客户端小时级多协作者长稳 |
+| 7 | Remote Desktop 弱网与规模 | **仓库反馈调速链已闭环**：弱网 Viewer 动态合帧/基线恢复/临时降质、逐连接低分辨率和绘制后 RFB Fence 回执驱动的连接私有 FPS，八个独立 Actor 的 Gateway 与 Web/noVNC 本机短时回归，见 progress 208—209/225—226/228/230 | Viewer 端到端展示帧龄与 Frame ID 输入围栏、硬件 Codec、目标 Linux 八客户端小时级多协作者长稳 |
 | 8 | Proxy 生产能力 | **通用仓库链已闭环**：业务结果学习、Profile 粘性、受约束探索、Challenge 隔离、商业 Basic Auth、统一 SPI、远程 Gateway、Safe Point Endpoint 轮换，见 progress 211—216 | 具体供应商插件、真实账号 OAuth/签名、云 Secret、账单对账、客户 SLA Replay/熔断仍未完成 |
 | 9 | V16 生产基础设施 | **未完成，发布阻断** | 目标 Linux/云 CNI、CSI、KMS、IAM、LSM、多 Region、HSM、Pager/GameDay 和组织审批 |
 | 10 | 环境配置复制/导出 | **已确认并闭环**：正式 Clone API 与无敏感配置导出，见 progress 210 | 真实外部导入生态兼容只作为持续验证，不再重做仓库主链 |

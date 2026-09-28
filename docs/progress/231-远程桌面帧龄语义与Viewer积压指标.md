@@ -15,6 +15,7 @@ Gateway 现在只在真正收到上游帧时刷新上游帧时间。新增逐连
 
 - 真实 TCP/WebSocket/RFB Gateway 回归覆盖缓存帧重放、晚加入 Viewer、不支持 Fence、延迟回执及匹配回执后的清理；Gateway 32 项、Node Agent 27 项通过。
 - Java gRPC Endpoint 定向回归覆盖 21 与 38 同时出现时只采用 38，以及 N−1 Node 仅发 21 时不形成 Viewer 压力；资源压力既有测试通过。
-- Protobuf lint/generate、严格 Rust Clippy、Java Spotless 检查通过。macOS arm64 本机 Gradle 1.62.2 gRPC 插件缓存为 x86_64，定向 Java 测试使用 Buf 已生成的同一契约源码并跳过该本机插件；CI 正常构建仍需验证。
+- Protobuf lint/generate、严格 Rust Clippy、Java Spotless 检查通过。macOS arm64 本机 Gradle 1.62.2 gRPC 插件缓存为 x86_64，定向 Java 测试使用 Buf 已生成的同一契约源码并跳过该本机插件。
+- 提交 `d97b4b1` 的 [主 CI](https://github.com/sshiong/agent-browser-cloud/actions/runs/36382780657) 全部成功，包含 Verify、Integration smoke test 与 Kubernetes Operator E2E；[桌面 CI](https://github.com/sshiong/agent-browser-cloud/actions/runs/36382780667) 的 macOS/Windows 均成功。
 
 Viewer 端到端展示帧龄、Frame ID 输入围栏、目标 Linux 八客户端长稳和硬件 Codec 尚未完成；这些需要独立证据。

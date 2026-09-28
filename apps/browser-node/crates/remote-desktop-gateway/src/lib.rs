@@ -145,6 +145,7 @@ struct GatewayState {
     actor_forwarding: Mutex<HashMap<ActorQuotaKey, ActorForwardingState>>,
     connection_usage: Mutex<HashMap<String, RemoteDesktopUsageCounters>>,
     adaptive_viewer_fps: Mutex<HashMap<String, u32>>,
+    effective_frame_age_ms: Mutex<HashMap<String, u32>>,
     pending_viewer_frame_at: Mutex<HashMap<String, HashMap<String, Instant>>>,
     used_nonces: Mutex<HashMap<String, u64>>,
     disconnect_grace: Duration,
@@ -222,25 +223,28 @@ impl ViewerFramePacer {
         }
     }
 
-    fn fence_wire(&mut self, frame_id: u64) -> Option<Vec<u8>> {
+    fn fence_wire(&mut self, source: FrameSource, include_age: bool) -> Option<Vec<u8>> {
         if self.pending_fence.is_some() {
             return None;
         }
         let id = self.next_fence_id;
         self.next_fence_id = self.next_fence_id.wrapping_add(1);
-        self.pending_fence = Some((id, frame_id, Instant::now()));
-        let mut wire = Vec::with_capacity(25);
+        self.pending_fence = Some((id, source.id, Instant::now()));
+        let mut wire = Vec::with_capacity(if include_age { 29 } else { 25 });
         wire.extend_from_slice(&[RFB_FENCE_MESSAGE_TYPE, 0, 0, 0]);
         wire.extend_from_slice(&RFB_FENCE_REQUEST_FLAG.to_be_bytes());
-        wire.push(16);
+        wire.push(if include_age { 20 } else { 16 });
         wire.extend_from_slice(&VIEWER_FENCE_PREFIX);
         wire.extend_from_slice(&id.to_be_bytes());
-        wire.extend_from_slice(&frame_id.to_be_bytes());
+        wire.extend_from_slice(&source.id.to_be_bytes());
+        if include_age {
+            wire.extend_from_slice(&frame_age_ms(source).to_be_bytes());
+        }
         Some(wire)
     }
 
     fn feedback(&mut self, payload: &[u8]) -> bool {
-        if payload.len() != 16 || payload[..4] != VIEWER_FENCE_PREFIX {
+        if !matches!(payload.len(), 16 | 20) || payload[..4] != VIEWER_FENCE_PREFIX {
             return false;
         }
         let id = u32::from_be_bytes(payload[4..8].try_into().expect("checked fence length"));
@@ -317,6 +321,15 @@ struct RfbServerInit {
 struct FrameSource {
     id: u64,
     observed_at: Instant,
+}
+
+fn frame_age_ms(source: FrameSource) -> u32 {
+    source
+        .observed_at
+        .elapsed()
+        .as_millis()
+        .try_into()
+        .unwrap_or(u32::MAX)
 }
 
 #[derive(Debug, Clone)]
@@ -458,6 +471,7 @@ impl RemoteDesktopGateway {
                 actor_forwarding: Mutex::new(HashMap::new()),
                 connection_usage: Mutex::new(HashMap::new()),
                 adaptive_viewer_fps: Mutex::new(HashMap::new()),
+                effective_frame_age_ms: Mutex::new(HashMap::new()),
                 pending_viewer_frame_at: Mutex::new(HashMap::new()),
                 used_nonces: Mutex::new(HashMap::new()),
                 disconnect_grace,
@@ -837,6 +851,25 @@ impl RemoteDesktopGateway {
             .copied()
     }
 
+    /// Gateway monotonic age of the image a Viewer acknowledged or used for input.
+    /// This is a connection-local observation, never a client wall-clock timestamp.
+    pub fn effective_frame_age_ms(&self, connection_id: &str) -> Option<u32> {
+        self.state
+            .effective_frame_age_ms
+            .lock()
+            .expect("effective frame age lock poisoned")
+            .get(connection_id)
+            .copied()
+    }
+
+    fn record_effective_frame_age(&self, claims: &RemoteDesktopTicketClaims, source: FrameSource) {
+        self.state
+            .effective_frame_age_ms
+            .lock()
+            .expect("effective frame age lock poisoned")
+            .insert(claims.connection_id.clone(), frame_age_ms(source));
+    }
+
     fn record_adaptive_viewer_fps(&self, claims: &RemoteDesktopTicketClaims, fps: u32) {
         let effective_fps = self
             .observer_frame_rate_fps(&claims.session_id)
@@ -1051,6 +1084,11 @@ impl RemoteDesktopGateway {
             .adaptive_viewer_fps
             .lock()
             .expect("adaptive viewer FPS lock poisoned")
+            .remove(&authorized.claims.connection_id);
+        self.state
+            .effective_frame_age_ms
+            .lock()
+            .expect("effective frame age lock poisoned")
             .remove(&authorized.claims.connection_id);
         self.clear_pending_viewer_frame(&authorized.claims);
         let usage = self.take_connection_usage(&authorized.claims.connection_id);
@@ -1294,7 +1332,7 @@ impl RemoteDesktopGateway {
                         pending_server_quota_wait,
                     );
                     if input_parser.supports_fence {
-                        if let Some(fence) = source.and_then(|source| viewer_pacer.fence_wire(source.id)) {
+                        if let Some(fence) = source.and_then(|source| viewer_pacer.fence_wire(source, input_parser.supports_frame_input)) {
                             pending_fence_source = source;
                             tokio::time::timeout(SLOW_CLIENT_WRITE_TIMEOUT, websocket.send(Message::Binary(fence)))
                                 .await
@@ -1332,6 +1370,9 @@ impl RemoteDesktopGateway {
                                 if let Some(reply) = &message.fence_reply {
                                     if viewer_pacer.feedback(reply) {
                                         displayed_frame_source = pending_fence_source.take();
+                                        if let Some(source) = displayed_frame_source {
+                                            self.record_effective_frame_age(&authorized.claims, source);
+                                        }
                                         self.clear_pending_viewer_frame(&authorized.claims);
                                     }
                                     self.record_adaptive_viewer_fps(&authorized.claims, viewer_pacer.fps);
@@ -1365,6 +1406,9 @@ impl RemoteDesktopGateway {
                                     "view-only remote desktop attempted human input"
                                 );
                                 if message.human_input && input_parser.ever_supported_frame_input {
+                                    if let Some(source) = displayed_frame_source {
+                                        self.record_effective_frame_age(&authorized.claims, source);
+                                    }
                                     if message.bytes[0] == 5 && message.bytes[1] == 0 {
                                         suppress_pointer_until_release = false;
                                     }
@@ -3247,13 +3291,25 @@ mod tests {
     #[test]
     fn viewer_fence_feedback_backs_off_and_recovers_with_a_cap() {
         let mut pacer = ViewerFramePacer::new(30, 30);
-        let fence = pacer.fence_wire(42).unwrap();
+        let source = FrameSource {
+            id: 42,
+            observed_at: Instant::now() - Duration::from_millis(250),
+        };
+        let fence = pacer.fence_wire(source, false).unwrap();
         assert_eq!(fence.len(), 25);
         assert_eq!(fence[0], RFB_FENCE_MESSAGE_TYPE);
         assert_eq!(&fence[4..8], &RFB_FENCE_REQUEST_FLAG.to_be_bytes());
         assert_eq!(&fence[17..25], &42_u64.to_be_bytes());
         assert!(
-            pacer.fence_wire(43).is_none(),
+            pacer
+                .fence_wire(
+                    FrameSource {
+                        id: 43,
+                        observed_at: Instant::now()
+                    },
+                    true
+                )
+                .is_none(),
             "only one fence can be outstanding"
         );
         let mut wrong_frame = fence[9..].to_vec();
@@ -3265,14 +3321,30 @@ mod tests {
 
         pacer.last_recovery = Instant::now() - VIEWER_RECOVERY_INTERVAL;
         for id in 2_u32..=4 {
-            let fence = pacer.fence_wire(u64::from(id)).unwrap();
+            let fence = pacer
+                .fence_wire(
+                    FrameSource {
+                        id: u64::from(id),
+                        observed_at: Instant::now(),
+                    },
+                    false,
+                )
+                .unwrap();
             assert_eq!(&fence[13..17], &id.to_be_bytes());
             pacer.feedback(&fence[9..]);
         }
         assert_eq!(pacer.fps, 16);
         pacer.pressure();
         assert_eq!(pacer.fps, 8);
-        let fence = pacer.fence_wire(5).unwrap();
+        let fence = pacer
+            .fence_wire(
+                FrameSource {
+                    id: 5,
+                    observed_at: Instant::now(),
+                },
+                false,
+            )
+            .unwrap();
         pacer.pending_fence.as_mut().unwrap().2 = Instant::now() - VIEWER_FEEDBACK_TIMEOUT;
         pacer.expire_feedback();
         assert_eq!(pacer.fps, 4);
@@ -3289,6 +3361,21 @@ mod tests {
         );
         pacer.disable_feedback();
         assert_eq!(pacer.fps, 30, "legacy clients keep the fixed policy cap");
+    }
+
+    #[test]
+    fn aligned_fence_carries_monotonic_source_age_without_client_clock() {
+        let mut pacer = ViewerFramePacer::new(30, 30);
+        let source = FrameSource {
+            id: 42,
+            observed_at: Instant::now() - Duration::from_millis(250),
+        };
+        let fence = pacer.fence_wire(source, true).unwrap();
+        assert_eq!(fence.len(), 29);
+        assert_eq!(fence[8], 20);
+        assert_eq!(u64::from_be_bytes(fence[17..25].try_into().unwrap()), 42);
+        assert!(u32::from_be_bytes(fence[25..29].try_into().unwrap()) >= 250);
+        assert!(pacer.feedback(&fence[9..]));
     }
 
     #[test]
@@ -4306,6 +4393,9 @@ mod tests {
         tokio::spawn(gateway.clone().serve(listener));
         let nonce = uuid::Uuid::new_v4().simple().to_string();
         let ticket = ticket_with_options(session_id, &nonce, "COLLABORATIVE", false);
+        let connection_id = verify_ticket(SECRET.as_bytes(), &ticket)
+            .unwrap()
+            .connection_id;
         let mut request =
             format!("ws://{endpoint}/desktop/v1/sessions/{session_id}?ticket={ticket}")
                 .into_client_request()
@@ -4320,6 +4410,10 @@ mod tests {
             test_raw_framebuffer_update([1, 2, 3, 4])
         );
         let fence = next_binary(&mut websocket).await;
+        assert_eq!(
+            fence[8], 20,
+            "aligned Viewer receives source age in its Fence"
+        );
         assert_eq!(u64::from_be_bytes(fence[17..25].try_into().unwrap()), 1);
         let mut reply = fence;
         reply[4..8].copy_from_slice(&0_u32.to_be_bytes());
@@ -4335,6 +4429,7 @@ mod tests {
                 .unwrap(),
             vec![5, 1, 0, 0, 0, 0],
         );
+        assert!(gateway.effective_frame_age_ms(&connection_id).is_some());
 
         let hub = gateway.shared_hub(session_id, vnc_endpoint);
         let newer = test_frame(Arc::new(test_raw_framebuffer_update([5, 6, 7, 8])), 42);
@@ -4352,6 +4447,13 @@ mod tests {
             "the rejected click must release the previously pressed button upstream",
         );
         websocket.close(None).await.unwrap();
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while gateway.effective_frame_age_ms(&connection_id).is_some() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("disconnected Viewer age sample must be removed");
     }
 
     #[tokio::test]

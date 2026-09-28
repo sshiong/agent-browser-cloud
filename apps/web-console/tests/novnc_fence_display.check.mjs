@@ -26,12 +26,16 @@ globalThis.MutationObserver = class {
   observe() {}
   disconnect() {}
 };
+globalThis.CustomEvent = class {
+  constructor(type, init) { this.type = type; this.detail = init.detail; }
+};
 
 let pendingAnimationFrame;
 const { default: RFB } = await import('@novnc/novnc');
 
 function receiver(payload, displayPromise = Promise.resolve()) {
   const sent = [];
+  const events = [];
   let displayFlushes = 0;
   const socket = {
     rQwait: () => false,
@@ -50,8 +54,10 @@ function receiver(payload, displayPromise = Promise.resolve()) {
       _sock: socket,
       _display: { flush() { displayFlushes += 1; return displayPromise; } },
       _rfbConnectionState: 'connected',
+      dispatchEvent(event) { events.push(event); },
     },
     sent,
+    events,
     displayFlushes: () => displayFlushes,
   };
 }
@@ -90,6 +96,23 @@ test('frame ID fence keeps its 16-byte payload through the draw barrier', async 
   fake._viewOnly = false;
   RFB.prototype.sendKey.call(fake, 65, '', true);
   assert.deepEqual(sent.slice(8, 16), [248, 0, 0, 0, 0, 12, 'ABCI' + payload.slice(8), 'flush']);
+});
+
+test('20-byte frame fence reports source-to-draw age and retains the input frame ID', async () => {
+  const id = '\x00\x00\x00\x00\x00\x00\x00\x2a';
+  const payload = 'ABCF\x00\x00\x00\x03' + id + '\x00\x00\x00\xfa';
+  const { fake, sent, events } = receiver(payload);
+  pendingAnimationFrame = undefined;
+  assert.equal(RFB.prototype._handleServerFenceMsg.call(fake), true);
+  await Promise.resolve();
+  assert.deepEqual(events, []);
+  pendingAnimationFrame();
+  assert.deepEqual(sent, [248, 0, 0, 0, 0, 20, payload, 'flush']);
+  assert.equal(fake._agentBrowserDisplayedFrameId, id);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].type, 'agentbrowserframe');
+  assert.equal(events[0].detail.frameId, id);
+  assert.ok(events[0].detail.drawAgeMs >= 250);
 });
 
 test('an abandoned connection never acknowledges a displayed frame', async () => {

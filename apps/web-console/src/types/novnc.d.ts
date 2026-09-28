@@ -11,6 +11,10 @@ declare module '@novnc/novnc' {
     detail: { text: string };
   }
 
+  export interface RfbAgentBrowserFrameEvent extends Event {
+    detail: { frameId: string; drawAgeMs: number };
+  }
+
   export default class RFB extends EventTarget {
     constructor(
       target: HTMLElement,

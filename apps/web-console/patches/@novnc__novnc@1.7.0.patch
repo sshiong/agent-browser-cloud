@@ -1,36 +1,80 @@
 diff --git a/core/rfb.js b/core/rfb.js
 --- a/core/rfb.js
 +++ b/core/rfb.js
-@@ -475,0 +476,2 @@
+@@ -472,6 +472,7 @@
+         }
+ 
+         const scancode = XtScancode[code];
 +        this._sendAgentBrowserInputFrame();
-+
-@@ -491,0 +494,6 @@
+ 
+         if (this._qemuExtKeyEventSupported && scancode) {
+             // 0 is NoSymbol
+@@ -489,6 +490,12 @@
+         }
+     }
+ 
 +    _sendAgentBrowserInputFrame() {
 +        if (this._agentBrowserDisplayedFrameId?.length === 8) {
 +            RFB.messages.clientFence(this._sock, 0, "ABCI" + this._agentBrowserDisplayedFrameId);
 +        }
 +    }
 +
-@@ -501,0 +510,2 @@
+     focus(options) {
+         this._canvas.focus(options);
+     }
+@@ -499,6 +506,8 @@
+ 
+     clipboardPasteFrom(text) {
+         if (this._rfbConnectionState !== 'connected' || this._viewOnly) { return; }
 +
 +        this._sendAgentBrowserInputFrame();
-@@ -1208,0 +1219,2 @@
+ 
+         if (this._clipboardServerCapabilitiesFormats[extendedClipboardFormatText] &&
+             this._clipboardServerCapabilitiesActions[extendedClipboardActionNotify]) {
+@@ -1206,6 +1215,8 @@
+     _sendMouse(x, y, mask) {
+         if (this._rfbConnectionState !== 'connected') { return; }
+         if (this._viewOnly) { return; } // View only, skip mouse events
 +
 +        this._sendAgentBrowserInputFrame();
-@@ -2258,0 +2271,2 @@
+ 
+         // Highest bit in mask is never sent to the server
+         if (mask & 0x8000) {
+@@ -2256,6 +2267,8 @@
+         encs.push(encodings.pseudoEncodingExtendedDesktopSize);
+         encs.push(encodings.pseudoEncodingXvp);
+         encs.push(encodings.pseudoEncodingFence);
 +        // Private Agent Browser input-frame capability; other RFB servers ignore it.
 +        encs.push(-0x41424349);
-@@ -2531 +2545,17 @@
+         encs.push(encodings.pseudoEncodingContinuousUpdates);
+         encs.push(encodings.pseudoEncodingDesktopName);
+         encs.push(encodings.pseudoEncodingExtendedClipboard);
+@@ -2528,7 +2541,35 @@
+         // BlockBefore and BlockAfter are automatically handled by
+         // the fact that we process each incoming message
+         // synchronuosly.
 -        RFB.messages.clientFence(this._sock, flags, payload);
-+        if (payload.startsWith("ABCF") && (payload.length === 8 || payload.length === 16)) {
++        if (payload.startsWith("ABCF") && (payload.length === 8 || payload.length === 16 || payload.length === 20)) {
 +            // A normal Fence reply only proves protocol parsing. The gateway's private frame
 +            // fence is replied to after queued image decoding/drawing and the next browser
 +            // animation frame. Do not acknowledge an abandoned connection.
++            const fenceReceivedAt = performance.now();
 +            this._display.flush().then(() => {
 +                window.requestAnimationFrame(() => {
 +                    if (this._rfbConnectionState === 'connected') {
-+                        if (payload.length === 16) {
-+                            this._agentBrowserDisplayedFrameId = payload.slice(8);
++                        if (payload.length === 16 || payload.length === 20) {
++                            this._agentBrowserDisplayedFrameId = payload.slice(8, 16);
++                        }
++                        if (payload.length === 20) {
++                            const sourceAgeMs = ((payload.charCodeAt(16) << 24) |
++                                                 (payload.charCodeAt(17) << 16) |
++                                                 (payload.charCodeAt(18) << 8) |
++                                                 payload.charCodeAt(19)) >>> 0;
++                            const drawAgeMs = Math.min(0xffffffff, sourceAgeMs +
++                                Math.max(0, Math.round(performance.now() - fenceReceivedAt)));
++                            this.dispatchEvent(new CustomEvent("agentbrowserframe", {
++                                detail: { frameId: this._agentBrowserDisplayedFrameId, drawAgeMs },
++                            }));
 +                        }
 +                        RFB.messages.clientFence(this._sock, flags, payload);
 +                    }
@@ -39,3 +83,6 @@ diff --git a/core/rfb.js b/core/rfb.js
 +        } else {
 +            RFB.messages.clientFence(this._sock, flags, payload);
 +        }
+ 
+         return true;
+     }

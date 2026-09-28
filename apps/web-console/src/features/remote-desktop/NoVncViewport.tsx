@@ -11,6 +11,7 @@ import {
   isSessionApiError,
 } from '@/api/session';
 import type {
+  RfbAgentBrowserFrameEvent,
   RfbClipboardEvent,
   RfbDisconnectEvent,
   RfbSecurityFailureEvent,
@@ -68,6 +69,7 @@ export const NoVncViewport = forwardRef<
   qualityRef.current = quality;
   const [state, setState] = useState<DesktopConnectionState>('CONNECTING');
   const [error, setError] = useState<string>();
+  const [drawFrameAgeMs, setDrawFrameAgeMs] = useState<number>();
   const [actorQuota, setActorQuota] = useState<{
     bitrateKbps: number;
     frameRateFps: number;
@@ -111,6 +113,7 @@ export const NoVncViewport = forwardRef<
     const connect = async () => {
       transition('CONNECTING');
       setError(undefined);
+      setDrawFrameAgeMs(undefined);
       setActorQuota(undefined);
       try {
         const connection = await createRemoteDesktopConnection(
@@ -190,6 +193,13 @@ export const NoVncViewport = forwardRef<
             observedAt: new Date().toISOString(),
           });
         });
+        client.addEventListener('agentbrowserframe', (event) => {
+          if (disposed) return;
+          const age = (event as RfbAgentBrowserFrameEvent).detail.drawAgeMs;
+          if (Number.isFinite(age) && age >= 0) {
+            setDrawFrameAgeMs(age);
+          }
+        });
       } catch (reason) {
         if (controller.signal.aborted || disposed) return;
         const message = isSessionApiError(reason)
@@ -247,6 +257,9 @@ export const NoVncViewport = forwardRef<
           <Radio size={9} className="animate-pulse" />
           <span>RFB LIVE</span>
           <span>· {viewOnly ? 'VIEW ONLY' : 'SHARED CONTROL'}</span>
+          {drawFrameAgeMs !== undefined && (
+            <span>· 来源→绘制 {drawFrameAgeMs} ms（最近一帧）</span>
+          )}
           {actorQuota && (
             <span>
               · ACTOR {actorQuota.bitrateKbps} Kbps / {actorQuota.frameRateFps}{' '}

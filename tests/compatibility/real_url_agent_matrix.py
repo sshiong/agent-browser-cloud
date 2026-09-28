@@ -107,7 +107,8 @@ def diagnostic(value):
             key: value.get(key)
             for key in (
                 "sessionId", "url", "stateVersion", "targetRevision", "stateQuality",
-                "freshness", "pageActivity", "networkQuietMillis", "pageStability",
+                "freshness", "pageActivity", "documentReadyState", "networkQuietMillis",
+                "networkEvidenceFresh", "pageStability",
             )
         }
     return value

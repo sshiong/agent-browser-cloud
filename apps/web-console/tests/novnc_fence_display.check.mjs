@@ -10,6 +10,9 @@ globalThis.document = {
 if (!globalThis.navigator) {
   globalThis.navigator = { maxTouchPoints: 0, msMaxTouchPoints: 0 };
 }
+if (!globalThis.WebSocket) {
+  globalThis.WebSocket = { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3 };
+}
 globalThis.window = {
   navigator: globalThis.navigator,
   document,

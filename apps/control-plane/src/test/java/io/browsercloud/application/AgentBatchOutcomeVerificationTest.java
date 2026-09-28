@@ -15,6 +15,7 @@ import io.browsercloud.domain.operation.OperationMode;
 import io.browsercloud.domain.operation.OwnerType;
 import io.browsercloud.persistence.AgentTaskEntity;
 import io.browsercloud.persistence.AgentTaskJpaRepository;
+import io.browsercloud.persistence.ChallengeEventJpaRepository;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,7 @@ class AgentBatchOutcomeVerificationTest {
             mock(AgentControlPolicyService.class),
             mock(AgentActionAttemptService.class),
             mock(AgentTaskMemoryService.class),
+            mock(ChallengeEventJpaRepository.class),
             new ObjectMapper().findAndRegisterModules());
     var task = mock(AgentTaskEntity.class);
     when(task.getPendingStateVersion()).thenReturn(3L);
@@ -93,6 +95,7 @@ class AgentBatchOutcomeVerificationTest {
                 mock(AgentControlPolicyService.class),
                 mock(AgentActionAttemptService.class),
                 mock(AgentTaskMemoryService.class),
+                mock(ChallengeEventJpaRepository.class),
                 mapper));
     var task = mock(AgentTaskEntity.class);
     var step = mock(PlanStep.class);

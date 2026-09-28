@@ -20,6 +20,8 @@ import io.browsercloud.domain.operation.OwnerType;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.persistence.AgentTaskEntity;
 import io.browsercloud.persistence.AgentTaskJpaRepository;
+import io.browsercloud.persistence.ChallengeEventEntity;
+import io.browsercloud.persistence.ChallengeEventJpaRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +29,118 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class AgentNavigationCompletionServiceTest {
+
+  @Test
+  void verifiedPlannedOtpResolvesOnlyTheSameChallengeElement() {
+    var policy = mock(AgentControlPolicyService.class);
+    var challenges = mock(ChallengeEventJpaRepository.class);
+    var service =
+        new AgentNavigationCompletionService(
+            mock(AgentTaskJpaRepository.class),
+            mock(SessionRepository.class),
+            mock(OperationRepository.class),
+            mock(NodeCommandGateway.class),
+            mock(AgentExecutionService.class),
+            policy,
+            mock(AgentActionAttemptService.class),
+            mock(AgentTaskMemoryService.class),
+            challenges,
+            new ObjectMapper().findAndRegisterModules());
+    var task = mock(AgentTaskEntity.class);
+    when(task.getSessionId()).thenReturn("ses_1234567890abcdef");
+    when(task.getTenantId()).thenReturn("tenant-test");
+    when(policy.require(task.getSessionId(), task.getTenantId()))
+        .thenReturn(new AgentControlPolicyService.Policy(AgentControlMode.AUTONOMOUS, 3));
+    var step = mock(PlanStep.class);
+    var input = mock(StepInput.class);
+    when(step.toolId()).thenReturn(ToolId.TYPE_TEXT);
+    when(step.input()).thenReturn(input);
+    when(input.allowSensitiveTarget()).thenReturn(true);
+    when(input.dataClass()).thenReturn(ActionDataClass.OTP);
+    when(input.targetRef()).thenReturn("target:7:0123456789abcdef");
+    var event = mock(NodeEventReceived.class);
+    when(event.contextEpoch()).thenReturn(2L);
+    when(event.tenantId()).thenReturn("tenant-test");
+    when(event.sessionId()).thenReturn("ses_1234567890abcdef");
+    var state = mock(NodeEvent.StateUpdated.class);
+    when(state.sessionId()).thenReturn("ses_1234567890abcdef");
+    when(state.stateVersion()).thenReturn(4L);
+    when(state.targetRevision()).thenReturn(8L);
+    when(state.stateHash()).thenReturn("state-4-hash");
+    var now = Instant.now();
+    var matching =
+        new ChallengeEventEntity(
+            "chl_matching",
+            "tenant-test",
+            task.getSessionId(),
+            2L,
+            4L,
+            8L,
+            0.99,
+            "{\"stateHash\":\"state-4-hash\"}",
+            "OTP",
+            "CHALLENGE_CONFIRMED",
+            "target:8:0123456789abcdef",
+            "OTP",
+            null,
+            "TAKEOVER_REQUIRED",
+            now,
+            now.plusSeconds(120),
+            now.plusSeconds(300));
+    when(challenges.findById("chl_matching")).thenReturn(Optional.of(matching));
+    assertThat(service.resolveCompletedPlannedOtp(task, step, event, state, "chl_matching"))
+        .isTrue();
+    assertThat(matching.getStatus()).isEqualTo("RESOLVED");
+    verify(challenges).save(matching);
+
+    var different =
+        new ChallengeEventEntity(
+            "chl_different",
+            "tenant-test",
+            task.getSessionId(),
+            2L,
+            4L,
+            8L,
+            0.99,
+            "{\"stateHash\":\"state-4-hash\"}",
+            "OTP",
+            "CHALLENGE_CONFIRMED",
+            "target:8:fedcba9876543210",
+            "OTP",
+            null,
+            "TAKEOVER_REQUIRED",
+            now,
+            now.plusSeconds(120),
+            now.plusSeconds(300));
+    when(challenges.findById("chl_different")).thenReturn(Optional.of(different));
+    assertThat(service.resolveCompletedPlannedOtp(task, step, event, state, "chl_different"))
+        .isFalse();
+    assertThat(different.getStatus()).isEqualTo("TAKEOVER_REQUIRED");
+    verify(challenges, never()).save(different);
+
+    var staleState =
+        new ChallengeEventEntity(
+            "chl_stale",
+            "tenant-test",
+            task.getSessionId(),
+            2L,
+            4L,
+            8L,
+            0.99,
+            "{\"stateHash\":\"different-state\"}",
+            "OTP",
+            "CHALLENGE_CONFIRMED",
+            "target:8:0123456789abcdef",
+            "OTP",
+            null,
+            "TAKEOVER_REQUIRED",
+            now,
+            now.plusSeconds(120),
+            now.plusSeconds(300));
+    when(challenges.findById("chl_stale")).thenReturn(Optional.of(staleState));
+    assertThat(service.resolveCompletedPlannedOtp(task, step, event, state, "chl_stale")).isFalse();
+    verify(challenges, never()).save(staleState);
+  }
 
   @Test
   void shouldRejectActionStateThatLeavesTheTaskAllowlist() {
@@ -41,6 +155,7 @@ class AgentNavigationCompletionServiceTest {
             mock(AgentControlPolicyService.class),
             mock(AgentActionAttemptService.class),
             mock(AgentTaskMemoryService.class),
+            mock(ChallengeEventJpaRepository.class),
             objectMapper);
     var task =
         new AgentTaskEntity(
@@ -127,6 +242,7 @@ class AgentNavigationCompletionServiceTest {
             mock(AgentControlPolicyService.class),
             mock(AgentActionAttemptService.class),
             mock(AgentTaskMemoryService.class),
+            mock(ChallengeEventJpaRepository.class),
             objectMapper);
     var task =
         new AgentTaskEntity(
@@ -257,6 +373,7 @@ class AgentNavigationCompletionServiceTest {
             mock(AgentControlPolicyService.class),
             mock(AgentActionAttemptService.class),
             mock(AgentTaskMemoryService.class),
+            mock(ChallengeEventJpaRepository.class),
             objectMapper);
 
     var step =

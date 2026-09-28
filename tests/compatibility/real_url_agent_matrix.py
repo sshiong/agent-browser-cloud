@@ -86,7 +86,31 @@ def wait_for(path, predicate, timeout=45):
         if predicate(last):
             return last
         time.sleep(0.25)
-    raise AssertionError(f"timed out polling {path}: {last}")
+    raise AssertionError(f"timed out polling {path}: {diagnostic(last)}")
+
+
+def diagnostic(value):
+    if not isinstance(value, dict):
+        return value
+    if "taskId" in value:
+        return {
+            key: value.get(key)
+            for key in ("taskId", "state", "blockedReason", "lastError", "challengeEventId")
+        } | {
+            "steps": [
+                (item.get("toolId"), item.get("status"), item.get("reasonCode"))
+                for item in value.get("memory", {}).get("executionHistory", [])
+            ]
+        }
+    if "targets" in value:
+        return {
+            key: value.get(key)
+            for key in (
+                "sessionId", "url", "stateVersion", "targetRevision", "stateQuality",
+                "freshness", "pageActivity", "networkQuietMillis", "pageStability",
+            )
+        }
+    return value
 
 
 def wait_for_executable_state(session_id, timeout=45):
@@ -147,7 +171,7 @@ def create_execute_task(session_id, body, label, terminal_states=("COMPLETED",))
         lambda task: task["state"] in {*terminal_states, "FAILED", "BLOCKED"},
     )
     if result["state"] not in terminal_states:
-        raise AssertionError(f"Agent task {label} ended unexpectedly: {result}")
+        raise AssertionError(f"Agent task {label} ended unexpectedly: {diagnostic(result)}")
     return result
 
 
@@ -164,7 +188,7 @@ def current_state(session_id):
     return wait_for_executable_state(session_id)
 
 
-def wait_for_named_target(session_id, name, role="button", timeout=45):
+def wait_for_named_target(session_id, name, role="button", timeout=45, require_stable=False):
     deadline = time.monotonic() + timeout
     last = None
     while time.monotonic() < deadline:
@@ -173,7 +197,12 @@ def wait_for_named_target(session_id, name, role="button", timeout=45):
             raise AssertionError(f"poll named target {name}: HTTP {status}: {state}")
         if status == 200:
             last = state
-            if state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}:
+            if state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"} and (
+                not require_stable or (
+                    state.get("pageActivity") == "STABLE"
+                    and state.get("freshness") == "FRESH"
+                )
+            ):
                 target = next(
                     (
                         target
@@ -611,12 +640,16 @@ def run_public_idp(session_id):
         "public-idp-open",
     )
     require_verified(opened, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"])
-    login_state, _ = wait_for_named_target(session_id, "Username", role="textbox")
+    login_state, _ = wait_for_named_target(
+        session_id, "Username", role="textbox", require_stable=True
+    )
     if urlsplit(login_state.get("url", "")).hostname != idp_domain:
         raise AssertionError("public IdP login escaped its exact allowed host")
     for purpose, value in (("USERNAME", "bob"), ("PASSWORD", "bob")):
         for attempt in range(3):
-            login_state, _ = wait_for_named_target(session_id, "Username", role="textbox")
+            login_state, _ = wait_for_named_target(
+                session_id, "Username", role="textbox", require_stable=True
+            )
             if urlsplit(login_state.get("url", "")).hostname != idp_domain:
                 raise AssertionError("public IdP login moved to another host before input")
             target = next(
@@ -955,6 +988,13 @@ for label, password_value, expected_path in (
         f"practice-{label}-navigate",
     )
     require_verified(landing, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"])
+    wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and state.get("pageActivity") == "STABLE"
+        and state.get("freshness") == "FRESH"
+        and urlsplit(state.get("url", "")).hostname == practice_domain,
+    )
     revealed = create_execute_task(
         session_id,
         {
@@ -1080,6 +1120,13 @@ for label, code, expected_path in (
         f"practice-otp-{label}-navigate",
     )
     require_verified(landing, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"])
+    wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and state.get("pageActivity") == "STABLE"
+        and state.get("freshness") == "FRESH"
+        and state.get("url", "").split("?", 1)[0] == otp_url,
+    )
     revealed = create_execute_task(
         session_id,
         {
@@ -1095,6 +1142,8 @@ for label, code, expected_path in (
     email_state = wait_for(
         f"/api/v1/sessions/{session_id}/state",
         lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and state.get("freshness") == "FRESH"
+        and state.get("pageActivity") == "STABLE"
         and state.get("url", "").split("?", 1)[0] == otp_url
         and any(target.get("name") == "Your Email Address" and target.get("visible") for target in state.get("targets", [])),
     )
@@ -1121,6 +1170,8 @@ for label, code, expected_path in (
     email_state = wait_for(
         f"/api/v1/sessions/{session_id}/state",
         lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and state.get("freshness") == "FRESH"
+        and state.get("pageActivity") == "STABLE"
         and state.get("stateVersion", 0) > email_state["stateVersion"]
         and any(target.get("name") == "Your Email Address" and target.get("visible") for target in state.get("targets", [])),
     )
@@ -1169,9 +1220,18 @@ for label, code, expected_path in (
         otp_stage = wait_for(
             f"/api/v1/sessions/{session_id}/state",
             lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+            and state.get("freshness") == "FRESH"
+            and state.get("pageActivity") == "STABLE"
             and state.get("title") == "OTP Verification page for Automation Testing Practice"
             and any(target.get("sensitive") is True and target.get("visible") for target in state.get("targets", [])),
         )
+    wait_for(
+        f"/api/v1/sessions/{session_id}/state",
+        lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and state.get("freshness") == "FRESH"
+        and state.get("pageActivity") == "STABLE"
+        and state.get("title") == "OTP Verification page for Automation Testing Practice",
+    )
     revealed_submit = create_execute_task(
         session_id,
         {
@@ -1231,6 +1291,8 @@ for label, code, expected_path in (
     otp_stage = wait_for(
         f"/api/v1/sessions/{session_id}/state",
         lambda state: state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}
+        and state.get("freshness") == "FRESH"
+        and state.get("pageActivity") == "STABLE"
         and state.get("title") == "OTP Verification page for Automation Testing Practice"
         and any(target.get("sensitive") is True and target.get("visible") for target in state.get("targets", []))
         and any(target.get("name") == "Verify OTP Code" and target.get("visible") for target in state.get("targets", [])),
@@ -1260,7 +1322,9 @@ for label, code, expected_path in (
             raise AssertionError("practice OTP leaked in Agent task response")
     elif code in json.dumps(revealed_submit):
         raise AssertionError("practice OTP leaked in resumed Agent task response")
-    submit_state, submit_button = wait_for_named_target(session_id, "Verify OTP Code")
+    submit_state, submit_button = wait_for_named_target(
+        session_id, "Verify OTP Code", require_stable=True
+    )
     submitted = create_execute_task(
         session_id,
         {

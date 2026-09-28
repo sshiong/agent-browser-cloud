@@ -13,6 +13,7 @@ import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.persistence.AgentTaskEntity;
 import io.browsercloud.persistence.AgentTaskJpaRepository;
+import io.browsercloud.persistence.ChallengeEventJpaRepository;
 import java.net.URI;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -36,6 +37,7 @@ public class AgentNavigationCompletionService {
   private final AgentControlPolicyService controlPolicies;
   private final AgentActionAttemptService actionAttempts;
   private final AgentTaskMemoryService taskMemory;
+  private final ChallengeEventJpaRepository challengeEvents;
   private final ObjectMapper objectMapper;
 
   public AgentNavigationCompletionService(
@@ -47,6 +49,7 @@ public class AgentNavigationCompletionService {
       AgentControlPolicyService controlPolicies,
       AgentActionAttemptService actionAttempts,
       AgentTaskMemoryService taskMemory,
+      ChallengeEventJpaRepository challengeEvents,
       ObjectMapper objectMapper) {
     this.taskRepository = taskRepository;
     this.sessionRepository = sessionRepository;
@@ -56,6 +59,7 @@ public class AgentNavigationCompletionService {
     this.controlPolicies = controlPolicies;
     this.actionAttempts = actionAttempts;
     this.taskMemory = taskMemory;
+    this.challengeEvents = challengeEvents;
     this.objectMapper = objectMapper;
   }
 
@@ -107,7 +111,12 @@ public class AgentNavigationCompletionService {
         state.stateHash(),
         Instant.now());
     var verified = verifiedResult(step, state);
-    if (challengeEventId != null && !canContinueWithPlannedSensitiveInput(task, plan)) {
+    var plannedOtpResolved =
+        challengeEventId != null
+            && resolveCompletedPlannedOtp(task, step, event, state, challengeEventId);
+    if (challengeEventId != null
+        && !plannedOtpResolved
+        && !canContinueWithPlannedSensitiveInput(task, plan)) {
       executionService.pauseAfterVerifiedStepForChallenge(
           task.getTaskId(),
           event.tenantId(),
@@ -119,6 +128,59 @@ public class AgentNavigationCompletionService {
       executionService.resumeAfterVerifiedStep(
           task.getTaskId(), event.tenantId(), operation.operationId(), step.stepId(), verified);
     }
+  }
+
+  boolean resolveCompletedPlannedOtp(
+      AgentTaskEntity task,
+      PlanStep step,
+      NodeEventReceived event,
+      NodeEvent.StateUpdated state,
+      String challengeEventId) {
+    if (step.toolId() != ToolId.TYPE_TEXT
+        || step.input() == null
+        || !step.input().allowSensitiveTarget()
+        || step.input().dataClass() != ActionDataClass.OTP
+        || !controlPolicies.require(task.getSessionId(), task.getTenantId()).autonomous()) {
+      return false;
+    }
+    var challenge = challengeEvents.findById(challengeEventId).orElse(null);
+    if (challenge == null
+        || !challenge.getTenantId().equals(task.getTenantId())
+        || !event.tenantId().equals(task.getTenantId())
+        || !challenge.getSessionId().equals(task.getSessionId())
+        || !event.sessionId().equals(task.getSessionId())
+        || !state.sessionId().equals(task.getSessionId())
+        || challenge.getContextEpoch() != event.contextEpoch()
+        || challenge.getStateVersion() != state.stateVersion()
+        || challenge.getTargetRevision() != state.targetRevision()
+        || !sameStateEvidence(challenge.getEvidence(), state.stateHash())
+        || !"OTP".equals(challenge.getSuspectedType())
+        || !"TAKEOVER_REQUIRED".equals(challenge.getStatus())
+        || !sameStableTarget(step.input().targetRef(), challenge.getTargetRef())) {
+      return false;
+    }
+    challenge.resolvedByPlannedOtpInput(Instant.now());
+    challengeEvents.save(challenge);
+    return true;
+  }
+
+  private boolean sameStateEvidence(String evidence, String stateHash) {
+    if (evidence == null || stateHash == null) return false;
+    try {
+      return stateHash.equals(objectMapper.readTree(evidence).path("stateHash").asText());
+    } catch (JsonProcessingException exception) {
+      return false;
+    }
+  }
+
+  private static boolean sameStableTarget(String plannedRef, String observedRef) {
+    if (plannedRef == null || observedRef == null) return false;
+    // Target revisions change after text entry; the suffix hashes the stable Element ID,
+    // including its page and tab scope. Refuse malformed or different identities.
+    var pattern = java.util.regex.Pattern.compile("target:[1-9][0-9]*:([0-9a-f]{16})");
+    var planned = pattern.matcher(plannedRef);
+    var observed = pattern.matcher(observedRef);
+    return planned.matches() && observed.matches() && planned.group(1).equals(observed.group(1));
   }
 
   private boolean canContinueWithPlannedSensitiveInput(AgentTaskEntity task, AgentPlan plan) {

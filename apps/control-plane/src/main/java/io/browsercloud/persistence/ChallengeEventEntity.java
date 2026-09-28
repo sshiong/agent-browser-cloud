@@ -154,6 +154,14 @@ public class ChallengeEventEntity {
     updatedAt = now;
   }
 
+  public void resolvedByPlannedOtpInput(Instant now) {
+    if (!"OTP".equals(suspectedType) || !"TAKEOVER_REQUIRED".equals(status)) {
+      throw new IllegalStateException("challenge is not awaiting planned OTP input");
+    }
+    status = "RESOLVED";
+    updatedAt = now;
+  }
+
   public void failed(Instant now) {
     if ("FAILED".equals(status)) return;
     if (!"AUTHORIZED".equals(status) && !"EXECUTING".equals(status)) {

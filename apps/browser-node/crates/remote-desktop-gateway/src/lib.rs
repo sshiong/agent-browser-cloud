@@ -1195,7 +1195,32 @@ impl RemoteDesktopGateway {
                         last_reported_usage = usage;
                     }
                 }
-                frame = frames.recv(), if desktop_requested && pending_server_payload.is_none() => {
+                _ = tokio::time::sleep_until(
+                    viewer_pacer.pending_fence
+                        .map(|(_, _, sent)| tokio::time::Instant::from_std(sent + VIEWER_FEEDBACK_TIMEOUT))
+                        .unwrap_or_else(|| tokio::time::Instant::now() + VIEWER_FEEDBACK_TIMEOUT)
+                ), if viewer_pacer.pending_fence.is_some() => {
+                    viewer_pacer.expire_feedback();
+                    self.record_adaptive_viewer_fps(&authorized.claims, viewer_pacer.fps);
+                    // The queued deltas were produced while this viewer was waiting
+                    // for a drawing acknowledgement. Resume from the newest exact
+                    // baseline instead of replaying an arbitrary old increment.
+                    frames = hub.frames.subscribe();
+                    let baseline = clone_latest_frame(&hub.latest_frame)?;
+                    let payload = encode_viewer_frame(
+                        baseline.bytes.clone(),
+                        input_parser.jpeg_quality,
+                        authorized.claims.resolution_scale_percent,
+                    ).await?;
+                    pending_server_quota_wait = self.reserve_viewer_forwarding(
+                        &authorized.claims, payload.len(), &mut viewer_pacer, true,
+                    );
+                    pending_server_ready_at =
+                        tokio::time::Instant::now() + pending_server_quota_wait;
+                    pending_server_payload = Some((payload, baseline.source));
+                }
+                frame = frames.recv(), if desktop_requested && pending_server_payload.is_none()
+                    && (!input_parser.supports_fence || viewer_pacer.pending_fence.is_none()) => {
                     let (frame, skipped_frames) = match frame {
                         Ok(frame) => (frame, 0),
                         Err(broadcast::error::RecvError::Lagged(skipped_frames)) => {
@@ -1296,7 +1321,13 @@ impl RemoteDesktopGateway {
                                 }
                                 if message.reset_baseline && desktop_requested {
                                     // A live quality switch must replace old lossy pixels even on
-                                    // an idle page. Resubscribe before reading the exact baseline.
+                                    // an idle page. An older in-flight Fence cannot label this
+                                    // replacement baseline, so retire it before sending a new one.
+                                    if input_parser.supports_fence {
+                                        viewer_pacer.pending_fence = None;
+                                        self.clear_pending_viewer_frame(&authorized.claims);
+                                    }
+                                    // Resubscribe before reading the exact baseline.
                                     frames = hub.frames.subscribe();
                                     let baseline = hub.latest_frame.lock()
                                         .expect("shared RFB latest frame lock poisoned").clone();
@@ -3943,6 +3974,20 @@ mod tests {
             Some(30)
         );
 
+        let hub = gateway.shared_hub(session_id, vnc_endpoint);
+        hub.frames
+            .send(test_frame(
+                Arc::new(test_raw_framebuffer_update([5, 6, 7, 8])),
+                42,
+            ))
+            .unwrap();
+        assert!(
+            tokio::time::timeout(Duration::from_millis(60), next_binary(&mut websocket))
+                .await
+                .is_err(),
+            "a second image must wait for the first displayed-frame acknowledgement"
+        );
+
         tokio::time::sleep(VIEWER_FEEDBACK_SLOW + Duration::from_millis(30)).await;
         assert!(gateway
             .unacknowledged_frame_age_ms(session_id)
@@ -3960,14 +4005,6 @@ mod tests {
         })
         .await
         .expect("slow client fence must reduce only its own FPS");
-        assert_eq!(gateway.unacknowledged_frame_age_ms(session_id), None);
-        let hub = gateway.shared_hub(session_id, vnc_endpoint);
-        hub.frames
-            .send(test_frame(
-                Arc::new(test_raw_framebuffer_update([5, 6, 7, 8])),
-                42,
-            ))
-            .unwrap();
         assert_eq!(
             next_binary(&mut websocket).await,
             test_raw_framebuffer_update([5, 6, 7, 8])
@@ -3977,6 +4014,25 @@ mod tests {
             u64::from_be_bytes(next_fence[17..25].try_into().unwrap()),
             42
         );
+        let third = test_frame(Arc::new(test_raw_framebuffer_update([8, 7, 6, 5])), 43);
+        hub.frames.send(third).unwrap();
+        let latest = test_frame(Arc::new(test_raw_framebuffer_update([1, 3, 5, 7])), 44);
+        *hub.latest_frame.lock().unwrap() = Some(latest.clone());
+        hub.frames.send(latest).unwrap();
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(3), next_binary(&mut websocket))
+                .await
+                .expect("an unacknowledged frame must time out and allow a newer baseline"),
+            test_raw_framebuffer_update([1, 3, 5, 7])
+        );
+        let recovered_fence = next_binary(&mut websocket).await;
+        assert_eq!(
+            u64::from_be_bytes(recovered_fence[17..25].try_into().unwrap()),
+            44
+        );
+        assert!(gateway
+            .adaptive_viewer_frame_rate_fps(&connection_id)
+            .is_some_and(|fps| fps < 15));
         assert!(!gateway.human_input_active(session_id, Duration::from_secs(2)));
         assert_eq!(gateway.active_connection_count(session_id), 1);
         websocket.close(None).await.unwrap();

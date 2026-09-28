@@ -470,6 +470,8 @@ pub struct ReportSessionResourcesRequest {
     pub extension_cpu_percent: ::core::option::Option<f64>,
     #[prost(uint64, optional, tag="20")]
     pub extension_memory_mib: ::core::option::Option<u64>,
+    /// Legacy time since the most recent upstream RFB frame. An idle page can make this grow
+    /// without any Viewer backlog; never use it as resource pressure. Kept for N-1 peers.
     #[prost(uint32, optional, tag="21")]
     pub remote_desktop_frame_age_ms: ::core::option::Option<u32>,
     #[prost(double, optional, tag="22")]
@@ -512,6 +514,10 @@ pub struct ReportSessionResourcesRequest {
     pub active_payment_or_security_count: ::core::option::Option<u32>,
     #[prost(uint32, optional, tag="37")]
     pub active_critical_transaction_count: ::core::option::Option<u32>,
+    /// Oldest Viewer frame awaiting an RFB Fence acknowledgement. Absent for an idle page or
+    /// clients without Fence support. Only this additive signal may drive desktop pressure.
+    #[prost(uint32, optional, tag="38")]
+    pub remote_desktop_unacknowledged_frame_age_ms: ::core::option::Option<u32>,
     /// Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
     /// Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
     /// 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。

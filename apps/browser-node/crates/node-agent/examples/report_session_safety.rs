@@ -61,6 +61,7 @@ async fn main() -> Result<()> {
             extension_cpu_percent: None,
             extension_memory_mib: None,
             remote_desktop_frame_age_ms: None,
+            remote_desktop_unacknowledged_frame_age_ms: None,
             media_encoder_percent: None,
             danger_event: String::new(),
             input_active: Some(false),

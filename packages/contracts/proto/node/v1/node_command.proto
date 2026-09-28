@@ -312,6 +312,8 @@ message ReportSessionResourcesRequest {
   optional uint64 profile_io_bytes_per_second = 18;
   optional double extension_cpu_percent = 19;
   optional uint64 extension_memory_mib = 20;
+  // Legacy time since the most recent upstream RFB frame. An idle page can make this grow
+  // without any Viewer backlog; never use it as resource pressure. Kept for N-1 peers.
   optional uint32 remote_desktop_frame_age_ms = 21;
   optional double media_encoder_percent = 22;
   string danger_event = 23;
@@ -337,6 +339,9 @@ message ReportSessionResourcesRequest {
   optional uint32 active_spa_mutation_count = 35;
   optional uint32 active_payment_or_security_count = 36;
   optional uint32 active_critical_transaction_count = 37;
+  // Oldest Viewer frame awaiting an RFB Fence acknowledgement. Absent for an idle page or
+  // clients without Fence support. Only this additive signal may drive desktop pressure.
+  optional uint32 remote_desktop_unacknowledged_frame_age_ms = 38;
 
   // Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
   // Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。

@@ -457,6 +457,13 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
   private int remoteDesktopFrameAgeMs_ = 0;
 
   /**
+   *
+   *
+   * <pre>
+   * Legacy time since the most recent upstream RFB frame. An idle page can make this grow
+   * without any Viewer backlog; never use it as resource pressure. Kept for N-1 peers.
+   * </pre>
+   *
    * <code>optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];
    * </code>
    *
@@ -468,6 +475,13 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
   }
 
   /**
+   *
+   *
+   * <pre>
+   * Legacy time since the most recent upstream RFB frame. An idle page can make this grow
+   * without any Viewer backlog; never use it as resource pressure. Kept for N-1 peers.
+   * </pre>
+   *
    * <code>optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];
    * </code>
    *
@@ -970,6 +984,47 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     return activeCriticalTransactionCount_;
   }
 
+  public static final int REMOTE_DESKTOP_UNACKNOWLEDGED_FRAME_AGE_MS_FIELD_NUMBER = 38;
+  private int remoteDesktopUnacknowledgedFrameAgeMs_ = 0;
+
+  /**
+   *
+   *
+   * <pre>
+   * Oldest Viewer frame awaiting an RFB Fence acknowledgement. Absent for an idle page or
+   * clients without Fence support. Only this additive signal may drive desktop pressure.
+   * </pre>
+   *
+   * <code>
+   * optional uint32 remote_desktop_unacknowledged_frame_age_ms = 38 [json_name = "remoteDesktopUnacknowledgedFrameAgeMs"];
+   * </code>
+   *
+   * @return Whether the remoteDesktopUnacknowledgedFrameAgeMs field is set.
+   */
+  @java.lang.Override
+  public boolean hasRemoteDesktopUnacknowledgedFrameAgeMs() {
+    return ((bitField0_ & 0x04000000) != 0);
+  }
+
+  /**
+   *
+   *
+   * <pre>
+   * Oldest Viewer frame awaiting an RFB Fence acknowledgement. Absent for an idle page or
+   * clients without Fence support. Only this additive signal may drive desktop pressure.
+   * </pre>
+   *
+   * <code>
+   * optional uint32 remote_desktop_unacknowledged_frame_age_ms = 38 [json_name = "remoteDesktopUnacknowledgedFrameAgeMs"];
+   * </code>
+   *
+   * @return The remoteDesktopUnacknowledgedFrameAgeMs.
+   */
+  @java.lang.Override
+  public int getRemoteDesktopUnacknowledgedFrameAgeMs() {
+    return remoteDesktopUnacknowledgedFrameAgeMs_;
+  }
+
   public static final int ACTUAL_RESOURCE_CLASS_FIELD_NUMBER = 40;
 
   @SuppressWarnings("serial")
@@ -990,7 +1045,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualResourceClass() {
-    return ((bitField0_ & 0x04000000) != 0);
+    return ((bitField0_ & 0x08000000) != 0);
   }
 
   /**
@@ -1055,7 +1110,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualCpuMillis() {
-    return ((bitField0_ & 0x08000000) != 0);
+    return ((bitField0_ & 0x10000000) != 0);
   }
 
   /**
@@ -1079,7 +1134,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualMemoryRequestMib() {
-    return ((bitField0_ & 0x10000000) != 0);
+    return ((bitField0_ & 0x20000000) != 0);
   }
 
   /**
@@ -1103,7 +1158,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualMemoryLimitMib() {
-    return ((bitField0_ & 0x20000000) != 0);
+    return ((bitField0_ & 0x40000000) != 0);
   }
 
   /**
@@ -1126,7 +1181,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualPidLimit() {
-    return ((bitField0_ & 0x40000000) != 0);
+    return ((bitField0_ & 0x80000000) != 0);
   }
 
   /**
@@ -1149,7 +1204,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualTabBudget() {
-    return ((bitField0_ & 0x80000000) != 0);
+    return ((bitField1_ & 0x00000001) != 0);
   }
 
   /**
@@ -1174,7 +1229,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualStateCollectorBudgetPercent() {
-    return ((bitField1_ & 0x00000001) != 0);
+    return ((bitField1_ & 0x00000002) != 0);
   }
 
   /**
@@ -1201,7 +1256,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualRemoteDesktopBitrateKbps() {
-    return ((bitField1_ & 0x00000002) != 0);
+    return ((bitField1_ & 0x00000004) != 0);
   }
 
   /**
@@ -1228,7 +1283,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualExtensionCpuWeight() {
-    return ((bitField1_ & 0x00000004) != 0);
+    return ((bitField1_ & 0x00000008) != 0);
   }
 
   /**
@@ -1254,7 +1309,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualMediaEncoderSlots() {
-    return ((bitField1_ & 0x00000008) != 0);
+    return ((bitField1_ & 0x00000010) != 0);
   }
 
   /**
@@ -1280,7 +1335,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualFreezeBackgroundTabs() {
-    return ((bitField1_ & 0x00000010) != 0);
+    return ((bitField1_ & 0x00000020) != 0);
   }
 
   /**
@@ -1305,7 +1360,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualBlockNewTabs() {
-    return ((bitField1_ & 0x00000020) != 0);
+    return ((bitField1_ & 0x00000040) != 0);
   }
 
   /**
@@ -1330,7 +1385,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualExtensionBackgroundPolicy() {
-    return ((bitField1_ & 0x00000040) != 0);
+    return ((bitField1_ & 0x00000080) != 0);
   }
 
   /**
@@ -1373,7 +1428,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualSuccessTraceSamplePercent() {
-    return ((bitField1_ & 0x00000080) != 0);
+    return ((bitField1_ & 0x00000100) != 0);
   }
 
   /**
@@ -1400,7 +1455,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualObserverFrameRateFps() {
-    return ((bitField1_ & 0x00000100) != 0);
+    return ((bitField1_ & 0x00000200) != 0);
   }
 
   /**
@@ -1427,7 +1482,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualVideoRecordingEnabled() {
-    return ((bitField1_ & 0x00000200) != 0);
+    return ((bitField1_ & 0x00000400) != 0);
   }
 
   /**
@@ -1454,7 +1509,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
    */
   @java.lang.Override
   public boolean hasActualSuccessScreenshotSamplePercent() {
-    return ((bitField1_ & 0x00000400) != 0);
+    return ((bitField1_ & 0x00000800) != 0);
   }
 
   /**
@@ -1583,54 +1638,57 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
       output.writeUInt32(37, activeCriticalTransactionCount_);
     }
     if (((bitField0_ & 0x04000000) != 0)) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 40, actualResourceClass_);
+      output.writeUInt32(38, remoteDesktopUnacknowledgedFrameAgeMs_);
     }
     if (((bitField0_ & 0x08000000) != 0)) {
-      output.writeUInt32(41, actualCpuMillis_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 40, actualResourceClass_);
     }
     if (((bitField0_ & 0x10000000) != 0)) {
-      output.writeUInt32(42, actualMemoryRequestMib_);
+      output.writeUInt32(41, actualCpuMillis_);
     }
     if (((bitField0_ & 0x20000000) != 0)) {
-      output.writeUInt32(43, actualMemoryLimitMib_);
+      output.writeUInt32(42, actualMemoryRequestMib_);
     }
     if (((bitField0_ & 0x40000000) != 0)) {
-      output.writeUInt32(44, actualPidLimit_);
+      output.writeUInt32(43, actualMemoryLimitMib_);
     }
     if (((bitField0_ & 0x80000000) != 0)) {
-      output.writeUInt32(45, actualTabBudget_);
+      output.writeUInt32(44, actualPidLimit_);
     }
     if (((bitField1_ & 0x00000001) != 0)) {
-      output.writeUInt32(46, actualStateCollectorBudgetPercent_);
+      output.writeUInt32(45, actualTabBudget_);
     }
     if (((bitField1_ & 0x00000002) != 0)) {
-      output.writeUInt32(47, actualRemoteDesktopBitrateKbps_);
+      output.writeUInt32(46, actualStateCollectorBudgetPercent_);
     }
     if (((bitField1_ & 0x00000004) != 0)) {
-      output.writeUInt32(48, actualExtensionCpuWeight_);
+      output.writeUInt32(47, actualRemoteDesktopBitrateKbps_);
     }
     if (((bitField1_ & 0x00000008) != 0)) {
-      output.writeUInt32(49, actualMediaEncoderSlots_);
+      output.writeUInt32(48, actualExtensionCpuWeight_);
     }
     if (((bitField1_ & 0x00000010) != 0)) {
-      output.writeBool(50, actualFreezeBackgroundTabs_);
+      output.writeUInt32(49, actualMediaEncoderSlots_);
     }
     if (((bitField1_ & 0x00000020) != 0)) {
-      output.writeBool(51, actualBlockNewTabs_);
+      output.writeBool(50, actualFreezeBackgroundTabs_);
     }
     if (((bitField1_ & 0x00000040) != 0)) {
-      output.writeMessage(52, getActualExtensionBackgroundPolicy());
+      output.writeBool(51, actualBlockNewTabs_);
     }
     if (((bitField1_ & 0x00000080) != 0)) {
-      output.writeUInt32(53, actualSuccessTraceSamplePercent_);
+      output.writeMessage(52, getActualExtensionBackgroundPolicy());
     }
     if (((bitField1_ & 0x00000100) != 0)) {
-      output.writeUInt32(54, actualObserverFrameRateFps_);
+      output.writeUInt32(53, actualSuccessTraceSamplePercent_);
     }
     if (((bitField1_ & 0x00000200) != 0)) {
-      output.writeBool(55, actualVideoRecordingEnabled_);
+      output.writeUInt32(54, actualObserverFrameRateFps_);
     }
     if (((bitField1_ & 0x00000400) != 0)) {
+      output.writeBool(55, actualVideoRecordingEnabled_);
+    }
+    if (((bitField1_ & 0x00000800) != 0)) {
       output.writeUInt32(56, actualSuccessScreenshotSamplePercent_);
     }
     getUnknownFields().writeTo(output);
@@ -1747,66 +1805,71 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
               37, activeCriticalTransactionCount_);
     }
     if (((bitField0_ & 0x04000000) != 0)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(40, actualResourceClass_);
-    }
-    if (((bitField0_ & 0x08000000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(41, actualCpuMillis_);
-    }
-    if (((bitField0_ & 0x10000000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(42, actualMemoryRequestMib_);
-    }
-    if (((bitField0_ & 0x20000000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(43, actualMemoryLimitMib_);
-    }
-    if (((bitField0_ & 0x40000000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(44, actualPidLimit_);
-    }
-    if (((bitField0_ & 0x80000000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(45, actualTabBudget_);
-    }
-    if (((bitField1_ & 0x00000001) != 0)) {
       size +=
           com.google.protobuf.CodedOutputStream.computeUInt32Size(
-              46, actualStateCollectorBudgetPercent_);
+              38, remoteDesktopUnacknowledgedFrameAgeMs_);
+    }
+    if (((bitField0_ & 0x08000000) != 0)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(40, actualResourceClass_);
+    }
+    if (((bitField0_ & 0x10000000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(41, actualCpuMillis_);
+    }
+    if (((bitField0_ & 0x20000000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(42, actualMemoryRequestMib_);
+    }
+    if (((bitField0_ & 0x40000000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(43, actualMemoryLimitMib_);
+    }
+    if (((bitField0_ & 0x80000000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(44, actualPidLimit_);
+    }
+    if (((bitField1_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(45, actualTabBudget_);
     }
     if (((bitField1_ & 0x00000002) != 0)) {
       size +=
           com.google.protobuf.CodedOutputStream.computeUInt32Size(
-              47, actualRemoteDesktopBitrateKbps_);
+              46, actualStateCollectorBudgetPercent_);
     }
     if (((bitField1_ & 0x00000004) != 0)) {
       size +=
-          com.google.protobuf.CodedOutputStream.computeUInt32Size(48, actualExtensionCpuWeight_);
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(
+              47, actualRemoteDesktopBitrateKbps_);
     }
     if (((bitField1_ & 0x00000008) != 0)) {
-      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(49, actualMediaEncoderSlots_);
+      size +=
+          com.google.protobuf.CodedOutputStream.computeUInt32Size(48, actualExtensionCpuWeight_);
     }
     if (((bitField1_ & 0x00000010) != 0)) {
+      size += com.google.protobuf.CodedOutputStream.computeUInt32Size(49, actualMediaEncoderSlots_);
+    }
+    if (((bitField1_ & 0x00000020) != 0)) {
       size +=
           com.google.protobuf.CodedOutputStream.computeBoolSize(50, actualFreezeBackgroundTabs_);
     }
-    if (((bitField1_ & 0x00000020) != 0)) {
+    if (((bitField1_ & 0x00000040) != 0)) {
       size += com.google.protobuf.CodedOutputStream.computeBoolSize(51, actualBlockNewTabs_);
     }
-    if (((bitField1_ & 0x00000040) != 0)) {
+    if (((bitField1_ & 0x00000080) != 0)) {
       size +=
           com.google.protobuf.CodedOutputStream.computeMessageSize(
               52, getActualExtensionBackgroundPolicy());
     }
-    if (((bitField1_ & 0x00000080) != 0)) {
+    if (((bitField1_ & 0x00000100) != 0)) {
       size +=
           com.google.protobuf.CodedOutputStream.computeUInt32Size(
               53, actualSuccessTraceSamplePercent_);
     }
-    if (((bitField1_ & 0x00000100) != 0)) {
+    if (((bitField1_ & 0x00000200) != 0)) {
       size +=
           com.google.protobuf.CodedOutputStream.computeUInt32Size(54, actualObserverFrameRateFps_);
     }
-    if (((bitField1_ & 0x00000200) != 0)) {
+    if (((bitField1_ & 0x00000400) != 0)) {
       size +=
           com.google.protobuf.CodedOutputStream.computeBoolSize(55, actualVideoRecordingEnabled_);
     }
-    if (((bitField1_ & 0x00000400) != 0)) {
+    if (((bitField1_ & 0x00000800) != 0)) {
       size +=
           com.google.protobuf.CodedOutputStream.computeUInt32Size(
               56, actualSuccessScreenshotSamplePercent_);
@@ -1944,6 +2007,12 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     if (hasActiveCriticalTransactionCount()) {
       if (getActiveCriticalTransactionCount() != other.getActiveCriticalTransactionCount())
         return false;
+    }
+    if (hasRemoteDesktopUnacknowledgedFrameAgeMs()
+        != other.hasRemoteDesktopUnacknowledgedFrameAgeMs()) return false;
+    if (hasRemoteDesktopUnacknowledgedFrameAgeMs()) {
+      if (getRemoteDesktopUnacknowledgedFrameAgeMs()
+          != other.getRemoteDesktopUnacknowledgedFrameAgeMs()) return false;
     }
     if (hasActualResourceClass() != other.hasActualResourceClass()) return false;
     if (hasActualResourceClass()) {
@@ -2163,6 +2232,10 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     if (hasActiveCriticalTransactionCount()) {
       hash = (37 * hash) + ACTIVE_CRITICAL_TRANSACTION_COUNT_FIELD_NUMBER;
       hash = (53 * hash) + getActiveCriticalTransactionCount();
+    }
+    if (hasRemoteDesktopUnacknowledgedFrameAgeMs()) {
+      hash = (37 * hash) + REMOTE_DESKTOP_UNACKNOWLEDGED_FRAME_AGE_MS_FIELD_NUMBER;
+      hash = (53 * hash) + getRemoteDesktopUnacknowledgedFrameAgeMs();
     }
     if (hasActualResourceClass()) {
       hash = (37 * hash) + ACTUAL_RESOURCE_CLASS_FIELD_NUMBER;
@@ -2410,6 +2483,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
       activeSpaMutationCount_ = 0;
       activePaymentOrSecurityCount_ = 0;
       activeCriticalTransactionCount_ = 0;
+      remoteDesktopUnacknowledgedFrameAgeMs_ = 0;
       actualResourceClass_ = "";
       actualCpuMillis_ = 0;
       actualMemoryRequestMib_ = 0;
@@ -2603,76 +2677,80 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
         to_bitField0_ |= 0x02000000;
       }
       if (((from_bitField1_ & 0x00000002) != 0)) {
-        result.actualResourceClass_ = actualResourceClass_;
+        result.remoteDesktopUnacknowledgedFrameAgeMs_ = remoteDesktopUnacknowledgedFrameAgeMs_;
         to_bitField0_ |= 0x04000000;
       }
       if (((from_bitField1_ & 0x00000004) != 0)) {
-        result.actualCpuMillis_ = actualCpuMillis_;
+        result.actualResourceClass_ = actualResourceClass_;
         to_bitField0_ |= 0x08000000;
       }
       if (((from_bitField1_ & 0x00000008) != 0)) {
-        result.actualMemoryRequestMib_ = actualMemoryRequestMib_;
+        result.actualCpuMillis_ = actualCpuMillis_;
         to_bitField0_ |= 0x10000000;
       }
       if (((from_bitField1_ & 0x00000010) != 0)) {
-        result.actualMemoryLimitMib_ = actualMemoryLimitMib_;
+        result.actualMemoryRequestMib_ = actualMemoryRequestMib_;
         to_bitField0_ |= 0x20000000;
       }
       if (((from_bitField1_ & 0x00000020) != 0)) {
-        result.actualPidLimit_ = actualPidLimit_;
+        result.actualMemoryLimitMib_ = actualMemoryLimitMib_;
         to_bitField0_ |= 0x40000000;
       }
       if (((from_bitField1_ & 0x00000040) != 0)) {
-        result.actualTabBudget_ = actualTabBudget_;
+        result.actualPidLimit_ = actualPidLimit_;
         to_bitField0_ |= 0x80000000;
       }
       int to_bitField1_ = 0;
       if (((from_bitField1_ & 0x00000080) != 0)) {
-        result.actualStateCollectorBudgetPercent_ = actualStateCollectorBudgetPercent_;
+        result.actualTabBudget_ = actualTabBudget_;
         to_bitField1_ |= 0x00000001;
       }
       if (((from_bitField1_ & 0x00000100) != 0)) {
-        result.actualRemoteDesktopBitrateKbps_ = actualRemoteDesktopBitrateKbps_;
+        result.actualStateCollectorBudgetPercent_ = actualStateCollectorBudgetPercent_;
         to_bitField1_ |= 0x00000002;
       }
       if (((from_bitField1_ & 0x00000200) != 0)) {
-        result.actualExtensionCpuWeight_ = actualExtensionCpuWeight_;
+        result.actualRemoteDesktopBitrateKbps_ = actualRemoteDesktopBitrateKbps_;
         to_bitField1_ |= 0x00000004;
       }
       if (((from_bitField1_ & 0x00000400) != 0)) {
-        result.actualMediaEncoderSlots_ = actualMediaEncoderSlots_;
+        result.actualExtensionCpuWeight_ = actualExtensionCpuWeight_;
         to_bitField1_ |= 0x00000008;
       }
       if (((from_bitField1_ & 0x00000800) != 0)) {
-        result.actualFreezeBackgroundTabs_ = actualFreezeBackgroundTabs_;
+        result.actualMediaEncoderSlots_ = actualMediaEncoderSlots_;
         to_bitField1_ |= 0x00000010;
       }
       if (((from_bitField1_ & 0x00001000) != 0)) {
-        result.actualBlockNewTabs_ = actualBlockNewTabs_;
+        result.actualFreezeBackgroundTabs_ = actualFreezeBackgroundTabs_;
         to_bitField1_ |= 0x00000020;
       }
       if (((from_bitField1_ & 0x00002000) != 0)) {
+        result.actualBlockNewTabs_ = actualBlockNewTabs_;
+        to_bitField1_ |= 0x00000040;
+      }
+      if (((from_bitField1_ & 0x00004000) != 0)) {
         result.actualExtensionBackgroundPolicy_ =
             actualExtensionBackgroundPolicyBuilder_ == null
                 ? actualExtensionBackgroundPolicy_
                 : actualExtensionBackgroundPolicyBuilder_.build();
-        to_bitField1_ |= 0x00000040;
-      }
-      if (((from_bitField1_ & 0x00004000) != 0)) {
-        result.actualSuccessTraceSamplePercent_ = actualSuccessTraceSamplePercent_;
         to_bitField1_ |= 0x00000080;
       }
       if (((from_bitField1_ & 0x00008000) != 0)) {
-        result.actualObserverFrameRateFps_ = actualObserverFrameRateFps_;
+        result.actualSuccessTraceSamplePercent_ = actualSuccessTraceSamplePercent_;
         to_bitField1_ |= 0x00000100;
       }
       if (((from_bitField1_ & 0x00010000) != 0)) {
-        result.actualVideoRecordingEnabled_ = actualVideoRecordingEnabled_;
+        result.actualObserverFrameRateFps_ = actualObserverFrameRateFps_;
         to_bitField1_ |= 0x00000200;
       }
       if (((from_bitField1_ & 0x00020000) != 0)) {
-        result.actualSuccessScreenshotSamplePercent_ = actualSuccessScreenshotSamplePercent_;
+        result.actualVideoRecordingEnabled_ = actualVideoRecordingEnabled_;
         to_bitField1_ |= 0x00000400;
+      }
+      if (((from_bitField1_ & 0x00040000) != 0)) {
+        result.actualSuccessScreenshotSamplePercent_ = actualSuccessScreenshotSamplePercent_;
+        to_bitField1_ |= 0x00000800;
       }
       result.bitField0_ |= to_bitField0_;
       result.bitField1_ |= to_bitField1_;
@@ -2835,9 +2913,12 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
       if (other.hasActiveCriticalTransactionCount()) {
         setActiveCriticalTransactionCount(other.getActiveCriticalTransactionCount());
       }
+      if (other.hasRemoteDesktopUnacknowledgedFrameAgeMs()) {
+        setRemoteDesktopUnacknowledgedFrameAgeMs(other.getRemoteDesktopUnacknowledgedFrameAgeMs());
+      }
       if (other.hasActualResourceClass()) {
         actualResourceClass_ = other.actualResourceClass_;
-        bitField1_ |= 0x00000002;
+        bitField1_ |= 0x00000004;
         onChanged();
       }
       if (other.hasActualCpuMillis()) {
@@ -3112,76 +3193,82 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
                 bitField1_ |= 0x00000001;
                 break;
               } // case 296
+            case 304:
+              {
+                remoteDesktopUnacknowledgedFrameAgeMs_ = input.readUInt32();
+                bitField1_ |= 0x00000002;
+                break;
+              } // case 304
             case 322:
               {
                 actualResourceClass_ = input.readStringRequireUtf8();
-                bitField1_ |= 0x00000002;
+                bitField1_ |= 0x00000004;
                 break;
               } // case 322
             case 328:
               {
                 actualCpuMillis_ = input.readUInt32();
-                bitField1_ |= 0x00000004;
+                bitField1_ |= 0x00000008;
                 break;
               } // case 328
             case 336:
               {
                 actualMemoryRequestMib_ = input.readUInt32();
-                bitField1_ |= 0x00000008;
+                bitField1_ |= 0x00000010;
                 break;
               } // case 336
             case 344:
               {
                 actualMemoryLimitMib_ = input.readUInt32();
-                bitField1_ |= 0x00000010;
+                bitField1_ |= 0x00000020;
                 break;
               } // case 344
             case 352:
               {
                 actualPidLimit_ = input.readUInt32();
-                bitField1_ |= 0x00000020;
+                bitField1_ |= 0x00000040;
                 break;
               } // case 352
             case 360:
               {
                 actualTabBudget_ = input.readUInt32();
-                bitField1_ |= 0x00000040;
+                bitField1_ |= 0x00000080;
                 break;
               } // case 360
             case 368:
               {
                 actualStateCollectorBudgetPercent_ = input.readUInt32();
-                bitField1_ |= 0x00000080;
+                bitField1_ |= 0x00000100;
                 break;
               } // case 368
             case 376:
               {
                 actualRemoteDesktopBitrateKbps_ = input.readUInt32();
-                bitField1_ |= 0x00000100;
+                bitField1_ |= 0x00000200;
                 break;
               } // case 376
             case 384:
               {
                 actualExtensionCpuWeight_ = input.readUInt32();
-                bitField1_ |= 0x00000200;
+                bitField1_ |= 0x00000400;
                 break;
               } // case 384
             case 392:
               {
                 actualMediaEncoderSlots_ = input.readUInt32();
-                bitField1_ |= 0x00000400;
+                bitField1_ |= 0x00000800;
                 break;
               } // case 392
             case 400:
               {
                 actualFreezeBackgroundTabs_ = input.readBool();
-                bitField1_ |= 0x00000800;
+                bitField1_ |= 0x00001000;
                 break;
               } // case 400
             case 408:
               {
                 actualBlockNewTabs_ = input.readBool();
-                bitField1_ |= 0x00001000;
+                bitField1_ |= 0x00002000;
                 break;
               } // case 408
             case 418:
@@ -3189,31 +3276,31 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
                 input.readMessage(
                     getActualExtensionBackgroundPolicyFieldBuilder().getBuilder(),
                     extensionRegistry);
-                bitField1_ |= 0x00002000;
+                bitField1_ |= 0x00004000;
                 break;
               } // case 418
             case 424:
               {
                 actualSuccessTraceSamplePercent_ = input.readUInt32();
-                bitField1_ |= 0x00004000;
+                bitField1_ |= 0x00008000;
                 break;
               } // case 424
             case 432:
               {
                 actualObserverFrameRateFps_ = input.readUInt32();
-                bitField1_ |= 0x00008000;
+                bitField1_ |= 0x00010000;
                 break;
               } // case 432
             case 440:
               {
                 actualVideoRecordingEnabled_ = input.readBool();
-                bitField1_ |= 0x00010000;
+                bitField1_ |= 0x00020000;
                 break;
               } // case 440
             case 448:
               {
                 actualSuccessScreenshotSamplePercent_ = input.readUInt32();
-                bitField1_ |= 0x00020000;
+                bitField1_ |= 0x00040000;
                 break;
               } // case 448
             default:
@@ -4098,6 +4185,13 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     private int remoteDesktopFrameAgeMs_;
 
     /**
+     *
+     *
+     * <pre>
+     * Legacy time since the most recent upstream RFB frame. An idle page can make this grow
+     * without any Viewer backlog; never use it as resource pressure. Kept for N-1 peers.
+     * </pre>
+     *
      * <code>
      * optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];
      * </code>
@@ -4110,6 +4204,13 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     }
 
     /**
+     *
+     *
+     * <pre>
+     * Legacy time since the most recent upstream RFB frame. An idle page can make this grow
+     * without any Viewer backlog; never use it as resource pressure. Kept for N-1 peers.
+     * </pre>
+     *
      * <code>
      * optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];
      * </code>
@@ -4122,6 +4223,13 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     }
 
     /**
+     *
+     *
+     * <pre>
+     * Legacy time since the most recent upstream RFB frame. An idle page can make this grow
+     * without any Viewer backlog; never use it as resource pressure. Kept for N-1 peers.
+     * </pre>
+     *
      * <code>
      * optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];
      * </code>
@@ -4138,6 +4246,13 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     }
 
     /**
+     *
+     *
+     * <pre>
+     * Legacy time since the most recent upstream RFB frame. An idle page can make this grow
+     * without any Viewer backlog; never use it as resource pressure. Kept for N-1 peers.
+     * </pre>
+     *
      * <code>
      * optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];
      * </code>
@@ -5147,6 +5262,90 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
       return this;
     }
 
+    private int remoteDesktopUnacknowledgedFrameAgeMs_;
+
+    /**
+     *
+     *
+     * <pre>
+     * Oldest Viewer frame awaiting an RFB Fence acknowledgement. Absent for an idle page or
+     * clients without Fence support. Only this additive signal may drive desktop pressure.
+     * </pre>
+     *
+     * <code>
+     * optional uint32 remote_desktop_unacknowledged_frame_age_ms = 38 [json_name = "remoteDesktopUnacknowledgedFrameAgeMs"];
+     * </code>
+     *
+     * @return Whether the remoteDesktopUnacknowledgedFrameAgeMs field is set.
+     */
+    @java.lang.Override
+    public boolean hasRemoteDesktopUnacknowledgedFrameAgeMs() {
+      return ((bitField1_ & 0x00000002) != 0);
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Oldest Viewer frame awaiting an RFB Fence acknowledgement. Absent for an idle page or
+     * clients without Fence support. Only this additive signal may drive desktop pressure.
+     * </pre>
+     *
+     * <code>
+     * optional uint32 remote_desktop_unacknowledged_frame_age_ms = 38 [json_name = "remoteDesktopUnacknowledgedFrameAgeMs"];
+     * </code>
+     *
+     * @return The remoteDesktopUnacknowledgedFrameAgeMs.
+     */
+    @java.lang.Override
+    public int getRemoteDesktopUnacknowledgedFrameAgeMs() {
+      return remoteDesktopUnacknowledgedFrameAgeMs_;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Oldest Viewer frame awaiting an RFB Fence acknowledgement. Absent for an idle page or
+     * clients without Fence support. Only this additive signal may drive desktop pressure.
+     * </pre>
+     *
+     * <code>
+     * optional uint32 remote_desktop_unacknowledged_frame_age_ms = 38 [json_name = "remoteDesktopUnacknowledgedFrameAgeMs"];
+     * </code>
+     *
+     * @param value The remoteDesktopUnacknowledgedFrameAgeMs to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRemoteDesktopUnacknowledgedFrameAgeMs(int value) {
+
+      remoteDesktopUnacknowledgedFrameAgeMs_ = value;
+      bitField1_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+
+    /**
+     *
+     *
+     * <pre>
+     * Oldest Viewer frame awaiting an RFB Fence acknowledgement. Absent for an idle page or
+     * clients without Fence support. Only this additive signal may drive desktop pressure.
+     * </pre>
+     *
+     * <code>
+     * optional uint32 remote_desktop_unacknowledged_frame_age_ms = 38 [json_name = "remoteDesktopUnacknowledgedFrameAgeMs"];
+     * </code>
+     *
+     * @return This builder for chaining.
+     */
+    public Builder clearRemoteDesktopUnacknowledgedFrameAgeMs() {
+      bitField1_ = (bitField1_ & ~0x00000002);
+      remoteDesktopUnacknowledgedFrameAgeMs_ = 0;
+      onChanged();
+      return this;
+    }
+
     private java.lang.Object actualResourceClass_ = "";
 
     /**
@@ -5163,7 +5362,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return Whether the actualResourceClass field is set.
      */
     public boolean hasActualResourceClass() {
-      return ((bitField1_ & 0x00000002) != 0);
+      return ((bitField1_ & 0x00000004) != 0);
     }
 
     /**
@@ -5235,7 +5434,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
         throw new NullPointerException();
       }
       actualResourceClass_ = value;
-      bitField1_ |= 0x00000002;
+      bitField1_ |= 0x00000004;
       onChanged();
       return this;
     }
@@ -5255,7 +5454,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     public Builder clearActualResourceClass() {
       actualResourceClass_ = getDefaultInstance().getActualResourceClass();
-      bitField1_ = (bitField1_ & ~0x00000002);
+      bitField1_ = (bitField1_ & ~0x00000004);
       onChanged();
       return this;
     }
@@ -5280,7 +5479,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
       }
       checkByteStringIsUtf8(value);
       actualResourceClass_ = value;
-      bitField1_ |= 0x00000002;
+      bitField1_ |= 0x00000004;
       onChanged();
       return this;
     }
@@ -5294,7 +5493,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     @java.lang.Override
     public boolean hasActualCpuMillis() {
-      return ((bitField1_ & 0x00000004) != 0);
+      return ((bitField1_ & 0x00000008) != 0);
     }
 
     /**
@@ -5316,7 +5515,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     public Builder setActualCpuMillis(int value) {
 
       actualCpuMillis_ = value;
-      bitField1_ |= 0x00000004;
+      bitField1_ |= 0x00000008;
       onChanged();
       return this;
     }
@@ -5327,7 +5526,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return This builder for chaining.
      */
     public Builder clearActualCpuMillis() {
-      bitField1_ = (bitField1_ & ~0x00000004);
+      bitField1_ = (bitField1_ & ~0x00000008);
       actualCpuMillis_ = 0;
       onChanged();
       return this;
@@ -5343,7 +5542,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     @java.lang.Override
     public boolean hasActualMemoryRequestMib() {
-      return ((bitField1_ & 0x00000008) != 0);
+      return ((bitField1_ & 0x00000010) != 0);
     }
 
     /**
@@ -5367,7 +5566,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     public Builder setActualMemoryRequestMib(int value) {
 
       actualMemoryRequestMib_ = value;
-      bitField1_ |= 0x00000008;
+      bitField1_ |= 0x00000010;
       onChanged();
       return this;
     }
@@ -5379,7 +5578,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return This builder for chaining.
      */
     public Builder clearActualMemoryRequestMib() {
-      bitField1_ = (bitField1_ & ~0x00000008);
+      bitField1_ = (bitField1_ & ~0x00000010);
       actualMemoryRequestMib_ = 0;
       onChanged();
       return this;
@@ -5395,7 +5594,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     @java.lang.Override
     public boolean hasActualMemoryLimitMib() {
-      return ((bitField1_ & 0x00000010) != 0);
+      return ((bitField1_ & 0x00000020) != 0);
     }
 
     /**
@@ -5419,7 +5618,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     public Builder setActualMemoryLimitMib(int value) {
 
       actualMemoryLimitMib_ = value;
-      bitField1_ |= 0x00000010;
+      bitField1_ |= 0x00000020;
       onChanged();
       return this;
     }
@@ -5431,7 +5630,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return This builder for chaining.
      */
     public Builder clearActualMemoryLimitMib() {
-      bitField1_ = (bitField1_ & ~0x00000010);
+      bitField1_ = (bitField1_ & ~0x00000020);
       actualMemoryLimitMib_ = 0;
       onChanged();
       return this;
@@ -5446,7 +5645,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     @java.lang.Override
     public boolean hasActualPidLimit() {
-      return ((bitField1_ & 0x00000020) != 0);
+      return ((bitField1_ & 0x00000040) != 0);
     }
 
     /**
@@ -5468,7 +5667,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     public Builder setActualPidLimit(int value) {
 
       actualPidLimit_ = value;
-      bitField1_ |= 0x00000020;
+      bitField1_ |= 0x00000040;
       onChanged();
       return this;
     }
@@ -5479,7 +5678,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return This builder for chaining.
      */
     public Builder clearActualPidLimit() {
-      bitField1_ = (bitField1_ & ~0x00000020);
+      bitField1_ = (bitField1_ & ~0x00000040);
       actualPidLimit_ = 0;
       onChanged();
       return this;
@@ -5494,7 +5693,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     @java.lang.Override
     public boolean hasActualTabBudget() {
-      return ((bitField1_ & 0x00000040) != 0);
+      return ((bitField1_ & 0x00000080) != 0);
     }
 
     /**
@@ -5516,7 +5715,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     public Builder setActualTabBudget(int value) {
 
       actualTabBudget_ = value;
-      bitField1_ |= 0x00000040;
+      bitField1_ |= 0x00000080;
       onChanged();
       return this;
     }
@@ -5527,7 +5726,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return This builder for chaining.
      */
     public Builder clearActualTabBudget() {
-      bitField1_ = (bitField1_ & ~0x00000040);
+      bitField1_ = (bitField1_ & ~0x00000080);
       actualTabBudget_ = 0;
       onChanged();
       return this;
@@ -5544,7 +5743,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     @java.lang.Override
     public boolean hasActualStateCollectorBudgetPercent() {
-      return ((bitField1_ & 0x00000080) != 0);
+      return ((bitField1_ & 0x00000100) != 0);
     }
 
     /**
@@ -5570,7 +5769,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     public Builder setActualStateCollectorBudgetPercent(int value) {
 
       actualStateCollectorBudgetPercent_ = value;
-      bitField1_ |= 0x00000080;
+      bitField1_ |= 0x00000100;
       onChanged();
       return this;
     }
@@ -5583,7 +5782,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return This builder for chaining.
      */
     public Builder clearActualStateCollectorBudgetPercent() {
-      bitField1_ = (bitField1_ & ~0x00000080);
+      bitField1_ = (bitField1_ & ~0x00000100);
       actualStateCollectorBudgetPercent_ = 0;
       onChanged();
       return this;
@@ -5600,7 +5799,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     @java.lang.Override
     public boolean hasActualRemoteDesktopBitrateKbps() {
-      return ((bitField1_ & 0x00000100) != 0);
+      return ((bitField1_ & 0x00000200) != 0);
     }
 
     /**
@@ -5626,7 +5825,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     public Builder setActualRemoteDesktopBitrateKbps(int value) {
 
       actualRemoteDesktopBitrateKbps_ = value;
-      bitField1_ |= 0x00000100;
+      bitField1_ |= 0x00000200;
       onChanged();
       return this;
     }
@@ -5639,7 +5838,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return This builder for chaining.
      */
     public Builder clearActualRemoteDesktopBitrateKbps() {
-      bitField1_ = (bitField1_ & ~0x00000100);
+      bitField1_ = (bitField1_ & ~0x00000200);
       actualRemoteDesktopBitrateKbps_ = 0;
       onChanged();
       return this;
@@ -5656,7 +5855,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     @java.lang.Override
     public boolean hasActualExtensionCpuWeight() {
-      return ((bitField1_ & 0x00000200) != 0);
+      return ((bitField1_ & 0x00000400) != 0);
     }
 
     /**
@@ -5682,7 +5881,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     public Builder setActualExtensionCpuWeight(int value) {
 
       actualExtensionCpuWeight_ = value;
-      bitField1_ |= 0x00000200;
+      bitField1_ |= 0x00000400;
       onChanged();
       return this;
     }
@@ -5695,7 +5894,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return This builder for chaining.
      */
     public Builder clearActualExtensionCpuWeight() {
-      bitField1_ = (bitField1_ & ~0x00000200);
+      bitField1_ = (bitField1_ & ~0x00000400);
       actualExtensionCpuWeight_ = 0;
       onChanged();
       return this;
@@ -5712,7 +5911,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     @java.lang.Override
     public boolean hasActualMediaEncoderSlots() {
-      return ((bitField1_ & 0x00000400) != 0);
+      return ((bitField1_ & 0x00000800) != 0);
     }
 
     /**
@@ -5738,7 +5937,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     public Builder setActualMediaEncoderSlots(int value) {
 
       actualMediaEncoderSlots_ = value;
-      bitField1_ |= 0x00000400;
+      bitField1_ |= 0x00000800;
       onChanged();
       return this;
     }
@@ -5751,7 +5950,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return This builder for chaining.
      */
     public Builder clearActualMediaEncoderSlots() {
-      bitField1_ = (bitField1_ & ~0x00000400);
+      bitField1_ = (bitField1_ & ~0x00000800);
       actualMediaEncoderSlots_ = 0;
       onChanged();
       return this;
@@ -5768,7 +5967,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     @java.lang.Override
     public boolean hasActualFreezeBackgroundTabs() {
-      return ((bitField1_ & 0x00000800) != 0);
+      return ((bitField1_ & 0x00001000) != 0);
     }
 
     /**
@@ -5794,7 +5993,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     public Builder setActualFreezeBackgroundTabs(boolean value) {
 
       actualFreezeBackgroundTabs_ = value;
-      bitField1_ |= 0x00000800;
+      bitField1_ |= 0x00001000;
       onChanged();
       return this;
     }
@@ -5807,7 +6006,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return This builder for chaining.
      */
     public Builder clearActualFreezeBackgroundTabs() {
-      bitField1_ = (bitField1_ & ~0x00000800);
+      bitField1_ = (bitField1_ & ~0x00001000);
       actualFreezeBackgroundTabs_ = false;
       onChanged();
       return this;
@@ -5822,7 +6021,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     @java.lang.Override
     public boolean hasActualBlockNewTabs() {
-      return ((bitField1_ & 0x00001000) != 0);
+      return ((bitField1_ & 0x00002000) != 0);
     }
 
     /**
@@ -5844,7 +6043,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     public Builder setActualBlockNewTabs(boolean value) {
 
       actualBlockNewTabs_ = value;
-      bitField1_ |= 0x00001000;
+      bitField1_ |= 0x00002000;
       onChanged();
       return this;
     }
@@ -5855,7 +6054,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return This builder for chaining.
      */
     public Builder clearActualBlockNewTabs() {
-      bitField1_ = (bitField1_ & ~0x00001000);
+      bitField1_ = (bitField1_ & ~0x00002000);
       actualBlockNewTabs_ = false;
       onChanged();
       return this;
@@ -5877,7 +6076,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return Whether the actualExtensionBackgroundPolicy field is set.
      */
     public boolean hasActualExtensionBackgroundPolicy() {
-      return ((bitField1_ & 0x00002000) != 0);
+      return ((bitField1_ & 0x00004000) != 0);
     }
 
     /**
@@ -5913,7 +6112,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
       } else {
         actualExtensionBackgroundPolicyBuilder_.setMessage(value);
       }
-      bitField1_ |= 0x00002000;
+      bitField1_ |= 0x00004000;
       onChanged();
       return this;
     }
@@ -5930,7 +6129,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
       } else {
         actualExtensionBackgroundPolicyBuilder_.setMessage(builderForValue.build());
       }
-      bitField1_ |= 0x00002000;
+      bitField1_ |= 0x00004000;
       onChanged();
       return this;
     }
@@ -5943,7 +6142,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     public Builder mergeActualExtensionBackgroundPolicy(
         io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
       if (actualExtensionBackgroundPolicyBuilder_ == null) {
-        if (((bitField1_ & 0x00002000) != 0)
+        if (((bitField1_ & 0x00004000) != 0)
             && actualExtensionBackgroundPolicy_ != null
             && actualExtensionBackgroundPolicy_
                 != io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()) {
@@ -5955,7 +6154,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
         actualExtensionBackgroundPolicyBuilder_.mergeFrom(value);
       }
       if (actualExtensionBackgroundPolicy_ != null) {
-        bitField1_ |= 0x00002000;
+        bitField1_ |= 0x00004000;
         onChanged();
       }
       return this;
@@ -5967,7 +6166,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * </code>
      */
     public Builder clearActualExtensionBackgroundPolicy() {
-      bitField1_ = (bitField1_ & ~0x00002000);
+      bitField1_ = (bitField1_ & ~0x00004000);
       actualExtensionBackgroundPolicy_ = null;
       if (actualExtensionBackgroundPolicyBuilder_ != null) {
         actualExtensionBackgroundPolicyBuilder_.dispose();
@@ -5984,7 +6183,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder
         getActualExtensionBackgroundPolicyBuilder() {
-      bitField1_ |= 0x00002000;
+      bitField1_ |= 0x00004000;
       onChanged();
       return getActualExtensionBackgroundPolicyFieldBuilder().getBuilder();
     }
@@ -6038,7 +6237,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     @java.lang.Override
     public boolean hasActualSuccessTraceSamplePercent() {
-      return ((bitField1_ & 0x00004000) != 0);
+      return ((bitField1_ & 0x00008000) != 0);
     }
 
     /**
@@ -6064,7 +6263,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     public Builder setActualSuccessTraceSamplePercent(int value) {
 
       actualSuccessTraceSamplePercent_ = value;
-      bitField1_ |= 0x00004000;
+      bitField1_ |= 0x00008000;
       onChanged();
       return this;
     }
@@ -6077,7 +6276,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return This builder for chaining.
      */
     public Builder clearActualSuccessTraceSamplePercent() {
-      bitField1_ = (bitField1_ & ~0x00004000);
+      bitField1_ = (bitField1_ & ~0x00008000);
       actualSuccessTraceSamplePercent_ = 0;
       onChanged();
       return this;
@@ -6094,7 +6293,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     @java.lang.Override
     public boolean hasActualObserverFrameRateFps() {
-      return ((bitField1_ & 0x00008000) != 0);
+      return ((bitField1_ & 0x00010000) != 0);
     }
 
     /**
@@ -6120,7 +6319,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     public Builder setActualObserverFrameRateFps(int value) {
 
       actualObserverFrameRateFps_ = value;
-      bitField1_ |= 0x00008000;
+      bitField1_ |= 0x00010000;
       onChanged();
       return this;
     }
@@ -6133,7 +6332,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return This builder for chaining.
      */
     public Builder clearActualObserverFrameRateFps() {
-      bitField1_ = (bitField1_ & ~0x00008000);
+      bitField1_ = (bitField1_ & ~0x00010000);
       actualObserverFrameRateFps_ = 0;
       onChanged();
       return this;
@@ -6150,7 +6349,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     @java.lang.Override
     public boolean hasActualVideoRecordingEnabled() {
-      return ((bitField1_ & 0x00010000) != 0);
+      return ((bitField1_ & 0x00020000) != 0);
     }
 
     /**
@@ -6176,7 +6375,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     public Builder setActualVideoRecordingEnabled(boolean value) {
 
       actualVideoRecordingEnabled_ = value;
-      bitField1_ |= 0x00010000;
+      bitField1_ |= 0x00020000;
       onChanged();
       return this;
     }
@@ -6189,7 +6388,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return This builder for chaining.
      */
     public Builder clearActualVideoRecordingEnabled() {
-      bitField1_ = (bitField1_ & ~0x00010000);
+      bitField1_ = (bitField1_ & ~0x00020000);
       actualVideoRecordingEnabled_ = false;
       onChanged();
       return this;
@@ -6206,7 +6405,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      */
     @java.lang.Override
     public boolean hasActualSuccessScreenshotSamplePercent() {
-      return ((bitField1_ & 0x00020000) != 0);
+      return ((bitField1_ & 0x00040000) != 0);
     }
 
     /**
@@ -6232,7 +6431,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
     public Builder setActualSuccessScreenshotSamplePercent(int value) {
 
       actualSuccessScreenshotSamplePercent_ = value;
-      bitField1_ |= 0x00020000;
+      bitField1_ |= 0x00040000;
       onChanged();
       return this;
     }
@@ -6245,7 +6444,7 @@ public final class ReportSessionResourcesRequest extends com.google.protobuf.Gen
      * @return This builder for chaining.
      */
     public Builder clearActualSuccessScreenshotSamplePercent() {
-      bitField1_ = (bitField1_ & ~0x00020000);
+      bitField1_ = (bitField1_ & ~0x00040000);
       actualSuccessScreenshotSamplePercent_ = 0;
       onChanged();
       return this;

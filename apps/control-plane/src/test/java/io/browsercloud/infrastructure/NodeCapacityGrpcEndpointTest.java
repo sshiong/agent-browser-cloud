@@ -141,6 +141,8 @@ class NodeCapacityGrpcEndpointTest {
               .setMemoryRssMib(1536)
               .setMemoryPsiSomeAvg10(2.75)
               .setProfileIoBytesPerSecond(52_428_800)
+              .setRemoteDesktopFrameAgeMs(5_000)
+              .setRemoteDesktopUnacknowledgedFrameAgeMs(120)
               .setDangerEvent("OOM")
               .setInputActive(true)
               .setActiveDrag(false)
@@ -164,6 +166,7 @@ class NodeCapacityGrpcEndpointTest {
           .recordSampleFromNode(
               eq("ses_test_1"), eq("tenant-test"), eq(7L), resourceSample.capture());
       assertThat(resourceSample.getValue().profileIoBytesPerSecond()).isEqualTo(52_428_800);
+      assertThat(resourceSample.getValue().remoteDesktopFrameAgeMs()).isEqualTo(120);
       assertThat(resourceSample.getValue().dangerEvent()).isEqualTo("OOM");
       verify(decisions).dispatchPending("ses_test_1");
       verify(safePoints)
@@ -171,6 +174,43 @@ class NodeCapacityGrpcEndpointTest {
               eq("ses_test_1"), eq("tenant-test"), eq("node_test_1"), eq(7L), any());
       verify(proxyHealth)
           .recordNodeProbe(eq("ses_test_1"), eq("tenant-test"), eq("node_test_1"), any(), any());
+    }
+  }
+
+  @Test
+  void legacyUpstreamFrameAgeDoesNotBecomeViewerPressure() {
+    var resources = mock(SessionResourceApplicationService.class);
+    try (var factory = Validation.buildDefaultValidatorFactory()) {
+      var endpoint =
+          new NodeEventGrpcServer.Endpoint(
+              mock(NodeEventIngestionService.class),
+              mock(BrowserCapacityApplicationService.class),
+              resources,
+              mock(io.browsercloud.application.SessionResourceDecisionExecutor.class),
+              mock(SafePointApplicationService.class),
+              mock(io.browsercloud.application.ProxyBindingHealthApplicationService.class),
+              mock(NodeEventMapper.class),
+              factory.getValidator());
+      var responses = new ArrayList<ReportSessionResourcesResponse>();
+      endpoint.reportSessionResources(
+          ReportSessionResourcesRequest.newBuilder()
+              .setNodeId("node_test_1")
+              .setTenantId("tenant-test")
+              .setSessionId("ses_test_1")
+              .setContextEpoch(7)
+              .setObservedAtMs(Instant.now().toEpochMilli())
+              .setRemoteDesktopFrameAgeMs(60_000)
+              .build(),
+          observer(responses));
+
+      assertThat(responses)
+          .singleElement()
+          .extracting(ReportSessionResourcesResponse::getAccepted)
+          .isEqualTo(true);
+      var sample = ArgumentCaptor.forClass(RecordResourceSampleRequest.class);
+      verify(resources)
+          .recordSampleFromNode(eq("ses_test_1"), eq("tenant-test"), eq(7L), sample.capture());
+      assertThat(sample.getValue().remoteDesktopFrameAgeMs()).isNull();
     }
   }
 

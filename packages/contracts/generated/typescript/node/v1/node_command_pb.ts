@@ -1855,6 +1855,9 @@ export class ReportSessionResourcesRequest extends Message<ReportSessionResource
   extensionMemoryMib?: bigint;
 
   /**
+   * Legacy time since the most recent upstream RFB frame. An idle page can make this grow
+   * without any Viewer backlog; never use it as resource pressure. Kept for N-1 peers.
+   *
    * @generated from field: optional uint32 remote_desktop_frame_age_ms = 21;
    */
   remoteDesktopFrameAgeMs?: number;
@@ -1949,6 +1952,14 @@ export class ReportSessionResourcesRequest extends Message<ReportSessionResource
    * @generated from field: optional uint32 active_critical_transaction_count = 37;
    */
   activeCriticalTransactionCount?: number;
+
+  /**
+   * Oldest Viewer frame awaiting an RFB Fence acknowledgement. Absent for an idle page or
+   * clients without Fence support. Only this additive signal may drive desktop pressure.
+   *
+   * @generated from field: optional uint32 remote_desktop_unacknowledged_frame_age_ms = 38;
+   */
+  remoteDesktopUnacknowledgedFrameAgeMs?: number;
 
   /**
    * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
@@ -2080,6 +2091,7 @@ export class ReportSessionResourcesRequest extends Message<ReportSessionResource
     { no: 35, name: "active_spa_mutation_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 36, name: "active_payment_or_security_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 37, name: "active_critical_transaction_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 38, name: "remote_desktop_unacknowledged_frame_age_ms", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 40, name: "actual_resource_class", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
     { no: 41, name: "actual_cpu_millis", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 42, name: "actual_memory_request_mib", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },

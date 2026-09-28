@@ -3242,6 +3242,10 @@ impl NodeControlService {
             .remote_desktop_gateway
             .as_ref()
             .and_then(|gateway| gateway.frame_age_ms(session_id));
+        let remote_desktop_unacknowledged_frame_age_ms = self
+            .remote_desktop_gateway
+            .as_ref()
+            .and_then(|gateway| gateway.unacknowledged_frame_age_ms(session_id));
         let observed_at_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)?
             .as_millis()
@@ -3355,6 +3359,9 @@ impl NodeControlService {
                     .flatten(),
                 remote_desktop_frame_age_ms: include_resource_metrics
                     .then_some(remote_desktop_frame_age_ms)
+                    .flatten(),
+                remote_desktop_unacknowledged_frame_age_ms: include_resource_metrics
+                    .then_some(remote_desktop_unacknowledged_frame_age_ms)
                     .flatten(),
                 media_encoder_percent: include_resource_metrics
                     .then_some(media_encoder_percent)

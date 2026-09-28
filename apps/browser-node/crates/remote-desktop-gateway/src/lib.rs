@@ -142,6 +142,7 @@ struct GatewayState {
     actor_forwarding: Mutex<HashMap<ActorQuotaKey, ActorForwardingState>>,
     connection_usage: Mutex<HashMap<String, RemoteDesktopUsageCounters>>,
     adaptive_viewer_fps: Mutex<HashMap<String, u32>>,
+    pending_viewer_frame_at: Mutex<HashMap<String, HashMap<String, Instant>>>,
     used_nonces: Mutex<HashMap<String, u64>>,
     disconnect_grace: Duration,
     heartbeat_interval: Duration,
@@ -234,16 +235,16 @@ impl ViewerFramePacer {
         Some(wire)
     }
 
-    fn feedback(&mut self, payload: &[u8]) {
+    fn feedback(&mut self, payload: &[u8]) -> bool {
         if payload.len() != 8 || payload[..4] != VIEWER_FENCE_PREFIX {
-            return;
+            return false;
         }
         let id = u32::from_be_bytes(payload[4..8].try_into().expect("checked fence length"));
         let Some((pending_id, sent)) = self.pending_fence else {
-            return;
+            return false;
         };
         if id != pending_id {
-            return;
+            return false;
         }
         self.pending_fence = None;
         let delay = sent.elapsed();
@@ -259,6 +260,7 @@ impl ViewerFramePacer {
         } else {
             self.fast_replies = 0;
         }
+        true
     }
 }
 
@@ -423,6 +425,7 @@ impl RemoteDesktopGateway {
                 actor_forwarding: Mutex::new(HashMap::new()),
                 connection_usage: Mutex::new(HashMap::new()),
                 adaptive_viewer_fps: Mutex::new(HashMap::new()),
+                pending_viewer_frame_at: Mutex::new(HashMap::new()),
                 used_nonces: Mutex::new(HashMap::new()),
                 disconnect_grace,
                 heartbeat_interval,
@@ -482,6 +485,11 @@ impl RemoteDesktopGateway {
             .last_server_frame_at
             .lock()
             .expect("frame timestamp lock poisoned")
+            .remove(session_id);
+        self.state
+            .pending_viewer_frame_at
+            .lock()
+            .expect("pending viewer frame lock poisoned")
             .remove(session_id);
         self.state
             .last_human_input_at
@@ -830,6 +838,34 @@ impl RemoteDesktopGateway {
             })
     }
 
+    /// Age of the oldest frame sent to a Viewer without a matching RFB Fence acknowledgement.
+    /// An idle page has no pending frame and reports None; it must not be treated as pressure.
+    /// Patched noVNC acknowledges after Canvas flush, while older clients may acknowledge after
+    /// parsing, so this is a delivery backlog signal rather than a physical display timestamp.
+    pub fn unacknowledged_frame_age_ms(&self, session_id: &str) -> Option<u32> {
+        self.state
+            .pending_viewer_frame_at
+            .lock()
+            .expect("pending viewer frame lock poisoned")
+            .get(session_id)
+            .and_then(|viewers| viewers.values().map(Instant::elapsed).max())
+            .map(|age| age.as_millis().try_into().unwrap_or(u32::MAX))
+    }
+
+    fn clear_pending_viewer_frame(&self, claims: &RemoteDesktopTicketClaims) {
+        let mut pending = self
+            .state
+            .pending_viewer_frame_at
+            .lock()
+            .expect("pending viewer frame lock poisoned");
+        if let Some(viewers) = pending.get_mut(&claims.session_id) {
+            viewers.remove(&claims.connection_id);
+            if viewers.is_empty() {
+                pending.remove(&claims.session_id);
+            }
+        }
+    }
+
     /// 返回当前 Session 的已授权活跃桌面连接数。
     ///
     /// 该值有严格上限，避免多个 Viewer 线性放大 x11vnc 编码和 Node 网络负载。
@@ -983,6 +1019,7 @@ impl RemoteDesktopGateway {
             .lock()
             .expect("adaptive viewer FPS lock poisoned")
             .remove(&authorized.claims.connection_id);
+        self.clear_pending_viewer_frame(&authorized.claims);
         let usage = self.take_connection_usage(&authorized.claims.connection_id);
         self.state
             .disconnect_handler
@@ -1043,11 +1080,6 @@ impl RemoteDesktopGateway {
                 RemoteDesktopUsageCounters::default(),
             )
             .await;
-        self.state
-            .last_server_frame_at
-            .lock()
-            .expect("frame timestamp lock poisoned")
-            .insert(authorized.claims.session_id.clone(), Instant::now());
         let mut heartbeat = tokio::time::interval_at(
             tokio::time::Instant::now() + self.state.heartbeat_interval,
             self.state.heartbeat_interval,
@@ -1156,11 +1188,6 @@ impl RemoteDesktopGateway {
                             anyhow::bail!("shared remote desktop upstream closed");
                         }
                     };
-                    self.state
-                        .last_server_frame_at
-                        .lock()
-                        .expect("frame timestamp lock poisoned")
-                        .insert(authorized.claims.session_id.clone(), Instant::now());
                     viewer_pacer.expire_feedback();
                     if input_parser.supports_fence && skipped_frames > 0 {
                         viewer_pacer.pressure();
@@ -1205,6 +1232,14 @@ impl RemoteDesktopGateway {
                             tokio::time::timeout(SLOW_CLIENT_WRITE_TIMEOUT, websocket.send(Message::Binary(fence)))
                                 .await
                                 .context("remote desktop fence write timed out")??;
+                            self.state
+                                .pending_viewer_frame_at
+                                .lock()
+                                .expect("pending viewer frame lock poisoned")
+                                .entry(authorized.claims.session_id.clone())
+                                .or_default()
+                                .entry(authorized.claims.connection_id.clone())
+                                .or_insert_with(Instant::now);
                         }
                     }
                     pending_server_quota_wait = Duration::ZERO;
@@ -1220,10 +1255,13 @@ impl RemoteDesktopGateway {
                             for message in input_parser.ingest(&payload)? {
                                 if message.reset_baseline && !input_parser.supports_fence {
                                     viewer_pacer.disable_feedback();
+                                    self.clear_pending_viewer_frame(&authorized.claims);
                                     self.record_adaptive_viewer_fps(&authorized.claims, viewer_pacer.fps);
                                 }
                                 if let Some(reply) = &message.fence_reply {
-                                    viewer_pacer.feedback(reply);
+                                    if viewer_pacer.feedback(reply) {
+                                        self.clear_pending_viewer_frame(&authorized.claims);
+                                    }
                                     self.record_adaptive_viewer_fps(&authorized.claims, viewer_pacer.fps);
                                 }
                                 if message.reset_baseline && desktop_requested {
@@ -3123,6 +3161,54 @@ mod tests {
                 .is_some_and(|age| age < 1_000),
             "active VNC traffic must expose a recent server-frame timestamp"
         );
+        assert_eq!(
+            gateway.unacknowledged_frame_age_ms("ses_test1234567890"),
+            None,
+            "a Viewer without Fence feedback is not an asserted display backlog"
+        );
+        // A cached or delayed broadcast is not a new upstream capture. Replaying it to a
+        // Viewer must not make the server-frame age appear fresh again.
+        gateway.state.last_server_frame_at.lock().unwrap().insert(
+            "ses_test1234567890".to_owned(),
+            Instant::now() - Duration::from_secs(5),
+        );
+        let hub = gateway.shared_hub("ses_test1234567890", vnc_endpoint);
+        hub.frames
+            .send(Arc::new(test_raw_framebuffer_update([1, 2, 3, 4])))
+            .unwrap();
+        let replayed = tokio::time::timeout(Duration::from_secs(1), next_binary(&mut websocket))
+            .await
+            .unwrap();
+        assert_eq!(replayed, test_raw_framebuffer_update([1, 2, 3, 4]));
+        assert!(
+            gateway
+                .frame_age_ms("ses_test1234567890")
+                .is_some_and(|age| age >= 5_000),
+            "cached Viewer delivery must preserve the age of the last upstream frame"
+        );
+        let second_nonce = uuid::Uuid::new_v4().simple().to_string();
+        let mut second_request = format!(
+            "ws://{gateway_endpoint}/desktop/v1/sessions/ses_test1234567890?ticket={}",
+            ticket("ses_test1234567890", &second_nonce)
+        )
+        .into_client_request()
+        .unwrap();
+        second_request
+            .headers_mut()
+            .insert(ORIGIN, "http://console.test".parse().unwrap());
+        let (mut second_viewer, _) = connect_async(second_request).await.unwrap();
+        complete_test_rfb_client(&mut second_viewer).await;
+        assert_eq!(
+            next_binary(&mut second_viewer).await,
+            test_raw_framebuffer_update([1, 2, 3, 4])
+        );
+        assert!(
+            gateway
+                .frame_age_ms("ses_test1234567890")
+                .is_some_and(|age| age >= 5_000),
+            "late Viewer attach must not refresh an unchanged upstream timestamp"
+        );
+        second_viewer.close(None).await.unwrap();
         websocket.close(None).await.unwrap();
 
         tokio::time::timeout(std::time::Duration::from_secs(1), async {
@@ -3722,12 +3808,16 @@ mod tests {
         let fence = next_binary(&mut websocket).await;
         assert_eq!(fence[0], RFB_FENCE_MESSAGE_TYPE);
         assert_eq!(&fence[9..13], &VIEWER_FENCE_PREFIX);
+        assert!(gateway.unacknowledged_frame_age_ms(session_id).is_some());
         assert_eq!(
             gateway.adaptive_viewer_frame_rate_fps(&connection_id),
             Some(30)
         );
 
         tokio::time::sleep(VIEWER_FEEDBACK_SLOW + Duration::from_millis(30)).await;
+        assert!(gateway
+            .unacknowledged_frame_age_ms(session_id)
+            .is_some_and(|age| age >= VIEWER_FEEDBACK_SLOW.as_millis() as u32));
         let mut reply = fence;
         reply[4..8].copy_from_slice(&0_u32.to_be_bytes());
         websocket.send(Message::Binary(reply)).await.unwrap();
@@ -3741,6 +3831,7 @@ mod tests {
         })
         .await
         .expect("slow client fence must reduce only its own FPS");
+        assert_eq!(gateway.unacknowledged_frame_age_ms(session_id), None);
         assert!(!gateway.human_input_active(session_id, Duration::from_secs(2)));
         assert_eq!(gateway.active_connection_count(session_id), 1);
         websocket.close(None).await.unwrap();

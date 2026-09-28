@@ -237,7 +237,9 @@ public class NodeEventGrpcServer implements SmartLifecycle {
                 request.hasExtensionMemoryMib()
                     ? Math.toIntExact(request.getExtensionMemoryMib())
                     : null,
-                request.hasRemoteDesktopFrameAgeMs() ? request.getRemoteDesktopFrameAgeMs() : null,
+                request.hasRemoteDesktopUnacknowledgedFrameAgeMs()
+                    ? request.getRemoteDesktopUnacknowledgedFrameAgeMs()
+                    : null,
                 request.hasMediaEncoderPercent() ? request.getMediaEncoderPercent() : null,
                 request.getDangerEvent(),
                 Instant.ofEpochMilli(request.getObservedAtMs()));

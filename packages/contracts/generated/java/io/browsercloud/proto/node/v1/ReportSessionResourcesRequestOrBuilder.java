@@ -222,6 +222,13 @@ public interface ReportSessionResourcesRequestOrBuilder
   long getExtensionMemoryMib();
 
   /**
+   *
+   *
+   * <pre>
+   * Legacy time since the most recent upstream RFB frame. An idle page can make this grow
+   * without any Viewer backlog; never use it as resource pressure. Kept for N-1 peers.
+   * </pre>
+   *
    * <code>optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];
    * </code>
    *
@@ -230,6 +237,13 @@ public interface ReportSessionResourcesRequestOrBuilder
   boolean hasRemoteDesktopFrameAgeMs();
 
   /**
+   *
+   *
+   * <pre>
+   * Legacy time since the most recent upstream RFB frame. An idle page can make this grow
+   * without any Viewer backlog; never use it as resource pressure. Kept for N-1 peers.
+   * </pre>
+   *
    * <code>optional uint32 remote_desktop_frame_age_ms = 21 [json_name = "remoteDesktopFrameAgeMs"];
    * </code>
    *
@@ -527,6 +541,38 @@ public interface ReportSessionResourcesRequestOrBuilder
    * @return The activeCriticalTransactionCount.
    */
   int getActiveCriticalTransactionCount();
+
+  /**
+   *
+   *
+   * <pre>
+   * Oldest Viewer frame awaiting an RFB Fence acknowledgement. Absent for an idle page or
+   * clients without Fence support. Only this additive signal may drive desktop pressure.
+   * </pre>
+   *
+   * <code>
+   * optional uint32 remote_desktop_unacknowledged_frame_age_ms = 38 [json_name = "remoteDesktopUnacknowledgedFrameAgeMs"];
+   * </code>
+   *
+   * @return Whether the remoteDesktopUnacknowledgedFrameAgeMs field is set.
+   */
+  boolean hasRemoteDesktopUnacknowledgedFrameAgeMs();
+
+  /**
+   *
+   *
+   * <pre>
+   * Oldest Viewer frame awaiting an RFB Fence acknowledgement. Absent for an idle page or
+   * clients without Fence support. Only this additive signal may drive desktop pressure.
+   * </pre>
+   *
+   * <code>
+   * optional uint32 remote_desktop_unacknowledged_frame_age_ms = 38 [json_name = "remoteDesktopUnacknowledgedFrameAgeMs"];
+   * </code>
+   *
+   * @return The remoteDesktopUnacknowledgedFrameAgeMs.
+   */
+  int getRemoteDesktopUnacknowledgedFrameAgeMs();
 
   /**
    *

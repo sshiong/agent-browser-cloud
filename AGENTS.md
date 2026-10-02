@@ -308,6 +308,13 @@ progress 166。
 
 ### 最近验证状态
 
+- CDP 导航响应等待已改为一次单调截止时间，Ping、无关事件和其他命令响应不会
+  重置 15 秒响应预算，已到期的缓冲成功帧也拒绝。真实 WebSocket 回归修复前失败、
+  修复后通过；State Collector 默认 48 项和三项真实 Chrome、Rust Workspace 188 项
+  通过，见 progress 245。`7f1b299` 的 CI `36986188951` 与 Desktop `36986188955`
+  全部通过。本轮公开完整矩阵在 OTP 当前 Loader 持续 GET/XHR 时失败，定向复核
+  在前置退出登录导航超时，均未完成；不能认定采样遗漏或将此超时修复当作失败根因。
+
 - 跨 Document 网络归属已使用精确 CDP Session/Frame/Loader 区分：主 Frame 已提交
   导航后，普通动作 Quiet 只排除已证明属于其他 Document 的请求，未知归属仍活动；
   旧写入保留全局请求与事务计数，历史 Loader 恢复时重新阻塞当前页。自有真实 Chrome

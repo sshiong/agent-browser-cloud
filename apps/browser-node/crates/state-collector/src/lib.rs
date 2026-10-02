@@ -2444,10 +2444,27 @@ impl CdpStateCollector {
             ))
             .await
             .context(NavigationFailure("WEBSOCKET_TRANSPORT_ERROR"))?;
-        while let Some(message) = timeout(PAGE_NAVIGATE_RESPONSE_TIMEOUT, socket.next())
+        Self::navigation_result(&mut socket, PAGE_NAVIGATE_RESPONSE_TIMEOUT).await
+    }
+
+    async fn navigation_result<S>(
+        socket: &mut tokio_tungstenite::WebSocketStream<S>,
+        response_budget: Duration,
+    ) -> anyhow::Result<()>
+    where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    {
+        let deadline = tokio::time::Instant::now() + response_budget;
+        while let Some(message) = tokio::time::timeout_at(deadline, socket.next())
             .await
             .context(NavigationFailure("NAVIGATE_RESPONSE_TIMEOUT"))?
         {
+            // A ready buffered frame can win timeout's poll at the deadline. Neither ping/event
+            // traffic nor a late successful response may extend this navigation's total budget.
+            anyhow::ensure!(
+                tokio::time::Instant::now() < deadline,
+                NavigationFailure("NAVIGATE_RESPONSE_TIMEOUT")
+            );
             let message = message.context(NavigationFailure("WEBSOCKET_TRANSPORT_ERROR"))?;
             let Message::Text(text) = message else {
                 continue;
@@ -2466,8 +2483,16 @@ impl CdpStateCollector {
             {
                 anyhow::bail!(network_failure(error_text));
             }
+            anyhow::ensure!(
+                tokio::time::Instant::now() < deadline,
+                NavigationFailure("NAVIGATE_RESPONSE_TIMEOUT")
+            );
             return Ok(());
         }
+        anyhow::ensure!(
+            tokio::time::Instant::now() < deadline,
+            NavigationFailure("NAVIGATE_RESPONSE_TIMEOUT")
+        );
         anyhow::bail!(NavigationFailure("WEBSOCKET_CLOSED"))
     }
 
@@ -3878,6 +3903,83 @@ mod tests {
     use tokio::net::TcpListener;
 
     #[tokio::test]
+    async fn navigation_response_budget_cannot_be_extended_by_unrelated_messages() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            for index in 0..4 {
+                tokio::time::sleep(Duration::from_millis(40)).await;
+                let message = if index % 2 == 0 {
+                    Message::Ping(vec![1, 2, 3])
+                } else {
+                    Message::Text(serde_json::json!({"method":"Page.frameStartedLoading", "params":{"private":"must-not-project"}}).to_string())
+                };
+                if socket.send(message).await.is_err() {
+                    return;
+                }
+            }
+            let _ = socket
+                .send(Message::Text(
+                    serde_json::json!({"id":2,"result":{"frameId":"late-navigation"}}).to_string(),
+                ))
+                .await;
+        });
+        let (mut socket, _) = tokio_tungstenite::connect_async(format!("ws://{address}"))
+            .await
+            .unwrap();
+        let started = std::time::Instant::now();
+        let result =
+            CdpStateCollector::navigation_result(&mut socket, Duration::from_millis(100)).await;
+        let elapsed = started.elapsed();
+        drop(socket);
+        server.abort();
+        let _ = server.await;
+        assert!(
+            result.is_err(),
+            "a late successful response must not extend the shared deadline"
+        );
+        assert_eq!(
+            navigation_failure_reason(&result.unwrap_err()),
+            "NAVIGATE_RESPONSE_TIMEOUT"
+        );
+        assert!(elapsed < Duration::from_millis(500));
+    }
+
+    #[tokio::test]
+    async fn navigation_expired_budget_rejects_a_buffered_successful_response() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let (sent, received) = tokio::sync::oneshot::channel();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            socket
+                .send(Message::Text(
+                    serde_json::json!({"id":2,"result":{"frameId":"buffered-navigation"}})
+                        .to_string(),
+                ))
+                .await
+                .unwrap();
+            sent.send(()).unwrap();
+            std::future::pending::<()>().await;
+        });
+        let (mut socket, _) = tokio_tungstenite::connect_async(format!("ws://{address}"))
+            .await
+            .unwrap();
+        received.await.unwrap();
+        let result = CdpStateCollector::navigation_result(&mut socket, Duration::ZERO).await;
+        drop(socket);
+        server.abort();
+        let _ = server.await;
+        assert_eq!(
+            navigation_failure_reason(&result.unwrap_err()),
+            "NAVIGATE_RESPONSE_TIMEOUT"
+        );
+    }
+
+    #[tokio::test]
     async fn navigation_diagnostics_classify_cdp_failures_without_page_material() {
         for (expected, response) in [
             (
@@ -3917,6 +4019,13 @@ mod tests {
                     "https://private.invalid/?code=private-code"
                 );
                 if let Some(response) = response {
+                    socket
+                        .send(Message::Text(
+                            serde_json::json!({"id":999,"result":{"private":"must-not-project"}})
+                                .to_string(),
+                        ))
+                        .await
+                        .unwrap();
                     socket
                         .send(Message::Text(response.to_owned()))
                         .await

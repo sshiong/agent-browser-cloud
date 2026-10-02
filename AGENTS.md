@@ -313,7 +313,7 @@ progress 166。
   独立 Session，见 progress 239；小时级与目标 Linux 长稳仍待验证。`bd7092f` 的
   Desktop Windows/macOS 已通过，但 Linux CI
   遇到 Rust 1.99 的 `async-trait` 宏重复 `must_use` 检查；依赖已更新为上游修复版
-  0.1.92，保留严格 Clippy，新提交需独立核验 CI。
+  0.1.92，本机 Rust 1.97/1.99 严格 Clippy 已通过，新提交需独立核验 CI。
 
 - 动作确认采集在 CDP `Runtime.evaluate` 超时或结果返回前正常关闭时有一次有界重采，
   只重新读取页面，不重发输入；第二次失败仍报错，见 progress 238。State Collector

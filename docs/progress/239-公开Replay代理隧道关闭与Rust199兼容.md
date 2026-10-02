@@ -31,7 +31,7 @@ Browser Node 最低 `async-trait` 版本与 Browser Node/Desktop 两份 Lockfile
 ## 验证与剩余边界
 
 - Replay Gate **11 项**通过，包含上述两个 TCP 收尾回归；Python 编译与 diff 检查通过。
-- 升级依赖后的本机 Rust 1.97 Workspace 严格 Clippy、Rust Workspace **178 项**
+- 升级依赖后的本机 Rust **1.97/1.99** Workspace 严格 Clippy、Rust Workspace **178 项**
   （另有五项须独立环境启用）与 Desktop **2 项**安全边界测试通过，文档检查七项通过。
 - 修复代理后，Chrome **154.0.8037.95** 的完整 **16 例单 Session** 公开矩阵
   **连续两次通过**，两次运行各创建独立 Session，
@@ -42,7 +42,7 @@ Browser Node 最低 `async-trait` 版本与 Browser Node/Desktop 两份 Lockfile
   Evidence Hash 分别为 `6eb4b739d27d49e1ef87cd3118920af0928ddd84537da33b67a39c6415957990`
   与 `59006f78e6fd65ba201c109aa6fbd00113a8dbff591b25388c257e5f5976ef3f`。
   两次短时全量通过不是小时级长稳或目标 Linux 的证书。
-- 本机 Rust 1.99 严格 Clippy 与本次提交 CI 仍需核对。
+- 本次提交的 Linux CI 与 Windows/macOS Desktop 仍需独立核对。
 
 公开固定 OTP 不是短信/邮件/TOTP 交付证明；Duende 站内登录不是独立 OIDC Client
 授权码交换或企业租户接入。真实支付、客户 SPA、目标 Linux/云长稳、云 KMS/IAM、

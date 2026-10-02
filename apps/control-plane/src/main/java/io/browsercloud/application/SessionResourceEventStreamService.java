@@ -68,44 +68,56 @@ public class SessionResourceEventStreamService {
       String sessionId, String tenantId, String lastEventId, StreamProtocol protocol) {
     requireTenant(sessionId, tenantId);
     var key = new StreamKey(tenantId, sessionId);
-    var channel = channels.computeIfAbsent(key, ignored -> new StreamChannel());
-    synchronized (channel) {
-      if (channel.subscribers.size() >= maximumSubscribersPerSession) {
-        if (channel.subscribers.isEmpty()) channels.remove(key, channel);
-        throw new ResourceStreamCapacityException();
-      }
+    var channel =
+        channels.compute(
+            key,
+            (ignored, existing) -> {
+              var selected = existing == null ? new StreamChannel() : existing;
+              selected.pendingSubscriptions.incrementAndGet();
+              return selected;
+            });
+    try {
+      synchronized (channel) {
+        if (channel.subscribers.size() >= maximumSubscribersPerSession) {
+          if (channel.subscribers.isEmpty()) removeIfUnused(key, channel);
+          throw new ResourceStreamCapacityException();
+        }
 
-      var latest = streamStore.latestSequence(tenantId, sessionId);
-      var requestedCursor = parseCursor(lastEventId);
-      var resetRequired = requestedCursor != null && requestedCursor > latest;
-      var cursor = requestedCursor == null || resetRequired ? latest : requestedCursor;
-      var replayThrough = requestedCursor == null || resetRequired ? cursor : latest;
-      if (!reserveSubscriber()) {
-        if (channel.subscribers.isEmpty()) channels.remove(key, channel);
-        throw new ResourceStreamCapacityException();
+        var latest = streamStore.latestSequence(tenantId, sessionId);
+        var requestedCursor = parseCursor(lastEventId);
+        var resetRequired = requestedCursor != null && requestedCursor > latest;
+        var cursor = requestedCursor == null || resetRequired ? latest : requestedCursor;
+        var replayThrough = requestedCursor == null || resetRequired ? cursor : latest;
+        if (!reserveSubscriber()) {
+          if (channel.subscribers.isEmpty()) removeIfUnused(key, channel);
+          throw new ResourceStreamCapacityException();
+        }
+        var emitter = new SseEmitter(connectionTimeoutMillis);
+        var subscriber =
+            new StreamSubscriber(emitter, cursor, replayThrough, Instant.now(), protocol);
+        channel.subscribers.add(subscriber);
+        registerLifecycle(key, channel, subscriber);
+        try {
+          emitter.send(
+              SseEmitter.event()
+                  .id(Long.toString(cursor))
+                  .name(protocol.controlEventName(resetRequired))
+                  .reconnectTime(1_000)
+                  .data(
+                      Map.of(
+                          "cursor", cursor,
+                          "resetRequired", resetRequired,
+                          "connectedAt", Instant.now().toString())));
+        } catch (IOException | IllegalStateException exception) {
+          remove(key, channel, subscriber);
+          throw new ResourceStreamConnectionException(exception);
+        }
+        publishChannel(key, channel);
+        return emitter;
       }
-      var emitter = new SseEmitter(connectionTimeoutMillis);
-      var subscriber =
-          new StreamSubscriber(emitter, cursor, replayThrough, Instant.now(), protocol);
-      channel.subscribers.add(subscriber);
-      registerLifecycle(key, channel, subscriber);
-      try {
-        emitter.send(
-            SseEmitter.event()
-                .id(Long.toString(cursor))
-                .name(protocol.controlEventName(resetRequired))
-                .reconnectTime(1_000)
-                .data(
-                    Map.of(
-                        "cursor", cursor,
-                        "resetRequired", resetRequired,
-                        "connectedAt", Instant.now().toString())));
-      } catch (IOException | IllegalStateException exception) {
-        remove(key, channel, subscriber);
-        throw new ResourceStreamConnectionException(exception);
-      }
-      publishChannel(key, channel);
-      return emitter;
+    } finally {
+      channel.pendingSubscriptions.decrementAndGet();
+      removeIfUnused(key, channel);
     }
   }
 
@@ -127,17 +139,14 @@ public class SessionResourceEventStreamService {
 
   private void publishChannelOnce(StreamKey key, StreamChannel channel) {
     if (channel.subscribers.isEmpty()) {
-      channels.remove(key, channel);
+      removeIfUnused(key, channel);
       return;
     }
+    var recipients = channel.subscribers.stream().filter(StreamSubscriber::active).toList();
     var after =
-        channel.subscribers.stream()
-            .filter(StreamSubscriber::active)
-            .mapToLong(StreamSubscriber::cursor)
-            .min()
-            .orElse(Long.MAX_VALUE);
+        recipients.stream().mapToLong(StreamSubscriber::cursor).min().orElse(Long.MAX_VALUE);
     if (after == Long.MAX_VALUE) {
-      channels.remove(key, channel);
+      removeIfUnused(key, channel);
       return;
     }
     final java.util.List<DurableResourceChange> changes;
@@ -153,7 +162,7 @@ public class SessionResourceEventStreamService {
       return;
     }
     for (var change : changes) {
-      channel.subscribers.forEach(
+      recipients.forEach(
           subscriber -> {
             if (subscriber.active() && change.sequence() > subscriber.cursor()) {
               sendChange(key, channel, subscriber, change);
@@ -204,6 +213,19 @@ public class SessionResourceEventStreamService {
         });
   }
 
+  private void removeIfUnused(StreamKey key, StreamChannel channel) {
+    // Reservation and retirement share the map's atomic per-key operation. A subscriber
+    // performing its cursor lookup must not be attached to a detached channel.
+    channels.computeIfPresent(
+        key,
+        (ignored, registered) ->
+            registered == channel
+                    && channel.pendingSubscriptions.get() == 0
+                    && channel.subscribers.isEmpty()
+                ? null
+                : registered);
+  }
+
   private void registerLifecycle(
       StreamKey key, StreamChannel channel, StreamSubscriber subscriber) {
     subscriber.emitter().onCompletion(() -> remove(key, channel, subscriber));
@@ -221,14 +243,14 @@ public class SessionResourceEventStreamService {
     } catch (RuntimeException ignored) {
       // The servlet container may already have closed the async response.
     }
-    if (channel.subscribers.isEmpty()) channels.remove(key, channel);
+    if (channel.subscribers.isEmpty()) removeIfUnused(key, channel);
   }
 
   private void remove(StreamKey key, StreamChannel channel, StreamSubscriber subscriber) {
     if (!subscriber.deactivate()) return;
     channel.subscribers.remove(subscriber);
     subscriberCount.decrementAndGet();
-    if (channel.subscribers.isEmpty()) channels.remove(key, channel);
+    if (channel.subscribers.isEmpty()) removeIfUnused(key, channel);
   }
 
   private void requireTenant(String sessionId, String tenantId) {
@@ -294,6 +316,7 @@ public class SessionResourceEventStreamService {
   private static final class StreamChannel {
     private final CopyOnWriteArrayList<StreamSubscriber> subscribers = new CopyOnWriteArrayList<>();
     private final AtomicBoolean publishing = new AtomicBoolean();
+    private final AtomicInteger pendingSubscriptions = new AtomicInteger();
   }
 
   private static final class StreamSubscriber {

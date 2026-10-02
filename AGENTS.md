@@ -308,6 +308,15 @@ progress 166。
 
 ### 最近验证状态
 
+- 五类 SSE 已补齐通道注册/回收原子围栏和固定发布接收者集合，注册中的空通道
+  不会被移除，查询期间加入的 Replay 订阅不会被旧查询结果推进而跳过历史。
+  Session 两项回归在旧逻辑失败，五类 27 项、Control Plane 618 项、完整 OrbStack
+  Integration 与 N/N−1 Gate 通过，见 progress 249。
+  原轮询周期、事件断言和正式契约未改；不能据此认定历史 CI 失败的确切交错。
+  `866ef6b` 的 CI `37009122207` 与 Desktop `37009122305` 完整通过。其公开完整矩阵
+  在错误密码后的 alert 等待失败，最后 State 为 STALE；未完成 17 例，不能以旧投影
+  quiet 或清理附近的 Document POST 失败推断业务提交完成或传输根因。
+
 - 隐藏表单字段与驼峰/缩写 Secret 名称已在 State 采集源头脱敏，Recording/Screenshot
   DOM 遮罩同步补齐；Replay 显式异常只输出有界、固定元数据，未知文字与字段值不输出。
   真实 Chrome、生产 JS 判定和真实异常函数回归在旧逻辑失败，修改后通过；Replay Gate

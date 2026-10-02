@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -59,5 +60,46 @@ class WorkspaceOverviewEventStreamServiceTest {
 
     assertThatThrownBy(() -> service.subscribe("tenant-a", true, null))
         .isInstanceOf(SessionResourceEventStreamService.ResourceStreamCapacityException.class);
+  }
+
+  @Test
+  void keepsChannelRegisteredWhenPublishingInterleavesWithFirstCursorLookup() {
+    var service = new WorkspaceOverviewEventStreamService(store, 10, 2, 60_000);
+    when(store.latestSequence("tenant-a", false))
+        .thenAnswer(
+            ignored -> {
+              service.publishDurableChanges();
+              return 10L;
+            });
+    when(store.readAfter("tenant-a", false, 10L, 500)).thenReturn(List.of());
+    service.subscribe("tenant-a", false, "10");
+    clearInvocations(store);
+    when(store.readAfter("tenant-a", false, 10L, 500))
+        .thenReturn(List.of(new DurableWorkspaceChange(11L, "SESSION", Instant.now())));
+
+    service.publishDurableChanges();
+    verify(store).readAfter("tenant-a", false, 10L, 500);
+    assertThat(service.activeSubscriberCount()).isEqualTo(1);
+  }
+
+  @Test
+  void doesNotAdvanceNewReplaySubscriberUsingAnOlderSubscribersInFlightRead() {
+    var service = new WorkspaceOverviewEventStreamService(store, 10, 2, 60_000);
+    when(store.latestSequence("tenant-a", false)).thenReturn(10L);
+    when(store.readAfter("tenant-a", false, 10L, 500)).thenReturn(List.of());
+    when(store.readAfter("tenant-a", false, 4L, 500)).thenReturn(List.of());
+    service.subscribe("tenant-a", false, "10");
+    when(store.readAfter("tenant-a", false, 10L, 500))
+        .thenAnswer(
+            ignored -> {
+              service.subscribe("tenant-a", false, "4");
+              return List.of(new DurableWorkspaceChange(11L, "SESSION", Instant.now()));
+            });
+    service.publishDurableChanges();
+    clearInvocations(store);
+
+    service.publishDurableChanges();
+    verify(store).readAfter("tenant-a", false, 4L, 500);
+    assertThat(service.activeSubscriberCount()).isEqualTo(2);
   }
 }

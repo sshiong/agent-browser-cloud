@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -66,5 +67,48 @@ class EnterpriseOverviewEventStreamServiceTest {
     assertThatThrownBy(() -> service.subscribe("tenant-a", null))
         .isInstanceOf(SessionResourceEventStreamService.ResourceStreamCapacityException.class);
     verify(store, atLeastOnce()).readAfter("tenant-a", 8L, 500);
+  }
+
+  @Test
+  void keepsChannelRegisteredWhenPublishingInterleavesWithFirstCursorLookup() {
+    var service = new EnterpriseOverviewEventStreamService(store, 10, 2, 60_000);
+    when(store.latestSequence("tenant-a"))
+        .thenAnswer(
+            ignored -> {
+              service.publishDurableChanges();
+              return 10L;
+            });
+    when(store.readAfter("tenant-a", 10L, 500)).thenReturn(List.of());
+    service.subscribe("tenant-a", "10");
+    clearInvocations(store);
+    when(store.readAfter("tenant-a", 10L, 500))
+        .thenReturn(
+            List.of(new DurableEnterpriseOverviewChange(11L, "MEDIA_QUOTA", Instant.now())));
+
+    service.publishDurableChanges();
+    verify(store).readAfter("tenant-a", 10L, 500);
+    assertThat(service.activeSubscriberCount()).isEqualTo(1);
+  }
+
+  @Test
+  void doesNotAdvanceNewReplaySubscriberUsingAnOlderSubscribersInFlightRead() {
+    var service = new EnterpriseOverviewEventStreamService(store, 10, 2, 60_000);
+    when(store.latestSequence("tenant-a")).thenReturn(10L);
+    when(store.readAfter("tenant-a", 10L, 500)).thenReturn(List.of());
+    when(store.readAfter("tenant-a", 4L, 500)).thenReturn(List.of());
+    service.subscribe("tenant-a", "10");
+    when(store.readAfter("tenant-a", 10L, 500))
+        .thenAnswer(
+            ignored -> {
+              service.subscribe("tenant-a", "4");
+              return List.of(
+                  new DurableEnterpriseOverviewChange(11L, "MEDIA_QUOTA", Instant.now()));
+            });
+    service.publishDurableChanges();
+    clearInvocations(store);
+
+    service.publishDurableChanges();
+    verify(store).readAfter("tenant-a", 4L, 500);
+    assertThat(service.activeSubscriberCount()).isEqualTo(2);
   }
 }

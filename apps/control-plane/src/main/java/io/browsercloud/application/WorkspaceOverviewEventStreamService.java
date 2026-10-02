@@ -53,41 +53,53 @@ public class WorkspaceOverviewEventStreamService {
 
   public SseEmitter subscribe(String tenantId, boolean includePlatformEvents, String lastEventId) {
     var key = new ChannelKey(tenantId, includePlatformEvents);
-    var channel = channels.computeIfAbsent(key, ignored -> new Channel());
-    synchronized (channel) {
-      var latest = store.latestSequence(tenantId, includePlatformEvents);
-      var requestedCursor = parseCursor(lastEventId);
-      var resetRequired = requestedCursor != null && requestedCursor > latest;
-      var cursor = requestedCursor == null || resetRequired ? latest : requestedCursor;
-      var replayThrough = requestedCursor == null || resetRequired ? cursor : latest;
-      if (!reserveSubscriber(tenantId)) {
-        if (channel.subscribers.isEmpty()) channels.remove(key, channel);
-        throw new ResourceStreamCapacityException();
+    var channel =
+        channels.compute(
+            key,
+            (ignored, existing) -> {
+              var selected = existing == null ? new Channel() : existing;
+              selected.pendingSubscriptions.incrementAndGet();
+              return selected;
+            });
+    try {
+      synchronized (channel) {
+        var latest = store.latestSequence(tenantId, includePlatformEvents);
+        var requestedCursor = parseCursor(lastEventId);
+        var resetRequired = requestedCursor != null && requestedCursor > latest;
+        var cursor = requestedCursor == null || resetRequired ? latest : requestedCursor;
+        var replayThrough = requestedCursor == null || resetRequired ? cursor : latest;
+        if (!reserveSubscriber(tenantId)) {
+          if (channel.subscribers.isEmpty()) removeIfUnused(key, channel);
+          throw new ResourceStreamCapacityException();
+        }
+        var emitter = new SseEmitter(connectionTimeoutMillis);
+        var subscriber = new Subscriber(emitter, cursor, replayThrough, Instant.now());
+        channel.subscribers.add(subscriber);
+        registerLifecycle(key, channel, subscriber);
+        try {
+          emitter.send(
+              SseEmitter.event()
+                  .id(Long.toString(cursor))
+                  .name(
+                      resetRequired
+                          ? "workspace-overview-stream-reset"
+                          : "workspace-overview-stream-ready")
+                  .reconnectTime(1_000)
+                  .data(
+                      Map.of(
+                          "cursor", cursor,
+                          "resetRequired", resetRequired,
+                          "connectedAt", Instant.now().toString())));
+        } catch (IOException | IllegalStateException exception) {
+          remove(key, channel, subscriber);
+          throw new ResourceStreamConnectionException(exception);
+        }
+        publishChannel(key, channel);
+        return emitter;
       }
-      var emitter = new SseEmitter(connectionTimeoutMillis);
-      var subscriber = new Subscriber(emitter, cursor, replayThrough, Instant.now());
-      channel.subscribers.add(subscriber);
-      registerLifecycle(key, channel, subscriber);
-      try {
-        emitter.send(
-            SseEmitter.event()
-                .id(Long.toString(cursor))
-                .name(
-                    resetRequired
-                        ? "workspace-overview-stream-reset"
-                        : "workspace-overview-stream-ready")
-                .reconnectTime(1_000)
-                .data(
-                    Map.of(
-                        "cursor", cursor,
-                        "resetRequired", resetRequired,
-                        "connectedAt", Instant.now().toString())));
-      } catch (IOException | IllegalStateException exception) {
-        remove(key, channel, subscriber);
-        throw new ResourceStreamConnectionException(exception);
-      }
-      publishChannel(key, channel);
-      return emitter;
+    } finally {
+      channel.pendingSubscriptions.decrementAndGet();
+      removeIfUnused(key, channel);
     }
   }
 
@@ -102,17 +114,13 @@ public class WorkspaceOverviewEventStreamService {
     if (!channel.publishing.compareAndSet(false, true)) return;
     try {
       if (channel.subscribers.isEmpty()) {
-        channels.remove(key, channel);
+        removeIfUnused(key, channel);
         return;
       }
-      var after =
-          channel.subscribers.stream()
-              .filter(Subscriber::active)
-              .mapToLong(Subscriber::cursor)
-              .min()
-              .orElse(Long.MAX_VALUE);
+      var recipients = channel.subscribers.stream().filter(Subscriber::active).toList();
+      var after = recipients.stream().mapToLong(Subscriber::cursor).min().orElse(Long.MAX_VALUE);
       if (after == Long.MAX_VALUE) {
-        channels.remove(key, channel);
+        removeIfUnused(key, channel);
         return;
       }
       final java.util.List<DurableWorkspaceChange> changes;
@@ -132,7 +140,7 @@ public class WorkspaceOverviewEventStreamService {
         return;
       }
       for (var change : changes) {
-        channel.subscribers.forEach(
+        recipients.forEach(
             subscriber -> {
               if (subscriber.active() && change.sequence() > subscriber.cursor()) {
                 sendChange(key, channel, subscriber, change);
@@ -180,6 +188,19 @@ public class WorkspaceOverviewEventStreamService {
         });
   }
 
+  private void removeIfUnused(ChannelKey key, Channel channel) {
+    // Reservation and retirement share the map's atomic per-key operation. A subscriber
+    // performing its cursor lookup must not be attached to a detached channel.
+    channels.computeIfPresent(
+        key,
+        (ignored, registered) ->
+            registered == channel
+                    && channel.pendingSubscriptions.get() == 0
+                    && channel.subscribers.isEmpty()
+                ? null
+                : registered);
+  }
+
   private void registerLifecycle(ChannelKey key, Channel channel, Subscriber subscriber) {
     subscriber.emitter().onCompletion(() -> remove(key, channel, subscriber));
     subscriber.emitter().onTimeout(() -> remove(key, channel, subscriber));
@@ -195,14 +216,14 @@ public class WorkspaceOverviewEventStreamService {
     } catch (RuntimeException ignored) {
       // The servlet container may already have closed the async response.
     }
-    if (channel.subscribers.isEmpty()) channels.remove(key, channel);
+    if (channel.subscribers.isEmpty()) removeIfUnused(key, channel);
   }
 
   private void remove(ChannelKey key, Channel channel, Subscriber subscriber) {
     if (!subscriber.deactivate()) return;
     channel.subscribers.remove(subscriber);
     releaseSubscriber(key.tenantId());
-    if (channel.subscribers.isEmpty()) channels.remove(key, channel);
+    if (channel.subscribers.isEmpty()) removeIfUnused(key, channel);
   }
 
   static Long parseCursor(String lastEventId) {
@@ -251,6 +272,7 @@ public class WorkspaceOverviewEventStreamService {
   private static final class Channel {
     private final CopyOnWriteArrayList<Subscriber> subscribers = new CopyOnWriteArrayList<>();
     private final AtomicBoolean publishing = new AtomicBoolean();
+    private final AtomicInteger pendingSubscriptions = new AtomicInteger();
   }
 
   private record ChannelKey(String tenantId, boolean includePlatformEvents) {}

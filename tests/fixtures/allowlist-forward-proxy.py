@@ -80,10 +80,10 @@ def connect_public(host, port):
     raise ConnectionError(f"cannot connect to {host}:{port}") from last_error
 
 
-def relay(left, right):
+def relay(left, right, idle_timeout=30):
     sockets = [left, right]
     while True:
-        readable, _, exceptional = select.select(sockets, [], sockets, 30)
+        readable, _, exceptional = select.select(sockets, [], sockets, idle_timeout)
         if exceptional or not readable:
             return
         for source in readable:
@@ -206,6 +206,10 @@ input{{width:360px;height:36px;margin:8px 0 24px}}button{{height:40px;width:180p
             self.send_error(403, "CONNECT target denied")
             return
         log_event("connect_allowed", host=host, port=port)
+        # CONNECT takes over this TCP connection. When the relay finishes, close the browser
+        # side as well; treating encrypted tunnel bytes as a subsequent HTTP request can leave
+        # Chromium waiting indefinitely after the upstream has already gone away.
+        self.close_connection = True
         self.send_response(200, "Connection Established")
         self.end_headers()
         try:

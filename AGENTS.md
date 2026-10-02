@@ -308,10 +308,18 @@ progress 166。
 
 ### 最近验证状态
 
+- 公开 Replay 出口代理在上游 EOF/空闲超时后关闭浏览器侧 CONNECT TCP，两个真实
+  TCP 回归及 Replay Gate 11 项通过；修复后 Chrome 154 完整 16 例连续两次通过，各运行
+  独立 Session，见 progress 239；小时级与目标 Linux 长稳仍待验证。`bd7092f` 的
+  Desktop Windows/macOS 已通过，但 Linux CI
+  遇到 Rust 1.99 的 `async-trait` 宏重复 `must_use` 检查；依赖已更新为上游修复版
+  0.1.92，保留严格 Clippy，新提交需独立核验 CI。
+
 - 动作确认采集在 CDP `Runtime.evaluate` 超时或结果返回前正常关闭时有一次有界重采，
   只重新读取页面，不重发输入；第二次失败仍报错，见 progress 238。State Collector
   38 项与两项真实 Chrome 采集/Tab 回归通过。公开矩阵新增仅含在途请求数量和类别的
-  Debug 诊断，已观察练习站持续 `XHR:script` 导致网络静默为零；当前仍无连续全量长稳证据。
+  Debug 诊断，当轮观察练习站持续 `XHR:script` 导致网络静默为零；后续进度 239 的两次
+  短时通过仍不替代全量长稳证据。
   Rust Workspace 与完整 OrbStack Integration 通过。
 
 - Remote Desktop Gateway 已对协商 RFB Fence 的 Viewer 增加连接私有自适应 FPS：慢回执、

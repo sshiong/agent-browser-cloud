@@ -1984,10 +1984,15 @@ where
             json!({"id": id, "method": method, "params": params}).to_string(),
         ))
         .await?;
-    while let Some(message) = tokio::time::timeout(CDP_TIMEOUT, socket.next())
+    let response_deadline = tokio::time::Instant::now() + CDP_TIMEOUT;
+    while let Some(message) = tokio::time::timeout_at(response_deadline, socket.next())
         .await
         .map_err(|_| anyhow::anyhow!("CDP {method} timed out"))?
     {
+        anyhow::ensure!(
+            tokio::time::Instant::now() < response_deadline,
+            "CDP {method} timed out"
+        );
         let Message::Text(text) = message? else {
             continue;
         };
@@ -1998,6 +2003,10 @@ where
         if let Some(error) = response.get("error") {
             anyhow::bail!("CDP {method} failed: {error}");
         }
+        anyhow::ensure!(
+            tokio::time::Instant::now() < response_deadline,
+            "CDP {method} timed out"
+        );
         return Ok(response);
     }
     anyhow::bail!("CDP websocket closed before {method} completed")
@@ -2019,6 +2028,58 @@ mod tests {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
     use tokio_tungstenite::accept_async;
+
+    #[tokio::test]
+    async fn screenshot_response_expires_despite_unrelated_messages() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = accept_async(stream).await.unwrap();
+            let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected screenshot command");
+            };
+            let request: Value = serde_json::from_str(&request).unwrap();
+            assert_eq!(request["method"], "Page.captureScreenshot");
+            for index in 0..26 {
+                tokio::time::sleep(Duration::from_millis(200)).await;
+                let message = match index % 2 {
+                    0 => Message::Text(json!({"method":"Page.frameStartedLoading"}).to_string()),
+                    _ => Message::Text(json!({"id":999,"result":{}}).to_string()),
+                };
+                if socket.send(message).await.is_err() {
+                    return;
+                }
+            }
+            let _ = socket
+                .send(Message::Text(
+                    json!({"id":request["id"],"result":{"data":"late"}}).to_string(),
+                ))
+                .await;
+        });
+        let (mut socket, _) = tokio_tungstenite::connect_async(format!("ws://{address}"))
+            .await
+            .unwrap();
+        let started = std::time::Instant::now();
+        let result = tokio::time::timeout(
+            Duration::from_secs(7),
+            send_command_value(&mut socket, 1, "Page.captureScreenshot", json!({})),
+        )
+        .await;
+        drop(socket);
+        server.abort();
+        let _ = server.await;
+        let result = result.unwrap();
+        assert!(
+            result.is_err(),
+            "unrelated events must not extend the screenshot response budget"
+        );
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "CDP Page.captureScreenshot timed out"
+        );
+        assert!(started.elapsed() < Duration::from_secs(6));
+    }
 
     fn solid_rgb_jpeg(width: u16, height: u16, rgb: [u8; 3]) -> String {
         let mut pixels = Vec::with_capacity(usize::from(width) * usize::from(height) * 3);

@@ -308,6 +308,15 @@ progress 166。
 
 ### 最近验证状态
 
+- 有限 CDP 请求的响应预算已进一步覆盖 State/Region、资源命令、受治理 Evaluate、
+  Reload/Extension、Viewport/Scroll、Tab/Input/Upload ACK 和 Recorder 截图控制命令。
+  十处等待循环共用各自请求的一次单调截止时间，读取后和接受成功前拒绝过期；原预算、
+  ID/错误语义与动作确认的一次只读重采保持有效。真实 WebSocket 的状态/资源/截图
+  回归修复前均失败、修复后通过；State Collector 50 项、Recorder 10 项、Rust Workspace
+  191 项、三项真实 Chrome 与 Rust 1.99 严格 Clippy 通过，见 progress 246。
+  前一提交 `38e4324` 的 CI `36999827812` 与 Desktop `36999827809` 全部通过。
+  该证据不证明服务端操作被撤销，也不关闭公开 17 例连续稳定性或外部生产 Gate。
+
 - CDP 导航响应等待已改为一次单调截止时间，Ping、无关事件和其他命令响应不会
   重置 15 秒响应预算，已到期的缓冲成功帧也拒绝。真实 WebSocket 回归修复前失败、
   修复后通过；State Collector 默认 48 项和三项真实 Chrome、Rust Workspace 188 项

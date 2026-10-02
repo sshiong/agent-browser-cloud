@@ -1176,10 +1176,15 @@ impl CdpStateCollector {
                 .to_string(),
             ))
             .await?;
-        while let Some(message) = timeout(deadline, socket.next())
+        let response_deadline = tokio::time::Instant::now() + deadline;
+        while let Some(message) = tokio::time::timeout_at(response_deadline, socket.next())
             .await
             .map_err(|_| anyhow::anyhow!("CDP Runtime.evaluate timed out"))?
         {
+            anyhow::ensure!(
+                tokio::time::Instant::now() < response_deadline,
+                "CDP Runtime.evaluate timed out"
+            );
             let Message::Text(text) = message? else {
                 continue;
             };
@@ -1190,6 +1195,10 @@ impl CdpStateCollector {
             if let Some(error) = response.get("error") {
                 anyhow::bail!("CDP Runtime.evaluate failed: {error}");
             }
+            anyhow::ensure!(
+                tokio::time::Instant::now() < response_deadline,
+                "CDP Runtime.evaluate timed out"
+            );
             return response
                 .get("result")
                 .cloned()
@@ -1606,10 +1615,15 @@ impl CdpStateCollector {
                 serde_json::json!({"id": id, "method": method, "params": params}).to_string(),
             ))
             .await?;
-        while let Some(message) = timeout(Duration::from_secs(2), socket.next())
+        let response_deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+        while let Some(message) = tokio::time::timeout_at(response_deadline, socket.next())
             .await
             .map_err(|_| anyhow::anyhow!("CDP {method} timed out"))?
         {
+            anyhow::ensure!(
+                tokio::time::Instant::now() < response_deadline,
+                "CDP {method} timed out"
+            );
             let Message::Text(text) = message? else {
                 continue;
             };
@@ -1620,6 +1634,10 @@ impl CdpStateCollector {
             if let Some(error) = response.get("error") {
                 anyhow::bail!("CDP {method} failed: {error}");
             }
+            anyhow::ensure!(
+                tokio::time::Instant::now() < response_deadline,
+                "CDP {method} timed out"
+            );
             return response
                 .get("result")
                 .cloned()
@@ -1645,10 +1663,15 @@ impl CdpStateCollector {
                 serde_json::json!({"id": id, "method": method}).to_string(),
             ))
             .await?;
-        while let Some(message) = timeout(Duration::from_secs(2), socket.next())
+        let response_deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+        while let Some(message) = tokio::time::timeout_at(response_deadline, socket.next())
             .await
             .map_err(|_| anyhow::anyhow!("CDP {method} timed out"))?
         {
+            anyhow::ensure!(
+                tokio::time::Instant::now() < response_deadline,
+                "CDP {method} timed out"
+            );
             let Message::Text(text) = message? else {
                 continue;
             };
@@ -1659,6 +1682,10 @@ impl CdpStateCollector {
             if let Some(error) = response.get("error") {
                 anyhow::bail!("CDP {method} failed: {error}");
             }
+            anyhow::ensure!(
+                tokio::time::Instant::now() < response_deadline,
+                "CDP {method} timed out"
+            );
             return response
                 .get("result")
                 .cloned()
@@ -2389,10 +2416,15 @@ impl CdpStateCollector {
         });
         socket.send(Message::Text(request.to_string())).await?;
 
-        while let Some(message) = timeout(Duration::from_secs(3), socket.next())
+        let response_deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+        while let Some(message) = tokio::time::timeout_at(response_deadline, socket.next())
             .await
             .map_err(|_| anyhow::anyhow!("CDP Runtime.evaluate timed out"))?
         {
+            anyhow::ensure!(
+                tokio::time::Instant::now() < response_deadline,
+                "CDP Runtime.evaluate timed out"
+            );
             let message = message?;
             let Message::Text(text) = message else {
                 continue;
@@ -2412,6 +2444,10 @@ impl CdpStateCollector {
             if let Some(error) = evaluated.error.as_deref() {
                 anyhow::bail!(error.to_owned());
             }
+            anyhow::ensure!(
+                tokio::time::Instant::now() < response_deadline,
+                "CDP Runtime.evaluate timed out"
+            );
             return Ok(evaluated);
         }
         anyhow::bail!("CDP websocket closed before Runtime.evaluate completed")
@@ -2514,10 +2550,15 @@ impl CdpStateCollector {
                 .to_string(),
             ))
             .await?;
-        while let Some(message) = timeout(Duration::from_secs(5), socket.next())
+        let response_deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+        while let Some(message) = tokio::time::timeout_at(response_deadline, socket.next())
             .await
             .map_err(|_| anyhow::anyhow!("CDP Page.reload timed out"))?
         {
+            anyhow::ensure!(
+                tokio::time::Instant::now() < response_deadline,
+                "CDP Page.reload timed out"
+            );
             let message = message?;
             let Message::Text(text) = message else {
                 continue;
@@ -2529,6 +2570,10 @@ impl CdpStateCollector {
             if let Some(error) = response.get("error") {
                 anyhow::bail!("CDP Page.reload failed: {error}");
             }
+            anyhow::ensure!(
+                tokio::time::Instant::now() < response_deadline,
+                "CDP Page.reload timed out"
+            );
             return Ok(());
         }
         anyhow::bail!("CDP websocket closed before Page.reload completed")
@@ -2596,10 +2641,15 @@ impl CdpStateCollector {
                 .to_string(),
             ))
             .await?;
-        while let Some(message) = timeout(Duration::from_secs(5), socket.next())
+        let response_deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+        while let Some(message) = tokio::time::timeout_at(response_deadline, socket.next())
             .await
             .map_err(|_| anyhow::anyhow!("Extension Runtime.evaluate timed out"))?
         {
+            anyhow::ensure!(
+                tokio::time::Instant::now() < response_deadline,
+                "Extension Runtime.evaluate timed out"
+            );
             let message = message?;
             let Message::Text(text) = message else {
                 continue;
@@ -2619,6 +2669,10 @@ impl CdpStateCollector {
                 .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false);
             anyhow::ensure!(accepted, "Extension reload was not accepted");
+            anyhow::ensure!(
+                tokio::time::Instant::now() < response_deadline,
+                "Extension Runtime.evaluate timed out"
+            );
             return Ok(());
         }
         anyhow::bail!("Extension CDP websocket closed before reload was accepted")
@@ -2839,10 +2893,15 @@ impl CdpStateCollector {
                 .to_string(),
             ))
             .await?;
-        while let Some(message) = timeout(Duration::from_secs(3), socket.next())
+        let response_deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+        while let Some(message) = tokio::time::timeout_at(response_deadline, socket.next())
             .await
             .map_err(|_| anyhow::anyhow!("CDP viewport command timed out"))?
         {
+            anyhow::ensure!(
+                tokio::time::Instant::now() < response_deadline,
+                "CDP viewport command timed out"
+            );
             let Message::Text(text) = message? else {
                 continue;
             };
@@ -2864,6 +2923,10 @@ impl CdpStateCollector {
             anyhow::ensure!(
                 width.is_finite() && height.is_finite() && width > 0.0 && height > 0.0,
                 "CDP viewport dimensions are invalid"
+            );
+            anyhow::ensure!(
+                tokio::time::Instant::now() < response_deadline,
+                "CDP viewport command timed out"
             );
             return Ok((width, height));
         }
@@ -2894,10 +2957,15 @@ impl CdpStateCollector {
                 .to_string(),
             ))
             .await?;
-        while let Some(message) = timeout(Duration::from_secs(3), socket.next())
+        let response_deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+        while let Some(message) = tokio::time::timeout_at(response_deadline, socket.next())
             .await
             .map_err(|_| anyhow::anyhow!("CDP scroll command timed out"))?
         {
+            anyhow::ensure!(
+                tokio::time::Instant::now() < response_deadline,
+                "CDP scroll command timed out"
+            );
             let Message::Text(text) = message? else {
                 continue;
             };
@@ -2906,6 +2974,10 @@ impl CdpStateCollector {
                 continue;
             }
             anyhow::ensure!(response.get("error").is_none(), "CDP scroll command failed");
+            anyhow::ensure!(
+                tokio::time::Instant::now() < response_deadline,
+                "CDP scroll command timed out"
+            );
             return Ok(());
         }
         anyhow::bail!("CDP websocket closed before scroll acknowledgement")
@@ -3838,10 +3910,15 @@ async fn next_cdp_response<S>(
 where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
 {
-    while let Some(message) = timeout(Duration::from_secs(3), socket.next())
+    let response_deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+    while let Some(message) = tokio::time::timeout_at(response_deadline, socket.next())
         .await
         .map_err(|_| anyhow::anyhow!("CDP {operation} timed out"))?
     {
+        anyhow::ensure!(
+            tokio::time::Instant::now() < response_deadline,
+            "CDP {operation} timed out"
+        );
         let Message::Text(text) = message? else {
             continue;
         };
@@ -3855,6 +3932,10 @@ where
         if let Some(exception) = response.pointer("/result/exceptionDetails") {
             anyhow::bail!("CDP {operation} was rejected: {exception}");
         }
+        anyhow::ensure!(
+            tokio::time::Instant::now() < response_deadline,
+            "CDP {operation} timed out"
+        );
         return Ok(response);
     }
     anyhow::bail!("CDP websocket closed before {operation} acknowledgement")
@@ -3901,6 +3982,91 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
+
+    #[tokio::test]
+    async fn snapshot_response_expires_despite_unrelated_messages() {
+        check_finite_cdp_response_budget(true).await;
+    }
+
+    #[tokio::test]
+    async fn resource_response_expires_despite_unrelated_messages() {
+        check_finite_cdp_response_budget(false).await;
+    }
+
+    async fn check_finite_cdp_response_budget(snapshot: bool) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected CDP command");
+            };
+            let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+            assert_eq!(
+                request["method"],
+                if snapshot {
+                    "Runtime.evaluate"
+                } else {
+                    "Performance.getMetrics"
+                }
+            );
+            for index in 0..if snapshot { 8 } else { 6 } {
+                tokio::time::sleep(Duration::from_millis(400)).await;
+                let message = match index % 3 {
+                    0 => Message::Ping(vec![1]),
+                    1 => Message::Text(
+                        serde_json::json!({"method":"Page.frameStartedLoading"}).to_string(),
+                    ),
+                    _ => Message::Text(serde_json::json!({"id":999,"result":{}}).to_string()),
+                };
+                if socket.send(message).await.is_err() {
+                    return;
+                }
+            }
+            let result = if snapshot {
+                serde_json::json!({"result":{"value":{"url":"https://example.test/","title":"late","targets":[]}}})
+            } else {
+                serde_json::json!({"metrics":[]})
+            };
+            let _ = socket
+                .send(Message::Text(
+                    serde_json::json!({"id":request["id"],"result":result}).to_string(),
+                ))
+                .await;
+        });
+        let url = format!("ws://{address}");
+        let started = std::time::Instant::now();
+        let result = timeout(Duration::from_secs(6), async {
+            if snapshot {
+                CdpStateCollector::new()
+                    .evaluate_state(&url, None)
+                    .await
+                    .map(|_| ())
+            } else {
+                CdpStateCollector::cdp_command(&url, "Performance.getMetrics", 41)
+                    .await
+                    .map(|_| ())
+            }
+        })
+        .await;
+        server.abort();
+        let _ = server.await;
+        let result = result.unwrap();
+        assert!(
+            result.is_err(),
+            "unrelated events must not extend the request response budget"
+        );
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            if snapshot {
+                "CDP Runtime.evaluate timed out"
+            } else {
+                "CDP Performance.getMetrics timed out"
+            }
+        );
+        assert!(started.elapsed() < Duration::from_millis(if snapshot { 3500 } else { 2500 }));
+    }
 
     #[tokio::test]
     async fn navigation_response_budget_cannot_be_extended_by_unrelated_messages() {

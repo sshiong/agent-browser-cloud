@@ -2096,7 +2096,9 @@ impl CdpStateCollector {
                   element.getAttribute('id'),
                   element.getAttribute('aria-label'),
                   element.getAttribute('placeholder')
-                ].filter(Boolean).join(' ');
+                ].filter(Boolean).join(' ')
+                  .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+                  .replace(/([a-z0-9])([A-Z])/g, '$1 $2');
                 const sensitiveIdentity =
                   /(^|[^a-z])(password|passwd|pwd|passcode|otp|one.?time.?code|pin|cvv|cvc|card.?number|account.?number|routing.?number|secret|token|api.?key|private.?key|ssn|social.?security)([^a-z]|$)/i;
                 const sensitiveAutocomplete = new Set([
@@ -2104,7 +2106,7 @@ impl CdpStateCollector {
                   'cc-exp', 'cc-exp-month', 'cc-exp-year', 'transaction-amount',
                   'transaction-currency'
                 ]);
-                return type === 'password'
+                return type === 'password' || type === 'hidden'
                   || element.hasAttribute('data-sensitive')
                   || element.hasAttribute('data-private')
                   || element.hasAttribute('data-redact')
@@ -2342,7 +2344,9 @@ impl CdpStateCollector {
                   const otpIdentity = [
                     element.getAttribute('name'), element.getAttribute('id'),
                     element.getAttribute('aria-label'), element.getAttribute('placeholder')
-                  ].filter(Boolean).join(' ');
+                  ].filter(Boolean).join(' ')
+                    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+                    .replace(/([a-z0-9])([A-Z])/g, '$1 $2');
                   const explicitOtpIdentity = /(^|[^a-z])(otp|one.?time.?code)([^a-z]|$)/i.test(otpIdentity);
                   const controlType = sensitive && (autocompleteTokens.includes('one-time-code') || explicitOtpIdentity)
                     ? 'one-time-code' : rawControlType;
@@ -5961,7 +5965,7 @@ mod tests {
                 tokio::spawn(async move {
                     let mut request = vec![0_u8; 4096];
                     let _ = stream.read(&mut request).await;
-                    let body = format!("<!doctype html><html><head><title>Runtime Gate</title></head><body><div role=\"row\" data-row-key=\"customer-a\"><span>Alice</span><button aria-label=\"执行验收\">Run</button></div><button aria-label=\"Open\" data-agent-entity-hash=\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\" data-agent-entity-scope=\"crm.production\" data-agent-entity-type=\"customer\">Open</button><button aria-label=\"Open\" data-agent-entity-hash=\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\" data-agent-entity-scope=\"crm.production\" data-agent-entity-type=\"customer\">Open</button><button aria-label=\"Ambiguous\">Ambiguous</button><button aria-label=\"Ambiguous\">Ambiguous</button><input placeholder=\"Name\"><iframe style=\"width:320px;height:180px\" src=\"http://{frame_address}/private?token=must-not-leak\"></iframe></body></html>");
+                    let body = format!("<!doctype html><html><head><title>Runtime Gate</title></head><body><div role=\"row\" data-row-key=\"customer-a\"><span>Alice</span><button aria-label=\"执行验收\">Run</button></div><button aria-label=\"Open\" data-agent-entity-hash=\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\" data-agent-entity-scope=\"crm.production\" data-agent-entity-type=\"customer\">Open</button><button aria-label=\"Open\" data-agent-entity-hash=\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\" data-agent-entity-scope=\"crm.production\" data-agent-entity-type=\"customer\">Open</button><button aria-label=\"Ambiguous\">Ambiguous</button><button aria-label=\"Ambiguous\">Ambiguous</button><input placeholder=\"Name\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"hidden-form-token-marker\"><input type=\"hidden\" name=\"ReturnUrl\" value=\"hidden-return-marker\"><input name=\"apiKey\" value=\"visible-key-marker\"><input name=\"clientSecret\" value=\"visible-client-secret-marker\"><iframe style=\"width:320px;height:180px\" src=\"http://{frame_address}/private?token=must-not-leak\"></iframe></body></html>");
                     let response = format!(
                         "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                         body.len(),
@@ -6067,6 +6071,23 @@ mod tests {
         assert!(adapter_targets.iter().all(|target| target.interactive));
         assert_ne!(adapter_targets[0].element_id, adapter_targets[1].element_id);
         let public_state = serde_json::to_string(&state).unwrap();
+        let private_control_values_absent = [
+            "hidden-form-token-marker",
+            "hidden-return-marker",
+            "visible-key-marker",
+            "visible-client-secret-marker",
+        ]
+        .iter()
+        .all(|marker| !public_state.contains(marker));
+        let hidden_controls_redacted = state
+            .targets
+            .iter()
+            .filter(|target| target.control_type.as_deref() == Some("hidden"))
+            .collect::<Vec<_>>();
+        let hidden_controls_redacted = hidden_controls_redacted.len() == 2
+            && hidden_controls_redacted
+                .iter()
+                .all(|target| target.sensitive && target.value.is_none() && target.name.is_none());
         assert!(!public_state.contains("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         assert!(!public_state.contains("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         assert!(!public_state.contains("crm.production"));
@@ -6250,6 +6271,14 @@ mod tests {
         page_task.abort();
         frame_task.abort();
         let _ = tokio::fs::remove_dir_all(profile).await;
+        assert!(
+            private_control_values_absent,
+            "private form values entered public State"
+        );
+        assert!(
+            hidden_controls_redacted,
+            "hidden controls were not redacted"
+        );
     }
 
     #[tokio::test]

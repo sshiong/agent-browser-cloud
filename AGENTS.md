@@ -308,6 +308,14 @@ progress 166。
 
 ### 最近验证状态
 
+- 隐藏表单字段与驼峰/缩写 Secret 名称已在 State 采集源头脱敏，Recording/Screenshot
+  DOM 遮罩同步补齐；Replay 显式异常只输出有界、固定元数据，未知文字与字段值不输出。
+  真实 Chrome、生产 JS 判定和真实异常函数回归在旧逻辑失败，修改后通过；Replay Gate
+  23 项、Rust Workspace 195 项、三项真实 Chrome 与严格 Clippy 通过，见 progress 248。
+  `96fb3f8` 两份 Desktop 均通过，CI `37006769122` 在安全租约实时 SSE 断言失败，
+  原有 CI `37006757916` 随后完整通过；失败原因未确定，不得宣布两份 CI 均通过或
+  实时 SSE 稳定性缺口已关闭。
+
 - 网络加载收尾已改用 `Page.lifecycleEvent(load)` 的精确 Frame/Loader；普通
   `Page.loadEventFired` 不再清除请求。只有已提交当前 Document 中同一 Frame/Loader
   的 Document/parser 资源允许加载收尾，旧 Document、未知身份、旧子 Frame Loader、
@@ -319,8 +327,8 @@ progress 166。
   `37001784272` 与 Desktop `37001784154` 全部通过。
   分类修复后重建 Node，公开 Duende 登录与独立 OIDC/PKCE/SSO 两例通过，同轮
   独立 CDP 仍看到内部请求；该证据不代替完整 17 例连续稳定性或企业 IdP Gate。
-  本轮另发现隐藏表单防伪字段值可进入 State/Harness 异常摘要，源头遮罩和
-  异常摘要脱敏仍待补齐，不得将私有 CDP 观察器脱敏等同于该路径已闭环。
+  本轮发现的隐藏表单防伪字段值进入 State/Harness 异常摘要已由 progress 248
+  补齐源头与显式断言脱敏，私有 CDP 观察器是另一条独立路径。
   `8c133e8` 的公开完整回放在退出登录导航超时，未完成 17 例；Document 失败通知
   晚于 Node 超时且接近清理，不能以此判定传输根因或宣布连续稳定性通过。
 

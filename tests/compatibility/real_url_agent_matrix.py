@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "validation"))
 from replay_gate import ReplayGate
+from replay_diagnostics import diagnostic
 
 
 BASE_URL = sys.argv[1].rstrip("/")
@@ -74,7 +75,10 @@ def request(
 def require_status(actual, expected, context):
     status, payload = actual
     if status != expected:
-        raise AssertionError(f"{context}: expected HTTP {expected}, got {status}: {payload}")
+        raise AssertionError(
+            f"HTTP request failed: {diagnostic(dict(expectedHttpStatus=expected, httpStatus=status))}; "
+            f"{diagnostic(payload)}"
+        )
     return payload
 
 
@@ -86,32 +90,7 @@ def wait_for(path, predicate, timeout=45):
         if predicate(last):
             return last
         time.sleep(0.25)
-    raise AssertionError(f"timed out polling {path}: {diagnostic(last)}")
-
-
-def diagnostic(value):
-    if not isinstance(value, dict):
-        return value
-    if "taskId" in value:
-        return {
-            key: value.get(key)
-            for key in ("taskId", "state", "blockedReason", "lastError", "challengeEventId")
-        } | {
-            "steps": [
-                (item.get("toolId"), item.get("status"), item.get("reasonCode"))
-                for item in value.get("memory", {}).get("executionHistory", [])
-            ]
-        }
-    if "targets" in value:
-        return {
-            key: value.get(key)
-            for key in (
-                "sessionId", "url", "stateVersion", "targetRevision", "stateQuality",
-                "freshness", "pageActivity", "documentReadyState", "networkQuietMillis",
-                "networkEvidenceFresh", "pageStability",
-            )
-        }
-    return value
+    raise AssertionError(f"timed out polling {diagnostic(path)}: {diagnostic(last)}")
 
 
 def wait_for_executable_state(session_id, timeout=45):
@@ -128,10 +107,10 @@ def wait_for_executable_state(session_id, timeout=45):
                 return state
         else:
             raise AssertionError(
-                f"poll {path}: expected HTTP 200 or 204, got {status}: {state}"
+                f"state poll failed: {diagnostic(dict(httpStatus=status))}; {diagnostic(state)}"
             )
         time.sleep(0.25)
-    raise AssertionError(f"timed out polling executable state {path}: {last}")
+    raise AssertionError(f"timed out polling executable state {diagnostic(path)}: {diagnostic(last)}")
 
 
 def create_execute_task(session_id, body, label, terminal_states=("COMPLETED",)):
@@ -154,9 +133,9 @@ def create_execute_task(session_id, body, label, terminal_states=("COMPLETED",))
         ):
             break
     if created is None:
-        raise AssertionError(f"Agent task {label} was not created")
+        raise AssertionError(f"Agent task {diagnostic(label)} was not created")
     if created["state"] != "PLANNED":
-        raise AssertionError(f"Agent task {label} was not planned: {created}")
+        raise AssertionError(f"Agent task {diagnostic(label)} was not planned: {diagnostic(created)}")
     task_id = created["taskId"]
     require_status(
         request(
@@ -172,7 +151,7 @@ def create_execute_task(session_id, body, label, terminal_states=("COMPLETED",))
         lambda task: task["state"] in {*terminal_states, "FAILED", "BLOCKED"},
     )
     if result["state"] not in terminal_states:
-        raise AssertionError(f"Agent task {label} ended unexpectedly: {diagnostic(result)}")
+        raise AssertionError(f"Agent task {diagnostic(label)} ended unexpectedly: {diagnostic(result)}")
     return result
 
 
@@ -180,9 +159,12 @@ def require_verified(task, expected_tools):
     results = task["executionResults"]
     tools = [result["toolId"] for result in results]
     if tools != expected_tools:
-        raise AssertionError(f"unexpected tools: expected {expected_tools}, got {tools}")
+        raise AssertionError(
+            f"unexpected tools: expected {diagnostic([dict(toolId=tool) for tool in expected_tools])}, "
+            f"got {diagnostic([dict(toolId=tool) for tool in tools])}"
+        )
     if any(result["status"] != "VERIFIED" for result in results):
-        raise AssertionError(f"unverified Agent result: {results}")
+        raise AssertionError(f"unverified Agent result: {diagnostic(results)}")
 
 
 def current_state(session_id):
@@ -195,7 +177,7 @@ def wait_for_named_target(session_id, name, role="button", timeout=45, require_s
     while time.monotonic() < deadline:
         status, state = request("GET", f"/api/v1/sessions/{session_id}/state")
         if status not in {200, 204}:
-            raise AssertionError(f"poll named target {name}: HTTP {status}: {state}")
+            raise AssertionError(f"named target poll failed: {diagnostic(dict(httpStatus=status))}; {diagnostic(state)}")
         if status == 200:
             last = state
             if state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"} and (
@@ -219,12 +201,7 @@ def wait_for_named_target(session_id, name, role="button", timeout=45, require_s
                     return state, target
         time.sleep(0.25)
     raise AssertionError(
-        f"timed out waiting for {name} target: quality={(last or {}).get('stateQuality')} "
-        f"url={(last or {}).get('url')} title={(last or {}).get('title')} "
-        f"revision={(last or {}).get('targetRevision')} "
-        f"buttons={[(target.get('name'), target.get('visible'), target.get('enabled'), target.get('inViewport')) for target in (last or {}).get('targets', []) if target.get('role') == 'button']} "
-        f"textboxes={[(target.get('name'), target.get('value'), target.get('visible'), target.get('enabled'), target.get('inViewport')) for target in (last or {}).get('targets', []) if target.get('role') == 'textbox']} "
-        f"matches={[target for target in (last or {}).get('targets', []) if target.get('name') == name]}"
+        f"timed out waiting for named target: {diagnostic(last)}"
     )
 
 
@@ -290,7 +267,7 @@ def run_public_spa(session_id):
         require_verified(spa_reopened, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"])
         spa_state, new_todo = wait_for_named_target(session_id, "What needs to be done?", role="textbox", timeout=30)
     if new_todo.get("sensitive") or not spa_state.get("url", "").startswith(spa_url):
-        raise AssertionError(f"public SPA entry was not an actionable test page: {new_todo}")
+        raise AssertionError(f"public SPA entry was not an actionable test page: {diagnostic(new_todo)}")
     if any(target.get("name") == "Toggle Todo" for target in spa_state["targets"]):
         raise AssertionError("public SPA started with a preexisting todo in the isolated Browser Profile")
     spa_marker = "agent-browser-public-spa-" + uuid.uuid4().hex[:12]
@@ -316,7 +293,7 @@ def run_public_spa(session_id):
         raise AssertionError("public SPA marker leaked into Agent task response")
     spa_state, new_todo = wait_for_named_target(session_id, "What needs to be done?", role="textbox")
     if new_todo.get("value") != spa_marker:
-        raise AssertionError(f"public SPA controlled input did not retain typed marker: {new_todo}")
+        raise AssertionError(f"public SPA controlled input did not retain typed marker: {diagnostic(new_todo)}")
     spa_added = create_execute_task(
         session_id,
         {
@@ -341,7 +318,7 @@ def run_public_spa(session_id):
     )
     todo_checkbox = next(target for target in spa_state["targets"] if target.get("name") == "Toggle Todo")
     if todo_checkbox.get("checked") is not False:
-        raise AssertionError(f"new public SPA todo was not active: {todo_checkbox}")
+        raise AssertionError(f"new public SPA todo was not active: {diagnostic(todo_checkbox)}")
     spa_state, toggle_label = wait_for_named_target(session_id, "Mark all as complete", role=None)
     spa_checked = create_execute_task(
         session_id,
@@ -420,7 +397,7 @@ def run_public_spa(session_id):
         and any(target.get("name") == "Toggle Todo" and target.get("checked") is True for target in state.get("targets", [])),
     )
     if recovered_state["title"] != "React • TodoMVC":
-        raise AssertionError(f"public SPA title changed after recovery: {recovered_state['title']}")
+        raise AssertionError(f"public SPA title changed after recovery: {diagnostic(recovered_state['title'])}")
     REPLAY_GATE.pass_case("public-playwright-todomvc-spa")
 
 
@@ -474,7 +451,7 @@ def run_public_commerce(session_id):
                 None,
             )
         if target is None:
-            raise AssertionError(f"public commerce {purpose.lower()} target unavailable")
+            raise AssertionError(f"public commerce {diagnostic(purpose.lower())} target unavailable")
         secret = require_status(
             request(
                 "POST",
@@ -561,7 +538,7 @@ def run_public_commerce(session_id):
     require_verified(detail, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"])
     detail_state, add_button = wait_for_named_target(session_id, "Add to cart", role="button")
     if detail_state.get("url") != detail_url:
-        raise AssertionError(f"public commerce detail route changed: {detail_state.get('url')}")
+        raise AssertionError(f"public commerce detail route changed: {diagnostic(detail_state.get('url'))}")
     added = create_execute_task(
         session_id,
         {
@@ -603,7 +580,7 @@ def run_public_commerce(session_id):
         and any(item.get("name") == "Checkout" for item in state.get("targets", [])),
     )
     if cart_result.get("title") != "Swag Labs":
-        raise AssertionError(f"public commerce cart title changed: {cart_result.get('title')}")
+        raise AssertionError(f"public commerce cart title changed: {diagnostic(cart_result.get('title'))}")
     REPLAY_GATE.pass_case("public-saucedemo-cart")
 
 
@@ -675,8 +652,8 @@ def run_public_idp(session_id):
                 None,
             )
             if target is None:
-                raise AssertionError(f"public IdP {purpose.lower()} target unavailable; "
-                                     f"textboxes={[(item.get('name'), item.get('sensitive'), item.get('visible'), item.get('enabled'), item.get('inViewport')) for item in login_state['targets'] if item.get('role') == 'textbox']}")
+                raise AssertionError(f"public IdP {diagnostic(purpose.lower())} target unavailable; "
+                                     f"textboxes={diagnostic([(item.get('name'), item.get('sensitive'), item.get('visible'), item.get('enabled'), item.get('inViewport')) for item in login_state['targets'] if item.get('role') == 'textbox'])}")
             secret = require_status(
                 request(
                     "POST",
@@ -716,9 +693,9 @@ def run_public_idp(session_id):
                 result.get("toolId") == "TYPE_TEXT" and result.get("status") == "VERIFIED"
                 for result in typed.get("executionResults", [])
             ):
-                raise AssertionError(f"public IdP {purpose.lower()} failed: {typed.get('lastError')}")
+                raise AssertionError(f"public IdP {diagnostic(purpose.lower())} failed: {diagnostic(typed.get('lastError'))}")
             if attempt == 2:
-                raise AssertionError(f"public IdP {purpose.lower()} stayed stale after bounded retries")
+                raise AssertionError(f"public IdP {diagnostic(purpose.lower())} stayed stale after bounded retries")
             time.sleep(0.5)
         login_state = wait_for(
             f"/api/v1/sessions/{session_id}/state",
@@ -795,9 +772,9 @@ def run_public_oidc(session_id):
     if authorized["state"] != "COMPLETED":
         current = require_status(request("GET", f"/api/v1/sessions/{session_id}/state"), 200, "inspect OIDC failure")
         observed = urlsplit(current.get("url", ""))
-        raise AssertionError(f"public OIDC failed: {authorized.get('lastError')}; "
-                             f"host={observed.hostname} path={observed.path} title={current.get('title')}; "
-                             f"buttons={[item.get('name') for item in current.get('targets', []) if item.get('role') == 'button']}")
+        raise AssertionError(f"public OIDC failed: {diagnostic(authorized.get('lastError'))}; "
+                             f"host={diagnostic(observed.hostname)} path={diagnostic(observed.path)} title={diagnostic(current.get('title'))}; "
+                             f"buttons={diagnostic([item.get('name') for item in current.get('targets', []) if item.get('role') == 'button'])}")
     require_verified(authorized, ["GET_CURRENT_STATE", "CLICK_TARGET", "GET_URL", "GET_PAGE_SUMMARY"])
     result = wait_for(
         f"/api/v1/sessions/{session_id}/state",
@@ -808,7 +785,7 @@ def run_public_oidc(session_id):
     names = " ".join(item.get("name") or "" for item in result.get("targets", []))
     for proof in ("signature", "issuerAudienceNonce", "userinfoSubject", "pkce", "reusedCodeRejected"):
         if f'"{proof}": true' not in names:
-            raise AssertionError(f"public OIDC proof missing: {proof}")
+            raise AssertionError(f"public OIDC proof missing: {diagnostic(proof)}")
     REPLAY_GATE.pass_case("public-duende-oidc-code-pkce")
 
 
@@ -851,7 +828,7 @@ for label, url, domain in sites:
     )
     navigation = task["executionResults"][0]["output"]
     if navigation["domain"] != domain or not navigation["finalUrl"].startswith(url):
-        raise AssertionError(f"navigation left authorized domain: {navigation}")
+        raise AssertionError(f"navigation left authorized domain: {diagnostic(navigation)}")
     REPLAY_GATE.pass_case(label)
 
 form_case = REPLAY_GATE.cases["public-selenium-form"]
@@ -872,10 +849,10 @@ require_verified(
 )
 form_navigation = public_form["executionResults"][0]["output"]
 if form_navigation["domain"] != form_domain or not form_navigation["finalUrl"].startswith(form_case["url"]):
-    raise AssertionError(f"Selenium form navigation left authorized page: {form_navigation}")
+    raise AssertionError(f"Selenium form navigation left authorized page: {diagnostic(form_navigation)}")
 public_state, public_textbox = wait_for_named_target(session_id, "Text input", role="textbox")
 if public_textbox["role"] != "textbox" or public_textbox["sensitive"]:
-    raise AssertionError(f"Selenium text input was not actionable: {public_textbox}")
+    raise AssertionError(f"Selenium text input was not actionable: {diagnostic(public_textbox)}")
 public_marker = "agent-browser-public-form"
 public_typed = create_execute_task(
     session_id,
@@ -940,8 +917,8 @@ for _ in range(40):
     public_result = current_state(session_id)
 if "/selenium/web/submitted-form.html" not in public_result.get("url", ""):
     raise AssertionError(
-        f"public Selenium form did not submit: {public_result.get('url')}; "
-        f"submit={public_submit}; click={public_submitted['executionResults'][1].get('output')}"
+        f"public Selenium form did not submit: {diagnostic(public_result.get('url'))}; "
+        f"submit={diagnostic(public_submit)}; click={diagnostic(public_submitted['executionResults'][1].get('output'))}"
     )
 if public_marker not in public_result["url"]:
     raise AssertionError("public Selenium form submission omitted the test marker")
@@ -1003,8 +980,8 @@ def practice_target(state, role, name):
     )
     if target is None:
         raise AssertionError(
-            f"practice login target {role}/{name} unavailable: "
-            f"{[(item.get('role'), item.get('name'), item.get('sensitive'), item.get('visible'), item.get('enabled'), item.get('inViewport')) for item in state.get('targets', [])]}"
+            f"practice login target {diagnostic(role)}/{diagnostic(name)} unavailable: "
+            f"{diagnostic([(item.get('role'), item.get('name'), item.get('sensitive'), item.get('visible'), item.get('enabled'), item.get('inViewport')) for item in state.get('targets', [])])}"
         )
     return target
 
@@ -1023,7 +1000,7 @@ def practice_secret(purpose, value, label):
         f"create one-time practice {purpose} secret",
     )
     if "value" in result or result.get("consumed") is not False:
-        raise AssertionError(f"write-only practice secret was exposed or consumed: {result}")
+        raise AssertionError(f"write-only practice secret was exposed or consumed: {diagnostic(result)}")
     return result["secretId"]
 
 
@@ -1090,10 +1067,10 @@ for label, password_value, expected_path in (
         )
         require_verified(typed, ["GET_CURRENT_STATE", "TYPE_TEXT", "GET_URL", "GET_PAGE_SUMMARY"])
         if purpose == "PASSWORD" and value in json.dumps(typed):
-            raise AssertionError(f"practice {purpose.lower()} leaked in Agent task response")
+            raise AssertionError(f"practice {diagnostic(purpose.lower())} leaked in Agent task response")
         login_state = practice_state(after_version=login_state["stateVersion"])
         if purpose == "PASSWORD" and value in json.dumps(login_state):
-            raise AssertionError(f"practice {purpose.lower()} leaked in Browser State")
+            raise AssertionError(f"practice {diagnostic(purpose.lower())} leaked in Browser State")
     submit = practice_target(login_state, "button", "Login")
     submitted = create_execute_task(
         session_id,
@@ -1113,7 +1090,7 @@ for label, password_value, expected_path in (
     require_verified(submitted, ["GET_CURRENT_STATE", "CLICK_TARGET", "GET_URL", "GET_PAGE_SUMMARY"])
     result_state = practice_state(after_version=login_state["stateVersion"], path=expected_path)
     if result_state.get("url", "").split("?", 1)[0] != f"https://{practice_domain}{expected_path}":
-        raise AssertionError(f"practice {label} ended at unexpected URL: {result_state.get('url')}")
+        raise AssertionError(f"practice {diagnostic(label)} ended at unexpected URL: {diagnostic(result_state.get('url'))}")
     if label == "invalid-password":
         result_state = wait_for(
             f"/api/v1/sessions/{session_id}/state",
@@ -1300,7 +1277,7 @@ for label, code, expected_path in (
             None,
         )
         if challenge is None or challenge.get("suspectedType") != "OTP" or challenge.get("targetRef") != otp_challenge_target["targetRef"]:
-            raise AssertionError(f"practice OTP Challenge did not bind the exact sensitive target: {challenge}")
+            raise AssertionError(f"practice OTP Challenge did not bind the exact sensitive target: {diagnostic(challenge)}")
         otp_secret = practice_secret("OTP", code, f"otp-{label}-code")
         response = require_status(
             request(
@@ -1315,14 +1292,14 @@ for label, code, expected_path in (
             f"respond to practice OTP {label} Challenge",
         )
         if response.get("purpose") != "OTP" or response.get("taskId") != revealed_submit["taskId"]:
-            raise AssertionError(f"practice OTP response was not bound to original Task: {response}")
+            raise AssertionError(f"practice OTP response was not bound to original Task: {diagnostic(response)}")
         revealed_submit = wait_for(
             f"/api/v1/agent-tasks/{revealed_submit['taskId']}",
             lambda task: task.get("state") in {"COMPLETED", "FAILED", "BLOCKED"},
             timeout=90,
         )
         if revealed_submit.get("state") != "COMPLETED":
-            raise AssertionError(f"practice OTP {label} Task did not resume: {revealed_submit}")
+            raise AssertionError(f"practice OTP {diagnostic(label)} Task did not resume: {diagnostic(revealed_submit)}")
         code_entered = True
     require_verified(revealed_submit, ["GET_CURRENT_STATE", "SCROLL", "GET_URL", "GET_PAGE_SUMMARY"])
     otp_stage = wait_for(
@@ -1427,7 +1404,7 @@ textbox = next(
     None,
 )
 if textbox is None:
-    raise AssertionError(f"authorized form exposed no actionable textbox: {form_state}")
+    raise AssertionError(f"authorized form exposed no actionable textbox: {diagnostic(form_state)}")
 
 marker = "browser-cloud-public-input"
 typed = create_execute_task(
@@ -1457,7 +1434,7 @@ if marker in typed_json:
     raise AssertionError("plaintext TYPE_TEXT value leaked into Agent task response")
 type_output = typed["executionResults"][1]["output"]
 if type_output.get("inputLength") != len(marker) or len(type_output.get("inputHash", "")) != 64:
-    raise AssertionError(f"TYPE_TEXT evidence was not minimized: {type_output}")
+    raise AssertionError(f"TYPE_TEXT evidence was not minimized: {diagnostic(type_output)}")
 
 scrolled = create_execute_task(
     session_id,
@@ -1495,8 +1472,8 @@ except AssertionError as error:
         ),
     }
     raise AssertionError(
-        f"{error}; simple Challenge diagnostics: "
-        + json.dumps(simple_diagnostics, sort_keys=True)
+        f"{diagnostic(error)}; simple Challenge diagnostics: "
+        + json.dumps(diagnostic(simple_diagnostics), sort_keys=True)
     ) from error
 require_verified(
     challenge_task, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"]
@@ -1511,7 +1488,7 @@ if (
     or challenge_task.get("challengeEventId") is not None
 ):
     raise AssertionError(
-        f"simple Challenge did not complete through bounded Agent automation: {challenge_run} {challenge_task}"
+        f"simple Challenge did not complete through bounded Agent automation: {diagnostic(challenge_run)} {diagnostic(challenge_task)}"
     )
 challenge_events = require_status(
     request("GET", f"/api/v1/sessions/{session_id}/challenges"),
@@ -1528,11 +1505,11 @@ simple_challenge = next(
 )
 if simple_challenge is None or simple_challenge["status"] == "AUTHORIZED":
     raise AssertionError(
-        f"simple Challenge required a manual authorization: {challenge_events}"
+        f"simple Challenge required a manual authorization: {diagnostic(challenge_events)}"
     )
 challenge_state = current_state(session_id)
 if challenge_state["title"] != "Challenge passed":
-    raise AssertionError(f"simple Challenge outcome was not observed: {challenge_state}")
+    raise AssertionError(f"simple Challenge outcome was not observed: {diagnostic(challenge_state)}")
 REPLAY_GATE.pass_case("synthetic-simple-challenge")
 
 # A real cross-origin iframe remains DOM-opaque. Automation is allowed only after an exact
@@ -1591,7 +1568,7 @@ opaque_frame_state = wait_for(
 )
 if opaque_frame_state.get("title") != "Verify you are human":
     raise AssertionError(
-        f"opaque Challenge parent page changed before task binding: {opaque_frame_state}"
+        f"opaque Challenge parent page changed before task binding: {diagnostic(opaque_frame_state)}"
     )
 opaque_frames = [
     frame for frame in opaque_frame_state["opaqueFrames"]
@@ -1627,7 +1604,7 @@ opaque_created = require_status(
 )
 opaque_task_id = opaque_created["taskId"]
 if opaque_created["state"] != "PLANNED":
-    raise AssertionError(f"opaque Challenge task was not planned: {opaque_created}")
+    raise AssertionError(f"opaque Challenge task was not planned: {diagnostic(opaque_created)}")
 require_status(
     request(
         "POST",
@@ -1659,7 +1636,7 @@ while time.monotonic() < deadline:
         opaque_claim = candidate
         break
     if status != 204:
-        raise AssertionError(f"claim opaque Challenge vision job failed: {status} {candidate}")
+        raise AssertionError(f"claim opaque Challenge vision job failed: {diagnostic(status)} {diagnostic(candidate)}")
     time.sleep(0.25)
 if opaque_claim is None:
     opaque_diagnostics = {
@@ -1725,7 +1702,7 @@ opaque_task = wait_for(
     lambda task: task["state"] in {"COMPLETED", "FAILED", "BLOCKED"},
 )
 if opaque_task["state"] != "COMPLETED":
-    raise AssertionError(f"opaque Challenge task did not resume: {opaque_task}")
+    raise AssertionError(f"opaque Challenge task did not resume: {diagnostic(opaque_task)}")
 require_verified(
     opaque_task,
     ["GET_CURRENT_STATE", "WAIT_FOR", "GET_URL", "GET_PAGE_SUMMARY"],
@@ -1735,7 +1712,7 @@ opaque_run = wait_for(
     lambda run: run["state"] in {"COMPLETED", "FAILED", "ESCALATED", "EXHAUSTED"},
 )
 if opaque_run["state"] != "COMPLETED" or opaque_run["lastAction"] != "CLICKx1":
-    raise AssertionError(f"opaque Challenge automation did not complete: {opaque_run}")
+    raise AssertionError(f"opaque Challenge automation did not complete: {diagnostic(opaque_run)}")
 opaque_events = require_status(
     request("GET", f"/api/v1/sessions/{session_id}/challenges"),
     200,
@@ -1750,10 +1727,10 @@ opaque_event = next(
     None,
 )
 if opaque_event is None or not opaque_event["targetRef"].startswith("ofr_"):
-    raise AssertionError(f"opaque Challenge did not retain a frame identity: {opaque_events}")
+    raise AssertionError(f"opaque Challenge did not retain a frame identity: {diagnostic(opaque_events)}")
 opaque_state = current_state(session_id)
 if opaque_state["title"] != "Opaque challenge passed":
-    raise AssertionError(f"opaque Challenge click did not reach the hosted frame: {opaque_state}")
+    raise AssertionError(f"opaque Challenge click did not reach the hosted frame: {diagnostic(opaque_state)}")
 REPLAY_GATE.pass_case("synthetic-opaque-frame-single-click")
 
 example_task = create_execute_task(
@@ -1794,7 +1771,7 @@ cross_domain_link = next(
     None,
 )
 if cross_domain_link is None:
-    raise AssertionError(f"example.com link target missing: {example_state}")
+    raise AssertionError(f"example.com link target missing: {diagnostic(example_state)}")
 
 failed_click = create_execute_task(
     session_id,
@@ -1831,9 +1808,9 @@ proxy_denied_status, proxy_denied_task = request(
     f"real-denied-create-{uuid.uuid4().hex}",
 )
 if proxy_denied_status != 201:
-    raise AssertionError(f"blocked Agent plan should be persisted, got {proxy_denied_status}")
+    raise AssertionError(f"blocked Agent plan should be persisted, got {diagnostic(proxy_denied_status)}")
 if proxy_denied_task.get("state") != "BLOCKED" or proxy_denied_task.get("blockedReason") != "DOMAIN_NOT_ALLOWED":
-    raise AssertionError(f"non-allowlisted Agent plan was not blocked: {proxy_denied_task}")
+    raise AssertionError(f"non-allowlisted Agent plan was not blocked: {diagnostic(proxy_denied_task)}")
 REPLAY_GATE.pass_case("non-allowlisted-plan")
 
 require_status(
@@ -1912,7 +1889,7 @@ validation_claim = require_status(
     "claim Build-bound Runtime Validation",
 )
 if validation_claim["validation"]["validationId"] != validation["validationId"]:
-    raise AssertionError(f"claimed a different Runtime Validation: {validation_claim}")
+    raise AssertionError(f"claimed a different Runtime Validation: {diagnostic(validation_claim)}")
 require_status(
     request(
         "POST",
@@ -1962,7 +1939,7 @@ if (
     or validation["job"]["state"] != "COMMITTED"
     or len(validation["evidenceHash"]) != 64
 ):
-    raise AssertionError(f"Runtime Validation evidence is incomplete: {validation}")
+    raise AssertionError(f"Runtime Validation evidence is incomplete: {diagnostic(validation)}")
 print(
     json.dumps(
         {

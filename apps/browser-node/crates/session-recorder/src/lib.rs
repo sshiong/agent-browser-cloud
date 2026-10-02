@@ -893,14 +893,16 @@ const COLLECT_RECORDING_REDACTION_REGIONS_SCRIPT: &str = r#"
     if (element.matches('iframe, [data-sensitive], [data-private], [data-redact]')) return true;
     const classification = (element.getAttribute('data-classification') || '').toUpperCase();
     if (classification === 'SENSITIVE' || classification === 'HIGHLY_SENSITIVE') return true;
-    if ((element.getAttribute('type') || '').toLowerCase() === 'password') return true;
+    if (['password', 'hidden'].includes((element.getAttribute('type') || '').toLowerCase())) return true;
     const autocomplete = (element.getAttribute('autocomplete') || '')
       .toLowerCase().split(/\s+/).filter(Boolean);
     if (autocomplete.some((token) => sensitiveAutocomplete.has(token))) return true;
     const identity = [
       element.getAttribute('name'), element.getAttribute('id'),
       element.getAttribute('aria-label'), element.getAttribute('placeholder')
-    ].filter(Boolean).join(' ');
+    ].filter(Boolean).join(' ')
+      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2');
     return sensitiveName.test(identity);
   };
   const viewportWidth = window.innerWidth;
@@ -1357,7 +1359,7 @@ const INSTALL_REDACTION_SCRIPT: &str = r#"
     const classification = (element.getAttribute('data-classification') || '').toUpperCase();
     if (classification === 'SENSITIVE' || classification === 'HIGHLY_SENSITIVE') return true;
     const type = (element.getAttribute('type') || '').toLowerCase();
-    if (type === 'password') return true;
+    if (type === 'password' || type === 'hidden') return true;
     const autocomplete = (element.getAttribute('autocomplete') || '')
       .toLowerCase().split(/\s+/).filter(Boolean);
     if (autocomplete.some((token) => sensitiveAutocomplete.has(token))) return true;
@@ -1366,7 +1368,9 @@ const INSTALL_REDACTION_SCRIPT: &str = r#"
       element.getAttribute('id'),
       element.getAttribute('aria-label'),
       element.getAttribute('placeholder')
-    ].filter(Boolean).join(' ');
+    ].filter(Boolean).join(' ')
+      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2');
     return sensitiveName.test(identity);
   };
 

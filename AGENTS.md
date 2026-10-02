@@ -316,6 +316,9 @@ progress 166。
   功能提交 `7ea6ede` 的 ci `36971447349` 与 Desktop `36971447454` 均通过。
   独立 CDP 对照又在同一平台 Browser 复现一个练习站 POST/XHR 在途约 43 秒且无响应，
   不能把该失败仅归因于 Node 旧计数；上游/代理/浏览器网络服务原因仍未隔离。
+  随后公开 OTP 定向复核的导航/表单/登录/OTP 共 8 例通过；只读 CDP 本轮观察到
+  短暂 Socket.IO GET/XHR 正常收尾，没有重现持续 POST，不能据此追溯其归属或关闭
+  完整 17 例连续稳定性。固定诊断类别不进入产品网络静默策略。
 
 - Duende 官方公开 `interactive.public` Client 增加独立 OIDC Code/PKCE/SSO Replay：
   Agent 用既有一次性账号登录后点击可见授权链接，临时 Client 固定端点、Scope、S256 和

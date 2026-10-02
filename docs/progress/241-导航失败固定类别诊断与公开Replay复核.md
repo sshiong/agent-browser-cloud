@@ -61,6 +61,26 @@ XHR 完成事件且没有残留。该辅助 Headless 诊断不包含平台完整
 隔离上游、代理传输或浏览器网络服务的具体原因，也没有观察该 POST 的事务内容，不能
 把它当成可忽略的后台流量或盲目重发请求。网络静默、敏感输入与事务围栏保持原样。
 
+### OTP 定向复核
+
+同日再次执行 `REAL_URL_SKIP_BUILD=true REAL_URL_OTP_ONLY=true make test-real-url-agent`，
+仍使用 OrbStack、真实 Chrome 和原精确出口白名单。公开导航、Selenium 表单、错误密码/
+正确登录、错误码/正确码 OTP 共 **8 例通过**，输出 `practiceOtp=verified`。
+第二条只读 CDP 连接从首个 Document 开始观察，不发送页面动作或读取请求正文。
+
+[练习站公开 OTP 页](https://practice.expandtesting.com/otp-login)的内联脚本在 `window.onload` 中调用 `io()`，然后发送
+`pageChange`；公开表单本身则向 `/otp-login` POST。辅助诊断因此仅增加精确路径的
+固定 `SOCKET_IO` 与 `PRACTICE_OTP_ENTRY` 类别，以及两个精确 RUM 路径匹配，不输出
+Query、Header、正文或凭据。这些类别未写入产品策略，也未使请求跳过网络静默。
+
+UTC 06:56:44、06:57:04 与 06:57:09 观察到的三个采样分别包含约 1.6、0.5、3.4 秒的
+`SOCKET_IO / GET / XHR` 在途请求，后续均收到完成事件。该定向运行没有重现持续
+43 秒的 POST，不能追溯认定此前 POST 属于 Socket.IO，也不能宣称网络故障已修复。
+这是 8 例定向通过证据，不是完整 17 例或连续长稳通过证据。
+
+辅助日志位于本机私有临时目录 `/tmp/agentbrowser-otp-network-probe.v0eTNB/`；
+观察器与测试进程均正常退出，原测试 Harness 已清理本轮容器、临时 Profile 与私有证书。
+
 ## 剩余边界
 
 诊断能力本身不等于导航故障已修复；具体故障需由带类别的真实回放重新确认。

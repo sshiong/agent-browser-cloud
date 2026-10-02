@@ -308,6 +308,22 @@ progress 166。
 
 ### 最近验证状态
 
+- 网络加载收尾已改用 `Page.lifecycleEvent(load)` 的精确 Frame/Loader；普通
+  `Page.loadEventFired` 不再清除请求。只有已提交当前 Document 中同一 Frame/Loader
+  的 Document/parser 资源允许加载收尾，旧 Document、未知身份、旧子 Frame Loader、
+  Script Fetch/XHR 和事务围栏继续保留。两项回归修复前失败，默认 State Collector
+  54 项、Rust Workspace 195 项、三项真实 Chrome 与严格 Clippy 通过，见 progress 247。
+  独立 CDP 将随后 IdP 的持续 Document 阻塞定位为 Chrome 新标签页内部
+  `chrome-untrusted` 请求，已按精确、有界内部 Scheme 补齐浏览器服务分类；业务
+  HTTP(S)/Data/Blob/Extension/未知请求保持原围栏。前一提交 `8c133e8` 的 CI
+  `37001784272` 与 Desktop `37001784154` 全部通过。
+  分类修复后重建 Node，公开 Duende 登录与独立 OIDC/PKCE/SSO 两例通过，同轮
+  独立 CDP 仍看到内部请求；该证据不代替完整 17 例连续稳定性或企业 IdP Gate。
+  本轮另发现隐藏表单防伪字段值可进入 State/Harness 异常摘要，源头遮罩和
+  异常摘要脱敏仍待补齐，不得将私有 CDP 观察器脱敏等同于该路径已闭环。
+  `8c133e8` 的公开完整回放在退出登录导航超时，未完成 17 例；Document 失败通知
+  晚于 Node 超时且接近清理，不能以此判定传输根因或宣布连续稳定性通过。
+
 - 有限 CDP 请求的响应预算已进一步覆盖 State/Region、资源命令、受治理 Evaluate、
   Reload/Extension、Viewport/Scroll、Tab/Input/Upload ACK 和 Recorder 截图控制命令。
   十处等待循环共用各自请求的一次单调截止时间，读取后和接受成功前拒绝过期；原预算、

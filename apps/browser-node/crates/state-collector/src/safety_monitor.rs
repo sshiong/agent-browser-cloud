@@ -493,12 +493,27 @@ impl ActivityTracker {
         }
     }
 
-    fn complete_load_bound_requests(&mut self, session_id: &str) {
+    fn complete_load_bound_requests(&mut self, session_id: &str, frame_id: &str, loader_id: &str) {
+        let Some(frame) = self
+            .frames
+            .get(&(session_id.to_owned(), frame_id.to_owned()))
+        else {
+            return;
+        };
+        if frame.loader_id != loader_id || self.documents.get(session_id) != Some(&frame.document) {
+            return;
+        }
         let request_ids = self
             .requests
             .iter()
             .filter(|((request_session, _), activity)| {
                 request_session == session_id
+                    && activity.frame_id.as_deref() == Some(frame_id)
+                    && activity.loader_id.as_deref() == Some(loader_id)
+                    && self
+                        .documents
+                        .get(session_id)
+                        .is_some_and(|current| activity.document.as_ref() == Some(current))
                     && (activity.resource_type == "Document"
                         || activity.initiator_type.eq_ignore_ascii_case("parser"))
             })
@@ -607,6 +622,14 @@ fn extend_deadline(deadline: &mut Option<Instant>, next: Instant) {
 /// Top-level documents remain observable because user/browser navigations also use `other`.
 fn is_document_network_activity(resource_type: &str, initiator_type: &str) -> bool {
     resource_type == "Document" || !initiator_type.eq_ignore_ascii_case("other")
+}
+
+fn is_browser_internal_url(value: &str) -> bool {
+    if value.len() > 2_048 || value.trim() != value {
+        return false;
+    }
+    reqwest::Url::parse(value)
+        .is_ok_and(|url| matches!(url.scheme(), "chrome" | "chrome-untrusted" | "devtools"))
 }
 
 pub(crate) fn spawn(
@@ -780,7 +803,7 @@ async fn observe_browser(
                     anyhow::bail!("required CDP Network.enable command failed");
                 }
             } else if page_enable_commands.remove(&id) && event.get("error").is_some() {
-                anyhow::bail!("required CDP Page.enable command failed");
+                anyhow::bail!("required CDP Page observation command failed");
             } else if id == 8_003 && event.get("error").is_none() {
                 tracker.download_events_enabled = true;
             } else if event.get("error").is_some() && matches!(id, 8_001..=8_003) {
@@ -852,6 +875,17 @@ async fn observe_browser(
                 )
                 .await?;
                 page_enable_commands.insert(page_command_id);
+                let lifecycle_command_id = next_command_id;
+                next_command_id = next_command_id.saturating_add(1);
+                send_command(
+                    &mut socket,
+                    lifecycle_command_id,
+                    "Page.setLifecycleEventsEnabled",
+                    serde_json::json!({"enabled": true}),
+                    Some(&attached_session),
+                )
+                .await?;
+                page_enable_commands.insert(lifecycle_command_id);
             }
             "Target.detachedFromTarget" => {
                 tracker.mark_network_activity();
@@ -904,7 +938,13 @@ async fn observe_browser(
                         .pointer("/params/initiator/type")
                         .and_then(serde_json::Value::as_str)
                         .unwrap_or("other");
-                    if !is_document_network_activity(resource_type, initiator_type) {
+                    let request_url = request
+                        .get("url")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default();
+                    if !is_document_network_activity(resource_type, initiator_type)
+                        || is_browser_internal_url(request_url)
+                    {
                         continue;
                     }
                     tracker.mark_tab_network_activity(cdp_session);
@@ -920,10 +960,6 @@ async fn observe_browser(
                     let spa_mutation = mutation && matches!(resource_type, "Fetch" | "XHR");
                     // Inspect only the route while the CDP event is in memory. Neither the URL,
                     // query string, headers nor body cross the Node boundary.
-                    let request_url = request
-                        .get("url")
-                        .and_then(serde_json::Value::as_str)
-                        .unwrap_or_default();
                     let route = request_route(request_url)
                         .chars()
                         .take(2_048)
@@ -1039,15 +1075,25 @@ async fn observe_browser(
                 }
             }
             "Page.loadEventFired" => {
-                // Chromium's load event proves that the document and parser-bound resources for
-                // this Page have reached a terminal state. In practice CDP can omit a matching
-                // loadingFinished/loadingFailed event when navigation replaces the previous
-                // document or an allowlist proxy rejects a passive resource. Retaining those
-                // stale entries would keep an otherwise stable page permanently non-executable.
-                // Script-driven Fetch/XHR, uploads, downloads and transaction requests are not
-                // load-bound and remain fail-closed until their own terminal event arrives.
-                tracker.complete_load_bound_requests(cdp_session);
+                // This event has no frame/loader identity and cannot finish tracked requests.
                 tracker.mark_tab_network_activity(cdp_session);
+            }
+            "Page.lifecycleEvent" => {
+                if event
+                    .pointer("/params/name")
+                    .and_then(serde_json::Value::as_str)
+                    == Some("load")
+                {
+                    if let (Some(frame_id), Some(loader_id)) = (
+                        context_id(&event["params"]["frameId"]),
+                        context_id(&event["params"]["loaderId"]),
+                    ) {
+                        // Only the exact committed frame's load can finish its Document/parser
+                        // requests. Older and unknown owners retain their terminal-event fence.
+                        tracker.complete_load_bound_requests(cdp_session, &frame_id, &loader_id);
+                    }
+                    tracker.mark_tab_network_activity(cdp_session);
+                }
             }
             "Browser.downloadWillBegin" => {
                 if let Some(guid) = event
@@ -1430,8 +1476,153 @@ mod tests {
     }
 
     #[test]
-    fn page_load_completes_document_and_parser_requests_for_the_same_tab_session() {
+    fn browser_internal_classification_uses_exact_bounded_schemes() {
+        for url in [
+            "chrome://newtab/",
+            "chrome-untrusted://new-tab-page/one-google-bar",
+            "devtools://devtools/bundled/inspector.html",
+        ] {
+            assert!(is_browser_internal_url(url));
+        }
+        for url in [
+            "https://example.test/chrome-untrusted://frame",
+            "http://chrome-untrusted.example.test/",
+            "data:text/html,chrome-untrusted://frame",
+            "blob:https://example.test/id",
+            "about:blank",
+            "chrome-extension://example/page.html",
+            "not a URL",
+            "",
+            " chrome://newtab/",
+        ] {
+            assert!(!is_browser_internal_url(url));
+        }
+        assert!(!is_browser_internal_url(&format!(
+            "chrome://newtab/{}",
+            "x".repeat(2_048)
+        )));
+    }
+
+    #[test]
+    fn new_document_load_does_not_complete_old_or_unproven_document_requests() {
+        for known_current in [true, false] {
+            let current = DocumentIdentity {
+                frame_id: "main".to_owned(),
+                loader_id: "document-b".to_owned(),
+            };
+            let old = DocumentIdentity {
+                frame_id: "main".to_owned(),
+                loader_id: "document-a".to_owned(),
+            };
+            let mut tracker = ActivityTracker::default();
+            if known_current {
+                tracker.frames.insert(
+                    ("page-1".to_owned(), "main".to_owned()),
+                    FrameDocument {
+                        loader_id: current.loader_id.clone(),
+                        document: current.clone(),
+                    },
+                );
+                tracker
+                    .documents
+                    .insert("page-1".to_owned(), current.clone());
+            }
+            for (request_id, owner) in [("old-document", Some(old)), ("unproven-document", None)] {
+                tracker.requests.insert(
+                    ("page-1".to_owned(), request_id.to_owned()),
+                    RequestActivity {
+                        resource_type: "Document".to_owned(),
+                        initiator_type: "other".to_owned(),
+                        document: owner,
+                        frame_id: Some("main".to_owned()),
+                        loader_id: Some(
+                            if request_id == "old-document" {
+                                "document-a"
+                            } else {
+                                "document-b"
+                            }
+                            .to_owned(),
+                        ),
+                        form_submission: true,
+                        payment_or_security: true,
+                        critical_transaction: true,
+                        ..RequestActivity::default()
+                    },
+                );
+            }
+            tracker.complete_load_bound_requests("page-1", "main", "document-b");
+            let observation = tracker.observation();
+            assert_eq!(
+                observation.active_network_request_count, 2,
+                "a load event has no proof that older or unknown document requests finished"
+            );
+            assert_eq!(observation.active_form_submission_count, 2);
+            assert_eq!(observation.active_critical_transaction_count, 2);
+            for request_id in ["old-document", "unproven-document"] {
+                assert!(tracker.complete_request("page-1", request_id));
+            }
+            assert_eq!(tracker.observation().active_network_request_count, 0);
+        }
+    }
+
+    #[test]
+    fn child_frame_load_requires_its_current_loader_and_does_not_complete_parent_requests() {
         let mut tracker = ActivityTracker::default();
+        tracker
+            .tab_by_network_session
+            .insert("page-1".to_owned(), "tab-1".to_owned());
+        tracker.observe_frame_navigation(
+            "page-1",
+            &serde_json::json!({"id":"main","loaderId":"root-loader"}),
+        );
+        tracker.observe_frame_navigation(
+            "page-1",
+            &serde_json::json!({"id":"child","parentId":"main","loaderId":"child-loader"}),
+        );
+        for (request_id, frame_id, loader_id) in [
+            ("parent", "main", "root-loader"),
+            ("child", "child", "child-loader"),
+        ] {
+            let mut activity = RequestActivity {
+                resource_type: "Image".to_owned(),
+                initiator_type: "parser".to_owned(),
+                frame_id: Some(frame_id.to_owned()),
+                loader_id: Some(loader_id.to_owned()),
+                ..RequestActivity::default()
+            };
+            tracker.bind_request_document("page-1", &mut activity);
+            tracker
+                .requests
+                .insert(("page-1".to_owned(), request_id.to_owned()), activity);
+        }
+        tracker.complete_load_bound_requests("page-1", "child", "old-child-loader");
+        assert_eq!(tracker.requests.len(), 2);
+        tracker.complete_load_bound_requests("page-1", "child", "child-loader");
+        assert_eq!(tracker.requests.len(), 1);
+        assert!(tracker
+            .requests
+            .contains_key(&("page-1".to_owned(), "parent".to_owned())));
+        tracker.complete_load_bound_requests("page-1", "main", "root-loader");
+        assert!(tracker.requests.is_empty());
+    }
+
+    #[test]
+    fn page_load_completes_only_proven_current_document_and_parser_requests() {
+        let mut tracker = ActivityTracker::default();
+        let current = DocumentIdentity {
+            frame_id: "main".to_owned(),
+            loader_id: "document-b".to_owned(),
+        };
+        tracker.frames.insert(
+            ("page-1".to_owned(), "main".to_owned()),
+            FrameDocument {
+                loader_id: current.loader_id.clone(),
+                document: current.clone(),
+            },
+        );
+        tracker
+            .documents
+            .insert("page-1".to_owned(), current.clone());
         for (session_id, request_id, resource_type, initiator_type) in [
             ("page-1", "document-1", "Document", "other"),
             ("page-1", "image-1", "Image", "parser"),
@@ -1443,12 +1634,23 @@ mod tests {
                 RequestActivity {
                     resource_type: resource_type.to_owned(),
                     initiator_type: initiator_type.to_owned(),
+                    document: Some(current.clone()),
+                    frame_id: Some("main".to_owned()),
+                    loader_id: Some("document-b".to_owned()),
                     ..RequestActivity::default()
                 },
             );
         }
 
-        tracker.complete_load_bound_requests("page-1");
+        for (frame_id, loader_id) in [
+            ("main", "document-a"),
+            ("unknown", "document-b"),
+            ("main", ""),
+        ] {
+            tracker.complete_load_bound_requests("page-1", frame_id, loader_id);
+            assert_eq!(tracker.requests.len(), 4);
+        }
+        tracker.complete_load_bound_requests("page-1", "main", "document-b");
 
         assert!(!tracker
             .requests
@@ -1703,6 +1905,74 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rejected_lifecycle_subscription_fails_the_required_observer() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            for expected in [
+                "Target.setDiscoverTargets",
+                "Target.setAutoAttach",
+                "Browser.setDownloadBehavior",
+            ] {
+                let Message::Text(command) = socket.next().await.unwrap().unwrap() else {
+                    panic!("expected browser command");
+                };
+                let command: serde_json::Value = serde_json::from_str(&command).unwrap();
+                assert_eq!(command["method"], expected);
+                socket
+                    .send(Message::Text(
+                        serde_json::json!({"id":command["id"],"result":{}}).to_string(),
+                    ))
+                    .await
+                    .unwrap();
+            }
+            socket.send(Message::Text(serde_json::json!({"method":"Target.attachedToTarget","params":{"sessionId":"page-1","targetInfo":{"type":"page","targetId":"tab-1"}}}).to_string())).await.unwrap();
+            for expected in [
+                "Network.enable",
+                "Page.enable",
+                "Page.setLifecycleEventsEnabled",
+            ] {
+                let Message::Text(command) = socket.next().await.unwrap().unwrap() else {
+                    panic!("expected observation command");
+                };
+                let command: serde_json::Value = serde_json::from_str(&command).unwrap();
+                assert_eq!(command["method"], expected);
+                let response = if expected == "Page.setLifecycleEventsEnabled" {
+                    serde_json::json!({"id":command["id"],"error":{"code":-32601,"message":"unsupported"}})
+                } else {
+                    serde_json::json!({"id":command["id"],"result":{}})
+                };
+                socket
+                    .send(Message::Text(response.to_string()))
+                    .await
+                    .unwrap();
+            }
+            std::future::pending::<()>().await;
+        });
+        let observations = Arc::new(RwLock::new(HashMap::new()));
+        let mut tracker = ActivityTracker::default();
+        let result = timeout(
+            Duration::from_secs(2),
+            observe_browser(
+                &format!("ws://{address}"),
+                "ses_required",
+                &observations,
+                &mut tracker,
+                &BrowserTransactionPolicy::default(),
+            ),
+        )
+        .await;
+        server.abort();
+        let _ = server.await;
+        assert_eq!(
+            result.unwrap().unwrap_err().to_string(),
+            "required CDP Page observation command failed"
+        );
+    }
+
+    #[tokio::test]
     async fn committed_document_quiet_keeps_old_writes_and_restores_their_loader() {
         let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let websocket_address = websocket_listener.local_addr().unwrap();
@@ -1732,7 +2002,11 @@ mod tests {
                     "sessionId": "page-1", "targetInfo": {"type": "page", "targetId": "tab-1"}
                 }
             }).to_string())).await.unwrap();
-            for expected in ["Network.enable", "Page.enable"] {
+            for expected in [
+                "Network.enable",
+                "Page.enable",
+                "Page.setLifecycleEventsEnabled",
+            ] {
                 let Message::Text(command) = socket.next().await.unwrap().unwrap() else {
                     panic!("expected Page domain command")
                 };
@@ -1748,10 +2022,25 @@ mod tests {
             for event in [
                 serde_json::json!({"method":"Page.frameNavigated", "params":{"frame":{"id":"main", "loaderId":"document-a"}}}),
                 serde_json::json!({"method":"Network.requestWillBeSent", "params":{
+                    "requestId":"browser-internal", "frameId":"browser-frame", "loaderId":"browser-loader", "type":"Document",
+                    "initiator":{"type":"script"}, "request":{"method":"GET", "url":"chrome-untrusted://new-tab-page/one-google-bar", "headers":{}}
+                }}),
+                serde_json::json!({"method":"Network.requestWillBeSent", "params":{
                     "requestId":"old-write", "frameId":"main", "loaderId":"document-a", "type":"XHR",
                     "initiator":{"type":"script"}, "request":{"method":"POST", "url":"https://example.test/api/checkout/confirm", "headers":{}}
                 }}),
+                serde_json::json!({"method":"Network.requestWillBeSent", "params":{
+                    "requestId":"old-form", "frameId":"main", "loaderId":"document-a", "type":"Document",
+                    "initiator":{"type":"other"}, "request":{"method":"POST", "url":"https://example.test/api/checkout/confirm", "headers":{}}
+                }}),
                 serde_json::json!({"method":"Page.frameNavigated", "params":{"frame":{"id":"main", "loaderId":"document-b"}}}),
+                serde_json::json!({"method":"Network.requestWillBeSent", "params":{
+                    "requestId":"current-document", "frameId":"main", "loaderId":"document-b", "type":"Document",
+                    "initiator":{"type":"other"}, "request":{"method":"GET", "url":"https://example.test/new", "headers":{}}
+                }}),
+                serde_json::json!({"method":"Page.loadEventFired", "params":{"timestamp":1}}),
+                serde_json::json!({"method":"Page.lifecycleEvent", "params":{"name":"load", "frameId":"main", "loaderId":"document-a", "timestamp":2}}),
+                serde_json::json!({"method":"Page.lifecycleEvent", "params":{"name":"load", "frameId":"main", "loaderId":"document-b", "timestamp":3}}),
             ] {
                 let mut event = event;
                 event["sessionId"] = serde_json::json!("page-1");
@@ -1800,6 +2089,7 @@ mod tests {
         let global_counts = (
             quiet.active_network_request_count,
             quiet.active_spa_mutation_count,
+            quiet.active_form_submission_count,
             quiet.active_payment_or_security_count,
             quiet.active_critical_transaction_count,
             quiet.network_quiet_millis(),
@@ -1813,7 +2103,7 @@ mod tests {
                 .get("ses_document")
                 .cloned()
                 .unwrap_or_default();
-            if restored.fresh && restored.active_network_request_count_for_tab("tab-1") == Some(1) {
+            if restored.fresh && restored.active_network_request_count_for_tab("tab-1") == Some(2) {
                 break;
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -1829,15 +2119,15 @@ mod tests {
         assert!(quiet.network_quiet_millis_for_tab("tab-1") >= 250);
         assert_eq!(
             global_counts,
-            (1, 1, 1, 1, 0),
+            (2, 1, 1, 2, 2, 0),
             "navigation must not settle an unfinished write"
         );
         assert_eq!(
             restored.active_network_request_count_for_tab("tab-1"),
-            Some(1)
+            Some(2)
         );
         assert_eq!(restored.network_quiet_millis_for_tab("tab-1"), 0);
-        assert_eq!(restored.active_critical_transaction_count, 1);
+        assert_eq!(restored.active_critical_transaction_count, 2);
     }
 
     #[tokio::test]
@@ -1898,6 +2188,20 @@ mod tests {
             socket
                 .send(Message::Text(
                     serde_json::json!({"id": page_enable["id"], "result": {}}).to_string(),
+                ))
+                .await
+                .unwrap();
+            let Message::Text(lifecycle_enable) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected Page.setLifecycleEventsEnabled")
+            };
+            let lifecycle_enable: serde_json::Value =
+                serde_json::from_str(&lifecycle_enable).unwrap();
+            assert_eq!(lifecycle_enable["method"], "Page.setLifecycleEventsEnabled");
+            assert_eq!(lifecycle_enable["params"]["enabled"], true);
+            assert_eq!(lifecycle_enable["sessionId"], "page-session-1");
+            socket
+                .send(Message::Text(
+                    serde_json::json!({"id": lifecycle_enable["id"], "result": {}}).to_string(),
                 ))
                 .await
                 .unwrap();

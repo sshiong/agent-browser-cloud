@@ -135,14 +135,22 @@ docker run -d --name "$minio_name" \
 postgres_port="$(docker port "$postgres_name" 5432/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 redis_port="$(docker port "$redis_name" 6379/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 minio_port="$(docker port "$minio_name" 9000/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
-free_port() {
-  python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()'
-}
-node_port="$(free_port)"
-control_port="$(free_port)"
-event_port="$(free_port)"
-desktop_port="$(free_port)"
-proxy_port="$(free_port)"
+# Hold all five reservations together and check the Gateway's actual IPv4 bind scope.
+# The child services still own the sockets; this only avoids duplicate/partially busy choices.
+read -r node_port control_port event_port desktop_port proxy_port < <(python3 - <<'PY'
+import socket
+sockets = []
+try:
+    for _ in range(5):
+        reservation = socket.socket()
+        sockets.append(reservation)
+        reservation.bind(("0.0.0.0", 0))
+    print(" ".join(str(reservation.getsockname()[1]) for reservation in sockets))
+finally:
+    for reservation in sockets:
+        reservation.close()
+PY
+)
 
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
   -subj '/CN=agent-controls.invalid' -addext 'subjectAltName=DNS:agent-controls.invalid' \

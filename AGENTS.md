@@ -308,6 +308,15 @@ progress 166。
 
 ### 最近验证状态
 
+- 跨 Document 网络归属已使用精确 CDP Session/Frame/Loader 区分：主 Frame 已提交
+  导航后，普通动作 Quiet 只排除已证明属于其他 Document 的请求，未知归属仍活动；
+  旧写入保留全局请求与事务计数，历史 Loader 恢复时重新阻塞当前页。自有真实 Chrome
+  POST 回归、State Collector 49 项、Rust Workspace 186 项与 Rust 1.99 严格 Clippy
+  通过，见 progress 244；完整 17 例一次通过，独立 Session 复跑在 OTP Document
+  `loading` 时失败，同轮 CDP 已证明旧 Loader 的 Socket.IO POST 在途约 114 秒。
+  当前页 Document 未就绪仍拒绝推进，连续稳定性未达成。前一提交
+  `b06c052` 的 CI `36980511909` 与 Desktop `36980511921` 全部通过。
+
 - Replay 测试代理已将 socket 超时应用到两个方向的阻塞写入；真实内核发送缓冲区
   回归修复前两方向均不按时退出、修复后 Replay Gate 18 项通过，见 progress 243。
   完整 17 例随后在 SPA 输入前耗尽原五秒稳定等待；独立 CDP 仍看到练习站 Socket.IO

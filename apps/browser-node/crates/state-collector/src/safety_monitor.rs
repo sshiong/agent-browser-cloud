@@ -14,6 +14,8 @@ const TRANSACTION_SETTLE_WINDOW: Duration = Duration::from_secs(10);
 const MAX_POLICY_RULES: usize = 32;
 const MAX_POLICY_VALUE_BYTES: usize = 512;
 const MAX_DOWNLOAD_HISTORY: usize = 32;
+const MAX_FRAME_CONTEXTS: usize = 512;
+const MAX_CONTEXT_ID_BYTES: usize = 128;
 
 /// Bounded, URL-free Browser download lifecycle projected from Chromium Browser events.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -155,7 +157,8 @@ impl BrowserSafetyObservation {
 
     /// Returns network quiet evidence for the exact active Chromium Page target. Browser-level
     /// safety accounting remains global, while action execution must not be stalled by unrelated
-    /// background tabs.
+    /// background tabs or requests proven to belong to a previous committed document. Unknown
+    /// request ownership remains active; this never settles global transaction accounting.
     pub fn network_quiet_millis_for_tab(&self, tab_id: &str) -> u64 {
         let Some(activity) = self.tab_network_activity.get(tab_id) else {
             return 0;
@@ -203,12 +206,27 @@ struct CdpVersion {
 struct RequestActivity {
     resource_type: String,
     initiator_type: String,
+    frame_id: Option<String>,
+    loader_id: Option<String>,
+    document: Option<DocumentIdentity>,
     upload: bool,
     download: bool,
     form_submission: bool,
     spa_mutation: bool,
     payment_or_security: bool,
     critical_transaction: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DocumentIdentity {
+    frame_id: String,
+    loader_id: String,
+}
+
+#[derive(Debug, Clone)]
+struct FrameDocument {
+    loader_id: String,
+    document: DocumentIdentity,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -225,6 +243,8 @@ struct ActivityTracker {
     network_sessions: HashSet<String>,
     tab_by_network_session: HashMap<String, String>,
     tab_last_network_activity: HashMap<String, Instant>,
+    documents: HashMap<String, DocumentIdentity>,
+    frames: HashMap<(String, String), FrameDocument>,
     fresh_allowed: bool,
     was_fresh: bool,
     last_network_activity: Option<Instant>,
@@ -300,8 +320,9 @@ impl ActivityTracker {
                     let active_requests = self
                         .requests
                         .iter()
-                        .filter(|((session_id, _), _)| {
+                        .filter(|((session_id, _), activity)| {
                             self.tab_by_network_session.get(session_id) == Some(tab_id)
+                                && self.belongs_to_current_document(session_id, activity)
                         })
                         .map(|(_, activity)| activity)
                         .collect::<Vec<_>>();
@@ -343,6 +364,90 @@ impl ActivityTracker {
         self.last_network_activity = Some(Instant::now());
     }
 
+    fn belongs_to_current_document(&self, session_id: &str, activity: &RequestActivity) -> bool {
+        match (self.documents.get(session_id), activity.document.as_ref()) {
+            (Some(current), Some(owner)) => current == owner,
+            _ => true,
+        }
+    }
+
+    fn bind_request_document(&self, session_id: &str, activity: &mut RequestActivity) {
+        if let (Some(frame_id), Some(loader_id)) = (&activity.frame_id, &activity.loader_id) {
+            if let Some(frame) = self.frames.get(&(session_id.to_owned(), frame_id.clone())) {
+                if &frame.loader_id == loader_id {
+                    activity.document = Some(frame.document.clone());
+                }
+            }
+        }
+    }
+
+    fn clear_document_context(&mut self, session_id: &str) {
+        self.documents.remove(session_id);
+        self.frames.retain(|(session, _), _| session != session_id);
+    }
+
+    fn observe_frame_navigation(&mut self, session_id: &str, frame: &serde_json::Value) {
+        if !self.tab_by_network_session.contains_key(session_id) {
+            return;
+        }
+        self.mark_tab_network_activity(session_id);
+        let (Some(frame_id), Some(loader_id)) =
+            (context_id(&frame["id"]), context_id(&frame["loaderId"]))
+        else {
+            self.clear_document_context(session_id);
+            return;
+        };
+        let document = if let Some(parent) = frame.get("parentId") {
+            let parent = context_id(parent)
+                .and_then(|parent_id| self.frames.get(&(session_id.to_owned(), parent_id)));
+            let Some(parent) = parent else {
+                self.frames.remove(&(session_id.to_owned(), frame_id));
+                return;
+            };
+            if self.documents.get(session_id) != Some(&parent.document) {
+                return;
+            }
+            parent.document.clone()
+        } else {
+            // Only a committed top-level frame navigation advances document ownership. Hash
+            // changes, tentative navigation and load events cannot retire pending requests.
+            self.clear_document_context(session_id);
+            let document = DocumentIdentity {
+                frame_id: frame_id.clone(),
+                loader_id: loader_id.clone(),
+            };
+            self.documents
+                .insert(session_id.to_owned(), document.clone());
+            document
+        };
+        if self.frames.len() >= MAX_FRAME_CONTEXTS
+            && !self
+                .frames
+                .contains_key(&(session_id.to_owned(), frame_id.clone()))
+        {
+            self.clear_document_context(session_id);
+            return;
+        }
+        self.frames.insert(
+            (session_id.to_owned(), frame_id.clone()),
+            FrameDocument {
+                loader_id: loader_id.clone(),
+                document: document.clone(),
+            },
+        );
+        // Document requests may precede frameNavigated. Resolve only an exact frame/loader pair;
+        // never infer ownership from URL, age, load completion or request type.
+        for ((session, _), activity) in &mut self.requests {
+            if session == session_id
+                && activity.document.is_none()
+                && activity.frame_id.as_ref() == Some(&frame_id)
+                && activity.loader_id.as_ref() == Some(&loader_id)
+            {
+                activity.document = Some(document.clone());
+            }
+        }
+    }
+
     fn mark_tab_network_activity(&mut self, session_id: &str) {
         let now = Instant::now();
         self.last_network_activity = Some(now);
@@ -352,6 +457,7 @@ impl ActivityTracker {
     }
 
     fn remove_session(&mut self, session_id: &str) {
+        self.clear_document_context(session_id);
         self.network_sessions.remove(session_id);
         if let Some(tab_id) = self.tab_by_network_session.remove(session_id) {
             self.tab_last_network_activity.remove(&tab_id);
@@ -439,6 +545,15 @@ impl ActivityTracker {
             self.browser_downloads.remove(&guid);
         }
     }
+}
+
+fn context_id(value: &serde_json::Value) -> Option<String> {
+    value
+        .as_str()
+        .filter(|id| {
+            !id.is_empty() && id.len() <= MAX_CONTEXT_ID_BYTES && !id.chars().any(char::is_control)
+        })
+        .map(str::to_owned)
 }
 
 fn unix_time_millis() -> u64 {
@@ -747,6 +862,25 @@ async fn observe_browser(
                     tracker.remove_session(detached_session);
                 }
             }
+            "Page.frameNavigated" => {
+                tracker.observe_frame_navigation(cdp_session, &event["params"]["frame"]);
+            }
+            "Page.frameDetached" => {
+                if let Some(frame_id) = context_id(&event["params"]["frameId"]) {
+                    if tracker
+                        .documents
+                        .get(cdp_session)
+                        .is_some_and(|document| document.frame_id == frame_id)
+                    {
+                        tracker.clear_document_context(cdp_session);
+                    } else {
+                        tracker.frames.remove(&(cdp_session.to_owned(), frame_id));
+                    }
+                } else {
+                    tracker.clear_document_context(cdp_session);
+                }
+                tracker.mark_tab_network_activity(cdp_session);
+            }
             "Network.requestWillBeSent" => {
                 let request_id = event
                     .pointer("/params/requestId")
@@ -831,19 +965,22 @@ async fn observe_browser(
                             &transaction_policy.expected_origins,
                             &transaction_policy.critical_transaction_route_prefixes,
                         ));
-                    tracker.requests.insert(
-                        (cdp_session.to_owned(), request_id.to_owned()),
-                        RequestActivity {
-                            resource_type: resource_type.to_owned(),
-                            initiator_type: initiator_type.to_owned(),
-                            upload,
-                            form_submission,
-                            spa_mutation,
-                            payment_or_security,
-                            critical_transaction,
-                            ..RequestActivity::default()
-                        },
-                    );
+                    let mut activity = RequestActivity {
+                        resource_type: resource_type.to_owned(),
+                        initiator_type: initiator_type.to_owned(),
+                        frame_id: context_id(&event["params"]["frameId"]),
+                        loader_id: context_id(&event["params"]["loaderId"]),
+                        upload,
+                        form_submission,
+                        spa_mutation,
+                        payment_or_security,
+                        critical_transaction,
+                        ..RequestActivity::default()
+                    };
+                    tracker.bind_request_document(cdp_session, &mut activity);
+                    tracker
+                        .requests
+                        .insert((cdp_session.to_owned(), request_id.to_owned()), activity);
                 }
             }
             "Network.responseReceived" => {
@@ -1126,6 +1263,129 @@ mod tests {
     use tokio::net::TcpListener;
 
     #[test]
+    fn request_ownership_requires_exact_committed_frame_and_loader() {
+        let mut tracker = ActivityTracker::default();
+        tracker
+            .tab_by_network_session
+            .insert("page".into(), "tab".into());
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"a"}));
+        let mut next = RequestActivity {
+            frame_id: Some("main".into()),
+            loader_id: Some("b".into()),
+            ..RequestActivity::default()
+        };
+        tracker.bind_request_document("page", &mut next);
+        assert!(
+            next.document.is_none(),
+            "tentative next loader cannot inherit the previous document"
+        );
+        tracker
+            .requests
+            .insert(("page".into(), "next".into()), next);
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"b"}));
+        let next = &tracker.requests[&("page".into(), "next".into())];
+        assert_eq!(next.document.as_ref().unwrap().loader_id, "b");
+        assert!(tracker.belongs_to_current_document("page", next));
+        // A repeated/same-loader navigation keeps current requests active.
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"b"}));
+        assert!(tracker.belongs_to_current_document(
+            "page",
+            &tracker.requests[&("page".into(), "next".into())]
+        ));
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"c"}));
+        assert!(!tracker.belongs_to_current_document(
+            "page",
+            &tracker.requests[&("page".into(), "next".into())]
+        ));
+        for (frame, loader) in [
+            (None, Some("b")),
+            (Some("main"), None),
+            (Some("main"), Some("")),
+            (Some("unknown"), Some("c")),
+        ] {
+            let mut unknown = RequestActivity {
+                frame_id: frame.map(str::to_owned),
+                loader_id: loader.map(str::to_owned),
+                ..RequestActivity::default()
+            };
+            tracker.bind_request_document("page", &mut unknown);
+            assert!(unknown.document.is_none());
+            assert!(tracker.belongs_to_current_document("page", &unknown));
+        }
+        assert!(tracker.belongs_to_current_document(
+            "another-page",
+            &tracker.requests[&("page".into(), "next".into())]
+        ));
+    }
+
+    #[test]
+    fn child_context_requires_known_parent_and_preserves_root_identity() {
+        let mut tracker = ActivityTracker::default();
+        tracker
+            .tab_by_network_session
+            .insert("page".into(), "tab".into());
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"a"}));
+        tracker.observe_frame_navigation(
+            "page",
+            &serde_json::json!({"id":"child", "parentId":"main", "loaderId":"child-a"}),
+        );
+        let mut child = RequestActivity {
+            frame_id: Some("child".into()),
+            loader_id: Some("child-a".into()),
+            ..RequestActivity::default()
+        };
+        tracker.bind_request_document("page", &mut child);
+        assert_eq!(child.document.as_ref().unwrap().loader_id, "a");
+        tracker.observe_frame_navigation(
+            "page",
+            &serde_json::json!({"id":"unknown-child", "parentId":"missing", "loaderId":"unknown"}),
+        );
+        assert_eq!(tracker.documents["page"].loader_id, "a");
+        assert!(!tracker
+            .frames
+            .contains_key(&("page".into(), "unknown-child".into())));
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"b"}));
+        assert!(!tracker.belongs_to_current_document("page", &child));
+        // Restoring the old root reactivates its unresolved child writes, even before child events.
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"a"}));
+        assert!(tracker.belongs_to_current_document("page", &child));
+        tracker.clear_document_context("page");
+        assert!(tracker.belongs_to_current_document("page", &child));
+    }
+
+    #[test]
+    fn missing_or_excessive_context_falls_back_to_all_requests() {
+        let mut tracker = ActivityTracker::default();
+        tracker
+            .tab_by_network_session
+            .insert("page".into(), "tab".into());
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"a"}));
+        let owner = RequestActivity {
+            document: tracker.documents.get("page").cloned(),
+            ..RequestActivity::default()
+        };
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"b"}));
+        for index in 0..MAX_FRAME_CONTEXTS {
+            tracker.observe_frame_navigation("page", &serde_json::json!({"id":format!("child-{index}"), "parentId":"main", "loaderId":"child"}));
+        }
+        assert!(tracker.frames.len() <= MAX_FRAME_CONTEXTS);
+        assert!(tracker.documents.is_empty());
+        assert!(tracker.belongs_to_current_document("page", &owner));
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"b"}));
+        tracker.observe_frame_navigation(
+            "page",
+            &serde_json::json!({"id":"main", "loaderId":"x".repeat(MAX_CONTEXT_ID_BYTES + 1)}),
+        );
+        assert!(tracker.documents.is_empty());
+        assert!(tracker.belongs_to_current_document("page", &owner));
+        assert!(context_id(&serde_json::json!("unsafe\nidentity")).is_none());
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"b"}));
+        tracker.remove_session("page");
+        assert!(tracker.documents.is_empty());
+        assert!(tracker.frames.is_empty());
+    }
+
+    #[test]
     fn network_quiet_evidence_fails_closed_for_observer_gaps_and_inflight_requests() {
         let unavailable = BrowserSafetyObservation {
             fresh: false,
@@ -1307,6 +1567,277 @@ mod tests {
         assert_eq!(expired.active_spa_mutation_count, 0);
         assert_eq!(expired.active_payment_or_security_count, 0);
         assert_eq!(expired.active_critical_transaction_count, 0);
+    }
+
+    #[tokio::test]
+    #[ignore = "requires REAL_CHROMIUM_PATH and launches a local browser"]
+    async fn real_chromium_keeps_old_document_post_without_stalling_new_page() {
+        let chromium = std::env::var("REAL_CHROMIUM_PATH").expect("REAL_CHROMIUM_PATH required");
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let received = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let server_received = Arc::clone(&received);
+        let server = tokio::spawn(async move {
+            let mut connections = tokio::task::JoinSet::new();
+            loop {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let received = Arc::clone(&server_received);
+                connections.spawn(async move {
+                    let mut request = [0_u8; 8192];
+                    let count = stream.read(&mut request).await.unwrap_or(0);
+                    if request[..count].starts_with(b"POST /pending ") {
+                        received.store(true, std::sync::atomic::Ordering::SeqCst);
+                        // Intentionally no response. Dropping the JoinSet closes this owned socket.
+                        std::future::pending::<()>().await;
+                    }
+                    let body = if request[..count].starts_with(b"GET /first ") {
+                        "<!doctype html><button>First</button><script>fetch('/pending',{method:'POST',body:'fixture',keepalive:true})</script>"
+                    } else {
+                        "<!doctype html><button>Second</button>"
+                    };
+                    let _ = stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).as_bytes()).await;
+                });
+                while connections.try_join_next().is_some() {}
+            }
+        });
+        let port_reservation = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let cdp_port = port_reservation.local_addr().unwrap().port();
+        drop(port_reservation);
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let profile = std::env::temp_dir().join(format!("browsercloud-document-loader-{nonce}"));
+        tokio::fs::create_dir(&profile).await.unwrap();
+        let mut child = tokio::process::Command::new(chromium)
+            .args([
+                "--headless=new",
+                "--no-first-run",
+                "--no-default-browser-check",
+                "--disable-background-networking",
+                "--remote-debugging-address=127.0.0.1",
+            ])
+            .arg(format!("--remote-debugging-port={cdp_port}"))
+            .arg(format!("--user-data-dir={}", profile.display()))
+            .arg("about:blank")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let collector = crate::CdpStateCollector::new();
+        let result: anyhow::Result<(BrowserSafetyObservation, String)> = async {
+            collector
+                .register_runtime("ses_loader", &format!("http://127.0.0.1:{cdp_port}"))
+                .await?;
+            let mut ready = false;
+            for _ in 0..100 {
+                if collector.active_page_websocket("ses_loader").await.is_ok() {
+                    ready = true;
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            anyhow::ensure!(ready, "owned Chromium did not become ready");
+            collector
+                .start_safety_monitor("ses_loader", BrowserTransactionPolicy::default())
+                .await?;
+            let mut tab_id = None;
+            for _ in 0..100 {
+                let observation = collector.browser_safety_observation("ses_loader").await;
+                if observation.fresh {
+                    tab_id = observation.tab_network_activity.keys().next().cloned();
+                    if tab_id.is_some() {
+                        break;
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            let tab_id =
+                tab_id.ok_or_else(|| anyhow::anyhow!("owned Page Network observer not ready"))?;
+            collector
+                .navigate("ses_loader", &format!("http://{address}/first"))
+                .await?;
+            let mut pending = false;
+            for _ in 0..100 {
+                let observation = collector.browser_safety_observation("ses_loader").await;
+                if received.load(std::sync::atomic::Ordering::SeqCst)
+                    && observation.active_spa_mutation_count == 1
+                {
+                    pending = true;
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+            anyhow::ensure!(pending, "owned keepalive POST was not observed");
+            collector
+                .navigate("ses_loader", &format!("http://{address}/second"))
+                .await?;
+            let mut observation = BrowserSafetyObservation::default();
+            for _ in 0..160 {
+                observation = collector.browser_safety_observation("ses_loader").await;
+                if observation.fresh && observation.network_quiet_millis_for_tab(&tab_id) >= 250 {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+            Ok((observation, tab_id))
+        }
+        .await;
+        collector.unregister_runtime("ses_loader").await;
+        let _ = child.kill().await;
+        let _ = child.wait().await;
+        server.abort();
+        let _ = server.await;
+        tokio::fs::remove_dir_all(&profile).await.unwrap();
+        let (observation, tab_id) = result.unwrap();
+        assert!(observation.fresh);
+        assert!(observation.network_quiet_millis_for_tab(&tab_id) >= 250);
+        assert_eq!(
+            observation.active_network_request_count_for_tab(&tab_id),
+            Some(0)
+        );
+        assert_eq!(observation.active_network_request_count, 1);
+        assert_eq!(observation.active_spa_mutation_count, 1);
+        assert_eq!(observation.network_quiet_millis(), 0);
+    }
+
+    #[tokio::test]
+    async fn committed_document_quiet_keeps_old_writes_and_restores_their_loader() {
+        let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let websocket_address = websocket_listener.local_addr().unwrap();
+        let (restore_sender, restore_receiver) = tokio::sync::oneshot::channel();
+        let websocket_task = tokio::spawn(async move {
+            let (stream, _) = websocket_listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            for expected in [
+                "Target.setDiscoverTargets",
+                "Target.setAutoAttach",
+                "Browser.setDownloadBehavior",
+            ] {
+                let Message::Text(command) = socket.next().await.unwrap().unwrap() else {
+                    panic!("expected CDP command")
+                };
+                let command: serde_json::Value = serde_json::from_str(&command).unwrap();
+                assert_eq!(command["method"], expected);
+                socket
+                    .send(Message::Text(
+                        serde_json::json!({"id": command["id"], "result": {}}).to_string(),
+                    ))
+                    .await
+                    .unwrap();
+            }
+            socket.send(Message::Text(serde_json::json!({
+                "method": "Target.attachedToTarget", "params": {
+                    "sessionId": "page-1", "targetInfo": {"type": "page", "targetId": "tab-1"}
+                }
+            }).to_string())).await.unwrap();
+            for expected in ["Network.enable", "Page.enable"] {
+                let Message::Text(command) = socket.next().await.unwrap().unwrap() else {
+                    panic!("expected Page domain command")
+                };
+                let command: serde_json::Value = serde_json::from_str(&command).unwrap();
+                assert_eq!(command["method"], expected);
+                socket
+                    .send(Message::Text(
+                        serde_json::json!({"id": command["id"], "result": {}}).to_string(),
+                    ))
+                    .await
+                    .unwrap();
+            }
+            for event in [
+                serde_json::json!({"method":"Page.frameNavigated", "params":{"frame":{"id":"main", "loaderId":"document-a"}}}),
+                serde_json::json!({"method":"Network.requestWillBeSent", "params":{
+                    "requestId":"old-write", "frameId":"main", "loaderId":"document-a", "type":"XHR",
+                    "initiator":{"type":"script"}, "request":{"method":"POST", "url":"https://example.test/api/checkout/confirm", "headers":{}}
+                }}),
+                serde_json::json!({"method":"Page.frameNavigated", "params":{"frame":{"id":"main", "loaderId":"document-b"}}}),
+            ] {
+                let mut event = event;
+                event["sessionId"] = serde_json::json!("page-1");
+                socket.send(Message::Text(event.to_string())).await.unwrap();
+            }
+            if restore_receiver.await.is_ok() {
+                socket.send(Message::Text(serde_json::json!({
+                    "sessionId":"page-1", "method":"Page.frameNavigated",
+                    "params":{"frame":{"id":"main", "loaderId":"document-a"}, "type":"BackForwardCacheRestore"}
+                }).to_string())).await.unwrap();
+                std::future::pending::<()>().await;
+            }
+        });
+        let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let http_address = http_listener.local_addr().unwrap();
+        let http_task = tokio::spawn(async move {
+            let (mut stream, _) = http_listener.accept().await.unwrap();
+            let mut request = [0_u8; 4096];
+            let count = stream.read(&mut request).await.unwrap();
+            assert!(request[..count].starts_with(b"GET /json/version "));
+            let body = serde_json::json!({"webSocketDebuggerUrl":format!("ws://{websocket_address}/devtools/browser/1")}).to_string();
+            stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).as_bytes()).await.unwrap();
+        });
+        let observations = Arc::new(RwLock::new(HashMap::new()));
+        let monitor = spawn(
+            "ses_document".to_owned(),
+            format!("http://{http_address}"),
+            BrowserTransactionPolicy::default(),
+            Arc::clone(&observations),
+        );
+        let mut quiet = BrowserSafetyObservation::default();
+        for _ in 0..200 {
+            quiet = observations
+                .read()
+                .await
+                .get("ses_document")
+                .cloned()
+                .unwrap_or_default();
+            if quiet.fresh && quiet.network_quiet_millis_for_tab("tab-1") >= 250 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        // Always clean up the monitor and mock even if a safety assertion fails.
+        let quiet_count = quiet.active_network_request_count_for_tab("tab-1");
+        let global_counts = (
+            quiet.active_network_request_count,
+            quiet.active_spa_mutation_count,
+            quiet.active_payment_or_security_count,
+            quiet.active_critical_transaction_count,
+            quiet.network_quiet_millis(),
+        );
+        restore_sender.send(()).unwrap();
+        let mut restored = BrowserSafetyObservation::default();
+        for _ in 0..200 {
+            restored = observations
+                .read()
+                .await
+                .get("ses_document")
+                .cloned()
+                .unwrap_or_default();
+            if restored.fresh && restored.active_network_request_count_for_tab("tab-1") == Some(1) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        monitor.abort();
+        websocket_task.abort();
+        http_task.await.unwrap();
+        assert_eq!(
+            quiet_count,
+            Some(0),
+            "a committed new document must not inherit the old document's request"
+        );
+        assert!(quiet.network_quiet_millis_for_tab("tab-1") >= 250);
+        assert_eq!(
+            global_counts,
+            (1, 1, 1, 1, 0),
+            "navigation must not settle an unfinished write"
+        );
+        assert_eq!(
+            restored.active_network_request_count_for_tab("tab-1"),
+            Some(1)
+        );
+        assert_eq!(restored.network_quiet_millis_for_tab("tab-1"), 0);
+        assert_eq!(restored.active_critical_transaction_count, 1);
     }
 
     #[tokio::test]

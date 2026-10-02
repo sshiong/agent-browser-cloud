@@ -1,11 +1,15 @@
+import ast
 import contextlib
 import importlib.util
 import io
 import json
 import pathlib
 import threading
+import urllib.error
+import urllib.request
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from types import SimpleNamespace
 
 
 SOURCE = pathlib.Path(__file__).resolve().parents[1] / "integration/execute_task_request.py"
@@ -14,7 +18,7 @@ module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
 
-class ExecutionRequestTest(unittest.TestCase):
+class HttpFixture:
     def fixture(self, responses):
         requests = []
 
@@ -50,6 +54,8 @@ class ExecutionRequestTest(unittest.TestCase):
         self.addCleanup(cleanup)
         return f"http://127.0.0.1:{server.server_port}/api/v1/agent-tasks/agt_0123456789abcdef:execute", requests
 
+
+class ExecutionRequestTest(HttpFixture, unittest.TestCase):
     def call(self, url, **kwargs):
         return module.execute_task_request(url, "tenant-fixture", "fixture-execute-idempotency", **kwargs)
 
@@ -110,6 +116,45 @@ class ExecutionRequestTest(unittest.TestCase):
             with self.subTest(url=url, key=key), self.assertRaisesRegex(
                     module.ExecutionRequestError, "SCOPE_INVALID"):
                 module.execute_task_request(url, "tenant-fixture", key)
+
+
+class ReplayRequestContractTest(HttpFixture, unittest.TestCase):
+    def replay_request(self, url, delays):
+        source = SOURCE.parent.parent / "compatibility/real_url_agent_matrix.py"
+        tree = ast.parse(source.read_text())
+        function = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
+                        and node.name == "request")
+        scope = {"json": json, "urllib": urllib, "time": SimpleNamespace(sleep=delays.append),
+                 "BASE_URL": url.split("/api/v1/", 1)[0], "TENANT": "tenant-fixture"}
+        exec(compile(ast.Module(body=[function], type_ignores=[]), str(source), "exec"), scope)
+        return scope["request"]
+
+    def test_actual_matrix_request_requires_boolean_transaction_abort_proof(self):
+        for details in [None, {}, {"retryable": False}, {"retryable": "true"}, {"retryable": 1}]:
+            with self.subTest(details=details):
+                body = {"code": "DATABASE_TRANSACTION_RETRY", "details": details}
+                url, requests = self.fixture([(503, body)])
+                delays = []
+                call = self.replay_request(url, delays)
+                status, payload = call("POST", "/api/v1" + url.split("/api/v1", 1)[1],
+                                       body={"fixture": True}, idempotency_key="fixture-stable-key")
+                self.assertEqual((status, payload), (503, body))
+                self.assertEqual(len(requests), 1)
+                self.assertEqual(delays, [])
+
+    def test_actual_matrix_request_preserves_body_and_key_for_proven_abort(self):
+        conflict = (503, {"code": "DATABASE_TRANSACTION_RETRY", "details": {"retryable": True}})
+        url, requests = self.fixture([conflict, conflict, (200, {"state": "AWAITING_REVIEW"})])
+        delays = []
+        call = self.replay_request(url, delays)
+        status, payload = call("POST", "/api/v1" + url.split("/api/v1", 1)[1],
+                               body={"fixture": True}, idempotency_key="fixture-stable-key")
+        self.assertEqual((status, payload), (200, {"state": "AWAITING_REVIEW"}))
+        self.assertEqual(len(requests), 3)
+        self.assertTrue(all(request == requests[0] for request in requests))
+        self.assertEqual(requests[0][1:3], ("tenant-fixture", "fixture-stable-key"))
+        self.assertEqual(json.loads(requests[0][3]), {"fixture": True})
+        self.assertEqual(delays, [0.1, 0.2])
 
 
 if __name__ == "__main__":

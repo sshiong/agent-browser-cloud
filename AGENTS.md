@@ -308,6 +308,14 @@ progress 166。
 
 ### 最近验证状态
 
+- 公开 Replay 的事务回滚重试现要求 HTTP 503、正式错误码、对象 details 与
+  精确布尔 `retryable=true`，五类无证明故障修改前重试、修改后拒绝；Replay Gate
+  30 项通过。真实平台登录六例通过，完整 17 例在 OTP 网络静默等待失败：State
+  FRESH/COMPLETE、Document complete，独立 CDP 证明入口 POST 200 已完成，当前
+  Loader 持续 Socket.IO GET/POST，quiet 为零。该失败与历史未完成 Document POST
+  不同，不能按路径/年龄忽略应用消息。首轮 API 旁路未采到记录、后轮 activity
+  白名单不足均保留；基线 `061883a` 的 CI/Windows/macOS 全部通过，见 progress 254。
+
 - 执行请求改进 `6d9fbcf` 的 CI `37041594983` 与 Desktop `37041594990`、审计文档
   `ded7557` 的 CI `37042627594` 与 Desktop `37042627655` 均完整通过，见 progress
   253。两个全新 Headless Chrome Profile 的公开错误密码隔离对照均观察到 Document

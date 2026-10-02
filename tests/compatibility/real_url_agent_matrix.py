@@ -64,6 +64,8 @@ def request(
                 error.code == 503
                 and isinstance(parsed, dict)
                 and parsed.get("code") == "DATABASE_TRANSACTION_RETRY"
+                and isinstance(parsed.get("details"), dict)
+                and parsed["details"].get("retryable") is True
                 and attempt < 2
             ):
                 time.sleep(0.1 * (attempt + 1))

@@ -19,6 +19,16 @@ class EnterpriseOverviewEventStreamServiceTest {
   private final EnterpriseOverviewStreamStore store = mock(EnterpriseOverviewStreamStore.class);
 
   @Test
+  void preservesTenantQuotaWhenTheLastSubscriberCompletesDuringReplacement() throws Exception {
+    when(store.latestSequence("tenant-a")).thenReturn(10L);
+    when(store.readAfter("tenant-a", 10L, 500)).thenReturn(List.of());
+    var service = new EnterpriseOverviewEventStreamService(store, 10, 1, 60_000);
+    EventStreamQuotaTestSupport.replacementKeepsTenantLimit(
+        service, () -> service.subscribe("tenant-a", null));
+    assertThat(service.activeSubscriberCount()).isZero();
+  }
+
+  @Test
   void resumesTenantAndGlobalOverviewChangesFromTheDurableCursor() {
     when(store.latestSequence("tenant-a")).thenReturn(12L);
     when(store.readAfter("tenant-a", 4L, 500))

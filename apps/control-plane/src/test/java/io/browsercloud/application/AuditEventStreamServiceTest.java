@@ -19,6 +19,16 @@ class AuditEventStreamServiceTest {
   private final AuditEventStreamStore store = mock(AuditEventStreamStore.class);
 
   @Test
+  void preservesTenantQuotaWhenTheLastSubscriberCompletesDuringReplacement() throws Exception {
+    when(store.latestSequence("tenant-a")).thenReturn(10L);
+    when(store.readAfter("tenant-a", 10L, 500)).thenReturn(List.of());
+    var service = new AuditEventStreamService(store, 10, 1, 60_000);
+    EventStreamQuotaTestSupport.replacementKeepsTenantLimit(
+        service, () -> service.subscribe("tenant-a", null));
+    assertThat(service.activeSubscriberCount()).isZero();
+  }
+
+  @Test
   void resumesTenantAuditChangesFromTheImmutableChainCursor() {
     when(store.latestSequence("tenant-a")).thenReturn(12L);
     when(store.readAfter("tenant-a", 4L, 500))

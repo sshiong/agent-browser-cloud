@@ -239,26 +239,24 @@ public class AuditEventStreamService {
       current = subscriberCount.get();
       if (current >= maximumSubscribers) return false;
     } while (!subscriberCount.compareAndSet(current, current + 1));
-    var tenantCount =
-        tenantSubscriberCounts.computeIfAbsent(tenantId, ignored -> new AtomicInteger());
-    int tenantCurrent;
-    do {
-      tenantCurrent = tenantCount.get();
-      if (tenantCurrent >= maximumSubscribersPerTenant) {
-        subscriberCount.decrementAndGet();
-        if (tenantCount.get() == 0) tenantSubscriberCounts.remove(tenantId, tenantCount);
-        return false;
-      }
-    } while (!tenantCount.compareAndSet(tenantCurrent, tenantCurrent + 1));
-    return true;
+    var reserved = new AtomicBoolean();
+    tenantSubscriberCounts.compute(
+        tenantId,
+        (ignored, existing) -> {
+          var count = existing == null ? new AtomicInteger() : existing;
+          if (count.get() >= maximumSubscribersPerTenant) return existing;
+          count.incrementAndGet();
+          reserved.set(true);
+          return count;
+        });
+    if (!reserved.get()) subscriberCount.decrementAndGet();
+    return reserved.get();
   }
 
   private void releaseSubscriber(String tenantId) {
     subscriberCount.decrementAndGet();
-    var tenantCount = tenantSubscriberCounts.get(tenantId);
-    if (tenantCount != null && tenantCount.decrementAndGet() == 0) {
-      tenantSubscriberCounts.remove(tenantId, tenantCount);
-    }
+    tenantSubscriberCounts.computeIfPresent(
+        tenantId, (ignored, count) -> count.decrementAndGet() == 0 ? null : count);
   }
 
   private static final class Channel {

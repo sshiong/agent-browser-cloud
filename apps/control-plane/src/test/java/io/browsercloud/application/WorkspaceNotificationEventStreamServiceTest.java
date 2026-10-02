@@ -20,6 +20,16 @@ class WorkspaceNotificationEventStreamServiceTest {
       mock(WorkspaceNotificationStreamStore.class);
 
   @Test
+  void preservesTenantQuotaWhenTheLastSubscriberCompletesDuringReplacement() throws Exception {
+    when(store.latestSequence("tenant-a")).thenReturn(10L);
+    when(store.readAfter("tenant-a", 10L, 500)).thenReturn(List.of());
+    var service = new WorkspaceNotificationEventStreamService(store, 10, 1, 60_000);
+    EventStreamQuotaTestSupport.replacementKeepsTenantLimit(
+        service, () -> service.subscribe("tenant-a", null));
+    assertThat(service.activeSubscriberCount()).isZero();
+  }
+
+  @Test
   void resumesTenantNotificationsFromTheImmutableAuditCursor() {
     when(store.latestSequence("tenant-a")).thenReturn(12L);
     when(store.readAfter("tenant-a", 4L, 500))

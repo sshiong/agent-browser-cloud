@@ -19,6 +19,16 @@ class WorkspaceOverviewEventStreamServiceTest {
   private final WorkspaceOverviewStreamStore store = mock(WorkspaceOverviewStreamStore.class);
 
   @Test
+  void preservesTenantQuotaWhenTheLastSubscriberCompletesDuringReplacement() throws Exception {
+    when(store.latestSequence("tenant-a", false)).thenReturn(10L);
+    when(store.readAfter("tenant-a", false, 10L, 500)).thenReturn(List.of());
+    var service = new WorkspaceOverviewEventStreamService(store, 10, 1, 60_000);
+    EventStreamQuotaTestSupport.replacementKeepsTenantLimit(
+        service, () -> service.subscribe("tenant-a", false, null));
+    assertThat(service.activeSubscriberCount()).isZero();
+  }
+
+  @Test
   void resumesTenantAndGlobalChangesFromTheDurableCursor() {
     when(store.latestSequence("tenant-a", true)).thenReturn(12L);
     when(store.readAfter("tenant-a", true, 4L, 500))

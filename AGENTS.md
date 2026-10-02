@@ -308,6 +308,14 @@ progress 166。
 
 ### 最近验证状态
 
+- Reviewer 的低风险直达与 APPROVE 执行入队移到租户审计锁前，两者仍同事务
+  提交。旧低风险服务顺序回归失败，修改后四项风险路由、Java 624 项和格式通过；
+  隔离 PostgreSQL FK Fixture 证明旧顺序死锁、新顺序两笔提交，完整 OrbStack Integration
+  与审计链校验通过，Gate 已接入。
+  不据此追溯认定历史 CI 的完整锁图。`517820e` CI/Windows/macOS 完整成功，
+  `ec28bb8` CI 在 Recorder ready 接收失败、Desktop 成功；测试已补 capture 原因
+  诊断，本机 10 项及定向 50 次通过，Linux 前置失败原因仍未确认，见 progress 255。
+
 - 公开 Replay 的事务回滚重试现要求 HTTP 503、正式错误码、对象 details 与
   精确布尔 `retryable=true`，五类无证明故障修改前重试、修改后拒绝；Replay Gate
   30 项通过。真实平台登录六例通过，完整 17 例在 OTP 网络静默等待失败：State

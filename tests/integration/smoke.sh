@@ -641,6 +641,7 @@ wait_for_redis() {
 }
 
 wait_for_postgres
+python3 "$repo_root/tests/integration/audit_lock_order.py" "$postgres_name"
 wait_for_redis
 minio_ready="false"
 for _ in $(seq 1 80); do

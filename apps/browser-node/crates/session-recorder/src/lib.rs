@@ -2687,7 +2687,10 @@ for line in sys.stdin:
         );
         let (ready, result) = tokio::join!(ready_rx, capture);
 
-        ready.unwrap().unwrap();
+        assert!(
+            matches!(&ready, Ok(Ok(()))),
+            "capture did not confirm ready: {ready:?}; capture result: {result:?}"
+        );
         let error = result.unwrap_err().to_string();
         assert!(error.contains("JPEG decode failed"), "{error}");
         assert!(frames_rx.recv().await.is_none());

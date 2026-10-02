@@ -196,6 +196,9 @@ public class AgentReviewerApplicationService {
         && reviewRoutingDecision(task, now) == ReviewRoutingDecision.DETERMINISTIC_BYPASS) {
       task.markReviewerNotRequired(write(List.of(LOW_RISK_BYPASS_REASON)), now);
       tasks.save(task);
+      // Acquire execution-job parent locks before the serialized tenant audit head.
+      // Both writes remain in this transaction and become visible together on commit.
+      executionWorker.enqueue(taskId, tenantId, idempotencyKey);
       appendAudit(
           task,
           task.getTaskId(),
@@ -205,7 +208,6 @@ public class AgentReviewerApplicationService {
               "riskClass", task.getRiskClass(),
               "reasonCode", LOW_RISK_BYPASS_REASON,
               "routingPolicyRevision", ROUTING_POLICY_REVISION));
-      executionWorker.enqueue(taskId, tenantId, idempotencyKey);
       return;
     }
     enqueueForExecutionLocked(task, idempotencyKey);
@@ -624,6 +626,9 @@ public class AgentReviewerApplicationService {
         decision.name(),
         null,
         now);
+    if (decision == ReviewerDecision.APPROVE) {
+      executionWorker.enqueue(job.taskId(), job.tenantId(), job.executionIdempotencyKey());
+    }
     appendAudit(
         task,
         job.reviewId(),
@@ -637,9 +642,6 @@ public class AgentReviewerApplicationService {
             "outputTokens", request.outputTokens(),
             "costMicros", costMicros,
             "reasonCodes", reasons));
-    if (decision == ReviewerDecision.APPROVE) {
-      executionWorker.enqueue(job.taskId(), job.tenantId(), job.executionIdempotencyKey());
-    }
     return toView(requireJob(jobId));
   }
 

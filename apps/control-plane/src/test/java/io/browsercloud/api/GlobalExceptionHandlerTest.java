@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.browsercloud.application.ChallengeAutomationApplicationService.ChallengeAutomationRejectedException;
 import io.browsercloud.application.StateResyncAdmissionService.StateResyncBudgetExceededException;
+import java.sql.SQLException;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpStatus;
@@ -12,6 +13,33 @@ import org.springframework.mock.web.MockHttpServletRequest;
 class GlobalExceptionHandlerTest {
 
   private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+
+  @Test
+  void onlyAbortedDatabaseTransactionsAdvertiseTheExplicitRetryContract() {
+    var request = new MockHttpServletRequest();
+    request.setAttribute(ApiRequestContextFilter.REQUEST_ID_ATTRIBUTE, "req_transaction_retry");
+
+    for (var sqlState : new String[] {"40P01", "40001", "08006"}) {
+      var response =
+          handler.internal(
+              new IllegalStateException(
+                  "transaction failed", new SQLException("private database details", sqlState)),
+              request);
+
+      assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+      assertThat(response.getBody()).isNotNull();
+      assertThat(response.getBody().requestId()).isEqualTo("req_transaction_retry");
+      assertThat(response.getBody().message()).doesNotContain("private database details");
+      if ("08006".equals(sqlState)) {
+        assertThat(response.getBody().code()).isEqualTo("DATABASE_UNAVAILABLE");
+        assertThat(response.getBody().details()).isEmpty();
+      } else {
+        assertThat(response.getBody().code()).isEqualTo("DATABASE_TRANSACTION_RETRY");
+        assertThat(response.getBody().details()).containsOnlyKeys("retryable");
+        assertThat(response.getBody().details()).containsEntry("retryable", true);
+      }
+    }
+  }
 
   @Test
   void mapsAuthoritativeDatabaseOutagesToAStableServiceUnavailableEnvelope() {

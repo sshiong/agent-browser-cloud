@@ -6334,10 +6334,11 @@ false_success_task="$(curl -fsS -X POST \
   -d '{"goal":"Update the page and verify that a technically successful action did not satisfy the business goal","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1,"expectedOutcomes":[{"outcomeId":"impossible-final-title","type":"PAGE_TITLE_EQUALS","matchValue":"Intent verification must reject this title"}]}')"
 false_success_task_id="$(printf '%s' "$false_success_task" | python3 -c \
   'import json,sys; task=json.load(sys.stdin); expected=task["expectedOutcomes"]; assert len(expected) == 1; assert expected[0]["outcomeId"] == "impossible-final-title"; assert expected[0]["type"] == "PAGE_TITLE_EQUALS"; assert expected[0]["role"] is None; assert len(expected[0]["expectedValueHash"]) == 64; assert "matchValue" not in expected[0]; print(task["taskId"])')"
-curl -fsS -X POST \
-  "http://localhost:${control_b_port}/api/v1/agent-tasks/${false_success_task_id}:execute" \
-  -H 'X-Tenant-Id: tenant-integration' \
-  -H 'Idempotency-Key: smoke-outcome-false-success-execute-001' >/dev/null
+python3 tests/integration/execute_task_request.py \
+  --url "http://localhost:${control_b_port}/api/v1/agent-tasks/${false_success_task_id}:execute" \
+  --tenant tenant-integration \
+  --idempotency-key smoke-outcome-false-success-execute-001 \
+  --output "$temp_dir/false-success-execute.json"
 python3 apps/agent-worker/reviewer_worker.py \
   --control-plane-url="http://127.0.0.1:${control_b_port}" \
   --control-plane-token-file="$temp_dir/reviewer-worker-token" \

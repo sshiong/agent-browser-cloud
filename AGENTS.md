@@ -308,6 +308,14 @@ progress 166。
 
 ### 最近验证状态
 
+- Integration 的 false-success Task execute 已补齐正式事务回滚重试：只接受 HTTP
+  503、`DATABASE_TRANSACTION_RETRY` 与布尔 `retryable=true`，使用完全相同幂等键
+  最多三次；其他 HTTP/网络失败仍拒绝，固定诊断不打印原正文。五项真实 HTTP
+  故障回归、Replay Gate 28 项、Java Handler 5 项、格式检查及完整 OrbStack
+  Integration 通过，见
+  progress 251。历史审计头死锁的完整锁顺序仍未还原；`3426ad1` 的 Desktop
+  `37039629924` 已通过，CI `37039630035` 仍在运行。
+
 - 四类租户 SSE 配额的计数增加、减少与零计数回收已在同一 Map 键原子执行，避免
   替换连接持有已移除计数对象后突破租户上限。四项确定性交错回归在旧逻辑失败，
   修复后事件流 31 项、Control Plane 622 项及完整 OrbStack Integration 通过，见

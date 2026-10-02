@@ -42,7 +42,9 @@ Browser Node 最低 `async-trait` 版本与 Browser Node/Desktop 两份 Lockfile
   Evidence Hash 分别为 `6eb4b739d27d49e1ef87cd3118920af0928ddd84537da33b67a39c6415957990`
   与 `59006f78e6fd65ba201c109aa6fbd00113a8dbff591b25388c257e5f5976ef3f`。
   两次短时全量通过不是小时级长稳或目标 Linux 的证书。
-- 本次提交的 Linux CI 与 Windows/macOS Desktop 仍需独立核对。
+- 最新记录提交 `7080525` 的 Linux `ci` run `36961599621` 与 Windows/macOS
+  `desktop` run `36961599592` 均通过；Linux 包含完整 Integration、Object Storage/
+  Recording GameDay 与 Kubernetes Operator E2E。后续新提交仍须独立核对。
 
 公开固定 OTP 不是短信/邮件/TOTP 交付证明；Duende 站内登录不是独立 OIDC Client
 授权码交换或企业租户接入。真实支付、客户 SPA、目标 Linux/云长稳、云 KMS/IAM、

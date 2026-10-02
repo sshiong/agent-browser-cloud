@@ -144,6 +144,15 @@ event_port="$(free_port)"
 desktop_port="$(free_port)"
 proxy_port="$(free_port)"
 
+openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+  -subj '/CN=agent-controls.invalid' -addext 'subjectAltName=DNS:agent-controls.invalid' \
+  -keyout "$temp_dir/oidc-fixture.key" -out "$temp_dir/oidc-fixture.crt" >/dev/null 2>&1
+chmod 600 "$temp_dir/oidc-fixture.key"
+oidc_fixture_spki="$(openssl x509 -in "$temp_dir/oidc-fixture.crt" -pubkey -noout \
+  | openssl pkey -pubin -outform DER | openssl dgst -sha256 -binary | openssl enc -base64 -A)"
+
+OIDC_FIXTURE_CERT_FILE="$temp_dir/oidc-fixture.crt" \
+OIDC_FIXTURE_KEY_FILE="$temp_dir/oidc-fixture.key" \
 PROXY_ALLOWED_HOSTS="example.com,www.w3.org,www.cloudflare.com,www.selenium.dev,practice.expandtesting.com,demo.duendesoftware.com,demo.playwright.dev,www.saucedemo.com,code.jquery.com,cdn.jsdelivr.net,unpkg.com,agent-controls.invalid,opaque-challenge.invalid" \
 PROXY_EVENT_LOG="$temp_dir/proxy-events.jsonl" \
   python3 "$repo_root/tests/fixtures/allowlist-forward-proxy.py" "$proxy_port" \
@@ -197,7 +206,9 @@ for socket_path in "$temp_dir/network-helper.sock" "$temp_dir/storage-helper.soc
   [[ -S "$socket_path" ]]
 done
 
-CHROMIUM_PATH="$chromium_path" \
+REAL_URL_CHROMIUM_BINARY="$chromium_path" \
+REAL_URL_OIDC_FIXTURE_SPKI="$oidc_fixture_spki" \
+CHROMIUM_PATH="$repo_root/tests/fixtures/chromium-oidc-fixture.sh" \
 RUST_LOG="info,state_collector::safety_monitor=debug" \
 NODE_AGENT_PORT="$node_port" \
 NODE_ID=node_real_url \
@@ -299,6 +310,7 @@ if [[ "${REAL_URL_COMMERCE_ONLY:-false}" == "true" ]]; then
 fi
 if [[ "${REAL_URL_IDP_ONLY:-false}" == "true" ]]; then
   grep -q '"event": "connect_allowed".*"host": "demo.duendesoftware.com"' "$temp_dir/proxy-events.jsonl"
+  grep -q '"event": "oidc_verified"' "$temp_dir/proxy-events.jsonl"
   echo "Public IdentityServer demo Replay passed with real Chrome and exact-host egress allowlist."
   exit 0
 fi
@@ -308,6 +320,7 @@ grep -q '"event": "connect_allowed".*"host": "www.w3.org"' "$temp_dir/proxy-even
 grep -q '"event": "connect_allowed".*"host": "demo.playwright.dev"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "www.saucedemo.com"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "demo.duendesoftware.com"' "$temp_dir/proxy-events.jsonl"
+grep -q '"event": "oidc_verified"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "www.cloudflare.com"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "www.selenium.dev"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "practice.expandtesting.com"' "$temp_dir/proxy-events.jsonl"

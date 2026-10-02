@@ -17,6 +17,7 @@ EXPECTED_CASES = {
     "public-expandtesting-otp-invalid": "PUBLIC_OTP",
     "public-expandtesting-otp-success": "PUBLIC_OTP",
     "public-duende-idp-login": "PUBLIC_IDP_DEMO",
+    "public-duende-oidc-code-pkce": "PUBLIC_OIDC_DEMO",
     "public-playwright-todomvc-spa": "PUBLIC_SPA",
     "public-saucedemo-cart": "PUBLIC_COMMERCE_DEMO",
     "synthetic-form-controls": "SYNTHETIC_CONTROL",
@@ -101,6 +102,18 @@ class ReplayGate:
                 or case.get("requiredControls") != ["NAVIGATE", "TYPE_TEXT", "PRESS_KEY", "CLICK_TARGET", "REVISIT", "READ"]
             ):
                 raise ValueError("REPLAY_PUBLIC_SPA_POLICY_INVALID")
+            if case["kind"] == "PUBLIC_OIDC_DEMO" and (
+                case.get("url") != "http://agent-controls.invalid/oidc-start"
+                or domains != ["agent-controls.invalid", "demo.duendesoftware.com"]
+                or case.get("issuer") != "https://demo.duendesoftware.com"
+                or case.get("clientId") != "interactive.public"
+                or case.get("redirectUri") != "https://agent-controls.invalid/oidc-callback"
+                or case.get("expectedPath") != "/oidc-result"
+                or case.get("scope") != "openid profile"
+                or case.get("responseMode") != "form_post"
+                or case.get("requiredControls") != ["NAVIGATE", "CLICK_TARGET", "SSO", "PKCE_S256", "TOKEN_EXCHANGE", "ID_TOKEN_VERIFY", "USERINFO", "CODE_REPLAY_REJECT", "READ"]
+            ):
+                raise ValueError("REPLAY_PUBLIC_OIDC_POLICY_INVALID")
             if case["kind"] == "PUBLIC_COMMERCE_DEMO" and (
                 case.get("url") != "https://www.saucedemo.com/"
                 or domains != ["www.saucedemo.com"]

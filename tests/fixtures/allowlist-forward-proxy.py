@@ -2,14 +2,18 @@
 """Allowlisted forward proxy used only by authorized real-URL compatibility tests."""
 
 import http.client
+import html
 import ipaddress
 import json
 import os
 import select
 import socket
+import ssl
 import sys
 import threading
 import urllib.parse
+import importlib.util
+import pathlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ALLOWED_HOSTS = {
@@ -23,6 +27,14 @@ OPAQUE_CHALLENGE_HOST = "opaque-challenge.invalid"
 EXIT_IP = os.environ.get("PROXY_TEST_EXIT_IP", "203.0.113.10")
 LOG_PATH = os.environ.get("PROXY_EVENT_LOG", "")
 LOG_LOCK = threading.Lock()
+
+OIDC_SPEC = importlib.util.spec_from_file_location(
+    "public_oidc_client", pathlib.Path(__file__).with_name("public-oidc-client.py")
+)
+OIDC_MODULE = importlib.util.module_from_spec(OIDC_SPEC)
+OIDC_SPEC.loader.exec_module(OIDC_MODULE)
+OIDC_CLIENT = OIDC_MODULE.PublicOidcClient()
+OIDC_TLS_ADDRESS = None
 
 
 def log_event(event, **details):
@@ -142,6 +154,28 @@ input{{width:360px;height:36px;margin:8px 0 24px}}button{{height:40px;width:180p
         host = normalized_host(
             parsed.hostname or self.headers.get("Host", "").split(":")[0]
         )
+        if host == CONTROL_FIXTURE_HOST and parsed.path == "/oidc-callback":
+            require_allowed_host(host)
+            if not isinstance(self.connection, ssl.SSLSocket):
+                self.close_connection = True
+                self.send_fixture(b"OIDC callback requires TLS", status=403)
+                return
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if not 0 < length <= 8192 or self.headers.get_content_type() != "application/x-www-form-urlencoded":
+                    raise ValueError("OIDC_CALLBACK_REJECTED")
+                location = OIDC_CLIENT.complete(self.rfile.read(length))
+            except Exception as error:
+                reason = str(error)
+                if not reason.startswith("OIDC_") or len(reason) > 64 or not reason.replace("_", "").isalnum():
+                    reason = "OIDC_PROVIDER_CALL_FAILED"
+                log_event("oidc_rejected", host=host, reason=reason)
+                self.close_connection = True
+                self.send_fixture(b"OIDC verification failed", status=403)
+                return
+            log_event("oidc_verified", host=host, **OIDC_CLIENT.proof)
+            self.send_fixture(b"", status=303, headers={"Location": location, "Cache-Control": "no-store"})
+            return
         if host != CONTROL_FIXTURE_HOST or parsed.path not in {"/login", "/otp"}:
             self.send_error(403, "POST target denied")
             return
@@ -200,7 +234,10 @@ input{{width:360px;height:36px;margin:8px 0 24px}}button{{height:40px;width:180p
             port = int(port_text)
             if port != 443:
                 raise PermissionError("CONNECT is restricted to port 443")
-            upstream = connect_public(host, port)
+            upstream = (socket.create_connection(OIDC_TLS_ADDRESS, timeout=15)
+                        if host == CONTROL_FIXTURE_HOST and OIDC_TLS_ADDRESS is not None
+                        else connect_public(host, port))
+            upstream.settimeout(None)
         except (ValueError, OSError, PermissionError) as error:
             log_event("connect_denied", target=self.path, reason=str(error))
             self.send_error(403, "CONNECT target denied")
@@ -233,6 +270,26 @@ input{{width:360px;height:36px;margin:8px 0 24px}}button{{height:40px;width:180p
             return
         if host == CONTROL_FIXTURE_HOST:
             require_allowed_host(host)
+            if parsed.path == "/oidc-start":
+                try:
+                    location = OIDC_CLIENT.begin()
+                except Exception:
+                    self.send_fixture(b"OIDC discovery failed", status=403)
+                    return
+                body = ('<!doctype html><html><head><title>Public OIDC client</title></head>'
+                        '<body><h1>Public OIDC client</h1><a href="' + html.escape(location, quote=True)
+                        + '">Authorize public OIDC client</a></body></html>').encode()
+                self.send_fixture(body, headers={"Cache-Control": "no-store"})
+                return
+            if parsed.path == "/oidc-result":
+                if not isinstance(self.connection, ssl.SSLSocket) or OIDC_CLIENT.proof is None:
+                    self.send_fixture(b"OIDC proof unavailable", status=403)
+                    return
+                proof = json.dumps(OIDC_CLIENT.proof).encode()
+                self.send_fixture(b"<!doctype html><html><head><title>OIDC verified</title></head>"
+                                  b'<body><h1>OIDC verified</h1><p role="status">' + proof + b"</p></body></html>",
+                                  headers={"Cache-Control": "no-store"})
+                return
             if parsed.path == "/challenge":
                 body = b"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Authorized Simple Challenge</title>
@@ -341,4 +398,14 @@ if __name__ == "__main__":
         raise SystemExit(
             "usage: allowlist-forward-proxy.py <port>; set PROXY_ALLOWED_HOSTS"
         )
+    certificate = os.environ.get("OIDC_FIXTURE_CERT_FILE")
+    private_key = os.environ.get("OIDC_FIXTURE_KEY_FILE")
+    if certificate and private_key:
+        tls_server = ThreadingHTTPServer(("127.0.0.1", 0), ProxyHandler)
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
+        context.load_cert_chain(certificate, private_key)
+        tls_server.socket = context.wrap_socket(tls_server.socket, server_side=True)
+        OIDC_TLS_ADDRESS = tls_server.server_address
+        threading.Thread(target=tls_server.serve_forever, daemon=True).start()
     ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), ProxyHandler).serve_forever()

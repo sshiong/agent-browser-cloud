@@ -308,12 +308,23 @@ progress 166。
 
 ### 最近验证状态
 
+- Duende 官方公开 `interactive.public` Client 增加独立 OIDC Code/PKCE/SSO Replay：
+  Agent 用既有一次性账号登录后点击可见授权链接，临时 Client 固定端点、Scope、S256 和
+  HTTPS form_post 回调，验证 RS256/issuer/audience/nonce/时效、UserInfo subject 及授权码
+  重复兑换拒绝。定向真实 Chrome 154、Replay Gate 17 项与其内 Node 签名验证 10 项通过，
+  见 progress 240；完整 17 例前两轮分别在练习站网络静默和 OTP 显示 Task 等待处失败，
+  后者已合并为单 Task 并复用一次性 OTP 响应，随后完整 17 例通过；独立 Session
+  复跑与新提交 CI 待核对。该证据不替代企业租户映射/MFA/ACR/Logout 与小时级长稳。
+  企业映射/MFA/ACR/Logout、真实客户
+  IdP 仍是独立 Gate；测试 Fixture 的精确临时 SPKI 不改变产品 TLS 或导航策略。
+
 - 公开 Replay 出口代理在上游 EOF/空闲超时后关闭浏览器侧 CONNECT TCP，两个真实
   TCP 回归及 Replay Gate 11 项通过；修复后 Chrome 154 完整 16 例连续两次通过，各运行
   独立 Session，见 progress 239；小时级与目标 Linux 长稳仍待验证。`bd7092f` 的
   Desktop Windows/macOS 已通过，但 Linux CI
   遇到 Rust 1.99 的 `async-trait` 宏重复 `must_use` 检查；依赖已更新为上游修复版
-  0.1.92，本机 Rust 1.97/1.99 严格 Clippy 已通过，新提交需独立核验 CI。
+  0.1.92，本机 Rust 1.97/1.99 严格 Clippy 已通过。`7080525` 的 ci `36961599621`
+  与 Desktop `36961599592` 均通过；后续新提交仍需独立核验 CI。
 
 - 动作确认采集在 CDP `Runtime.evaluate` 超时或结果返回前正常关闭时有一次有界重采，
   只重新读取页面，不重发输入；第二次失败仍报错，见 progress 238。State Collector
@@ -730,7 +741,7 @@ progress 166。
 | --- | --- | --- | --- |
 | 1 | 极端重复元素与 DOM 复用 | **仓库通用方案已确认并闭环**：稳定 Element ID、语义/实体 Hash、JIT Rebind，Adapter 可提供 HMAC 实体属性，见 progress 167/175/197 | 页面没有业务实体键且可见语义完全相同时必须 fail-closed；具体客户站点 Adapter/Replay 仍需外部样本 |
 | 2 | Cross-Origin iframe | **部分完成**：Opaque Frame 安全投影与精确授权单击已闭环；真实 Chrome Replay 的逐 case 证据 Gate 见 progress 217 | 跨域文本、密码、OTP、键盘、滑动、多击、第三方登录/支付/账号决策仍 Human Handoff；进一步自动化需显式 Provider 协议、授权 Replay 和可信结果回执 |
-| 3 | 真实网站与真实浏览器验证 | **仓库 Fixture/公开页面链已闭环**：真实 Chrome 登录结果、OTP Fixture 与公开 OTP 练习站的错误码/正确码、Turnstile 测试 Widget、Profile 恢复、Vision、Cloudflare trace；Selenium 官方公开表单见 progress 219，Duende IdP 演示站站内登录与完整 16 例矩阵见 progress 227；隔离 Runner 的 Dataset 授权/Host/Case Capability 预检见 progress 218 | 独立 OIDC Client/真实企业 IdP、真实 SMS/Email/TOTP 交付、支付页和客户 SPA Replay 是外部 Gate；Catalog 声明不替代客户授权证明 |
+| 3 | 真实网站与真实浏览器验证 | **仓库 Fixture/公开页面链已闭环**：真实 Chrome 登录结果、OTP Fixture 与公开 OTP 练习站的错误码/正确码、Turnstile 测试 Widget、Profile 恢复、Vision、Cloudflare trace；Selenium 官方公开表单见 progress 219，Duende IdP 演示站站内登录见 progress 227，公开独立 OIDC Client/PKCE/SSO 与完整 17 例矩阵见 progress 240；隔离 Runner 的 Dataset 授权/Host/Case Capability 预检见 progress 218 | 目标企业 OIDC Client/租户映射/MFA/ACR/Logout、真实 SMS/Email/TOTP 交付、支付页和客户 SPA Replay 是外部 Gate；Catalog 声明不替代客户授权证明 |
 | 4 | 外部模型请求快速取消 | **客户端链已确认并闭环**：lease/epoch/cancel 会终止 HTTP transport/socket，迟到结果受围栏，见 progress 181/196 | Provider 服务端推理/计费强取消只有供应商提供 Cancel API 才可实现，不能由通用 OpenAI-compatible HTTP 客户端保证 |
 | 5 | Recording 治理与隐私 | **仓库链已闭环**：用途绑定播放、物理删除、Object Lock/WORM 基线、全帧 OCR/PII/正面人脸/二维码遮罩，见 progress 200—203 | 目标云 Apply/IAM、云原生 Legal Hold 深度联动、客户视觉集与侧脸/证件/医学影像等扩展类别 |
 | 6 | Profile 安全与灾备 | **仓库链已闭环**：应用层加密、SQLite/LevelDB 感知恢复、Multipart Resume、只读跨 Region Restore，见 progress 183/205—207 | 目标云 KMS/IAM/Replication、真实 RPO/RTO 和 Region 切换证书 |

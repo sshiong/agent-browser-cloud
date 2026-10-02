@@ -1,4 +1,5 @@
 import importlib.util
+import http.client
 import pathlib
 import socket
 import threading
@@ -68,3 +69,24 @@ class ProxyTunnelTest(unittest.TestCase):
 
     def test_idle_timeout_closes_browser_tunnel(self):
         self.check_tunnel_closes(upstream_eof=False)
+
+    def test_plaintext_oidc_callback_is_rejected_before_code_exchange(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), PROXY.ProxyHandler)
+        worker = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01})
+        with patch.object(PROXY, "ALLOWED_HOSTS", {"agent-controls.invalid"}), \
+             patch.object(PROXY, "OIDC_CLIENT") as client:
+            worker.start()
+            connection = http.client.HTTPConnection(*server.server_address, timeout=2)
+            try:
+                connection.request("POST", "http://agent-controls.invalid/oidc-callback",
+                                   "code=test-code&state=test-state",
+                                   {"Content-Type": "application/x-www-form-urlencoded"})
+                response = connection.getresponse()
+                self.assertEqual(response.status, 403)
+                response.read()
+                client.complete.assert_not_called()
+            finally:
+                connection.close()
+                server.shutdown()
+                server.server_close()
+                worker.join(timeout=2)

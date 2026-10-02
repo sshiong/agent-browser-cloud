@@ -114,6 +114,19 @@ class ReplayGateTest(unittest.TestCase):
             ):
                 ReplayGate(dataset)
 
+    def test_oidc_replay_cannot_change_issuer_client_callback_scopes_or_response_mode(self):
+        for field, value in (
+            ("issuer", "https://attacker.invalid"), ("clientId", "m2m"),
+            ("redirectUri", "https://attacker.invalid/callback"), ("scope", "openid offline_access"),
+            ("responseMode", "query"), ("allowedDomains", ["demo.duendesoftware.com"]),
+            ("requiredControls", ["NAVIGATE"]),
+        ):
+            dataset = copy.deepcopy(DATASET)
+            case = next(item for item in dataset["cases"] if item["kind"] == "PUBLIC_OIDC_DEMO")
+            case[field] = value
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "REPLAY_PUBLIC_OIDC_POLICY_INVALID"):
+                ReplayGate(dataset)
+
     def test_missing_or_unsafe_authorization_is_rejected(self):
         for mutation in (
             lambda value: value["authorization"].update(credentials=True),

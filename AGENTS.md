@@ -308,6 +308,13 @@ progress 166。
 
 ### 最近验证状态
 
+- Recording 视觉零残留复检已改为读取最终 JPEG 解码像素，并拒绝解码/尺寸异常；
+  OCR、视觉计数和像素 Hash 因而绑定持久化字节，既有 v2 契约不变。真实 JPEG 编解码、
+  分类器故障注入与真实 OCR/QR 的容器 Gate 修复前 4 项失败、修复后 5 项全部通过，
+  已接入 `make ci`；Recorder/Storage Rust 37 项通过、2 项环境测试默认忽略，见 progress 242。
+  同轮完整 17 例在练习站 Document 仍 loading 时失败；独立 CDP 也看到 200 Document
+  约 34.7 秒未完成，未到达此前的持续 POST，连续稳定性仍未关闭。
+
 - 进度 241 为本地 Node 导航失败日志增加类型化固定类别，区分 CDP/WebSocket/超时与
   精确匹配的已知 Chromium 网络错误；未知文本不进入类别日志，公共事件仍保持
   `NAVIGATION_FAILED`。Rust Workspace 182 项、Rust 1.99 严格 Clippy、真实 Chrome

@@ -1,0 +1,8 @@
+**
+!apps/
+!apps/browser-node/
+!apps/browser-node/scripts/
+!apps/browser-node/scripts/recording_privacy_scanner.py
+!tests/
+!tests/recording/
+!tests/recording/test_recording_privacy_scanner.py

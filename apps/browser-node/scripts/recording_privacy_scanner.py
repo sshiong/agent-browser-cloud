@@ -214,9 +214,14 @@ def scan(encoded: str) -> dict[str, object]:
     sanitized_bytes = sanitized.tobytes()
     if not sanitized_bytes.startswith(b"\xff\xd8\xff") or len(sanitized_bytes) > MAX_OUTPUT_BYTES:
         raise RuntimeError("IMAGE_ENCODE_FAILED")
+    # JPEG encoding is lossy. Both residual checks must cover the exact bytes returned for
+    # persistence, rather than granting a proof for the pre-encoding raster.
+    persisted_image = cv2.imdecode(sanitized, cv2.IMREAD_COLOR)
+    if persisted_image is None or persisted_image.shape != image.shape:
+        raise RuntimeError("SANITIZED_IMAGE_DECODE_FAILED")
     residual_text, _ = _ocr_rows(sanitized_bytes)
     residual_ocr = _sensitive_signal_count(residual_text)
-    residual_visual, _ = _visual_sensitive_regions(image)
+    residual_visual, _ = _visual_sensitive_regions(persisted_image)
     if residual_ocr or residual_visual:
         raise RuntimeError("PRIVACY_REDACTION_INCOMPLETE")
     return {

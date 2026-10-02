@@ -6,7 +6,7 @@ RUNTIME_CAPACITY_CYCLES ?= 500
 BROWSER_DENSITY_CONCURRENCY ?= 4
 REAL_CHROMIUM_PATH ?=
 
-.PHONY: docs-generate docs-check test-replay-gate
+.PHONY: docs-generate docs-check test-replay-gate test-recording-privacy
 docs-generate:
 	python3 tools/docs/check_readme.py --write
 
@@ -16,6 +16,10 @@ docs-check:
 
 test-replay-gate:
 	python3 -m unittest discover -s tests/validation -p 'test_*.py' -v
+
+# Use the Browser Node's Debian OCR/OpenCV dependencies; the test step has no network.
+test-recording-privacy:
+	docker build -f tests/recording/Dockerfile -t browsercloud-recording-privacy-test:local .
 
 # Install workspace dependencies
 install:
@@ -317,4 +321,4 @@ test-sdk:
 	python3 tools/sdk/build_multilang_release.py .
 
 # Run all checks (CI)
-ci: docs-check lint test contracts-check sdk-typescript-check sdk-multilang-check supply-chain-check test-kubernetes-operator test-upgrade-compatibility test-coordinator-capacity test-sdk
+ci: docs-check lint test test-recording-privacy contracts-check sdk-typescript-check sdk-multilang-check supply-chain-check test-kubernetes-operator test-upgrade-compatibility test-coordinator-capacity test-sdk

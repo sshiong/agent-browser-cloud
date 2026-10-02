@@ -315,6 +315,8 @@ progress 166。
   Loader 持续 Socket.IO GET/POST，quiet 为零。该失败与历史未完成 Document POST
   不同，不能按路径/年龄忽略应用消息。首轮 API 旁路未采到记录、后轮 activity
   白名单不足均保留；基线 `061883a` 的 CI/Windows/macOS 全部通过，见 progress 254。
+  追加 OTP 定向八例通过，此轮只读观察未见 Socket.IO/WebSocket，未重现原轮询；
+  独立公开握手支持 websocket，不证明失败轮升级行为。`517820e` CI/Desktop 仍在运行。
 
 - 执行请求改进 `6d9fbcf` 的 CI `37041594983` 与 Desktop `37041594990`、审计文档
   `ded7557` 的 CI `37042627594` 与 Desktop `37042627655` 均完整通过，见 progress

@@ -52,12 +52,30 @@
 `/socket.io` 路径、GET 方法或请求年龄将它们排除。后续需精确握手/升级诊断与
 业务 Adapter 的用途、动作和结果证明；当前未知请求与事务保护保持原样。
 
+追加一轮 OTP 定向八例，沿用原断言，仅在只读 CDP 观察器增加 WebSocket
+创建、握手状态和关闭事件，以及固定 polling/websocket 传输类别。网站公开
+账号/固定 OTP 仍经一次性 Secret API；错误密码、正确登录、错误码拒绝、正确码
+续行与四个导航/表单 Case 均通过。证据目录 `/tmp/ab-login-probe.lq24gb7w/`。
+此轮观察中 Socket.IO 请求和 WebSocket 事件均为零，未重现完整失败轮的轮询，
+无法判断历史升级失败原因。未读取握手头、应用消息或自由文本错误。
+
+一个独立、无 Cookie/凭据的公开 Engine.IO polling 握手 GET 返回 HTTP 200、
+有效 open packet、`upgrades` 含 websocket、pingInterval 10000 毫秒。只保存
+上述元数据，不保存 sid/响应正文。它与平台 Browser 是独立连接，不证明平台
+在失败轮收到相同握手，也不将八例定向通过当成完整 17 例通过。
+追加观察器 SHA-256 为 `19c8c0d3709ad739c0f33dfee0763d7a80b2f7f09f4d02cde5185f8ba9ae4f65`，
+运行器为 `a2f303c904130b652c554cdcbd341511304d4c634c45c30fdad8aec4d9f0cb16`；
+均为 `/tmp/` 私有诊断，未进入产品或改变网络静默策略。
+
 ## CI 与剩余目标
 
 基线完整 SHA 对应的 [CI 37045454725](https://github.com/sshiong/agent-browser-cloud/actions/runs/37045454725)
 和 [Desktop 37045454597](https://github.com/sshiong/agent-browser-cloud/actions/runs/37045454597)
 全部成功，包含 Integration、Object Storage/Recording GameDay、Operator E2E
 和 Windows/macOS。本文新改动推送后的 CI 仍需另行核验。
+
+请求修复已推送 `517820e621f9aa8a27fe4f8d77c2826d1fb8648c`，其 CI
+`37050160840` 与 Desktop `37050160834` 检查时仍在运行。未因观察超时重启。
 
 十一项整体边界沿用 [252](252-十一项目标完成边界与SSE修复CI核验.md)。
 本轮六例通过不关闭 17 例连续稳定性，亦不证明真实短信/邮件、企业 IdP、支付、

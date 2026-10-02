@@ -308,6 +308,12 @@ progress 166。
 
 ### 最近验证状态
 
+- 十一项目标的当前完成边界再次核验见 progress 252：公开 17 例曾单次通过，
+  连续稳定性仍未达成，不能以“公开页面链闭环”替代。SSE 配额修复 `3426ad1`
+  的 CI `37039630035` 与 Desktop `37039629924` 全部通过；后续 `6d9fbcf` 的
+  CI `37041594983` 与 Desktop `37041594990` 仍在运行。原审计头死锁失败、
+  客户/供应商接入、目标环境与许可证 Gate 继续保留。
+
 - Integration 的 false-success Task execute 已补齐正式事务回滚重试：只接受 HTTP
   503、`DATABASE_TRANSACTION_RETRY` 与布尔 `retryable=true`，使用完全相同幂等键
   最多三次；其他 HTTP/网络失败仍拒绝，固定诊断不打印原正文。五项真实 HTTP
@@ -844,7 +850,7 @@ progress 166。
 | --- | --- | --- | --- |
 | 1 | 极端重复元素与 DOM 复用 | **仓库通用方案已确认并闭环**：稳定 Element ID、语义/实体 Hash、JIT Rebind，Adapter 可提供 HMAC 实体属性，见 progress 167/175/197 | 页面没有业务实体键且可见语义完全相同时必须 fail-closed；具体客户站点 Adapter/Replay 仍需外部样本 |
 | 2 | Cross-Origin iframe | **部分完成**：Opaque Frame 安全投影与精确授权单击已闭环；真实 Chrome Replay 的逐 case 证据 Gate 见 progress 217 | 跨域文本、密码、OTP、键盘、滑动、多击、第三方登录/支付/账号决策仍 Human Handoff；进一步自动化需显式 Provider 协议、授权 Replay 和可信结果回执 |
-| 3 | 真实网站与真实浏览器验证 | **仓库 Fixture/公开页面链已闭环**：真实 Chrome 登录结果、OTP Fixture 与公开 OTP 练习站的错误码/正确码、Turnstile 测试 Widget、Profile 恢复、Vision、Cloudflare trace；Selenium 官方公开表单见 progress 219，Duende IdP 演示站站内登录见 progress 227，公开独立 OIDC Client/PKCE/SSO 与完整 17 例矩阵见 progress 240；隔离 Runner 的 Dataset 授权/Host/Case Capability 预检见 progress 218 | 目标企业 OIDC Client/租户映射/MFA/ACR/Logout、真实 SMS/Email/TOTP 交付、支付页和客户 SPA Replay 是外部 Gate；Catalog 声明不替代客户授权证明 |
+| 3 | 真实网站与真实浏览器验证 | **部分完成，连续稳定性未达成**：真实 Chrome 登录、公开固定 OTP、Turnstile 测试 Widget、Profile 恢复、Vision、公开 SPA/购物车/IdP 与独立 OIDC/PKCE/SSO 已有逐 case 证据，完整 17 例曾单次通过，见 progress 219—224/227/240/244；Dataset 授权/Host/Capability 预检见 progress 218 | 最近完整矩阵在错误密码提交后的 alert 等待失败，最后 State 已 STALE；旧 quiet 投影不证明业务完成。17 例连续回放、目标企业租户映射/MFA/ACR/Logout、真实 SMS/Email/TOTP、支付与客户 SPA 仍未完成，见 progress 249；Catalog 不替代客户授权 |
 | 4 | 外部模型请求快速取消 | **客户端链已确认并闭环**：lease/epoch/cancel 会终止 HTTP transport/socket，迟到结果受围栏，见 progress 181/196 | Provider 服务端推理/计费强取消只有供应商提供 Cancel API 才可实现，不能由通用 OpenAI-compatible HTTP 客户端保证 |
 | 5 | Recording 治理与隐私 | **仓库链已闭环**：用途绑定播放、物理删除、Object Lock/WORM 基线、全帧 OCR/PII/正面人脸/二维码遮罩，见 progress 200—203 | 目标云 Apply/IAM、云原生 Legal Hold 深度联动、客户视觉集与侧脸/证件/医学影像等扩展类别 |
 | 6 | Profile 安全与灾备 | **仓库链已闭环**：应用层加密、SQLite/LevelDB 感知恢复、Multipart Resume、只读跨 Region Restore，见 progress 183/205—207 | 目标云 KMS/IAM/Replication、真实 RPO/RTO 和 Region 切换证书 |

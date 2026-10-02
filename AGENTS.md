@@ -308,6 +308,14 @@ progress 166。
 
 ### 最近验证状态
 
+- 执行请求改进 `6d9fbcf` 的 CI `37041594983` 与 Desktop `37041594990`、审计文档
+  `ded7557` 的 CI `37042627594` 与 Desktop `37042627655` 均完整通过，见 progress
+  253。两个全新 Headless Chrome Profile 的公开错误密码隔离对照均观察到 Document
+  POST 302、返回页 200 和错误 alert，点击到结果约 1.49/9.59 秒；没有运行 Agent/
+  State Collector/Recorder，不计入正式 Replay Gate。首版未取得有效 POST 证据，
+  校准版的 `/login` 路由专用标志不作为主 Frame 证明；原 17 例连续失败与历史
+  POST 身份/停滞原因仍未定位。
+
 - 十一项目标的当前完成边界再次核验见 progress 252：公开 17 例曾单次通过，
   连续稳定性仍未达成，不能以“公开页面链闭环”替代。SSE 配额修复 `3426ad1`
   的 CI `37039630035` 与 Desktop `37039629924` 全部通过；后续 `6d9fbcf` 的

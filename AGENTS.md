@@ -314,7 +314,9 @@ progress 166。
   重复兑换拒绝。定向真实 Chrome 154、Replay Gate 17 项与其内 Node 签名验证 10 项通过，
   见 progress 240；完整 17 例前两轮分别在练习站网络静默和 OTP 显示 Task 等待处失败，
   后者已合并为单 Task 并复用一次性 OTP 响应，随后完整 17 例通过；独立 Session
-  复跑与新提交 CI 待核对。该证据不替代企业租户映射/MFA/ACR/Logout 与小时级长稳。
+  复跑却在练习站初始导航遇到 `NAVIGATION_FAILED`，具体原因尚未确定，不能宣称连续通过。
+  功能提交 `6185e5b` 的 `ci` run `36966827923` 与 `desktop` run `36966827832` 均通过。
+  该证据不替代企业租户映射/MFA/ACR/Logout 与小时级长稳。
   企业映射/MFA/ACR/Logout、真实客户
   IdP 仍是独立 Gate；测试 Fixture 的精确临时 SPKI 不改变产品 TLS 或导航策略。
 

@@ -55,10 +55,17 @@ Task 续行验证。产品 Challenge、Secret 和状态围栏均保持原样。
   到新 OIDC 用例。合并 OTP 显示 Task 后完整 **17 例通过**，Chrome 为
   `154.0.8037.95`，Validation ID 为 `val_a446c7428e2249459eb4`，Dataset SHA-256 为
   `60c6f170bfa2160a6bfbeb29bc465a70051c8b830fe36f7d0713728bfd930da3`。
-  后续独立 Session 复跑结果另行核验，短时通过不替代小时级长稳。
+  随后的独立 Session 复跑在练习站错误密码用例的初始导航以 `NAVIGATION_FAILED`
+  失败，尚未进入 OTP/OIDC。Node 当前将 `Page.navigate` 错误折叠为该码，本轮证据
+  不能确定是上游网络、第三方页面还是 CDP 原因；不能宣称完整 17 例连续通过。
+  短时通过不替代小时级长稳。
 - 基线 `7080525` 的 GitHub `ci` run `36961599621` 与 Desktop run `36961599592`
   已核对通过，包括完整 Integration、Object Storage/Recording GameDay、Kubernetes
   Operator E2E 和 Windows/macOS。新测试提交必须独立核验 CI。
+- 功能提交 `6185e5b9659162531faead8f1fde44782ed3996f` 的 `ci` run
+  `36966827923` 与 `desktop` run `36966827832` 均通过，包含 Integration、Object
+  Storage/Recording GameDay、Kubernetes Operator E2E 与 Windows/macOS。
+  CI 的本地 Fixture Gate 不替代上述公开真实 URL 连续回放。
 
 这项证据覆盖公开演示的独立 OIDC Client 授权码交换与 SSO，不证明企业租户映射、
 MFA/ACR、客户 Logout 联动或目标 IdP 接入。真实 OTP 交付、支付、客户 SPA/视觉数据集、

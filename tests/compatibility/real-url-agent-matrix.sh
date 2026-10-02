@@ -84,6 +84,7 @@ cleanup() {
   docker rm -f "$postgres_name" "$redis_name" "$minio_name" >/dev/null 2>&1 || true
   docker network rm "$minio_network" >/dev/null 2>&1 || true
   if [[ "$exit_code" -ne 0 ]]; then
+    rg 'Page network activity remains in flight' "$temp_dir/browser-node.log" | tail -n 60 || true
     tail -n 160 "$temp_dir/control-plane.log" 2>/dev/null || true
     tail -n 160 "$temp_dir/browser-node.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/network-helper.log" 2>/dev/null || true
@@ -197,6 +198,7 @@ for socket_path in "$temp_dir/network-helper.sock" "$temp_dir/storage-helper.soc
 done
 
 CHROMIUM_PATH="$chromium_path" \
+RUST_LOG="info,state_collector::safety_monitor=debug" \
 NODE_AGENT_PORT="$node_port" \
 NODE_ID=node_real_url \
 CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \

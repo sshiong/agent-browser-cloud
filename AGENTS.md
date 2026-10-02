@@ -308,6 +308,12 @@ progress 166。
 
 ### 最近验证状态
 
+- 动作确认采集在 CDP `Runtime.evaluate` 超时或结果返回前正常关闭时有一次有界重采，
+  只重新读取页面，不重发输入；第二次失败仍报错，见 progress 238。State Collector
+  38 项与两项真实 Chrome 采集/Tab 回归通过。公开矩阵新增仅含在途请求数量和类别的
+  Debug 诊断，已观察练习站持续 `XHR:script` 导致网络静默为零；当前仍无连续全量长稳证据。
+  Rust Workspace 与完整 OrbStack Integration 通过。
+
 - Remote Desktop Gateway 已对协商 RFB Fence 的 Viewer 增加连接私有自适应 FPS：慢回执、
   无响应和积压降速，快速回执有界恢复；同 Actor 另一 Viewer 只受原共享配额约束，旧
   客户端沿用固定上限。Gateway 32 项、Rust Workspace、严格 Clippy、真实 Web/noVNC E2E

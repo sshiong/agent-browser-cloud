@@ -639,6 +639,16 @@ async fn observe_browser(
                 // does not generate Control Plane traffic; the normal 5-second reporter reads the
                 // refreshed bounded snapshot.
                 let observation = tracker.next_observation();
+                for activity in observation.tab_network_activity.values() {
+                    if activity.active_request_count > 0 {
+                        tracing::debug!(
+                            session_id,
+                            active_requests = activity.active_request_count,
+                            request_kinds = ?activity.active_request_kinds,
+                            "Page network activity remains in flight"
+                        );
+                    }
+                }
                 publish(observations, session_id, observation).await;
                 continue;
             }

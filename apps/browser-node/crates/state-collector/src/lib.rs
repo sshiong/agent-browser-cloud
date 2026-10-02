@@ -3756,7 +3756,22 @@ impl BrowserStateCollector for CdpStateCollector {
     }
 
     async fn collect_action_confirmation(&self, session_id: &str) -> anyhow::Result<CurrentState> {
-        self.collect(session_id, true, false).await
+        match self.collect(session_id, true, false).await {
+            Ok(state) => Ok(state),
+            Err(error)
+                if error.to_string().contains("CDP Runtime.evaluate timed out")
+                    || error
+                        .to_string()
+                        .contains("CDP websocket closed before Runtime.evaluate completed") =>
+            {
+                // The input was already dispatched. A page navigation can close or pause its
+                // former CDP target before the confirmation read completes. Re-observe once;
+                // never repeat the input or claim success without a fresh page snapshot.
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                self.collect(session_id, true, false).await
+            }
+            Err(error) => Err(error),
+        }
     }
 
     async fn resync_full(&self, session_id: &str) -> anyhow::Result<CurrentState> {
@@ -4112,6 +4127,112 @@ mod tests {
         assert_eq!(action_confirmation.content_hash, repeated.content_hash);
         assert_eq!(action_confirmation.targets, state.targets);
 
+        websocket_task.await.unwrap();
+        http_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn action_confirmation_reobserves_after_cdp_evaluation_timeout() {
+        check_action_confirmation_retry(true, true).await;
+    }
+
+    #[tokio::test]
+    async fn action_confirmation_does_not_succeed_when_reobservation_fails() {
+        check_action_confirmation_retry(true, false).await;
+    }
+
+    #[tokio::test]
+    async fn action_confirmation_does_not_retry_cdp_protocol_errors() {
+        check_action_confirmation_retry(false, false).await;
+    }
+
+    async fn check_action_confirmation_retry(timeout_first: bool, success: bool) {
+        let read_count = if timeout_first { 2 } else { 1 };
+        let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let websocket_address = websocket_listener.local_addr().unwrap();
+        let websocket_task = tokio::spawn(async move {
+            for attempt in 0..read_count {
+                let (stream, _) = websocket_listener.accept().await.unwrap();
+                let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+                let request = socket.next().await.unwrap().unwrap();
+                let Message::Text(request) = request else {
+                    panic!("expected CDP Runtime.evaluate request");
+                };
+                let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+                assert_eq!(request["method"], "Runtime.evaluate");
+                if attempt == 0 && timeout_first {
+                    tokio::time::sleep(Duration::from_millis(3_100)).await;
+                    continue;
+                }
+                let response = if success {
+                    serde_json::json!({
+                        "id": 1,
+                        "result": {"result": {"type": "object", "value": {
+                            "url": "https://example.test/after-click",
+                            "title": "After click",
+                            "targets": []
+                        }}}
+                    })
+                } else {
+                    serde_json::json!({"id": 1, "error": {"message": "confirmation unavailable"}})
+                };
+                socket
+                    .send(Message::Text(response.to_string()))
+                    .await
+                    .unwrap();
+            }
+        });
+
+        let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let http_address = http_listener.local_addr().unwrap();
+        let http_task = tokio::spawn(async move {
+            let body = serde_json::json!([{
+                "id": "page-1",
+                "type": "page",
+                "webSocketDebuggerUrl": format!("ws://{websocket_address}/devtools/page/1")
+            }])
+            .to_string();
+            for _ in 0..read_count {
+                let (mut stream, _) = http_listener.accept().await.unwrap();
+                let mut request = vec![0_u8; 4096];
+                let count = stream.read(&mut request).await.unwrap();
+                assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list "));
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                stream.write_all(response.as_bytes()).await.unwrap();
+            }
+        });
+
+        let collector = CdpStateCollector::new();
+        collector
+            .register_runtime("ses_confirmation", &format!("http://{http_address}"))
+            .await
+            .unwrap();
+        let result = tokio::time::timeout(
+            Duration::from_secs(12),
+            collector.collect_action_confirmation("ses_confirmation"),
+        )
+        .await
+        .unwrap();
+        if success {
+            let state = result.unwrap();
+            assert_eq!(state.url, "https://example.test/after-click");
+            assert_eq!(state.state_version, 1);
+        } else {
+            assert!(result
+                .unwrap_err()
+                .to_string()
+                .contains("confirmation unavailable"));
+            assert!(collector
+                .last_states
+                .read()
+                .await
+                .get("ses_confirmation")
+                .is_none());
+        }
         websocket_task.await.unwrap();
         http_task.await.unwrap();
     }

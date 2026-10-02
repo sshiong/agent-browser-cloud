@@ -70,6 +70,46 @@ class ProxyTunnelTest(unittest.TestCase):
     def test_idle_timeout_closes_browser_tunnel(self):
         self.check_tunnel_closes(upstream_eof=False)
 
+    def test_unread_peer_cannot_block_relay_beyond_timeout(self):
+        for toward_browser in (True, False):
+            with self.subTest(toward_browser=toward_browser):
+                browser, browser_peer = socket.socketpair()
+                upstream, upstream_peer = socket.socketpair()
+                sockets = (browser, browser_peer, upstream, upstream_peer)
+                destination = browser if toward_browser else upstream
+                producer = upstream_peer if toward_browser else browser_peer
+                destination.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4096)
+                producer.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 256 * 1024)
+                producer.settimeout(2)
+                finished = threading.Event()
+                failures = []
+
+                def run():
+                    try:
+                        PROXY.relay(browser, upstream, idle_timeout=0.1)
+                    except OSError as error:
+                        failures.append(type(error).__name__)
+                    finally:
+                        finished.set()
+
+                worker = threading.Thread(target=run, daemon=True)
+                worker.start()
+                try:
+                    # No destination peer reads: a real kernel send buffer fills in either
+                    # direction. No public site, TLS payload or credentials are involved.
+                    producer.sendall(b"fixture-bytes" * 8192)
+                    self.assertTrue(finished.wait(1), "blocked write must honor the relay timeout")
+                    self.assertEqual(failures, [], "transport timeout must finish the tunnel cleanly")
+                finally:
+                    for connection in sockets:
+                        try:
+                            connection.shutdown(socket.SHUT_RDWR)
+                        except OSError:
+                            pass
+                        connection.close()
+                    worker.join(timeout=2)
+                    self.assertFalse(worker.is_alive())
+
     def test_plaintext_oidc_callback_is_rejected_before_code_exchange(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), PROXY.ProxyHandler)
         worker = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01})

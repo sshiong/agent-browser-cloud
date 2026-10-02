@@ -308,6 +308,13 @@ progress 166。
 
 ### 最近验证状态
 
+- Replay 测试代理已将 socket 超时应用到两个方向的阻塞写入；真实内核发送缓冲区
+  回归修复前两方向均不按时退出、修复后 Replay Gate 18 项通过，见 progress 243。
+  完整 17 例随后在 SPA 输入前耗尽原五秒稳定等待；独立 CDP 仍看到练习站 Socket.IO
+  POST 在途约 35 秒，SPA Document 已完成，Node 同时有一个 XHR:script。跨 Document
+  网络归属需进一步复核，未知写入不因导航或年龄而视为完成。Recording 修复 `3cf96fe`
+  的 CI `36978182501` 与 Desktop `36978182483` 全部通过。
+
 - Recording 视觉零残留复检已改为读取最终 JPEG 解码像素，并拒绝解码/尺寸异常；
   OCR、视觉计数和像素 Hash 因而绑定持久化字节，既有 v2 契约不变。真实 JPEG 编解码、
   分类器故障注入与真实 OCR/QR 的容器 Gate 修复前 4 项失败、修复后 5 项全部通过，

@@ -94,16 +94,25 @@ def connect_public(host, port):
 
 def relay(left, right, idle_timeout=30):
     sockets = [left, right]
+    # Bound each complete write as well as select's idle wait. A peer that stops reading
+    # must not keep a CONNECT handler blocked indefinitely in sendall.
+    for connection in sockets:
+        connection.settimeout(idle_timeout)
     while True:
         readable, _, exceptional = select.select(sockets, [], sockets, idle_timeout)
         if exceptional or not readable:
             return
         for source in readable:
             target = right if source is left else left
-            data = source.recv(64 * 1024)
-            if not data:
+            try:
+                data = source.recv(64 * 1024)
+                if not data:
+                    return
+                target.sendall(data)
+            except OSError:
+                # Partial writes are terminal: close the tunnel without retrying encrypted
+                # bytes or emitting transport errors that might contain endpoint details.
                 return
-            target.sendall(data)
 
 
 class ProxyHandler(BaseHTTPRequestHandler):

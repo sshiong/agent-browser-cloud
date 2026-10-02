@@ -34,6 +34,32 @@ Query、Cookie、Secret 或页面文字。公共失败事件/API 仍返回 `NAVI
 - 网络采样代码会按精确 CDP Session/Request ID 处理 `loadingFinished/loadingFailed`；
   现有证据没有证明漏记收尾，也没有证明该 XHR 的服务端状态。不能以年龄、页面
   load 或已完成 DOM 为由把脚本请求直接视为完成。
+- 功能提交 `7ea6ede26852ab713217d426624ce410f482e4b6` 的 `ci` run `36971447349`
+  与 `desktop` run `36971447454` 均通过，包括 Integration、Object Storage/Recording
+  GameDay、Kubernetes Operator E2E 和 Windows/macOS。
+
+## 独立 CDP 对照诊断
+
+2026-10-02 使用新的临时 Chrome Profile 和同一精确域名出口代理做辅助诊断，不输入
+账号或 OTP。两次单独访问练习站 `/login` 的 50 秒观察均收到 XHR 完成事件，没有
+在途残留；再按 Example/W3C/Cloudflare/Selenium/Practice 导航顺序观察，收到 24 个
+XHR 完成事件且没有残留。该辅助 Headless 诊断不包含平台完整 Agent/敏感输入流程，
+不能据此宣布平台矩阵通过，也不能解释此前单独的 `NAVIGATION_FAILED`。
+
+随后在真实平台完整矩阵的同一临时 Chrome 上添加第二条只读 CDP 连接。诊断仅保留
+固定 Host/Route/请求类别、方法、响应状态和持续时间；不记录 URL/Query、Header、
+正文、Cookie、Secret 或原始错误。观察器从首个 Example Document 开始收到事件。
+矩阵最终在第二轮 OTP 入口等待网络静默失败，尚未取得完整 17 例通过。
+
+| UTC 观察时间 | 独立 CDP 的练习站请求 | Node/权威 State |
+| --- | --- | --- |
+| 06:26:41 | 一个 `POST / XHR / script` 在途约 23 秒，尚无响应状态 | 网络静默为零 |
+| 06:27:01 | 同一在途请求约 43 秒，仍无响应状态；XHR 启动 19 次、完成 18 次 | 一个 `XHR:script` 在途，`COMPLETE/FRESH/CHANGING` |
+
+清理前的独立证据确认浏览器也有真实在途请求，因此本次失败不是只有 Node 的旧计数
+残留。清理后的零计数来自关闭 Browser/Target，不能当成请求成功证明。这项对照没有
+隔离上游、代理传输或浏览器网络服务的具体原因，也没有观察该 POST 的事务内容，不能
+把它当成可忽略的后台流量或盲目重发请求。网络静默、敏感输入与事务围栏保持原样。
 
 ## 剩余边界
 

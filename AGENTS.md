@@ -313,6 +313,9 @@ progress 166。
   `NAVIGATION_FAILED`。Rust Workspace 182 项、Rust 1.99 严格 Clippy、真实 Chrome
   本机关闭端口分类和公开 IdP/OIDC 两例通过；完整 17 例本轮在练习站持续 `XHR:script`
   网络静默处失败，未重现导航失败，不能推定上轮原因或宣称连续稳定性已关闭。
+  功能提交 `7ea6ede` 的 ci `36971447349` 与 Desktop `36971447454` 均通过。
+  独立 CDP 对照又在同一平台 Browser 复现一个练习站 POST/XHR 在途约 43 秒且无响应，
+  不能把该失败仅归因于 Node 旧计数；上游/代理/浏览器网络服务原因仍未隔离。
 
 - Duende 官方公开 `interactive.public` Client 增加独立 OIDC Code/PKCE/SSO Replay：
   Agent 用既有一次性账号登录后点击可见授权链接，临时 Client 固定端点、Scope、S256 和

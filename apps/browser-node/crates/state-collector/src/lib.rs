@@ -3,11 +3,15 @@
 //! 负责采集浏览器当前状态。
 
 mod dialog_monitor;
+mod navigation_diagnostics;
 mod safety_monitor;
 
+use anyhow::Context;
 use async_trait::async_trait;
 pub use dialog_monitor::NativeDialog;
 use futures_util::{SinkExt, StreamExt};
+pub use navigation_diagnostics::navigation_failure_reason;
+use navigation_diagnostics::{network_failure, NavigationFailure};
 pub use safety_monitor::{BrowserDownload, BrowserSafetyObservation, BrowserTransactionPolicy};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -2416,15 +2420,19 @@ impl CdpStateCollector {
     pub async fn navigate(&self, session_id: &str, url: &str) -> anyhow::Result<()> {
         anyhow::ensure!(
             url.starts_with("http://") || url.starts_with("https://") || url == "about:blank",
-            "navigation URL scheme is not allowed"
+            NavigationFailure("URL_SCHEME_REJECTED")
         );
-        let websocket_url = self.active_page_websocket(session_id).await?;
+        let websocket_url = self
+            .active_page_websocket(session_id)
+            .await
+            .context(NavigationFailure("ACTIVE_PAGE_UNAVAILABLE"))?;
         let (mut socket, _) = timeout(
             Duration::from_secs(3),
             tokio_tungstenite::connect_async(websocket_url),
         )
         .await
-        .map_err(|_| anyhow::anyhow!("CDP websocket connection timed out"))??;
+        .context(NavigationFailure("WEBSOCKET_CONNECT_TIMEOUT"))?
+        .context(NavigationFailure("WEBSOCKET_TRANSPORT_ERROR"))?;
         socket
             .send(Message::Text(
                 serde_json::json!({
@@ -2434,31 +2442,33 @@ impl CdpStateCollector {
                 })
                 .to_string(),
             ))
-            .await?;
+            .await
+            .context(NavigationFailure("WEBSOCKET_TRANSPORT_ERROR"))?;
         while let Some(message) = timeout(PAGE_NAVIGATE_RESPONSE_TIMEOUT, socket.next())
             .await
-            .map_err(|_| anyhow::anyhow!("CDP Page.navigate timed out"))?
+            .context(NavigationFailure("NAVIGATE_RESPONSE_TIMEOUT"))?
         {
-            let message = message?;
+            let message = message.context(NavigationFailure("WEBSOCKET_TRANSPORT_ERROR"))?;
             let Message::Text(text) = message else {
                 continue;
             };
-            let response: serde_json::Value = serde_json::from_str(&text)?;
+            let response: serde_json::Value =
+                serde_json::from_str(&text).context(NavigationFailure("CDP_RESPONSE_INVALID"))?;
             if response.get("id").and_then(serde_json::Value::as_i64) != Some(2) {
                 continue;
             }
-            if let Some(error) = response.get("error") {
-                anyhow::bail!("CDP Page.navigate failed: {error}");
+            if response.get("error").is_some() {
+                anyhow::bail!(NavigationFailure("CDP_COMMAND_REJECTED"));
             }
             if let Some(error_text) = response
                 .pointer("/result/errorText")
                 .and_then(serde_json::Value::as_str)
             {
-                anyhow::bail!("CDP navigation failed: {error_text}");
+                anyhow::bail!(network_failure(error_text));
             }
             return Ok(());
         }
-        anyhow::bail!("CDP websocket closed before Page.navigate completed")
+        anyhow::bail!(NavigationFailure("WEBSOCKET_CLOSED"))
     }
 
     pub async fn reload(&self, session_id: &str, ignore_cache: bool) -> anyhow::Result<()> {
@@ -3866,6 +3876,106 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
+
+    #[tokio::test]
+    async fn navigation_diagnostics_classify_cdp_failures_without_page_material() {
+        for (expected, response) in [
+            (
+                "NET_EMPTY_RESPONSE",
+                Some(r#"{"id":2,"result":{"errorText":"net::ERR_EMPTY_RESPONSE"}}"#),
+            ),
+            (
+                "NETWORK_ERROR_OTHER",
+                Some(
+                    r#"{"id":2,"result":{"errorText":"net::ERR_EMPTY_RESPONSE https://private.invalid/?code=private-code"}}"#,
+                ),
+            ),
+            (
+                "CDP_COMMAND_REJECTED",
+                Some(r#"{"id":2,"error":{"message":"private-code"}}"#),
+            ),
+            ("CDP_RESPONSE_INVALID", Some("invalid-json-private-code")),
+            ("WEBSOCKET_CLOSED", None),
+            (
+                "SUCCESS",
+                Some(r#"{"id":2,"result":{"frameId":"page-navigation"}}"#),
+            ),
+        ] {
+            let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let websocket_address = websocket_listener.local_addr().unwrap();
+            let websocket_task = tokio::spawn(async move {
+                let (stream, _) = websocket_listener.accept().await.unwrap();
+                let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+                let request = socket.next().await.unwrap().unwrap();
+                let Message::Text(request) = request else {
+                    panic!("expected CDP text");
+                };
+                let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+                assert_eq!(request["method"], "Page.navigate");
+                assert_eq!(
+                    request["params"]["url"],
+                    "https://private.invalid/?code=private-code"
+                );
+                if let Some(response) = response {
+                    socket
+                        .send(Message::Text(response.to_owned()))
+                        .await
+                        .unwrap();
+                } else {
+                    socket.close(None).await.unwrap();
+                }
+            });
+            let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let http_address = http_listener.local_addr().unwrap();
+            let http_task = tokio::spawn(async move {
+                let body = serde_json::json!([{
+                    "id": "page-navigation", "type": "page", "url": "about:blank",
+                    "title": "Navigation", "webSocketDebuggerUrl": format!("ws://{websocket_address}/devtools/page/navigation")
+                }]).to_string();
+                let (mut stream, _) = http_listener.accept().await.unwrap();
+                let mut request = vec![0_u8; 4096];
+                let count = stream.read(&mut request).await.unwrap();
+                assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list "));
+                let response = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body);
+                stream.write_all(response.as_bytes()).await.unwrap();
+            });
+            let collector = CdpStateCollector::new();
+            collector.endpoints.write().await.insert(
+                "ses_navigation".to_owned(),
+                format!("http://{http_address}"),
+            );
+            let result = collector
+                .navigate(
+                    "ses_navigation",
+                    "https://private.invalid/?code=private-code",
+                )
+                .await;
+            if expected == "SUCCESS" {
+                result.unwrap();
+            } else {
+                let reason = navigation_failure_reason(&result.unwrap_err());
+                assert_eq!(reason, expected);
+                assert!(!reason.contains("private"));
+            }
+            websocket_task.await.unwrap();
+            http_task.await.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn navigation_diagnostics_classify_rejected_scheme_and_missing_runtime() {
+        let collector = CdpStateCollector::new();
+        let error = collector
+            .navigate("ses_missing", "file:///private-code")
+            .await
+            .unwrap_err();
+        assert_eq!(navigation_failure_reason(&error), "URL_SCHEME_REJECTED");
+        let error = collector
+            .navigate("ses_missing", "https://private.invalid/")
+            .await
+            .unwrap_err();
+        assert_eq!(navigation_failure_reason(&error), "ACTIVE_PAGE_UNAVAILABLE");
+    }
 
     #[tokio::test]
     async fn evaluates_read_only_javascript_with_side_effect_guard_and_redacts_result_keys() {
@@ -5843,6 +5953,21 @@ mod tests {
             )
             .await
             .is_ok());
+
+        let closed_port_reservation = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let closed_port = closed_port_reservation.local_addr().unwrap().port();
+        drop(closed_port_reservation);
+        let refused = collector
+            .navigate(
+                "ses_real_chromium",
+                &format!("http://127.0.0.1:{closed_port}/?code=private-test-code"),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(
+            navigation_failure_reason(&refused),
+            "NET_CONNECTION_REFUSED"
+        );
 
         collector.unregister_runtime("ses_real_chromium").await;
         let _ = child.start_kill();

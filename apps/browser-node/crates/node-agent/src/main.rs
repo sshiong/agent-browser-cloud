@@ -6681,12 +6681,18 @@ impl NodeControlService {
                     if self.human_input_has_priority(&command.session_id) {
                         return Self::defer_for_human_input(command);
                     }
-                    if self
+                    if let Err(error) = self
                         .state_collector
                         .navigate(&command.session_id, target.as_str())
                         .await
-                        .is_err()
                     {
+                        tracing::warn!(
+                            session_id = %command.session_id,
+                            command_id = %command.message_id,
+                            task_id = %payload.task_id,
+                            reason = state_collector::navigation_failure_reason(&error),
+                            "Agent navigation failed"
+                        );
                         return self
                             .agent_navigation_failed(command, &payload, "NAVIGATION_FAILED")
                             .await;

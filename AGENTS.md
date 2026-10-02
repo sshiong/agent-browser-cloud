@@ -308,6 +308,12 @@ progress 166。
 
 ### 最近验证状态
 
+- 进度 241 为本地 Node 导航失败日志增加类型化固定类别，区分 CDP/WebSocket/超时与
+  精确匹配的已知 Chromium 网络错误；未知文本不进入类别日志，公共事件仍保持
+  `NAVIGATION_FAILED`。Rust Workspace 182 项、Rust 1.99 严格 Clippy、真实 Chrome
+  本机关闭端口分类和公开 IdP/OIDC 两例通过；完整 17 例本轮在练习站持续 `XHR:script`
+  网络静默处失败，未重现导航失败，不能推定上轮原因或宣称连续稳定性已关闭。
+
 - Duende 官方公开 `interactive.public` Client 增加独立 OIDC Code/PKCE/SSO Replay：
   Agent 用既有一次性账号登录后点击可见授权链接，临时 Client 固定端点、Scope、S256 和
   HTTPS form_post 回调，验证 RS256/issuer/audience/nonce/时效、UserInfo subject 及授权码

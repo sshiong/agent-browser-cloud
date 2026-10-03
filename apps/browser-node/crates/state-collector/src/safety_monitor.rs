@@ -1,7 +1,7 @@
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
@@ -15,6 +15,7 @@ const MAX_POLICY_RULES: usize = 32;
 const MAX_POLICY_VALUE_BYTES: usize = 512;
 const MAX_DOWNLOAD_HISTORY: usize = 32;
 const MAX_FRAME_CONTEXTS: usize = 512;
+const MAX_COMMITTED_FRAME_HISTORY: usize = 512;
 const MAX_CONTEXT_ID_BYTES: usize = 128;
 
 /// Bounded, URL-free Browser download lifecycle projected from Chromium Browser events.
@@ -245,6 +246,14 @@ struct FrameDocument {
     document: DocumentIdentity,
 }
 
+#[derive(Debug)]
+struct CommittedFrameDocument {
+    session_id: String,
+    frame_id: String,
+    loader_id: String,
+    document: DocumentIdentity,
+}
+
 #[derive(Debug, Clone, Default)]
 struct DownloadResponseMetadata {
     mime_type: String,
@@ -261,6 +270,8 @@ struct ActivityTracker {
     tab_last_network_activity: HashMap<String, Instant>,
     documents: HashMap<String, DocumentIdentity>,
     frames: HashMap<(String, String), FrameDocument>,
+    committed_frames: VecDeque<CommittedFrameDocument>,
+    ambiguous_document_sessions: HashSet<String>,
     fresh_allowed: bool,
     was_fresh: bool,
     last_network_activity: Option<Instant>,
@@ -388,7 +399,21 @@ impl ActivityTracker {
     }
 
     fn bind_request_document(&self, session_id: &str, activity: &mut RequestActivity) {
+        if self.ambiguous_document_sessions.contains(session_id) {
+            activity.document = None;
+            return;
+        }
         if let (Some(frame_id), Some(loader_id)) = (&activity.frame_id, &activity.loader_id) {
+            // A late event can name a previously committed loader after the root advances.
+            // Exact historical proof takes precedence over tentative child-parent inheritance.
+            if let Some(committed) = self.committed_frames.iter().find(|committed| {
+                committed.session_id == session_id
+                    && &committed.frame_id == frame_id
+                    && &committed.loader_id == loader_id
+            }) {
+                activity.document = Some(committed.document.clone());
+                return;
+            }
             if let Some(frame) = self.frames.get(&(session_id.to_owned(), frame_id.clone())) {
                 // A child Document navigation is owned by its already committed parent tree,
                 // even before the child's new loader commits (including renderer process swaps).
@@ -404,8 +429,48 @@ impl ActivityTracker {
     }
 
     fn clear_document_context(&mut self, session_id: &str) {
+        self.clear_current_document_context(session_id);
+        self.committed_frames
+            .retain(|committed| committed.session_id != session_id);
+    }
+
+    fn clear_current_document_context(&mut self, session_id: &str) {
         self.documents.remove(session_id);
         self.frames.retain(|(session, _), _| session != session_id);
+    }
+
+    fn forget_frame_context(&mut self, session_id: &str, frame_id: &str) {
+        self.frames
+            .remove(&(session_id.to_owned(), frame_id.to_owned()));
+        self.committed_frames.retain(|committed| {
+            committed.session_id != session_id || committed.frame_id != frame_id
+        });
+    }
+
+    fn remember_committed_frame(
+        &mut self,
+        session_id: &str,
+        frame_id: &str,
+        loader_id: &str,
+        document: &DocumentIdentity,
+    ) -> bool {
+        if let Some(committed) = self.committed_frames.iter_mut().find(|committed| {
+            committed.session_id == session_id
+                && committed.frame_id == frame_id
+                && committed.loader_id == loader_id
+        }) {
+            return &committed.document == document;
+        }
+        if self.committed_frames.len() >= MAX_COMMITTED_FRAME_HISTORY {
+            self.committed_frames.pop_front();
+        }
+        self.committed_frames.push_back(CommittedFrameDocument {
+            session_id: session_id.to_owned(),
+            frame_id: frame_id.to_owned(),
+            loader_id: loader_id.to_owned(),
+            document: document.clone(),
+        });
+        true
     }
 
     fn observe_frame_detachment(&mut self, session_id: &str, params: &serde_json::Value) {
@@ -419,7 +484,7 @@ impl ActivityTracker {
             } else if params["reason"] != "swap" {
                 // Process swaps retain the same child Frame ID and parent ownership. Removal
                 // (or an unknown reason) invalidates that context, without settling its requests.
-                self.frames.remove(&(session_id.to_owned(), frame_id));
+                self.forget_frame_context(session_id, &frame_id);
             }
         } else {
             self.clear_document_context(session_id);
@@ -432,6 +497,9 @@ impl ActivityTracker {
             return;
         }
         self.mark_tab_network_activity(session_id);
+        if self.ambiguous_document_sessions.contains(session_id) {
+            return;
+        }
         let (Some(frame_id), Some(loader_id)) =
             (context_id(&frame["id"]), context_id(&frame["loaderId"]))
         else {
@@ -442,7 +510,7 @@ impl ActivityTracker {
             let parent = context_id(parent)
                 .and_then(|parent_id| self.frames.get(&(session_id.to_owned(), parent_id)));
             let Some(parent) = parent else {
-                self.frames.remove(&(session_id.to_owned(), frame_id));
+                self.forget_frame_context(session_id, &frame_id);
                 return;
             };
             if self.documents.get(session_id) != Some(&parent.document) {
@@ -452,7 +520,7 @@ impl ActivityTracker {
         } else {
             // Only a committed top-level frame navigation advances document ownership. Hash
             // changes, tentative navigation and load events cannot retire pending requests.
-            self.clear_document_context(session_id);
+            self.clear_current_document_context(session_id);
             let document = DocumentIdentity {
                 frame_id: frame_id.clone(),
                 loader_id: loader_id.clone(),
@@ -467,6 +535,14 @@ impl ActivityTracker {
                 .contains_key(&(session_id.to_owned(), frame_id.clone()))
         {
             self.clear_document_context(session_id);
+            return;
+        }
+        if !self.remember_committed_frame(session_id, &frame_id, &loader_id, &document) {
+            // A bounded FIFO must never forget a witnessed identity conflict. Retire filtering
+            // for this CDP session until it detaches; unresolved requests remain globally active.
+            self.clear_document_context(session_id);
+            self.ambiguous_document_sessions
+                .insert(session_id.to_owned());
             return;
         }
         self.frames.insert(
@@ -499,6 +575,7 @@ impl ActivityTracker {
 
     fn remove_session(&mut self, session_id: &str) {
         self.clear_document_context(session_id);
+        self.ambiguous_document_sessions.remove(session_id);
         self.network_sessions.remove(session_id);
         if let Some(tab_id) = self.tab_by_network_session.remove(session_id) {
             self.tab_last_network_activity.remove(&tab_id);
@@ -1335,6 +1412,238 @@ mod tests {
     use super::*;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
+
+    #[test]
+    fn late_request_uses_previously_committed_document_without_settling_transactions() {
+        let mut tracker = ActivityTracker::default();
+        tracker
+            .tab_by_network_session
+            .insert("page".into(), "tab".into());
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"a"}));
+        let old = tracker.documents["page"].clone();
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"b"}));
+        let mut late = RequestActivity {
+            resource_type: "XHR".into(),
+            initiator_type: "script".into(),
+            frame_id: Some("main".into()),
+            loader_id: Some("a".into()),
+            upload: true,
+            form_submission: true,
+            spa_mutation: true,
+            payment_or_security: true,
+            critical_transaction: true,
+            ..RequestActivity::default()
+        };
+        tracker.bind_request_document("page", &mut late);
+        assert_eq!(late.document, Some(old));
+        assert!(!tracker.belongs_to_current_document("page", &late));
+        tracker
+            .requests
+            .insert(("page".into(), "late".into()), late);
+        let observation = tracker.observation();
+        assert_eq!(
+            observation.active_network_request_count_for_tab("tab"),
+            Some(0)
+        );
+        assert_eq!(observation.active_network_request_count, 1);
+        assert_eq!(observation.active_upload_count, 1);
+        assert_eq!(observation.active_form_submission_count, 1);
+        assert_eq!(observation.active_spa_mutation_count, 1);
+        assert_eq!(observation.active_payment_or_security_count, 1);
+        assert_eq!(observation.active_critical_transaction_count, 1);
+        assert!(tracker.critical_transaction_settle_until.is_none());
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"a"}));
+        assert_eq!(
+            tracker
+                .observation()
+                .active_network_request_count_for_tab("tab"),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn late_child_document_does_not_inherit_a_new_parent_document() {
+        let mut tracker = ActivityTracker::default();
+        tracker
+            .tab_by_network_session
+            .insert("page".into(), "tab".into());
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"a"}));
+        tracker.observe_frame_navigation(
+            "page",
+            &serde_json::json!({"id":"child", "parentId":"main", "loaderId":"child-a"}),
+        );
+        let old = tracker.documents["page"].clone();
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"b"}));
+        tracker.observe_frame_navigation(
+            "page",
+            &serde_json::json!({"id":"child", "parentId":"main", "loaderId":"child-b"}),
+        );
+        let mut late = RequestActivity {
+            resource_type: "Document".into(),
+            frame_id: Some("child".into()),
+            loader_id: Some("child-a".into()),
+            ..RequestActivity::default()
+        };
+        tracker.bind_request_document("page", &mut late);
+        assert_eq!(late.document, Some(old));
+        assert!(!tracker.belongs_to_current_document("page", &late));
+    }
+
+    #[test]
+    fn historical_ownership_is_bounded_and_scoped_to_observed_session() {
+        let mut tracker = ActivityTracker::default();
+        tracker
+            .tab_by_network_session
+            .insert("page".into(), "tab".into());
+        for index in 0..MAX_COMMITTED_FRAME_HISTORY + 2 {
+            tracker.observe_frame_navigation(
+                "page",
+                &serde_json::json!({"id":"main", "loaderId":format!("loader-{index}")}),
+            );
+        }
+        assert_eq!(tracker.committed_frames.len(), MAX_COMMITTED_FRAME_HISTORY);
+        for (session, frame, loader, expected) in [
+            ("page", "main", "loader-0", false),
+            ("page", "main", "loader-512", true),
+            ("other", "main", "loader-512", false),
+            ("page", "unknown", "loader-512", false),
+            ("page", "main", "future", false),
+        ] {
+            let mut late = RequestActivity {
+                resource_type: "XHR".into(),
+                frame_id: Some(frame.into()),
+                loader_id: Some(loader.into()),
+                ..RequestActivity::default()
+            };
+            tracker.bind_request_document(session, &mut late);
+            assert_eq!(late.document.is_some(), expected);
+            assert_eq!(
+                tracker.belongs_to_current_document(session, &late),
+                !expected
+            );
+        }
+    }
+
+    #[test]
+    fn uncertain_or_detached_context_discards_historical_proof() {
+        for invalidation in ["invalid-root", "root-detach", "session-detach", "clear"] {
+            let mut tracker = ActivityTracker::default();
+            tracker
+                .tab_by_network_session
+                .insert("page".into(), "tab".into());
+            tracker.observe_frame_navigation(
+                "page",
+                &serde_json::json!({"id":"main", "loaderId":"a"}),
+            );
+            tracker.observe_frame_navigation(
+                "page",
+                &serde_json::json!({"id":"main", "loaderId":"b"}),
+            );
+            match invalidation {
+                "invalid-root" => {
+                    tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main"}))
+                }
+                "root-detach" => tracker.observe_frame_detachment(
+                    "page",
+                    &serde_json::json!({"frameId":"main", "reason":"swap"}),
+                ),
+                "session-detach" => tracker.remove_session("page"),
+                _ => tracker.clear_document_context("page"),
+            }
+            assert!(tracker.committed_frames.is_empty());
+            tracker
+                .tab_by_network_session
+                .insert("page".into(), "tab".into());
+            tracker.observe_frame_navigation(
+                "page",
+                &serde_json::json!({"id":"main", "loaderId":"c"}),
+            );
+            let mut late = RequestActivity {
+                frame_id: Some("main".into()),
+                loader_id: Some("a".into()),
+                ..RequestActivity::default()
+            };
+            tracker.bind_request_document("page", &mut late);
+            assert!(late.document.is_none());
+            assert!(tracker.belongs_to_current_document("page", &late));
+        }
+        for reason in ["remove", "unknown", "swap"] {
+            let mut tracker = ActivityTracker::default();
+            tracker
+                .tab_by_network_session
+                .insert("page".into(), "tab".into());
+            tracker.observe_frame_navigation(
+                "page",
+                &serde_json::json!({"id":"main", "loaderId":"a"}),
+            );
+            tracker.observe_frame_navigation(
+                "page",
+                &serde_json::json!({"id":"child", "parentId":"main", "loaderId":"child-a"}),
+            );
+            tracker.observe_frame_navigation(
+                "page",
+                &serde_json::json!({"id":"main", "loaderId":"b"}),
+            );
+            tracker.observe_frame_detachment(
+                "page",
+                &serde_json::json!({"frameId":"child", "reason":reason}),
+            );
+            let mut late = RequestActivity {
+                frame_id: Some("child".into()),
+                loader_id: Some("child-a".into()),
+                ..RequestActivity::default()
+            };
+            tracker.bind_request_document("page", &mut late);
+            assert_eq!(late.document.is_some(), reason == "swap");
+        }
+    }
+
+    #[test]
+    fn reused_frame_loader_under_different_root_is_ambiguous() {
+        let mut tracker = ActivityTracker::default();
+        tracker
+            .tab_by_network_session
+            .insert("page".into(), "tab".into());
+        for (index, root) in ["a", "b", "a"].into_iter().enumerate() {
+            tracker.observe_frame_navigation(
+                "page",
+                &serde_json::json!({"id":"main", "loaderId":root}),
+            );
+            tracker.observe_frame_navigation(
+                "page",
+                &serde_json::json!({"id":"child", "parentId":"main", "loaderId":"same-child"}),
+            );
+            let mut activity = RequestActivity {
+                resource_type: "Document".into(),
+                frame_id: Some("child".into()),
+                loader_id: Some("same-child".into()),
+                ..RequestActivity::default()
+            };
+            tracker.bind_request_document("page", &mut activity);
+            if index == 0 {
+                assert_eq!(activity.document, tracker.documents.get("page").cloned());
+            } else {
+                assert!(activity.document.is_none());
+                assert!(tracker.belongs_to_current_document("page", &activity));
+                assert!(!tracker
+                    .frames
+                    .contains_key(&("page".into(), "child".into())));
+                assert!(tracker.ambiguous_document_sessions.contains("page"));
+            }
+        }
+        for index in 0..MAX_COMMITTED_FRAME_HISTORY + 2 {
+            tracker.observe_frame_navigation(
+                "page",
+                &serde_json::json!({"id":"main", "loaderId":format!("next-{index}")}),
+            );
+        }
+        tracker.clear_document_context("page");
+        assert!(tracker.ambiguous_document_sessions.contains("page"));
+        assert!(tracker.documents.is_empty());
+        assert!(tracker.committed_frames.is_empty());
+        tracker.remove_session("page");
+        assert!(!tracker.ambiguous_document_sessions.contains("page"));
+    }
 
     #[test]
     fn request_ownership_requires_exact_committed_frame_and_loader() {
@@ -2222,6 +2531,15 @@ mod tests {
 
     #[tokio::test]
     async fn committed_document_quiet_keeps_old_writes_and_restores_their_loader() {
+        document_quiet_keeps_writes_in_request_order(false).await;
+    }
+
+    #[tokio::test]
+    async fn late_document_events_keep_old_writes_and_restore_their_loader() {
+        document_quiet_keeps_writes_in_request_order(true).await;
+    }
+
+    async fn document_quiet_keeps_writes_in_request_order(late_requests: bool) {
         let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let websocket_address = websocket_listener.local_addr().unwrap();
         let (restore_sender, restore_receiver) = tokio::sync::oneshot::channel();
@@ -2267,7 +2585,7 @@ mod tests {
                     .await
                     .unwrap();
             }
-            for event in [
+            let mut events = vec![
                 serde_json::json!({"method":"Page.frameNavigated", "params":{"frame":{"id":"main", "loaderId":"document-a"}}}),
                 serde_json::json!({"method":"Network.requestWillBeSent", "params":{
                     "requestId":"browser-internal", "frameId":"browser-frame", "loaderId":"browser-loader", "type":"Document",
@@ -2289,7 +2607,12 @@ mod tests {
                 serde_json::json!({"method":"Page.loadEventFired", "params":{"timestamp":1}}),
                 serde_json::json!({"method":"Page.lifecycleEvent", "params":{"name":"load", "frameId":"main", "loaderId":"document-a", "timestamp":2}}),
                 serde_json::json!({"method":"Page.lifecycleEvent", "params":{"name":"load", "frameId":"main", "loaderId":"document-b", "timestamp":3}}),
-            ] {
+            ];
+            if late_requests {
+                let next_document = events.remove(4);
+                events.insert(1, next_document);
+            }
+            for event in events {
                 let mut event = event;
                 event["sessionId"] = serde_json::json!("page-1");
                 socket.send(Message::Text(event.to_string())).await.unwrap();

@@ -308,6 +308,15 @@ progress 166。
 
 ### 最近验证状态
 
+- 迟到的请求事件现可用精确 CDP Session/Frame/Loader 的有界历史提交证明绑定旧主
+  文档；未知/淘汰证明继续阻塞，同键跨主文档冲突持续停用该 Session 文档过滤。
+  全局未完成请求/写入保护保留，历史 Loader 恢复重新计入当前 Tab。三项旧代码回归
+  失败，新 Rust 232 项、五项真实 Chrome、Clippy、构建、Replay 42 项、兼容与最终
+  OrbStack Integration 通过，见 progress 274。前置版本公开 OTP 八例通过；最终全量
+  在商品 Login 按钮等待失败，CDP 证明 Document/JS/CSS 200 完成但 DOM root 为空、
+  登录控件不存在，与 API 零目标一致，UI 未挂载原因未定。`fb70f5e` 全部 CI/
+  Windows/macOS/Operator 成功；公开连续全量、完整稳定区域与全部外部 Gate 保留。
+
 - `054fd71` Windows/macOS 与 Operator 已成功，主 CI 在测试 Chromium 启动处失败，
   后续 Integration/GameDay 未执行。原子进程 stderr 丢弃，原因未确定。测试现由
   子进程直接持有系统分配端口并发布私有 DevToolsActivePort，保留原五秒上限与固定
@@ -1020,7 +1029,7 @@ progress 166。
 | --- | --- | --- | --- |
 | 1 | 极端重复元素与 DOM 复用 | **仓库通用方案已确认并闭环**：稳定 Element ID、语义/实体 Hash、JIT Rebind，Adapter 可提供 HMAC 实体属性，见 progress 167/175/197 | 页面没有业务实体键且可见语义完全相同时必须 fail-closed；具体客户站点 Adapter/Replay 仍需外部样本 |
 | 2 | Cross-Origin iframe | **部分完成**：Opaque Frame 安全投影与精确授权单击已闭环；真实 Chrome Replay 的逐 case 证据 Gate 见 progress 217 | 跨域文本、密码、OTP、键盘、滑动、多击、第三方登录/支付/账号决策仍 Human Handoff；进一步自动化需显式 Provider 协议、授权 Replay 和可信结果回执 |
-| 3 | 真实网站与真实浏览器验证 | **部分完成，连续稳定性未达成**：真实 Chrome 登录、公开固定 OTP、Turnstile 测试 Widget、Profile 恢复、Vision、公开 SPA/购物车/IdP 与独立 OIDC/PKCE/SSO 已有逐 case 证据，完整 17 例曾单次通过，见 progress 219—224/227/240/244；Dataset 授权/Host/Capability 预检见 progress 218 | 最新完整矩阵在 OTP 网络静默等待失败；入口 POST 200 完成、当前 Loader Socket.IO 轮询在途，WebSocket 升级后关闭。定向入口导航亦超时；不能忽略未知请求或把静默投影当业务结果。17 例连续回放、稳定区域 fallback、目标企业租户映射/MFA/ACR/Logout、真实 SMS/Email/TOTP、支付与客户 SPA 仍未完成，见 progress 259；Catalog 不替代客户授权 |
+| 3 | 真实网站与真实浏览器验证 | **部分完成，连续稳定性未达成**：真实 Chrome 登录、公开固定 OTP、Turnstile 测试 Widget、Profile 恢复、Vision、公开 SPA/购物车/IdP 与独立 OIDC/PKCE/SSO 已有逐 case 证据，完整 17 例曾单次通过，见 progress 219—224/227/240/244；Dataset 授权/Host/Capability 预检见 progress 218 | 最新全量在商品 Login 按钮等待失败，独立 CDP 见 Document/JS/CSS 200 完成但 DOM root 为空，与 API 零目标一致；UI 未挂载原因未定，见 progress 274。17 例连续回放、完整稳定区域、目标企业租户映射/MFA/ACR/Logout、真实 SMS/Email/TOTP、支付与客户 SPA 仍未完成；Catalog 不替代客户授权 |
 | 4 | 外部模型请求快速取消 | **客户端链已确认并闭环**：lease/epoch/cancel 会终止 HTTP transport/socket，迟到结果受围栏，见 progress 181/196 | Provider 服务端推理/计费强取消只有供应商提供 Cancel API 才可实现，不能由通用 OpenAI-compatible HTTP 客户端保证 |
 | 5 | Recording 治理与隐私 | **仓库链已闭环**：用途绑定播放、物理删除、Object Lock/WORM 基线、全帧 OCR/PII/正面人脸/二维码遮罩，见 progress 200—203 | 目标云 Apply/IAM、云原生 Legal Hold 深度联动、客户视觉集与侧脸/证件/医学影像等扩展类别 |
 | 6 | Profile 安全与灾备 | **仓库链已闭环**：应用层加密、SQLite/LevelDB 感知恢复、Multipart Resume、只读跨 Region Restore，见 progress 183/205—207 | 目标云 KMS/IAM/Replication、真实 RPO/RTO 和 Region 切换证书 |

@@ -308,11 +308,20 @@ progress 166。
 
 ### 最近验证状态
 
+- Node 已形成精确完整快照绑定的稳定 Target 区域采样证据：最多四十个区域、
+  三份样本/两秒，持续变化十五秒后只标记已证明区域，六类事务仍阻断 readiness。
+  真实 Chrome 动态状态区保持全页不稳定、静止按钮获区域证据，Region Resync
+  清除证明；自有页面未知 POST 使局部稳定按钮 readiness 为 false。九项新回归、
+  Rust 210 项、四项真实 Chrome、严格 Clippy 与完整 OrbStack Integration 通过，
+  见 progress 262。尚未接正式投影、风险
+  授权、动作和独立 Outcome，不能计为 V16 稳定区域闭环完成。
+
 - `bf36093` 与 `d4c1190` 的主 CI 均在 Integration 首份 Browser State HTTP 200
   断言失败，两轮 Windows/macOS Desktop 与 Operator 成功。模拟 Chromium 未实现
   新增的 `Page.getFrameTree`；Fixture 已补齐每 Page 根 Frame/Loader、同 URL 重载
   更新 Loader 和缺失 Page 拒绝。实际旧 Fixture 回归失败、新 Fixture 与 Replay
   Gate 31 项与完整 OrbStack Integration 通过，含最终审计链校验，见 progress 261。
+  `d39f68d` 主 CI/Operator/Windows/macOS 随后全部成功。
   公开连续全量、稳定区域动作与全部外部/许可证 Gate 继续保留。
 
 - 稳定 Element ID 现也绑定 Node 读取的主 Frame/Loader 摘要，避免 Batch 以最新
@@ -1228,7 +1237,9 @@ Delete API 或短期签名 URL 冒充目标云监管保留。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
 5. Recording 目标账户 Object Lock Apply/IAM、客户视觉数据集 Replay 和目标云原生 Legal Hold
    联动；仓库 WORM、到期对象删除 Worker 及全帧隐私 v2 已由 progress 201—203 完成。
-6. 持续变化页面的 `BestEffortStableState/unstableRegions` 与稳定区域动作闭环尚未实现；
+6. 持续变化页面已有 Node 稳定 Target 区域采样证据（progress 262），但正式投影、
+   风险授权、稳定区域动作与独立 Outcome 的 `BestEffortStableState/unstableRegions`
+   产品闭环尚未完成；
    当前普通动作与 Batch 仍要求当前文档网络 quiet。不能按长轮询路径/年龄忽略未知请求，
    不能把全页伪造为稳定；高风险、实体/当前页围栏和独立 Outcome 证明须继续成立。
 

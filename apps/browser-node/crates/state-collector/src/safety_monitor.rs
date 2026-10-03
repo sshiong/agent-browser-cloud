@@ -137,6 +137,22 @@ pub struct BrowserSafetyObservation {
 }
 
 impl BrowserSafetyObservation {
+    #[cfg(test)]
+    pub(crate) fn test_fresh_for_tab(tab_id: &str) -> Self {
+        Self {
+            fresh: true,
+            tab_network_activity: HashMap::from([(
+                tab_id.to_owned(),
+                TabNetworkActivity {
+                    active_request_count: 1,
+                    active_request_kinds: vec!["XHR:script".to_owned()],
+                    last_activity: Instant::now(),
+                },
+            )]),
+            ..Self::default()
+        }
+    }
+
     /// Returns bounded monotonic evidence suitable for a recovery Ready Gate.
     /// Any observer gap or in-flight request fails closed to zero.
     pub fn network_quiet_millis(&self) -> u64 {

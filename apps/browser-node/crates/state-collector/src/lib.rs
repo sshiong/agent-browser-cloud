@@ -4,6 +4,7 @@
 
 mod dialog_monitor;
 mod navigation_diagnostics;
+mod region_stability;
 mod safety_monitor;
 
 use anyhow::Context;
@@ -12,6 +13,9 @@ pub use dialog_monitor::NativeDialog;
 use futures_util::{SinkExt, StreamExt};
 pub use navigation_diagnostics::navigation_failure_reason;
 use navigation_diagnostics::{network_failure, NavigationFailure};
+pub use region_stability::{
+    RegionalStabilityObservation, StableTargetRegion, UnstableTargetRegion,
+};
 pub use safety_monitor::{BrowserDownload, BrowserSafetyObservation, BrowserTransactionPolicy};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -426,7 +430,7 @@ struct TabResourcePolicyState {
     paused_extension_targets: HashMap<String, String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct EvaluatedPageState {
     /// Trusted CDP Frame/Loader digest; never accepted from the page's by-value result.
     #[serde(skip)]
@@ -590,6 +594,19 @@ struct CollectorCursor {
     route_fingerprint: String,
     last_stability_sample: Option<std::time::Instant>,
     page_stability: PageStability,
+    region_tracker: region_stability::RegionStabilityTracker,
+    regional_snapshot: Option<BoundRegionalSnapshot>,
+}
+
+#[derive(Debug, Clone)]
+struct BoundRegionalSnapshot {
+    state_version: u64,
+    target_revision: u64,
+    content_hash: String,
+    active_tab_id: String,
+    url: String,
+    captured_at: std::time::Instant,
+    observation: RegionalStabilityObservation,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -617,6 +634,7 @@ struct StateHashEvidence<'a> {
     network_readiness_hash_bucket: u64,
     stability_fingerprints: &'a (String, String, String, String),
     page_stability: &'a PageStability,
+    regional_stability: &'a RegionalStabilityObservation,
 }
 
 #[derive(Debug, Clone)]
@@ -708,6 +726,8 @@ impl CdpStateCollector {
             cursor.route_fingerprint.clear();
             cursor.last_stability_sample = None;
             cursor.page_stability = PageStability::default();
+            cursor.region_tracker = Default::default();
+            cursor.regional_snapshot = None;
         }
         self.target_registries.lock().await.remove(session_id);
         self.collection_locks.lock().await.remove(session_id);
@@ -773,6 +793,35 @@ impl CdpStateCollector {
             .await
             .get(session_id)
             .cloned()
+            .unwrap_or_default()
+    }
+
+    /// Returns evidence for this exact full snapshot, never for a resync, older cursor or aged
+    /// state. This read does not grant an action or weaken the existing network readiness gate.
+    pub async fn regional_stability_for_state(
+        &self,
+        state: &CurrentState,
+    ) -> RegionalStabilityObservation {
+        self.cursors
+            .lock()
+            .await
+            .get(&state.session_id)
+            .and_then(|cursor| cursor.regional_snapshot.as_ref())
+            .filter(|snapshot| {
+                matches!(state.quality, StateQuality::Complete)
+                    && state.document_ready_state == "complete"
+                    && state.network_evidence_fresh
+                    && state.page_stability.evidence_fresh
+                    && snapshot.state_version == state.state_version
+                    && snapshot.target_revision == state.target_revision
+                    && snapshot.content_hash == state.content_hash
+                    && snapshot.active_tab_id == state.active_tab_id
+                    && snapshot.url == state.url
+                    && std::time::Instant::now()
+                        .checked_duration_since(snapshot.captured_at)
+                        .is_some_and(|age| age <= Duration::from_secs(10))
+            })
+            .map(|snapshot| snapshot.observation.clone())
             .unwrap_or_default()
     }
 
@@ -3178,8 +3227,7 @@ impl CdpStateCollector {
         page_url: &str,
         tab_id: &str,
     ) -> RegisteredTarget {
-        let scope = serde_json::json!([Self::element_id(&evaluated), page_url, tab_id]);
-        let element_id = format!("e{}", &hex_sha256(scope.to_string().as_bytes())[..24]);
+        let element_id = Self::scoped_element_id(&evaluated, page_url, tab_id);
         // Also fence direct target_ref callers after a same-revision region resync.
         let target_ref = Self::target_ref(target_revision, &element_id);
         let resolved = evaluated.bounds.clone().map(|bounds| ResolvedTarget {
@@ -3246,6 +3294,11 @@ impl CdpStateCollector {
             .collect::<Vec<_>>();
         targets.sort_by(|left, right| left.1.path.cmp(&right.1.path));
         targets
+    }
+
+    fn scoped_element_id(evaluated: &EvaluatedTarget, page_url: &str, tab_id: &str) -> String {
+        let scope = serde_json::json!([Self::element_id(evaluated), page_url, tab_id]);
+        format!("e{}", &hex_sha256(scope.to_string().as_bytes())[..24])
     }
 
     fn seal_opaque_frames(page: &mut EvaluatedPageState, active_tab_id: &str) {
@@ -3391,7 +3444,7 @@ impl CdpStateCollector {
         let serialized_targets = serde_json::to_string(&(&page.targets, &page.opaque_frames))?;
         let content_hash = hex_sha256(
             format!(
-                "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{:?}",
+                "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{:?}\n{}",
                 page.url,
                 page.title,
                 serde_json::to_string(&tab_snapshot.tabs)?,
@@ -3408,7 +3461,8 @@ impl CdpStateCollector {
                 evidence.stability_fingerprints.1,
                 evidence.stability_fingerprints.2,
                 evidence.stability_fingerprints.3,
-                page_stability_hash_bucket(evidence.page_stability)
+                page_stability_hash_bucket(evidence.page_stability),
+                evidence.regional_stability.hash_bucket(),
             )
             .as_bytes(),
         );
@@ -3503,6 +3557,8 @@ impl CdpStateCollector {
                 cursor.target_fingerprint = fallback_target_fingerprint;
             }
             cursor.content_hash = content_hash.clone();
+            cursor.region_tracker = Default::default();
+            cursor.regional_snapshot = None;
             (cursor.state_version, cursor.target_revision)
         };
         let state = CurrentState {
@@ -3622,10 +3678,21 @@ impl CdpStateCollector {
         let stability_fingerprints =
             Self::stability_fingerprints(&page, &tab_snapshot.active_tab_id)?;
         let maximum_sample_gap = self.maximum_component_sample_gap(session_id).await;
-        let page_stability = {
+        let captured_at = std::time::Instant::now();
+        let (page_stability, regional_stability) = {
             let mut cursors = self.cursors.lock().await;
             let cursor = cursors.entry(session_id.to_owned()).or_default();
-            Self::update_page_stability(cursor, &stability_fingerprints, maximum_sample_gap)
+            let stability =
+                Self::update_page_stability(cursor, &stability_fingerprints, maximum_sample_gap);
+            let regional = cursor.region_tracker.observe(
+                &page,
+                &tab_snapshot.active_tab_id,
+                &network_observation,
+                &stability,
+                maximum_sample_gap,
+                captured_at,
+            );
+            (stability, regional)
         };
         let (serialized_targets, content_hash) = Self::state_hash(
             &page,
@@ -3641,6 +3708,7 @@ impl CdpStateCollector {
                 network_readiness_hash_bucket,
                 stability_fingerprints: &stability_fingerprints,
                 page_stability: &page_stability,
+                regional_stability: &regional_stability,
             },
         )?;
         let target_fingerprint = hex_sha256(serialized_targets.as_bytes());
@@ -3671,6 +3739,15 @@ impl CdpStateCollector {
             cursor.active_tab_id = tab_snapshot.active_tab_id.clone();
             cursor.target_fingerprint = target_fingerprint;
             cursor.content_hash = content_hash.clone();
+            cursor.regional_snapshot = Some(BoundRegionalSnapshot {
+                state_version: cursor.state_version,
+                target_revision: cursor.target_revision,
+                content_hash: content_hash.clone(),
+                captured_at,
+                observation: regional_stability,
+                active_tab_id: tab_snapshot.active_tab_id.clone(),
+                url: page.url.clone(),
+            });
             (cursor.state_version, cursor.target_revision)
         };
         let registry_targets = page
@@ -3917,6 +3994,7 @@ impl CdpStateCollector {
                 network_readiness_hash_bucket: readiness_bucket,
                 stability_fingerprints: &stability_fingerprints,
                 page_stability: &PageStability::default(),
+                regional_stability: &RegionalStabilityObservation::default(),
             },
         )?;
         let state_version = baseline.state_version.saturating_add(1);
@@ -3939,6 +4017,8 @@ impl CdpStateCollector {
             current.active_tab_id = tab_snapshot.active_tab_id.clone();
             current.target_fingerprint = hex_sha256(serialized_targets.as_bytes());
             current.content_hash = content_hash.clone();
+            current.region_tracker = Default::default();
+            current.regional_snapshot = None;
         }
         self.target_registries
             .lock()
@@ -6354,7 +6434,14 @@ mod tests {
                 };
                 tokio::spawn(async move {
                     let mut request = vec![0_u8; 4096];
-                    let _ = stream.read(&mut request).await;
+                    let count = stream.read(&mut request).await.unwrap_or(0);
+                    if request[..count].starts_with(b"POST /region-write ") {
+                        tokio::time::sleep(Duration::from_secs(5)).await;
+                        let _ = stream.write_all(
+                            b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                        ).await;
+                        return;
+                    }
                     let body = "<!doctype html><button>Private cross-origin control</button>";
                     let response = format!(
                         "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
@@ -6542,6 +6629,147 @@ mod tests {
         assert!(stable.page_stability.layout_quiet_millis >= 250);
         assert!(stable.page_stability.focus_quiet_millis >= 250);
         assert!(stable.page_stability.route_quiet_millis >= 250);
+
+        let websocket = collector
+            .active_page_websocket("ses_real_chromium")
+            .await
+            .unwrap();
+        CdpStateCollector::cdp_command_with_params(
+            &websocket,
+            "Runtime.evaluate",
+            986,
+            serde_json::json!({
+                "expression": "const counter = document.createElement('div'); counter.id = 'region-counter'; counter.setAttribute('role', 'status'); counter.style.cssText = 'position:fixed;right:0;bottom:0;width:160px;height:30px'; document.body.appendChild(counter); let tick = 0; window.__regionFixtureTimer = setInterval(() => { counter.textContent = 'Region counter ' + (++tick); }, 30); true",
+                "returnByValue": true
+            }),
+        )
+        .await
+        .unwrap();
+        let region_deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+        let (regional_state, regional) = loop {
+            let current = collector
+                .collect_current_state("ses_real_chromium")
+                .await
+                .unwrap();
+            let regional = collector.regional_stability_for_state(&current).await;
+            let button = current
+                .targets
+                .iter()
+                .find(|target| target.name.as_deref() == Some("执行验收"))
+                .unwrap();
+            if regional.ready_for(&button.element_id) {
+                break (current, regional);
+            }
+            assert!(
+                tokio::time::Instant::now() < region_deadline,
+                "continuously sampled button did not acquire regional evidence"
+            );
+            tokio::time::sleep(Duration::from_millis(150)).await;
+        };
+        assert!(
+            regional_state.page_stability.dom_quiet_millis < 250,
+            "dynamic status must keep the full page unstable"
+        );
+        assert!(regional
+            .stable_regions
+            .iter()
+            .all(|region| region.consecutive_samples >= 3));
+        let counter = regional_state
+            .targets
+            .iter()
+            .find(|target| {
+                target.role == "status"
+                    && target
+                        .name
+                        .as_deref()
+                        .is_some_and(|name| name.starts_with("Region counter"))
+            })
+            .unwrap();
+        assert!(!regional.ready_for(&counter.element_id));
+        assert!(regional
+            .unstable_regions
+            .iter()
+            .any(|region| region.element_id == counter.element_id));
+        CdpStateCollector::cdp_command_with_params(
+            &websocket,
+            "Runtime.evaluate",
+            985,
+            serde_json::json!({
+                "expression": "fetch('/region-write', {method: 'POST', body: 'owned-fixture'}).catch(() => undefined); true",
+                "returnByValue": true
+            }),
+        ).await.unwrap();
+        let transaction_deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+        loop {
+            if collector
+                .browser_safety_observation("ses_real_chromium")
+                .await
+                .active_spa_mutation_count
+                > 0
+            {
+                break;
+            }
+            assert!(
+                tokio::time::Instant::now() < transaction_deadline,
+                "owned POST was not observed as an unknown SPA write"
+            );
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        let regional_state = collector
+            .collect_current_state("ses_real_chromium")
+            .await
+            .unwrap();
+        let blocked = collector
+            .regional_stability_for_state(&regional_state)
+            .await;
+        let button = regional_state
+            .targets
+            .iter()
+            .find(|target| target.name.as_deref() == Some("执行验收"))
+            .unwrap();
+        assert!(blocked
+            .stable_regions
+            .iter()
+            .any(|region| region.element_id == button.element_id));
+        assert!(!blocked.transaction_free);
+        assert!(
+            !blocked.ready_for(&button.element_id),
+            "target-local stability cannot bypass an unknown POST"
+        );
+        let partial = collector
+            .resync_region("ses_real_chromium", "button", &regional_state)
+            .await
+            .unwrap();
+        assert_eq!(
+            collector.regional_stability_for_state(&partial).await,
+            RegionalStabilityObservation::default(),
+            "a partial region resync cannot carry a full-sample proof"
+        );
+        assert_eq!(
+            collector
+                .regional_stability_for_state(&regional_state)
+                .await,
+            RegionalStabilityObservation::default()
+        );
+        CdpStateCollector::cdp_command_with_params(
+            &websocket,
+            "Runtime.evaluate",
+            987,
+            serde_json::json!({
+                "expression": "clearInterval(window.__regionFixtureTimer); document.querySelector('#region-counter').remove(); true",
+                "returnByValue": true
+            }),
+        ).await.unwrap();
+        let stable = collector
+            .collect_current_state("ses_real_chromium")
+            .await
+            .unwrap();
+        assert_eq!(
+            collector
+                .regional_stability_for_state(&regional_state)
+                .await,
+            RegionalStabilityObservation::default()
+        );
 
         collector
             .navigate("ses_real_chromium", &stable.url)

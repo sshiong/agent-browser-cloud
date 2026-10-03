@@ -6739,14 +6739,21 @@ impl NodeControlService {
                     }
                     let state = match self.state_collector.resync_full(&command.session_id).await {
                         Ok(state) => state,
-                        Err(_) => {
+                        Err(error) => {
+                            tracing::warn!(
+                                session_id = %command.session_id,
+                                command_id = %command.message_id,
+                                task_id = %payload.task_id,
+                                reason = state_collector::snapshot_failure_reason(&error),
+                                "Agent navigation state refresh failed"
+                            );
                             return self
                                 .agent_navigation_failed(
                                     command,
                                     &payload,
                                     "NAVIGATION_STATE_UNAVAILABLE",
                                 )
-                                .await
+                                .await;
                         }
                     };
                     if state.state_version <= payload.base_state_version {

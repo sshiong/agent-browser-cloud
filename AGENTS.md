@@ -308,6 +308,13 @@ progress 166。
 
 ### 最近验证状态
 
+- 导航后快照现在保留 Node 类型化的主文档变化/身份缺失固定诊断，Replay 保留两个已有
+  精确导航错误码，私有正文仍脱敏。旧白名单回归失败、新 Replay 32 项、Rust 216 项、
+  四项真实 Chrome、严格 Clippy 与 Node 构建通过，见 progress 265。公开商品详情一轮
+  HTTP 404 后脚本切换 Document，快照正确拒绝；另一轮 TYPE_TEXT 因 Target Revision
+  过期失败、API 年龄不足两秒，不能归因为超龄。入口点击与连续全量仍待实际验证。
+  `df22f58` CI/Windows/macOS 全部成功；稳定区域完整产品闭环与全部外部 Gate 保留。
+
 - Node 稳定区域窗口已绑定隔离执行上下文中的 Mutation/Interaction/Resize 观察、
   元素实例与观察器代次，活动动画阻断 readiness；业务实体容器内变化也会重建窗口。
   修正后的自有真实 Chrome Fixture 验证瞬态 disabled 在旧 `eaab777` 仍被视为稳定、

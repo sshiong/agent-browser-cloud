@@ -40,6 +40,28 @@ class ReplayDiagnosticsTest(unittest.TestCase):
         self.assertNotIn("fixture-private", json.dumps(summary))
         self.assertLess(len(json.dumps(summary)), 6000)
 
+    def test_actual_task_failure_keeps_only_exact_known_navigation_codes(self):
+        tree = ast.parse(MATRIX_PATH.read_text())
+        functions = [node for node in tree.body if isinstance(node, ast.FunctionDef)
+                     and node.name in {"create_execute_task", "require_status"}]
+        marker = "fixture-private-navigation-detail"
+        for code in ["NAVIGATION_FAILED", "NAVIGATION_STATE_UNAVAILABLE"]:
+            for value in [code, code + " " + marker]:
+                failed = {"state": "FAILED", "lastError": value, "goal": marker,
+                          "url": "https://example.invalid/?code=" + marker}
+                responses = iter([(201, {"state": "PLANNED", "taskId": "fixture-task"}),
+                                  (200, {"state": "RUNNING"})])
+                scope = {"diagnostic": diagnostic, "request": lambda *args, **kwargs: next(responses),
+                         "wait_for_executable_state": lambda *args: None,
+                         "wait_for": lambda *args: failed,
+                         "uuid": SimpleNamespace(uuid4=lambda: SimpleNamespace(hex="fixture"))}
+                exec(compile(ast.Module(body=functions, type_ignores=[]), str(MATRIX_PATH), "exec"), scope)
+                with self.assertRaises(AssertionError) as error:
+                    scope["create_execute_task"]("fixture-session", {}, marker)
+                self.assertNotIn(marker, str(error.exception))
+                self.assertNotIn("https://", str(error.exception))
+                self.assertEqual(code in str(error.exception), value == code)
+
     def test_actual_named_target_timeout_and_http_failure_do_not_dump_state(self):
         tree = ast.parse(MATRIX_PATH.read_text())
         functions = [node for node in tree.body if isinstance(node, ast.FunctionDef)

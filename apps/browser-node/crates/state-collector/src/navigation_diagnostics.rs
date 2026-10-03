@@ -3,6 +3,24 @@
 #[derive(Debug)]
 pub(crate) struct NavigationFailure(pub(crate) &'static str);
 
+#[derive(Debug)]
+pub(crate) struct SnapshotFailure(pub(crate) &'static str, pub(crate) &'static str);
+
+impl std::fmt::Display for SnapshotFailure {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.1)
+    }
+}
+
+impl std::error::Error for SnapshotFailure {}
+
+/// Uses only Node-created typed reasons; neither page text nor error-string heuristics qualify.
+pub fn snapshot_failure_reason(error: &anyhow::Error) -> &'static str {
+    error
+        .downcast_ref::<SnapshotFailure>()
+        .map_or("UNKNOWN", |failure| failure.0)
+}
+
 impl std::fmt::Display for NavigationFailure {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(self.0)
@@ -75,5 +93,20 @@ mod tests {
         ] {
             assert_eq!(network_failure(text).0, "NETWORK_ERROR_OTHER");
         }
+    }
+
+    #[test]
+    fn snapshot_reason_uses_typed_evidence_without_exposing_private_source_text() {
+        let error = anyhow::anyhow!("https://private.invalid/?code=private-code")
+            .context(SnapshotFailure(
+                "DOCUMENT_CHANGED",
+                "CDP document changed during snapshot",
+            ))
+            .context("outer private detail");
+        assert_eq!(snapshot_failure_reason(&error), "DOCUMENT_CHANGED");
+        assert_eq!(
+            snapshot_failure_reason(&anyhow::anyhow!("CDP document changed during snapshot")),
+            "UNKNOWN"
+        );
     }
 }

@@ -12,8 +12,8 @@ use anyhow::Context;
 use async_trait::async_trait;
 pub use dialog_monitor::NativeDialog;
 use futures_util::{SinkExt, StreamExt};
-pub use navigation_diagnostics::navigation_failure_reason;
-use navigation_diagnostics::{network_failure, NavigationFailure};
+pub use navigation_diagnostics::{navigation_failure_reason, snapshot_failure_reason};
+use navigation_diagnostics::{network_failure, NavigationFailure, SnapshotFailure};
 pub use region_stability::{
     RegionalStabilityObservation, StableTargetRegion, UnstableTargetRegion,
 };
@@ -2540,7 +2540,7 @@ impl CdpStateCollector {
                 Self::query_document_identity(&mut socket, 4, response_deadline).await?;
             anyhow::ensure!(
                 current_identity == document_identity,
-                "CDP document changed during snapshot"
+                SnapshotFailure("DOCUMENT_CHANGED", "CDP document changed during snapshot")
             );
             evaluated.document_identity = document_identity;
             for target in &mut evaluated.targets {
@@ -2609,11 +2609,17 @@ impl CdpStateCollector {
             };
             let (Some(frame_id), Some(loader_id)) = (identifier("id"), identifier("loaderId"))
             else {
-                anyhow::bail!("CDP main document identity is unavailable");
+                anyhow::bail!(SnapshotFailure(
+                    "DOCUMENT_IDENTITY_UNAVAILABLE",
+                    "CDP main document identity is unavailable"
+                ));
             };
             anyhow::ensure!(
                 frame.get("parentId").is_none(),
-                "CDP main document identity is unavailable"
+                SnapshotFailure(
+                    "DOCUMENT_IDENTITY_UNAVAILABLE",
+                    "CDP main document identity is unavailable"
+                )
             );
             return Ok((
                 hex_sha256(serde_json::to_string(&(frame_id, loader_id))?.as_bytes()),
@@ -4304,6 +4310,14 @@ mod tests {
                 .evaluate_page(&format!("ws://{address}"))
                 .await
                 .unwrap_err();
+            assert_eq!(
+                snapshot_failure_reason(&error),
+                if switch_document {
+                    "DOCUMENT_CHANGED"
+                } else {
+                    "DOCUMENT_IDENTITY_UNAVAILABLE"
+                }
+            );
             assert_eq!(
                 error.to_string(),
                 if switch_document {

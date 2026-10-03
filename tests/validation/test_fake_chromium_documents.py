@@ -98,7 +98,15 @@ class FakeChromiumDocumentTests(unittest.TestCase):
                     time.sleep(0.02)
             with contextlib.closing(CdpSocket(port, target)) as cdp:
                 before = cdp.command("Page.getFrameTree")["result"]["frameTree"]["frame"]
-                cdp.command("Runtime.evaluate", {"expression": "document.title"})
+                snapshot = cdp.command("Runtime.evaluate", {"expression": "document.title"})[
+                    "result"]["result"]["value"]
+                self.assertTrue(snapshot["targets"])
+                self.assertTrue(all(target.get("interactive") is True
+                                    for target in snapshot["targets"]),
+                                "fixture controls must explicitly declare interactivity")
+                self.assertTrue(any(target.get("controlType") == "file"
+                                    and target["interactive"] and not target["visible"]
+                                    for target in snapshot["targets"]))
                 after = cdp.command("Page.getFrameTree")["result"]["frameTree"]["frame"]
                 self.assertTrue(before["id"])
                 self.assertTrue(before["loaderId"])

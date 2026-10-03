@@ -2877,6 +2877,7 @@ impl CdpStateCollector {
                     .values()
                     .find(|target| target.interactive.element_id == target_ref)
             })
+            .filter(|target| target.interactive.interactive)
             .and_then(|target| target.resolved.clone())
             .ok_or_else(|| {
                 anyhow::anyhow!("target reference is stale, unknown, or not actionable")
@@ -2926,6 +2927,10 @@ impl CdpStateCollector {
                         .find(|target| target.interactive.element_id == target_ref)
                 })
                 .ok_or_else(|| anyhow::anyhow!("file input target is stale or unknown"))?;
+            anyhow::ensure!(
+                target.interactive.interactive,
+                "file input target is not interactive"
+            );
             anyhow::ensure!(target.evaluated.enabled, "file input target is not enabled");
             anyhow::ensure!(
                 target.evaluated.control_type.as_deref() == Some("file"),
@@ -4916,7 +4921,8 @@ mod tests {
                                     "name": "提交",
                                     "bounds": {"x": 12.0, "y": 24.0, "width": 96.0, "height": 32.0},
                                     "enabled": true,
-                                    "visible": true
+                                    "visible": true,
+                                    "interactive": true
                                 }, {
                                     "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(1)",
                                     "role": "textbox",
@@ -4924,6 +4930,7 @@ mod tests {
                                     "bounds": {"x": 12.0, "y": 64.0, "width": 196.0, "height": 32.0},
                                     "enabled": true,
                                     "visible": true,
+                                    "interactive": true,
                                     "sensitive": true
                                 }]
                             }
@@ -5253,6 +5260,100 @@ mod tests {
         assert!(!serialized.contains("Account 42"));
         assert!(!serialized.contains("semanticContext\""));
         assert!(serialized.contains("semanticContextHash"));
+    }
+
+    #[tokio::test]
+    async fn semantically_ambiguous_targets_cannot_resolve_by_ref_or_element_id() {
+        let collector = CdpStateCollector::new();
+        let first = semantic_test_target();
+        let mut second = first.clone();
+        second.path = "html>body>button:nth-of-type(2)".into();
+        let mut evaluated = vec![first, second];
+        CdpStateCollector::reject_semantically_ambiguous_targets(&mut evaluated);
+        let targets = evaluated
+            .into_iter()
+            .map(|target| {
+                CdpStateCollector::registered_target(7, target, "https://example.test", "tab-a")
+            })
+            .collect::<Vec<_>>();
+        let references = targets
+            .iter()
+            .map(|target| {
+                (
+                    target.interactive.target_ref.clone(),
+                    target.interactive.element_id.clone(),
+                )
+            })
+            .collect::<Vec<_>>();
+        collector.target_registries.lock().await.insert(
+            "ses_ambiguous".into(),
+            TargetRegistry {
+                target_revision: 7,
+                targets: targets
+                    .into_iter()
+                    .map(|target| (target.interactive.target_ref.clone(), target))
+                    .collect(),
+            },
+        );
+        for (reference, element_id) in references {
+            for identity in [reference, element_id] {
+                assert!(
+                    collector
+                        .resolve_target("ses_ambiguous", &identity, 7)
+                        .await
+                        .is_err(),
+                    "a non-interactive target must not resolve through either identity"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn file_input_rejects_non_interactive_target_before_cdp_connection() {
+        let collector = CdpStateCollector::new();
+        let mut evaluated = semantic_test_target();
+        evaluated.role = "textbox".into();
+        evaluated.control_type = Some("file".into());
+        evaluated.interactive = false;
+        let target =
+            CdpStateCollector::registered_target(7, evaluated, "https://example.test", "tab-a");
+        let reference = target.interactive.target_ref.clone();
+        let element_id = target.interactive.element_id.clone();
+        collector.target_registries.lock().await.insert(
+            "ses_ambiguous_file".into(),
+            TargetRegistry {
+                target_revision: 7,
+                targets: HashMap::from([(reference.clone(), target)]),
+            },
+        );
+        let staged = std::env::temp_dir().join(format!(
+            "browsercloud-non-interactive-file-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&staged)
+            .unwrap();
+        drop(file);
+        let mut errors = Vec::new();
+        for identity in [reference, element_id] {
+            errors.push(
+                collector
+                    .set_file_input_files("ses_ambiguous_file", &identity, 7, &staged)
+                    .await
+                    .unwrap_err()
+                    .to_string(),
+            );
+        }
+        tokio::fs::remove_file(&staged).await.unwrap();
+        for error in errors {
+            assert_eq!(error, "file input target is not interactive");
+        }
     }
 
     #[tokio::test]
@@ -6625,6 +6726,14 @@ mod tests {
         assert_eq!(adapter_targets.len(), 2);
         assert!(adapter_targets.iter().all(|target| target.interactive));
         assert_ne!(adapter_targets[0].element_id, adapter_targets[1].element_id);
+        for target in &adapter_targets {
+            for identity in [&target.target_ref, &target.element_id] {
+                assert!(collector
+                    .resolve_target("ses_real_chromium", identity, state.target_revision)
+                    .await
+                    .is_ok());
+            }
+        }
         let public_state = serde_json::to_string(&state).unwrap();
         let private_control_values_absent = [
             "hidden-form-token-marker",
@@ -6653,6 +6762,14 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(ambiguous_targets.len(), 2);
         assert!(ambiguous_targets.iter().all(|target| !target.interactive));
+        for target in &ambiguous_targets {
+            for identity in [&target.target_ref, &target.element_id] {
+                assert!(collector
+                    .resolve_target("ses_real_chromium", identity, state.target_revision)
+                    .await
+                    .is_err());
+            }
+        }
         assert!(state.opaque_frame_evidence_fresh);
         let opaque = state
             .opaque_frames

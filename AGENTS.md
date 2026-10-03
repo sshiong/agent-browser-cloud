@@ -308,6 +308,13 @@ progress 166。
 
 ### 最近验证状态
 
+- 不可交互目标现在在 Control Plane 单动作/Batch/拖拽终点、文件上传 Operation 创建前，
+  以及 Node Target Ref/Element ID 解析和文件 CDP 连接前全部拒绝。实际旧代码拒绝回归
+  在 Node、Java 和自有 Chrome 失败；新代码通过，Adapter 实体键同名按钮仍可解析。
+  Java 636 项、Rust 218 项、四项真实 Chrome、严格 Clippy、Replay 32 项与完整 OrbStack
+  Integration 通过，见 progress 266；Fixture 补齐既有 interactive 字段。缺实体键目标
+  仍需 Adapter，单动作 Target Revision 过期、公开连续全量和外部 Gate 保留。
+
 - 导航后快照现在保留 Node 类型化的主文档变化/身份缺失固定诊断，Replay 保留两个已有
   精确导航错误码，私有正文仍脱敏。旧白名单回归失败、新 Replay 32 项、Rust 216 项、
   四项真实 Chrome、严格 Clippy 与 Node 构建通过，见 progress 265。公开商品详情一轮

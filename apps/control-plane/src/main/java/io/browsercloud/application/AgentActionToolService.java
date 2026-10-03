@@ -209,7 +209,8 @@ public class AgentActionToolService {
                             || input.targetRef().equals(candidate.elementId()))
                 .findFirst()
                 .orElseThrow(() -> new ActionToolException("TARGET_NOT_FOUND"));
-        if (!target.visible()
+        if (!target.interactive()
+            || !target.visible()
             || !target.enabled()
             || target.bounds() == null
             || (target.elementId() != null && (target.occluded() || !target.inViewport()))) {
@@ -611,7 +612,8 @@ public class AgentActionToolService {
                           || input.endTargetRef().equals(candidate.elementId()))
               .findFirst()
               .orElseThrow(() -> new ActionToolException("DRAG_DESTINATION_NOT_FOUND"));
-      if (!destination.visible()
+      if (!destination.interactive()
+          || !destination.visible()
           || !destination.enabled()
           || destination.bounds() == null
           || destination.occluded()

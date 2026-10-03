@@ -87,7 +87,9 @@ public class AgentBrowserFileUploadStore {
             .filter(value -> value.targetRef().equals(claim.targetRef()))
             .findFirst()
             .orElseThrow(() -> new FileUploadRejectedException("FILE_INPUT_TARGET_NOT_FOUND"));
-    if (!target.enabled() || !"file".equalsIgnoreCase(target.controlType())) {
+    if (!target.interactive()
+        || !target.enabled()
+        || !"file".equalsIgnoreCase(target.controlType())) {
       throw new FileUploadRejectedException("FILE_INPUT_TARGET_INVALID");
     }
     operations.ensureNoActiveOperation(session.sessionId());

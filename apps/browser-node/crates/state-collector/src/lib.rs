@@ -516,6 +516,9 @@ fn default_true() -> bool {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct EvaluatedTarget {
+    /// Root Frame/Loader digest supplied by Node, never by the page or an Adapter.
+    #[serde(skip)]
+    document_identity: String,
     path: String,
     role: String,
     name: Option<String>,
@@ -2480,6 +2483,11 @@ impl CdpStateCollector {
                 "CDP document changed during snapshot"
             );
             evaluated.document_identity = document_identity;
+            for target in &mut evaluated.targets {
+                target
+                    .document_identity
+                    .clone_from(&evaluated.document_identity);
+            }
             return Ok(evaluated);
         }
         anyhow::bail!("CDP websocket closed before Runtime.evaluate completed")
@@ -3093,6 +3101,7 @@ impl CdpStateCollector {
         // Exclude mutable values/focus/check state so normal form micro-actions stay bound.
         // Sensitive names/values never participate, including low-entropy password/OTP hashes.
         let identity = serde_json::json!([
+            target.document_identity,
             target.path,
             target.frame_id,
             target.role,
@@ -4999,6 +5008,24 @@ mod tests {
     }
 
     #[test]
+    fn semantic_identity_is_document_bound_and_probe_cannot_supply_that_binding() {
+        let mut target = semantic_test_target();
+        target.document_identity = "node-document-a".to_owned();
+        let original = CdpStateCollector::element_id(&target);
+        target.focused = true;
+        target.value = Some("changed form value".to_owned());
+        assert_eq!(original, CdpStateCollector::element_id(&target));
+        target.document_identity = "node-document-b".to_owned();
+        assert_ne!(original, CdpStateCollector::element_id(&target));
+
+        let mut serialized = serde_json::to_value(&target).unwrap();
+        assert!(serialized.get("document_identity").is_none());
+        serialized["document_identity"] = "page-forged-document".into();
+        let forged: EvaluatedTarget = serde_json::from_value(serialized).unwrap();
+        assert!(forged.document_identity.is_empty());
+    }
+
+    #[test]
     fn semantic_identity_invalidates_reused_dom_slots() {
         let baseline = semantic_test_target();
         let original = CdpStateCollector::element_id(&baseline);
@@ -6158,6 +6185,7 @@ mod tests {
             .await
             .insert("ses_file".to_owned(), format!("http://{http_address}"));
         let evaluated = EvaluatedTarget {
+            document_identity: String::new(),
             path: "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(1)".to_owned(),
             role: "button".to_owned(),
             name: Some("Upload".to_owned()),
@@ -6564,6 +6592,36 @@ mod tests {
             )
             .await
             .is_err());
+        let previous_button = stable
+            .targets
+            .iter()
+            .find(|target| target.name.as_deref() == Some("执行验收"))
+            .unwrap();
+        let reloaded_button = reloaded
+            .targets
+            .iter()
+            .find(|target| target.name.as_deref() == Some("执行验收"))
+            .unwrap();
+        assert_ne!(
+            previous_button.element_id, reloaded_button.element_id,
+            "a semantic element from another document cannot be rebound at a new revision"
+        );
+        assert!(collector
+            .resolve_target(
+                "ses_real_chromium",
+                &previous_button.element_id,
+                reloaded.target_revision,
+            )
+            .await
+            .is_err());
+        assert!(collector
+            .resolve_target(
+                "ses_real_chromium",
+                &reloaded_button.element_id,
+                reloaded.target_revision,
+            )
+            .await
+            .is_ok());
 
         let websocket = collector
             .active_page_websocket("ses_real_chromium")

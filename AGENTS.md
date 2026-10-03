@@ -308,6 +308,13 @@ progress 166。
 
 ### 最近验证状态
 
+- 稳定 Element ID 现也绑定 Node 读取的主 Frame/Loader 摘要，避免 Batch 以最新
+  Revision 把同 URL 重载前的旧元素重绑定到新文档。真实 Chrome 旧代码两份文档
+  的按钮 ID 完全相同、新增断言失败；修复后旧 ID 在最新 Revision 被拒绝，新 ID
+  可解析，同文档输入/焦点变化保持稳定。Rust 201 项、四项真实 Chrome与严格
+  Clippy 通过，见 progress 260。主文档绑定不替代子 Frame 身份或稳定区域动作证明。
+  `bf36093` 检查时 macOS 成功、Windows 与主 CI 仍在运行；公开连续全量未完成。
+
 - 同 URL 新文档原先会沿用旧静默窗口；真实 Chrome 旧代码仍累计 route quiet
   365 毫秒，修复后 DOM/Layout/Focus/Route 都绑定 Node 从 CDP 读取的主 Frame/Loader
   摘要，重载清零并增加 Target Revision，旧区域基线拒绝合并。采样前后身份不一致

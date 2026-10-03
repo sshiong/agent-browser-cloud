@@ -611,7 +611,7 @@ def run_public_commerce(session_id):
         "public-commerce-detail",
     )
     require_verified(detail, ["GET_CURRENT_STATE", "CLICK_TARGET", "GET_URL", "GET_PAGE_SUMMARY"])
-    detail_state, add_button = wait_for_named_target(session_id, "Add to cart", role="button")
+    detail_state, add_button = wait_for_public_commerce_detail(session_id, detail_url)
     if detail_state.get("url") != detail_url:
         raise AssertionError(f"public commerce detail route changed: {diagnostic(detail_state.get('url'))}")
     added = create_execute_task(
@@ -657,6 +657,43 @@ def run_public_commerce(session_id):
     if cart_result.get("title") != "Swag Labs":
         raise AssertionError(f"public commerce cart title changed: {diagnostic(cart_result.get('title'))}")
     REPLAY_GATE.pass_case("public-saucedemo-cart")
+
+
+def wait_for_public_commerce_detail(session_id, detail_url):
+    deadline = time.monotonic() + 45
+    last = None
+    while time.monotonic() < deadline:
+        last = require_status(request("GET", f"/api/v1/sessions/{session_id}/state"),
+                              200, "wait for public commerce detail content")
+        target = public_commerce_detail_target(last, detail_url)
+        if target is not None:
+            return last, target
+        time.sleep(0.25)
+    raise AssertionError(f"public commerce detail content did not settle: {diagnostic(last)}")
+
+
+def public_commerce_detail_target(state, detail_url):
+    # A same-document router can publish the new URL while the old inventory DOM
+    # remains. Route equality alone must not turn one of six old cart buttons into
+    # the detail action. This is the Adapter's business-page readiness contract.
+    stability = state.get("pageStability", {})
+    if (state.get("url") != detail_url or state.get("stateQuality") != "COMPLETE"
+        or state.get("freshness") != "FRESH" or state.get("pageActivity") != "STABLE"
+        or stability.get("evidenceFresh") is not True
+        or not all(stability.get(component + "QuietMillis", 0) >= 2000
+                   for component in ("dom", "layout", "focus", "route"))):
+        return None
+    targets = state.get("targets", [])
+    def actionable(target):
+        return (target.get("role") == "button" and target.get("interactive") is True
+                and target.get("visible") is True and target.get("enabled") is True
+                and target.get("inViewport") is True and target.get("occluded") is False)
+    adds = [target for target in targets if target.get("name") == "Add to cart"]
+    back = [target for target in targets if target.get("name") == "Back to products"]
+    if (len(adds) != 1 or len(back) != 1 or not actionable(adds[0]) or not actionable(back[0])
+        or any(target.get("name") == DETAIL_TARGET_NAME for target in targets)):
+        return None
+    return adds[0]
 
 
 def run_public_idp(session_id):

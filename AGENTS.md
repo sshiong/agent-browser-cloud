@@ -308,6 +308,14 @@ progress 166。
 
 ### 最近验证状态
 
+- 公开商品新定向复现同一主 Frame/Loader 的 historyApi 先切详情 URL，快照仍暂留
+  库存标题和多枚 Add to cart。旧按名称等待取到旧按钮，Node 正确拒绝其完整身份。
+  回放现等待精确路由、稳定完整证据与唯一可执行详情/返回控件，原 45 秒上限保留；
+  Replay 40 项与真实商品定向一例通过，见 progress 272。新全量在 OTP 页稳定等待
+  失败，独立 CDP 仍见旧 Loader 的 Socket.IO GET/POST，尚未到商品步骤；不忽略
+  未知 POST、不改生产围栏、不计连续全量。客户 Adapter、完整稳定区域与全部
+  外部 Gate 保留；`a7f3d6d` 主 CI/Windows/macOS/Operator 全部成功。
+
 - 单动作计划现在在创建时保存完整主文档实体 ID，原 Revision 保留；授权前版本前进
   只在唯一当前实体、既有 Task/Step/签名 Capability 风险与 Node 能力共同允许时接受。
   旧引用、子 Frame、未来版本、高风险和缺证明保持拒绝。三项旧代码回归失败，新

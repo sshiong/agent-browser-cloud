@@ -308,6 +308,13 @@ progress 166。
 
 ### 最近验证状态
 
+- 十七例本轮已走过登录/OTP/SPA/购物车/IdP，在独立 OIDC callback 通用 Provider
+  失败后拒绝；具体阶段未知，不归为此前文档或 Revision 故障。测试 Relying Party
+  增加固定阶段/类型和精确白名单，不输出 Token/原异常、不增加重试；五个旧故障场景
+  失败、新 Replay 35 项与真实 IdP/OIDC 两例通过，见 progress 269。未重现原故障，
+  不计连续全量。`3a4ac3f` 与 `538db27` CI/Windows/macOS/Operator 全部成功；
+  完整稳定区域与全部外部 Gate 继续保留。
+
 - 输入后确认快照遇到 Node 类型化 DOCUMENT_CHANGED 现有一次只读重采，不重发输入，
   缺失身份、伪造文本与第二次变化仍拒绝。旧代码两项实际 WebSocket 回归失败，新动作
   确认组七项、Rust 226 项、五项真实 Chrome、严格 Clippy 与兼容检查通过；新 Node

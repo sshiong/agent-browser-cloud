@@ -175,10 +175,7 @@ input{{width:360px;height:36px;margin:8px 0 24px}}button{{height:40px;width:180p
                     raise ValueError("OIDC_CALLBACK_REJECTED")
                 location = OIDC_CLIENT.complete(self.rfile.read(length))
             except Exception as error:
-                reason = str(error)
-                if not reason.startswith("OIDC_") or len(reason) > 64 or not reason.replace("_", "").isalnum():
-                    reason = "OIDC_PROVIDER_CALL_FAILED"
-                log_event("oidc_rejected", host=host, reason=reason)
+                log_event("oidc_rejected", host=host, **OIDC_MODULE.failure_metadata(error))
                 self.close_connection = True
                 self.send_fixture(b"OIDC verification failed", status=403)
                 return
@@ -282,7 +279,8 @@ input{{width:360px;height:36px;margin:8px 0 24px}}button{{height:40px;width:180p
             if parsed.path == "/oidc-start":
                 try:
                     location = OIDC_CLIENT.begin()
-                except Exception:
+                except Exception as error:
+                    log_event("oidc_rejected", host=host, **OIDC_MODULE.failure_metadata(error))
                     self.send_fixture(b"OIDC discovery failed", status=403)
                     return
                 body = ('<!doctype html><html><head><title>Public OIDC client</title></head>'

@@ -2,9 +2,11 @@
 
 import base64
 import hashlib
+import http.client
 import json
 import pathlib
 import secrets
+import ssl
 import subprocess
 import threading
 import time
@@ -23,6 +25,52 @@ ENDPOINTS = {
     "jwks_uri": ISSUER + "/.well-known/openid-configuration/jwks",
     "userinfo_endpoint": ISSUER + "/connect/userinfo",
 }
+
+OIDC_FAILURE_REASONS = frozenset({
+    "OIDC_ENDPOINT_REJECTED", "OIDC_RESPONSE_REJECTED", "OIDC_FLOW_ALREADY_STARTED",
+    "OIDC_DISCOVERY_REJECTED", "OIDC_RESPONSE_MODE_REJECTED", "OIDC_CALLBACK_REJECTED",
+    "OIDC_TOKEN_REJECTED", "OIDC_IDENTITY_REJECTED", "OIDC_PROOF_REJECTED",
+    "OIDC_CODE_REPLAY_NOT_REJECTED",
+})
+OIDC_STAGES = frozenset({"DISCOVERY", "TOKEN_EXCHANGE", "JWKS", "USERINFO", "PROOF", "CODE_REPLAY"})
+OIDC_FAILURE_KINDS = frozenset({"TIMEOUT", "TLS", "TRANSPORT", "INVALID_RESPONSE", "PROCESS", "OTHER"})
+
+
+class OidcProviderFailure(ValueError):
+    def __init__(self, stage, failure_kind):
+        super().__init__("OIDC_PROVIDER_CALL_FAILED")
+        self.stage = stage
+        self.failure_kind = failure_kind
+
+
+def stage_call(stage, function, *args, **kwargs):
+    try:
+        return function(*args, **kwargs)
+    except Exception as error:
+        cause = error.reason if isinstance(error, urllib.error.URLError) else error
+        if isinstance(cause, (TimeoutError, subprocess.TimeoutExpired)):
+            kind = "TIMEOUT"
+        elif isinstance(cause, ssl.SSLError):
+            kind = "TLS"
+        elif isinstance(error, ValueError):
+            kind = "INVALID_RESPONSE"
+        elif stage == "PROOF":
+            kind = "PROCESS"
+        elif isinstance(error, (urllib.error.URLError, OSError, http.client.HTTPException)):
+            kind = "TRANSPORT"
+        else:
+            kind = "OTHER"
+        raise OidcProviderFailure(stage, kind) from None
+
+
+def failure_metadata(error):
+    if (type(error) is OidcProviderFailure and isinstance(error.stage, str)
+        and isinstance(error.failure_kind, str) and error.stage in OIDC_STAGES
+        and error.failure_kind in OIDC_FAILURE_KINDS):
+        return {"reason": "OIDC_PROVIDER_CALL_FAILED", "stage": error.stage,
+                "failureKind": error.failure_kind}
+    reason = str(error)
+    return {"reason": reason if reason in OIDC_FAILURE_REASONS else "OIDC_PROVIDER_CALL_FAILED"}
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -62,7 +110,7 @@ class PublicOidcClient:
             if self.started:
                 raise ValueError("OIDC_FLOW_ALREADY_STARTED")
             self.started = True
-        status, metadata = provider_request(ISSUER + "/.well-known/openid-configuration")
+        status, metadata = stage_call("DISCOVERY", provider_request, ISSUER + "/.well-known/openid-configuration")
         if status != 200 or any(metadata.get(key) != value for key, value in ENDPOINTS.items()):
             raise ValueError("OIDC_DISCOVERY_REJECTED")
         if "form_post" not in metadata.get("response_modes_supported", []):
@@ -97,15 +145,15 @@ class PublicOidcClient:
             "code": fields["code"][0], "redirect_uri": CALLBACK,
             "code_verifier": flow["verifier"],
         }
-        status, tokens = provider_request(ENDPOINTS["token_endpoint"], exchange)
+        status, tokens = stage_call("TOKEN_EXCHANGE", provider_request, ENDPOINTS["token_endpoint"], exchange)
         if (status != 200 or tokens.get("token_type", "").lower() != "bearer"
             or not tokens.get("access_token") or not tokens.get("id_token") or tokens.get("refresh_token")):
             raise ValueError("OIDC_TOKEN_REJECTED")
-        key_status, jwks = provider_request(ENDPOINTS["jwks_uri"])
-        user_status, userinfo = provider_request(ENDPOINTS["userinfo_endpoint"], access_token=tokens["access_token"])
+        key_status, jwks = stage_call("JWKS", provider_request, ENDPOINTS["jwks_uri"])
+        user_status, userinfo = stage_call("USERINFO", provider_request, ENDPOINTS["userinfo_endpoint"], access_token=tokens["access_token"])
         if key_status != 200 or user_status != 200:
             raise ValueError("OIDC_IDENTITY_REJECTED")
-        checked = subprocess.run(
+        checked = stage_call("PROOF", subprocess.run,
             ["node", str(pathlib.Path(__file__).with_name("verify-public-oidc.mjs"))],
             input=json.dumps({"token": tokens["id_token"], "jwks": jwks,
                               "nonce": flow["nonce"], "userinfo": userinfo}),
@@ -116,7 +164,7 @@ class PublicOidcClient:
         proof = json.loads(checked.stdout)
         if proof != {"signature": True, "issuerAudienceNonce": True, "userinfoSubject": True}:
             raise ValueError("OIDC_PROOF_REJECTED")
-        replay_status, replay = provider_request(ENDPOINTS["token_endpoint"], exchange)
+        replay_status, replay = stage_call("CODE_REPLAY", provider_request, ENDPOINTS["token_endpoint"], exchange)
         if replay_status != 400 or replay.get("error") != "invalid_grant":
             raise ValueError("OIDC_CODE_REPLAY_NOT_REJECTED")
         with self.lock:

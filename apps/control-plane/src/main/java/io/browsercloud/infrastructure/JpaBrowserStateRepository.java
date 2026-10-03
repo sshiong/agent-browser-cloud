@@ -92,7 +92,8 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
             diff.downloadEvidenceFresh(),
             diff.opaqueFrameEvidenceFresh() ? diff.opaqueFrames() : previous.opaqueFrames(),
             diff.opaqueFrameEvidenceFresh(),
-            diff.pageStability());
+            diff.pageStability(),
+            diff.regionalStability());
     entity.setStateVersion(diff.stateVersion());
     entity.setStateJson(write(updated));
     var now = Instant.now();
@@ -224,7 +225,8 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
               state.downloadEvidenceFresh(),
               state.opaqueFrameEvidenceFresh() ? state.opaqueFrames() : previous.opaqueFrames(),
               state.opaqueFrameEvidenceFresh(),
-              state.pageStability());
+              state.pageStability(),
+              NodeEvent.RegionalStability.unknown());
     } else if (existing.getSessionId() != null && existing.getTenantId().equals(tenantId)) {
       var previous = read(existing.getStateJson());
       persistedState =
@@ -252,7 +254,8 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
               state.downloadEvidenceFresh(),
               state.opaqueFrames(),
               state.opaqueFrameEvidenceFresh(),
-              state.pageStability());
+              state.pageStability(),
+              state.regionalStability());
     }
     existing.setSessionId(state.sessionId());
     existing.setTenantId(tenantId);

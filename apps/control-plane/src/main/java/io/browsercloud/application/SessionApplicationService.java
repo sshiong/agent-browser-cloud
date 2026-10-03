@@ -680,7 +680,7 @@ public class SessionApplicationService {
 
   /** 获取最新 Browser Current State；尚未采集时返回空。 */
   public java.util.Optional<BrowserStateView> getState(String sessionId, String tenantId) {
-    requireTenant(sessionId, tenantId);
+    var session = requireTenant(sessionId, tenantId);
     return browserStateRepository
         .find(sessionId)
         .filter(snapshot -> snapshot.tenantId().equals(tenantId))
@@ -790,8 +790,47 @@ public class SessionApplicationService {
                       state.pageStability().layoutQuietMillis(),
                       state.pageStability().focusQuietMillis(),
                       state.pageStability().routeQuietMillis(),
-                      state.pageStability().evidenceFresh()));
+                      state.pageStability().evidenceFresh()),
+                  regionalStabilityView(
+                      state,
+                      snapshot.contextEpoch() == session.contextEpoch()
+                          ? freshness.freshness()
+                          : "UNKNOWN"));
             });
+  }
+
+  private BrowserStateView.RegionalStabilityView regionalStabilityView(
+      NodeEvent.StateUpdated state, String freshness) {
+    if (!"FRESH".equals(freshness)) {
+      return BrowserStateView.RegionalStabilityView.unknown();
+    }
+    var regional = state.regionalStability();
+    return new BrowserStateView.RegionalStabilityView(
+        regional.evidenceFresh(),
+        regional.maxWaitReached(),
+        regional.changingMillis(),
+        regional.transactionFree(),
+        regional.stableRegions().stream()
+            .map(
+                region ->
+                    new BrowserStateView.StableTargetRegionView(
+                        region.elementId(),
+                        regionalBoundsView(region.bounds()),
+                        region.quietMillis(),
+                        region.consecutiveSamples()))
+            .toList(),
+        regional.unstableRegions().stream()
+            .map(
+                region ->
+                    new BrowserStateView.UnstableTargetRegionView(
+                        region.elementId(),
+                        region.bounds() == null ? null : regionalBoundsView(region.bounds()),
+                        region.reason()))
+            .toList());
+  }
+
+  private BrowserStateView.BoundsView regionalBoundsView(NodeEvent.Bounds bounds) {
+    return new BrowserStateView.BoundsView(bounds.x(), bounds.y(), bounds.width(), bounds.height());
   }
 
   private SessionView toView(SessionDescriptor descriptor) {

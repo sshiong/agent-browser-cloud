@@ -519,7 +519,9 @@ public class NodeEventMapper {
               payload.getDownloadEvidenceFresh(),
               opaqueFrames,
               payload.getOpaqueFrameEvidenceFresh(),
-              pageStability(payload.hasPageStability() ? payload.getPageStability() : null));
+              pageStability(payload.hasPageStability() ? payload.getPageStability() : null),
+              regionalStability(
+                  payload.hasRegionalStability() ? payload.getRegionalStability() : null));
         }
         case DIFF_TRUNCATED -> {
           var payload = DiffTruncatedEvent.parseFrom(envelope.getPayload());
@@ -1133,7 +1135,48 @@ public class NodeEventMapper {
         payload.getDownloadEvidenceFresh(),
         opaqueFrames,
         payload.getOpaqueFrameEvidenceFresh(),
-        pageStability(payload.hasPageStability() ? payload.getPageStability() : null));
+        pageStability(payload.hasPageStability() ? payload.getPageStability() : null),
+        regionalStability(payload.hasRegionalStability() ? payload.getRegionalStability() : null));
+  }
+
+  private NodeEvent.RegionalStability regionalStability(
+      io.browsercloud.proto.node.v1.RegionalStabilityState value) {
+    if (value == null) {
+      return NodeEvent.RegionalStability.unknown();
+    }
+    if (value.getStableRegionsCount() > 40 || value.getUnstableRegionsCount() > 42) {
+      throw new IllegalArgumentException("Regional stability region budget exceeded");
+    }
+    var stable =
+        value.getStableRegionsList().stream()
+            .map(
+                region ->
+                    new NodeEvent.StableTargetRegion(
+                        region.getElementId(),
+                        region.hasBounds() ? regionalBounds(region.getBounds()) : null,
+                        region.getQuietMillis(),
+                        Integer.toUnsignedLong(region.getConsecutiveSamples())))
+            .toList();
+    var unstable =
+        value.getUnstableRegionsList().stream()
+            .map(
+                region ->
+                    new NodeEvent.UnstableTargetRegion(
+                        region.getElementId(),
+                        region.hasBounds() ? regionalBounds(region.getBounds()) : null,
+                        region.getReason()))
+            .toList();
+    return new NodeEvent.RegionalStability(
+        value.getEvidenceFresh(),
+        value.getMaxWaitReached(),
+        value.getChangingMillis(),
+        value.getTransactionFree(),
+        stable,
+        unstable);
+  }
+
+  private NodeEvent.Bounds regionalBounds(io.browsercloud.proto.node.v1.TargetBounds value) {
+    return new NodeEvent.Bounds(value.getX(), value.getY(), value.getWidth(), value.getHeight());
   }
 
   private NodeEvent.PageStability pageStability(

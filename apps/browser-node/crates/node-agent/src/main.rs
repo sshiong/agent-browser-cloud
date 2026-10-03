@@ -28,12 +28,13 @@ use node_contracts::proto::{
     PresignProfileExportDownloadRequest, PresignProfileExportDownloadResponse,
     PresignRecordingPlaybackRequest, PresignRecordingPlaybackResponse, ProbeProxyBindingRequest,
     ProbeProxyBindingResponse, ProfileWarmTierSyncedEvent, PublishRequest, PublishResponse,
-    RecordingPlaybackSegment, ReleaseAllInputCommand, RemoteDesktopParticipantEvent,
-    ReportCapacityRequest, ReportSessionResourcesRequest, RequestStateResyncCommand,
-    RevokeRemoteDesktopConnectionCommand, RuntimeResourcesAdjustedEvent, RuntimeStartedEvent,
-    RuntimeStoppedEvent, SessionEvidenceCapturedEvent, SessionRecordingFinalizedEvent,
-    StageAgentBrowserFileRequest, StageAgentBrowserFileResponse, StartRuntimeCommand,
-    StopRuntimeCommand, TargetBounds, UploadProfileImportRequest, UploadProfileImportResponse,
+    RecordingPlaybackSegment, RegionalStabilityState, ReleaseAllInputCommand,
+    RemoteDesktopParticipantEvent, ReportCapacityRequest, ReportSessionResourcesRequest,
+    RequestStateResyncCommand, RevokeRemoteDesktopConnectionCommand, RuntimeResourcesAdjustedEvent,
+    RuntimeStartedEvent, RuntimeStoppedEvent, SessionEvidenceCapturedEvent,
+    SessionRecordingFinalizedEvent, StableTargetRegionState, StageAgentBrowserFileRequest,
+    StageAgentBrowserFileResponse, StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
+    UnstableTargetRegionState, UploadProfileImportRequest, UploadProfileImportResponse,
 };
 use node_journal::{
     CommandFenceDecision, PersistedAcknowledgement, PersistedCommandResult, RuntimeLease,
@@ -2381,6 +2382,7 @@ impl NodeControlService {
                     network_quiet_millis: 0,
                     network_evidence_fresh: false,
                     page_stability: state_collector::PageStability::default(),
+                    regional_stability: Default::default(),
                     tabs: Vec::new(),
                     active_tab_id: payload.active_tab_id.clone(),
                     native_dialogs: Vec::new(),
@@ -2828,6 +2830,43 @@ impl NodeControlService {
                 .collect(),
             opaque_frame_evidence_fresh: state.opaque_frame_evidence_fresh,
             page_stability: Some(Self::page_stability_payload(state.page_stability)),
+            regional_stability: Some(Self::regional_stability_payload(state.regional_stability)),
+        }
+    }
+
+    fn regional_stability_payload(
+        observation: state_collector::RegionalStabilityObservation,
+    ) -> RegionalStabilityState {
+        let bounds = |value: state_collector::Bounds| TargetBounds {
+            x: value.x,
+            y: value.y,
+            width: value.width,
+            height: value.height,
+        };
+        RegionalStabilityState {
+            evidence_fresh: observation.evidence_fresh,
+            max_wait_reached: observation.max_wait_reached,
+            changing_millis: observation.changing_millis,
+            transaction_free: observation.transaction_free,
+            stable_regions: observation
+                .stable_regions
+                .into_iter()
+                .map(|region| StableTargetRegionState {
+                    element_id: region.element_id,
+                    bounds: Some(bounds(region.bounds)),
+                    quiet_millis: region.quiet_millis,
+                    consecutive_samples: region.consecutive_samples,
+                })
+                .collect(),
+            unstable_regions: observation
+                .unstable_regions
+                .into_iter()
+                .map(|region| UnstableTargetRegionState {
+                    element_id: region.element_id,
+                    bounds: region.bounds.map(bounds),
+                    reason: region.reason,
+                })
+                .collect(),
         }
     }
 
@@ -2968,6 +3007,7 @@ impl NodeControlService {
                 .collect(),
             opaque_frame_evidence_fresh: diff.opaque_frame_evidence_fresh,
             page_stability: Some(Self::page_stability_payload(diff.page_stability)),
+            regional_stability: Some(Self::regional_stability_payload(diff.regional_stability)),
         }
     }
 
@@ -11169,7 +11209,54 @@ mod tests {
                 route_quiet_millis: 1_000,
                 evidence_fresh: true,
             },
+            regional_stability: Default::default(),
         }
+    }
+
+    #[test]
+    fn regional_evidence_survives_full_and_diff_proto_projection() {
+        let before = micro_batch_state();
+        let mut current = before.clone();
+        current.state_version += 1;
+        current.regional_stability = state_collector::RegionalStabilityObservation {
+            evidence_fresh: true,
+            max_wait_reached: true,
+            changing_millis: 15_000,
+            transaction_free: false,
+            stable_regions: vec![state_collector::StableTargetRegion {
+                element_id: format!("e{}", "a".repeat(24)),
+                bounds: state_collector::Bounds {
+                    x: 10.0,
+                    y: 20.0,
+                    width: 100.0,
+                    height: 30.0,
+                },
+                quiet_millis: 2_000,
+                consecutive_samples: 3,
+            }],
+            unstable_regions: vec![state_collector::UnstableTargetRegion {
+                element_id: String::new(),
+                bounds: None,
+                reason: "OUTSIDE_PROVEN_TARGET_REGIONS".to_owned(),
+            }],
+        };
+        let full = NodeControlService::browser_state_payload(current.clone());
+        let proof = full.regional_stability.unwrap();
+        assert!(proof.evidence_fresh);
+        assert!(!proof.transaction_free);
+        assert_eq!(proof.stable_regions[0].bounds.as_ref().unwrap().x, 10.0);
+        let DiffOutcome::Diff(diff) = diff_states(&before, &current, 16_384, 500).unwrap() else {
+            panic!("expected bounded evidence diff");
+        };
+        let projected = NodeControlService::state_diff_payload(*diff);
+        assert_eq!(projected.regional_stability.as_ref(), Some(&proof));
+        let old = NodeControlService::browser_state_payload(before);
+        assert!(!old.regional_stability.unwrap().evidence_fresh);
+        let encoded = projected.encode_to_vec();
+        assert_eq!(
+            BrowserStateDiffEvent::decode(encoded.as_slice()).unwrap(),
+            projected
+        );
     }
 
     #[test]
@@ -11606,6 +11693,7 @@ mod tests {
                 route_quiet_millis: 1_000,
                 evidence_fresh: true,
             },
+            regional_stability: Default::default(),
         };
         let previous = state(11);
         let current = state(12);

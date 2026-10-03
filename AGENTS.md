@@ -75,7 +75,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **255 Operations / 354 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **255 Operations / 357 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -308,13 +308,21 @@ progress 166。
 
 ### 最近验证状态
 
+- 稳定区域证据已接正式 Protobuf Full/Diff、PostgreSQL 权威 JSON、Browser State API
+  与四语言 SDK，缺失旧字段默认 unknown。投影重验合并后的 Target/Bounds、当前唯一
+  Active Tab、完整质量和组件证据；Resync、失效、过期及 Context Epoch 改变清除
+  对外证明。Java 630 项、Rust 211 项、严格 Clippy、四项串行真实 Chrome、契约/SDK、
+  兼容检查与完整 OrbStack Integration 通过，见 progress 263。并行 Chrome 两项
+  在启动前置失败，原证据保留、根因未确认。`1aeece6` CI/Windows/macOS 全部成功；
+  风险授权、稳定区域动作、Event Watermarks 和独立 Outcome 仍未闭环。
+
 - Node 已形成精确完整快照绑定的稳定 Target 区域采样证据：最多四十个区域、
   三份样本/两秒，持续变化十五秒后只标记已证明区域，六类事务仍阻断 readiness。
   真实 Chrome 动态状态区保持全页不稳定、静止按钮获区域证据，Region Resync
   清除证明；自有页面未知 POST 使局部稳定按钮 readiness 为 false。九项新回归、
   Rust 210 项、四项真实 Chrome、严格 Clippy 与完整 OrbStack Integration 通过，
-  见 progress 262。尚未接正式投影、风险
-  授权、动作和独立 Outcome，不能计为 V16 稳定区域闭环完成。
+  见 progress 262。正式投影随后由 progress 263 接入；风险授权、动作和独立
+  Outcome 尚未完成，不能计为 V16 稳定区域闭环完成。
 
 - `bf36093` 与 `d4c1190` 的主 CI 均在 Integration 首份 Browser State HTTP 200
   断言失败，两轮 Windows/macOS Desktop 与 Operator 成功。模拟 Chromium 未实现
@@ -1237,7 +1245,7 @@ Delete API 或短期签名 URL 冒充目标云监管保留。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
 5. Recording 目标账户 Object Lock Apply/IAM、客户视觉数据集 Replay 和目标云原生 Legal Hold
    联动；仓库 WORM、到期对象删除 Worker 及全帧隐私 v2 已由 progress 201—203 完成。
-6. 持续变化页面已有 Node 稳定 Target 区域采样证据（progress 262），但正式投影、
+6. 持续变化页面已有 Node 稳定 Target 区域采样证据及正式权威投影（progress 262—263），但
    风险授权、稳定区域动作与独立 Outcome 的 `BestEffortStableState/unstableRegions`
    产品闭环尚未完成；
    当前普通动作与 Batch 仍要求当前文档网络 quiet。不能按长轮询路径/年龄忽略未知请求，

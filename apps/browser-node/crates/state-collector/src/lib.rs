@@ -185,6 +185,9 @@ pub struct CurrentState {
     /// Component-level DOM/Layout/Focus/Route stability evidence.
     #[serde(default)]
     pub page_stability: PageStability,
+    /// Bounded full-sample regional evidence; N-1 states default to unknown.
+    #[serde(default)]
+    pub regional_stability: RegionalStabilityObservation,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -217,6 +220,8 @@ pub struct StateDiff {
     pub network_evidence_fresh: bool,
     #[serde(default)]
     pub page_stability: PageStability,
+    #[serde(default)]
+    pub regional_stability: RegionalStabilityObservation,
     pub upserted_targets: Vec<InteractiveTarget>,
     pub removed_target_refs: Vec<String>,
     #[serde(default)]
@@ -296,6 +301,7 @@ pub fn diff_states(
         network_quiet_millis: current.network_quiet_millis,
         network_evidence_fresh: current.network_evidence_fresh,
         page_stability: current.page_stability.clone(),
+        regional_stability: current.regional_stability.clone(),
         upserted_targets,
         removed_target_refs,
         opaque_frames: current.opaque_frames.clone(),
@@ -3588,6 +3594,7 @@ impl CdpStateCollector {
                     .map(|state| state.page_stability.clone())
                     .unwrap_or_default()
             },
+            regional_stability: RegionalStabilityObservation::default(),
         };
         self.last_states
             .write()
@@ -3744,7 +3751,7 @@ impl CdpStateCollector {
                 target_revision: cursor.target_revision,
                 content_hash: content_hash.clone(),
                 captured_at,
-                observation: regional_stability,
+                observation: regional_stability.clone(),
                 active_tab_id: tab_snapshot.active_tab_id.clone(),
                 url: page.url.clone(),
             });
@@ -3807,6 +3814,7 @@ impl CdpStateCollector {
             network_quiet_millis,
             network_evidence_fresh: network_observation.fresh,
             page_stability,
+            regional_stability,
         };
         self.last_states
             .write()
@@ -4053,6 +4061,7 @@ impl CdpStateCollector {
                 evidence_fresh: false,
                 ..baseline.page_stability.clone()
             },
+            regional_stability: RegionalStabilityObservation::default(),
         };
         self.last_states
             .write()
@@ -6378,6 +6387,7 @@ mod tests {
             network_quiet_millis: 250,
             network_evidence_fresh: true,
             page_stability: PageStability::default(),
+            regional_stability: RegionalStabilityObservation::default(),
         };
         let current = CurrentState {
             state_version: 2,
@@ -6652,6 +6662,10 @@ mod tests {
                 .await
                 .unwrap();
             let regional = collector.regional_stability_for_state(&current).await;
+            assert_eq!(
+                current.regional_stability, regional,
+                "full snapshot must carry the exact Node regional observation"
+            );
             let button = current
                 .targets
                 .iter()

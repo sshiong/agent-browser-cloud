@@ -11192,6 +11192,8 @@ components:
           description: True only when opaque-frame geometry was sampled from the current active Page. Stale geometry must not authorize a bounded screenshot.
         pageStability:
           $ref: "#/components/schemas/PageStability"
+        regionalStability:
+          $ref: "#/components/schemas/RegionalStability"
         tabs:
           type: array
           maxItems: 100
@@ -11705,6 +11707,48 @@ components:
           type: string
           enum: [BOUNDED_VISION_THEN_HUMAN_HANDOFF]
           description: The existing state/tab/region-fenced redacted screenshot path may observe the rectangle. Direct Agent input is forbidden because no semantic target can be revalidated; interaction requires Human Handoff.
+    RegionalStability:
+      type: object
+      additionalProperties: false
+      description: Bounded Node full-sample evidence, bound to this exact state, tab and document. This is not an action grant or a whole-page STABLE claim. Missing during rolling upgrades means unknown; aged or degraded states return unknown.
+      required: [evidenceFresh, maxWaitReached, changingMillis, transactionFree, stableRegions, unstableRegions]
+      properties:
+        evidenceFresh: {type: boolean}
+        maxWaitReached: {type: boolean, description: True only after at least 15 seconds of continuously sampled page change.}
+        changingMillis: {type: integer, format: int64, minimum: 0, maximum: 300000}
+        transactionFree: {type: boolean, description: "False while any form, SPA write, payment/security, critical transaction, upload or download remains active. Unknown writes are not exempted."}
+        stableRegions:
+          type: array
+          maxItems: 40
+          items: {$ref: "#/components/schemas/StableTargetRegion"}
+        unstableRegions:
+          type: array
+          maxItems: 42
+          items: {$ref: "#/components/schemas/UnstableTargetRegion"}
+    StableTargetRegion:
+      type: object
+      additionalProperties: false
+      required: [elementId, bounds, quietMillis, consecutiveSamples]
+      properties:
+        elementId: {type: string, pattern: "^e[0-9a-f]{24}$"}
+        bounds:
+          $ref: "#/components/schemas/TargetBounds"
+          description: Exact current target bounds; finite, positive size and nonnegative origin.
+        quietMillis: {type: integer, format: int64, minimum: 2000, maximum: 300000}
+        consecutiveSamples: {type: integer, format: int64, minimum: 3, maximum: 4294967295}
+    UnstableTargetRegion:
+      type: object
+      additionalProperties: false
+      required: [elementId, bounds, reason]
+      properties:
+        elementId: {type: string, pattern: "^(e[0-9a-f]{24})?$", description: Empty for page-wide unknown or region-budget markers.}
+        bounds:
+          anyOf:
+            - $ref: "#/components/schemas/TargetBounds"
+            - type: "null"
+        reason:
+          type: string
+          enum: [OUTSIDE_PROVEN_TARGET_REGIONS, UNPROVEN_FRAME_CONTEXT, TARGET_NOT_ACTIONABLE, TARGET_WINDOW_INCOMPLETE, TARGET_REGION_BUDGET]
     PageStability:
       type: object
       additionalProperties: false

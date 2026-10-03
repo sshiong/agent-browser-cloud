@@ -7,6 +7,7 @@ import type { AgentBrowserTab } from './AgentBrowserTab.js';
 import type { InteractiveTarget } from './InteractiveTarget.js';
 import type { OpaqueFrame } from './OpaqueFrame.js';
 import type { PageStability } from './PageStability.js';
+import type { RegionalStability } from './RegionalStability.js';
 export type BrowserState = {
     sessionId: string;
     contextEpoch: number;
@@ -54,6 +55,7 @@ export type BrowserState = {
      */
     opaqueFrameEvidenceFresh: boolean;
     pageStability: PageStability;
+    regionalStability?: RegionalStability;
     /**
      * Browser-level Page Targets. Empty only while an N-1 Browser Node has not projected tab authority.
      */

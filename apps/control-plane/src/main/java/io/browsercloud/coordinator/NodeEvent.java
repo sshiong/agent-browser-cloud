@@ -245,9 +245,22 @@ public sealed interface NodeEvent
       boolean downloadEvidenceFresh,
       List<OpaqueFrame> opaqueFrames,
       boolean opaqueFrameEvidenceFresh,
-      PageStability pageStability)
+      PageStability pageStability,
+      RegionalStability regionalStability)
       implements NodeEvent {
     public StateUpdated {
+      regionalStability =
+          regionalStability == null ? RegionalStability.unknown() : regionalStability;
+      regionalStability =
+          regionalStability.forState(
+              targets,
+              stateQuality,
+              documentReadyState,
+              networkEvidenceFresh,
+              pageStability,
+              snapshotKind,
+              activeTabId,
+              tabs);
       tabs = tabs == null ? List.of() : List.copyOf(tabs);
       activeTabId = activeTabId == null ? "" : activeTabId;
       targets = List.copyOf(targets);
@@ -256,6 +269,58 @@ public sealed interface NodeEvent
       downloads = downloads == null ? List.of() : List.copyOf(downloads);
       opaqueFrames = opaqueFrames == null ? List.of() : List.copyOf(opaqueFrames);
       pageStability = pageStability == null ? PageStability.unknown() : pageStability;
+    }
+
+    /** Additive constructor retained for callers created before component stability evidence. */
+    public StateUpdated(
+        String sessionId,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        List<BrowserTab> tabs,
+        String activeTabId,
+        String stateHash,
+        String stateQuality,
+        List<InteractiveTarget> targets,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        String snapshotKind,
+        String requestedRootRef,
+        List<AgentActionOutcome> actionOutcomes,
+        List<NativeDialog> nativeDialogs,
+        boolean nativeDialogEvidenceFresh,
+        List<BrowserDownload> downloads,
+        boolean downloadEvidenceFresh,
+        List<OpaqueFrame> opaqueFrames,
+        boolean opaqueFrameEvidenceFresh,
+        PageStability pageStability) {
+      this(
+          sessionId,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          tabs,
+          activeTabId,
+          stateHash,
+          stateQuality,
+          targets,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          snapshotKind,
+          requestedRootRef,
+          actionOutcomes,
+          nativeDialogs,
+          nativeDialogEvidenceFresh,
+          downloads,
+          downloadEvidenceFresh,
+          opaqueFrames,
+          opaqueFrameEvidenceFresh,
+          pageStability,
+          RegionalStability.unknown());
     }
 
     /** Additive constructor retained for callers created before component stability evidence. */
@@ -743,9 +808,12 @@ public sealed interface NodeEvent
       boolean downloadEvidenceFresh,
       List<OpaqueFrame> opaqueFrames,
       boolean opaqueFrameEvidenceFresh,
-      PageStability pageStability)
+      PageStability pageStability,
+      RegionalStability regionalStability)
       implements NodeEvent {
     public StateDiff {
+      regionalStability =
+          regionalStability == null ? RegionalStability.unknown() : regionalStability;
       tabs = tabs == null ? List.of() : List.copyOf(tabs);
       activeTabId = activeTabId == null ? "" : activeTabId;
       upsertedTargets = List.copyOf(upsertedTargets);
@@ -754,6 +822,66 @@ public sealed interface NodeEvent
       downloads = downloads == null ? List.of() : List.copyOf(downloads);
       opaqueFrames = opaqueFrames == null ? List.of() : List.copyOf(opaqueFrames);
       pageStability = pageStability == null ? PageStability.unknown() : pageStability;
+    }
+
+    /** Additive constructor retained for callers created before component stability evidence. */
+    public StateDiff(
+        String sessionId,
+        long baseStateVersion,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        List<BrowserTab> tabs,
+        String activeTabId,
+        String stateHash,
+        String stateQuality,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        List<InteractiveTarget> upsertedTargets,
+        List<String> removedTargetRefs,
+        String snapshotKind,
+        String requestedRootRef,
+        String resyncRequestId,
+        long snapshotBytes,
+        Long collectionCpuMillis,
+        List<NativeDialog> nativeDialogs,
+        boolean nativeDialogEvidenceFresh,
+        List<BrowserDownload> downloads,
+        boolean downloadEvidenceFresh,
+        List<OpaqueFrame> opaqueFrames,
+        boolean opaqueFrameEvidenceFresh,
+        PageStability pageStability) {
+      this(
+          sessionId,
+          baseStateVersion,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          tabs,
+          activeTabId,
+          stateHash,
+          stateQuality,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          upsertedTargets,
+          removedTargetRefs,
+          snapshotKind,
+          requestedRootRef,
+          resyncRequestId,
+          snapshotBytes,
+          collectionCpuMillis,
+          nativeDialogs,
+          nativeDialogEvidenceFresh,
+          downloads,
+          downloadEvidenceFresh,
+          opaqueFrames,
+          opaqueFrameEvidenceFresh,
+          pageStability,
+          RegionalStability.unknown());
     }
 
     /** Additive constructor retained for callers created before component stability evidence. */
@@ -1356,6 +1484,129 @@ public sealed interface NodeEvent
           false,
           visible ? null : "LEGACY_VISIBILITY_UNKNOWN");
     }
+  }
+
+  record RegionalStability(
+      boolean evidenceFresh,
+      boolean maxWaitReached,
+      long changingMillis,
+      boolean transactionFree,
+      List<StableTargetRegion> stableRegions,
+      List<UnstableTargetRegion> unstableRegions) {
+    public RegionalStability {
+      stableRegions = stableRegions == null ? List.of() : List.copyOf(stableRegions);
+      unstableRegions = unstableRegions == null ? List.of() : List.copyOf(unstableRegions);
+      if (stableRegions.size() > 40
+          || unstableRegions.size() > 42
+          || changingMillis < 0
+          || changingMillis > 300_000
+          || (maxWaitReached && changingMillis < 15_000)
+          || stableRegions.stream().map(StableTargetRegion::elementId).distinct().count()
+              != stableRegions.size()) {
+        throw new IllegalArgumentException("Regional stability evidence is invalid");
+      }
+      if (!evidenceFresh) {
+        maxWaitReached = false;
+        changingMillis = 0;
+        transactionFree = false;
+        stableRegions = List.of();
+        unstableRegions = List.of();
+      }
+    }
+
+    public static RegionalStability unknown() {
+      return new RegionalStability(false, false, 0, false, List.of(), List.of());
+    }
+
+    public RegionalStability forState(
+        List<InteractiveTarget> targets,
+        String quality,
+        String documentReadyState,
+        boolean networkFresh,
+        PageStability stability,
+        String snapshotKind,
+        String activeTabId,
+        List<BrowserTab> tabs) {
+      if (!evidenceFresh
+          || !"COMPLETE".equals(quality)
+          || !"complete".equals(documentReadyState)
+          || !networkFresh
+          || stability == null
+          || !stability.evidenceFresh()
+          || "REGION_RESYNC".equals(snapshotKind)
+          || activeTabId == null
+          || activeTabId.isBlank()
+          || tabs == null
+          || tabs.stream().filter(BrowserTab::active).count() != 1
+          || tabs.stream().filter(tab -> activeTabId.equals(tab.tabId()) && tab.active()).count()
+              != 1) {
+        return unknown();
+      }
+      for (var region : stableRegions) {
+        var matches =
+            targets.stream()
+                .filter(target -> region.elementId().equals(target.elementId()))
+                .toList();
+        if (matches.size() != 1) {
+          throw new IllegalArgumentException("Stable region target identity is inconsistent");
+        }
+        var target = matches.getFirst();
+        if (!target.interactive()
+            || !target.enabled()
+            || !target.visible()
+            || !target.inViewport()
+            || target.occluded()
+            || !"main".equals(target.frameId())
+            || !region.bounds().equals(target.bounds())) {
+          throw new IllegalArgumentException("Stable region target geometry is inconsistent");
+        }
+      }
+      return this;
+    }
+  }
+
+  record StableTargetRegion(
+      String elementId, Bounds bounds, long quietMillis, long consecutiveSamples) {
+    public StableTargetRegion {
+      if (elementId == null
+          || !elementId.matches("e[0-9a-f]{24}")
+          || !validRegionalBounds(bounds)
+          || bounds.x() < 0
+          || bounds.y() < 0
+          || bounds.width() <= 0
+          || bounds.height() <= 0
+          || quietMillis < 2_000
+          || quietMillis > 300_000
+          || consecutiveSamples < 3
+          || consecutiveSamples > 4_294_967_295L) {
+        throw new IllegalArgumentException("Stable target region is invalid");
+      }
+    }
+  }
+
+  record UnstableTargetRegion(String elementId, Bounds bounds, String reason) {
+    public UnstableTargetRegion {
+      if (elementId == null
+          || (!elementId.isEmpty() && !elementId.matches("e[0-9a-f]{24}"))
+          || (bounds != null && !validRegionalBounds(bounds))
+          || !java.util.Set.of(
+                  "OUTSIDE_PROVEN_TARGET_REGIONS",
+                  "UNPROVEN_FRAME_CONTEXT",
+                  "TARGET_NOT_ACTIONABLE",
+                  "TARGET_WINDOW_INCOMPLETE",
+                  "TARGET_REGION_BUDGET")
+              .contains(reason)) {
+        throw new IllegalArgumentException("Unstable target region is invalid");
+      }
+    }
+  }
+
+  private static boolean validRegionalBounds(Bounds bounds) {
+    return bounds != null
+        && Double.isFinite(bounds.x())
+        && Double.isFinite(bounds.y())
+        && Double.isFinite(bounds.width())
+        && Double.isFinite(bounds.height());
   }
 
   record Bounds(double x, double y, double width, double height) {}

@@ -924,6 +924,29 @@ export interface BrowserStateView {
   ageMillis?: number;
   freshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNKNOWN';
   pageActivity?: 'CHANGING' | 'SETTLING' | 'STABLE' | 'UNKNOWN';
+  /** Node sampling evidence only; absence during upgrades means unknown, never an action grant. */
+  regionalStability?: {
+    evidenceFresh: boolean;
+    maxWaitReached: boolean;
+    changingMillis: number;
+    transactionFree: boolean;
+    stableRegions: {
+      elementId: string;
+      bounds: { x: number; y: number; width: number; height: number };
+      quietMillis: number;
+      consecutiveSamples: number;
+    }[];
+    unstableRegions: {
+      elementId: string;
+      bounds: { x: number; y: number; width: number; height: number } | null;
+      reason:
+        | 'OUTSIDE_PROVEN_TARGET_REGIONS'
+        | 'UNPROVEN_FRAME_CONTEXT'
+        | 'TARGET_NOT_ACTIONABLE'
+        | 'TARGET_WINDOW_INCOMPLETE'
+        | 'TARGET_REGION_BUDGET';
+    }[];
+  };
   targets: InteractiveTargetView[];
   tabs: BrowserTabView[];
   activeTabId: string;

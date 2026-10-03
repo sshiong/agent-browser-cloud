@@ -773,6 +773,29 @@ message PageStabilityState {
   bool evidence_fresh = 5;
 }
 
+// Bounded Node sample evidence only; never an action grant or whole-page stability claim.
+message RegionalStabilityState {
+  bool evidence_fresh = 1;
+  bool max_wait_reached = 2;
+  uint64 changing_millis = 3;
+  bool transaction_free = 4;
+  repeated StableTargetRegionState stable_regions = 5;
+  repeated UnstableTargetRegionState unstable_regions = 6;
+}
+
+message StableTargetRegionState {
+  string element_id = 1;
+  TargetBounds bounds = 2;
+  uint64 quiet_millis = 3;
+  uint32 consecutive_samples = 4;
+}
+
+message UnstableTargetRegionState {
+  string element_id = 1;
+  TargetBounds bounds = 2;
+  string reason = 3;
+}
+
 message BrowserStateEvent {
   string session_id = 1;
   uint64 state_version = 2;
@@ -809,6 +832,8 @@ message BrowserStateEvent {
   // last projection but must not use stale geometry for a bounded screenshot.
   bool opaque_frame_evidence_fresh = 22;
   PageStabilityState page_stability = 23;
+  // N-1 and partial/degraded samples omit this; absence is unknown.
+  RegionalStabilityState regional_stability = 24;
 }
 
 // Payload-minimal proof that the Node resampled an unchanged page. Control Plane refreshes
@@ -1256,6 +1281,7 @@ message BrowserStateDiffEvent {
   repeated OpaqueFrameState opaque_frames = 24;
   bool opaque_frame_evidence_fresh = 25;
   PageStabilityState page_stability = 26;
+  RegionalStabilityState regional_stability = 27;
 }
 
 message DiffTruncatedEvent {

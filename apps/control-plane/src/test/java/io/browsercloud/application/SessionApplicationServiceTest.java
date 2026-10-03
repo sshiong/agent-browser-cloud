@@ -137,6 +137,53 @@ class SessionApplicationServiceTest {
   }
 
   @Test
+  void shouldExposeRegionEvidenceOnlyWhileTheAuthoritativeStateIsFresh() throws Exception {
+    var now = Instant.now();
+    when(sessionRepository.require("ses_test")).thenReturn(runningContext(now));
+    var state =
+        new com.fasterxml.jackson.databind.ObjectMapper()
+            .readValue(
+                """
+        {"sessionId":"ses_test", "stateVersion":7, "targetRevision":3,
+         "url":"https://example.test/regions", "title":"Region fixture",
+         "tabs":[{"tabId":"tab-a","url":"https://example.test/regions","title":"Region fixture","active":true}],
+         "activeTabId":"tab-a", "stateHash":"current-hash", "stateQuality":"COMPLETE",
+         "targets":[], "documentReadyState":"complete", "networkQuietMillis":0,
+         "networkEvidenceFresh":true, "pageStability":{"domQuietMillis":0,
+         "layoutQuietMillis":0,"focusQuietMillis":2000,"routeQuietMillis":2000,
+         "evidenceFresh":true}, "regionalStability":{"evidenceFresh":true,
+         "maxWaitReached":true,"changingMillis":15000,"transactionFree":true,
+         "stableRegions":[],"unstableRegions":[{"elementId":"","bounds":null,
+         "reason":"OUTSIDE_PROVEN_TARGET_REGIONS"}]}}
+        """,
+                io.browsercloud.coordinator.NodeEvent.StateUpdated.class);
+    for (var age : List.of(0L, 15L, 35L)) {
+      when(browserStateRepository.find("ses_test"))
+          .thenReturn(
+              Optional.of(
+                  new BrowserStateRepository.Snapshot(
+                      "tenant-test", 4, state, now.minusSeconds(age))));
+      var view = service.getState("ses_test", "tenant-test").orElseThrow();
+      assertThat(view.regionalStability().evidenceFresh()).isEqualTo(age == 0);
+      assertThat(view.regionalStability().unstableRegions()).hasSize(age == 0 ? 1 : 0);
+      assertThat(view.pageActivity()).isEqualTo("CHANGING");
+    }
+    when(browserStateRepository.find("ses_test"))
+        .thenReturn(Optional.of(new BrowserStateRepository.Snapshot("tenant-test", 2, state, now)));
+    assertThat(
+            service
+                .getState("ses_test", "tenant-test")
+                .orElseThrow()
+                .regionalStability()
+                .evidenceFresh())
+        .isFalse();
+    when(browserStateRepository.find("ses_test"))
+        .thenReturn(
+            Optional.of(new BrowserStateRepository.Snapshot("other-tenant", 2, state, now)));
+    assertThat(service.getState("ses_test", "tenant-test")).isEmpty();
+  }
+
+  @Test
   void rejectsHumanTakeoverWhenItWasDisabledAtCreation() {
     var now = Instant.parse("2026-07-23T00:00:00Z");
     var context =

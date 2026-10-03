@@ -1580,6 +1580,7 @@ type BrowserState struct {
 	OpaqueFrames              []OpaqueFrame              `json:"opaqueFrames,omitempty"`
 	OpaqueFrameEvidenceFresh  bool                       `json:"opaqueFrameEvidenceFresh,omitempty"`
 	PageStability             PageStability              `json:"pageStability,omitempty"`
+	RegionalStability         RegionalStability          `json:"regionalStability,omitempty"`
 	Tabs                      []AgentBrowserTab          `json:"tabs,omitempty"`
 	ActiveTabId               string                     `json:"activeTabId,omitempty"`
 	NativeDialogs             []AgentBrowserNativeDialog `json:"nativeDialogs,omitempty"`
@@ -1826,6 +1827,28 @@ type OpaqueFrame struct {
 	Occluded            bool          `json:"occluded,omitempty"`
 	VisibilityReason    any           `json:"visibilityReason,omitempty"`
 	InteractionStrategy string        `json:"interactionStrategy,omitempty"`
+}
+
+type RegionalStability struct {
+	EvidenceFresh   bool                   `json:"evidenceFresh,omitempty"`
+	MaxWaitReached  bool                   `json:"maxWaitReached,omitempty"`
+	ChangingMillis  int64                  `json:"changingMillis,omitempty"`
+	TransactionFree bool                   `json:"transactionFree,omitempty"`
+	StableRegions   []StableTargetRegion   `json:"stableRegions,omitempty"`
+	UnstableRegions []UnstableTargetRegion `json:"unstableRegions,omitempty"`
+}
+
+type StableTargetRegion struct {
+	ElementId          string       `json:"elementId,omitempty"`
+	Bounds             TargetBounds `json:"bounds,omitempty"`
+	QuietMillis        int64        `json:"quietMillis,omitempty"`
+	ConsecutiveSamples int64        `json:"consecutiveSamples,omitempty"`
+}
+
+type UnstableTargetRegion struct {
+	ElementId string        `json:"elementId,omitempty"`
+	Bounds    *TargetBounds `json:"bounds,omitempty"`
+	Reason    string        `json:"reason,omitempty"`
 }
 
 type PageStability struct {

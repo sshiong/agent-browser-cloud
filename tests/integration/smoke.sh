@@ -3234,6 +3234,16 @@ for _ in $(seq 1 40); do
   sleep 0.25
 done
 test "$state_status" = "200"
+printf '%s' "$browser_state" | python3 -c '
+import json,sys
+state=json.load(sys.stdin)
+regional=state["regionalStability"]
+assert all(isinstance(regional[key], bool) for key in ("evidenceFresh", "maxWaitReached", "transactionFree"))
+assert 0 <= regional["changingMillis"] <= 300000
+assert len(regional["stableRegions"]) <= 40
+assert len(regional["unstableRegions"]) <= 42
+assert all(region["reason"] in ("OUTSIDE_PROVEN_TARGET_REGIONS", "UNPROVEN_FRAME_CONTEXT", "TARGET_NOT_ACTIONABLE", "TARGET_WINDOW_INCOMPLETE", "TARGET_REGION_BUDGET") for region in regional["unstableRegions"])
+'
 grep -Fq -- \
   "--load-extension=$repo_root/tests/integration/fixtures/extensions/jdgnleokimdbblcflcfcohbinohmmmlb" \
   "$temp_dir/fake-chromium-args.log"

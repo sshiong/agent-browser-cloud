@@ -26,9 +26,12 @@ public record BrowserStateView(
     String pageActivity,
     List<OpaqueFrameView> opaqueFrames,
     boolean opaqueFrameEvidenceFresh,
-    PageStabilityView pageStability) {
+    PageStabilityView pageStability,
+    RegionalStabilityView regionalStability) {
 
   public BrowserStateView {
+    regionalStability =
+        regionalStability == null ? RegionalStabilityView.unknown() : regionalStability;
     targets = List.copyOf(targets);
     tabs = tabs == null ? List.of() : List.copyOf(tabs);
     activeTabId = activeTabId == null ? "" : activeTabId;
@@ -39,6 +42,58 @@ public record BrowserStateView(
     pageActivity = pageActivity == null ? "UNKNOWN" : pageActivity;
     opaqueFrames = opaqueFrames == null ? List.of() : List.copyOf(opaqueFrames);
     pageStability = pageStability == null ? PageStabilityView.unknown() : pageStability;
+  }
+
+  /** Additive constructor retained for callers created before component stability evidence. */
+  public BrowserStateView(
+      String sessionId,
+      long contextEpoch,
+      long stateVersion,
+      long targetRevision,
+      String url,
+      String title,
+      String stateHash,
+      String stateQuality,
+      String documentReadyState,
+      long networkQuietMillis,
+      boolean networkEvidenceFresh,
+      List<InteractiveTargetView> targets,
+      List<BrowserTabView> tabs,
+      String activeTabId,
+      List<NativeDialogView> nativeDialogs,
+      boolean nativeDialogEvidenceFresh,
+      Instant observedAt,
+      long ageMillis,
+      String freshness,
+      String pageActivity,
+      List<OpaqueFrameView> opaqueFrames,
+      boolean opaqueFrameEvidenceFresh,
+      PageStabilityView pageStability) {
+    this(
+        sessionId,
+        contextEpoch,
+        stateVersion,
+        targetRevision,
+        url,
+        title,
+        stateHash,
+        stateQuality,
+        documentReadyState,
+        networkQuietMillis,
+        networkEvidenceFresh,
+        targets,
+        tabs,
+        activeTabId,
+        nativeDialogs,
+        nativeDialogEvidenceFresh,
+        observedAt,
+        ageMillis,
+        freshness,
+        pageActivity,
+        opaqueFrames,
+        opaqueFrameEvidenceFresh,
+        pageStability,
+        RegionalStabilityView.unknown());
   }
 
   /** Additive constructor retained for callers created before component stability evidence. */
@@ -279,6 +334,28 @@ public record BrowserStateView(
       return new PageStabilityView(0, 0, 0, 0, false);
     }
   }
+
+  public record RegionalStabilityView(
+      boolean evidenceFresh,
+      boolean maxWaitReached,
+      long changingMillis,
+      boolean transactionFree,
+      List<StableTargetRegionView> stableRegions,
+      List<UnstableTargetRegionView> unstableRegions) {
+    public RegionalStabilityView {
+      stableRegions = stableRegions == null ? List.of() : List.copyOf(stableRegions);
+      unstableRegions = unstableRegions == null ? List.of() : List.copyOf(unstableRegions);
+    }
+
+    public static RegionalStabilityView unknown() {
+      return new RegionalStabilityView(false, false, 0, false, List.of(), List.of());
+    }
+  }
+
+  public record StableTargetRegionView(
+      String elementId, BoundsView bounds, long quietMillis, long consecutiveSamples) {}
+
+  public record UnstableTargetRegionView(String elementId, BoundsView bounds, String reason) {}
 
   public record InteractiveTargetView(
       String targetRef,

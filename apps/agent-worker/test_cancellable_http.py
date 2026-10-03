@@ -3,12 +3,14 @@
 import json
 import pathlib
 import ssl
+import subprocess
 import sys
+import tempfile
 import threading
 import time
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
@@ -42,10 +44,17 @@ class BlockingHandler(BaseHTTPRequestHandler):
             pass
 
 
+class CancellationTestServer(ThreadingHTTPServer):
+    def handle_error(self, request, client_address):
+        if isinstance(sys.exc_info()[1], (BrokenPipeError, ConnectionResetError)):
+            return  # Expected when cancellation closes the owned TCP/TLS connection.
+        super().handle_error(request, client_address)
+
+
 class CancellableHttpClientTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.server = ThreadingHTTPServer(("127.0.0.1", 0), BlockingHandler)
+        cls.server = CancellationTestServer(("127.0.0.1", 0), BlockingHandler)
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
         cls.url = f"http://127.0.0.1:{cls.server.server_port}/v1/responses"
@@ -106,6 +115,82 @@ class CancellableHttpClientTest(unittest.TestCase):
         self.assertEqual(response.status, 200)
         self.assertEqual(response.headers.get_content_type(), "application/json")
         self.assertEqual(json.loads(response.body), {"ok": True})
+
+    def test_cancelled_during_connect_never_sends_the_provider_request(self):
+        self.assert_cancel_during_connect(self.url, self.client)
+
+    def test_cancelled_during_https_connect_never_sends_the_provider_request(self):
+        with tempfile.TemporaryDirectory(prefix="browsercloud-cancel-tls-") as directory:
+            certificate = pathlib.Path(directory) / "certificate.pem"
+            key = pathlib.Path(directory) / "key.pem"
+            subprocess.run(
+                ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
+                 "-subj", "/CN=localhost", "-addext", "subjectAltName=IP:127.0.0.1",
+                 "-keyout", str(key), "-out", str(certificate)],
+                check=True, timeout=10, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+            key.chmod(0o600)
+            server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            server_context.load_cert_chain(certificate, key)
+            server = CancellationTestServer(("127.0.0.1", 0), BlockingHandler)
+            server.socket = server_context.wrap_socket(server.socket, server_side=True)
+            server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+            server_thread.start()
+            try:
+                client = CancellableHttpClient(ssl.create_default_context(cafile=str(certificate)))
+                self.assert_cancel_during_connect(
+                    f"https://127.0.0.1:{server.server_port}/v1/responses", client
+                )
+            finally:
+                server.shutdown()
+                server.server_close()
+                server_thread.join(timeout=2)
+
+    def assert_cancel_during_connect(self, url, client):
+        cancel = threading.Event()
+        connecting = threading.Event()
+        release_connect = threading.Event()
+        result = []
+        BlockingHandler.release_response.set()
+        import socket
+
+        create_connection = socket.create_connection
+        thread_type = threading.Thread
+
+        def delayed_connect(*args, **kwargs):
+            connecting.set()
+            if not release_connect.wait(2):
+                raise TimeoutError("owned connection barrier expired")
+            return create_connection(*args, **kwargs)
+
+        def scheduled_thread(*args, **kwargs):
+            # A cancellation watcher can be descheduled while connect returns. The caller must
+            # enforce cancellation itself before sending headers/body, without relying on it.
+            if kwargs.get("name") == "model-http-cancellation":
+                return Mock()
+            return thread_type(*args, **kwargs)
+
+        def request():
+            try:
+                client.post(url, b"{}", {"Content-Type": "application/json"}, 2, 1024, cancel)
+            except Exception as error:
+                result.append(error)
+
+        request_thread = thread_type(target=request)
+        with patch("cancellable_http.socket.create_connection", side_effect=delayed_connect), patch(
+            "cancellable_http.threading.Thread", side_effect=scheduled_thread
+        ):
+            request_thread.start()
+            try:
+                self.assertTrue(connecting.wait(2), "owned request never started connecting")
+                cancel.set()
+            finally:
+                release_connect.set()
+                request_thread.join(timeout=3)
+        self.assertFalse(request_thread.is_alive(), "owned request did not finish")
+        self.assertEqual(len(result), 1)
+        self.assertIsInstance(result[0], RequestCancelled)
+        self.assertFalse(BlockingHandler.request_received.is_set(), "cancelled request reached provider")
 
     def assert_provider_cancels(self, invoke):
         cancel = threading.Event()

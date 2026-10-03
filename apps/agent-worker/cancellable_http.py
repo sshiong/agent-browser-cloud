@@ -28,6 +28,35 @@ class Response:
     body: bytes
 
 
+class _CancellationGuard:
+    def __init__(self, *args, cancel: threading.Event | None = None, **kwargs):
+        self._cancel = cancel
+        super().__init__(*args, **kwargs)
+
+    def _check_cancelled(self) -> None:
+        if self._cancel is not None and self._cancel.is_set():
+            raise RequestCancelled()
+
+    def connect(self) -> None:
+        self._check_cancelled()
+        super().connect()
+        # DNS, TCP or TLS can finish after lease loss, before the watcher is scheduled.
+        # Do not send a new provider request once that cancellation is already known.
+        self._check_cancelled()
+
+    def send(self, data) -> None:
+        self._check_cancelled()
+        super().send(data)
+
+
+class _GuardedHttpConnection(_CancellationGuard, http.client.HTTPConnection):
+    pass
+
+
+class _GuardedHttpsConnection(_CancellationGuard, http.client.HTTPSConnection):
+    pass
+
+
 class CancellableHttpClient:
     def __init__(self, context: ssl.SSLContext):
         self.context = context
@@ -54,9 +83,9 @@ class CancellableHttpClient:
             raise RequestCancelled()
 
         connection_type = (
-            http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
+            _GuardedHttpsConnection if parsed.scheme == "https" else _GuardedHttpConnection
         )
-        connection_args = {"timeout": timeout_seconds}
+        connection_args = {"timeout": timeout_seconds, "cancel": cancel}
         if parsed.scheme == "https":
             connection_args["context"] = self.context
         connection = connection_type(parsed.hostname, parsed.port, **connection_args)

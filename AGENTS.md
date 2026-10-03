@@ -308,6 +308,16 @@ progress 166。
 
 ### 最近验证状态
 
+- 子 Frame 导航在跨进程 swap 时可丢失主文档归属，导航离开后仍以未知 Document
+  阻塞新页 Quiet。自有两站点真实 Chrome 回归旧代码失败、修复后通过；已知子
+  Document 沿当前父树绑定，swap 保留上下文，未知/移除/主 Frame 仍保守，全局
+  事务及 BFCache 恢复保护不变。Rust 196 项、四项真实 Chrome与严格 Clippy 通过，
+  见 progress 256。`41eaa5f` CI/Windows/macOS 全部成功；OrbStack Linux ARM64
+  Recorder 110 项未重现历史 ready 前置失败，根因仍未知。公开整轮在返回 Example
+  后失败的原证据与两个 WebSocket 101/一个升级失败已保留，不计连续全量通过。
+  修复后二进制完整回放在 Sauce Labs Login 等待失败：Document 200/complete、
+  STABLE、quiet 31821 毫秒但 Target 为零，未到达原末尾用例，不计全量通过。
+
 - Reviewer 的低风险直达与 APPROVE 执行入队移到租户审计锁前，两者仍同事务
   提交。旧低风险服务顺序回归失败，修改后四项风险路由、Java 624 项和格式通过；
   隔离 PostgreSQL FK Fixture 证明旧顺序死锁、新顺序两笔提交，完整 OrbStack Integration
@@ -1179,6 +1189,9 @@ Delete API 或短期签名 URL 冒充目标云监管保留。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
 5. Recording 目标账户 Object Lock Apply/IAM、客户视觉数据集 Replay 和目标云原生 Legal Hold
    联动；仓库 WORM、到期对象删除 Worker 及全帧隐私 v2 已由 progress 201—203 完成。
+6. 持续变化页面的 `BestEffortStableState/unstableRegions` 与稳定区域动作闭环尚未实现；
+   当前普通动作与 Batch 仍要求当前文档网络 quiet。不能按长轮询路径/年龄忽略未知请求，
+   不能把全页伪造为稳定；高风险、实体/当前页围栏和独立 Outcome 证明须继续成立。
 
 ### P1/P2：目标环境与外部集成 Gate
 

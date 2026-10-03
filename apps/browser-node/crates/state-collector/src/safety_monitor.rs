@@ -374,7 +374,13 @@ impl ActivityTracker {
     fn bind_request_document(&self, session_id: &str, activity: &mut RequestActivity) {
         if let (Some(frame_id), Some(loader_id)) = (&activity.frame_id, &activity.loader_id) {
             if let Some(frame) = self.frames.get(&(session_id.to_owned(), frame_id.clone())) {
-                if &frame.loader_id == loader_id {
+                // A child Document navigation is owned by its already committed parent tree,
+                // even before the child's new loader commits (including renderer process swaps).
+                // A tentative top-level loader and other resource types cannot inherit ownership.
+                let child_navigation = activity.resource_type == "Document"
+                    && frame_id != &frame.document.frame_id
+                    && self.documents.get(session_id) == Some(&frame.document);
+                if &frame.loader_id == loader_id || child_navigation {
                     activity.document = Some(frame.document.clone());
                 }
             }
@@ -384,6 +390,25 @@ impl ActivityTracker {
     fn clear_document_context(&mut self, session_id: &str) {
         self.documents.remove(session_id);
         self.frames.retain(|(session, _), _| session != session_id);
+    }
+
+    fn observe_frame_detachment(&mut self, session_id: &str, params: &serde_json::Value) {
+        if let Some(frame_id) = context_id(&params["frameId"]) {
+            if self
+                .documents
+                .get(session_id)
+                .is_some_and(|document| document.frame_id == frame_id)
+            {
+                self.clear_document_context(session_id);
+            } else if params["reason"] != "swap" {
+                // Process swaps retain the same child Frame ID and parent ownership. Removal
+                // (or an unknown reason) invalidates that context, without settling its requests.
+                self.frames.remove(&(session_id.to_owned(), frame_id));
+            }
+        } else {
+            self.clear_document_context(session_id);
+        }
+        self.mark_tab_network_activity(session_id);
     }
 
     fn observe_frame_navigation(&mut self, session_id: &str, frame: &serde_json::Value) {
@@ -900,20 +925,7 @@ async fn observe_browser(
                 tracker.observe_frame_navigation(cdp_session, &event["params"]["frame"]);
             }
             "Page.frameDetached" => {
-                if let Some(frame_id) = context_id(&event["params"]["frameId"]) {
-                    if tracker
-                        .documents
-                        .get(cdp_session)
-                        .is_some_and(|document| document.frame_id == frame_id)
-                    {
-                        tracker.clear_document_context(cdp_session);
-                    } else {
-                        tracker.frames.remove(&(cdp_session.to_owned(), frame_id));
-                    }
-                } else {
-                    tracker.clear_document_context(cdp_session);
-                }
-                tracker.mark_tab_network_activity(cdp_session);
+                tracker.observe_frame_detachment(cdp_session, &event["params"]);
             }
             "Network.requestWillBeSent" => {
                 let request_id = event
@@ -1400,6 +1412,77 @@ mod tests {
     }
 
     #[test]
+    fn child_navigation_ownership_survives_only_process_swap() {
+        let mut tracker = ActivityTracker::default();
+        tracker
+            .tab_by_network_session
+            .insert("page".into(), "tab".into());
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"a"}));
+        tracker.observe_frame_navigation(
+            "page",
+            &serde_json::json!({"id":"child", "parentId":"main", "loaderId":"blank"}),
+        );
+        tracker.observe_frame_detachment(
+            "page",
+            &serde_json::json!({"frameId":"child", "reason":"swap"}),
+        );
+        let mut navigation = RequestActivity {
+            resource_type: "Document".into(),
+            frame_id: Some("child".into()),
+            loader_id: Some("next-child".into()),
+            form_submission: true,
+            ..RequestActivity::default()
+        };
+        tracker.bind_request_document("page", &mut navigation);
+        assert_eq!(navigation.document, tracker.documents.get("page").cloned());
+        for (resource, frame, loader) in [
+            ("XHR", "child", Some("next-child")),
+            ("Document", "main", Some("next-main")),
+            ("Document", "unknown", Some("next-child")),
+            ("Document", "child", None),
+        ] {
+            let mut unknown = RequestActivity {
+                resource_type: resource.into(),
+                frame_id: Some(frame.into()),
+                loader_id: loader.map(str::to_owned),
+                ..RequestActivity::default()
+            };
+            tracker.bind_request_document("page", &mut unknown);
+            assert!(unknown.document.is_none());
+        }
+        tracker
+            .requests
+            .insert(("page".into(), "child-write".into()), navigation.clone());
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"b"}));
+        assert!(!tracker.belongs_to_current_document("page", &navigation));
+        let observation = tracker.observation();
+        assert_eq!(observation.active_network_request_count, 1);
+        assert_eq!(observation.active_form_submission_count, 1);
+        tracker.observe_frame_navigation("page", &serde_json::json!({"id":"main", "loaderId":"a"}));
+        assert!(tracker.belongs_to_current_document("page", &navigation));
+        for reason in ["remove", "unknown"] {
+            tracker.observe_frame_navigation(
+                "page",
+                &serde_json::json!({"id":"child", "parentId":"main", "loaderId":"blank"}),
+            );
+            tracker.observe_frame_detachment(
+                "page",
+                &serde_json::json!({"frameId":"child", "reason":reason}),
+            );
+            let mut removed = navigation.clone();
+            removed.document = None;
+            tracker.bind_request_document("page", &mut removed);
+            assert!(removed.document.is_none());
+        }
+        tracker.observe_frame_detachment(
+            "page",
+            &serde_json::json!({"frameId":"main", "reason":"swap"}),
+        );
+        assert!(tracker.documents.is_empty());
+        assert!(tracker.belongs_to_current_document("page", &navigation));
+    }
+
+    #[test]
     fn missing_or_excessive_context_falls_back_to_all_requests() {
         let mut tracker = ActivityTracker::default();
         tracker
@@ -1769,6 +1852,155 @@ mod tests {
         assert_eq!(expired.active_spa_mutation_count, 0);
         assert_eq!(expired.active_payment_or_security_count, 0);
         assert_eq!(expired.active_critical_transaction_count, 0);
+    }
+
+    #[tokio::test]
+    #[ignore = "requires REAL_CHROMIUM_PATH and launches a local browser"]
+    async fn real_chromium_child_process_swap_keeps_document_request_ownership() {
+        let chromium = std::env::var("REAL_CHROMIUM_PATH").expect("REAL_CHROMIUM_PATH required");
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let received = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let server_received = Arc::clone(&received);
+        let server = tokio::spawn(async move {
+            let mut connections = tokio::task::JoinSet::new();
+            loop {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let received = Arc::clone(&server_received);
+                connections.spawn(async move {
+                    let mut request = [0_u8; 8192];
+                    let count = stream.read(&mut request).await.unwrap_or(0);
+                    let body = if request[..count].starts_with(b"GET /first ") {
+                        format!("<!doctype html><iframe id='child' src='about:blank'></iframe><script>setTimeout(()=>document.getElementById('child').src='http://child.invalid:{}/child',100)</script>", address.port())
+                    } else if request[..count].starts_with(b"GET /child ") {
+                        received.store(true, std::sync::atomic::Ordering::SeqCst);
+                        "<!doctype html><button>Child</button>".to_owned()
+                    } else {
+                        "<!doctype html><button>Second</button>".to_owned()
+                    };
+                    let _ = stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).as_bytes()).await;
+                });
+                while connections.try_join_next().is_some() {}
+            }
+        });
+        let port_reservation = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let cdp_port = port_reservation.local_addr().unwrap().port();
+        drop(port_reservation);
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let profile = std::env::temp_dir().join(format!("browsercloud-child-loader-{nonce}"));
+        tokio::fs::create_dir(&profile).await.unwrap();
+        let mut child = tokio::process::Command::new(chromium)
+            .args([
+                "--headless=new",
+                "--no-first-run",
+                "--no-default-browser-check",
+                "--disable-background-networking",
+                "--site-per-process",
+                "--no-proxy-server",
+                "--host-resolver-rules=MAP first.invalid 127.0.0.1, MAP child.invalid 127.0.0.1",
+                "--remote-debugging-address=127.0.0.1",
+            ])
+            .arg(format!("--remote-debugging-port={cdp_port}"))
+            .arg(format!("--user-data-dir={}", profile.display()))
+            .arg("about:blank")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let collector = crate::CdpStateCollector::new();
+        let result: anyhow::Result<(BrowserSafetyObservation, String)> = async {
+            collector
+                .register_runtime("ses_child_loader", &format!("http://127.0.0.1:{cdp_port}"))
+                .await?;
+            let mut ready = false;
+            for _ in 0..100 {
+                if collector
+                    .active_page_websocket("ses_child_loader")
+                    .await
+                    .is_ok()
+                {
+                    ready = true;
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            anyhow::ensure!(ready, "owned Chromium did not become ready");
+            collector
+                .start_safety_monitor("ses_child_loader", BrowserTransactionPolicy::default())
+                .await?;
+            let mut tab_id = None;
+            for _ in 0..100 {
+                let observation = collector
+                    .browser_safety_observation("ses_child_loader")
+                    .await;
+                if observation.fresh {
+                    tab_id = observation.tab_network_activity.keys().next().cloned();
+                    if tab_id.is_some() {
+                        break;
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            let tab_id =
+                tab_id.ok_or_else(|| anyhow::anyhow!("owned Page Network observer not ready"))?;
+            collector
+                .navigate(
+                    "ses_child_loader",
+                    &format!("http://first.invalid:{}/first", address.port()),
+                )
+                .await?;
+            for _ in 0..100 {
+                if received.load(std::sync::atomic::Ordering::SeqCst) {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+            anyhow::ensure!(
+                received.load(std::sync::atomic::Ordering::SeqCst),
+                "owned child navigation was not received"
+            );
+            // Give Chromium time to commit the cross-site child and swap its renderer.
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            collector
+                .navigate(
+                    "ses_child_loader",
+                    &format!("http://first.invalid:{}/second", address.port()),
+                )
+                .await?;
+            let mut observation = BrowserSafetyObservation::default();
+            for _ in 0..160 {
+                observation = collector
+                    .browser_safety_observation("ses_child_loader")
+                    .await;
+                if observation.fresh && observation.network_quiet_millis_for_tab(&tab_id) >= 250 {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+            Ok((observation, tab_id))
+        }
+        .await;
+        collector.unregister_runtime("ses_child_loader").await;
+        let _ = child.kill().await;
+        let _ = child.wait().await;
+        server.abort();
+        let _ = server.await;
+        tokio::fs::remove_dir_all(&profile).await.unwrap();
+        let (observation, tab_id) = result.unwrap();
+        assert!(observation.fresh);
+        assert!(
+            observation.network_quiet_millis_for_tab(&tab_id) >= 250,
+            "old child document still blocks current page: {:?}",
+            observation.active_network_request_kinds_for_tab(&tab_id)
+        );
+        assert_eq!(
+            observation.active_network_request_count_for_tab(&tab_id),
+            Some(0)
+        );
     }
 
     #[tokio::test]

@@ -90,6 +90,7 @@ pub struct EvidenceSpec {
 struct RegisteredEvidence {
     spec: EvidenceSpec,
     success_sample_percent: u32,
+    capture_lock: Arc<Mutex<()>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -160,6 +161,7 @@ impl SessionEvidenceRegistry {
             RegisteredEvidence {
                 spec,
                 success_sample_percent,
+                capture_lock: Arc::new(Mutex::new(())),
             },
         );
         anyhow::ensure!(previous.is_none(), "evidence Session is already registered");
@@ -241,7 +243,12 @@ impl SessionEvidenceRegistry {
                 && captured_at_ms > 0,
             "requested evidence identity is invalid"
         );
-        let capture = capture_screenshot(&registered.spec.cdp_endpoint, options.as_ref()).await?;
+        let capture = capture_screenshot_serialized(
+            &registered.spec.cdp_endpoint,
+            options.as_ref(),
+            registered.capture_lock,
+        )
+        .await?;
         let content = capture.content;
         anyhow::ensure!(
             !content.is_empty() && content.len() <= EVIDENCE_MAX_BYTES,
@@ -1617,259 +1624,408 @@ fn screenshot_capture_plan(
     ))
 }
 
+#[cfg(test)]
 async fn capture_screenshot(
     cdp_endpoint: &str,
     options: Option<&ScreenshotCaptureOptions>,
 ) -> anyhow::Result<RedactedScreenshot> {
-    let websocket_url = target_websocket(
-        cdp_endpoint,
-        options.map(|value| value.active_tab_id.as_str()),
-    )
-    .await?;
-    require_loopback_websocket(&websocket_url)?;
-    let (mut socket, _) = tokio::time::timeout(
-        CDP_TIMEOUT,
-        tokio_tungstenite::connect_async(&websocket_url),
-    )
-    .await
-    .map_err(|_| anyhow::anyhow!("CDP evidence connection timed out"))??;
-    send_command(&mut socket, 1, "Page.enable", json!({})).await?;
-    let installed = send_command_value(
-        &mut socket,
-        2,
-        "Runtime.evaluate",
-        json!({
-            "expression": INSTALL_REDACTION_SCRIPT,
-            "returnByValue": true,
-            "awaitPromise": false,
-            "userGesture": false
-        }),
-    )
-    .await;
-    let installed = match installed {
-        Ok(installed) => installed,
-        Err(error) => {
-            let _ = send_command_value(
-                &mut socket,
-                7,
-                "Runtime.evaluate",
-                json!({"expression": REMOVE_REDACTION_SCRIPT}),
-            )
-            .await;
-            return Err(anyhow::anyhow!(
-                "sensitive redaction installation failed: {error}"
-            ));
-        }
-    };
-    let verified = send_command_value(
-        &mut socket,
-        3,
-        "Runtime.evaluate",
-        json!({
-            "expression": VERIFY_REDACTION_SCRIPT,
-            "returnByValue": true,
-            "awaitPromise": false,
-            "userGesture": false
-        }),
-    )
-    .await;
-    let verified = match verified {
-        Ok(verified) => verified,
-        Err(error) => {
-            let _ = send_command_value(
-                &mut socket,
-                7,
-                "Runtime.evaluate",
-                json!({"expression": REMOVE_REDACTION_SCRIPT}),
-            )
-            .await;
-            return Err(anyhow::anyhow!(
-                "sensitive redaction verification failed: {error}"
-            ));
-        }
-    };
-    let redacted_region_count = match verified_redacted_region_count(&installed, &verified) {
-        Ok(count) => count,
-        Err(error) => {
-            let _ = send_command_value(
-                &mut socket,
-                7,
-                "Runtime.evaluate",
-                json!({"expression": REMOVE_REDACTION_SCRIPT}),
-            )
-            .await;
-            return Err(error);
-        }
-    };
-    let capture_plan = match options
-        .map(|options| {
-            capture_layout(&installed).and_then(|layout| screenshot_capture_plan(options, layout))
-        })
-        .transpose()
-    {
-        Ok(plan) => plan,
-        Err(error) => {
-            let _ = send_command_value(
-                &mut socket,
-                7,
-                "Runtime.evaluate",
-                json!({"expression": REMOVE_REDACTION_SCRIPT}),
-            )
-            .await;
-            return Err(error);
-        }
-    };
-    if let Err(error) = send_command_value(
-        &mut socket,
-        4,
-        "Emulation.setScriptExecutionDisabled",
-        json!({"value": true}),
-    )
-    .await
-    {
-        let _ = send_command_value(
-            &mut socket,
-            7,
-            "Runtime.evaluate",
-            json!({"expression": REMOVE_REDACTION_SCRIPT}),
-        )
-        .await;
-        return Err(anyhow::anyhow!(
-            "sensitive redaction script freeze failed: {error}"
-        ));
-    }
-    let frozen_document = send_command_value(
-        &mut socket,
-        5,
-        "DOM.getDocument",
-        json!({"depth": 0, "pierce": true}),
-    )
-    .await;
-    let captured = match frozen_document {
-        Ok(document) => {
-            let document_node_id = document
-                .pointer("/result/root/nodeId")
-                .and_then(Value::as_i64)
-                .filter(|value| *value > 0);
-            match document_node_id {
-                Some(document_node_id) => {
-                    let root = send_command_value(
-                        &mut socket,
-                        6,
-                        "DOM.querySelector",
-                        json!({
-                            "nodeId": document_node_id,
-                            "selector": "#__agent_browser_sensitive_redaction_v1"
-                        }),
-                    )
-                    .await;
-                    match root
-                        .as_ref()
-                        .ok()
-                        .and_then(|value| value.pointer("/result/nodeId"))
-                        .and_then(Value::as_i64)
-                        .filter(|value| *value > 0)
-                    {
-                        Some(root_node_id) => {
-                            let regions = send_command_value(
-                                &mut socket,
-                                7,
-                                "DOM.querySelectorAll",
-                                json!({
-                                    "nodeId": root_node_id,
-                                    "selector": "[data-agent-browser-redaction-region]"
-                                }),
-                            )
-                            .await;
-                            let frozen_count = regions
-                                .as_ref()
-                                .ok()
-                                .and_then(|value| value.pointer("/result/nodeIds"))
-                                .and_then(Value::as_array)
-                                .and_then(|values| u32::try_from(values.len()).ok());
-                            if frozen_count == Some(redacted_region_count) {
-                                let capture_parameters = capture_plan
-                                    .as_ref()
-                                    .map(|(parameters, _)| parameters.clone())
-                                    .unwrap_or_else(|| {
-                                        json!({
-                                            "format": "jpeg",
-                                            "quality": 70,
-                                            "fromSurface": true,
-                                            "captureBeyondViewport": false
-                                        })
-                                    });
-                                send_command_value(
-                                    &mut socket,
-                                    8,
-                                    "Page.captureScreenshot",
-                                    capture_parameters,
-                                )
-                                .await
-                            } else {
-                                Err(anyhow::anyhow!(
-                                    "sensitive redaction frozen DOM verification failed closed"
-                                ))
-                            }
-                        }
-                        None => Err(anyhow::anyhow!(
-                            "sensitive redaction root disappeared before capture"
-                        )),
-                    }
-                }
-                None => Err(anyhow::anyhow!(
-                    "sensitive redaction frozen document is unavailable"
-                )),
+    capture_screenshot_serialized(cdp_endpoint, options, Arc::new(Mutex::new(()))).await
+}
+
+/// The socket and Session lock remain owned by this bounded task if the caller is cancelled.
+/// Only the capture result returns to the caller; cancellation never starts an object commit.
+async fn capture_screenshot_serialized(
+    cdp_endpoint: &str,
+    options: Option<&ScreenshotCaptureOptions>,
+    capture_lock: Arc<Mutex<()>>,
+) -> anyhow::Result<RedactedScreenshot> {
+    let endpoint = cdp_endpoint.to_owned();
+    let options = options.cloned();
+    let (mut result, receiver) = oneshot::channel();
+    tokio::spawn(async move {
+        let _guard = tokio::select! {
+            guard = capture_lock.lock_owned() => guard,
+            _ = result.closed() => return,
+        };
+        let connected = tokio::select! {
+            connected = ScreenshotCdp::connect(&endpoint, options.as_ref()) => connected,
+            _ = result.closed() => return,
+        };
+        let mut cdp = match connected {
+            Ok(cdp) => cdp,
+            Err(error) => {
+                let _ = result.send(Err(error));
+                return;
             }
-        }
-        Err(error) => Err(anyhow::anyhow!(
-            "sensitive redaction frozen DOM verification failed: {error}"
-        )),
-    };
-    let resumed = send_command_value(
-        &mut socket,
-        9,
-        "Emulation.setScriptExecutionDisabled",
-        json!({"value": false}),
-    )
-    .await;
-    let cleaned = if resumed.is_ok() {
-        send_command_value(
-            &mut socket,
-            10,
-            "Runtime.evaluate",
-            json!({
-                "expression": REMOVE_REDACTION_SCRIPT,
-                "returnByValue": true,
-                "awaitPromise": false
-            }),
-        )
+        };
+        let capture = tokio::select! {
+            capture = cdp.capture(options.as_ref()) => capture,
+            _ = result.closed() => Err(anyhow::anyhow!("screenshot capture cancelled")),
+        };
+        let cleanup = cdp.cleanup().await;
+        let _ = result.send(cleanup.and(capture));
+    });
+    receiver
         .await
-    } else {
-        Ok(json!({}))
+        .map_err(|_| anyhow::anyhow!("screenshot capture task unavailable"))?
+}
+
+type ScreenshotSocket =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+#[derive(Debug, PartialEq, Eq)]
+struct ScreenshotDocument {
+    frame_id: String,
+    loader_id: String,
+}
+
+fn screenshot_document(value: &Value) -> anyhow::Result<ScreenshotDocument> {
+    let frame = value
+        .pointer("/result/frameTree/frame")
+        .ok_or_else(|| anyhow::anyhow!("screenshot document identity unavailable"))?;
+    let identity = |field| {
+        frame
+            .get(field)
+            .and_then(Value::as_str)
+            .filter(|value| {
+                !value.is_empty() && value.len() <= 256 && !value.chars().any(char::is_control)
+            })
+            .map(str::to_owned)
+            .ok_or_else(|| anyhow::anyhow!("screenshot document identity unavailable"))
     };
-    resumed
-        .map_err(|error| anyhow::anyhow!("sensitive redaction script resume failed: {error}"))?;
-    cleaned.map_err(|error| anyhow::anyhow!("sensitive redaction cleanup failed: {error}"))?;
-    let captured = captured?;
-    let encoded = captured
-        .pointer("/result/data")
-        .and_then(Value::as_str)
-        .ok_or_else(|| anyhow::anyhow!("CDP screenshot response omitted image data"))?;
-    let content = base64::engine::general_purpose::STANDARD
-        .decode(encoded)
-        .map_err(|_| anyhow::anyhow!("CDP screenshot response is not valid base64"))?;
     anyhow::ensure!(
-        content.len() <= EVIDENCE_MAX_BYTES,
-        "CDP screenshot exceeds the bounded evidence size"
+        frame.get("parentId").is_none(),
+        "screenshot main document identity invalid"
     );
-    Ok(RedactedScreenshot {
-        content,
-        redacted_region_count,
-        metadata: capture_plan.map(|(_, metadata)| metadata),
+    Ok(ScreenshotDocument {
+        frame_id: identity("id")?,
+        loader_id: identity("loaderId")?,
     })
 }
 
+struct ScreenshotCdp {
+    socket: ScreenshotSocket,
+    sequence: i64,
+    freeze_url: String,
+    freeze_script: Option<String>,
+    paused: bool,
+    owned_pause: bool,
+    debugger_attempted: bool,
+    redaction_attempted: bool,
+}
+
+impl ScreenshotCdp {
+    async fn connect(
+        endpoint: &str,
+        options: Option<&ScreenshotCaptureOptions>,
+    ) -> anyhow::Result<Self> {
+        let websocket =
+            target_websocket(endpoint, options.map(|value| value.active_tab_id.as_str())).await?;
+        require_loopback_websocket(&websocket)?;
+        let (socket, _) =
+            tokio::time::timeout(CDP_TIMEOUT, tokio_tungstenite::connect_async(&websocket))
+                .await
+                .map_err(|_| anyhow::anyhow!("CDP evidence connection timed out"))??;
+        Ok(Self {
+            socket,
+            sequence: 0,
+            freeze_url: format!(
+                "agent-browser-evidence-freeze-{}",
+                uuid::Uuid::new_v4().simple()
+            ),
+            freeze_script: None,
+            paused: false,
+            owned_pause: false,
+            debugger_attempted: false,
+            redaction_attempted: false,
+        })
+    }
+
+    fn observe(&mut self, response: &Value) {
+        match response.get("method").and_then(Value::as_str) {
+            Some("Debugger.scriptParsed")
+                if response.pointer("/params/url").and_then(Value::as_str)
+                    == Some(&self.freeze_url) =>
+            {
+                self.freeze_script = response
+                    .pointer("/params/scriptId")
+                    .and_then(Value::as_str)
+                    .filter(|value| !value.is_empty() && value.len() <= 256)
+                    .map(str::to_owned);
+            }
+            Some("Debugger.paused") => {
+                self.paused = true;
+                self.owned_pause = self.freeze_script.as_deref().is_some_and(|script| {
+                    response
+                        .pointer("/params/callFrames/0/location/scriptId")
+                        .and_then(Value::as_str)
+                        == Some(script)
+                        && response.pointer("/params/reason").and_then(Value::as_str)
+                            == Some("other")
+                        && response
+                            .pointer("/params/hitBreakpoints")
+                            .and_then(Value::as_array)
+                            .is_some_and(Vec::is_empty)
+                });
+            }
+            Some("Debugger.resumed") => {
+                self.paused = false;
+                self.owned_pause = false;
+            }
+            _ => {}
+        }
+    }
+
+    async fn receive(&mut self, deadline: tokio::time::Instant) -> anyhow::Result<Value> {
+        loop {
+            let message = tokio::time::timeout_at(deadline, self.socket.next())
+                .await
+                .map_err(|_| anyhow::anyhow!("CDP screenshot response timed out"))?
+                .ok_or_else(|| anyhow::anyhow!("CDP screenshot socket closed"))??;
+            anyhow::ensure!(
+                tokio::time::Instant::now() < deadline,
+                "CDP screenshot response timed out"
+            );
+            if let Message::Text(text) = message {
+                let value: Value = serde_json::from_str(&text)?;
+                self.observe(&value);
+                return Ok(value);
+            }
+        }
+    }
+
+    async fn send(&mut self, method: &str, params: Value) -> anyhow::Result<i64> {
+        self.sequence += 1;
+        let id = self.sequence;
+        tokio::time::timeout(
+            CDP_TIMEOUT,
+            self.socket.send(Message::Text(
+                json!({"id": id, "method": method, "params": params}).to_string(),
+            )),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("CDP screenshot command timed out"))??;
+        Ok(id)
+    }
+
+    async fn command(&mut self, method: &str, params: Value) -> anyhow::Result<Value> {
+        let id = self.send(method, params).await?;
+        let deadline = tokio::time::Instant::now() + CDP_TIMEOUT;
+        loop {
+            let reply = self.receive(deadline).await?;
+            if reply.get("id").and_then(Value::as_i64) == Some(id) {
+                anyhow::ensure!(
+                    reply.get("error").is_none(),
+                    "CDP screenshot command rejected"
+                );
+                return Ok(reply);
+            }
+        }
+    }
+
+    async fn document(&mut self) -> anyhow::Result<ScreenshotDocument> {
+        screenshot_document(&self.command("Page.getFrameTree", json!({})).await?)
+    }
+
+    async fn require_document(&mut self, expected: &ScreenshotDocument) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.document().await? == *expected,
+            "screenshot document changed"
+        );
+        Ok(())
+    }
+
+    async fn freeze(&mut self) -> anyhow::Result<()> {
+        anyhow::ensure!(!self.paused, "screenshot page already paused");
+        // A uniquely named fixed debugger statement proves this connection owns the pause.
+        // Disabling script execution would silently discard a new document's bootstrap scripts.
+        let id = self
+            .send(
+                "Runtime.evaluate",
+                json!({
+                    "expression": format!("debugger;\n//# sourceURL={}", self.freeze_url),
+                    "returnByValue": true, "awaitPromise": false, "userGesture": false,
+                }),
+            )
+            .await?;
+        let deadline = tokio::time::Instant::now() + CDP_TIMEOUT;
+        loop {
+            let reply = self.receive(deadline).await?;
+            if self.paused {
+                anyhow::ensure!(self.owned_pause, "screenshot pause ownership unavailable");
+                return Ok(());
+            }
+            anyhow::ensure!(
+                reply.get("id").and_then(Value::as_i64) != Some(id),
+                "screenshot script pause unavailable"
+            );
+        }
+    }
+
+    async fn capture(
+        &mut self,
+        options: Option<&ScreenshotCaptureOptions>,
+    ) -> anyhow::Result<RedactedScreenshot> {
+        self.command("Page.enable", json!({})).await?;
+        let expected = self.document().await?;
+        self.debugger_attempted = true;
+        self.command("Debugger.enable", json!({"maxScriptsCacheSize": 0}))
+            .await?;
+        anyhow::ensure!(!self.paused, "screenshot page already paused");
+        self.redaction_attempted = true;
+        let installed = self
+            .command(
+                "Runtime.evaluate",
+                json!({
+                    "expression": INSTALL_REDACTION_SCRIPT, "returnByValue": true,
+                    "awaitPromise": false, "userGesture": false,
+                }),
+            )
+            .await?;
+        let verified = self
+            .command(
+                "Runtime.evaluate",
+                json!({
+                    "expression": VERIFY_REDACTION_SCRIPT, "returnByValue": true,
+                    "awaitPromise": false, "userGesture": false,
+                }),
+            )
+            .await?;
+        let redacted_region_count = verified_redacted_region_count(&installed, &verified)?;
+        let plan = options
+            .map(|options| {
+                capture_layout(&installed)
+                    .and_then(|layout| screenshot_capture_plan(options, layout))
+            })
+            .transpose()?;
+        self.require_document(&expected).await?;
+        self.freeze().await?;
+        self.require_document(&expected).await?;
+        anyhow::ensure!(
+            self.paused && self.owned_pause,
+            "screenshot script pause lost"
+        );
+        let document = self
+            .command("DOM.getDocument", json!({"depth": 0, "pierce": true}))
+            .await?;
+        let node = document
+            .pointer("/result/root/nodeId")
+            .and_then(Value::as_i64)
+            .filter(|value| *value > 0)
+            .ok_or_else(|| anyhow::anyhow!("sensitive redaction frozen document unavailable"))?;
+        let root = self
+            .command(
+                "DOM.querySelector",
+                json!({
+                    "nodeId": node, "selector": "#__agent_browser_sensitive_redaction_v1",
+                }),
+            )
+            .await?;
+        let root = root
+            .pointer("/result/nodeId")
+            .and_then(Value::as_i64)
+            .filter(|value| *value > 0)
+            .ok_or_else(|| {
+                anyhow::anyhow!("sensitive redaction root disappeared before capture")
+            })?;
+        let regions = self
+            .command(
+                "DOM.querySelectorAll",
+                json!({
+                    "nodeId": root, "selector": "[data-agent-browser-redaction-region]",
+                }),
+            )
+            .await?;
+        anyhow::ensure!(
+            regions
+                .pointer("/result/nodeIds")
+                .and_then(Value::as_array)
+                .and_then(|values| u32::try_from(values.len()).ok())
+                == Some(redacted_region_count),
+            "sensitive redaction frozen DOM verification failed closed"
+        );
+        anyhow::ensure!(
+            self.paused && self.owned_pause,
+            "screenshot script pause lost"
+        );
+        let captured = self
+            .command(
+                "Page.captureScreenshot",
+                plan.as_ref()
+                    .map(|(parameters, _)| parameters.clone())
+                    .unwrap_or_else(|| {
+                        json!({
+                            "format": "jpeg", "quality": 70, "fromSurface": true,
+                            "captureBeyondViewport": false,
+                        })
+                    }),
+            )
+            .await?;
+        self.require_document(&expected).await?;
+        anyhow::ensure!(
+            self.paused && self.owned_pause,
+            "screenshot script pause lost"
+        );
+        let encoded = captured
+            .pointer("/result/data")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow::anyhow!("CDP screenshot response omitted image data"))?;
+        let content = base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .map_err(|_| anyhow::anyhow!("CDP screenshot response is not valid base64"))?;
+        anyhow::ensure!(
+            content.len() <= EVIDENCE_MAX_BYTES,
+            "CDP screenshot exceeds the bounded evidence size"
+        );
+        Ok(RedactedScreenshot {
+            content,
+            redacted_region_count,
+            metadata: plan.map(|(_, metadata)| metadata),
+        })
+    }
+
+    async fn cleanup(&mut self) -> anyhow::Result<()> {
+        let mut resumed = Ok(());
+        if self.debugger_attempted {
+            // A renderer response, unlike browser-side FrameTree, drains our queued pause.
+            let barrier = self
+                .command(
+                    "Runtime.evaluate",
+                    json!({
+                        "expression": "void 0", "returnByValue": true,
+                        "awaitPromise": false, "userGesture": false,
+                    }),
+                )
+                .await;
+            if self.paused && self.owned_pause {
+                resumed = self.command("Debugger.resume", json!({})).await.map(|_| ());
+            }
+            let disabled = self
+                .command("Debugger.disable", json!({}))
+                .await
+                .map(|_| ());
+            resumed = barrier.map(|_| ()).and(resumed).and(disabled);
+        }
+        let cleaned = if self.redaction_attempted {
+            self.command(
+                "Runtime.evaluate",
+                json!({
+                    "expression": REMOVE_REDACTION_SCRIPT, "returnByValue": true,
+                    "awaitPromise": false, "userGesture": false,
+                }),
+            )
+            .await
+            .map(|_| ())
+        } else {
+            Ok(())
+        };
+        let closed = tokio::time::timeout(CDP_TIMEOUT, self.socket.close(None))
+            .await
+            .map_err(|_| anyhow::anyhow!("CDP screenshot close timed out"))?
+            .map_err(anyhow::Error::from);
+        resumed.and(cleaned).and(closed)
+    }
+}
 async fn prepare_evidence_path(
     workspace: &StorageWorkspace,
     evidence_id: &str,
@@ -2024,6 +2180,9 @@ fn now_millis() -> u64 {
         .try_into()
         .unwrap_or(u64::MAX)
 }
+
+#[cfg(test)]
+mod screenshot_tests;
 
 #[cfg(test)]
 mod tests {
@@ -2233,150 +2392,175 @@ for line in sys.stdin:
             .contains("pixel budget"));
     }
 
-    #[tokio::test]
-    async fn captures_real_bounded_jpeg_screenshot_over_cdp() {
-        let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let websocket_address = websocket_listener.local_addr().unwrap();
+    #[derive(Clone, Copy, PartialEq)]
+    enum ScreenshotFault {
+        None,
+        ChangedBeforePause,
+        ChangedDuringPause,
+        ChangedAfterCapture,
+        PauseLost,
+        ForeignPause,
+        ForeignPauseAtFreeze,
+        ResumeRejected,
+        Cancel,
+    }
+
+    async fn screenshot_fixture(
+        fault: ScreenshotFault,
+    ) -> (
+        String,
+        Arc<Mutex<Vec<String>>>,
+        oneshot::Receiver<()>,
+        JoinHandle<()>,
+        JoinHandle<()>,
+    ) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let commands = Arc::new(Mutex::new(Vec::new()));
+        let observed = commands.clone();
+        let (capturing, receiver) = oneshot::channel();
         let websocket_task = tokio::spawn(async move {
-            let (stream, _) = websocket_listener.accept().await.unwrap();
+            let (stream, _) = listener.accept().await.unwrap();
             let mut socket = accept_async(stream).await.unwrap();
-            let Message::Text(enable) = socket.next().await.unwrap().unwrap() else {
-                panic!("expected Page.enable");
-            };
-            let enable: Value = serde_json::from_str(&enable).unwrap();
-            assert_eq!(enable["method"], "Page.enable");
-            socket
-                .send(Message::Text(json!({"id": 1, "result": {}}).to_string()))
-                .await
-                .unwrap();
-
-            let Message::Text(install) = socket.next().await.unwrap().unwrap() else {
-                panic!("expected Runtime.evaluate redaction installation");
-            };
-            let install: Value = serde_json::from_str(&install).unwrap();
-            assert_eq!(install["method"], "Runtime.evaluate");
-            assert!(install["params"]["expression"]
-                .as_str()
-                .unwrap()
-                .contains("cc-number"));
-            socket
-                .send(Message::Text(
-                    json!({
-                        "id": 2,
-                        "result": {"result": {"value": {"version": 1, "redactedRegionCount": 2}}}
-                    })
-                    .to_string(),
-                ))
-                .await
-                .unwrap();
-
-            let Message::Text(verify) = socket.next().await.unwrap().unwrap() else {
-                panic!("expected Runtime.evaluate redaction verification");
-            };
-            let verify: Value = serde_json::from_str(&verify).unwrap();
-            assert_eq!(verify["method"], "Runtime.evaluate");
-            socket
-                .send(Message::Text(
-                    json!({
-                        "id": 3,
-                        "result": {"result": {"value": {"valid": true, "redactedRegionCount": 2}}}
-                    })
-                    .to_string(),
-                ))
-                .await
-                .unwrap();
-
-            let Message::Text(disable) = socket.next().await.unwrap().unwrap() else {
-                panic!("expected page script freeze");
-            };
-            let disable: Value = serde_json::from_str(&disable).unwrap();
-            assert_eq!(disable["method"], "Emulation.setScriptExecutionDisabled");
-            assert_eq!(disable["params"]["value"], true);
-            socket
-                .send(Message::Text(json!({"id": 4, "result": {}}).to_string()))
-                .await
-                .unwrap();
-
-            let Message::Text(document) = socket.next().await.unwrap().unwrap() else {
-                panic!("expected frozen DOM document");
-            };
-            let document: Value = serde_json::from_str(&document).unwrap();
-            assert_eq!(document["method"], "DOM.getDocument");
-            socket
-                .send(Message::Text(
-                    json!({"id": 5, "result": {"root": {"nodeId": 11}}}).to_string(),
-                ))
-                .await
-                .unwrap();
-
-            let Message::Text(root) = socket.next().await.unwrap().unwrap() else {
-                panic!("expected frozen redaction root lookup");
-            };
-            let root: Value = serde_json::from_str(&root).unwrap();
-            assert_eq!(root["method"], "DOM.querySelector");
-            assert_eq!(
-                root["params"]["selector"],
-                "#__agent_browser_sensitive_redaction_v1"
-            );
-            socket
-                .send(Message::Text(
-                    json!({"id": 6, "result": {"nodeId": 12}}).to_string(),
-                ))
-                .await
-                .unwrap();
-
-            let Message::Text(regions) = socket.next().await.unwrap().unwrap() else {
-                panic!("expected frozen redaction region lookup");
-            };
-            let regions: Value = serde_json::from_str(&regions).unwrap();
-            assert_eq!(regions["method"], "DOM.querySelectorAll");
-            socket
-                .send(Message::Text(
-                    json!({"id": 7, "result": {"nodeIds": [13, 14]}}).to_string(),
-                ))
-                .await
-                .unwrap();
-
-            let Message::Text(capture) = socket.next().await.unwrap().unwrap() else {
-                panic!("expected Page.captureScreenshot");
-            };
-            let capture: Value = serde_json::from_str(&capture).unwrap();
-            assert_eq!(capture["method"], "Page.captureScreenshot");
-            assert_eq!(capture["params"]["format"], "jpeg");
-            assert_eq!(capture["params"]["quality"], 70);
-            socket
-                .send(Message::Text(
-                    json!({"id": 8, "result": {"data": "/9j/2Q=="}}).to_string(),
-                ))
-                .await
-                .unwrap();
-
-            let Message::Text(enable) = socket.next().await.unwrap().unwrap() else {
-                panic!("expected page script resume");
-            };
-            let enable: Value = serde_json::from_str(&enable).unwrap();
-            assert_eq!(enable["method"], "Emulation.setScriptExecutionDisabled");
-            assert_eq!(enable["params"]["value"], false);
-            socket
-                .send(Message::Text(json!({"id": 9, "result": {}}).to_string()))
-                .await
-                .unwrap();
-
-            let Message::Text(cleanup) = socket.next().await.unwrap().unwrap() else {
-                panic!("expected redaction cleanup");
-            };
-            let cleanup: Value = serde_json::from_str(&cleanup).unwrap();
-            assert_eq!(cleanup["method"], "Runtime.evaluate");
-            assert!(cleanup["params"]["expression"]
-                .as_str()
-                .unwrap()
-                .contains("__agent_browser_sensitive_redaction_v1"));
-            socket
-                .send(Message::Text(json!({"id": 10, "result": {}}).to_string()))
-                .await
-                .unwrap();
+            let mut document_reads = 0;
+            let mut capturing = Some(capturing);
+            let mut pending_evaluation = None;
+            while let Some(message) = socket.next().await {
+                let Message::Text(message) = message.unwrap() else {
+                    break;
+                };
+                let command: Value = serde_json::from_str(&message).unwrap();
+                let method = command["method"].as_str().unwrap();
+                let id = command["id"].as_i64().unwrap();
+                observed.lock().await.push(method.to_owned());
+                let response = match method {
+                    "Page.getFrameTree" => {
+                        document_reads += 1;
+                        let changed = match fault {
+                            ScreenshotFault::ChangedBeforePause => document_reads >= 2,
+                            ScreenshotFault::ChangedDuringPause => document_reads >= 3,
+                            ScreenshotFault::ChangedAfterCapture => document_reads >= 4,
+                            _ => false,
+                        };
+                        json!({"frameTree": {"frame": {"id": "main", "loaderId": if changed {"new"} else {"original"}}}})
+                    }
+                    "Debugger.enable" => {
+                        if fault == ScreenshotFault::ForeignPause {
+                            socket
+                                .send(Message::Text(
+                                    json!({"method": "Debugger.paused", "params": {
+                                        "reason": "other", "hitBreakpoints": [],
+                                        "callFrames": [{"location": {"scriptId": "foreign"}}]
+                                    }})
+                                    .to_string(),
+                                ))
+                                .await
+                                .unwrap();
+                        }
+                        json!({"debuggerId": "fixture"})
+                    }
+                    "Runtime.evaluate" => {
+                        let expression = command["params"]["expression"].as_str().unwrap();
+                        if fault == ScreenshotFault::ForeignPause {
+                            assert_eq!(expression, "void 0");
+                        }
+                        if expression.starts_with("debugger;\n//# sourceURL=") {
+                            let url = expression.split_once("sourceURL=").unwrap().1;
+                            socket
+                                .send(Message::Text(
+                                    json!({"method": "Debugger.scriptParsed", "params": {
+                                        "scriptId": "owned", "url": url,
+                                    }})
+                                    .to_string(),
+                                ))
+                                .await
+                                .unwrap();
+                            socket.send(Message::Text(json!({"method": "Debugger.paused", "params": {
+                                "reason": "other", "hitBreakpoints": [],
+                                "callFrames": [{"location": {"scriptId":
+                                    if fault == ScreenshotFault::ForeignPauseAtFreeze {"foreign"} else {"owned"}}}]
+                            }}).to_string())).await.unwrap();
+                            pending_evaluation = Some(id);
+                            continue;
+                        } else if expression == INSTALL_REDACTION_SCRIPT {
+                            json!({"result": {"value": {"version": 1, "redactedRegionCount": 2}}})
+                        } else if expression == VERIFY_REDACTION_SCRIPT {
+                            json!({"result": {"value": {"valid": true, "redactedRegionCount": 2}}})
+                        } else if expression == "void 0" {
+                            json!({"result": {"type": "undefined"}})
+                        } else {
+                            assert_eq!(expression, REMOVE_REDACTION_SCRIPT);
+                            json!({"result": {"value": true}})
+                        }
+                    }
+                    "DOM.getDocument" => json!({"root": {"nodeId": 11}}),
+                    "DOM.querySelector" => json!({"nodeId": 12}),
+                    "DOM.querySelectorAll" => json!({"nodeIds": [13, 14]}),
+                    "Page.captureScreenshot" => {
+                        assert_eq!(command["params"]["format"], "jpeg");
+                        assert_eq!(command["params"]["quality"], 70);
+                        if let Some(capturing) = capturing.take() {
+                            let _ = capturing.send(());
+                        }
+                        if fault == ScreenshotFault::Cancel {
+                            continue;
+                        }
+                        if fault == ScreenshotFault::PauseLost {
+                            socket
+                                .send(Message::Text(
+                                    json!({"method": "Debugger.resumed", "params": {}}).to_string(),
+                                ))
+                                .await
+                                .unwrap();
+                        }
+                        json!({"data": "/9j/2Q=="})
+                    }
+                    "Debugger.resume" => {
+                        assert!(!matches!(
+                            fault,
+                            ScreenshotFault::ForeignPause
+                                | ScreenshotFault::ForeignPauseAtFreeze
+                                | ScreenshotFault::PauseLost
+                        ));
+                        if fault == ScreenshotFault::ResumeRejected {
+                            socket
+                                .send(Message::Text(
+                                    json!({"id": id, "error": {
+                                        "code": -32000, "message": "fixture resume rejected",
+                                    }})
+                                    .to_string(),
+                                ))
+                                .await
+                                .unwrap();
+                            continue;
+                        }
+                        socket
+                            .send(Message::Text(
+                                json!({"method": "Debugger.resumed", "params": {}}).to_string(),
+                            ))
+                            .await
+                            .unwrap();
+                        if let Some(evaluation) = pending_evaluation.take() {
+                            socket
+                                .send(Message::Text(
+                                    json!({"id": evaluation, "result": {}}).to_string(),
+                                ))
+                                .await
+                                .unwrap();
+                        }
+                        json!({})
+                    }
+                    "Page.enable" | "Debugger.disable" => json!({}),
+                    _ => panic!("unexpected screenshot command"),
+                };
+                socket
+                    .send(Message::Text(
+                        json!({"id": id, "result": response}).to_string(),
+                    ))
+                    .await
+                    .unwrap();
+            }
         });
-
         let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let http_address = http_listener.local_addr().unwrap();
         let http_task = tokio::spawn(async move {
@@ -2384,28 +2568,25 @@ for line in sys.stdin:
             let mut request = [0_u8; 2048];
             let count = stream.read(&mut request).await.unwrap();
             assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list "));
-            let body = json!([{
-                "id": "page-1",
-                "type": "page",
-                "webSocketDebuggerUrl": format!("ws://{websocket_address}/devtools/page/1")
-            }])
+            let body = json!([{"id": "page-1", "type": "page",
+                "webSocketDebuggerUrl": format!("ws://{address}/devtools/page/1")}])
             .to_string();
-            stream
-                .write_all(
-                    format!(
-                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
-                        body.len(),
-                        body
-                    )
-                    .as_bytes(),
-                )
-                .await
-                .unwrap();
+            stream.write_all(format!("HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}", body.len(), body).as_bytes()).await.unwrap();
         });
+        (
+            format!("http://{http_address}"),
+            commands,
+            receiver,
+            websocket_task,
+            http_task,
+        )
+    }
 
-        let screenshot = capture_screenshot(&format!("http://{http_address}"), None)
-            .await
-            .unwrap();
+    #[tokio::test]
+    async fn captures_real_bounded_jpeg_screenshot_over_cdp() {
+        let (endpoint, commands, _, websocket, http) =
+            screenshot_fixture(ScreenshotFault::None).await;
+        let screenshot = capture_screenshot(&endpoint, None).await.unwrap();
         assert_eq!(
             screenshot,
             RedactedScreenshot {
@@ -2414,8 +2595,146 @@ for line in sys.stdin:
                 metadata: None,
             }
         );
-        websocket_task.await.unwrap();
-        http_task.await.unwrap();
+        websocket.await.unwrap();
+        http.await.unwrap();
+        let methods = commands.lock().await;
+        assert_eq!(
+            methods
+                .iter()
+                .filter(|method| *method == "Debugger.resume")
+                .count(),
+            1
+        );
+        assert_eq!(
+            methods
+                .iter()
+                .filter(|method| *method == "Page.getFrameTree")
+                .count(),
+            4
+        );
+        assert!(!methods.iter().any(|method| method.contains("Emulation")));
+        assert_eq!(methods.last().unwrap(), "Runtime.evaluate");
+    }
+
+    #[tokio::test]
+    async fn screenshot_rejects_document_change_before_pause_during_pause_and_after_capture() {
+        for (fault, captures, resumes) in [
+            (ScreenshotFault::ChangedBeforePause, 0, 0),
+            (ScreenshotFault::ChangedDuringPause, 0, 1),
+            (ScreenshotFault::ChangedAfterCapture, 1, 1),
+        ] {
+            let (endpoint, commands, _, websocket, http) = screenshot_fixture(fault).await;
+            let error = capture_screenshot(&endpoint, None).await.unwrap_err();
+            assert!(error.to_string().contains("document changed"));
+            websocket.await.unwrap();
+            http.await.unwrap();
+            let methods = commands.lock().await;
+            assert_eq!(
+                methods
+                    .iter()
+                    .filter(|method| *method == "Page.captureScreenshot")
+                    .count(),
+                captures
+            );
+            assert_eq!(
+                methods
+                    .iter()
+                    .filter(|method| *method == "Debugger.resume")
+                    .count(),
+                resumes
+            );
+            assert!(methods.iter().any(|method| method == "Debugger.disable"));
+        }
+    }
+
+    #[tokio::test]
+    async fn screenshot_preserves_foreign_pause_and_rejects_lost_pause() {
+        for fault in [
+            ScreenshotFault::ForeignPause,
+            ScreenshotFault::ForeignPauseAtFreeze,
+            ScreenshotFault::PauseLost,
+        ] {
+            let (endpoint, commands, _, websocket, http) = screenshot_fixture(fault).await;
+            assert!(capture_screenshot(&endpoint, None).await.is_err());
+            websocket.await.unwrap();
+            http.await.unwrap();
+            let methods = commands.lock().await;
+            assert!(!methods.iter().any(|method| method == "Debugger.resume"));
+            assert!(methods.iter().any(|method| method == "Debugger.disable"));
+            if fault == ScreenshotFault::ForeignPause {
+                assert_eq!(
+                    methods
+                        .iter()
+                        .filter(|method| *method == "Runtime.evaluate")
+                        .count(),
+                    1
+                );
+                assert!(!methods
+                    .iter()
+                    .any(|method| method == "Page.captureScreenshot"));
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn cancelled_screenshot_retains_lock_until_owned_pause_cleanup() {
+        let (endpoint, commands, capturing, websocket, http) =
+            screenshot_fixture(ScreenshotFault::Cancel).await;
+        let capture_lock = Arc::new(Mutex::new(()));
+        let owned_lock = capture_lock.clone();
+        let caller = tokio::spawn(async move {
+            capture_screenshot_serialized(&endpoint, None, owned_lock).await
+        });
+        capturing.await.unwrap();
+        assert!(capture_lock.try_lock().is_err());
+        caller.abort();
+        assert!(caller.await.unwrap_err().is_cancelled());
+        tokio::time::timeout(Duration::from_secs(2), websocket)
+            .await
+            .unwrap()
+            .unwrap();
+        http.await.unwrap();
+        assert!(capture_lock.try_lock().is_ok());
+        let methods = commands.lock().await;
+        assert_eq!(
+            methods
+                .iter()
+                .filter(|method| *method == "Debugger.resume")
+                .count(),
+            1
+        );
+        assert_eq!(methods.last().unwrap(), "Runtime.evaluate");
+    }
+
+    #[tokio::test]
+    async fn screenshot_discards_pixels_when_resume_is_not_acknowledged() {
+        let (endpoint, commands, _, websocket, http) =
+            screenshot_fixture(ScreenshotFault::ResumeRejected).await;
+        assert!(capture_screenshot(&endpoint, None).await.is_err());
+        websocket.await.unwrap();
+        http.await.unwrap();
+        let methods = commands.lock().await;
+        assert!(methods
+            .iter()
+            .any(|method| method == "Page.captureScreenshot"));
+        assert!(methods.iter().any(|method| method == "Debugger.disable"));
+        assert_eq!(methods.last().unwrap(), "Runtime.evaluate");
+    }
+
+    #[test]
+    fn screenshot_document_requires_exact_bounded_main_frame_loader_identity() {
+        for frame in [
+            json!({}),
+            json!({"id": "main"}),
+            json!({"id": "main", "loaderId": ""}),
+            json!({"id": "main", "loaderId": "loader", "parentId": "parent"}),
+            json!({"id": "main\n", "loaderId": "loader"}),
+            json!({"id": "main", "loaderId": "x".repeat(257)}),
+        ] {
+            assert!(
+                screenshot_document(&json!({"result": {"frameTree": {"frame": frame}}})).is_err()
+            );
+        }
     }
 
     #[tokio::test]

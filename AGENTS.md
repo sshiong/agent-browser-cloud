@@ -308,6 +308,17 @@ progress 166。
 
 ### 最近验证状态
 
+- 自有真实 Chrome/CDP 代理证明旧截图脚本禁用窗口碰上导航后，新页面初始化会被
+  跳过；恢复脚本仍未挂载 UI。受治理 Screenshot/Evidence 现采用唯一固定调试语句的
+  暂停归属证明，捕获前后精确主 Frame/Loader 复核，取消后仍持有 Session 截图锁并
+  清理。外部暂停、暂停丢失、文档变化与恢复拒绝均拒绝像素；连续 Recording 不使用
+  原脚本禁用路径。真实 Chrome 正常 JPEG/导航/取消/已有调试暂停已通过，见 progress
+  275；Rust 237 项、六项真实 Chrome、Clippy、构建、Replay 43 项、兼容与最终 OrbStack
+  Integration 通过。新公开全量走过商品/IdP/OIDC/Challenge，在返回 Example 的状态
+  等待失败，唯一 link 的 visible/inViewport 均 false，最后观察年龄约 14 秒，原因未定。
+  不追溯认定此前公开空白页原因。`4902ded` 主 CI/Windows/macOS/Operator 全部
+  成功，基线新公开商品定向一例 verified；公开连续全量、完整稳定区域和外部 Gate 保留。
+
 - 迟到的请求事件现可用精确 CDP Session/Frame/Loader 的有界历史提交证明绑定旧主
   文档；未知/淘汰证明继续阻塞，同键跨主文档冲突持续停用该 Session 文档过滤。
   全局未完成请求/写入保护保留，历史 Loader 恢复重新计入当前 Tab。三项旧代码回归

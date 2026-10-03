@@ -43,7 +43,7 @@ class CdpSocket:
         self.stream.close()
         self.socket.close()
 
-    def command(self, method, params=None):
+    def send(self, method, params=None):
         self.sequence += 1
         payload = json.dumps({"id": self.sequence, "method": method,
                               "params": params or {}}).encode()
@@ -55,24 +55,56 @@ class CdpSocket:
         self.socket.sendall(header + mask + bytes(
             value ^ mask[index % 4] for index, value in enumerate(payload)
         ))
+        return self.sequence
+
+    def receive(self):
+        header = self.stream.read(2)
+        if len(header) != 2 or header[0] != 0x81 or header[1] & 0x80:
+            raise AssertionError("invalid fixture CDP frame")
+        size = header[1] & 0x7F
+        if size == 126:
+            size = struct.unpack("!H", self.stream.read(2))[0]
+        elif size == 127:
+            size = struct.unpack("!Q", self.stream.read(8))[0]
+        if size > 65536:
+            raise AssertionError("oversized fixture CDP frame")
+        return json.loads(self.stream.read(size))
+
+    def command(self, method, params=None):
+        sequence = self.send(method, params)
         for _ in range(20):
-            header = self.stream.read(2)
-            if len(header) != 2 or header[0] != 0x81 or header[1] & 0x80:
-                raise AssertionError("invalid fixture CDP frame")
-            size = header[1] & 0x7F
-            if size == 126:
-                size = struct.unpack("!H", self.stream.read(2))[0]
-            elif size == 127:
-                size = struct.unpack("!Q", self.stream.read(8))[0]
-            if size > 65536:
-                raise AssertionError("oversized fixture CDP frame")
-            response = json.loads(self.stream.read(size))
-            if response.get("id") == self.sequence:
+            response = self.receive()
+            if response.get("id") == sequence:
                 return response
         raise AssertionError("fixture CDP response missing")
 
 
 class FakeChromiumDocumentTests(unittest.TestCase):
+    def test_screenshot_pause_has_owned_script_proof_and_deferred_evaluation(self):
+        with tempfile.TemporaryDirectory(prefix="ab-fixture-pause-") as profile:
+            _, port, target = self.start_fixture(profile)
+            with contextlib.closing(CdpSocket(port, target)) as cdp:
+                cdp.command("Debugger.enable")
+                url = "agent-browser-evidence-freeze-owned-fixture"
+                evaluation = cdp.send("Runtime.evaluate", {
+                    "expression": f"debugger;\n//# sourceURL={url}", "returnByValue": True,
+                })
+                parsed = cdp.receive()
+                paused = cdp.receive()
+                self.assertEqual(parsed["method"], "Debugger.scriptParsed")
+                self.assertEqual(parsed["params"]["url"], url)
+                self.assertEqual(paused["method"], "Debugger.paused")
+                self.assertEqual(paused["params"]["callFrames"][0]["location"]["scriptId"],
+                                 parsed["params"]["scriptId"])
+                self.assertEqual(paused["params"]["reason"], "other")
+                self.assertEqual(paused["params"]["hitBreakpoints"], [])
+                cdp.command("DOM.getDocument")
+                resume = cdp.send("Debugger.resume")
+                self.assertEqual(cdp.receive()["method"], "Debugger.resumed")
+                self.assertEqual(cdp.receive()["id"], evaluation)
+                self.assertEqual(cdp.receive()["id"], resume)
+                cdp.command("Debugger.disable")
+
     def start_fixture(self, profile, port=0):
         # stderr stays private; failures expose only a fixed category and exit code.
         error_log = tempfile.TemporaryFile()

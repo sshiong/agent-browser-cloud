@@ -175,6 +175,7 @@ class Handler(BaseHTTPRequestHandler):
         global native_dialog, native_dialog_sequence
         global uploaded_file, download_event_version
         reported_native_dialog_sequence = 0
+        screenshot_pause_evaluation = None
         self.websocket_write_lock = threading.Lock()
         key = self.headers.get("Sec-WebSocket-Key", "")
         accept = base64.b64encode(
@@ -233,6 +234,21 @@ class Handler(BaseHTTPRequestHandler):
                         }
                 else:
                     expression = command.get("params", {}).get("expression", "")
+                    if expression.startswith("debugger;\n//# sourceURL=agent-browser-evidence-freeze-"):
+                        freeze_url = expression.split("sourceURL=", 1)[1]
+                        self.write_websocket_text(json.dumps({
+                            "method": "Debugger.scriptParsed",
+                            "params": {"scriptId": "screenshot-freeze", "url": freeze_url},
+                        }))
+                        self.write_websocket_text(json.dumps({
+                            "method": "Debugger.paused",
+                            "params": {
+                                "reason": "other", "hitBreakpoints": [],
+                                "callFrames": [{"location": {"scriptId": "screenshot-freeze"}}],
+                            },
+                        }))
+                        screenshot_pause_evaluation = command["id"]
+                        continue
                     if "const expected =" in expression and "return found;" in expression:
                         response = {
                             "id": command["id"],
@@ -579,6 +595,11 @@ class Handler(BaseHTTPRequestHandler):
                         ]
                     },
                 }
+            elif method == "Debugger.resume" and screenshot_pause_evaluation is not None:
+                self.write_websocket_text(json.dumps({"method": "Debugger.resumed", "params": {}}))
+                self.write_websocket_text(json.dumps({"id": screenshot_pause_evaluation, "result": {}}))
+                screenshot_pause_evaluation = None
+                response = {"id": command["id"], "result": {}}
             elif method == "DOM.getDocument":
                 response = {
                     "id": command["id"],

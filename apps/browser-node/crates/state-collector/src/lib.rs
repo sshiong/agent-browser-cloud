@@ -428,6 +428,9 @@ struct TabResourcePolicyState {
 
 #[derive(Debug, Deserialize)]
 struct EvaluatedPageState {
+    /// Trusted CDP Frame/Loader digest; never accepted from the page's by-value result.
+    #[serde(skip)]
+    document_identity: String,
     url: String,
     title: String,
     #[serde(default, rename = "documentReadyState")]
@@ -571,6 +574,7 @@ pub struct CdpStateCollector {
 
 #[derive(Debug, Default, Clone)]
 struct CollectorCursor {
+    document_identity: String,
     state_version: u64,
     target_revision: u64,
     url: String,
@@ -2029,6 +2033,9 @@ impl CdpStateCollector {
         .await
         .map_err(|_| anyhow::anyhow!("CDP websocket connection timed out"))??;
         let requested_root = serde_json::to_string(&root_selector)?;
+        let response_deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+        let document_identity =
+            Self::query_document_identity(&mut socket, 3, response_deadline).await?;
         let expression = r#"
             (() => {
               const requestedRoot = __REQUESTED_ROOT__;
@@ -2429,9 +2436,12 @@ impl CdpStateCollector {
                 "awaitPromise": true
             }
         });
-        socket.send(Message::Text(request.to_string())).await?;
-
-        let response_deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+        tokio::time::timeout_at(
+            response_deadline,
+            socket.send(Message::Text(request.to_string())),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("CDP Runtime.evaluate timed out"))??;
         while let Some(message) = tokio::time::timeout_at(response_deadline, socket.next())
             .await
             .map_err(|_| anyhow::anyhow!("CDP Runtime.evaluate timed out"))?
@@ -2455,7 +2465,7 @@ impl CdpStateCollector {
                 .pointer("/result/result/value")
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("CDP response has no by-value result"))?;
-            let evaluated: EvaluatedPageState = serde_json::from_value(value)?;
+            let mut evaluated: EvaluatedPageState = serde_json::from_value(value)?;
             if let Some(error) = evaluated.error.as_deref() {
                 anyhow::bail!(error.to_owned());
             }
@@ -2463,9 +2473,72 @@ impl CdpStateCollector {
                 tokio::time::Instant::now() < response_deadline,
                 "CDP Runtime.evaluate timed out"
             );
+            let current_identity =
+                Self::query_document_identity(&mut socket, 4, response_deadline).await?;
+            anyhow::ensure!(
+                current_identity == document_identity,
+                "CDP document changed during snapshot"
+            );
+            evaluated.document_identity = document_identity;
             return Ok(evaluated);
         }
         anyhow::bail!("CDP websocket closed before Runtime.evaluate completed")
+    }
+
+    async fn query_document_identity<S>(
+        socket: &mut tokio_tungstenite::WebSocketStream<S>,
+        command_id: i64,
+        deadline: tokio::time::Instant,
+    ) -> anyhow::Result<String>
+    where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    {
+        tokio::time::timeout_at(
+            deadline,
+            socket.send(Message::Text(
+                serde_json::json!({"id":command_id,"method":"Page.getFrameTree"}).to_string(),
+            )),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("CDP Page.getFrameTree timed out"))??;
+        while let Some(message) = tokio::time::timeout_at(deadline, socket.next())
+            .await
+            .map_err(|_| anyhow::anyhow!("CDP Page.getFrameTree timed out"))?
+        {
+            anyhow::ensure!(
+                tokio::time::Instant::now() < deadline,
+                "CDP Page.getFrameTree timed out"
+            );
+            let Message::Text(text) = message? else {
+                continue;
+            };
+            let response: serde_json::Value = serde_json::from_str(&text)?;
+            if response["id"].as_i64() != Some(command_id) {
+                continue;
+            }
+            anyhow::ensure!(
+                response.get("error").is_none(),
+                "CDP Page.getFrameTree was rejected"
+            );
+            let frame = &response["result"]["frameTree"]["frame"];
+            let identifier = |name: &str| {
+                frame[name].as_str().filter(|value| {
+                    !value.is_empty() && value.len() <= 128 && !value.chars().any(char::is_control)
+                })
+            };
+            let (Some(frame_id), Some(loader_id)) = (identifier("id"), identifier("loaderId"))
+            else {
+                anyhow::bail!("CDP main document identity is unavailable");
+            };
+            anyhow::ensure!(
+                frame.get("parentId").is_none(),
+                "CDP main document identity is unavailable"
+            );
+            return Ok(hex_sha256(
+                serde_json::to_string(&(frame_id, loader_id))?.as_bytes(),
+            ));
+        }
+        anyhow::bail!("CDP websocket closed before Page.getFrameTree completed")
     }
 
     pub async fn navigate(&self, session_id: &str, url: &str) -> anyhow::Result<()> {
@@ -3220,10 +3293,26 @@ impl CdpStateCollector {
             })
             .collect::<Vec<_>>();
         Ok((
-            hex_sha256(serde_json::to_string(&(dom, opaque_boundaries))?.as_bytes()),
-            hex_sha256(page.layout_signature.as_bytes()),
-            hex_sha256(format!("{}\n{}", page.document_focused, page.focus_path).as_bytes()),
-            hex_sha256(format!("{active_tab_id}\n{}", page.url).as_bytes()),
+            hex_sha256(
+                serde_json::to_string(&(&page.document_identity, dom, opaque_boundaries))?
+                    .as_bytes(),
+            ),
+            hex_sha256(
+                serde_json::to_string(&(&page.document_identity, &page.layout_signature))?
+                    .as_bytes(),
+            ),
+            hex_sha256(
+                serde_json::to_string(&(
+                    &page.document_identity,
+                    page.document_focused,
+                    &page.focus_path,
+                ))?
+                .as_bytes(),
+            ),
+            hex_sha256(
+                serde_json::to_string(&(&page.document_identity, active_tab_id, &page.url))?
+                    .as_bytes(),
+            ),
         ))
     }
 
@@ -3561,6 +3650,7 @@ impl CdpStateCollector {
             }
             if cursor.target_revision == 0
                 || cursor.url != page.url
+                || cursor.document_identity != page.document_identity
                 || cursor.active_tab_id != tab_snapshot.active_tab_id
                 || cursor.target_fingerprint != target_fingerprint
                 || force_target_revision
@@ -3568,6 +3658,7 @@ impl CdpStateCollector {
                 cursor.target_revision += 1;
             }
             cursor.url = page.url.clone();
+            cursor.document_identity.clone_from(&page.document_identity);
             cursor.active_tab_id = tab_snapshot.active_tab_id.clone();
             cursor.target_fingerprint = target_fingerprint;
             cursor.content_hash = content_hash.clone();
@@ -3715,6 +3806,11 @@ impl CdpStateCollector {
         let mut page = self
             .evaluate_region(&tab_snapshot.active_websocket_url, &root_selector)
             .await?;
+        anyhow::ensure!(
+            !cursor.document_identity.is_empty()
+                && cursor.document_identity == page.document_identity,
+            "Region baseline document changed"
+        );
         if let Some(active) = tab_snapshot
             .tabs
             .iter_mut()
@@ -3890,7 +3986,13 @@ impl BrowserStateCollector for CdpStateCollector {
                 if error.to_string().contains("CDP Runtime.evaluate timed out")
                     || error
                         .to_string()
-                        .contains("CDP websocket closed before Runtime.evaluate completed") =>
+                        .contains("CDP Page.getFrameTree timed out")
+                    || error
+                        .to_string()
+                        .contains("CDP websocket closed before Runtime.evaluate completed")
+                    || error
+                        .to_string()
+                        .contains("CDP websocket closed before Page.getFrameTree completed") =>
             {
                 // The input was already dispatched. A page navigation can close or pause its
                 // former CDP target before the confirmation read completes. Re-observe once;
@@ -4004,6 +4106,140 @@ mod tests {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
 
+    async fn answer_document_query<S>(
+        socket: &mut tokio_tungstenite::WebSocketStream<S>,
+        expected_id: i64,
+        loader: &str,
+    ) where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    {
+        let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+            panic!("expected document identity query");
+        };
+        let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+        assert_eq!(request["method"], "Page.getFrameTree");
+        assert_eq!(request["id"], expected_id);
+        socket
+            .send(Message::Text(
+                serde_json::json!({"id":expected_id,"result":{"frameTree":{"frame":{
+                    "id":"main","loaderId":loader
+                }}}})
+                .to_string(),
+            ))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn rejects_document_switch_or_missing_identity_during_snapshot() {
+        for switch_document in [true, false] {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.unwrap();
+                let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+                answer_document_query(&mut socket, 3, "loader-before").await;
+                let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                    panic!("expected page snapshot");
+                };
+                let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+                assert_eq!(request["method"], "Runtime.evaluate");
+                socket
+                    .send(Message::Text(
+                        serde_json::json!({"id":1,"result":{"result":{"value":{
+                            "url":"https://example.test/same-url","title":"Same page",
+                            "document_identity":"page-forged-identity"
+                        }}}})
+                        .to_string(),
+                    ))
+                    .await
+                    .unwrap();
+                if switch_document {
+                    answer_document_query(&mut socket, 4, "loader-after").await;
+                } else {
+                    let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                        panic!("expected final document query");
+                    };
+                    let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+                    assert_eq!(request["method"], "Page.getFrameTree");
+                    assert_eq!(request["id"], 4);
+                    socket
+                        .send(Message::Text(
+                            serde_json::json!({"id":4,"result":{"frameTree":{"frame":{
+                                "id":"main"
+                            }}}})
+                            .to_string(),
+                        ))
+                        .await
+                        .unwrap();
+                }
+            });
+            let error = CdpStateCollector::new()
+                .evaluate_page(&format!("ws://{address}"))
+                .await
+                .unwrap_err();
+            assert_eq!(
+                error.to_string(),
+                if switch_document {
+                    "CDP document changed during snapshot"
+                } else {
+                    "CDP main document identity is unavailable"
+                }
+            );
+            server.await.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn document_queries_share_the_snapshot_deadline() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            tokio::time::sleep(Duration::from_millis(1_500)).await;
+            answer_document_query(&mut socket, 3, "loader-a").await;
+            let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected page snapshot");
+            };
+            let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+            assert_eq!(request["method"], "Runtime.evaluate");
+            socket
+                .send(Message::Text(
+                    serde_json::json!({"id":1,"result":{"result":{"value":{
+                        "url":"https://example.test/","title":"Snapshot"
+                    }}}})
+                    .to_string(),
+                ))
+                .await
+                .unwrap();
+            let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected final document query");
+            };
+            let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+            assert_eq!(request["method"], "Page.getFrameTree");
+            assert_eq!(request["id"], 4);
+            // A fresh per-command budget would incorrectly allow this late response.
+            tokio::time::sleep(Duration::from_millis(1_700)).await;
+            let _ = socket
+                .send(Message::Text(
+                    serde_json::json!({"id":4,"result":{"frameTree":{"frame":{
+                        "id":"main","loaderId":"loader-a"
+                    }}}})
+                    .to_string(),
+                ))
+                .await;
+        });
+        let started = tokio::time::Instant::now();
+        let error = CdpStateCollector::new()
+            .evaluate_page(&format!("ws://{address}"))
+            .await
+            .unwrap_err();
+        assert_eq!(error.to_string(), "CDP Page.getFrameTree timed out");
+        assert!(started.elapsed() < Duration::from_millis(3_500));
+        server.await.unwrap();
+    }
+
     #[tokio::test]
     async fn snapshot_response_expires_despite_unrelated_messages() {
         check_finite_cdp_response_budget(true).await;
@@ -4020,6 +4256,9 @@ mod tests {
         let server = tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
             let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            if snapshot {
+                answer_document_query(&mut socket, 3, "loader-a").await;
+            }
             let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
                 panic!("expected CDP command");
             };
@@ -4512,6 +4751,7 @@ mod tests {
             for _ in 0..3 {
                 let (stream, _) = websocket_listener.accept().await.unwrap();
                 let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+                answer_document_query(&mut socket, 3, "loader-a").await;
                 let request = socket.next().await.unwrap().unwrap();
                 let Message::Text(request) = request else {
                     panic!("expected CDP text request");
@@ -4554,6 +4794,7 @@ mod tests {
                     .send(Message::Text(response.to_string()))
                     .await
                     .unwrap();
+                answer_document_query(&mut socket, 4, "loader-a").await;
             }
         });
 
@@ -4659,6 +4900,7 @@ mod tests {
             for attempt in 0..read_count {
                 let (stream, _) = websocket_listener.accept().await.unwrap();
                 let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+                answer_document_query(&mut socket, 3, "loader-a").await;
                 let request = socket.next().await.unwrap().unwrap();
                 let Message::Text(request) = request else {
                     panic!("expected CDP Runtime.evaluate request");
@@ -4685,6 +4927,9 @@ mod tests {
                     .send(Message::Text(response.to_string()))
                     .await
                     .unwrap();
+                if success {
+                    answer_document_query(&mut socket, 4, "loader-a").await;
+                }
             }
         });
 
@@ -4925,6 +5170,7 @@ mod tests {
             for index in 0..3 {
                 let (stream, _) = websocket_listener.accept().await.unwrap();
                 let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+                answer_document_query(&mut socket, 3, "loader-a").await;
                 let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
                     panic!("expected CDP text request");
                 };
@@ -4987,6 +5233,7 @@ mod tests {
                     .send(Message::Text(response.to_string()))
                     .await
                     .unwrap();
+                answer_document_query(&mut socket, 4, "loader-a").await;
             }
         });
 
@@ -6147,6 +6394,13 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
         assert!(ready, "real Chromium CDP did not become ready");
+        let initial = collector
+            .collect_current_state("ses_real_chromium")
+            .await
+            .unwrap();
+        assert_eq!(initial.url, "about:blank");
+        assert_eq!(initial.document_ready_state, "complete");
+        assert_eq!(initial.page_stability.route_quiet_millis, 0);
         collector
             .start_safety_monitor("ses_real_chromium", BrowserTransactionPolicy::default())
             .await
@@ -6260,6 +6514,56 @@ mod tests {
         assert!(stable.page_stability.layout_quiet_millis >= 250);
         assert!(stable.page_stability.focus_quiet_millis >= 250);
         assert!(stable.page_stability.route_quiet_millis >= 250);
+
+        collector
+            .navigate("ses_real_chromium", &stable.url)
+            .await
+            .unwrap();
+        let websocket = collector
+            .active_page_websocket("ses_real_chromium")
+            .await
+            .unwrap();
+        let ready_deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+        loop {
+            if collector
+                .evaluate_page(&websocket)
+                .await
+                .unwrap()
+                .document_ready_state
+                == "complete"
+            {
+                break;
+            }
+            assert!(tokio::time::Instant::now() < ready_deadline);
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        let stale_region = collector
+            .resync_region("ses_real_chromium", "button", &stable)
+            .await
+            .unwrap_err();
+        assert_eq!(stale_region.to_string(), "Region baseline document changed");
+        let reloaded = collector
+            .collect_current_state("ses_real_chromium")
+            .await
+            .unwrap();
+        assert_eq!(reloaded.url, stable.url);
+        assert_eq!(reloaded.document_ready_state, "complete");
+        assert_eq!(
+            reloaded.page_stability.route_quiet_millis, 0,
+            "a same-URL new document must start a new route quiet window"
+        );
+        assert_eq!(reloaded.page_stability.dom_quiet_millis, 0);
+        assert_eq!(reloaded.page_stability.layout_quiet_millis, 0);
+        assert_eq!(reloaded.page_stability.focus_quiet_millis, 0);
+        assert!(reloaded.target_revision > stable.target_revision);
+        assert!(collector
+            .resolve_target(
+                "ses_real_chromium",
+                &stable.targets[0].target_ref,
+                stable.target_revision,
+            )
+            .await
+            .is_err());
 
         let websocket = collector
             .active_page_websocket("ses_real_chromium")

@@ -112,6 +112,7 @@ pages = {
     "page-1": {
         "title": "Browser Cloud Test Page",
         "url": "https://example.test/runtime",
+        "documentGeneration": 1,
     }
 }
 active_page_id = "page-1"
@@ -197,7 +198,23 @@ class Handler(BaseHTTPRequestHandler):
             if method == "Browser.close":
                 # Match graceful Chromium shutdown for Profile checkpoint lifecycle tests.
                 os._exit(0)
-            if method == "Runtime.evaluate":
+            if method == "Page.getFrameTree":
+                page_id = self.path.rsplit("/", 1)[-1]
+                with pages_lock:
+                    page = pages.get(page_id)
+                    frame = None if page is None else {
+                        "id": f"frame-{page_id}",
+                        "loaderId": f"loader-{page_id}-{page.get('documentGeneration', 1)}",
+                        "url": page["url"],
+                    }
+                response = (
+                    {"id": command["id"], "result": {"frameTree": {"frame": frame}}}
+                    if frame is not None
+                    else {"id": command["id"], "error": {
+                        "code": -32000, "message": "No page frame is available"
+                    }}
+                )
+            elif method == "Runtime.evaluate":
                 if self.path.startswith("/devtools/page/extension-"):
                     if command.get("params", {}).get("expression") != (
                         "setTimeout(() => chrome.runtime.reload(), 0); true"
@@ -645,6 +662,11 @@ class Handler(BaseHTTPRequestHandler):
                     }
             elif method == "Page.reload":
                 business_recovery_completed = True
+                page_id = self.path.rsplit("/", 1)[-1]
+                with pages_lock:
+                    if page_id in pages:
+                        page = pages[page_id]
+                        page["documentGeneration"] = page.get("documentGeneration", 1) + 1
                 response = {"id": command["id"], "result": {}}
             elif method == "Page.handleJavaScriptDialog":
                 page_id = self.path.rsplit("/", 1)[-1]

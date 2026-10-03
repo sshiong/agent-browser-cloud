@@ -308,6 +308,13 @@ progress 166。
 
 ### 最近验证状态
 
+- `bf36093` 与 `d4c1190` 的主 CI 均在 Integration 首份 Browser State HTTP 200
+  断言失败，两轮 Windows/macOS Desktop 与 Operator 成功。模拟 Chromium 未实现
+  新增的 `Page.getFrameTree`；Fixture 已补齐每 Page 根 Frame/Loader、同 URL 重载
+  更新 Loader 和缺失 Page 拒绝。实际旧 Fixture 回归失败、新 Fixture 与 Replay
+  Gate 31 项与完整 OrbStack Integration 通过，含最终审计链校验，见 progress 261。
+  公开连续全量、稳定区域动作与全部外部/许可证 Gate 继续保留。
+
 - 稳定 Element ID 现也绑定 Node 读取的主 Frame/Loader 摘要，避免 Batch 以最新
   Revision 把同 URL 重载前的旧元素重绑定到新文档。真实 Chrome 旧代码两份文档
   的按钮 ID 完全相同、新增断言失败；修复后旧 ID 在最新 Revision 被拒绝，新 ID

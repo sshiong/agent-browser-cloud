@@ -308,6 +308,13 @@ progress 166。
 
 ### 最近验证状态
 
+- `054fd71` Windows/macOS 与 Operator 已成功，主 CI 在测试 Chromium 启动处失败，
+  后续 Integration/GameDay 未执行。原子进程 stderr 丢弃，原因未确定。测试现由
+  子进程直接持有系统分配端口并发布私有 DevToolsActivePort，保留原五秒上限与固定
+  失败分类；真实占用端口注入、Replay 42 项、Linux 容器 60 项、兼容检查与完整
+  OrbStack Integration 通过，见 progress 273。
+  不将端口竞争追溯为原 CI 唯一原因。公开连续全量、完整稳定区域与外部 Gate 保留。
+
 - 公开商品新定向复现同一主 Frame/Loader 的 historyApi 先切详情 URL，快照仍暂留
   库存标题和多枚 Add to cart。旧按名称等待取到旧按钮，Node 正确拒绝其完整身份。
   回放现等待精确路由、稳定完整证据与唯一可执行详情/返回控件，原 45 秒上限保留；

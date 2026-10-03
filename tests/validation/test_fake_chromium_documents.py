@@ -73,29 +73,46 @@ class CdpSocket:
 
 
 class FakeChromiumDocumentTests(unittest.TestCase):
+    def start_fixture(self, profile, port=0):
+        # stderr stays private; failures expose only a fixed category and exit code.
+        error_log = tempfile.TemporaryFile()
+        self.addCleanup(error_log.close)
+        child = subprocess.Popen(
+            [str(ROOT / "tests/fixtures/fake-chromium.sh"),
+             f"--remote-debugging-port={port}", f"--user-data-dir={profile}"],
+            stdout=subprocess.DEVNULL, stderr=error_log,
+        )
+        self.addCleanup(self.stop_child, child)
+        active_port = Path(profile) / "DevToolsActivePort"
+        deadline = time.monotonic() + 5
+        while True:
+            code = child.poll()
+            if code is not None or time.monotonic() >= deadline:
+                error_log.seek(0)
+                error = error_log.read(4096)
+                kind = "UNKNOWN"
+                if b"Address already in use" in error:
+                    kind = "PORT_IN_USE"
+                elif b"fake Chromium requires" in error:
+                    kind = "ARGUMENT_REJECTED"
+                status = "FIXTURE_EXIT" if code is not None else "STARTUP_DEADLINE"
+                self.fail(f"{status} code={code} kind={kind}")
+            try:
+                assigned = int(active_port.read_text().splitlines()[0])
+                self.assertTrue(0 < assigned < 65536)
+                if port:
+                    self.assertEqual(assigned, port)
+                with urllib.request.urlopen(
+                    f"http://127.0.0.1:{assigned}/json/list", timeout=1
+                ) as response:
+                    target = json.load(response)[0]["id"]
+                return child, assigned, target
+            except (OSError, ValueError, IndexError):
+                time.sleep(0.02)
+
     def test_snapshot_pair_reload_and_tab_have_authoritative_identities(self):
         with tempfile.TemporaryDirectory(prefix="ab-fixture-doc-") as profile:
-            with socket.socket() as reservation:
-                reservation.bind(("127.0.0.1", 0))
-                port = reservation.getsockname()[1]
-            child = subprocess.Popen(
-                [str(ROOT / "tests/fixtures/fake-chromium.sh"),
-                 f"--remote-debugging-port={port}", f"--user-data-dir={profile}"],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            )
-            self.addCleanup(self.stop_child, child)
-            deadline = time.monotonic() + 5
-            while True:
-                try:
-                    with urllib.request.urlopen(
-                        f"http://127.0.0.1:{port}/json/list", timeout=1
-                    ) as response:
-                        target = json.load(response)[0]["id"]
-                    break
-                except OSError:
-                    if child.poll() is not None or time.monotonic() >= deadline:
-                        self.fail("fixture CDP startup failed")
-                    time.sleep(0.02)
+            _, port, target = self.start_fixture(profile)
             with contextlib.closing(CdpSocket(port, target)) as cdp:
                 before = cdp.command("Page.getFrameTree")["result"]["frameTree"]["frame"]
                 snapshot = cdp.command("Runtime.evaluate", {"expression": "document.title"})[
@@ -124,6 +141,25 @@ class FakeChromiumDocumentTests(unittest.TestCase):
                     self.assertNotEqual(frame["loaderId"], reloaded["loaderId"])
                     cdp.command("Target.closeTarget", {"targetId": second})
                     self.assertIn("error", other.command("Page.getFrameTree"))
+
+    def test_child_owned_ports_are_distinct_and_published_in_cdp(self):
+        with tempfile.TemporaryDirectory(prefix="ab-fixture-port-a-") as first, \
+                tempfile.TemporaryDirectory(prefix="ab-fixture-port-b-") as second:
+            _, first_port, first_target = self.start_fixture(first)
+            _, second_port, second_target = self.start_fixture(second)
+            self.assertNotEqual(first_port, second_port)
+            for port, target in [(first_port, first_target), (second_port, second_target)]:
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/list") as response:
+                    self.assertEqual(json.load(response)[0]["webSocketDebuggerUrl"],
+                                     f"ws://127.0.0.1:{port}/devtools/page/{target}")
+
+    def test_occupied_fixed_port_exposes_only_bounded_startup_diagnosis(self):
+        with tempfile.TemporaryDirectory(prefix="ab-fixture-occupied-") as profile, \
+                socket.socket() as occupied:
+            occupied.bind(("127.0.0.1", 0))
+            occupied.listen()
+            with self.assertRaisesRegex(AssertionError, "^FIXTURE_EXIT code=1 kind=PORT_IN_USE$"):
+                self.start_fixture(profile, occupied.getsockname()[1])
 
     @staticmethod
     def stop_child(child):

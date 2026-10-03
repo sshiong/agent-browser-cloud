@@ -884,6 +884,12 @@ class Handler(BaseHTTPRequestHandler):
         return
 
 server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+port = server.server_port
+# Let socket tests ask the child to own an OS-assigned port, without releasing a
+# parent reservation before bind. Publish only after the listening socket exists.
+active_port = profile_root / "DevToolsActivePort"
+active_port.write_text(f"{port}\n/devtools/browser/fake\n")
+active_port.chmod(0o600)
 signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 signal.signal(signal.SIGINT, lambda *_: sys.exit(0))
 server.serve_forever()

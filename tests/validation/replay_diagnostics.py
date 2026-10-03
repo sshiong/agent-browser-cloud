@@ -11,6 +11,7 @@ ENUMS = frozenset({
     "PLANNED", "COMPLETED", "FAILED", "BLOCKED", "PAUSED", "VERIFIED",
     "REJECTED", "PENDING", "IN_PROGRESS", "ACCEPTED", "CONSUMED", "AVAILABLE",
     "STATE_QUALITY_NOT_EXECUTABLE", "STATE_STALE", "TARGET_REVISION_STALE",
+    "STATE_CURSOR_STALE", "EVALUATION_EVENT_FENCE_MISMATCH", "COMMITTED",
     "NAVIGATE_RESPONSE_TIMEOUT", "NET_CONNECTION_REFUSED", "NET_NAME_NOT_RESOLVED",
     "NAVIGATION_FAILED", "NAVIGATION_STATE_UNAVAILABLE",
     "GET_CURRENT_STATE", "NAVIGATE", "CLICK_TARGET", "TYPE_TEXT", "SCROLL",
@@ -19,7 +20,7 @@ ENUMS = frozenset({
 })
 ENUM_FIELDS = frozenset({
     "state", "status", "stateQuality", "freshness", "pageActivity",
-    "documentReadyState", "blockedReason", "reasonCode", "toolId", "role", "lastError",
+    "documentReadyState", "blockedReason", "reasonCode", "toolId", "role", "lastError", "errorCode",
 })
 BOOL_FIELDS = frozenset({
     "visible", "enabled", "inViewport", "interactive", "sensitive", "occluded",

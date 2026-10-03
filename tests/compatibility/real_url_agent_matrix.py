@@ -7,6 +7,7 @@ import os
 import pathlib
 import platform
 import re
+import secrets
 import sys
 import time
 import urllib.error
@@ -17,6 +18,8 @@ from urllib.parse import urlsplit
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "validation"))
 from replay_gate import ReplayGate
 from replay_diagnostics import diagnostic
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "fixtures"))
+from public_commerce_adapter import DETAIL_TARGET_NAME, backpack_identity_expression
 
 
 BASE_URL = sys.argv[1].rstrip("/")
@@ -403,6 +406,70 @@ def run_public_spa(session_id):
     REPLAY_GATE.pass_case("public-playwright-todomvc-spa")
 
 
+def bind_public_commerce_identity(session_id):
+    expression = backpack_identity_expression(secrets.token_hex(32))
+    rejected = []
+    # This additional Adapter evaluation has its own bounded preparation window:
+    # public assets may finish late, followed by the existing 30-second hash plateau.
+    # Original navigation, input and Outcome deadlines remain unchanged.
+    deadline = time.monotonic() + 90
+    # An annotation is idempotent. Only explicitly rejected state fences may be
+    # retried; no browser input or product navigation is replayed here.
+    for attempt in range(3):
+        previous_cursor, stable_samples, snapshot = None, 0, None
+        while time.monotonic() < deadline:
+            candidate = require_status(
+                request("GET", f"/api/v1/sessions/{session_id}/agent-browser/snapshot"),
+                200, "snapshot public commerce Adapter context",
+            )
+            state = candidate["state"]
+            stability = state.get("pageStability", {})
+            settled = (state.get("freshness") == "FRESH"
+                       and state.get("pageActivity") == "STABLE"
+                       # State hashes track one-second Recovery Policy thresholds up to
+                       # thirty seconds. Evaluation requires an exact cursor; wait for
+                       # the last bucket instead of accepting a different/newer state.
+                       and state.get("networkQuietMillis", 0) >= 30000
+                       and all(stability.get(component + "QuietMillis", 0) >= 2000
+                               for component in ("dom", "layout", "focus", "route")))
+            if settled and candidate["stateCursor"] == previous_cursor:
+                stable_samples += 1
+                if stable_samples >= 3:
+                    snapshot = candidate
+                    break
+            else:
+                stable_samples = 0
+            previous_cursor = candidate["stateCursor"]
+            time.sleep(0.25)
+        if snapshot is None:
+            continue
+        status, evaluation = request(
+            "POST", f"/api/v1/sessions/{session_id}/agent-browser/evaluations",
+            {"goal": "Bind the published Backpack product title identity",
+             "mode": "PAGE_ACTION", "expression": expression,
+             "expectedStateCursor": snapshot["stateCursor"]},
+            f"public-commerce-identity-{uuid.uuid4().hex}",
+            actor_id="public-commerce-operator", roles="TENANT_OPERATOR",
+        )
+        if status == 409 and evaluation.get("details", {}).get("reason") == "STATE_CURSOR_STALE":
+            rejected.append({"reasonCode": "STATE_CURSOR_STALE"})
+            time.sleep(1)
+            continue
+        evaluation = require_status((status, evaluation), 202, "bind public commerce identity")
+        evaluation = require_status(request(
+            "GET", f"/api/v1/sessions/{session_id}/agent-browser/evaluations/"
+            f"{evaluation['evaluationId']}?waitMs=30000",
+            actor_id="public-commerce-operator", roles="TENANT_VIEWER",
+        ), 200, "wait for public commerce identity")
+        if evaluation.get("state") == "COMMITTED" and evaluation.get("result") == {"bound": True}:
+            return
+        if evaluation.get("errorCode") not in {"STATE_STALE", "EVALUATION_EVENT_FENCE_MISMATCH"}:
+            raise AssertionError(f"public commerce identity binding rejected: {diagnostic(evaluation)}")
+        rejected.append({"reasonCode": evaluation["errorCode"]})
+        time.sleep(1)
+    raise AssertionError(f"public commerce identity state fence retry budget exhausted: {diagnostic(rejected)}")
+
+
 def run_public_commerce(session_id):
     commerce_case = REPLAY_GATE.cases["public-saucedemo-cart"]
     commerce_url = commerce_case["url"]
@@ -526,18 +593,24 @@ def run_public_commerce(session_id):
         and any(item.get("name") == "Sort products" for item in state.get("targets", [])),
     )
     detail_url = commerce_url + "inventory-item.html?id=4"
+    bind_public_commerce_identity(session_id)
+    entry_state, entry = wait_for_named_target(session_id, DETAIL_TARGET_NAME, role="button")
+    matching = [item for item in entry_state["targets"] if item.get("name") == DETAIL_TARGET_NAME]
+    if len(matching) != 1 or not entry.get("interactive") or not entry.get("inViewport") or entry.get("occluded"):
+        raise AssertionError(f"public commerce entity target unavailable: {diagnostic(matching)}")
     detail = create_execute_task(
         session_id,
         {
             "goal": "Open the public demo's Backpack product detail",
-            "startUrl": detail_url,
             "allowedDomains": [commerce_domain],
             "maxActions": 8,
             "replanBudget": 1,
+            "actions": [{"toolId": "CLICK_TARGET", "targetRef": entry["targetRef"],
+                         "targetRevision": entry_state["targetRevision"]}],
         },
         "public-commerce-detail",
     )
-    require_verified(detail, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"])
+    require_verified(detail, ["GET_CURRENT_STATE", "CLICK_TARGET", "GET_URL", "GET_PAGE_SUMMARY"])
     detail_state, add_button = wait_for_named_target(session_id, "Add to cart", role="button")
     if detail_state.get("url") != detail_url:
         raise AssertionError(f"public commerce detail route changed: {diagnostic(detail_state.get('url'))}")

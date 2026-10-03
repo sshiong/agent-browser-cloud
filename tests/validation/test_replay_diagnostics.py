@@ -17,6 +17,7 @@ class ReplayDiagnosticsTest(unittest.TestCase):
             "stateQuality": "COMPLETE", "targetRevision": 42,
             "url": f"https://example.invalid/callback?code={marker}", "title": marker,
             "lastError": marker, marker: marker,
+            "errorCode": marker,
             "targets": [{"role": "textbox", "name": marker, "value": marker,
                          "sensitive": False, "visible": False, "token": marker}],
             "executionResults": [{"toolId": "TYPE_TEXT", "status": "FAILED",
@@ -31,6 +32,12 @@ class ReplayDiagnosticsTest(unittest.TestCase):
                          {"role": "textbox", "sensitive": False, "visible": False})
         self.assertEqual(diagnostic("123456"), {"redacted": True})
         self.assertEqual(diagnostic(123456), {"redacted": True})
+
+    def test_evaluation_diagnostics_accept_only_fixed_fence_codes(self):
+        for code in ("STATE_STALE", "STATE_CURSOR_STALE", "EVALUATION_EVENT_FENCE_MISMATCH"):
+            self.assertEqual(diagnostic({"errorCode": code}), {"errorCode": code})
+            self.assertEqual(diagnostic({"errorCode": code + " private-evaluation-detail"}),
+                             {"redacted": True})
 
     def test_large_nested_responses_are_bounded(self):
         value = {"items": [{"items": ["fixture-private"] * 100}] * 100}

@@ -308,6 +308,15 @@ progress 166。
 
 ### 最近验证状态
 
+- 公开全量商品详情导航实际 HTTP 404；定向旧入口随后通过，不能统一归为 Node 故障。
+  新公开商品 Adapter 复用 HMAC 实体属性，绑定前重验精确来源/产品 ID/卡片/链接，
+  经正式 Evaluate 写入身份与唯一名称，重新取快照后以标准 Agent 点击并验证购物车，
+  真实 Chrome 定向一例与 Replay 37 项通过，见 progress 270。新全量在练习站登录
+  入口导航超时，独立 CDP 未取得 Document 响应，尚未到商品步骤；不计全量通过。
+  原重复目标拒绝、Secret/支付门禁保留；新准备阶段因精确网络哈希需要等待 30 秒
+  档位，采样预算 90 秒，不计低延迟闭环。
+  `47e7e5c` CI/Windows/macOS/Operator 全部成功；连续全量与全部外部 Gate 继续保留。
+
 - 十七例本轮已走过登录/OTP/SPA/购物车/IdP，在独立 OIDC callback 通用 Provider
   失败后拒绝；具体阶段未知，不归为此前文档或 Revision 故障。测试 Relying Party
   增加固定阶段/类型和精确白名单，不输出 Token/原异常、不增加重试；五个旧故障场景

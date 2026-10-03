@@ -1,8 +1,8 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-09-24
+> 更新日期：2026-10-04
 > 基准分支：`main`
-> 编写时基准提交：`ccc8fd5 docs: record safe proxy endpoint rotation`
+> 编写时基准提交：`a7f861e fix: preserve page bootstrap during governed screenshot capture`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -307,6 +307,13 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- 返回 Example 页等待再次失败时，独立 CDP 与 API 对齐：视口高 413、链接 y≈640、
+  页面高 695、scrollY=0，API 明确 OUTSIDE_VIEWPORT。回放增加正式 Agent SCROLL
+  600 后，实际滚至 282、链接 y≈358；不改变原 FRESH/可见性/域名拒绝断言。完整
+  公开十七例在两个相邻新建 Session 连续 PASS/Gate 0、Replay 43 项与兼容通过，见
+  progress 276。`a7f861e` 主 CI/Windows/macOS/Operator 全部成功；不计客户/目标 Linux
+  长稳，完整稳定区域、真实 OTP/企业 MFA/支付、客户 SPA 与全部外部 Gate 保留。
 
 - 自有真实 Chrome/CDP 代理证明旧截图脚本禁用窗口碰上导航后，新页面初始化会被
   跳过；恢复脚本仍未挂载 UI。受治理 Screenshot/Evidence 现采用唯一固定调试语句的

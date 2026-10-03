@@ -1859,6 +1859,21 @@ example_task = create_execute_task(
 require_verified(
     example_task, ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"]
 )
+# The real headed viewport can be only 413 CSS pixels high. Returning to a URL
+# does not expose its footer link; use the same governed scroll primitive as the
+# form case before requiring an actionable target for the domain-denial check.
+example_scrolled = create_execute_task(
+    session_id,
+    {
+        "goal": "Scroll the authorized example page to expose its documentation link",
+        "allowedDomains": ["example.com"],
+        "maxActions": 8,
+        "replanBudget": 1,
+        "actions": [{"toolId": "SCROLL", "scrollDeltaY": 600}],
+    },
+    "scroll-return-example",
+)
+require_verified(example_scrolled, ["GET_CURRENT_STATE", "SCROLL", "GET_URL", "GET_PAGE_SUMMARY"])
 example_state = wait_for(
     f"/api/v1/sessions/{session_id}/state",
     lambda state: state.get("url") == "https://example.com/"

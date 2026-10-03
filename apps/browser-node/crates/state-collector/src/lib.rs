@@ -4120,7 +4120,8 @@ impl BrowserStateCollector for CdpStateCollector {
         match self.collect(session_id, true, false).await {
             Ok(state) => Ok(state),
             Err(error)
-                if error.to_string().contains("CDP Runtime.evaluate timed out")
+                if snapshot_failure_reason(&error) == "DOCUMENT_CHANGED"
+                    || error.to_string().contains("CDP Runtime.evaluate timed out")
                     || error
                         .to_string()
                         .contains("CDP Page.getFrameTree timed out")
@@ -4132,7 +4133,8 @@ impl BrowserStateCollector for CdpStateCollector {
                         .contains("CDP websocket closed before Page.getFrameTree completed") =>
             {
                 // The input was already dispatched. A page navigation can close or pause its
-                // former CDP target before the confirmation read completes. Re-observe once;
+                // former CDP target, or change its document during the confirmation read.
+                // Only Node-typed document changes qualify. Re-observe once;
                 // never repeat the input or claim success without a fresh page snapshot.
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 self.collect(session_id, true, false).await
@@ -5037,6 +5039,158 @@ mod tests {
     #[tokio::test]
     async fn action_confirmation_does_not_retry_cdp_protocol_errors() {
         check_action_confirmation_retry(false, false).await;
+    }
+
+    #[tokio::test]
+    async fn action_confirmation_reobserves_typed_document_change_once() {
+        check_document_confirmation_retry(ConfirmationDocumentFault::Changed, true).await;
+    }
+
+    #[tokio::test]
+    async fn action_confirmation_repeated_document_changes_do_not_commit_a_snapshot() {
+        check_document_confirmation_retry(ConfirmationDocumentFault::Changed, false).await;
+    }
+
+    #[tokio::test]
+    async fn action_confirmation_does_not_retry_forged_document_change_text() {
+        check_document_confirmation_retry(ConfirmationDocumentFault::ProtocolText, false).await;
+    }
+
+    #[tokio::test]
+    async fn action_confirmation_does_not_retry_missing_document_identity() {
+        check_document_confirmation_retry(ConfirmationDocumentFault::MissingIdentity, false).await;
+    }
+
+    #[derive(Clone, Copy)]
+    enum ConfirmationDocumentFault {
+        Changed,
+        ProtocolText,
+        MissingIdentity,
+    }
+
+    async fn check_document_confirmation_retry(fault: ConfirmationDocumentFault, success: bool) {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let read_count = if matches!(fault, ConfirmationDocumentFault::Changed) {
+            2
+        } else {
+            1
+        };
+        let evaluations = Arc::new(AtomicUsize::new(0));
+        let observed_evaluations = evaluations.clone();
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let websocket_address = listener.local_addr().unwrap();
+        let websocket_task = tokio::spawn(async move {
+            for attempt in 0..read_count {
+                let (stream, _) = listener.accept().await.unwrap();
+                let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+                let loader = if matches!(fault, ConfirmationDocumentFault::MissingIdentity) {
+                    ""
+                } else if attempt == 0 {
+                    "loader-before"
+                } else {
+                    "loader-after"
+                };
+                answer_document_query(&mut socket, 3, loader).await;
+                if matches!(fault, ConfirmationDocumentFault::MissingIdentity) {
+                    continue;
+                }
+                let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                    panic!("expected confirmation read");
+                };
+                let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+                assert_eq!(request["method"], "Runtime.evaluate");
+                observed_evaluations.fetch_add(1, Ordering::SeqCst);
+                let response = if matches!(fault, ConfirmationDocumentFault::ProtocolText) {
+                    serde_json::json!({"id":1,"error":{"message":"CDP document changed during snapshot"}})
+                } else {
+                    serde_json::json!({"id":1,"result":{"result":{"type":"object","value":{
+                        "url":"https://example.test/after-submit",
+                        "title":if attempt == 0 {"Uncommitted mixed document"} else {"After submit"},
+                        "documentReadyState":"complete","targets":[]
+                    }}}})
+                };
+                socket
+                    .send(Message::Text(response.to_string()))
+                    .await
+                    .unwrap();
+                if matches!(fault, ConfirmationDocumentFault::Changed) {
+                    answer_document_query(
+                        &mut socket,
+                        4,
+                        if attempt == 0 || !success {
+                            "loader-different"
+                        } else {
+                            "loader-after"
+                        },
+                    )
+                    .await;
+                }
+            }
+        });
+        let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let http_address = http_listener.local_addr().unwrap();
+        let http_task = tokio::spawn(async move {
+            let body = serde_json::json!([{"id":"page-confirmation","type":"page",
+                "webSocketDebuggerUrl":format!("ws://{websocket_address}/devtools/page/1")}])
+            .to_string();
+            for _ in 0..read_count {
+                let (mut stream, _) = http_listener.accept().await.unwrap();
+                let mut request = [0_u8; 4096];
+                let count = stream.read(&mut request).await.unwrap();
+                assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list"));
+                stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).as_bytes()).await.unwrap();
+            }
+        });
+        let collector = CdpStateCollector::new();
+        collector
+            .register_runtime(
+                "ses_document_confirmation",
+                &format!("http://{http_address}"),
+            )
+            .await
+            .unwrap();
+        let result = tokio::time::timeout(
+            Duration::from_secs(10),
+            collector.collect_action_confirmation("ses_document_confirmation"),
+        )
+        .await
+        .unwrap();
+        if success {
+            let state = result.unwrap();
+            assert_eq!(state.title, "After submit");
+            assert_eq!(state.state_version, 1);
+            assert_eq!(state.target_revision, 1);
+            assert_eq!(
+                collector.last_states.read().await["ses_document_confirmation"].title,
+                "After submit"
+            );
+        } else {
+            let error = result.unwrap_err();
+            assert_eq!(
+                snapshot_failure_reason(&error),
+                match fault {
+                    ConfirmationDocumentFault::Changed => "DOCUMENT_CHANGED",
+                    ConfirmationDocumentFault::MissingIdentity => "DOCUMENT_IDENTITY_UNAVAILABLE",
+                    ConfirmationDocumentFault::ProtocolText => "UNKNOWN",
+                }
+            );
+            assert!(collector
+                .last_states
+                .read()
+                .await
+                .get("ses_document_confirmation")
+                .is_none());
+        }
+        assert_eq!(
+            evaluations.load(Ordering::SeqCst),
+            if matches!(fault, ConfirmationDocumentFault::MissingIdentity) {
+                0
+            } else {
+                read_count
+            }
+        );
+        websocket_task.await.unwrap();
+        http_task.await.unwrap();
     }
 
     async fn check_action_confirmation_retry(timeout_first: bool, success: bool) {

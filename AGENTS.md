@@ -308,6 +308,12 @@ progress 166。
 
 ### 最近验证状态
 
+- 输入后确认快照遇到 Node 类型化 DOCUMENT_CHANGED 现有一次只读重采，不重发输入，
+  缺失身份、伪造文本与第二次变化仍拒绝。旧代码两项实际 WebSocket 回归失败，新动作
+  确认组七项、Rust 226 项、五项真实 Chrome、严格 Clippy 与兼容检查通过；新 Node
+  公开 LOGIN 六例 verified，完整 OrbStack Integration 通过，见 progress 268。
+  公开十七例连续全量、稳定区域完整产品闭环与全部外部 Gate 继续保留。
+
 - 已授权单动作增加主文档稳定实体重绑定，Node 执行前仍要求完整全页稳定、唯一
   Active Tab、无 Native Dialog 与可交互目标。数据库 Task、Step 与签名 Capability
   风险共同限制普通 R0/R1；既有 AUTONOMOUS Credential/OTP 可在 R2 以内使用。

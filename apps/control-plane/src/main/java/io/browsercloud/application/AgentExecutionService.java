@@ -582,7 +582,8 @@ public class AgentExecutionService {
                   task.getTaskId(),
                   plan.intentId(),
                   step,
-                  now);
+                  now,
+                  RiskClass.valueOf(task.getRiskClass()));
           task.markAsyncPending(
               index,
               step.stepId(),

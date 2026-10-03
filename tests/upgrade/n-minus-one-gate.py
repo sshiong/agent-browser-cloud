@@ -817,6 +817,14 @@ for field_name, field_tag in (
 agent_action_primitive_contract = node_contract.split(
     "message AgentActionPrimitive {", 1
 )[1].split("}", 1)[0]
+for field_name, field_tag in (("main_document_element_id", 27), ("main_document_end_element_id", 28)):
+    assert re.search(rf"\b{field_name}\s*=\s*{field_tag}\s*;", agent_action_contract), (
+        f"AgentActionCommand lacks additive main-document identity {field_name} tag {field_tag}"
+    )
+single_action_service = read("apps/control-plane/src/main/java/io/browsercloud/application/AgentActionToolService.java")
+assert '"agentSingleTargetRebind", "main-document-element-v1"' in single_action_service
+assert '"main".equals(target.frameId())' in single_action_service
+assert "payload.main_document_element_id.is_empty()" in recording_node_agent
 assert re.search(r"\belement_id\s*=\s*12\s*;", agent_action_primitive_contract), (
     "AgentActionPrimitive lacks additive stable element_id tag 12"
 )

@@ -107,6 +107,141 @@ fn action_requires_stable_page(tool_id: &str) -> bool {
     )
 }
 
+fn rebound_single_action(
+    payload: &AgentActionCommand,
+    current: &CurrentState,
+) -> anyhow::Result<AgentActionCommand> {
+    if payload.main_document_element_id.is_empty() {
+        anyhow::ensure!(
+            payload.main_document_end_element_id.is_empty(),
+            "single action identity is invalid"
+        );
+        return Ok(payload.clone());
+    }
+    anyhow::ensure!(
+        matches!(
+            payload.tool_id.as_str(),
+            "CLICK_TARGET"
+                | "DOUBLE_CLICK_TARGET"
+                | "RIGHT_CLICK_TARGET"
+                | "HOVER_TARGET"
+                | "CLEAR_TARGET"
+                | "CHECK_TARGET"
+                | "UNCHECK_TARGET"
+                | "TYPE_TEXT"
+                | "FILL"
+                | "PASTE_AGENT_CLIPBOARD"
+                | "SELECT_OPTION"
+                | "PRESS_KEY"
+                | "DRAG_TARGET"
+                | "DROP_TARGET"
+                | "SWIPE_TARGET"
+                | "MOUSE_MOVE"
+                | "MOUSE_DOWN"
+                | "MOUSE_UP"
+                | "MOUSE_WHEEL"
+                | "KEY_DOWN"
+                | "KEY_UP"
+                | "TOUCH_START"
+                | "TOUCH_MOVE"
+                | "TOUCH_END"
+        ) && payload.actions.is_empty()
+            && current.session_id == payload.session_id,
+        "single action identity is invalid"
+    );
+    anyhow::ensure!(
+        payload.target_revision > 0
+            && current.target_revision >= payload.target_revision
+            && payload.base_state_version > 0
+            && !payload.base_content_hash.is_empty()
+            && current.state_version >= payload.base_state_version
+            && (current.state_version != payload.base_state_version
+                || current.content_hash == payload.base_content_hash),
+        "single action state cursor is stale"
+    );
+    anyhow::ensure!(
+        micro_batch_current_state_ready(current)
+            && current.native_dialog_evidence_fresh
+            && current.native_dialogs.is_empty()
+            && current.tabs.iter().filter(|tab| tab.active).count() == 1
+            && current
+                .tabs
+                .iter()
+                .any(|tab| tab.active && tab.tab_id == current.active_tab_id),
+        "single action page state is unstable"
+    );
+    let validate = |element_id: &str, original_ref: &str| -> anyhow::Result<()> {
+        anyhow::ensure!(
+            element_id.len() == 25
+                && element_id.starts_with('e')
+                && element_id.as_bytes()[1..]
+                    .iter()
+                    .all(|value| value.is_ascii_hexdigit() && !value.is_ascii_uppercase()),
+            "single action identity is invalid"
+        );
+        let expected_ref = format!(
+            "target:{}:{}",
+            payload.target_revision,
+            &format!("{:x}", Sha256::digest(element_id.as_bytes()))[..16]
+        );
+        anyhow::ensure!(
+            original_ref == element_id || original_ref == expected_ref,
+            "single action original target identity is invalid"
+        );
+        let mut matches = current
+            .targets
+            .iter()
+            .filter(|target| target.element_id == element_id);
+        let target = matches.next().ok_or_else(|| {
+            anyhow::anyhow!("target reference is stale, unknown, or not actionable")
+        })?;
+        anyhow::ensure!(
+            matches.next().is_none()
+                && target.frame_id == "main"
+                && target.interactive
+                && target.visible
+                && target.enabled
+                && target.in_viewport
+                && !target.occluded
+                && target
+                    .bounds
+                    .as_ref()
+                    .is_some_and(|bounds| bounds.width > 0.0
+                        && bounds.height > 0.0
+                        && [bounds.x, bounds.y, bounds.width, bounds.height]
+                            .iter()
+                            .all(|value| value.is_finite())),
+            "single action main-document target is not actionable"
+        );
+        Ok(())
+    };
+    validate(&payload.main_document_element_id, &payload.target_ref)?;
+    if payload.tool_id == "DRAG_TARGET" {
+        validate(
+            &payload.main_document_end_element_id,
+            &payload.end_target_ref,
+        )?;
+    } else {
+        anyhow::ensure!(
+            payload.main_document_end_element_id.is_empty(),
+            "single action identity is invalid"
+        );
+    }
+    let mut rebound = payload.clone();
+    rebound
+        .target_ref
+        .clone_from(&payload.main_document_element_id);
+    if payload.tool_id == "DRAG_TARGET" {
+        rebound
+            .end_target_ref
+            .clone_from(&payload.main_document_end_element_id);
+    }
+    rebound.target_revision = current.target_revision;
+    rebound.main_document_element_id.clear();
+    rebound.main_document_end_element_id.clear();
+    Ok(rebound)
+}
+
 fn rebound_action_target(
     action: &AgentActionPrimitive,
     current_target_revision: u64,
@@ -956,6 +1091,10 @@ impl NodeCapacityReporter {
         labels.insert(
             "agentActionCancellation".to_owned(),
             "authority-watch-v1".to_owned(),
+        );
+        labels.insert(
+            "agentSingleTargetRebind".to_owned(),
+            "main-document-element-v1".to_owned(),
         );
         labels.insert(
             "opaqueFrameChallengeClick".to_owned(),
@@ -4137,6 +4276,8 @@ impl NodeControlService {
                 && payload.delta_x == 0
                 && payload.delta_y == 0
                 && payload.duration_ms == 0
+                && payload.main_document_element_id.is_empty()
+                && payload.main_document_end_element_id.is_empty()
                 && (1..=20).contains(&payload.actions.len()),
             "agent action batch payload is invalid"
         );
@@ -4248,6 +4389,8 @@ impl NodeControlService {
                 delta_x: action.delta_x,
                 delta_y: action.delta_y,
                 duration_ms: action.duration_ms,
+                main_document_element_id: String::new(),
+                main_document_end_element_id: String::new(),
             };
             let before = current.clone();
             match Box::pin(self.execute_agent_action(&single)).await {
@@ -4402,6 +4545,11 @@ impl NodeControlService {
         &self,
         payload: &AgentActionCommand,
     ) -> anyhow::Result<CurrentState> {
+        anyhow::ensure!(
+            payload.main_document_element_id.is_empty()
+                && payload.main_document_end_element_id.is_empty(),
+            "single action identity was not validated against settled state"
+        );
         if !matches!(
             payload.tool_id.as_str(),
             "OPEN_TAB" | "SWITCH_TAB" | "CLOSE_TAB"
@@ -6839,16 +6987,26 @@ impl NodeControlService {
                                     if payload.tool_id == "EXECUTE_ACTIONS" {
                                         self.execute_agent_action_batch(&payload).await
                                     } else {
+                                        let mut ready_current = None;
                                         if action_requires_stable_page(&payload.tool_id) {
-                                            let current = self.state_collector
+                                            let mut current = self.state_collector
                                                 .collect_current_state(&payload.session_id).await?;
                                             if !micro_batch_current_state_ready(&current) {
-                                                self.settle_after_dynamic_micro_batch(
+                                                current = self.settle_after_dynamic_micro_batch(
                                                     &payload.session_id, &current).await
                                                     .context("agent action page state is unstable")?;
                                             }
+                                            ready_current = Some(current);
                                         }
-                                        self.execute_agent_action(&payload)
+                                        let rebound = if let Some(current) = ready_current {
+                                            rebound_single_action(&payload, &current)?
+                                        } else {
+                                            anyhow::ensure!(payload.main_document_element_id.is_empty()
+                                                && payload.main_document_end_element_id.is_empty(),
+                                                "single action identity is invalid");
+                                            payload.clone()
+                                        };
+                                        self.execute_agent_action(&rebound)
                                             .await
                                             .map(|state| (state, Vec::new()))
                                     }
@@ -7347,6 +7505,8 @@ impl NodeControlService {
                                 delta_x: 0,
                                 delta_y: 0,
                                 duration_ms: 0,
+                                main_document_element_id: String::new(),
+                                main_document_end_element_id: String::new(),
                             };
                             let state = match self.execute_agent_action(&click).await {
                                 Ok(state) => state,
@@ -7796,6 +7956,8 @@ impl NodeControlService {
                             delta_x: 0,
                             delta_y: 0,
                             duration_ms: 0,
+                            main_document_element_id: String::new(),
+                            main_document_end_element_id: String::new(),
                         };
                         let state = match self.execute_agent_action(&click).await {
                             Ok(state) => state,
@@ -11413,6 +11575,289 @@ mod tests {
             rebound_action_target(&action, 7),
             ("e-submit".to_owned(), 7)
         );
+    }
+
+    fn single_rebind_fixture() -> (AgentActionCommand, CurrentState) {
+        let mut state = micro_batch_state();
+        state.state_version = 11;
+        state.target_revision = 4;
+        let element_id = format!("e{}", "a".repeat(24));
+        state.targets.push(state_collector::InteractiveTarget {
+            target_ref: format!(
+                "target:4:{}",
+                &format!("{:x}", Sha256::digest(element_id.as_bytes()))[..16]
+            ),
+            element_id: element_id.clone(),
+            role: "textbox".into(),
+            name: None,
+            value: None,
+            control_type: Some("password".into()),
+            bounds: Some(state_collector::Bounds {
+                x: 10.0,
+                y: 20.0,
+                width: 100.0,
+                height: 30.0,
+            }),
+            enabled: true,
+            visible: true,
+            sensitive: true,
+            focused: false,
+            checked: None,
+            selected: None,
+            interactive: true,
+            frame_id: "main".into(),
+            in_viewport: true,
+            occluded: false,
+            visibility_reason: None,
+        });
+        let payload = AgentActionCommand {
+            session_id: state.session_id.clone(),
+            task_id: "agt_fixture".into(),
+            step_id: "step_fixture".into(),
+            tool_id: "TYPE_TEXT".into(),
+            target_ref: format!(
+                "target:3:{}",
+                &format!("{:x}", Sha256::digest(element_id.as_bytes()))[..16]
+            ),
+            target_revision: 3,
+            main_document_element_id: element_id,
+            base_state_version: 10,
+            base_content_hash: "content-10".into(),
+            sealed_text: "fixture-sealed-payload".into(),
+            allow_sensitive_target: true,
+            maximum_attempts: 3,
+            ..Default::default()
+        };
+        (payload, state)
+    }
+
+    #[test]
+    fn single_action_rebinds_current_main_identity_without_changing_sensitive_authorization() {
+        let (payload, state) = single_rebind_fixture();
+        let rebound = rebound_single_action(&payload, &state).unwrap();
+        assert_eq!(rebound.target_ref, payload.main_document_element_id);
+        assert_eq!(rebound.target_revision, 4);
+        assert!(rebound.main_document_element_id.is_empty());
+        assert_eq!(rebound.sealed_text, payload.sealed_text);
+        assert_eq!(
+            rebound.allow_sensitive_target,
+            payload.allow_sensitive_target
+        );
+        assert_eq!(rebound.maximum_attempts, payload.maximum_attempts);
+        assert_eq!(rebound.task_id, payload.task_id);
+        assert_eq!(rebound.step_id, payload.step_id);
+        assert_eq!(
+            AgentActionCommand::decode(payload.encode_to_vec().as_slice()).unwrap(),
+            payload
+        );
+    }
+
+    #[test]
+    fn legacy_single_action_keeps_original_target_revision_and_wire_defaults() {
+        let (mut payload, state) = single_rebind_fixture();
+        payload.main_document_element_id.clear();
+        let rebound = rebound_single_action(&payload, &state).unwrap();
+        assert_eq!(rebound, payload);
+        assert_eq!(rebound.target_revision, 3);
+        let decoded = AgentActionCommand::decode(payload.encode_to_vec().as_slice()).unwrap();
+        assert!(decoded.main_document_element_id.is_empty());
+        assert!(decoded.main_document_end_element_id.is_empty());
+    }
+
+    #[test]
+    fn single_rebind_rejects_document_entity_frame_ambiguity_and_unsettled_state() {
+        let (payload, state) = single_rebind_fixture();
+        let mut candidates = Vec::new();
+        let mut changed = state.clone();
+        changed.targets[0].element_id = format!("e{}", "b".repeat(24));
+        candidates.push(changed);
+        let mut changed = state.clone();
+        changed.targets[0].frame_id = "child-frame".into();
+        candidates.push(changed);
+        let mut changed = state.clone();
+        changed.targets[0].interactive = false;
+        candidates.push(changed);
+        let mut changed = state.clone();
+        changed.targets.push(changed.targets[0].clone());
+        candidates.push(changed);
+        let mut changed = state.clone();
+        changed.network_quiet_millis = 0;
+        candidates.push(changed);
+        let mut changed = state.clone();
+        changed.page_stability.focus_quiet_millis = 0;
+        candidates.push(changed);
+        let mut changed = state.clone();
+        changed.native_dialog_evidence_fresh = false;
+        candidates.push(changed);
+        let mut changed = state.clone();
+        changed.tabs[0].active = false;
+        candidates.push(changed);
+        let mut changed = state.clone();
+        changed.state_version = 10;
+        changed.content_hash = "changed".into();
+        candidates.push(changed);
+        let mut changed = state.clone();
+        changed.session_id = "ses_other".into();
+        candidates.push(changed);
+        let mut changed = state.clone();
+        changed.target_revision = 2;
+        candidates.push(changed);
+        for changed in candidates {
+            assert!(rebound_single_action(&payload, &changed).is_err());
+        }
+        let mut forged = payload.clone();
+        forged.target_ref = "target:3:unrelated".into();
+        assert!(rebound_single_action(&forged, &state).is_err());
+        let mut forged = payload.clone();
+        forged.main_document_element_id = "e-invalid".into();
+        assert!(rebound_single_action(&forged, &state).is_err());
+        let mut orphan = payload.clone();
+        orphan.main_document_element_id.clear();
+        orphan.main_document_end_element_id = payload.main_document_element_id.clone();
+        assert!(rebound_single_action(&orphan, &state).is_err());
+    }
+
+    #[test]
+    fn single_drag_rebinds_both_main_targets_and_rejects_missing_destination() {
+        let (mut payload, mut state) = single_rebind_fixture();
+        payload.tool_id = "DRAG_TARGET".into();
+        let mut destination = state.targets[0].clone();
+        destination.element_id = format!("e{}", "b".repeat(24));
+        payload.main_document_end_element_id = destination.element_id.clone();
+        payload.end_target_ref = destination.element_id.clone();
+        state.targets.push(destination);
+        let rebound = rebound_single_action(&payload, &state).unwrap();
+        assert_eq!(rebound.end_target_ref, payload.main_document_end_element_id);
+        assert_eq!(rebound.target_revision, state.target_revision);
+        state.targets[1].frame_id = "child-frame".into();
+        assert!(rebound_single_action(&payload, &state).is_err());
+        payload.main_document_end_element_id.clear();
+        assert!(rebound_single_action(&payload, &state).is_err());
+    }
+
+    #[tokio::test]
+    #[ignore = "requires REAL_CHROMIUM_PATH and launches an isolated local browser"]
+    async fn real_chromium_single_identity_rebinds_focus_change_but_not_same_url_reload() {
+        let chromium = std::env::var("REAL_CHROMIUM_PATH").expect("REAL_CHROMIUM_PATH is required");
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let page_task = tokio::spawn(async move {
+            loop {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut request = [0_u8; 4096];
+                let _ = stream.read(&mut request).await;
+                let body = "<!doctype html><title>Single Rebind Gate</title><input aria-label='Note'><button>Save</button>";
+                let response = format!("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nCache-Control: no-store\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+                let _ = stream.write_all(response.as_bytes()).await;
+            }
+        });
+        let reservation = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = reservation.local_addr().unwrap().port();
+        drop(reservation);
+        let profile = std::env::temp_dir().join(format!(
+            "browsercloud-single-rebind-{}",
+            uuid::Uuid::new_v4()
+        ));
+        tokio::fs::create_dir(&profile).await.unwrap();
+        let mut child = tokio::process::Command::new(chromium)
+            .args([
+                "--headless=new",
+                "--no-first-run",
+                "--no-default-browser-check",
+                "--disable-background-networking",
+                "--remote-debugging-address=127.0.0.1",
+            ])
+            .arg(format!("--user-data-dir={}", profile.display()))
+            .arg(format!("--remote-debugging-port={port}"))
+            .arg("about:blank")
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let collector = CdpStateCollector::new();
+        let session = "ses_single_rebind";
+        collector
+            .register_runtime(session, &format!("http://127.0.0.1:{port}"))
+            .await
+            .unwrap();
+        let mut ready = false;
+        for _ in 0..100 {
+            if collector.active_page_websocket(session).await.is_ok() {
+                ready = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        assert!(ready, "isolated Chromium did not start");
+        collector
+            .start_safety_monitor(session, BrowserTransactionPolicy::default())
+            .await
+            .unwrap();
+        collector
+            .start_native_dialog_monitor(session)
+            .await
+            .unwrap();
+        let url = format!("http://{address}/single-rebind");
+        collector.navigate(session, &url).await.unwrap();
+        async fn settled(collector: &CdpStateCollector, session: &str) -> CurrentState {
+            for _ in 0..100 {
+                if let Ok(current) = collector.collect_current_state(session).await {
+                    if micro_batch_current_state_ready(&current)
+                        && current.native_dialog_evidence_fresh
+                    {
+                        return current;
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+            panic!("isolated page did not settle");
+        }
+        let before = settled(&collector, session).await;
+        let target = before
+            .targets
+            .iter()
+            .find(|target| target.name.as_deref() == Some("Note"))
+            .unwrap();
+        let payload = AgentActionCommand {
+            session_id: session.into(),
+            task_id: "agt_fixture".into(),
+            step_id: "step_fixture".into(),
+            tool_id: "TYPE_TEXT".into(),
+            target_ref: target.target_ref.clone(),
+            target_revision: before.target_revision,
+            main_document_element_id: target.element_id.clone(),
+            base_state_version: before.state_version,
+            base_content_hash: before.content_hash.clone(),
+            text: "fixture-note".into(),
+            maximum_attempts: 1,
+            ..Default::default()
+        };
+        let result = collector.evaluate_agent_javascript(session, AgentJavascriptEvaluationRequest {
+            expected_active_tab_id: &before.active_tab_id, mode: "PAGE_ACTION",
+            expression: "(() => { const input = document.querySelector('input'); input.focus(); input.value = 'fixture-note'; return input.value === 'fixture-note'; })()",
+            await_promise: false, timeout_ms: 1_000, maximum_result_bytes: 128,
+        }).await.unwrap();
+        assert!(result.exception_class.is_empty());
+        assert_eq!(result.result_json, "true");
+        let after = settled(&collector, session).await;
+        assert!(after.target_revision > before.target_revision);
+        assert!(collector
+            .resolve_target(session, &payload.target_ref, payload.target_revision)
+            .await
+            .is_err());
+        let rebound = rebound_single_action(&payload, &after).unwrap();
+        assert!(collector
+            .resolve_target(session, &rebound.target_ref, rebound.target_revision)
+            .await
+            .is_ok());
+        collector.navigate(session, &url).await.unwrap();
+        let reloaded = settled(&collector, session).await;
+        assert_eq!(reloaded.url, before.url);
+        assert!(rebound_single_action(&payload, &reloaded).is_err());
+        collector.unregister_runtime(session).await;
+        let _ = child.start_kill();
+        let _ = child.wait().await;
+        page_task.abort();
+        let _ = tokio::fs::remove_dir_all(profile).await;
     }
 
     #[test]

@@ -94,6 +94,18 @@ public class AgentActionToolService {
       String intentId,
       PlanStep step,
       Instant now) {
+    return authorizeAndQueue(tenantId, session, operation, taskId, intentId, step, now, null);
+  }
+
+  public PendingAction authorizeAndQueue(
+      String tenantId,
+      SessionContext session,
+      ExclusiveOperation operation,
+      String taskId,
+      String intentId,
+      PlanStep step,
+      Instant now,
+      RiskClass authoritativeTaskRisk) {
     if (!SUPPORTED.contains(step.toolId()) || step.input() == null) {
       throw new ActionToolException("ACTION_STEP_INVALID");
     }
@@ -115,7 +127,8 @@ public class AgentActionToolService {
             && containsDialogAction(step))) {
       throw new ActionToolException("STATE_QUALITY_NOT_EXECUTABLE");
     }
-    validateInput(step, state, controlPolicies.require(session.sessionId(), tenantId));
+    var policy = controlPolicies.require(session.sessionId(), tenantId);
+    validateInput(step, state, policy);
     var currentDomain = domainOf(state.url());
     var claims =
         capabilityTokens.verify(
@@ -128,6 +141,12 @@ public class AgentActionToolService {
             currentDomain,
             dataScope(step),
             now);
+    var mainTargets =
+        mayRebindMainDocument(step, authoritativeTaskRisk, claims.riskClass(), policy)
+                && browserCapacity.nodeHasCapability(
+                    session.nodeId(), "agentSingleTargetRebind", "main-document-element-v1")
+            ? mainDocumentTargets(step, state)
+            : new MainDocumentTargets("", "");
     var attempt =
         actionAttempts.reserve(
             tenantId,
@@ -146,7 +165,14 @@ public class AgentActionToolService {
       }
       nodeCommandGateway.send(
           NodeCommands.agentAction(
-              session, operation, taskId, step, state.stateVersion(), state.stateHash()));
+              session,
+              operation,
+              taskId,
+              step,
+              state.stateVersion(),
+              state.stateHash(),
+              mainTargets.source(),
+              mainTargets.destination()));
       actionAttempts.dispatched(attempt);
     } catch (RuntimeException exception) {
       actionAttempts.abandoned(attempt, exception.getMessage(), Instant.now());
@@ -160,6 +186,92 @@ public class AgentActionToolService {
   public void cancelInFlight(
       SessionContext session, ExclusiveOperation operation, String taskId, String reason) {
     nodeCommandGateway.send(NodeCommands.cancelAgentAction(session, operation, taskId, reason));
+  }
+
+  private record MainDocumentTargets(String source, String destination) {}
+
+  private static boolean mayRebindMainDocument(
+      PlanStep step,
+      RiskClass authoritativeTaskRisk,
+      RiskClass capabilityRisk,
+      AgentControlPolicyService.Policy policy) {
+    // The persisted task risk prevents a low-risk step from relaxing a financial/account decision.
+    // Callers without that authority retain exact revision fencing.
+    if (authoritativeTaskRisk == null
+        || capabilityRisk == null
+        || capabilityRisk != step.riskClass()) return false;
+    if (authoritativeTaskRisk.ordinal() <= RiskClass.R1_LOW_RISK_CHANGE.ordinal()
+        && capabilityRisk.ordinal() <= RiskClass.R1_LOW_RISK_CHANGE.ordinal()) return true;
+    var input = step.input();
+    return authoritativeTaskRisk.ordinal() <= RiskClass.R2_DATA_CHANGE.ordinal()
+        && capabilityRisk.ordinal() <= RiskClass.R2_DATA_CHANGE.ordinal()
+        && step.toolId() == ToolId.TYPE_TEXT
+        && policy.autonomous()
+        && input.allowSensitiveTarget()
+        && (input.dataClass() == ActionDataClass.CREDENTIAL
+            || input.dataClass() == ActionDataClass.OTP)
+        && input.sealedPayload() != null
+        && !input.sealedPayload().isBlank();
+  }
+
+  private static MainDocumentTargets mainDocumentTargets(
+      PlanStep step, io.browsercloud.coordinator.NodeEvent.StateUpdated state) {
+    if (!Set.of(
+            ToolId.CLICK_TARGET,
+            ToolId.DOUBLE_CLICK_TARGET,
+            ToolId.RIGHT_CLICK_TARGET,
+            ToolId.HOVER_TARGET,
+            ToolId.CLEAR_TARGET,
+            ToolId.CHECK_TARGET,
+            ToolId.UNCHECK_TARGET,
+            ToolId.TYPE_TEXT,
+            ToolId.FILL,
+            ToolId.PASTE_AGENT_CLIPBOARD,
+            ToolId.SELECT_OPTION,
+            ToolId.PRESS_KEY,
+            ToolId.DRAG_TARGET,
+            ToolId.DROP_TARGET,
+            ToolId.SWIPE_TARGET,
+            ToolId.MOUSE_MOVE,
+            ToolId.MOUSE_DOWN,
+            ToolId.MOUSE_UP,
+            ToolId.MOUSE_WHEEL,
+            ToolId.KEY_DOWN,
+            ToolId.KEY_UP,
+            ToolId.TOUCH_START,
+            ToolId.TOUCH_MOVE,
+            ToolId.TOUCH_END)
+        .contains(step.toolId())) return new MainDocumentTargets("", "");
+    var source = mainDocumentElementId(step.input().targetRef(), state);
+    var destination =
+        step.toolId() == ToolId.DRAG_TARGET
+            ? mainDocumentElementId(step.input().endTargetRef(), state)
+            : "";
+    if (source.isEmpty() || (step.toolId() == ToolId.DRAG_TARGET && destination.isEmpty())) {
+      return new MainDocumentTargets("", "");
+    }
+    return new MainDocumentTargets(source, destination);
+  }
+
+  private static String mainDocumentElementId(
+      String reference, io.browsercloud.coordinator.NodeEvent.StateUpdated state) {
+    var matches =
+        state.targets().stream()
+            .filter(
+                target ->
+                    target.targetRef().equals(reference) || reference.equals(target.elementId()))
+            .toList();
+    if (matches.size() != 1) return "";
+    var target = matches.getFirst();
+    if (!"main".equals(target.frameId())
+        || !target.interactive()
+        || target.elementId() == null
+        || !target.elementId().matches("e[0-9a-f]{24}")) return "";
+    if (state.targets().stream()
+            .filter(value -> target.elementId().equals(value.elementId()))
+            .count()
+        != 1) return "";
+    return target.elementId();
   }
 
   private static void validateInput(

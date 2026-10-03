@@ -308,6 +308,16 @@ progress 166。
 
 ### 最近验证状态
 
+- 已授权单动作增加主文档稳定实体重绑定，Node 执行前仍要求完整全页稳定、唯一
+  Active Tab、无 Native Dialog 与可交互目标。数据库 Task、Step 与签名 Capability
+  风险共同限制普通 R0/R1；既有 AUTONOMOUS Credential/OTP 可在 R2 以内使用。
+  其他 R2/高风险、子 Frame、旧 Node 与缺证明保持精确 Revision。Java 644 项、Rust
+  222 项、五项真实 Chrome、严格 Clippy、契约、兼容与完整 OrbStack Integration
+  通过，见 progress 267。首轮 Integration 在动作前环境启动 HTTP 503，公开 Selenium
+  表单 CLICK_TARGET 动作后快照遇到 CDP 文档变化，不计覆盖率提升，继续核验；
+  `3da9287` 与 `1b171f2` CI/Windows/macOS 全部成功。
+  计划创建到控制面授权前的旧版本、稳定区域完整产品闭环和全部外部 Gate 保留。
+
 - 不可交互目标现在在 Control Plane 单动作/Batch/拖拽终点、文件上传 Operation 创建前，
   以及 Node Target Ref/Element ID 解析和文件 CDP 连接前全部拒绝。实际旧代码拒绝回归
   在 Node、Java 和自有 Chrome 失败；新代码通过，Adapter 实体键同名按钮仍可解析。

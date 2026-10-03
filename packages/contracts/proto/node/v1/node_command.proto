@@ -950,6 +950,12 @@ message AgentActionCommand {
   int32 delta_x = 24;
   int32 delta_y = 25;
   uint32 duration_ms = 26;
+  // Captured by the Control Plane only after authoritative Task risk/target/Capability validation and
+  // only for Nodes advertising main-document-element-v1. Empty retains the exact legacy
+  // revision fence. A non-empty ID is document/route/tab/entity-bound and may be rebound once
+  // to a fully settled current main-document target; it does not authorize regional fallback.
+  string main_document_element_id = 27;
+  string main_document_end_element_id = 28;
 }
 
 message AgentActionPrimitive {

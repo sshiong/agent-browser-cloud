@@ -785,6 +785,18 @@ public final class NodeCommands {
       PlanStep step,
       long baseStateVersion,
       String baseContentHash) {
+    return agentAction(session, operation, taskId, step, baseStateVersion, baseContentHash, "", "");
+  }
+
+  public static NodeCommand agentAction(
+      SessionContext session,
+      ExclusiveOperation operation,
+      String taskId,
+      PlanStep step,
+      long baseStateVersion,
+      String baseContentHash,
+      String mainDocumentElementId,
+      String mainDocumentEndElementId) {
     var input = step.input();
     var builder =
         AgentActionCommand.newBuilder()
@@ -804,6 +816,8 @@ public final class NodeCommands {
             .setTimeoutMs(input == null || input.timeoutMs() == null ? 0 : input.timeoutMs())
             .setBaseStateVersion(baseStateVersion)
             .setBaseContentHash(baseContentHash)
+            .setMainDocumentElementId(mainDocumentElementId)
+            .setMainDocumentEndElementId(mainDocumentEndElementId)
             .setAllowSensitiveTarget(input != null && input.allowSensitiveTarget())
             .setMaximumAttempts(input == null ? 1 : input.maximumAttempts())
             .setStopOnError(input == null || input.stopOnError())

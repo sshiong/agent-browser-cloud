@@ -128,7 +128,19 @@ public class AgentActionToolService {
       throw new ActionToolException("STATE_QUALITY_NOT_EXECUTABLE");
     }
     var policy = controlPolicies.require(session.sessionId(), tenantId);
-    validateInput(step, state, policy);
+    var capturedTargets = mainDocumentTargets(step, state);
+    var planIdentityAdvance =
+        step.input().targetRevision() != null
+            && step.input().targetRevision() > 0
+            && step.input().targetRevision() < state.targetRevision()
+            && !capturedTargets.source().isEmpty()
+            && capturedTargets.source().equals(step.input().targetRef())
+            && (step.toolId() != ToolId.DRAG_TARGET
+                || capturedTargets.destination().equals(step.input().endTargetRef()))
+            && mayRebindMainDocument(step, authoritativeTaskRisk, step.riskClass(), policy)
+            && browserCapacity.nodeHasCapability(
+                session.nodeId(), "agentSingleTargetRebind", "main-document-element-v1");
+    validateInput(step, state, policy, planIdentityAdvance);
     var currentDomain = domainOf(state.url());
     var claims =
         capabilityTokens.verify(
@@ -141,6 +153,10 @@ public class AgentActionToolService {
             currentDomain,
             dataScope(step),
             now);
+    if (planIdentityAdvance
+        && !mayRebindMainDocument(step, authoritativeTaskRisk, claims.riskClass(), policy)) {
+      throw new ActionToolException("TARGET_REVISION_MISMATCH");
+    }
     var mainTargets =
         mayRebindMainDocument(step, authoritativeTaskRisk, claims.riskClass(), policy)
                 && browserCapacity.nodeHasCapability(
@@ -278,6 +294,14 @@ public class AgentActionToolService {
       PlanStep step,
       io.browsercloud.coordinator.NodeEvent.StateUpdated state,
       AgentControlPolicyService.Policy policy) {
+    validateInput(step, state, policy, false);
+  }
+
+  private static void validateInput(
+      PlanStep step,
+      io.browsercloud.coordinator.NodeEvent.StateUpdated state,
+      AgentControlPolicyService.Policy policy,
+      boolean planIdentityAdvance) {
     var input = step.input();
     switch (step.toolId()) {
       case CLICK_TARGET,
@@ -310,7 +334,7 @@ public class AgentActionToolService {
             || input.targetRef() == null
             || input.targetRef().isBlank()
             || input.targetRevision() == null
-            || input.targetRevision() != state.targetRevision()) {
+            || (!planIdentityAdvance && input.targetRevision() != state.targetRevision())) {
           throw new ActionToolException("TARGET_REVISION_MISMATCH");
         }
         var target =

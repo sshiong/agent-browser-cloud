@@ -1087,6 +1087,30 @@ public class AgentApplicationService {
       CreateAgentTaskRequest.ActionRequest request,
       AgentControlPolicyService.Policy controlPolicy) {
     if (request.toolId() == ToolId.REQUEST_HUMAN_TAKEOVER) return null;
+    // Capture the complete Node-issued entity identity in the persisted plan, before
+    // materializing a one-time secret. A later authorization cannot reconstruct it
+    // from an old DOM slot or a shortened target-ref digest.
+    var targetRef = request.targetRef();
+    var endTargetRef = request.endTargetRef();
+    var identityState =
+        stateRepository
+            .find(sessionId)
+            .filter(snapshot -> snapshot.tenantId().equals(tenantId))
+            .map(BrowserStateRepository.Snapshot::state)
+            .orElse(null);
+    if (identityState != null
+        && request.targetRevision() != null
+        && request.targetRevision() == identityState.targetRevision()) {
+      var source = mainDocumentPlanIdentity(identityState, targetRef);
+      var destination =
+          request.toolId() == ToolId.DRAG_TARGET
+              ? mainDocumentPlanIdentity(identityState, endTargetRef)
+              : null;
+      if (source != null && (request.toolId() != ToolId.DRAG_TARGET || destination != null)) {
+        targetRef = source;
+        if (destination != null) endTargetRef = destination;
+      }
+    }
     var dataClass = request.dataClass() == null ? ActionDataClass.PUBLIC : request.dataClass();
     var resolvedSecret =
         request.secretId() == null
@@ -1104,7 +1128,7 @@ public class AgentApplicationService {
     var sealedPayload =
         carriesText ? actionPayloadService.seal(tenantId, taskId, stepId, plaintext) : null;
     return new StepInput(
-        request.targetRef(),
+        targetRef,
         request.targetRevision(),
         sealedPayload,
         carriesText
@@ -1124,13 +1148,36 @@ public class AgentApplicationService {
         request.tabId(),
         request.tabUrl(),
         request.dialogId(),
-        request.endTargetRef(),
+        endTargetRef,
         null,
         request.key(),
         request.button(),
         request.deltaX(),
         request.deltaY(),
         request.durationMs());
+  }
+
+  static String mainDocumentPlanIdentity(
+      io.browsercloud.coordinator.NodeEvent.StateUpdated state, String reference) {
+    if (reference == null) return null;
+    var matches =
+        state.targets().stream()
+            .filter(
+                target ->
+                    reference.equals(target.targetRef()) || reference.equals(target.elementId()))
+            .toList();
+    if (matches.size() != 1) return null;
+    var target = matches.getFirst();
+    if (!"main".equals(target.frameId())
+        || !target.interactive()
+        || target.elementId() == null
+        || !target.elementId().matches("e[0-9a-f]{24}")) return null;
+    return state.targets().stream()
+                .filter(item -> target.elementId().equals(item.elementId()))
+                .count()
+            == 1
+        ? target.elementId()
+        : null;
   }
 
   private StepInput batchInput(

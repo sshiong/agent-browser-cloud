@@ -120,6 +120,70 @@ class AgentApplicationServiceTest {
   }
 
   @Test
+  void persistsCompleteMainDocumentIdentityInsteadOfAReusableTargetSlot() {
+    var identity = "e0123456789abcdef01234567";
+    var target =
+        new NodeEvent.InteractiveTarget(
+            "target:2:slot",
+            "button",
+            "Open detail",
+            new NodeEvent.Bounds(10, 20, 80, 32),
+            true,
+            true,
+            false,
+            identity,
+            null,
+            null,
+            false,
+            null,
+            null,
+            true,
+            "main",
+            true,
+            false,
+            null);
+    when(stateRepository.find(anyString()))
+        .thenReturn(
+            Optional.of(
+                new BrowserStateRepository.Snapshot(
+                    "tenant-test",
+                    3,
+                    new NodeEvent.StateUpdated(
+                        "ses_1234567890abcdef",
+                        9,
+                        2,
+                        "https://example.com/current",
+                        "Example",
+                        "hash",
+                        "COMPLETE",
+                        List.of(target)))));
+    var request =
+        new CreateAgentTaskRequest(
+            "Open the public detail",
+            null,
+            List.of("example.com"),
+            8,
+            0,
+            List.of(),
+            List.of(
+                new CreateAgentTaskRequest.ActionRequest(
+                    ToolId.CLICK_TARGET, "target:2:slot", 2L, null, null, null, null, null, null)));
+    var view = service.create("ses_1234567890abcdef", "tenant-test", request, "idem-identity");
+    assertThat(view.state()).isEqualTo(TaskState.PLANNED);
+    var action =
+        view.plan().steps().stream()
+            .filter(step -> step.toolId() == ToolId.CLICK_TARGET)
+            .findFirst()
+            .orElseThrow();
+    assertThat(action.input().targetRef()).isEqualTo(identity);
+    assertThat(action.input().targetRevision()).isEqualTo(2L);
+    var persisted =
+        org.mockito.ArgumentCaptor.forClass(io.browsercloud.persistence.AgentTaskEntity.class);
+    verify(repository).save(persisted.capture());
+    assertThat(persisted.getValue().getPlan()).contains(identity).doesNotContain("target:2:slot");
+  }
+
+  @Test
   void createsBoundedPlanWithCapabilityHandlesButDoesNotExposeBearerTokens() {
     var view =
         service.create(

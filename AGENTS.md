@@ -308,6 +308,14 @@ progress 166。
 
 ### 最近验证状态
 
+- 单动作计划现在在创建时保存完整主文档实体 ID，原 Revision 保留；授权前版本前进
+  只在唯一当前实体、既有 Task/Step/签名 Capability 风险与 Node 能力共同允许时接受。
+  旧引用、子 Frame、未来版本、高风险和缺证明保持拒绝。三项旧代码回归失败，新
+  Java 650 项、Replay 37 项、兼容检查与完整 OrbStack Integration 通过，见 progress
+  271。新公开全量走过登录/OTP/SPA/商品详情点击，Add to cart 因完整目标身份不可用
+  被 Node 拒绝，原因待隔离，不计连续全量。完整稳定区域与全部外部 Gate 保留；
+  `86d5715` CI/Windows/macOS/Operator 全部成功。
+
 - 公开全量商品详情导航实际 HTTP 404；定向旧入口随后通过，不能统一归为 Node 故障。
   新公开商品 Adapter 复用 HMAC 实体属性，绑定前重验精确来源/产品 ID/卡片/链接，
   经正式 Evaluate 写入身份与唯一名称，重新取快照后以标准 Agent 点击并验证购物车，

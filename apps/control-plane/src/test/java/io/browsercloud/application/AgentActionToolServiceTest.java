@@ -338,6 +338,7 @@ class AgentActionToolServiceTest {
             null,
             null,
             100);
+    advanceRevision();
     authorize(step(ToolId.DRAG_TARGET, input));
     var command = ArgumentCaptor.forClass(NodeCommand.class);
     verify(gateway).send(command.capture());
@@ -346,6 +347,8 @@ class AgentActionToolServiceTest {
         .isEqualTo("e0123456789abcdef01234567");
     org.assertj.core.api.Assertions.assertThat(payload.getMainDocumentEndElementId())
         .isEqualTo(destinationId);
+    org.assertj.core.api.Assertions.assertThat(payload.getTargetRevision()).isEqualTo(7);
+    org.assertj.core.api.Assertions.assertThat(payload.getBaseStateVersion()).isEqualTo(8);
   }
 
   private void enableDispatch(boolean capable) {
@@ -380,6 +383,171 @@ class AgentActionToolServiceTest {
         step,
         Instant.parse("2026-10-03T00:00:00Z"),
         taskRisk);
+  }
+
+  private void advanceRevision() {
+    var original = states.find("ses_test").orElseThrow().state();
+    when(states.find("ses_test"))
+        .thenReturn(
+            Optional.of(
+                new BrowserStateRepository.Snapshot(
+                    "tenant-test",
+                    1,
+                    new NodeEvent.StateUpdated(
+                        "ses_test",
+                        8,
+                        8,
+                        original.url(),
+                        "Test",
+                        "new-state-hash",
+                        "COMPLETE",
+                        original.targets()))));
+  }
+
+  @Test
+  void persistedCompleteIdentitySurvivesRevisionBeforeAuthorization() throws Exception {
+    prepare(true);
+    advanceRevision();
+    enableDispatch(true);
+    authorize(step(ToolId.CLICK_TARGET, input("e0123456789abcdef01234567")));
+    var command = ArgumentCaptor.forClass(NodeCommand.class);
+    verify(gateway).send(command.capture());
+    var payload = AgentActionCommand.parseFrom(command.getValue().payload());
+    org.assertj.core.api.Assertions.assertThat(payload.getTargetRevision()).isEqualTo(7);
+    org.assertj.core.api.Assertions.assertThat(payload.getBaseStateVersion()).isEqualTo(8);
+    org.assertj.core.api.Assertions.assertThat(payload.getBaseContentHash())
+        .isEqualTo("new-state-hash");
+    org.assertj.core.api.Assertions.assertThat(payload.getMainDocumentElementId())
+        .isEqualTo("e0123456789abcdef01234567");
+  }
+
+  @Test
+  void stalePlanIdentityStillRequiresTrustedRiskCapabilityAndNewNode() {
+    for (var risk :
+        List.of(
+            RiskClass.R2_DATA_CHANGE,
+            RiskClass.R3_ACCOUNT_CHANGE,
+            RiskClass.R4_FINANCIAL,
+            RiskClass.R5_SECURITY)) {
+      prepare(true);
+      advanceRevision();
+      enableDispatch(true);
+      assertThatThrownBy(
+              () -> authorize(step(ToolId.CLICK_TARGET, input("e0123456789abcdef01234567")), risk))
+          .hasMessage("TARGET_REVISION_MISMATCH");
+    }
+    prepare(true);
+    advanceRevision();
+    enableDispatch(false);
+    assertThatThrownBy(
+            () -> authorize(step(ToolId.CLICK_TARGET, input("e0123456789abcdef01234567"))))
+        .hasMessage("TARGET_REVISION_MISMATCH");
+    enableDispatch(true, RiskClass.R0_READ_ONLY);
+    assertThatThrownBy(
+            () -> authorize(step(ToolId.CLICK_TARGET, input("e0123456789abcdef01234567"))))
+        .hasMessage("TARGET_REVISION_MISMATCH");
+    verifyNoInteractions(uses, attempts, gateway);
+  }
+
+  @Test
+  void staleSlotMissingIdentityAndNonInteractiveTargetsNeverAcquirePlanAdvance() {
+    prepare(true);
+    advanceRevision();
+    enableDispatch(true);
+    for (var reference : List.of("target-observable", "e" + "f".repeat(24))) {
+      assertThatThrownBy(() -> authorize(step(ToolId.CLICK_TARGET, input(reference))))
+          .hasMessage("TARGET_REVISION_MISMATCH");
+    }
+    prepare(false);
+    advanceRevision();
+    assertThatThrownBy(
+            () -> authorize(step(ToolId.CLICK_TARGET, input("e0123456789abcdef01234567"))))
+        .hasMessage("TARGET_REVISION_MISMATCH");
+    verifyNoInteractions(tokens, uses, attempts, gateway);
+  }
+
+  @Test
+  void staleIdentityInChildFrameOrAFutureRevisionCannotAdvance() {
+    prepare(true);
+    enableDispatch(true);
+    var original = states.find("ses_test").orElseThrow().state();
+    var child =
+        new NodeEvent.InteractiveTarget(
+            "target-observable",
+            "button",
+            "Action",
+            new NodeEvent.Bounds(10, 10, 100, 30),
+            true,
+            true,
+            false,
+            "e0123456789abcdef01234567",
+            null,
+            null,
+            false,
+            null,
+            null,
+            true,
+            "child-frame",
+            true,
+            false,
+            null);
+    when(states.find("ses_test"))
+        .thenReturn(
+            Optional.of(
+                new BrowserStateRepository.Snapshot(
+                    "tenant-test",
+                    1,
+                    new NodeEvent.StateUpdated(
+                        "ses_test",
+                        8,
+                        8,
+                        original.url(),
+                        "Test",
+                        "new-state-hash",
+                        "COMPLETE",
+                        List.of(child)))));
+    assertThatThrownBy(
+            () -> authorize(step(ToolId.CLICK_TARGET, input("e0123456789abcdef01234567"))))
+        .hasMessage("TARGET_REVISION_MISMATCH");
+    prepare(true);
+    var future =
+        new StepInput(
+            "e0123456789abcdef01234567", 8L, null, null, null, null, null, null, null, false, 1);
+    assertThatThrownBy(() -> authorize(step(ToolId.CLICK_TARGET, future)))
+        .hasMessage("TARGET_REVISION_MISMATCH");
+    verifyNoInteractions(tokens, uses, attempts, gateway);
+  }
+
+  @Test
+  void staleAuthorizedOtpKeepsTheSameSealedPayloadAndBoundedAttempts() throws Exception {
+    prepareSensitiveInput();
+    advanceRevision();
+    enableDispatch(true, RiskClass.R2_DATA_CHANGE);
+    var original = sensitiveStep(ActionDataClass.OTP);
+    var value = original.input();
+    var captured =
+        new StepInput(
+            "e0123456789abcdef01234567",
+            value.targetRevision(),
+            value.sealedPayload(),
+            value.payloadHash(),
+            value.payloadLength(),
+            value.dataClass(),
+            null,
+            null,
+            null,
+            true,
+            3);
+    authorize(step(ToolId.TYPE_TEXT, captured, RiskClass.R2_DATA_CHANGE), RiskClass.R2_DATA_CHANGE);
+    var command = ArgumentCaptor.forClass(NodeCommand.class);
+    verify(gateway).send(command.capture());
+    var payload = AgentActionCommand.parseFrom(command.getValue().payload());
+    org.assertj.core.api.Assertions.assertThat(payload.getMainDocumentElementId())
+        .isEqualTo("e0123456789abcdef01234567");
+    org.assertj.core.api.Assertions.assertThat(payload.getSealedText())
+        .isEqualTo(value.sealedPayload());
+    org.assertj.core.api.Assertions.assertThat(payload.getMaximumAttempts()).isEqualTo(3);
+    org.assertj.core.api.Assertions.assertThat(payload.getTargetRevision()).isEqualTo(7);
   }
 
   @Test

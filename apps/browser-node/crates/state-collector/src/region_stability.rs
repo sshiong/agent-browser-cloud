@@ -41,6 +41,15 @@ mod tests {
         page.targets[0]
             .document_identity
             .clone_from(&page.document_identity);
+        page.region_event_evidence_fresh = true;
+        page.targets[0].region_event_proof = Some(crate::region_observer::RegionEventProof {
+            path: page.targets[0].path.clone(),
+            identity: 1,
+            last_event_sequence: 1,
+            animation_active: false,
+            bounds: page.targets[0].bounds.clone().unwrap(),
+            observer_nonce: "a".repeat(32),
+        });
         page
     }
 
@@ -452,6 +461,65 @@ mod tests {
             RegionalStabilityObservation::default()
         );
     }
+
+    #[test]
+    fn isolated_event_changes_and_replaced_elements_rebuild_the_target_window() {
+        let start = Instant::now();
+        let network = BrowserSafetyObservation::test_fresh_for_tab("tab-a");
+        for kind in [
+            "event",
+            "replacement",
+            "observer",
+            "animation",
+            "missing",
+            "stale",
+        ] {
+            let mut page = page();
+            let (mut tracker, before) = matured(&page, &network, start);
+            let id = CdpStateCollector::scoped_element_id(&page.targets[0], &page.url, "tab-a");
+            assert!(before.ready_for(&id));
+            match kind {
+                "event" => {
+                    page.targets[0]
+                        .region_event_proof
+                        .as_mut()
+                        .unwrap()
+                        .last_event_sequence += 1
+                }
+                "replacement" => {
+                    page.targets[0]
+                        .region_event_proof
+                        .as_mut()
+                        .unwrap()
+                        .identity += 1
+                }
+                "observer" => {
+                    page.targets[0]
+                        .region_event_proof
+                        .as_mut()
+                        .unwrap()
+                        .observer_nonce = "b".repeat(32)
+                }
+                "animation" => {
+                    page.targets[0]
+                        .region_event_proof
+                        .as_mut()
+                        .unwrap()
+                        .animation_active = true
+                }
+                "missing" => page.targets[0].region_event_proof = None,
+                "stale" => page.region_event_evidence_fresh = false,
+                _ => unreachable!(),
+            }
+            let after = sample(
+                &mut tracker,
+                &page,
+                &network,
+                start + Duration::from_secs(16),
+            );
+            assert!(!after.ready_for(&id), "{kind}");
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -546,6 +614,7 @@ impl RegionStabilityTracker {
                 .active_network_request_count_for_tab(tab_id)
                 .is_none()
             || !stability.evidence_fresh
+            || !page.region_event_evidence_fresh
         {
             self.windows.clear();
             self.changing_since = None;
@@ -605,6 +674,9 @@ impl RegionStabilityTracker {
                 || !target.in_viewport
                 || target.occluded
                 || !bounds_ready
+                || !target.region_event_proof.as_ref().is_some_and(|proof| {
+                    !proof.animation_active && target.bounds.as_ref() == Some(&proof.bounds)
+                })
             {
                 Some("TARGET_NOT_ACTIONABLE")
             } else {
@@ -621,6 +693,11 @@ impl RegionStabilityTracker {
             let fingerprint = hex_sha256(
                 serde_json::json!([
                     element_id,
+                    target.region_event_proof.as_ref().map(|proof| (
+                        &proof.observer_nonce,
+                        proof.identity,
+                        proof.last_event_sequence
+                    )),
                     target.bounds,
                     target.enabled,
                     target.visible,

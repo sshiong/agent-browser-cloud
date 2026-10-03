@@ -308,6 +308,15 @@ progress 166。
 
 ### 最近验证状态
 
+- Node 稳定区域窗口已绑定隔离执行上下文中的 Mutation/Interaction/Resize 观察、
+  元素实例与观察器代次，活动动画阻断 readiness；业务实体容器内变化也会重建窗口。
+  修正后的自有真实 Chrome Fixture 验证瞬态 disabled 在旧 `eaab777` 仍被视为稳定、
+  新实现拒绝并恢复窗口，页面主上下文伪造观察器无法供给证明；实体文字瞬态变化、
+  活动动画、同位置克隆替换也已通过。Rust 215 项、四项串行真实 Chrome、严格
+  Clippy 与完整 OrbStack Integration 通过，见 progress 264。`eaab777` 的 CI/
+  Windows/macOS 全部成功。CSSOM、无事件属性变化等边界、完整 Event Watermarks、
+  风险授权、动作与独立 Outcome 仍继续完成，整体目标保持 active。
+
 - 稳定区域证据已接正式 Protobuf Full/Diff、PostgreSQL 权威 JSON、Browser State API
   与四语言 SDK，缺失旧字段默认 unknown。投影重验合并后的 Target/Bounds、当前唯一
   Active Tab、完整质量和组件证据；Resync、失效、过期及 Context Epoch 改变清除
@@ -1245,7 +1254,7 @@ Delete API 或短期签名 URL 冒充目标云监管保留。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
 5. Recording 目标账户 Object Lock Apply/IAM、客户视觉数据集 Replay 和目标云原生 Legal Hold
    联动；仓库 WORM、到期对象删除 Worker 及全帧隐私 v2 已由 progress 201—203 完成。
-6. 持续变化页面已有 Node 稳定 Target 区域采样证据及正式权威投影（progress 262—263），但
+6. 持续变化页面已有 Node 稳定 Target 区域采样、正式权威投影与隔离事件观察（progress 262—264），但
    风险授权、稳定区域动作与独立 Outcome 的 `BestEffortStableState/unstableRegions`
    产品闭环尚未完成；
    当前普通动作与 Batch 仍要求当前文档网络 quiet。不能按长轮询路径/年龄忽略未知请求，

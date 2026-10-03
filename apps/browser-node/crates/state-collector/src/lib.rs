@@ -4,6 +4,7 @@
 
 mod dialog_monitor;
 mod navigation_diagnostics;
+mod region_observer;
 mod region_stability;
 mod safety_monitor;
 
@@ -441,6 +442,8 @@ struct EvaluatedPageState {
     /// Trusted CDP Frame/Loader digest; never accepted from the page's by-value result.
     #[serde(skip)]
     document_identity: String,
+    #[serde(skip)]
+    region_event_evidence_fresh: bool,
     url: String,
     title: String,
     #[serde(default, rename = "documentReadyState")]
@@ -529,6 +532,8 @@ struct EvaluatedTarget {
     /// Root Frame/Loader digest supplied by Node, never by the page or an Adapter.
     #[serde(skip)]
     document_identity: String,
+    #[serde(skip)]
+    region_event_proof: Option<region_observer::RegionEventProof>,
     path: String,
     role: String,
     name: Option<String>,
@@ -2556,6 +2561,19 @@ impl CdpStateCollector {
     where
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
     {
+        Ok(Self::query_document_frame(socket, command_id, deadline)
+            .await?
+            .0)
+    }
+
+    async fn query_document_frame<S>(
+        socket: &mut tokio_tungstenite::WebSocketStream<S>,
+        command_id: i64,
+        deadline: tokio::time::Instant,
+    ) -> anyhow::Result<(String, String)>
+    where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    {
         tokio::time::timeout_at(
             deadline,
             socket.send(Message::Text(
@@ -2597,8 +2615,9 @@ impl CdpStateCollector {
                 frame.get("parentId").is_none(),
                 "CDP main document identity is unavailable"
             );
-            return Ok(hex_sha256(
-                serde_json::to_string(&(frame_id, loader_id))?.as_bytes(),
+            return Ok((
+                hex_sha256(serde_json::to_string(&(frame_id, loader_id))?.as_bytes()),
+                frame_id.to_owned(),
             ));
         }
         anyhow::bail!("CDP websocket closed before Page.getFrameTree completed")
@@ -3662,6 +3681,15 @@ impl CdpStateCollector {
                 }
             }
         };
+        if self
+            .observe_region_events(&tab_snapshot.active_websocket_url, &mut page)
+            .await
+            .is_err()
+        {
+            // This optional evidence cannot weaken ordinary State/Action fences or make a failed
+            // observer look stable. Errors contain no page data and are not exported as evidence.
+            page.region_event_evidence_fresh = false;
+        }
         if let Some(active) = tab_snapshot
             .tabs
             .iter_mut()
@@ -6275,6 +6303,7 @@ mod tests {
             .insert("ses_file".to_owned(), format!("http://{http_address}"));
         let evaluated = EvaluatedTarget {
             document_identity: String::new(),
+            region_event_proof: None,
             path: "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(1)".to_owned(),
             role: "button".to_owned(),
             name: Some("Upload".to_owned()),
@@ -6704,6 +6733,85 @@ mod tests {
             .unstable_regions
             .iter()
             .any(|region| region.element_id == counter.element_id));
+        let transient_result = CdpStateCollector::cdp_command_with_params(
+            &websocket,
+            "Runtime.evaluate",
+            984,
+            serde_json::json!({
+                "expression": "(() => { const button = document.querySelector('button[aria-label=\"执行验收\"]'); if (!button || button.disabled) return false; window.__agentBrowserRegionObserverV1 = {nonce: 'page-forged-observer'}; window.MutationObserver = class {observe() {} takeRecords() {return [];} }; button.disabled = true; const changed = button.disabled; button.disabled = false; return changed && !button.disabled; })()",
+                "returnByValue": true
+            }),
+        ).await.unwrap();
+        assert!(transient_result.get("exceptionDetails").is_none());
+        assert_eq!(
+            transient_result
+                .pointer("/result/value")
+                .and_then(serde_json::Value::as_bool),
+            Some(true),
+            "owned fixture must actually toggle and restore the exact target"
+        );
+        let after_transient = collector
+            .collect_current_state("ses_real_chromium")
+            .await
+            .unwrap();
+        let button = after_transient
+            .targets
+            .iter()
+            .find(|target| target.name.as_deref() == Some("执行验收"))
+            .unwrap();
+        assert!(
+            !after_transient
+                .regional_stability
+                .ready_for(&button.element_id),
+            "restored attributes must not hide an observed mutation between samples"
+        );
+        let regional_recovery_deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+        loop {
+            let current = collector
+                .collect_current_state("ses_real_chromium")
+                .await
+                .unwrap();
+            let button = current
+                .targets
+                .iter()
+                .find(|target| target.name.as_deref() == Some("执行验收"))
+                .unwrap();
+            if current.regional_stability.ready_for(&button.element_id) {
+                break;
+            }
+            assert!(
+                tokio::time::Instant::now() < regional_recovery_deadline,
+                "stable target did not rebuild its window after transient mutation"
+            );
+            tokio::time::sleep(Duration::from_millis(150)).await;
+        }
+        for (command_id, expression) in [
+            (980, "(() => { const button = document.querySelector('button[aria-label=\"执行验收\"]'); const label = button.parentElement.querySelector('span'); const original = label.textContent; label.textContent = 'Temporary other entity'; label.textContent = original; return label.textContent === original; })()"),
+            (983, "(() => { const button = document.querySelector('button[aria-label=\"执行验收\"]'); window.__regionFixtureAnimation = button.animate([{opacity: 1}, {opacity: 0.8}], {duration: 10000}); return window.__regionFixtureAnimation.playState === 'running'; })()"),
+            (982, "(() => { const button = document.querySelector('button[aria-label=\"执行验收\"]'); button.replaceWith(button.cloneNode(true)); return document.querySelector('button[aria-label=\"执行验收\"]') !== button; })()"),
+        ] {
+            let result = CdpStateCollector::cdp_command_with_params(&websocket, "Runtime.evaluate", command_id,
+                serde_json::json!({"expression":expression,"returnByValue":true})).await.unwrap();
+            assert!(result.get("exceptionDetails").is_none());
+            assert_eq!(result.pointer("/result/value").and_then(serde_json::Value::as_bool), Some(true));
+            let current = collector.collect_current_state("ses_real_chromium").await.unwrap();
+            let button = current.targets.iter().find(|target| target.name.as_deref() == Some("执行验收")).unwrap();
+            assert!(!current.regional_stability.ready_for(&button.element_id),
+                "active animation or a replaced DOM element must reset target readiness");
+            if command_id == 983 {
+                let canceled = CdpStateCollector::cdp_command_with_params(&websocket, "Runtime.evaluate", 981,
+                    serde_json::json!({"expression":"window.__regionFixtureAnimation.cancel(); true","returnByValue":true})).await.unwrap();
+                assert_eq!(canceled.pointer("/result/value").and_then(serde_json::Value::as_bool), Some(true));
+            }
+            let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+            loop {
+                let current = collector.collect_current_state("ses_real_chromium").await.unwrap();
+                let button = current.targets.iter().find(|target| target.name.as_deref() == Some("执行验收")).unwrap();
+                if current.regional_stability.ready_for(&button.element_id) { break; }
+                assert!(tokio::time::Instant::now() < deadline, "target window did not recover");
+                tokio::time::sleep(Duration::from_millis(150)).await;
+            }
+        }
         CdpStateCollector::cdp_command_with_params(
             &websocket,
             "Runtime.evaluate",

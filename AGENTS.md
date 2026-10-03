@@ -308,13 +308,20 @@ progress 166。
 
 ### 最近验证状态
 
+- DOM/Layout/Focus/Route 静默窗口不再把超出采样节奏的观察空档计入 quiet：
+  基础连续性上限十秒，显式低预算采样只扩展到配置间隔加两秒（10% 为二十二秒），
+  中断或异常未来时间清零并降级证据，随后连续样本重新累计。旧代码三十秒空档
+  回归得到三十二秒 quiet、修改后拒绝；Rust 198 项、四项真实 Chrome 与 Rust 1.99
+  严格 Clippy 通过，见 progress 258。没有实现稳定区域 fallback，也不归因公开导航失败。
+  `dbd06e4` 主 CI、Windows/macOS 全部成功；公开连续全量与外部 Gate 继续保留。
+
 - 模型 HTTP/HTTPS 请求现在在连接前后与每次 send 前重验同一租约取消事件，
   避免取消线程尚未调度时连接返回后继续发新 POST。自有真实 TCP/TLS 两项
   回归在旧传输代码失败、新代码通过；传输 6 项、Worker 43 项通过，见 progress
   257。已进入的系统连接调用、已发出的供应商计算/计费取消仍没有强制停止证明。
   隔离公开商店一例通过，原空 Target 未重现；随后整轮在练习站入口导航响应
   超时失败，CDP 新 Loader GET 约 15.3 秒失败、类别未知，连续稳定性仍未完成。
-  `1db1bdd` Desktop 两平台成功，主 CI 检查时 Integration 仍在运行。
+  `1db1bdd` 主 CI 与 Desktop 两平台随后全部成功，见 progress 258。
 
 - 子 Frame 导航在跨进程 swap 时可丢失主文档归属，导航离开后仍以未知 Document
   阻塞新页 Quiet。自有两站点真实 Chrome 回归旧代码失败、修复后通过；已知子

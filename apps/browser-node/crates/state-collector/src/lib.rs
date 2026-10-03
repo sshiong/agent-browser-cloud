@@ -26,6 +26,9 @@ use tokio_tungstenite::tungstenite::Message;
 const NETWORK_READINESS_HASH_BUCKET_MILLIS: u64 = 1_000;
 const MAX_NETWORK_QUIET_POLICY_MILLIS: u64 = 30_000;
 const PAGE_NAVIGATE_RESPONSE_TIMEOUT: Duration = Duration::from_secs(15);
+// Base continuity bound matches the public FRESH age. Explicitly slower AUTO sampling may
+// extend it only to its configured cadence plus two seconds; arbitrary gaps never add quiet.
+const BASE_COMPONENT_SAMPLE_GAP: Duration = Duration::from_secs(10);
 
 /// 交互目标。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -802,6 +805,14 @@ impl CdpStateCollector {
     pub async fn collection_interval_probes(&self, session_id: &str) -> u64 {
         let budget = self.resource_budget_percent(session_id).await;
         u64::from(200_u32.div_ceil(budget)).max(2)
+    }
+
+    async fn maximum_component_sample_gap(&self, session_id: &str) -> Duration {
+        BASE_COMPONENT_SAMPLE_GAP.max(Duration::from_secs(
+            self.collection_interval_probes(session_id)
+                .await
+                .saturating_add(2),
+        ))
     }
 
     /// 在线执行后台标签冻结与新增标签阻断。
@@ -3219,15 +3230,20 @@ impl CdpStateCollector {
     fn update_page_stability(
         cursor: &mut CollectorCursor,
         fingerprints: &(String, String, String, String),
+        maximum_sample_gap: Duration,
     ) -> PageStability {
         let now = std::time::Instant::now();
-        let elapsed = cursor
+        let sample_interval = cursor
             .last_stability_sample
-            .map(|sample| now.saturating_duration_since(sample).as_millis() as u64)
+            .and_then(|sample| now.checked_duration_since(sample));
+        let continuous = cursor.last_stability_sample.is_none()
+            || sample_interval.is_some_and(|interval| interval <= maximum_sample_gap);
+        let elapsed = sample_interval
+            .map(|interval| interval.as_millis() as u64)
             .unwrap_or(0)
             .min(300_000);
         let advance = |previous: &str, current: &str, quiet: u64| {
-            if !previous.is_empty() && previous == current {
+            if continuous && !previous.is_empty() && previous == current {
                 quiet.saturating_add(elapsed).min(300_000)
             } else {
                 0
@@ -3254,7 +3270,7 @@ impl CdpStateCollector {
                 &fingerprints.3,
                 cursor.page_stability.route_quiet_millis,
             ),
-            evidence_fresh: true,
+            evidence_fresh: continuous,
         };
         cursor.dom_fingerprint.clone_from(&fingerprints.0);
         cursor.layout_fingerprint.clone_from(&fingerprints.1);
@@ -3507,10 +3523,11 @@ impl CdpStateCollector {
             network_readiness_hash_bucket(network_quiet_millis, network_observation.fresh);
         let stability_fingerprints =
             Self::stability_fingerprints(&page, &tab_snapshot.active_tab_id)?;
+        let maximum_sample_gap = self.maximum_component_sample_gap(session_id).await;
         let page_stability = {
             let mut cursors = self.cursors.lock().await;
             let cursor = cursors.entry(session_id.to_owned()).or_default();
-            Self::update_page_stability(cursor, &stability_fingerprints)
+            Self::update_page_stability(cursor, &stability_fingerprints, maximum_sample_gap)
         };
         let (serialized_targets, content_hash) = Self::state_hash(
             &page,
@@ -4368,6 +4385,105 @@ mod tests {
     }
 
     #[test]
+    fn page_stability_does_not_credit_an_unobserved_sampling_gap() {
+        let fingerprints: (String, String, String, String) = (
+            "dom".into(),
+            "layout".into(),
+            "focus".into(),
+            "route".into(),
+        );
+        let mut cursor = CollectorCursor {
+            dom_fingerprint: fingerprints.0.clone(),
+            layout_fingerprint: fingerprints.1.clone(),
+            focus_fingerprint: fingerprints.2.clone(),
+            route_fingerprint: fingerprints.3.clone(),
+            last_stability_sample: Some(std::time::Instant::now() - Duration::from_secs(30)),
+            page_stability: PageStability {
+                dom_quiet_millis: 2_000,
+                layout_quiet_millis: 2_000,
+                focus_quiet_millis: 2_000,
+                route_quiet_millis: 2_000,
+                evidence_fresh: true,
+            },
+            ..CollectorCursor::default()
+        };
+        let interrupted = CdpStateCollector::update_page_stability(
+            &mut cursor,
+            &fingerprints,
+            BASE_COMPONENT_SAMPLE_GAP,
+        );
+        assert_eq!(
+            interrupted,
+            PageStability::default(),
+            "matching endpoints cannot prove quiet during a sampling gap"
+        );
+        assert_eq!(page_stability_hash_bucket(&interrupted), [0; 4]);
+        cursor.last_stability_sample = Some(std::time::Instant::now() - Duration::from_millis(300));
+        let recovered = CdpStateCollector::update_page_stability(
+            &mut cursor,
+            &fingerprints,
+            BASE_COMPONENT_SAMPLE_GAP,
+        );
+        assert!(recovered.evidence_fresh);
+        for quiet in [
+            recovered.dom_quiet_millis,
+            recovered.layout_quiet_millis,
+            recovered.focus_quiet_millis,
+            recovered.route_quiet_millis,
+        ] {
+            assert!(
+                (250..10_000).contains(&quiet),
+                "recovery must start a new quiet window"
+            );
+        }
+    }
+
+    #[test]
+    fn page_stability_accepts_bounded_cadence_and_rejects_future_samples() {
+        let fingerprints = (
+            "dom".to_owned(),
+            "layout".to_owned(),
+            "focus".to_owned(),
+            "route".to_owned(),
+        );
+        let mut cursor = CollectorCursor::default();
+        CdpStateCollector::update_page_stability(
+            &mut cursor,
+            &fingerprints,
+            BASE_COMPONENT_SAMPLE_GAP,
+        );
+        cursor.last_stability_sample = Some(std::time::Instant::now() - Duration::from_secs(8));
+        let bounded = CdpStateCollector::update_page_stability(
+            &mut cursor,
+            &fingerprints,
+            BASE_COMPONENT_SAMPLE_GAP,
+        );
+        assert!(bounded.evidence_fresh);
+        assert!(bounded.dom_quiet_millis >= 8_000);
+        assert!(bounded.layout_quiet_millis >= 8_000);
+        assert!(bounded.focus_quiet_millis >= 8_000);
+        assert!(bounded.route_quiet_millis >= 8_000);
+        cursor.last_stability_sample = Some(std::time::Instant::now() - Duration::from_secs(20));
+        let slow_budget = CdpStateCollector::update_page_stability(
+            &mut cursor,
+            &fingerprints,
+            Duration::from_secs(22),
+        );
+        assert!(
+            slow_budget.evidence_fresh,
+            "configured 10% budget cadence remains supported"
+        );
+        assert!(slow_budget.dom_quiet_millis >= 20_000);
+        cursor.last_stability_sample = Some(std::time::Instant::now() + Duration::from_secs(1));
+        let invalid = CdpStateCollector::update_page_stability(
+            &mut cursor,
+            &fingerprints,
+            Duration::from_secs(22),
+        );
+        assert_eq!(invalid, PageStability::default());
+    }
+
+    #[test]
     fn page_stability_hash_bucket_tracks_execution_and_outcome_thresholds() {
         assert_eq!(
             page_stability_hash_bucket(&PageStability::default()),
@@ -5078,6 +5194,10 @@ mod tests {
         assert_eq!(collector.resource_budget_percent("ses_budget").await, 100);
         assert_eq!(collector.collection_interval_probes("ses_budget").await, 2);
         assert_eq!(
+            collector.maximum_component_sample_gap("ses_budget").await,
+            Duration::from_secs(10)
+        );
+        assert_eq!(
             collector
                 .bounded_diff_limits("ses_budget", 60_000, 200)
                 .await,
@@ -5093,6 +5213,10 @@ mod tests {
         );
         assert_eq!(collector.collection_interval_probes("ses_budget").await, 8);
         assert_eq!(
+            collector.maximum_component_sample_gap("ses_budget").await,
+            Duration::from_secs(10)
+        );
+        assert_eq!(
             collector
                 .bounded_diff_limits("ses_budget", 60_000, 200)
                 .await,
@@ -5102,6 +5226,15 @@ mod tests {
             .set_resource_budget("ses_budget", 9)
             .await
             .is_err());
+        collector
+            .set_resource_budget("ses_budget", 10)
+            .await
+            .unwrap();
+        assert_eq!(collector.collection_interval_probes("ses_budget").await, 20);
+        assert_eq!(
+            collector.maximum_component_sample_gap("ses_budget").await,
+            Duration::from_secs(22)
+        );
 
         collector.unregister_runtime("ses_budget").await;
         assert_eq!(collector.resource_budget_percent("ses_budget").await, 100);

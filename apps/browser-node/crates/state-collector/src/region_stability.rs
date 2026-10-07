@@ -49,6 +49,8 @@ mod tests {
             animation_active: false,
             bounds: page.targets[0].bounds.clone().unwrap(),
             observer_nonce: "a".repeat(32),
+            stylesheet_epoch: 1,
+            stylesheet_sequence: 1,
         });
         page
     }
@@ -470,6 +472,9 @@ mod tests {
             "event",
             "replacement",
             "observer",
+            "stylesheet",
+            "stylesheet_reconnect",
+            "stylesheet_unproven",
             "animation",
             "missing",
             "stale",
@@ -506,6 +511,27 @@ mod tests {
                         .as_mut()
                         .unwrap()
                         .animation_active = true
+                }
+                "stylesheet" => {
+                    page.targets[0]
+                        .region_event_proof
+                        .as_mut()
+                        .unwrap()
+                        .stylesheet_sequence += 1
+                }
+                "stylesheet_reconnect" => {
+                    page.targets[0]
+                        .region_event_proof
+                        .as_mut()
+                        .unwrap()
+                        .stylesheet_epoch += 1
+                }
+                "stylesheet_unproven" => {
+                    page.targets[0]
+                        .region_event_proof
+                        .as_mut()
+                        .unwrap()
+                        .stylesheet_epoch = 0
                 }
                 "missing" => page.targets[0].region_event_proof = None,
                 "stale" => page.region_event_evidence_fresh = false,
@@ -675,7 +701,10 @@ impl RegionStabilityTracker {
                 || target.occluded
                 || !bounds_ready
                 || !target.region_event_proof.as_ref().is_some_and(|proof| {
-                    !proof.animation_active && target.bounds.as_ref() == Some(&proof.bounds)
+                    !proof.animation_active
+                        && proof.stylesheet_epoch > 0
+                        && proof.stylesheet_sequence > 0
+                        && target.bounds.as_ref() == Some(&proof.bounds)
                 })
             {
                 Some("TARGET_NOT_ACTIONABLE")
@@ -696,7 +725,9 @@ impl RegionStabilityTracker {
                     target.region_event_proof.as_ref().map(|proof| (
                         &proof.observer_nonce,
                         proof.identity,
-                        proof.last_event_sequence
+                        proof.last_event_sequence,
+                        proof.stylesheet_epoch,
+                        proof.stylesheet_sequence
                     )),
                     target.bounds,
                     target.enabled,

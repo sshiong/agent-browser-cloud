@@ -579,6 +579,7 @@ pub struct CdpStateCollector {
     cursors: Arc<Mutex<HashMap<String, CollectorCursor>>>,
     target_registries: Arc<Mutex<HashMap<String, TargetRegistry>>>,
     collection_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
+    region_observers: Arc<Mutex<HashMap<String, region_observer::SharedObserver>>>,
     resource_budget_percentages: Arc<RwLock<HashMap<String, u32>>>,
     tab_resource_policies: Arc<RwLock<HashMap<String, TabResourcePolicyState>>>,
     tab_policy_monitors: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
@@ -742,6 +743,7 @@ impl CdpStateCollector {
         }
         self.target_registries.lock().await.remove(session_id);
         self.collection_locks.lock().await.remove(session_id);
+        self.region_observers.lock().await.remove(session_id);
         self.resource_budget_percentages
             .write()
             .await
@@ -3693,7 +3695,7 @@ impl CdpStateCollector {
             }
         };
         if self
-            .observe_region_events(&tab_snapshot.active_websocket_url, &mut page)
+            .observe_region_events(session_id, &tab_snapshot.active_websocket_url, &mut page)
             .await
             .is_err()
         {
@@ -7071,6 +7073,9 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(150)).await;
         }
         for (command_id, expression) in [
+            (978, "(() => { const button = document.querySelector('button[aria-label=\"执行验收\"]'); const style = document.createElement('style'); style.textContent = 'button { pointer-events: auto; }'; document.head.appendChild(style); window.__regionFixtureStylesheet = style.sheet; return !!style.sheet; })()"),
+            (977, "(() => { const button = document.querySelector('button[aria-label=\"执行验收\"]'); const sheet = window.__regionFixtureStylesheet; sheet.insertRule('button { pointer-events: none; }', 1); const changed = getComputedStyle(button).pointerEvents === 'none'; sheet.deleteRule(1); return changed && getComputedStyle(button).pointerEvents === 'auto'; })()"),
+            (976, "(() => { const button = document.querySelector('button[aria-label=\"执行验收\"]'); const style = window.__regionFixtureStylesheet.cssRules[0].style; style.pointerEvents = 'none'; const changed = getComputedStyle(button).pointerEvents === 'none'; style.pointerEvents = 'auto'; return changed && getComputedStyle(button).pointerEvents === 'auto'; })()"),
             (980, "(() => { const button = document.querySelector('button[aria-label=\"执行验收\"]'); const label = button.parentElement.querySelector('span'); const original = label.textContent; label.textContent = 'Temporary other entity'; label.textContent = original; return label.textContent === original; })()"),
             (983, "(() => { const button = document.querySelector('button[aria-label=\"执行验收\"]'); window.__regionFixtureAnimation = button.animate([{opacity: 1}, {opacity: 0.8}], {duration: 10000}); return window.__regionFixtureAnimation.playState === 'running'; })()"),
             (982, "(() => { const button = document.querySelector('button[aria-label=\"执行验收\"]'); button.replaceWith(button.cloneNode(true)); return document.querySelector('button[aria-label=\"执行验收\"]') !== button; })()"),
@@ -7082,7 +7087,7 @@ mod tests {
             let current = collector.collect_current_state("ses_real_chromium").await.unwrap();
             let button = current.targets.iter().find(|target| target.name.as_deref() == Some("执行验收")).unwrap();
             assert!(!current.regional_stability.ready_for(&button.element_id),
-                "active animation or a replaced DOM element must reset target readiness");
+                "fixture command {command_id}: stylesheet changes, active animation or a replaced DOM element must reset target readiness");
             if command_id == 983 {
                 let canceled = CdpStateCollector::cdp_command_with_params(&websocket, "Runtime.evaluate", 981,
                     serde_json::json!({"expression":"window.__regionFixtureAnimation.cancel(); true","returnByValue":true})).await.unwrap();

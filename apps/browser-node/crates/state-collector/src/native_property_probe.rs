@@ -14,6 +14,7 @@ type Socket =
 struct Probe {
     socket: Socket,
     sequence: u64,
+    default_contexts: std::collections::BTreeMap<String, i64>,
 }
 
 impl Probe {
@@ -28,6 +29,7 @@ impl Probe {
         Ok(Self {
             socket,
             sequence: 0,
+            default_contexts: Default::default(),
         })
     }
 
@@ -61,6 +63,21 @@ impl Probe {
                 reply["method"] != "Debugger.paused",
                 "OWNED_PROBE_UNEXPECTED_PAUSE"
             );
+            if reply["method"] == "Runtime.executionContextCreated" {
+                let context = &reply["params"]["context"];
+                if context["auxData"]["isDefault"] == true {
+                    if let (Some(frame), Some(id)) = (
+                        context["auxData"]["frameId"].as_str(),
+                        context["id"].as_i64(),
+                    ) {
+                        anyhow::ensure!(
+                            self.default_contexts.len() < 64,
+                            "OWNED_PROBE_CONTEXT_BUDGET"
+                        );
+                        self.default_contexts.insert(frame.to_owned(), id);
+                    }
+                }
+            }
             if reply["id"] != id {
                 continue;
             }
@@ -128,6 +145,81 @@ impl Probe {
                 Some("[[FunctionLocation]]" | "[[BoundTargetFunction]]" | "[[Target]]")
             )
         }))
+    }
+
+    // Constructor and property metadata are obtained through CDP. Do not invoke a page's
+    // Object.getOwnPropertyDescriptor or allow an interface getter to produce side effects.
+    async fn capture_checked_setter(&mut self, context: Option<i64>) -> anyhow::Result<Value> {
+        let mut params = json!({"expression":"this.HTMLInputElement", "returnByValue":false,
+            "throwOnSideEffect":true});
+        if let Some(context) = context {
+            params["contextId"] = json!(context);
+        }
+        let evaluated = self.command("Runtime.evaluate", params).await?;
+        let constructor = &evaluated["result"];
+        anyhow::ensure!(
+            constructor["type"] == "function"
+                && constructor["subtype"] != "proxy"
+                && constructor["description"] == "function HTMLInputElement() { [native code] }",
+            "OWNED_PROBE_INTERFACE_NOT_NATIVE"
+        );
+        let properties = self
+            .command(
+                "Runtime.getProperties",
+                json!({
+                    "objectId":object_id(constructor)?, "ownProperties":true,"generatePreview":false
+                }),
+            )
+            .await?;
+        let internal = properties["internalProperties"]
+            .as_array()
+            .ok_or_else(|| anyhow::anyhow!("OWNED_PROBE_MISSING_FUNCTION_METADATA"))?;
+        anyhow::ensure!(
+            !internal.iter().any(|property| matches!(
+                property["name"].as_str(),
+                Some("[[FunctionLocation]]" | "[[BoundTargetFunction]]" | "[[Target]]")
+            )),
+            "OWNED_PROBE_INTERFACE_NOT_NATIVE"
+        );
+        let prototype = properties["result"]
+            .as_array()
+            .and_then(|properties| {
+                properties
+                    .iter()
+                    .find(|property| property["name"] == "prototype")
+            })
+            .ok_or_else(|| anyhow::anyhow!("OWNED_PROBE_PROTOTYPE_MISSING"))?;
+        anyhow::ensure!(
+            prototype["writable"] == false
+                && prototype["configurable"] == false
+                && prototype["value"]["type"] == "object"
+                && prototype["value"]["subtype"] != "proxy",
+            "OWNED_PROBE_PROTOTYPE_NOT_FIXED"
+        );
+        let properties = self
+            .command(
+                "Runtime.getProperties",
+                json!({
+                    "objectId":object_id(&prototype["value"])?, "ownProperties":true,
+                    "generatePreview":false
+                }),
+            )
+            .await?;
+        let setter = properties["result"]
+            .as_array()
+            .and_then(|properties| {
+                properties
+                    .iter()
+                    .find(|property| property["name"] == "checked")
+            })
+            .and_then(|property| property.get("set"))
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("OWNED_PROBE_SETTER_MISSING"))?;
+        anyhow::ensure!(
+            self.native_candidate(&setter).await?,
+            "OWNED_PROBE_SETTER_NOT_NATIVE"
+        );
+        Ok(setter)
     }
 
     async fn counts(&mut self, ledger: &str) -> anyhow::Result<(u64, u64)> {
@@ -319,12 +411,7 @@ async fn real_chromium_native_property_candidate_counts_aba_without_pausing() {
         );
 
         probe.command("Debugger.enable", json!({})).await?;
-        let setter = probe
-            .remote(
-                "Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'checked').set",
-                None,
-            )
-            .await?;
+        let setter = probe.capture_checked_setter(None).await?;
         anyhow::ensure!(
             probe.native_candidate(&setter).await?,
             "OWNED_PROBE_NATIVE_METADATA_CHANGED"
@@ -337,13 +424,43 @@ async fn real_chromium_native_property_candidate_counts_aba_without_pausing() {
             let remote = probe.remote(expression, None).await?;
             anyhow::ensure!(!probe.native_candidate(&remote).await?, "OWNED_PROBE_FALSE_NATIVE_CANDIDATE");
         }
-        // Installing a breakpoint in an isolated realm does not cover main-realm setter calls.
-        let isolated = probe
-            .remote(
-                "Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'checked').set",
-                Some(context),
-            )
+        // A hostile descriptor helper must not be executed while capturing the reference.
+        probe.evaluate("globalThis.__ownedDescriptorCalls=0;globalThis.__ownedSavedDescriptor=Object.getOwnPropertyDescriptor;Object.getOwnPropertyDescriptor=()=>{__ownedDescriptorCalls++;throw new Error('owned-marker')};true").await?;
+        probe.capture_checked_setter(None).await?;
+        anyhow::ensure!(
+            probe.evaluate("__ownedDescriptorCalls").await? == 0,
+            "OWNED_PROBE_PAGE_DESCRIPTOR_EXECUTED"
+        );
+        probe.evaluate("Object.getOwnPropertyDescriptor=__ownedSavedDescriptor;globalThis.__ownedInterfaceEffects=0;globalThis.__ownedSavedInput=HTMLInputElement;Object.defineProperty(window,'HTMLInputElement',{get(){__ownedInterfaceEffects++;return __ownedSavedInput},configurable:true});true").await?;
+        anyhow::ensure!(
+            probe.capture_checked_setter(None).await.is_err()
+                && probe.evaluate("__ownedInterfaceEffects").await? == 0,
+            "OWNED_PROBE_INTERFACE_GETTER_SIDE_EFFECT"
+        );
+        for replacement in [
+            "function HTMLInputElement(){}",
+            "__ownedSavedInput.bind(null)",
+            "new Proxy(__ownedSavedInput,{})",
+        ] {
+            probe.evaluate(&format!("Object.defineProperty(window,'HTMLInputElement',{{value:{replacement},writable:true,configurable:true}});true")).await?;
+            anyhow::ensure!(
+                probe.capture_checked_setter(None).await.is_err(),
+                "OWNED_PROBE_FALSE_INTERFACE_ACCEPTED"
+            );
+        }
+        probe
+            .evaluate("window.HTMLInputElement=__ownedSavedInput;true")
             .await?;
+        probe.capture_checked_setter(None).await?;
+        probe.evaluate("globalThis.__ownedCheckedDescriptor=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'checked');Object.defineProperty(HTMLInputElement.prototype,'checked',{set(value){},get(){return false},configurable:true});true").await?;
+        anyhow::ensure!(
+            probe.capture_checked_setter(None).await.is_err(),
+            "OWNED_PROBE_JS_SETTER_ACCEPTED"
+        );
+        probe.evaluate("Object.defineProperty(HTMLInputElement.prototype,'checked',__ownedCheckedDescriptor);true").await?;
+        probe.capture_checked_setter(None).await?;
+        // Installing a breakpoint in an isolated realm does not cover main-realm setter calls.
+        let isolated = probe.capture_checked_setter(Some(context)).await?;
         let isolated_bp = probe
             .command(
                 "Debugger.setBreakpointOnFunctionCall",
@@ -374,6 +491,8 @@ async fn real_chromium_native_property_candidate_counts_aba_without_pausing() {
             toggle,
             "(()=>{const frame=document.createElement('iframe');document.body.appendChild(frame);const setter=Object.getOwnPropertyDescriptor(frame.contentWindow.HTMLInputElement.prototype,'checked').set;const node=document.getElementById('owned-first');setter.call(node,true);const changed=node.checked;setter.call(node,false);frame.remove();return changed&&!node.checked})()",
             "(()=>{const frame=document.createElement('iframe');document.body.appendChild(frame);const setter=Object.getOwnPropertyDescriptor(frame.contentWindow.HTMLInputElement.prototype,'checked').set;const node=frame.contentWindow.parent.document.getElementById('owned-first');setter.call(node,true);const changed=node.checked;setter.call(node,false);frame.remove();return changed&&!node.checked})()",
+            "(()=>{const frame=document.createElement('iframe');document.body.appendChild(frame);const changed=frame.contentWindow.eval(`(()=>{const node=parent.document.getElementById('owned-first');node.checked=true;const changed=node.checked;node.checked=false;return changed&&!node.checked})()`);frame.remove();return changed})()",
+            "(()=>{const frame=document.createElement('iframe');document.body.appendChild(frame);const changed=frame.contentWindow.eval(`(()=>{const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'checked').set;const node=parent.document.getElementById('owned-first');setter.call(node,true);const changed=node.checked;setter.call(node,false);return changed&&!node.checked})()`);frame.remove();return changed})()",
         ] {
             let before = probe.counts(&ledger).await?;
             anyhow::ensure!(probe.evaluate(expression).await? == true, "OWNED_PROBE_REAL_TOGGLE_FAILED");
@@ -402,12 +521,7 @@ async fn real_chromium_native_property_candidate_counts_aba_without_pausing() {
         probe
             .evaluate("globalThis.__ownedPeerCounter=0;true")
             .await?;
-        let peer_setter = peer
-            .remote(
-                "Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'checked').set",
-                None,
-            )
-            .await?;
+        let peer_setter = peer.capture_checked_setter(None).await?;
         let peer_bp = peer
             .command(
                 "Debugger.setBreakpointOnFunctionCall",
@@ -440,6 +554,7 @@ async fn real_chromium_native_property_candidate_counts_aba_without_pausing() {
                 json!({"breakpointId":breakpoint["breakpointId"]}),
             )
             .await?;
+        verify_receiver_guard_candidate(&mut probe, &setter).await?;
         peer.command("Debugger.disable", json!({})).await?;
         probe.command("Debugger.disable", json!({})).await?;
         drop(peer);
@@ -458,4 +573,133 @@ async fn real_chromium_native_property_candidate_counts_aba_without_pausing() {
         }
         panic!("OWNED_PROBE_LOCAL_SETUP_FAILED");
     }
+}
+
+// This fixture deliberately uses owned, unmodified intrinsics. It proves condition behavior,
+// not production trust, context coverage, lifetime or reconnection safety.
+async fn verify_receiver_guard_candidate(probe: &mut Probe, setter: &Value) -> anyhow::Result<()> {
+    probe
+        .evaluate("globalThis.__ownedGuardEffects=0;true")
+        .await?;
+    let receivers = [
+        ("(()=>{const e={get __ownedUnsafeLookup(){__ownedGuardEffects++;return undefined}};try{HTMLInputElement.prototype.__lookupSetter__('checked').call(e,true);return false}catch{return true}})()", 1),
+        ("(()=>{const e=new Proxy(document.getElementById('owned-first'),{get(target,key){if(key==='__ownedUnsafeLookup'){__ownedGuardEffects++;return undefined}return Reflect.get(target,key)}});try{HTMLInputElement.prototype.__lookupSetter__('checked').call(e,true);return false}catch{return true}})()", 1),
+        ("(()=>{const e=document.createElement('input');e.type='checkbox';Object.defineProperty(e,'__ownedUnsafeLookup',{get(){__ownedGuardEffects++;return undefined}});e.checked=true;const changed=e.checked;e.checked=false;return changed&&!e.checked})()", 2),
+    ];
+    let unsafe_bp = probe
+        .command(
+            "Debugger.setBreakpointOnFunctionCall",
+            json!({
+                "objectId":object_id(setter)?,"condition":"(this.__ownedUnsafeLookup?.(),false)"
+            }),
+        )
+        .await?;
+    for (expression, expected) in receivers {
+        probe.evaluate("__ownedGuardEffects=0;true").await?;
+        anyhow::ensure!(
+            probe.evaluate(expression).await? == true
+                && probe.evaluate("__ownedGuardEffects").await? == expected,
+            "OWNED_PROBE_UNSAFE_LOOKUP_BASELINE_CHANGED"
+        );
+    }
+    probe
+        .command(
+            "Debugger.removeBreakpoint",
+            json!({"breakpointId":unsafe_bp["breakpointId"]}),
+        )
+        .await?;
+
+    probe.evaluate("globalThis.__ownedFrame=document.createElement('iframe');document.body.appendChild(__ownedFrame);true").await?;
+    let frames = probe.command("Page.getFrameTree", json!({})).await?;
+    let root = frames["frameTree"]["frame"]["id"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("OWNED_PROBE_FRAME_MISSING"))?;
+    let children = frames["frameTree"]["childFrames"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("OWNED_PROBE_CHILD_FRAME_MISSING"))?;
+    anyhow::ensure!(children.len() == 1, "OWNED_PROBE_CHILD_FRAME_AMBIGUOUS");
+    let child = children[0]["frame"]["id"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("OWNED_PROBE_CHILD_FRAME_MISSING"))?;
+    probe.command("Runtime.enable", json!({})).await?;
+    let contexts = [root, child].map(|frame| probe.default_contexts.get(frame).copied());
+    let [Some(root_context), Some(child_context)] = contexts else {
+        anyhow::bail!("OWNED_PROBE_DEFAULT_CONTEXT_MISSING");
+    };
+    let code = "const __ownedSafeRealm=(()=>{'use strict';const target=top.document.getElementById('owned-first');const data=new WeakMap([[target,{count:0}]]);const get=WeakMap.prototype.get;const apply=Reflect.apply;return {__proto__:null,append(receiver){const value=apply(get,data,[receiver]);if(value)value.count++},read:()=>apply(get,data,[target]).count}})();__ownedSafeRealm.read";
+    let root_ledger = probe.remote(code, Some(root_context)).await?;
+    let safe_bp = probe
+        .command(
+            "Debugger.setBreakpointOnFunctionCall",
+            json!({
+                "objectId":object_id(setter)?,"condition":"(__ownedSafeRealm.append(this),false)"
+            }),
+        )
+        .await?;
+    let cases = [
+        "(()=>{const e=document.getElementById('owned-first');e.checked=true;const changed=e.checked;e.checked=false;return changed&&!e.checked})()",
+        "(()=>{const set=__ownedFrame.contentWindow.HTMLInputElement.prototype.__lookupSetter__('checked');const e=document.getElementById('owned-first');set.call(e,true);const changed=e.checked;set.call(e,false);return changed&&!e.checked})()",
+        "__ownedFrame.contentWindow.eval(`(()=>{const e=parent.document.getElementById('owned-first');e.checked=true;const changed=e.checked;e.checked=false;return changed&&!e.checked})()`)",
+        "__ownedFrame.contentWindow.eval(`(()=>{const set=HTMLInputElement.prototype.__lookupSetter__('checked');const e=parent.document.getElementById('owned-first');set.call(e,true);const changed=e.checked;set.call(e,false);return changed&&!e.checked})()`)",
+    ];
+    let before = read_realm_count(probe, &root_ledger).await?;
+    anyhow::ensure!(
+        probe.evaluate(cases[1]).await? == true
+            && read_realm_count(probe, &root_ledger).await? == before,
+        "OWNED_PROBE_SINGLE_REALM_COVERAGE_BASELINE_CHANGED"
+    );
+    let child_ledger = probe.remote(code, Some(child_context)).await?;
+    for (index, expression) in cases.iter().enumerate() {
+        let before = [
+            read_realm_count(probe, &root_ledger).await?,
+            read_realm_count(probe, &child_ledger).await?,
+        ];
+        anyhow::ensure!(
+            probe.evaluate(expression).await? == true,
+            "OWNED_PROBE_REAL_TOGGLE_FAILED"
+        );
+        let after = [
+            read_realm_count(probe, &root_ledger).await?,
+            read_realm_count(probe, &child_ledger).await?,
+        ];
+        let expected = if index % 2 == 0 { [2, 0] } else { [0, 2] };
+        anyhow::ensure!(
+            after[0] == before[0] + expected[0] && after[1] == before[1] + expected[1],
+            "OWNED_PROBE_REALM_APPEND_MISMATCH"
+        );
+    }
+    for (expression, _) in receivers {
+        probe.evaluate("__ownedGuardEffects=0;true").await?;
+        let before = [
+            read_realm_count(probe, &root_ledger).await?,
+            read_realm_count(probe, &child_ledger).await?,
+        ];
+        anyhow::ensure!(
+            probe.evaluate(expression).await? == true
+                && probe.evaluate("__ownedGuardEffects").await? == 0
+                && read_realm_count(probe, &root_ledger).await? == before[0]
+                && read_realm_count(probe, &child_ledger).await? == before[1],
+            "OWNED_PROBE_SAFE_RECEIVER_TRIGGERED_PAGE_CODE"
+        );
+    }
+    probe
+        .command(
+            "Debugger.removeBreakpoint",
+            json!({"breakpointId":safe_bp["breakpointId"]}),
+        )
+        .await?;
+    probe.evaluate("__ownedFrame.remove();true").await?;
+    Ok(())
+}
+
+async fn read_realm_count(probe: &mut Probe, ledger: &Value) -> anyhow::Result<u64> {
+    probe
+        .command(
+            "Runtime.callFunctionOn",
+            json!({"objectId":object_id(ledger)?,
+        "functionDeclaration":"function(){return this()}","returnByValue":true}),
+        )
+        .await?["result"]["value"]
+        .as_u64()
+        .ok_or_else(|| anyhow::anyhow!("OWNED_PROBE_COUNT_MISSING"))
 }

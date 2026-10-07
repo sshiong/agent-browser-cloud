@@ -2,7 +2,7 @@
 
 > 更新日期：2026-10-07
 > 基准分支：`main`
-> 编写时基准提交：`dbcd3c9 test: verify non-pausing native property observation candidates`
+> 编写时基准提交：`8f77424 fix: invalidate regional windows on native form resets`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -307,6 +307,15 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- 原生 checked 观察候选现通过只读 CDP 构造器/属性元数据取得 setter，不调用页面
+  descriptor helper；页面 getter、副作用、JS/Bound/Proxy 构造器与替换 setter 均拒绝。
+  真实 Chrome 同时证明旧 `this[key]` 条件会触发未知接收者 getter/Proxy trap，不能
+  接入生产；单个主 Realm 私有回调也漏掉外 Realm setter。每个自有同源默认 Realm
+  独立 WeakMap 的替代条件覆盖四种 setter/调用方组合，未知对象、Proxy、未登记元素
+  均无页面副作用或计数变化且不暂停，见 progress 280。仍是实验，完整可信 Intrinsic、
+  Frame/Context 连续登记、Scope、更多属性、断线/回收与生产区域动作闭环未完成。
+  8f77424 主 CI、Integration/GameDay、Operator、Windows/macOS 均成功。
 
 - 自有 Chrome 证明原生 form.reset 后恢复 checked 不产生 Mutation/CSS 事件，也不调用
   checked setter，但存在 reset 事件；旧实际 State Collector 回归仍保留相关区域 readiness，

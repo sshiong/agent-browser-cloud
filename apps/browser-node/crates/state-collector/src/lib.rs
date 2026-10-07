@@ -7022,6 +7022,180 @@ mod tests {
             .unstable_regions
             .iter()
             .any(|region| region.element_id == counter.element_id));
+        // A native form reset can change a property without Mutation/CSS events, then a
+        // script can restore it before the next full sample. Use a separate owned form so
+        // the original entity and action fixtures keep their exact DOM identities.
+        let fixture = CdpStateCollector::cdp_command_with_params(
+            &websocket,
+            "Runtime.evaluate",
+            974,
+            serde_json::json!({"expression":"(() => { const form = document.createElement('form'); form.id = 'owned-regional-reset'; form.style.cssText = 'position:fixed;right:10px;top:200px;width:160px;height:40px;z-index:100'; const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Owned regional reset'; const input = document.createElement('input'); input.type = 'checkbox'; input.defaultChecked = true; input.checked = false; form.append(button, input); document.body.appendChild(form); return !input.checked; })()","returnByValue":true}),
+        ).await.unwrap();
+        assert_eq!(
+            fixture
+                .pointer("/result/value")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+        loop {
+            let current = collector
+                .collect_current_state("ses_real_chromium")
+                .await
+                .unwrap();
+            let button = current
+                .targets
+                .iter()
+                .find(|target| target.name.as_deref() == Some("Owned regional reset"))
+                .unwrap();
+            if current.regional_stability.ready_for(&button.element_id) {
+                break;
+            }
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "owned reset fixture did not acquire a stable region"
+            );
+            tokio::time::sleep(Duration::from_millis(150)).await;
+        }
+        let reset = CdpStateCollector::cdp_command_with_params(
+            &websocket,
+            "Runtime.evaluate",
+            973,
+            serde_json::json!({"expression":"(() => { const form = document.getElementById('owned-regional-reset'); const input = form.querySelector('input'); if (input.checked) return false; form.reset(); const changed = input.checked; input.checked = false; return changed && !input.checked; })()","returnByValue":true}),
+        ).await.unwrap();
+        assert_eq!(
+            reset
+                .pointer("/result/value")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        let after_reset = collector
+            .collect_current_state("ses_real_chromium")
+            .await
+            .unwrap();
+        let button = after_reset
+            .targets
+            .iter()
+            .find(|target| target.name.as_deref() == Some("Owned regional reset"))
+            .unwrap();
+        assert!(
+            !after_reset.regional_stability.ready_for(&button.element_id),
+            "native form reset and restored checked state must invalidate the related region"
+        );
+        let unrelated = after_reset
+            .targets
+            .iter()
+            .find(|target| target.name.as_deref() == Some("执行验收"))
+            .unwrap();
+        assert!(
+            after_reset
+                .regional_stability
+                .ready_for(&unrelated.element_id),
+            "a reset in another form must not invalidate the unrelated entity region"
+        );
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+        loop {
+            let current = collector
+                .collect_current_state("ses_real_chromium")
+                .await
+                .unwrap();
+            let button = current
+                .targets
+                .iter()
+                .find(|target| target.name.as_deref() == Some("Owned regional reset"))
+                .unwrap();
+            if current.regional_stability.ready_for(&button.element_id) {
+                break;
+            }
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "owned reset region did not rebuild its window"
+            );
+            tokio::time::sleep(Duration::from_millis(150)).await;
+        }
+        let frame = CdpStateCollector::cdp_command_with_params(
+            &websocket,
+            "Page.getFrameTree",
+            971,
+            serde_json::json!({}),
+        )
+        .await
+        .unwrap();
+        let world = CdpStateCollector::cdp_command_with_params(
+            &websocket,
+            "Page.createIsolatedWorld",
+            970,
+            serde_json::json!({"frameId":frame["frameTree"]["frame"]["id"],
+                "worldName":"agentbrowser-region-observer-v1","grantUniveralAccess":false}),
+        )
+        .await
+        .unwrap();
+        // Reproduce a ledger created before reset observation, retaining its original nonce
+        // and watched instances. Adding the new listener must invalidate that unknown gap.
+        let legacy = CdpStateCollector::cdp_command_with_params(&websocket, "Runtime.evaluate", 969,
+            serde_json::json!({"contextId":world["executionContextId"],"returnByValue":true,
+                "expression":"(() => { const state = globalThis.__agentBrowserRegionObserverV1; if (!state?.resetListener) return false; document.removeEventListener('reset', state.resetListener, true); delete state.resetListener; return true; })()"})).await.unwrap();
+        assert_eq!(
+            legacy
+                .pointer("/result/value")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        let installed = collector
+            .collect_current_state("ses_real_chromium")
+            .await
+            .unwrap();
+        let button = installed
+            .targets
+            .iter()
+            .find(|target| target.name.as_deref() == Some("Owned regional reset"))
+            .unwrap();
+        assert!(
+            !installed.regional_stability.ready_for(&button.element_id),
+            "installing reset observation on an existing ledger must invalidate the unobserved gap"
+        );
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+        loop {
+            let current = collector
+                .collect_current_state("ses_real_chromium")
+                .await
+                .unwrap();
+            let button = current
+                .targets
+                .iter()
+                .find(|target| target.name.as_deref() == Some("Owned regional reset"))
+                .unwrap();
+            if current.regional_stability.ready_for(&button.element_id) {
+                break;
+            }
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "reset listener installation prevented window recovery"
+            );
+            tokio::time::sleep(Duration::from_millis(150)).await;
+        }
+        CdpStateCollector::cdp_command_with_params(&websocket, "Runtime.evaluate", 972,
+            serde_json::json!({"expression":"document.getElementById('owned-regional-reset').remove(); true","returnByValue":true})).await.unwrap();
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+        loop {
+            let current = collector
+                .collect_current_state("ses_real_chromium")
+                .await
+                .unwrap();
+            let button = current
+                .targets
+                .iter()
+                .find(|target| target.name.as_deref() == Some("执行验收"))
+                .unwrap();
+            if current.regional_stability.ready_for(&button.element_id) {
+                break;
+            }
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "original mutation fixture did not regain a stable baseline"
+            );
+            tokio::time::sleep(Duration::from_millis(150)).await;
+        }
         let transient_result = CdpStateCollector::cdp_command_with_params(
             &websocket,
             "Runtime.evaluate",

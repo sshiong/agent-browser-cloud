@@ -2,7 +2,7 @@
 
 > 更新日期：2026-10-07
 > 基准分支：`main`
-> 编写时基准提交：`7d39a6a fix: retain stylesheet event evidence across regional samples`
+> 编写时基准提交：`dbcd3c9 test: verify non-pausing native property observation candidates`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -307,6 +307,14 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- 自有 Chrome 证明原生 form.reset 后恢复 checked 不产生 Mutation/CSS 事件，也不调用
+  checked setter，但存在 reset 事件；旧实际 State Collector 回归仍保留相关区域 readiness，
+  精确断言失败。区域观察增加幂等 reset 监听，相关 Form 的区域重建窗口，无关实体仍稳定；
+  旧 ledger 补装监听先使所有旧窗口失效，随后恢复，见 progress 279。五项真实 Chrome、
+  Rust 240 项、Clippy、Replay 43 项、兼容和完整 OrbStack Integration 通过。dbcd3c9
+  主 CI、Integration/GameDay、Operator、Windows/macOS 均成功；纯 IDL 往返、完整区域
+  动作/Outcome 和外部 Gate 保留。
 
 - 自有 Chrome 原生表单属性实验确认：Main Realm 的 checked setter 断点可覆盖跨 Realm
   调用；隔离 Realm 的同名 setter 断点不能覆盖。暂停 callFrames 不暴露接收元素，两客户端

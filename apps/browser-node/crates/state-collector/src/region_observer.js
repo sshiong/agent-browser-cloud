@@ -5,27 +5,27 @@
   const key = '__agentBrowserRegionObserverV1';
   const limit = Number.MAX_SAFE_INTEGER;
   let state = globalThis[key];
+  const advance = () => {
+    if (state.sequence >= limit) { state.fault = true; return state.sequence; }
+    return ++state.sequence;
+  };
+  const related = (element, target) => element === target
+    || element.contains(target) || target.contains(element);
+  const touch = target => {
+    const sequence = advance();
+    if (!(target instanceof Node)) { state.fault = true; return; }
+    for (const entry of state.watched.values()) {
+      const styled = target.nodeType === Node.ELEMENT_NODE ? target : target.parentElement;
+      if (related(entry.scope, target) || styled?.closest('style,link[rel="stylesheet"]')) {
+        entry.lastEventSequence = sequence;
+      }
+    }
+  };
   if (!state) {
     const nonce = Array.from(crypto.getRandomValues(new Uint32Array(4)),
       value => value.toString(16).padStart(8, '0')).join('');
     state = {nonce, sequence: 1, nextIdentity: 1, fault: false,
       identities: new WeakMap(), watched: new Map()};
-    const advance = () => {
-      if (state.sequence >= limit) { state.fault = true; return state.sequence; }
-      return ++state.sequence;
-    };
-    const related = (element, target) => element === target
-      || element.contains(target) || target.contains(element);
-    const touch = target => {
-      const sequence = advance();
-      if (!(target instanceof Node)) { state.fault = true; return; }
-      for (const entry of state.watched.values()) {
-        const styled = target.nodeType === Node.ELEMENT_NODE ? target : target.parentElement;
-        if (related(entry.scope, target) || styled?.closest('style,link[rel="stylesheet"]')) {
-          entry.lastEventSequence = sequence;
-        }
-      }
-    };
     const mutations = records => {
       if (records.length > 1000) { state.fault = true; return; }
       for (const record of records) touch(record.target);
@@ -44,6 +44,14 @@
     }
     state.flush = () => mutations(state.observer.takeRecords());
     globalThis[key] = state;
+  }
+  // A native form reset does not have to call an input's JavaScript setter or emit a
+  // Mutation. Add the listener to existing ledgers too, invalidating the unobserved gap.
+  if (!state.resetListener) {
+    state.resetListener = event => touch(event.target);
+    document.addEventListener('reset', state.resetListener, true);
+    const sequence = advance();
+    for (const entry of state.watched.values()) entry.lastEventSequence = sequence;
   }
   state.flush();
   const next = new Map();

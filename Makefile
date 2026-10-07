@@ -6,7 +6,7 @@ RUNTIME_CAPACITY_CYCLES ?= 500
 BROWSER_DENSITY_CONCURRENCY ?= 4
 REAL_CHROMIUM_PATH ?=
 
-.PHONY: docs-generate docs-check test-replay-gate test-recording-privacy
+.PHONY: docs-generate docs-check test-replay-gate test-recording-privacy test-native-property-observer
 docs-generate:
 	python3 tools/docs/check_readme.py --write
 
@@ -16,6 +16,14 @@ docs-check:
 
 test-replay-gate:
 	python3 -m unittest discover -s tests/validation -p 'test_*.py' -v
+
+# Owned Chromium experiment; does not enable a production property observer.
+test-native-property-observer:
+	test -n "$(REAL_CHROMIUM_PATH)"
+	REAL_CHROMIUM_PATH="$(REAL_CHROMIUM_PATH)" cargo test --locked \
+		--manifest-path apps/browser-node/Cargo.toml -p state-collector \
+		native_property_probe::real_chromium_native_property_candidate_counts_aba_without_pausing \
+		-- --ignored --test-threads=1
 
 # Use the Browser Node's Debian OCR/OpenCV dependencies; the test step has no network.
 test-recording-privacy:

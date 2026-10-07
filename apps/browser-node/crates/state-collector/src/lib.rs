@@ -3,6 +3,8 @@
 //! 负责采集浏览器当前状态。
 
 mod dialog_monitor;
+#[cfg(test)]
+mod native_property_probe;
 mod navigation_diagnostics;
 mod region_observer;
 mod region_stability;

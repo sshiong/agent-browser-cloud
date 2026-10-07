@@ -2,7 +2,7 @@
 
 > 更新日期：2026-10-07
 > 基准分支：`main`
-> 编写时基准提交：`bddda54 test: scroll returned public page before actionable link checks`
+> 编写时基准提交：`7d39a6a fix: retain stylesheet event evidence across regional samples`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -307,6 +307,15 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- 自有 Chrome 原生表单属性实验确认：Main Realm 的 checked setter 断点可覆盖跨 Realm
+  调用；隔离 Realm 的同名 setter 断点不能覆盖。暂停 callFrames 不暴露接收元素，两客户端
+  的相同断点 ID 不能证明独占归属。条件中的 this 则为实际接收元素；只追加的元素回调加
+  恒 false 条件可记录往返且不暂停。仓库独立真实 Chrome 测试验证元素隔离、页面不能替换
+  回调、主动调用只能追加、双客户端不同条件共存及移除不互相删除，见 progress 278。
+  这是候选机制证据，不是生产观察器；主 World 可信 Intrinsic、业务 Scope、重连/回收和
+  更多 IDL/原生内部变化仍待实现。7d39a6a 主 CI、Integration/GameDay、Operator 与
+  Windows/macOS 均成功；完整区域动作和外部 Gate 保留。
 
 - 自有 Chrome 证明 CSSOM 插入/删除与规则属性恢复不产生 MutationObserver 事件，
   但产生 CSS.styleSheetChanged；旧生产代码的精确 CSSOM 回归失败。区域观察现按

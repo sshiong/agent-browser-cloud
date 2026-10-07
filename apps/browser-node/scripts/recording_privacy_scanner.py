@@ -155,8 +155,10 @@ def _visual_sensitive_regions(image: np.ndarray) -> tuple[int, list[tuple[int, i
     ]
 
     detector = cv2.QRCodeDetector()
+    # Privacy needs geometry, never QR payloads. Debian builds without QUIRC emit native
+    # decoding diagnostics to stdout, which corrupts this process's NDJSON transport.
     try:
-        detected, _, points, _ = detector.detectAndDecodeMulti(image)
+        detected, points = detector.detectMulti(image)
     except cv2.error as error:
         raise RuntimeError("QR_CLASSIFIER_FAILED") from error
     if detected and points is not None:
@@ -166,7 +168,7 @@ def _visual_sensitive_regions(image: np.ndarray) -> tuple[int, list[tuple[int, i
             regions.append(_bounded_region((min(xs), min(ys), max(xs), max(ys)), width, height))
     else:
         try:
-            _, points, _ = detector.detectAndDecode(image)
+            _, points = detector.detect(image)
         except cv2.error as error:
             raise RuntimeError("QR_CLASSIFIER_FAILED") from error
         if points is not None and len(points):

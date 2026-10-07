@@ -3,7 +3,10 @@
 import base64
 import hashlib
 import importlib.util
+import json
 import pathlib
+import subprocess
+import sys
 import unittest
 from unittest import mock
 
@@ -70,6 +73,45 @@ class PersistedPixelsTest(unittest.TestCase):
 class RealClassifiersTest(unittest.TestCase):
     def test_real_ocr_and_qr_masking_self_test(self):
         SCANNER.self_test()
+
+    def test_real_multi_qr_frames_keep_scanner_stdout_strict_ndjson(self):
+        # Own synthetic codes only. Exercise the actual Debian process and its C-library
+        # stdout, which a Python-level mock or direct scan() call cannot verify.
+        image = np.full((440, 900, 3), 255, np.uint8)
+        for index, marker in enumerate(("owned-marker-one", "owned-marker-two")):
+            qr = cv2.QRCodeEncoder_create().encode(marker)
+            middle = qr.shape[0] // 2
+            self.assertTrue(np.any(qr[middle - 2:middle + 2, middle - 2:middle + 2] == 0))
+            qr[middle - 2:middle + 2, middle - 2:middle + 2] = 255
+            qr = cv2.resize(qr, (300, 300), interpolation=cv2.INTER_NEAREST)
+            left = 50 + 450 * index
+            image[60:360, left:left + 300] = cv2.cvtColor(qr, cv2.COLOR_GRAY2BGR)
+        success, jpeg = cv2.imencode(".jpg", image)
+        self.assertTrue(success)
+        encoded = base64.b64encode(jpeg.tobytes()).decode("ascii")
+        request = (json.dumps({"imageBase64": encoded}) + "\n").encode("ascii")
+        completed = subprocess.run(
+            [sys.executable, str(ROOT / "apps/browser-node/scripts/recording_privacy_scanner.py")],
+            input=request * 2, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=30, check=False,
+        )
+        self.assertEqual(completed.returncode, 0, "scanner process must finish successfully")
+        self.assertEqual(len(completed.stdout.splitlines()), 2,
+                         "scanner must emit exactly one NDJSON response per frame")
+        for line in completed.stdout.splitlines():
+            try:
+                response = json.loads(line)
+            except (ValueError, UnicodeError):
+                self.fail("scanner emitted a non-JSON stdout line")
+            self.assertEqual(response["visualDetectedSignalCount"], 2)
+            self.assertEqual(response["visualMaskedRegionCount"], 2)
+            self.assertEqual(response["visualResidualSignalCount"], 0)
+            self.assertEqual(response["ocrResidualSignalCount"], 0)
+            sanitized = base64.b64decode(response["sanitizedImageBase64"], validate=True)
+            self.assertEqual(response["sanitizedImageSha256"], hashlib.sha256(sanitized).hexdigest())
+            pixels = cv2.imdecode(np.frombuffer(sanitized, np.uint8), cv2.IMREAD_COLOR)
+            detected, _ = cv2.QRCodeDetector().detectMulti(pixels)
+            self.assertFalse(detected, "persisted JPEG must no longer expose either QR region")
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 
 > 更新日期：2026-10-07
 > 基准分支：`main`
-> 编写时基准提交：`8f77424 fix: invalidate regional windows on native form resets`
+> 编写时基准提交：`a6a8939 test: verify native property receiver guards and realm coverage`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -307,6 +307,13 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- Recording 的真实 Debian OpenCV 解码接口会向 stdout 输出 QUIRC 诊断：旧扫描进程
+  两帧产生六行，其中四行不是 JSON；存活流的第一条响应已遭污染。扫描器现只用 QR
+  几何检测，不解码载荷；两个自有损坏二维码均遮罩，最终 JPEG 复检/Hash 保持，六项
+  真实 OCR/OpenCV 与录制/存储 Rust 43 项通过，见 progress 281。这修复真实扫描器的
+  通道故障，不追溯为旧公开网站失败原因；客户视觉类、目标云 Legal Hold 与生产 Gate
+  仍缺。a6a8939 主 CI、Integration/GameDay、Operator、Windows/macOS 全部成功。
 
 - 原生 checked 观察候选现通过只读 CDP 构造器/属性元数据取得 setter，不调用页面
   descriptor helper；页面 getter、副作用、JS/Bound/Proxy 构造器与替换 setter 均拒绝。

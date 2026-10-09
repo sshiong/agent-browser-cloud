@@ -1,8 +1,8 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-10-07
+> 更新日期：2026-10-09
 > 基准分支：`main`
-> 编写时基准提交：`a6a8939 test: verify native property receiver guards and realm coverage`
+> 编写时基准提交：`837fbbf fix: keep QR decoding diagnostics out of recording scanner streams`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -307,6 +307,16 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- Recording 扫描器能力准入不再只看自检进程退出码：退出 0 但混入诊断的真实子进程
+  在旧逻辑被错误接受，精确回归失败；现要求最多 512 字节的完整、无重复/额外字段
+  JSON，ready=true 且 scanVersion 精确匹配 v2。十二个真实子进程场景及相对/缺失路径
+  通过，Node 33 项、Rust Workspace 241 项与 Node 严格 Clippy 通过，见 progress 282。
+  有效 v2 响应与既有 Integration 夹具兼容，不改变正式能力名称或 API/RPC/SDK。
+  本机完整 OrbStack Integration 第三轮 exit 0、审计链有效；前两轮 act POST 409 的
+  精确原因未取得，未增加动作重放；Java 动作服务 9 项通过。
+  837fbbf 主 CI、Integration/GameDay、Operator、Windows/macOS 全部成功；客户视觉、
+  目标云治理、完整区域动作和外部生产 Gate 保留。
 
 - Recording 的真实 Debian OpenCV 解码接口会向 stdout 输出 QUIRC 诊断：旧扫描进程
   两帧产生六行，其中四行不是 JSON；存活流的第一条响应已遭污染。扫描器现只用 QR

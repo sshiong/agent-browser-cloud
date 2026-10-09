@@ -81,6 +81,31 @@ const MICRO_BATCH_COMPONENT_QUIET: u64 = 250;
 const DEFAULT_RECORDING_PRIVACY_SCANNER_PATH: &str =
     "/usr/local/libexec/browsercloud/recording-privacy-scanner";
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct RecordingPrivacyScannerReadiness {
+    ready: bool,
+    scan_version: String,
+}
+
+fn recording_privacy_scanner_available(scanner_path: &Path) -> bool {
+    scanner_path.is_absolute()
+        && std::process::Command::new(scanner_path)
+            .arg("--self-test")
+            .env_clear()
+            .env("PATH", "/usr/bin:/bin")
+            .env("LANG", "C.UTF-8")
+            .output()
+            .is_ok_and(|output| {
+                output.status.success()
+                    && output.stdout.len() <= 512
+                    && serde_json::from_slice::<RecordingPrivacyScannerReadiness>(&output.stdout)
+                        .is_ok_and(|proof| {
+                            proof.ready && proof.scan_version == "tesseract-opencv-pii-face-qr-v2"
+                        })
+            })
+}
+
 fn component_stability_ready(state: &CurrentState) -> bool {
     let stability = &state.page_stability;
     stability.evidence_fresh
@@ -1148,14 +1173,8 @@ impl NodeCapacityReporter {
         let recording_privacy_scanner_path = std::env::var("RECORDING_PRIVACY_SCANNER_PATH")
             .map(PathBuf::from)
             .unwrap_or_else(|_| PathBuf::from(DEFAULT_RECORDING_PRIVACY_SCANNER_PATH));
-        let recording_privacy_scanner_available = recording_privacy_scanner_path.is_absolute()
-            && std::process::Command::new(&recording_privacy_scanner_path)
-                .arg("--self-test")
-                .env_clear()
-                .env("PATH", "/usr/bin:/bin")
-                .env("LANG", "C.UTF-8")
-                .output()
-                .is_ok_and(|output| output.status.success());
+        let recording_privacy_scanner_available =
+            recording_privacy_scanner_available(&recording_privacy_scanner_path);
         labels.insert(
             "observerEvidence".to_owned(),
             if evidence_storage_available {
@@ -11299,6 +11318,81 @@ async fn shutdown_signal() {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
+    #[test]
+    fn scanner_capability_rejects_successful_process_with_invalid_readiness() {
+        use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+        struct OwnedFixture(PathBuf);
+        impl Drop for OwnedFixture {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let root = std::env::temp_dir().join(format!(
+            "browsercloud-scanner-ready-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&root)
+            .unwrap();
+        let fixture = OwnedFixture(root);
+        let scanner = fixture.0.join("scanner");
+        let valid = r#"{"ready":true,"scanVersion":"tesseract-opencv-pii-face-qr-v2"}"#;
+        let cases = [
+            (format!("{valid}\nOWNED_LIBRARY_DIAGNOSTIC"), 0, false),
+            (String::new(), 0, false),
+            ("{}".to_owned(), 0, false),
+            (
+                r#"{"ready":false,"scanVersion":"tesseract-opencv-pii-face-qr-v2"}"#.to_owned(),
+                0,
+                false,
+            ),
+            (
+                r#"{"ready":"true","scanVersion":"tesseract-opencv-pii-face-qr-v2"}"#.to_owned(),
+                0,
+                false,
+            ),
+            (
+                r#"{"ready":true,"scanVersion":"unknown"}"#.to_owned(),
+                0,
+                false,
+            ),
+            (
+                r#"{"ready":true,"ready":false,"scanVersion":"tesseract-opencv-pii-face-qr-v2"}"#
+                    .to_owned(),
+                0,
+                false,
+            ),
+            (
+                r#"{"ready":true,"scanVersion":"tesseract-opencv-pii-face-qr-v2","unexpected":0}"#
+                    .to_owned(),
+                0,
+                false,
+            ),
+            (format!("{valid}{valid}"), 0, false),
+            (format!("{valid}{}", " ".repeat(600)), 0, false),
+            (valid.to_owned(), 1, false),
+            (valid.to_owned(), 0, true),
+        ];
+        for (index, (stdout, exit_code, expected)) in cases.iter().enumerate() {
+            let script = format!("#!/bin/sh\ncat <<'OWNED_READY_RESPONSE'\n{stdout}\nOWNED_READY_RESPONSE\nexit {exit_code}\n");
+            std::fs::write(&scanner, script).unwrap();
+            std::fs::set_permissions(&scanner, std::fs::Permissions::from_mode(0o700)).unwrap();
+            assert_eq!(
+                recording_privacy_scanner_available(&scanner),
+                *expected,
+                "owned readiness case {index} must control capability admission"
+            );
+        }
+        assert!(!recording_privacy_scanner_available(Path::new(
+            "relative-scanner"
+        )));
+        assert!(!recording_privacy_scanner_available(
+            &fixture.0.join("missing-scanner")
+        ));
+    }
+
     #[test]
     fn secret_environment_reads_file_without_exposing_value_in_configuration() {
         let root = std::env::temp_dir().join(format!(

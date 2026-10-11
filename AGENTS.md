@@ -1,8 +1,8 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-10-09
+> 更新日期：2026-10-11
 > 基准分支：`main`
-> 编写时基准提交：`837fbbf fix: keep QR decoding diagnostics out of recording scanner streams`
+> 编写时基准提交：`f81b81c fix: require scanner readiness proof before advertising recording privacy`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -307,6 +307,13 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- 单目标动作输入派发前，若已授权主文档稳定 Element ID 的精确 Target Revision
+  解析冲突，可最多两次重采并沿用原身份/稳定状态校验；输入执行函数只调用一次。
+  自有真实 Chrome 旧准备逻辑精确回归失败，新逻辑通过，并验证同 URL 重载与旧协议
+  无身份命令拒绝；Rust 241 项通过，见 progress 283。严格 Clippy、完整 OrbStack Integration exit 0、审计链有效；Chrome 154 完整公开十七例串行 PASS 一次。
+  f81b81c 的主 CI、Integration/GameDay、Operator、Windows/macOS 全部成功；完整区域
+  产品化与原十一项客户/目标环境/供应商/组织/许可证 Gate 保留。
 
 - Recording 扫描器能力准入不再只看自检进程退出码：退出 0 但混入诊断的真实子进程
   在旧逻辑被错误接受，精确回归失败；现要求最多 512 字节的完整、无重复/额外字段

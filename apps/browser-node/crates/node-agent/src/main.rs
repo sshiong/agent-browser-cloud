@@ -55,7 +55,8 @@ use session_recorder::{
 use sha2::{Digest, Sha256};
 use state_collector::{
     diff_states, AgentJavascriptEvaluationRequest, BrowserStateCollector, BrowserTransactionPolicy,
-    CdpStateCollector, CurrentState, DiffOutcome, StateDiff, StateQuality, TabResourcePolicy,
+    CdpStateCollector, CurrentState, DiffOutcome, ResolvedTarget, StateDiff, StateQuality,
+    TabResourcePolicy,
 };
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -276,6 +277,71 @@ fn rebound_action_target(
     } else {
         (action.element_id.clone(), current_target_revision)
     }
+}
+
+struct PreparedSingleTargetAction {
+    payload: AgentActionCommand,
+    source: ResolvedTarget,
+    destination: Option<ResolvedTarget>,
+}
+
+async fn prepare_single_target_action(
+    collector: &CdpStateCollector,
+    original: &AgentActionCommand,
+    mut rebound: AgentActionCommand,
+) -> anyhow::Result<PreparedSingleTargetAction> {
+    anyhow::ensure!(
+        !original.main_document_element_id.is_empty(),
+        "single action identity is invalid"
+    );
+    for attempt in 0..3 {
+        // This block resolves metadata only. No input broker or CDP input command is
+        // invoked here, including when a drag destination fails after its source.
+        let resolved = async {
+            let source = collector
+                .resolve_target(
+                    &rebound.session_id,
+                    &rebound.target_ref,
+                    rebound.target_revision,
+                )
+                .await?;
+            let destination = if rebound.tool_id == "DRAG_TARGET" {
+                Some(
+                    collector
+                        .resolve_target(
+                            &rebound.session_id,
+                            &rebound.end_target_ref,
+                            rebound.target_revision,
+                        )
+                        .await?,
+                )
+            } else {
+                None
+            };
+            Ok::<_, anyhow::Error>((source, destination))
+        }
+        .await;
+        match resolved {
+            Ok((source, destination)) => {
+                return Ok(PreparedSingleTargetAction {
+                    payload: rebound,
+                    source,
+                    destination,
+                })
+            }
+            Err(error) if attempt < 2 && error.to_string() == "target revision is stale" => {
+                let current = collector
+                    .collect_current_state(&original.session_id)
+                    .await?;
+                // Preserve the original authorized identity, base cursor and sensitive
+                // input authority. New documents, unsettled pages and changed entities
+                // are rejected by the same main-document rebind checks.
+                rebound = rebound_single_action(original, &current)?;
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    unreachable!("bounded preparation always resolves or returns an error")
 }
 
 fn rebound_action_end_target(
@@ -4564,6 +4630,16 @@ impl NodeControlService {
         &self,
         payload: &AgentActionCommand,
     ) -> anyhow::Result<CurrentState> {
+        self.execute_prepared_agent_action(payload, None, None)
+            .await
+    }
+
+    async fn execute_prepared_agent_action(
+        &self,
+        payload: &AgentActionCommand,
+        prepared_source: Option<ResolvedTarget>,
+        prepared_destination: Option<ResolvedTarget>,
+    ) -> anyhow::Result<CurrentState> {
         anyhow::ensure!(
             payload.main_document_element_id.is_empty()
                 && payload.main_document_end_element_id.is_empty(),
@@ -4606,14 +4682,17 @@ impl NodeControlService {
                         && payload.duration_ms == 0,
                     "target action contains advanced input fields"
                 );
-                let target = self
-                    .state_collector
-                    .resolve_target(
-                        &payload.session_id,
-                        &payload.target_ref,
-                        payload.target_revision,
-                    )
-                    .await?;
+                let target = if let Some(target) = prepared_source {
+                    target
+                } else {
+                    self.state_collector
+                        .resolve_target(
+                            &payload.session_id,
+                            &payload.target_ref,
+                            payload.target_revision,
+                        )
+                        .await?
+                };
                 if matches!(
                     payload.tool_id.as_str(),
                     "TYPE_TEXT" | "FILL" | "PASTE_AGENT_CLIPBOARD" | "SELECT_OPTION"
@@ -4789,14 +4868,17 @@ impl NodeControlService {
                         && payload.timeout_ms == 0,
                     "advanced input contains unsupported fields"
                 );
-                let target = self
-                    .state_collector
-                    .resolve_target(
-                        &payload.session_id,
-                        &payload.target_ref,
-                        payload.target_revision,
-                    )
-                    .await?;
+                let target = if let Some(target) = prepared_source {
+                    target
+                } else {
+                    self.state_collector
+                        .resolve_target(
+                            &payload.session_id,
+                            &payload.target_ref,
+                            payload.target_revision,
+                        )
+                        .await?
+                };
                 let start_x = target.bounds.x + target.bounds.width / 2.0;
                 let start_y = target.bounds.y + target.bounds.height / 2.0;
                 anyhow::ensure!(
@@ -4906,14 +4988,17 @@ impl NodeControlService {
                                 && payload.duration_ms <= 5_000,
                             "drag input is invalid"
                         );
-                        let destination = self
-                            .state_collector
-                            .resolve_target(
-                                &payload.session_id,
-                                &payload.end_target_ref,
-                                payload.target_revision,
-                            )
-                            .await?;
+                        let destination = if let Some(target) = prepared_destination {
+                            target
+                        } else {
+                            self.state_collector
+                                .resolve_target(
+                                    &payload.session_id,
+                                    &payload.end_target_ref,
+                                    payload.target_revision,
+                                )
+                                .await?
+                        };
                         let end = (
                             (destination.bounds.x + destination.bounds.width / 2.0).round() as i32,
                             (destination.bounds.y + destination.bounds.height / 2.0).round() as i32,
@@ -7025,9 +7110,15 @@ impl NodeControlService {
                                                 "single action identity is invalid");
                                             payload.clone()
                                         };
-                                        self.execute_agent_action(&rebound)
-                                            .await
-                                            .map(|state| (state, Vec::new()))
+                                        let state = if payload.main_document_element_id.is_empty() {
+                                            self.execute_agent_action(&rebound).await?
+                                        } else {
+                                            let prepared = prepare_single_target_action(
+                                                &self.state_collector, &payload, rebound).await?;
+                                            self.execute_prepared_agent_action(&prepared.payload,
+                                                Some(prepared.source), prepared.destination).await?
+                                        };
+                                        Ok((state, Vec::new()))
                                     }
                                 } => result,
                                 changed = cancellation.changed() => {
@@ -11943,15 +12034,39 @@ mod tests {
             .resolve_target(session, &rebound.target_ref, rebound.target_revision)
             .await
             .is_ok());
+        // The authoritative collector may advance between Node's settled sample and
+        // target resolution. Preparation has not dispatched any input at this point.
+        let stale_preparation = prepare_single_target_action(
+            &collector,
+            &payload,
+            rebound_single_action(&payload, &before).unwrap(),
+        )
+        .await;
         collector.navigate(session, &url).await.unwrap();
         let reloaded = settled(&collector, session).await;
         assert_eq!(reloaded.url, before.url);
         assert!(rebound_single_action(&payload, &reloaded).is_err());
+        let reloaded_preparation =
+            prepare_single_target_action(&collector, &payload, rebound.clone()).await;
+        let mut legacy = payload.clone();
+        legacy.main_document_element_id.clear();
+        let legacy_preparation =
+            prepare_single_target_action(&collector, &legacy, rebound.clone()).await;
         collector.unregister_runtime(session).await;
         let _ = child.start_kill();
         let _ = child.wait().await;
         page_task.abort();
         let _ = tokio::fs::remove_dir_all(profile).await;
+        assert!(stale_preparation.is_ok(),
+            "an authorized stable identity must be refreshed before input when its revision advanced");
+        assert!(
+            reloaded_preparation.is_err(),
+            "same-URL reload must reject the old entity"
+        );
+        assert!(
+            legacy_preparation.is_err(),
+            "legacy commands cannot acquire rebind authority"
+        );
     }
 
     #[test]

@@ -6,6 +6,7 @@ RUN apt-get update \
 WORKDIR /workspace
 COPY apps/browser-node/scripts/recording_privacy_scanner.py apps/browser-node/scripts/recording_privacy_scanner.py
 COPY tests/recording/test_recording_privacy_scanner.py tests/recording/test_recording_privacy_scanner.py
+COPY apps/browser-node/assets/recording-privacy /usr/local/share/browsercloud/recording-privacy
 ENV PYTHONDONTWRITEBYTECODE=1
 USER 65532:65532
 RUN --network=none python3 -m unittest discover -s tests/recording -p 'test_*.py' -v

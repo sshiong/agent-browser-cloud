@@ -3,6 +3,9 @@
 !apps/browser-node/
 !apps/browser-node/scripts/
 !apps/browser-node/scripts/recording_privacy_scanner.py
+!apps/browser-node/assets/
+!apps/browser-node/assets/recording-privacy/
+!apps/browser-node/assets/recording-privacy/**
 !tests/
 !tests/recording/
 !tests/recording/test_recording_privacy_scanner.py

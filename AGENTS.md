@@ -2,7 +2,7 @@
 
 > 更新日期：2026-10-19
 > 基准分支：`main`
-> 编写时基准提交：`68d526b fix: refresh authorized target preparation before dispatching input`
+> 编写时基准提交：`21fb633 fix: update provider HTTP2 dependency and patched Go toolchain`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -307,6 +307,13 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- Recording 启动自检现用署名与 SHA 固定的公开领域正面人脸样本验证真实检测、固定
+  标注覆盖及返回 JPEG 像素。旧自检漏掉“模型已加载但零检出”，精确回归失败；旧
+  边距的独立标注像素断言也失败，现新增每轴 10%/最少四像素安全边距。十二项真实
+  OCR/OpenCV 与非 root/只读/禁网自检通过，见 progress 285。保持 v2 契约，侧脸、
+  证件/医学影像和客户 Dataset、目标云治理与全部外部 Gate 保留。21fb633 主 CI、
+  扫描、Integration/GameDay、Operator、Windows/macOS 全成功。
 
 - 68d526b 的主 CI 在供应链扫描检出 Provider 的 x/net v0.58.0 存在 HIGH
   CVE-2026-78669，未进入 Integration/GameDay；Operator 与 Windows/macOS 成功。

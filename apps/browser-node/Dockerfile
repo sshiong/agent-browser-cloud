@@ -23,7 +23,9 @@ COPY --from=build /workspace/apps/browser-node/target/release/node-agent /usr/lo
 COPY --from=build /workspace/apps/browser-node/target/release/network-helper /usr/local/bin/network-helper
 COPY --from=build /workspace/apps/browser-node/target/release/storage-helper /usr/local/bin/storage-helper
 COPY apps/browser-node/scripts/recording_privacy_scanner.py /usr/local/libexec/browsercloud/recording-privacy-scanner
+COPY apps/browser-node/assets/recording-privacy /usr/local/share/browsercloud/recording-privacy
 RUN chmod 0555 /usr/local/libexec/browsercloud/recording-privacy-scanner \
+    && chmod 0444 /usr/local/share/browsercloud/recording-privacy/* \
     && /usr/local/libexec/browsercloud/recording-privacy-scanner --self-test
 USER browsercloud
 ENV CHROMIUM_PATH=/usr/bin/chromium \

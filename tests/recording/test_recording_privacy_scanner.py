@@ -7,6 +7,7 @@ import json
 import pathlib
 import subprocess
 import sys
+import tempfile
 import unittest
 from unittest import mock
 
@@ -71,6 +72,77 @@ class PersistedPixelsTest(unittest.TestCase):
 
 
 class RealClassifiersTest(unittest.TestCase):
+    def test_real_portrait_face_is_masked_in_persisted_jpeg(self):
+        portrait = pathlib.Path(SCANNER.FACE_SELF_TEST_IMAGE).read_bytes()
+        self.assertEqual(hashlib.sha256(portrait).hexdigest(), SCANNER.FACE_SELF_TEST_SHA256)
+        original = cv2.imdecode(np.frombuffer(portrait, np.uint8), cv2.IMREAD_COLOR)
+        regions = SCANNER._face_sensitive_regions(original)
+        self.assertGreaterEqual(len(regions), 1, "real face classifier must recognize the fixture")
+        request = json.dumps({"imageBase64": base64.b64encode(portrait).decode("ascii")}) + "\n"
+        completed = subprocess.run(
+            [sys.executable, str(ROOT / "apps/browser-node/scripts/recording_privacy_scanner.py")],
+            input=request.encode("ascii"), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=30, check=False,
+        )
+        self.assertEqual(completed.returncode, 0)
+        self.assertEqual(len(completed.stdout.splitlines()), 1)
+        response = json.loads(completed.stdout)
+        self.assertGreaterEqual(response["visualDetectedSignalCount"], len(regions))
+        self.assertGreaterEqual(response["visualMaskedRegionCount"], len(regions))
+        self.assertEqual(response["visualResidualSignalCount"], 0)
+        self.assertEqual(response["ocrResidualSignalCount"], 0)
+        encoded = base64.b64decode(response["sanitizedImageBase64"], validate=True)
+        self.assertEqual(response["sanitizedImageSha256"], hashlib.sha256(encoded).hexdigest())
+        pixels = cv2.imdecode(np.frombuffer(encoded, np.uint8), cv2.IMREAD_COLOR)
+        self.assertEqual(pixels.shape, original.shape)
+        self.assertEqual(SCANNER._face_sensitive_regions(pixels), [])
+        # Independently annotated on the pinned portrait, not derived from the
+        # detector's output. Zero classifier residual alone can miss face edges.
+        self.assertLessEqual(int(pixels[140:345, 156:374].max()), 24)
+        for left, top, right, bottom in regions:
+            self.assertGreater(float(original[top + 8:bottom - 8, left + 8:right - 8].mean()), 24)
+            self.assertLessEqual(int(pixels[top + 8:bottom - 8, left + 8:right - 8].max()), 24)
+        self.assertGreater(np.count_nonzero(pixels > 30), 100, "preserve non-face picture content")
+
+    def test_self_test_rejects_missing_face_fixture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with mock.patch.object(SCANNER, "FACE_SELF_TEST_IMAGE", str(pathlib.Path(directory) / "missing")):
+                with self.assertRaisesRegex(RuntimeError, "FACE_SELF_TEST_FIXTURE_UNAVAILABLE"):
+                    SCANNER.self_test()
+
+    def test_self_test_rejects_face_geometry_outside_the_annotated_region(self):
+        with mock.patch.object(SCANNER, "_face_sensitive_regions", return_value=[(0, 0, 32, 32)]):
+            with self.assertRaisesRegex(RuntimeError, "FACE_CLASSIFIER_SELF_TEST_FAILED"):
+                SCANNER.self_test()
+
+    def test_self_test_rejects_count_proof_with_unmasked_pixels(self):
+        portrait = pathlib.Path(SCANNER.FACE_SELF_TEST_IMAGE).read_bytes()
+        with mock.patch.object(SCANNER, "scan", return_value={
+            "visualDetectedSignalCount": 1,
+            "visualMaskedRegionCount": 1,
+            "visualResidualSignalCount": 0,
+            "sanitizedImageBase64": base64.b64encode(portrait).decode("ascii"),
+        }):
+            with self.assertRaisesRegex(RuntimeError, "FACE_CLASSIFIER_SELF_TEST_FAILED"):
+                SCANNER.self_test()
+
+    def test_self_test_rejects_changed_face_fixture_before_decoding(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = pathlib.Path(directory) / "changed.jpg"
+            fixture.write_bytes(b"owned-invalid-fixture")
+            with mock.patch.object(SCANNER, "FACE_SELF_TEST_IMAGE", str(fixture)):
+                with self.assertRaisesRegex(RuntimeError, "FACE_SELF_TEST_FIXTURE_INVALID"):
+                    SCANNER.self_test()
+
+    def test_self_test_rejects_a_loaded_face_classifier_that_detects_nothing(self):
+        # Fault injection only affects face detection. Real OCR and QR still operate,
+        # so their success must not attest a broken face component.
+        with mock.patch.object(SCANNER.cv2, "CascadeClassifier") as classifier:
+            classifier.return_value.empty.return_value = False
+            classifier.return_value.detectMultiScale.return_value = []
+            with self.assertRaisesRegex(RuntimeError, "FACE_CLASSIFIER_SELF_TEST_FAILED"):
+                SCANNER.self_test()
+
     def test_real_ocr_and_qr_masking_self_test(self):
         SCANNER.self_test()
 

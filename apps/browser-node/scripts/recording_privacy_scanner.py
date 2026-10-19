@@ -32,6 +32,9 @@ SCAN_VERSION = "tesseract-opencv-pii-face-qr-v2"
 TESSERACT = "/usr/bin/tesseract"
 LANGUAGES = os.environ.get("RECORDING_OCR_LANGUAGES", "eng+chi_sim")
 FACE_CASCADE = "/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml"
+FACE_SELF_TEST_IMAGE = "/usr/local/share/browsercloud/recording-privacy/grace-hopper.jpg"
+FACE_SELF_TEST_SHA256 = "a8ca6d734765703b09728ab47fe59f473d93ae3967fc24c7c0288c3c7adb7130"
+FACE_SELF_TEST_REGION = (156, 140, 374, 345)
 
 PII_PATTERNS = (
     re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"),
@@ -140,7 +143,7 @@ def _bounded_region(region: Iterable[int], width: int, height: int) -> tuple[int
     return left, top, right, bottom
 
 
-def _visual_sensitive_regions(image: np.ndarray) -> tuple[int, list[tuple[int, int, int, int]]]:
+def _face_sensitive_regions(image: np.ndarray) -> list[tuple[int, int, int, int]]:
     height, width = image.shape[:2]
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     face_classifier = cv2.CascadeClassifier(FACE_CASCADE)
@@ -149,11 +152,16 @@ def _visual_sensitive_regions(image: np.ndarray) -> tuple[int, list[tuple[int, i
     faces = face_classifier.detectMultiScale(
         gray, scaleFactor=1.1, minNeighbors=5, minSize=(24, 24), flags=cv2.CASCADE_SCALE_IMAGE
     )
-    regions = [
-        _bounded_region((x, y, x + w, y + h), width, height)
+    return [
+        _bounded_region((x - max(4, w // 10), y - max(4, h // 10),
+                         x + w + max(4, w // 10), y + h + max(4, h // 10)), width, height)
         for x, y, w, h in faces
     ]
 
+
+def _visual_sensitive_regions(image: np.ndarray) -> tuple[int, list[tuple[int, int, int, int]]]:
+    height, width = image.shape[:2]
+    regions = _face_sensitive_regions(image)
     detector = cv2.QRCodeDetector()
     # Privacy needs geometry, never QR payloads. Debian builds without QUIRC emit native
     # decoding diagnostics to stdout, which corrupts this process's NDJSON transport.
@@ -247,6 +255,27 @@ def self_test() -> None:
     cascade = cv2.CascadeClassifier(FACE_CASCADE)
     if cascade.empty():
         raise RuntimeError("FACE_CLASSIFIER_UNAVAILABLE")
+    try:
+        with open(FACE_SELF_TEST_IMAGE, "rb") as fixture:
+            portrait = fixture.read(128 * 1024 + 1)
+    except OSError as error:
+        raise RuntimeError("FACE_SELF_TEST_FIXTURE_UNAVAILABLE") from error
+    if hashlib.sha256(portrait).hexdigest() != FACE_SELF_TEST_SHA256:
+        raise RuntimeError("FACE_SELF_TEST_FIXTURE_INVALID")
+    _, face_pixels = _decode_jpeg(base64.b64encode(portrait).decode("ascii"))
+    left, top, right, bottom = FACE_SELF_TEST_REGION
+    if not any(l <= left and t <= top and r >= right and b >= bottom
+               for l, t, r, b in _face_sensitive_regions(face_pixels)):
+        raise RuntimeError("FACE_CLASSIFIER_SELF_TEST_FAILED")
+    face_result = scan(base64.b64encode(portrait).decode("ascii"))
+    if (int(face_result["visualDetectedSignalCount"]) < 1
+            or int(face_result["visualMaskedRegionCount"]) < 1
+            or int(face_result["visualResidualSignalCount"]) != 0):
+        raise RuntimeError("FACE_CLASSIFIER_SELF_TEST_FAILED")
+    _, sanitized_face = _decode_jpeg(str(face_result["sanitizedImageBase64"]))
+    if (sanitized_face.shape != face_pixels.shape
+            or np.any(sanitized_face[top:bottom, left:right] > 24)):
+        raise RuntimeError("FACE_CLASSIFIER_SELF_TEST_FAILED")
     if not hasattr(cv2, "QRCodeDetector"):
         raise RuntimeError("QR_CLASSIFIER_UNAVAILABLE")
     if not hasattr(cv2, "QRCodeEncoder_create"):

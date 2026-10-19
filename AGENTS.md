@@ -2,7 +2,7 @@
 
 > 更新日期：2026-10-19
 > 基准分支：`main`
-> 编写时基准提交：`21fb633 fix: update provider HTTP2 dependency and patched Go toolchain`
+> 编写时基准提交：`ea89804 fix: verify real face masking before declaring recording privacy ready`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -117,7 +117,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V133 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V134 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -307,6 +307,18 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- Recording 删除请求发出后响应未知或执行事务崩溃，旧行锁无法证明对象仍被保全；
+  两项真实 PostgreSQL 精确业务回归失败。V134 增加提交后不可撤销的删除授权，Worker
+  在独立事务提交授权后才派发；未知结果拒绝新 Legal Hold/延长保留期，且不伪造物理
+  删除 Receipt。两分钟遗留 EXECUTING 可按新 Epoch 恢复，有界耗尽保留不确定性。
+  十四项 PostgreSQL Gate 已覆盖双连接竞态、旧 Worker/旧策略写入、迟到录制与恢复，
+  常规 Java 650 项通过。升级前必须排空/核对旧未删除队列，V134 不能据 attempt=0
+  推断未派发；旧 Worker 新删除会被数据库拒绝。目标云原生 Legal Hold 仍缺，见
+  progress 286；本次完整 CI 仍需按精确提交核验。
+
+- ea89804 主 CI 39212185088、Desktop 39212185188 最终精确 SHA 均成功，包含
+  扫描、Integration、Object Storage/Recording GameDay、Operator 与 Windows/macOS。
 
 - Recording 启动自检现用署名与 SHA 固定的公开领域正面人脸样本验证真实检测、固定
   标注覆盖及返回 JPEG 像素。旧自检漏掉“模型已加载但零检出”，精确回归失败；旧

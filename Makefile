@@ -6,7 +6,7 @@ RUNTIME_CAPACITY_CYCLES ?= 500
 BROWSER_DENSITY_CONCURRENCY ?= 4
 REAL_CHROMIUM_PATH ?=
 
-.PHONY: docs-generate docs-check test-replay-gate test-recording-privacy test-native-property-observer
+.PHONY: docs-generate docs-check test-replay-gate test-recording-privacy test-recording-retention-order test-native-property-observer
 docs-generate:
 	python3 tools/docs/check_readme.py --write
 
@@ -28,6 +28,9 @@ test-native-property-observer:
 # Use the Browser Node's Debian OCR/OpenCV dependencies; the test step has no network.
 test-recording-privacy:
 	docker build -f tests/recording/Dockerfile -t browsercloud-recording-privacy-test:local .
+
+test-recording-retention-order:
+	./tests/integration/recording-retention-order.sh
 
 # Install workspace dependencies
 install:

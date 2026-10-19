@@ -17,7 +17,10 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** PostgreSQL-authoritative, retryable physical deletion of retention-expired Recordings. */
 @Service
@@ -33,6 +36,7 @@ public class RecordingRetentionDeletionApplicationService {
   private final AuditApplicationService audit;
   private final ObjectMapper objectMapper;
   private final int maximumAttempts;
+  private final TransactionTemplate independentTransaction;
 
   public RecordingRetentionDeletionApplicationService(
       JdbcTemplate jdbc,
@@ -40,7 +44,8 @@ public class RecordingRetentionDeletionApplicationService {
       RecordingRetentionDeletionNodeGateway nodeGateway,
       AuditApplicationService audit,
       ObjectMapper objectMapper,
-      @Value("${recording.retention-deletion.maximum-attempts:10}") int maximumAttempts) {
+      @Value("${recording.retention-deletion.maximum-attempts:10}") int maximumAttempts,
+      PlatformTransactionManager transactionManager) {
     if (maximumAttempts < 1 || maximumAttempts > 20) {
       throw new IllegalStateException(
           "Recording retention deletion maximum attempts must be between 1 and 20");
@@ -51,6 +56,9 @@ public class RecordingRetentionDeletionApplicationService {
     this.audit = audit;
     this.objectMapper = objectMapper;
     this.maximumAttempts = maximumAttempts;
+    this.independentTransaction = new TransactionTemplate(transactionManager);
+    this.independentTransaction.setPropagationBehavior(
+        TransactionDefinition.PROPAGATION_REQUIRES_NEW);
   }
 
   @Transactional
@@ -100,18 +108,82 @@ public class RecordingRetentionDeletionApplicationService {
     return inserted;
   }
 
-  /**
-   * Locks both queue row and Recording authority across the bounded Node call. A concurrent Legal
-   * Hold update therefore orders either before deletion (and blocks it) or after the committed
-   * physical deletion receipt; it cannot race between policy validation and object deletion.
-   */
-  @Transactional
+  /** Commits irreversible authority before dispatch; an unknown remote result cannot undo it. */
   public boolean processNext() {
-    var claimed = claimNext();
-    if (claimed.isEmpty()) return false;
+    var claimed = independentTransaction.execute(status -> authorizeNext());
+    if (claimed == null || claimed.isEmpty()) return false;
     var job = claimed.get();
+    independentTransaction.executeWithoutResult(
+        status -> {
+          // A second worker can recover an abandoned EXECUTING lease, but cannot overlap this row
+          // lock.
+          var locked =
+              jdbc.queryForObject(
+                  """
+          SELECT count(*) FROM (
+            SELECT job_id FROM recording_retention_deletion_jobs
+             WHERE job_id = ? AND state = 'EXECUTING' AND execution_epoch = ?
+             FOR UPDATE
+          ) locked
+          """,
+                  Integer.class,
+                  job.jobId(),
+                  job.executionEpoch());
+          if (locked == null || locked != 1) return;
+          jdbc.queryForObject(
+              """
+          SELECT recording_id FROM session_recordings
+           WHERE tenant_id = ? AND session_id = ? AND recording_id = ? FOR UPDATE
+          """,
+              String.class,
+              job.tenantId(),
+              job.sessionId(),
+              job.recordingId());
+          executeAuthorized(job);
+        });
+    return true;
+  }
+
+  private Optional<DeletionJob> authorizeNext() {
+    jdbc.execute("SELECT pg_advisory_xact_lock_shared(1111706692, 134)");
+    var claimed = claimNext();
+    if (claimed.isEmpty()) return claimed;
+    var job = claimed.get();
+    if (job.attempt() >= job.maximumAttempts()) {
+      jdbc.update(
+          """
+          UPDATE recording_retention_deletion_jobs
+             SET state = 'FAILED', failure_code = 'RECORDING_DELETION_RECOVERY_EXHAUSTED',
+                 updated_at = now() WHERE job_id = ?
+          """,
+          job.jobId());
+      return Optional.of(job);
+    }
     var attempt = job.attempt() + 1;
     var epoch = job.executionEpoch() + 1;
+    // No irreversible intent if the Node cannot accept the deletion protocol at all.
+    if (!capacity.nodeHasCapability(job.nodeId(), CAPABILITY, CAPABILITY_VERSION)) {
+      jdbc.update(
+          """
+          UPDATE recording_retention_deletion_jobs
+             SET state = ?, attempt = ?, available_at = now() + interval '30 seconds',
+                 failure_code = 'RECORDING_DELETION_CAPABILITY_UNAVAILABLE', updated_at = now()
+           WHERE job_id = ?
+          """,
+          attempt >= job.maximumAttempts() ? "FAILED" : "RETRY",
+          attempt,
+          job.jobId());
+      return Optional.of(job);
+    }
+    jdbc.update(
+        """
+        UPDATE session_recordings
+           SET deletion_authorized_at = COALESCE(deletion_authorized_at, now())
+         WHERE tenant_id = ? AND session_id = ? AND recording_id = ?
+        """,
+        job.tenantId(),
+        job.sessionId(),
+        job.recordingId());
     jdbc.update(
         """
         UPDATE recording_retention_deletion_jobs
@@ -122,12 +194,28 @@ public class RecordingRetentionDeletionApplicationService {
         attempt,
         epoch,
         job.jobId());
+    return Optional.of(
+        new DeletionJob(
+            job.jobId(),
+            job.tenantId(),
+            job.sessionId(),
+            job.recordingId(),
+            attempt,
+            job.maximumAttempts(),
+            epoch,
+            job.nodeId(),
+            job.profileId(),
+            job.manifestSha256(),
+            job.manifestBytes(),
+            job.segmentCount(),
+            job.policyUpdatedAt()));
+  }
+
+  private void executeAuthorized(DeletionJob job) {
+    var attempt = job.attempt();
+    var epoch = job.executionEpoch();
     RecordingDeletionProof proof;
     try {
-      if (!capacity.nodeHasCapability(job.nodeId(), CAPABILITY, CAPABILITY_VERSION)) {
-        throw new RecordingDeletionNodeUnavailableException(
-            "RECORDING_DELETION_CAPABILITY_UNAVAILABLE");
-      }
       proof =
           nodeGateway.delete(
               new RecordingDeletionRequest(
@@ -143,16 +231,15 @@ public class RecordingRetentionDeletionApplicationService {
                   job.segmentCount()));
     } catch (RecordingDeletionNodeRejectedException exception) {
       fail(job, attempt, "RECORDING_DELETION_OBJECT_REJECTED", false);
-      return true;
+      return;
     } catch (RecordingDeletionNodeUnavailableException exception) {
       fail(job, attempt, "RECORDING_DELETION_NODE_UNAVAILABLE", true);
-      return true;
+      return;
     } catch (RuntimeException exception) {
       fail(job, attempt, "RECORDING_DELETION_UNEXPECTED_FAILURE", true);
-      return true;
+      return;
     }
     commit(job, epoch, proof);
-    return true;
   }
 
   private Optional<DeletionJob> claimNext() {
@@ -175,11 +262,12 @@ public class RecordingRetentionDeletionApplicationService {
               LEFT JOIN enterprise_retention_policies policy
                 ON policy.tenant_id = recording.tenant_id
                AND policy.data_class = 'REMOTE_DESKTOP_RECORDING'
-             WHERE job.state IN ('QUEUED', 'RETRY')
-               AND job.available_at <= now()
-               AND job.attempt < job.maximum_attempts
+             WHERE ((job.state IN ('QUEUED', 'RETRY') AND job.available_at <= now()
+                     AND job.attempt < job.maximum_attempts)
+                    OR (job.state = 'EXECUTING' AND job.started_at < now() - interval '2 minutes'))
                AND recording.deleted_at IS NULL
                AND recording.legal_hold = FALSE
+               AND COALESCE(policy.legal_hold, FALSE) = FALSE
                AND recording.retention_until <= now()
              ORDER BY job.available_at, job.created_at, job.job_id
              LIMIT 1

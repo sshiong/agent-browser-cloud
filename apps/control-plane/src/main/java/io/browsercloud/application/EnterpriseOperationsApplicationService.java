@@ -663,6 +663,25 @@ public class EnterpriseOperationsApplicationService {
         "SELECT count(*) FROM enterprise_regions WHERE region_id = ?",
         request.residencyRegion(),
         "Residency Region");
+    if ("REMOTE_DESKTOP_RECORDING".equals(request.dataClass())) {
+      // Same lock order as the database guards and deletion authorization, including no-policy
+      // rows.
+      jdbc.execute("SELECT pg_advisory_xact_lock(1111706692, 134)");
+      var irreversible =
+          jdbc.queryForObject(
+              """
+          SELECT count(*) FROM session_recordings
+           WHERE tenant_id = ? AND deleted_at IS NULL AND deletion_authorized_at IS NOT NULL
+             AND (? OR ended_at + make_interval(days => ?) > retention_until)
+          """,
+              Long.class,
+              tenantId,
+              request.legalHold(),
+              request.retentionDays());
+      if (irreversible != null && irreversible > 0) {
+        throw new GovernanceRejectedException("RECORDING_DELETION_ALREADY_AUTHORIZED");
+      }
+    }
     jdbc.update(
         """
         INSERT INTO enterprise_retention_policies(

@@ -35,6 +35,9 @@ additionally supports `BROWSERCLOUD_TENANT_ID` and `BROWSERCLOUD_ACTOR_ID`.
 
 ## Development verification
 
+Build with Go 1.26.9 or newer. The module pins this patched toolchain floor and
+`golang.org/x/net` v0.60.0; CI and Provider release builds use the Go 1.26 line.
+
 ```bash
 go test ./...
 go vet ./...

@@ -1,8 +1,8 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-10-11
+> 更新日期：2026-10-19
 > 基准分支：`main`
-> 编写时基准提交：`f81b81c fix: require scanner readiness proof before advertising recording privacy`
+> 编写时基准提交：`68d526b fix: refresh authorized target preparation before dispatching input`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -307,6 +307,13 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- 68d526b 的主 CI 在供应链扫描检出 Provider 的 x/net v0.58.0 存在 HIGH
+  CVE-2026-78669，未进入 Integration/GameDay；Operator 与 Windows/macOS 成功。
+  Provider 现升级 x/net v0.60.0 及其要求的 x/sys/x/text，Go 最低版本 1.26.9，
+  主 CI/Provider 发布流程同步 1.26.x。模块校验、Provider 12 项竞态检测测试、SDK
+  4 项、Vet、六平台组合构建和供应链发布检查通过，见 progress 284；新扫描/CI 待收尾。
+  原十一项真实外部系统、目标环境、完整区域产品化与组织/许可证 Gate 保留。
 
 - 单目标动作输入派发前，若已授权主文档稳定 Element ID 的精确 Target Revision
   解析冲突，可最多两次重采并沿用原身份/稳定状态校验；输入执行函数只调用一次。

@@ -2187,7 +2187,6 @@ mod screenshot_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::os::unix::fs::PermissionsExt;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
     use tokio_tungstenite::accept_async;
@@ -2256,40 +2255,12 @@ mod tests {
         base64::engine::general_purpose::STANDARD.encode(jpeg)
     }
 
-    async fn passthrough_privacy_scanner() -> PathBuf {
-        let path = std::env::temp_dir().join(format!(
-            "browsercloud-recording-privacy-fixture-{}",
-            uuid::Uuid::new_v4()
-        ));
-        tokio::fs::write(
-            &path,
-            r#"#!/usr/bin/python3
-import base64, hashlib, json, sys
-for line in sys.stdin:
-  request = json.loads(line)
-  image = base64.b64decode(request["imageBase64"], validate=True)
-  digest = hashlib.sha256(image).hexdigest()
-  print(json.dumps({
-    "scanVersion": "tesseract-opencv-pii-face-qr-v2",
-    "sanitizedImageBase64": request["imageBase64"],
-    "sanitizedImageSha256": digest,
-    "ocrDetectedSignalCount": 0,
-    "ocrMaskedRegionCount": 0,
-    "ocrResidualSignalCount": 0,
-    "visualDetectedSignalCount": 0,
-    "visualMaskedRegionCount": 0,
-    "visualResidualSignalCount": 0
-  }), flush=True)
-"#,
-        )
-        .await
-        .unwrap();
-        let mut permissions = tokio::fs::metadata(&path).await.unwrap().permissions();
-        permissions.set_mode(0o500);
-        tokio::fs::set_permissions(&path, permissions)
-            .await
-            .unwrap();
-        path
+    fn passthrough_privacy_scanner() -> PathBuf {
+        // Execute a checked-in fixture; never race exec against a freshly written executable.
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../../tests/fixtures/recording-privacy-scanner-passthrough.py")
+            .canonicalize()
+            .unwrap()
     }
 
     #[test]
@@ -2858,7 +2829,7 @@ for line in sys.stdin:
         let capture_dropped = Arc::clone(&dropped);
         let capture_failed = Arc::new(std::sync::atomic::AtomicBool::new(true));
         let capture_failure_signal = Arc::clone(&capture_failed);
-        let privacy_scanner_path = passthrough_privacy_scanner().await;
+        let privacy_scanner_path = passthrough_privacy_scanner();
         let capture_privacy_scanner_path = privacy_scanner_path.clone();
         let capture = tokio::spawn(async move {
             capture_frames(
@@ -2993,7 +2964,7 @@ for line in sys.stdin:
         let (ready_tx, ready_rx) = oneshot::channel();
         let dropped = std::sync::atomic::AtomicU64::new(0);
         let capture_failed = std::sync::atomic::AtomicBool::new(true);
-        let privacy_scanner_path = passthrough_privacy_scanner().await;
+        let privacy_scanner_path = passthrough_privacy_scanner();
         let cdp_endpoint = format!("http://{http_address}");
         let capture = capture_frames(
             &cdp_endpoint,

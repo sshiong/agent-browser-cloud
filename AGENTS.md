@@ -2,7 +2,7 @@
 
 > 更新日期：2026-10-23
 > 基准分支：`main`
-> 编写时基准提交：`b2b01c8 fix: persist recording deletion authority before remote dispatch`
+> 编写时基准提交：`2e18d95 feat: add version-scoped recording legal hold executor and uncertainty fence`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -307,6 +307,12 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- 2e18d95 主 CI 39812875183 在既有 Recorder 的损坏 JPEG 测试准备阶段失败：
+  新生成的扫描器脚本启动报 ETXTBSY（Text file busy），未进入脱敏断言，新增对象
+  存储 Gate 未执行。该测试改为执行仓库静态夹具，脚本内容与生产扫描器逻辑不变；
+  Recorder 15 项、严格 Clippy 与格式检查通过，见 progress 288。Operator 成功，
+  本次修复提交仍须自己的 CI；云端 Legal Hold 正式链和原十一项剩余 Gate 保留。
 
 - Recording 逐版本 Legal Hold 的对象存储执行器已具备 ON/OFF、精确 Manifest/版本集合、
   前序 Proof 与递增 Epoch、远端条件写账本及逐版本读回。真实 MinIO 验证历史版本保护、

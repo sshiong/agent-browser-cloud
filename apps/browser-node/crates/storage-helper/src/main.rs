@@ -47,6 +47,56 @@ impl StorageService {
         }
     }
 
+    async fn apply_recording_legal_hold(
+        &self,
+        request: &helper_contracts::StorageRecordingLegalHoldRequest,
+    ) -> anyhow::Result<helper_contracts::StorageRecordingLegalHold> {
+        let stripe = profile_lock_stripe(
+            &request.tenant_id,
+            &request.profile_id,
+            self.profile_locks.len(),
+        );
+        let _guard = self.profile_locks[stripe].lock().await;
+        let archive = self
+            .archive
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("RECORDING_HOLD_STORAGE_UNAVAILABLE"))?;
+        let desired_state = match request.desired_state {
+            helper_contracts::StorageRecordingLegalHoldState::On => {
+                storage_helper::object_archive::RecordingLegalHoldState::On
+            }
+            helper_contracts::StorageRecordingLegalHoldState::Off => {
+                storage_helper::object_archive::RecordingLegalHoldState::Off
+            }
+        };
+        let result = archive
+            .apply_recording_legal_hold(storage_helper::object_archive::RecordingLegalHoldRequest {
+                operation_id: request.operation_id.clone(),
+                authority_epoch: request.authority_epoch,
+                tenant_id: request.tenant_id.clone(),
+                profile_id: request.profile_id.clone(),
+                session_id: request.session_id.clone(),
+                recording_id: request.recording_id.clone(),
+                manifest_sha256: request.manifest_sha256.clone(),
+                manifest_bytes: request.manifest_bytes,
+                segment_count: request.segment_count,
+                desired_state,
+                previous_proof_hash: request.previous_proof_hash.clone(),
+                execution_budget_millis: request.execution_budget_millis,
+            })
+            .await?;
+        Ok(helper_contracts::StorageRecordingLegalHold {
+            operation_id: result.operation_id,
+            authority_epoch: result.authority_epoch,
+            recording_id: result.recording_id,
+            state: request.desired_state,
+            object_version_count: result.object_version_count,
+            inventory_sha256: result.inventory_sha256,
+            proof_hash: result.proof_hash,
+            completed_at_ms: result.completed_at_ms,
+        })
+    }
+
     async fn execute(
         &self,
         command: &StorageCommand,
@@ -144,6 +194,47 @@ async fn serve_connection(
             "SCHEMA_MISMATCH",
             "unsupported helper IPC schema version",
         )
+    } else if let StorageCommand::ApplyRecordingLegalHold {
+        request: hold_request,
+    } = &request.command
+    {
+        match service.apply_recording_legal_hold(hold_request).await {
+            Ok(hold) => StorageResponse {
+                schema_version: SCHEMA_VERSION,
+                request_id: request.request_id,
+                ok: true,
+                workspace: None,
+                checkpoint: None,
+                warm_tier_sync: None,
+                recording: None,
+                evidence: None,
+                evidence_access: None,
+                recording_playback_access: None,
+                recording_deletion: None,
+                profile_export_access: None,
+                recording_legal_hold: Some(hold),
+                error_code: None,
+                error_message: None,
+            },
+            Err(error) => {
+                let message = error.to_string();
+                let code = message.split(':').next().unwrap_or_default();
+                let safe = code.starts_with("RECORDING_HOLD_")
+                    && code.len() <= 96
+                    && code
+                        .bytes()
+                        .all(|byte| byte.is_ascii_uppercase() || byte == b'_');
+                rejected(
+                    request.request_id,
+                    if safe {
+                        code
+                    } else {
+                        "RECORDING_HOLD_RESULT_UNAVAILABLE"
+                    },
+                    "Recording Hold was rejected or its remote result is unknown",
+                )
+            }
+        }
     } else {
         match service.execute(&request.command).await {
             Ok((
@@ -169,6 +260,7 @@ async fn serve_connection(
                 recording_playback_access,
                 recording_deletion,
                 profile_export_access,
+                recording_legal_hold: None,
                 error_code: None,
                 error_message: None,
             },
@@ -203,6 +295,9 @@ async fn execute_storage_operation(
 )> {
     match command {
         StorageCommand::Ping => Ok((None, None, None, None, None, None, None, None, None)),
+        StorageCommand::ApplyRecordingLegalHold { .. } => {
+            anyhow::bail!("Recording Hold requires the dedicated journaled route")
+        }
         StorageCommand::Acquire {
             tenant_id,
             profile_id,
@@ -1199,6 +1294,9 @@ fn duration_from_environment(name: &str, default_millis: u64) -> anyhow::Result<
 fn command_profile(command: &StorageCommand) -> Option<(&str, &str)> {
     match command {
         StorageCommand::Ping => None,
+        StorageCommand::ApplyRecordingLegalHold { request } => {
+            Some((&request.tenant_id, &request.profile_id))
+        }
         StorageCommand::Acquire {
             tenant_id,
             profile_id,
@@ -1545,6 +1643,7 @@ fn rejected(request_id: String, code: &str, message: &str) -> StorageResponse {
         recording_playback_access: None,
         recording_deletion: None,
         profile_export_access: None,
+        recording_legal_hold: None,
         error_code: Some(code.to_owned()),
         error_message: Some(message.to_owned()),
     }
@@ -1643,6 +1742,184 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static TEST_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+
+    #[test]
+    #[ignore = "requires owned TEST_OBJECT_STORAGE_* and Object Lock"]
+    fn real_s3_legal_hold_through_authenticated_ipc() {
+        // Match the production Helper stack: the full debug acceptance path can exceed
+        // the default test-thread stack. This does not raise the production stack limit.
+        std::thread::Builder::new()
+            .stack_size(STORAGE_HELPER_WORKER_STACK_BYTES)
+            .spawn(|| {
+                tokio::runtime::Builder::new_multi_thread()
+                    .worker_threads(2)
+                    .thread_stack_size(STORAGE_HELPER_WORKER_STACK_BYTES)
+                    .enable_all()
+                    .build()
+                    .unwrap()
+                    .block_on(legal_hold_ipc_acceptance_body())
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    async fn legal_hold_ipc_acceptance_body() {
+        let root = std::env::temp_dir().join(format!("h-{}", uuid::Uuid::new_v4().simple()));
+        let store = LocalProfileStore::open(root.clone()).await.unwrap();
+        let keyring = root.join("keyring.json");
+        std::fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../../../tests/fixtures/profile-archive-keyring.json"),
+            &keyring,
+        )
+        .unwrap();
+        std::fs::set_permissions(&keyring, std::fs::Permissions::from_mode(0o600)).unwrap();
+        let archive = ObjectArchive::s3(S3ArchiveConfig {
+            bucket: std::env::var("TEST_OBJECT_STORAGE_BUCKET").unwrap(),
+            region: "us-east-1".into(),
+            endpoint: std::env::var("TEST_OBJECT_STORAGE_ENDPOINT").unwrap(),
+            access_key_id: std::env::var("TEST_OBJECT_STORAGE_ACCESS_KEY_ID").unwrap(),
+            secret_access_key: std::env::var("TEST_OBJECT_STORAGE_SECRET_ACCESS_KEY").unwrap(),
+            prefix: "legal-hold-ipc-acceptance".into(),
+            connect_timeout: Duration::from_secs(1),
+            operation_timeout: Duration::from_secs(2),
+            allow_http: true,
+            profile_crypto: ProfileArchiveCrypto::from_keyring_file(&keyring).unwrap(),
+        })
+        .unwrap();
+        let recording_id = format!("rec_{}", uuid::Uuid::new_v4().simple());
+        let content = Bytes::from_static(br#"{"capturedAtMs":1,"cdpSessionId":7,"format":"jpeg","redactionState":"MASKED","redactedRegionCount":2,"redactionPolicyVersion":1,"data":"/9j/"}"#);
+        let hash = format!("{:x}", Sha256::digest(&content));
+        archive
+            .commit_recording_segment(
+                "tenant-test",
+                "profile-test",
+                "ses_owned",
+                &recording_id,
+                0,
+                content,
+                &hash,
+                1,
+                1,
+                2,
+                1,
+                1,
+                2,
+            )
+            .await
+            .unwrap();
+        let manifest = archive
+            .complete_recording(
+                "tenant-test",
+                "profile-test",
+                "ses_owned",
+                &recording_id,
+                1,
+                1,
+                1,
+                2,
+                1,
+                1,
+                2,
+            )
+            .await
+            .unwrap();
+        let service = Arc::new(StorageService::new(
+            store,
+            Some(archive.clone()),
+            root.join("imports"),
+        ));
+        let socket_path = root.join("h.sock");
+        let listener = UnixListener::bind(&socket_path).unwrap();
+        let peer_uid = Uid::effective().as_raw();
+        let server = tokio::spawn(async move {
+            for _ in 0..2 {
+                let (stream, _) = listener.accept().await.unwrap();
+                serve_connection(stream, peer_uid, service.clone())
+                    .await
+                    .unwrap();
+            }
+            let (stream, _) = listener.accept().await.unwrap();
+            let rejected = serve_connection(stream, peer_uid.saturating_add(1), service)
+                .await
+                .unwrap_err();
+            assert!(rejected
+                .to_string()
+                .contains("helper peer UID is not authorized"));
+        });
+        let mut previous_proof = None;
+        for (index, state) in [
+            helper_contracts::StorageRecordingLegalHoldState::On,
+            helper_contracts::StorageRecordingLegalHoldState::Off,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let mut stream = UnixStream::connect(&socket_path).await.unwrap();
+            let operation_id = format!("hold-ipc-{}", index + 1);
+            write_frame(
+                &mut stream,
+                &StorageRequest {
+                    schema_version: SCHEMA_VERSION,
+                    request_id: format!("hipc_{}", index),
+                    command: StorageCommand::ApplyRecordingLegalHold {
+                        request: helper_contracts::StorageRecordingLegalHoldRequest {
+                            operation_id: operation_id.clone(),
+                            authority_epoch: index as u64 + 1,
+                            tenant_id: "tenant-test".into(),
+                            profile_id: "profile-test".into(),
+                            session_id: "ses_owned".into(),
+                            recording_id: recording_id.clone(),
+                            manifest_sha256: manifest.manifest_sha256.clone(),
+                            manifest_bytes: manifest.manifest_bytes,
+                            segment_count: 1,
+                            desired_state: state,
+                            previous_proof_hash: previous_proof.clone(),
+                            execution_budget_millis: 10_000,
+                        },
+                    },
+                },
+            )
+            .await
+            .unwrap();
+            let response: StorageResponse = read_frame(&mut stream).await.unwrap();
+            assert!(
+                response.ok,
+                "owned Hold IPC result missing: {:?}",
+                response.error_code
+            );
+            assert_eq!(response.request_id, format!("hipc_{}", index));
+            let proof = response.recording_legal_hold.unwrap();
+            assert_eq!(proof.operation_id, operation_id);
+            assert_eq!(proof.authority_epoch, index as u64 + 1);
+            assert_eq!(proof.state, state);
+            assert_eq!(proof.recording_id, recording_id);
+            assert_eq!(proof.object_version_count, 3);
+            assert_eq!(proof.proof_hash.len(), 64);
+            previous_proof = Some(proof.proof_hash);
+        }
+        let mut unauthorized = UnixStream::connect(&socket_path).await.unwrap();
+        let refused: anyhow::Result<StorageResponse> = read_frame(&mut unauthorized).await;
+        assert!(refused.is_err());
+        server.await.unwrap();
+        let deleted = archive
+            .delete_recording(RecordingDeletionRequest {
+                deletion_job_id: "rrd_owned",
+                deletion_epoch: 1,
+                tenant_id: "tenant-test",
+                profile_id: "profile-test",
+                session_id: "ses_owned",
+                recording_id: &recording_id,
+                manifest_sha256: &manifest.manifest_sha256,
+                manifest_bytes: manifest.manifest_bytes,
+                segment_count: 1,
+            })
+            .await
+            .unwrap();
+        assert_eq!(deleted.deleted_object_count, 3);
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn evidence_kind_allowlist_includes_only_governed_screenshot_types() {

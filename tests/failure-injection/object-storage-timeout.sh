@@ -81,7 +81,7 @@ run_legal_hold_tests() {
   TEST_OBJECT_STORAGE_ACCESS_KEY_ID="$access_key" \
   TEST_OBJECT_STORAGE_SECRET_ACCESS_KEY="$secret_key" \
     cargo test --locked --manifest-path apps/browser-node/Cargo.toml \
-    -p storage-helper object_archive::recording_legal_hold::tests::real_s3_ \
+    -p storage-helper real_s3_ \
     -- --ignored --test-threads=1
 }
 if [[ "${OBJECT_STORAGE_TEST_FOCUS:-all}" == legal-hold ]]; then

@@ -2,7 +2,7 @@
 
 > 更新日期：2026-10-23
 > 基准分支：`main`
-> 编写时基准提交：`859cf9c test: use static recording scanner fixture to avoid executable write races`
+> 编写时基准提交：`b75dbc5 test: refresh read-only perception only after exact stale cursor rejection`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -308,6 +308,17 @@ progress 166。
 
 ### 最近验证状态
 
+- Recording Hold 新增 additive 内部 ApplyRecordingLegalHold RPC 和 Helper IPC，明确 ON/OFF，
+  拒绝未指定模式、缺少前序 Proof 的 OFF 和越界身份/Epoch/预算。Helper Client 重验回执
+  的操作、Epoch、Recording、状态、版本计数、Hash 和时间；旧响应缺少 Hold 结果不作
+  成功。真实 Unix Socket/UID 校验→MinIO ON/OFF 与解除后删除通过，见 progress 290。
+  仍无控制面队列/Gateway/API/UI/删除联锁/未知恢复或能力宣告，正式链待补；当前新增
+  通道尚未完成自己的远端 CI 与完整 mTLS 新方法验收。
+
+- b75dbc5 主 CI 39823822283、Desktop 39823822034 最终精确 SHA 全成功；Verify、
+  扫描、PostgreSQL、Integration、Object Storage/Recording GameDay、Operator 和桌面
+  通过，三项真实 MinIO Hold 测试日志已确认执行。progress 287—289 的 CI 已收尾。
+
 - 859cf9c 的 Verify 已通过，扫描、PostgreSQL Gate、Operator、Windows/macOS 成功；
   Integration 在只读 snapshot→inspect 返回 HTTP 409，curl -f 丢弃正文后 JSON 解析
   失败，具体拒绝原因未保留，存储 GameDay 未执行。测试改为同一进程执行观察对，
@@ -325,8 +336,9 @@ progress 166。
 - Recording 逐版本 Legal Hold 的对象存储执行器已具备 ON/OFF、精确 Manifest/版本集合、
   前序 Proof 与递增 Epoch、远端条件写账本及逐版本读回。真实 MinIO 验证历史版本保护、
   ON/OFF、旧请求拒绝、双控制器竞争和客户端超时后才到达的 OFF；未知 Intent 不自动
-  重试或被新 ON 覆盖，不输出伪造成功回执。它尚未接入控制面队列、mTLS RPC、策略
-  API/UI、删除并发联锁或未知结果恢复，不声明产品能力。Rust 243 项、严格 Clippy、
+  重试或被新 ON 覆盖，不输出伪造成功回执。Node RPC/IPC 后由 progress 290 补齐，
+  控制面队列/Gateway、策略 API/UI、删除并发联锁或未知结果恢复仍缺，不声明完整产品
+  能力。Rust 243 项、严格 Clippy、
   完整 OrbStack Object Storage GameDay 通过，目标云 Gate 保留，见 progress 287。
 
 - b2b01c8 主 CI 39219842286、Desktop 39219842284 最终精确 SHA 全成功，包含

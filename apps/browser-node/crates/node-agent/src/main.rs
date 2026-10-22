@@ -13,8 +13,9 @@ use node_contracts::proto::{
     AdjustRuntimeResourcesCommand, AgentActionCommand, AgentActionFailedEvent, AgentActionOutcome,
     AgentActionPrimitive, AgentBrowserEvaluateCommand, AgentBrowserEvaluationCompletedEvent,
     AgentFileUploadCommand, AgentFileUploadFailedEvent, AgentNavigateCommand,
-    AgentNavigationFailedEvent, BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserDownloadState,
-    BrowserNativeDialogState, BrowserStateDiffEvent, BrowserStateEvent, BrowserStateObservedEvent,
+    AgentNavigationFailedEvent, ApplyRecordingLegalHoldRequest, ApplyRecordingLegalHoldResponse,
+    BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserDownloadState, BrowserNativeDialogState,
+    BrowserStateDiffEvent, BrowserStateEvent, BrowserStateObservedEvent,
     BrowserStateSnapshotBeginEvent, BrowserStateSnapshotChunkEvent,
     BrowserStateSnapshotCommitEvent, BrowserTabState, BusinessRecoveryActionCommand,
     CancelAgentActionCommand, CaptureAgentScreenshotCommand, CaptureObserverScreenshotCommand,
@@ -28,13 +29,14 @@ use node_contracts::proto::{
     PresignProfileExportDownloadRequest, PresignProfileExportDownloadResponse,
     PresignRecordingPlaybackRequest, PresignRecordingPlaybackResponse, ProbeProxyBindingRequest,
     ProbeProxyBindingResponse, ProfileWarmTierSyncedEvent, PublishRequest, PublishResponse,
-    RecordingPlaybackSegment, RegionalStabilityState, ReleaseAllInputCommand,
-    RemoteDesktopParticipantEvent, ReportCapacityRequest, ReportSessionResourcesRequest,
-    RequestStateResyncCommand, RevokeRemoteDesktopConnectionCommand, RuntimeResourcesAdjustedEvent,
-    RuntimeStartedEvent, RuntimeStoppedEvent, SessionEvidenceCapturedEvent,
-    SessionRecordingFinalizedEvent, StableTargetRegionState, StageAgentBrowserFileRequest,
-    StageAgentBrowserFileResponse, StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
-    UnstableTargetRegionState, UploadProfileImportRequest, UploadProfileImportResponse,
+    RecordingLegalHoldMode, RecordingPlaybackSegment, RegionalStabilityState,
+    ReleaseAllInputCommand, RemoteDesktopParticipantEvent, ReportCapacityRequest,
+    ReportSessionResourcesRequest, RequestStateResyncCommand, RevokeRemoteDesktopConnectionCommand,
+    RuntimeResourcesAdjustedEvent, RuntimeStartedEvent, RuntimeStoppedEvent,
+    SessionEvidenceCapturedEvent, SessionRecordingFinalizedEvent, StableTargetRegionState,
+    StageAgentBrowserFileRequest, StageAgentBrowserFileResponse, StartRuntimeCommand,
+    StopRuntimeCommand, TargetBounds, UnstableTargetRegionState, UploadProfileImportRequest,
+    UploadProfileImportResponse,
 };
 use node_journal::{
     CommandFenceDecision, PersistedAcknowledgement, PersistedCommandResult, RuntimeLease,
@@ -10601,6 +10603,36 @@ impl NodeControlServiceRpc for NodeControlService {
         }))
     }
 
+    async fn apply_recording_legal_hold(
+        &self,
+        request: Request<ApplyRecordingLegalHoldRequest>,
+    ) -> Result<Response<ApplyRecordingLegalHoldResponse>, Status> {
+        let mode = request.get_ref().mode;
+        let request =
+            recording_legal_hold_request(request.into_inner()).map_err(|status| *status)?;
+        let helper = self
+            .storage_helper
+            .as_ref()
+            .ok_or_else(|| Status::failed_precondition("Recording Hold requires Storage Helper"))?;
+        let result = helper
+            .apply_recording_legal_hold(request)
+            .await
+            .map_err(|_| Status::failed_precondition("RECORDING_HOLD_RESULT_UNAVAILABLE"))?;
+        let completed_at_ms = i64::try_from(result.completed_at_ms)
+            .map_err(|_| Status::internal("Recording Hold completion timestamp is invalid"))?;
+        Ok(Response::new(ApplyRecordingLegalHoldResponse {
+            operation_id: result.operation_id,
+            authority_epoch: result.authority_epoch,
+            node_id: self.node_id.clone(),
+            recording_id: result.recording_id,
+            mode,
+            proof_hash: result.proof_hash,
+            inventory_sha256: result.inventory_sha256,
+            object_version_count: result.object_version_count,
+            completed_at_ms,
+        }))
+    }
+
     async fn presign_profile_export_download(
         &self,
         request: Request<PresignProfileExportDownloadRequest>,
@@ -10679,6 +10711,68 @@ struct ProfileImportMetadata {
     runtime_build_id: String,
     archive_sha256: String,
     archive_size_bytes: u64,
+}
+
+fn recording_legal_hold_request(
+    request: ApplyRecordingLegalHoldRequest,
+) -> Result<helper_client::StorageRecordingLegalHoldRequest, Box<Status>> {
+    let valid_id = |value: &str, prefix: &str| {
+        !value.is_empty()
+            && value.len() <= 128
+            && value.starts_with(prefix)
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+    };
+    let valid_hash = |value: &str| {
+        value.len() == 64
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    };
+    let desired_state = match RecordingLegalHoldMode::try_from(request.mode) {
+        Ok(RecordingLegalHoldMode::On) => helper_client::StorageRecordingLegalHoldState::On,
+        Ok(RecordingLegalHoldMode::Off) => helper_client::StorageRecordingLegalHoldState::Off,
+        _ => {
+            return Err(
+                Status::invalid_argument("Recording Hold requires explicit ON or OFF").into(),
+            )
+        }
+    };
+    if !valid_id(&request.operation_id, "rhj_")
+        || request.authority_epoch == 0
+        || !valid_id(&request.tenant_id, "")
+        || !valid_id(&request.profile_id, "")
+        || !valid_id(&request.session_id, "ses_")
+        || !valid_id(&request.recording_id, "rec_")
+        || !valid_hash(&request.manifest_sha256)
+        || request.manifest_bytes == 0
+        || request.segment_count > 100_000
+        || (!request.previous_proof_hash.is_empty() && !valid_hash(&request.previous_proof_hash))
+        || (desired_state == helper_client::StorageRecordingLegalHoldState::Off
+            && request.previous_proof_hash.is_empty())
+        || !(1000..=120_000).contains(&request.execution_budget_millis)
+    {
+        return Err(Status::invalid_argument("Recording Hold request is invalid").into());
+    }
+    Ok(helper_client::StorageRecordingLegalHoldRequest {
+        operation_id: request.operation_id,
+        authority_epoch: request.authority_epoch,
+        tenant_id: request.tenant_id,
+        profile_id: request.profile_id,
+        session_id: request.session_id,
+        recording_id: request.recording_id,
+        manifest_sha256: request.manifest_sha256,
+        manifest_bytes: request.manifest_bytes,
+        segment_count: request.segment_count,
+        desired_state,
+        previous_proof_hash: if request.previous_proof_hash.is_empty() {
+            None
+        } else {
+            Some(request.previous_proof_hash)
+        },
+        execution_budget_millis: request.execution_budget_millis,
+    })
 }
 
 impl From<&UploadProfileImportRequest> for ProfileImportMetadata {
@@ -11410,6 +11504,57 @@ async fn shutdown_signal() {
 #[cfg(test)]
 mod tests {
     #[cfg(unix)]
+    #[test]
+    fn recording_hold_rpc_rejects_missing_authority_or_ambiguous_modes() {
+        let valid = ApplyRecordingLegalHoldRequest {
+            operation_id: "rhj_owned".into(),
+            authority_epoch: 1,
+            tenant_id: "tenant-test".into(),
+            profile_id: "profile-test".into(),
+            session_id: "ses_owned".into(),
+            recording_id: "rec_owned".into(),
+            manifest_sha256: "a".repeat(64),
+            manifest_bytes: 12,
+            segment_count: 1,
+            mode: RecordingLegalHoldMode::On as i32,
+            previous_proof_hash: String::new(),
+            execution_budget_millis: 1000,
+        };
+        let mapped = recording_legal_hold_request(valid.clone()).unwrap();
+        assert_eq!(
+            mapped.desired_state,
+            helper_client::StorageRecordingLegalHoldState::On
+        );
+        assert!(mapped.previous_proof_hash.is_none());
+        let cases: [fn(&mut ApplyRecordingLegalHoldRequest); 8] = [
+            |r| r.mode = 0,
+            |r| r.mode = 99,
+            |r| r.authority_epoch = 0,
+            |r| r.recording_id = "../other".into(),
+            |r| r.session_id = "other".into(),
+            |r| r.previous_proof_hash = "broken".into(),
+            |r| r.execution_budget_millis = 120_001,
+            |r| r.mode = RecordingLegalHoldMode::Off as i32,
+        ];
+        for mutate in cases {
+            let mut invalid = valid.clone();
+            mutate(&mut invalid);
+            assert_eq!(
+                recording_legal_hold_request(invalid).unwrap_err().code(),
+                tonic::Code::InvalidArgument
+            );
+        }
+        let mut off = valid;
+        off.mode = RecordingLegalHoldMode::Off as i32;
+        off.previous_proof_hash = "b".repeat(64);
+        let mapped = recording_legal_hold_request(off).unwrap();
+        assert_eq!(
+            mapped.desired_state,
+            helper_client::StorageRecordingLegalHoldState::Off
+        );
+        assert_eq!(mapped.previous_proof_hash, Some("b".repeat(64)));
+    }
+
     #[test]
     fn scanner_capability_rejects_successful_process_with_invalid_readiness() {
         use std::os::unix::fs::{DirBuilderExt, PermissionsExt};

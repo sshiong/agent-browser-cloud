@@ -6,7 +6,8 @@ use helper_contracts::{
 };
 pub use helper_contracts::{
     StorageCheckpoint, StorageEvidence, StorageEvidenceAccess, StorageRecording,
-    StorageRecordingDeletion, StorageRecordingPlaybackAccess, StorageRestoreStatus,
+    StorageRecordingDeletion, StorageRecordingLegalHold, StorageRecordingLegalHoldRequest,
+    StorageRecordingLegalHoldState, StorageRecordingPlaybackAccess, StorageRestoreStatus,
     StorageWarmTierSync, StorageWorkspace,
 };
 use std::path::{Path, PathBuf};
@@ -554,6 +555,66 @@ impl StorageHelperClient {
         .ok_or_else(|| anyhow::anyhow!("storage helper omitted recording deletion result"))
     }
 
+    pub async fn apply_recording_legal_hold(
+        &self,
+        request: helper_contracts::StorageRecordingLegalHoldRequest,
+    ) -> anyhow::Result<helper_contracts::StorageRecordingLegalHold> {
+        for value in [
+            &request.operation_id,
+            &request.tenant_id,
+            &request.profile_id,
+            &request.session_id,
+            &request.recording_id,
+        ] {
+            validate_identifier("recording_hold", value)?;
+        }
+        let valid_hash = |value: &str| {
+            value.len() == 64
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        };
+        anyhow::ensure!(
+            request.authority_epoch > 0
+                && request.manifest_bytes > 0
+                && request.segment_count <= 100_000
+                && valid_hash(&request.manifest_sha256)
+                && request
+                    .previous_proof_hash
+                    .as_deref()
+                    .is_none_or(valid_hash)
+                && (request.desired_state != helper_contracts::StorageRecordingLegalHoldState::Off
+                    || request.previous_proof_hash.is_some())
+                && (1000..=120_000).contains(&request.execution_budget_millis),
+            "RECORDING_HOLD_REQUEST_REJECTED"
+        );
+        let scoped = Self {
+            timeout: Duration::from_millis(request.execution_budget_millis + 1000),
+            ..self.clone()
+        };
+        let response = scoped
+            .call(StorageCommand::ApplyRecordingLegalHold {
+                request: request.clone(),
+            })
+            .await?
+            .recording_legal_hold
+            .ok_or_else(|| anyhow::anyhow!("RECORDING_HOLD_RESPONSE_MISSING"))?;
+        let expected = request.segment_count.saturating_mul(2).saturating_add(1);
+        anyhow::ensure!(
+            response.operation_id == request.operation_id
+                && response.authority_epoch == request.authority_epoch
+                && response.recording_id == request.recording_id
+                && response.state == request.desired_state
+                && valid_hash(&response.proof_hash)
+                && valid_hash(&response.inventory_sha256)
+                && response.completed_at_ms > 0
+                && response.object_version_count >= expected
+                && response.object_version_count <= expected * 2,
+            "RECORDING_HOLD_RESPONSE_REJECTED"
+        );
+        Ok(response)
+    }
+
     pub async fn sign_profile_export_download(
         &self,
         tenant_id: &str,
@@ -740,6 +801,121 @@ mod tests {
         assert!(error.to_string().contains("timed out"));
         server.abort();
         let _ = std::fs::remove_file(path);
+    }
+
+    fn hold_request() -> helper_contracts::StorageRecordingLegalHoldRequest {
+        helper_contracts::StorageRecordingLegalHoldRequest {
+            operation_id: "hold-owned".into(),
+            authority_epoch: 1,
+            tenant_id: "tenant-test".into(),
+            profile_id: "profile-test".into(),
+            session_id: "session-test".into(),
+            recording_id: "recording-test".into(),
+            manifest_sha256: "a".repeat(64),
+            manifest_bytes: 12,
+            segment_count: 1,
+            desired_state: helper_contracts::StorageRecordingLegalHoldState::On,
+            previous_proof_hash: None,
+            execution_budget_millis: 1000,
+        }
+    }
+
+    #[tokio::test]
+    async fn rejects_unbound_or_incomplete_hold_acknowledgements() {
+        for mismatch in [
+            "epoch",
+            "state",
+            "operation",
+            "recording",
+            "count",
+            "proof",
+            "inventory",
+            "timestamp",
+            "missing",
+            "none",
+        ] {
+            let path = socket_path("hold-ack");
+            let listener = UnixListener::bind(&path).unwrap();
+            let server = tokio::spawn(async move {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let incoming: StorageRequest = read_frame(&mut stream).await.unwrap();
+                let StorageCommand::ApplyRecordingLegalHold { request } = incoming.command else {
+                    panic!("owned hold command missing")
+                };
+                let mut hold = helper_contracts::StorageRecordingLegalHold {
+                    operation_id: request.operation_id,
+                    authority_epoch: request.authority_epoch,
+                    recording_id: request.recording_id,
+                    state: helper_contracts::StorageRecordingLegalHoldState::On,
+                    object_version_count: 3,
+                    proof_hash: "b".repeat(64),
+                    inventory_sha256: "c".repeat(64),
+                    completed_at_ms: 123,
+                };
+                match mismatch {
+                    "epoch" => hold.authority_epoch = 2,
+                    "state" => hold.state = helper_contracts::StorageRecordingLegalHoldState::Off,
+                    "operation" => hold.operation_id = "other".into(),
+                    "recording" => hold.recording_id = "other".into(),
+                    "count" => hold.object_version_count = 0,
+                    "proof" => hold.proof_hash = "invalid".into(),
+                    "inventory" => hold.inventory_sha256 = "invalid".into(),
+                    "timestamp" => hold.completed_at_ms = 0,
+                    _ => {}
+                }
+                let response = StorageResponse {
+                    schema_version: SCHEMA_VERSION,
+                    request_id: incoming.request_id,
+                    ok: true,
+                    workspace: None,
+                    checkpoint: None,
+                    warm_tier_sync: None,
+                    recording: None,
+                    evidence: None,
+                    evidence_access: None,
+                    recording_playback_access: None,
+                    recording_deletion: None,
+                    profile_export_access: None,
+                    recording_legal_hold: if mismatch == "missing" {
+                        None
+                    } else {
+                        Some(hold)
+                    },
+                    error_code: None,
+                    error_message: None,
+                };
+                write_frame(&mut stream, &response).await.unwrap();
+            });
+            let client = StorageHelperClient::new(
+                path.clone(),
+                Duration::from_secs(1),
+                std::env::temp_dir(),
+            )
+            .unwrap();
+            let result = client.apply_recording_legal_hold(hold_request()).await;
+            if mismatch == "none" {
+                assert!(result.is_ok());
+            } else {
+                assert!(result.is_err(), "mismatch accepted: {mismatch}");
+            }
+            server.await.unwrap();
+            let _ = std::fs::remove_file(path);
+        }
+    }
+
+    #[tokio::test]
+    async fn rejects_invalid_hold_before_opening_a_socket() {
+        let path = socket_path("hold-invalid");
+        let client =
+            StorageHelperClient::new(path, Duration::from_secs(1), std::env::temp_dir()).unwrap();
+        let mut request = hold_request();
+        request.authority_epoch = 0;
+        assert!(client
+            .apply_recording_legal_hold(request)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("REQUEST_REJECTED"));
     }
 
     #[test]

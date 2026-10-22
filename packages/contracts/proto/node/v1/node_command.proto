@@ -34,6 +34,10 @@ service NodeControlService {
   // idempotent tombstone creation to the Storage Helper; object coordinates stay internal.
   rpc DeleteRecordingObjects(DeleteRecordingObjectsRequest)
       returns (DeleteRecordingObjectsResponse);
+  // Exact Recording/Manifest-bound cloud Hold. Unknown results cannot authorize a later epoch.
+  // No object coordinates or credentials cross this mTLS boundary.
+  rpc ApplyRecordingLegalHold(ApplyRecordingLegalHoldRequest)
+      returns (ApplyRecordingLegalHoldResponse);
   // Purpose-bound Profile export. The Node delegates commit-marker and archive-integrity
   // verification plus short-lived signing to the isolated Storage Helper.
   rpc PresignProfileExportDownload(PresignProfileExportDownloadRequest)
@@ -228,6 +232,39 @@ message DeleteRecordingObjectsResponse {
   string deletion_proof_hash = 5;
   uint64 deleted_object_count = 6;
   int64 completed_at_ms = 7;
+}
+
+enum RecordingLegalHoldMode {
+  RECORDING_LEGAL_HOLD_MODE_UNSPECIFIED = 0;
+  RECORDING_LEGAL_HOLD_MODE_ON = 1;
+  RECORDING_LEGAL_HOLD_MODE_OFF = 2;
+}
+
+message ApplyRecordingLegalHoldRequest {
+  string operation_id = 1;
+  uint64 authority_epoch = 2;
+  string tenant_id = 3;
+  string profile_id = 4;
+  string session_id = 5;
+  string recording_id = 6;
+  string manifest_sha256 = 7;
+  uint64 manifest_bytes = 8;
+  uint64 segment_count = 9;
+  RecordingLegalHoldMode mode = 10;
+  string previous_proof_hash = 11;
+  uint64 execution_budget_millis = 12;
+}
+
+message ApplyRecordingLegalHoldResponse {
+  string operation_id = 1;
+  uint64 authority_epoch = 2;
+  string node_id = 3;
+  string recording_id = 4;
+  RecordingLegalHoldMode mode = 5;
+  string proof_hash = 6;
+  string inventory_sha256 = 7;
+  uint64 object_version_count = 8;
+  int64 completed_at_ms = 9;
 }
 
 message PresignProfileExportDownloadRequest {

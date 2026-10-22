@@ -184,6 +184,9 @@ pub enum StorageCommand {
         manifest_bytes: u64,
         segment_count: u64,
     },
+    ApplyRecordingLegalHold {
+        request: StorageRecordingLegalHoldRequest,
+    },
     SignProfileExportDownload {
         tenant_id: String,
         profile_id: String,
@@ -217,6 +220,8 @@ pub struct StorageResponse {
     pub recording_playback_access: Option<StorageRecordingPlaybackAccess>,
     #[serde(default)]
     pub recording_deletion: Option<StorageRecordingDeletion>,
+    #[serde(default)]
+    pub recording_legal_hold: Option<StorageRecordingLegalHold>,
     #[serde(default)]
     pub profile_export_access: Option<StorageProfileExportAccess>,
     pub error_code: Option<String>,
@@ -346,6 +351,43 @@ pub struct StorageRecordingDeletion {
     pub completed_at_ms: u64,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StorageRecordingLegalHoldState {
+    On,
+    Off,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StorageRecordingLegalHoldRequest {
+    pub operation_id: String,
+    pub authority_epoch: u64,
+    pub tenant_id: String,
+    pub profile_id: String,
+    pub session_id: String,
+    pub recording_id: String,
+    pub manifest_sha256: String,
+    pub manifest_bytes: u64,
+    pub segment_count: u64,
+    pub desired_state: StorageRecordingLegalHoldState,
+    pub previous_proof_hash: Option<String>,
+    pub execution_budget_millis: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StorageRecordingLegalHold {
+    pub operation_id: String,
+    pub authority_epoch: u64,
+    pub recording_id: String,
+    pub state: StorageRecordingLegalHoldState,
+    pub object_version_count: u64,
+    pub inventory_sha256: String,
+    pub proof_hash: String,
+    pub completed_at_ms: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageProfileExportAccess {
@@ -439,6 +481,28 @@ mod tests {
             StorageCommand::Checkpoint { runtime_build_id, .. }
                 if runtime_build_id == "runtime-test"
         ));
+    }
+
+    #[test]
+    fn legal_hold_requires_explicit_state_and_preserves_legacy_responses() {
+        let mut request = serde_json::json!({"operationId":"hold-1", "authorityEpoch":1,
+            "tenantId":"tenant-test", "profileId":"profile-test", "sessionId":"session-test",
+            "recordingId":"recording-test", "manifestSha256":"a".repeat(64), "manifestBytes":12,
+            "segmentCount":1, "previousProofHash":null, "executionBudgetMillis":1000});
+        assert!(
+            serde_json::from_value::<StorageRecordingLegalHoldRequest>(request.clone()).is_err()
+        );
+        request["desiredState"] = serde_json::json!("OFF");
+        let decoded: StorageRecordingLegalHoldRequest =
+            serde_json::from_value(request.clone()).unwrap();
+        assert_eq!(decoded.desired_state, StorageRecordingLegalHoldState::Off);
+        request["desiredState"] = serde_json::json!("UNKNOWN");
+        assert!(serde_json::from_value::<StorageRecordingLegalHoldRequest>(request).is_err());
+        let old: StorageResponse = serde_json::from_value(serde_json::json!({
+            "schemaVersion":1, "requestId":"old-helper", "ok":true
+        }))
+        .unwrap();
+        assert!(old.recording_legal_hold.is_none());
     }
 
     #[tokio::test]

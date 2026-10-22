@@ -1,8 +1,8 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-10-19
+> 更新日期：2026-10-23
 > 基准分支：`main`
-> 编写时基准提交：`ea89804 fix: verify real face masking before declaring recording privacy ready`
+> 编写时基准提交：`b2b01c8 fix: persist recording deletion authority before remote dispatch`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -308,6 +308,17 @@ progress 166。
 
 ### 最近验证状态
 
+- Recording 逐版本 Legal Hold 的对象存储执行器已具备 ON/OFF、精确 Manifest/版本集合、
+  前序 Proof 与递增 Epoch、远端条件写账本及逐版本读回。真实 MinIO 验证历史版本保护、
+  ON/OFF、旧请求拒绝、双控制器竞争和客户端超时后才到达的 OFF；未知 Intent 不自动
+  重试或被新 ON 覆盖，不输出伪造成功回执。它尚未接入控制面队列、mTLS RPC、策略
+  API/UI、删除并发联锁或未知结果恢复，不声明产品能力。Rust 243 项、严格 Clippy、
+  完整 OrbStack Object Storage GameDay 通过，目标云 Gate 保留，见 progress 287。
+
+- b2b01c8 主 CI 39219842286、Desktop 39219842284 最终精确 SHA 全成功，包含
+  新增 PostgreSQL 14 项 Gate、扫描、Integration、Object Storage/Recording GameDay、
+  Operator 与 Windows/macOS；progress 286 的 CI 已收尾。
+
 - Recording 删除请求发出后响应未知或执行事务崩溃，旧行锁无法证明对象仍被保全；
   两项真实 PostgreSQL 精确业务回归失败。V134 增加提交后不可撤销的删除授权，Worker
   在独立事务提交授权后才派发；未知结果拒绝新 Legal Hold/延长保留期，且不伪造物理
@@ -315,7 +326,7 @@ progress 166。
   十四项 PostgreSQL Gate 已覆盖双连接竞态、旧 Worker/旧策略写入、迟到录制与恢复，
   常规 Java 650 项通过。升级前必须排空/核对旧未删除队列，V134 不能据 attempt=0
   推断未派发；旧 Worker 新删除会被数据库拒绝。目标云原生 Legal Hold 仍缺，见
-  progress 286；本次完整 CI 仍需按精确提交核验。
+  progress 286；该提交 CI 已收尾，见上方精确运行证据。
 
 - ea89804 主 CI 39212185088、Desktop 39212185188 最终精确 SHA 均成功，包含
   扫描、Integration、Object Storage/Recording GameDay、Operator 与 Windows/macOS。

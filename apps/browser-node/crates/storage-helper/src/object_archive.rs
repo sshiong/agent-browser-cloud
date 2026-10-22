@@ -1,3 +1,8 @@
+mod recording_legal_hold;
+pub use recording_legal_hold::{
+    RecordingLegalHoldRequest, RecordingLegalHoldResult, RecordingLegalHoldState,
+};
+
 use crate::{atomic_write, secure_create_dir_all, LocalProfileStore, ProfileCheckpointManifest};
 use anyhow::Context;
 use aws_sdk_s3::config::{BehaviorVersion, Credentials, Region};
@@ -109,9 +114,11 @@ pub struct RecordingDeletionResult {
     pub completed_at_ms: u64,
 }
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct RecordingObjectVersion {
     key: String,
     version_id: String,
+    delete_marker: bool,
 }
 
 pub struct SignedRecordingPlaybackSegment {
@@ -1870,6 +1877,7 @@ impl ObjectArchive {
                 versions.push(RecordingObjectVersion {
                     key: key.to_owned(),
                     version_id: version_id.to_owned(),
+                    delete_marker: false,
                 });
             }
             for marker in response.delete_markers() {
@@ -1882,6 +1890,7 @@ impl ObjectArchive {
                 versions.push(RecordingObjectVersion {
                     key: key.to_owned(),
                     version_id: version_id.to_owned(),
+                    delete_marker: true,
                 });
             }
             anyhow::ensure!(

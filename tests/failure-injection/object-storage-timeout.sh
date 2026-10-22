@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ "$(uname -s)" == Darwin ]]; then
+  runtime_status="$(orbctl status)"
+  context="$(docker context show)"
+  runtime_info="$(docker info --format 'Name={{.Name}} OS={{.OperatingSystem}} Server={{.ServerVersion}}')"
+  [[ "$runtime_status" == *Running* && "$context" == orbstack && "$runtime_info" == *OS=OrbStack* ]]
+fi
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 minio_image="${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z}"
 mc_image="${MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z}"
@@ -68,6 +75,21 @@ docker run --rm --network "$network_name" --entrypoint /bin/sh "$mc_image" \
 docker run --rm --network "$network_name" --entrypoint /bin/sh "$mc_image" \
   -c "mc alias set acceptance http://${container_name}:9000 '${access_key}' '${secret_key}' >/dev/null && printf 'immutable-recording-evidence' | mc pipe acceptance/${worm_bucket}/recording-segment.ndjson >/dev/null && retention_info=\$(mc retention info acceptance/${worm_bucket}/recording-segment.ndjson) && case \"\$retention_info\" in *COMPLIANCE*) ;; *) echo 'Object Lock compliance retention was not applied' >&2; exit 1 ;; esac && if mc rm --versions --force acceptance/${worm_bucket}/recording-segment.ndjson >/dev/null 2>&1; then echo 'Object Lock allowed a protected version to be deleted' >&2; exit 1; fi && mc stat acceptance/${worm_bucket}/recording-segment.ndjson >/dev/null"
 
+run_legal_hold_tests() {
+  TEST_OBJECT_STORAGE_ENDPOINT="http://127.0.0.1:${port}" \
+  TEST_OBJECT_STORAGE_BUCKET="$bucket" \
+  TEST_OBJECT_STORAGE_ACCESS_KEY_ID="$access_key" \
+  TEST_OBJECT_STORAGE_SECRET_ACCESS_KEY="$secret_key" \
+    cargo test --locked --manifest-path apps/browser-node/Cargo.toml \
+    -p storage-helper object_archive::recording_legal_hold::tests::real_s3_ \
+    -- --ignored --test-threads=1
+}
+if [[ "${OBJECT_STORAGE_TEST_FOCUS:-all}" == legal-hold ]]; then
+  run_legal_hold_tests
+  echo 'RECORDING_LEGAL_HOLD_GAMEDAY_OK'
+  exit 0
+fi
+
 TEST_OBJECT_STORAGE_ENDPOINT="http://127.0.0.1:${port}" \
 TEST_OBJECT_STORAGE_BUCKET="$bucket" \
 TEST_OBJECT_STORAGE_ACCESS_KEY_ID="$access_key" \
@@ -77,6 +99,8 @@ TEST_OBJECT_STORAGE_MULTIPART_RESUME=true \
   cargo test --locked --manifest-path apps/browser-node/Cargo.toml \
   -p storage-helper object_archive::tests::archives_checkpoint_or_fails_within_bound \
   -- --ignored --exact
+
+run_legal_hold_tests
 
 TEST_CROSS_REGION_PRIMARY_ENDPOINT="http://127.0.0.1:${port}" \
 TEST_CROSS_REGION_REPLICA_ENDPOINT="http://127.0.0.1:${replica_port}" \
@@ -110,4 +134,4 @@ TEST_OBJECT_STORAGE_EXPECT_FAILURE=true \
   -- --ignored --exact
 docker unpause "$container_name" >/dev/null
 
-printf 'OBJECT_STORAGE_GAMEDAY_OK commit_marker_last=true timeout_ms=500 local_checkpoint_retryable=true multipart_resume=true cross_region_restore=true legacy_unversioned_compatible=true compliance_worm_delete_rejected=true\n'
+printf 'OBJECT_STORAGE_GAMEDAY_OK commit_marker_last=true timeout_ms=500 local_checkpoint_retryable=true multipart_resume=true cross_region_restore=true legacy_unversioned_compatible=true compliance_worm_delete_rejected=true versioned_legal_hold_on_off=true late_off_unknown_fenced=true\n'

@@ -2,7 +2,7 @@
 
 > 更新日期：2026-10-23
 > 基准分支：`main`
-> 编写时基准提交：`2e18d95 feat: add version-scoped recording legal hold executor and uncertainty fence`
+> 编写时基准提交：`859cf9c test: use static recording scanner fixture to avoid executable write races`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -307,6 +307,14 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- 859cf9c 的 Verify 已通过，扫描、PostgreSQL Gate、Operator、Windows/macOS 成功；
+  Integration 在只读 snapshot→inspect 返回 HTTP 409，curl -f 丢弃正文后 JSON 解析
+  失败，具体拒绝原因未保留，存储 GameDay 未执行。测试改为同一进程执行观察对，
+  仅对精确 STATE_CURSOR_STALE 重新取 Snapshot，最多三次，保持原 Element/Role/Tab，
+  未知错误与传输失败不重放；生产围栏不变，任何动作不走此恢复器。八项真实 loopback
+  HTTP 回归、Replay 51 项、完整 OrbStack Integration exit 0/审计链通过；本次提交
+  CI 仍须验证，见 progress 289，原十一项范围保留。
 
 - 2e18d95 主 CI 39812875183 在既有 Recorder 的损坏 JPEG 测试准备阶段失败：
   新生成的扫描器脚本启动报 ETXTBSY（Text file busy），未进入脱敏断言，新增对象

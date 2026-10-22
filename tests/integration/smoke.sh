@@ -4346,19 +4346,11 @@ for _ in $(seq 1 480); do
 done
 printf '%s' "$side_effect_state" | python3 -c \
   'import json,sys; state=json.load(sys.stdin); assert state["observedAt"]; assert state["ageMillis"] < 30000; assert state["freshness"] in ("FRESH", "AGING"), state'
-agent_browser_snapshot="$(curl -fsS \
-  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
-  -H 'X-Tenant-Id: tenant-integration' \
-  -H 'X-Roles: TENANT_VIEWER')"
-read -r perception_cursor perception_element_id perception_role < <(printf '%s' "$agent_browser_snapshot" | python3 -c \
-  'import json,sys; value=json.load(sys.stdin); assert value["stateCursor"].count(":") == 2; assert value["state"]["targets"]; target=next(item for item in value["state"]["targets"] if item["visible"] and item["elementId"] and item["role"]); print(value["stateCursor"], target["elementId"], target["role"])')
-curl -fsS -X POST \
-  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/inspect" \
-  -H 'Content-Type: application/json' \
-  -H 'X-Tenant-Id: tenant-integration' \
-  -H 'X-Roles: TENANT_VIEWER' \
-  -d "{\"stateCursor\":\"${perception_cursor}\",\"elementIds\":[\"${perception_element_id}\"]}" | python3 -c \
-  'import json,sys; expected=sys.argv[1]; value=json.load(sys.stdin); assert len(value["targets"]) == 1; target=value["targets"][0]; assert target["elementId"] == expected; assert isinstance(target["interactive"], bool); assert isinstance(target["inViewport"], bool); assert isinstance(target["occluded"], bool)' "$perception_element_id"
+# Recover only the documented stale-cursor rejection for this read-only observation pair.
+# Input/action requests are not routed through this helper.
+perception_role="$(python3 tests/integration/perception_readback.py \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser" \
+  tenant-integration)"
 curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/find" \
   -H 'Content-Type: application/json' \

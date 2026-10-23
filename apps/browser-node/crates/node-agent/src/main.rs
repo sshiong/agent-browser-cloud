@@ -1014,6 +1014,7 @@ struct NodeCapacityReporter {
     isolation_capable: bool,
     labels: HashMap<String, String>,
     pressure_root: PathBuf,
+    hold_helper: Option<Arc<StorageHelperClient>>,
 }
 
 #[derive(Clone, Copy)]
@@ -1326,6 +1327,7 @@ impl NodeCapacityReporter {
             isolation_capable: cgroup_capabilities.enforcement,
             labels,
             pressure_root,
+            hold_helper: None,
         })
     }
 
@@ -1368,6 +1370,32 @@ impl NodeCapacityReporter {
         Ok(value)
     }
 
+    async fn recording_hold_labels(&self) -> HashMap<String, String> {
+        let supported = if let Some(helper) = &self.hold_helper {
+            matches!(
+                tokio::time::timeout(
+                    Duration::from_millis(500),
+                    helper.recording_legal_hold_supported(),
+                )
+                .await,
+                Ok(Ok(true))
+            )
+        } else {
+            false
+        };
+        let mut labels = self.labels.clone();
+        labels.insert(
+            "recordingLegalHold".into(),
+            if supported {
+                "versioned-cas-journal-v1"
+            } else {
+                "unavailable"
+            }
+            .into(),
+        );
+        labels
+    }
+
     async fn report(&self) -> Result<()> {
         let secure = self.grpc_tls.is_some();
         let target = if self.control_plane_event_target.starts_with("http://")
@@ -1406,7 +1434,7 @@ impl NodeCapacityReporter {
                 supports_media: self.supports_media,
                 supports_native_os: self.supports_native_os,
                 isolation_capable: self.isolation_capable,
-                labels: self.labels.clone(),
+                labels: self.recording_hold_labels().await,
                 memory_psi_some_avg10: self.psi_avg10("memory", "some")?,
                 memory_psi_full_avg10: self.psi_avg10("memory", "full")?,
                 cpu_psi_some_avg10: self.psi_avg10("cpu", "some")?,
@@ -11113,7 +11141,7 @@ async fn main() -> Result<()> {
         sender: desktop_disconnect_sender,
     });
     let grpc_tls = GrpcTlsMaterial::from_environment(&environment)?.map(Arc::new);
-    let capacity_reporter = NodeCapacityReporter::from_environment(
+    let mut capacity_reporter = NodeCapacityReporter::from_environment(
         &environment,
         node_id.clone(),
         node_port,
@@ -11173,6 +11201,7 @@ async fn main() -> Result<()> {
         }
         Some(Arc::new(client))
     };
+    capacity_reporter.hold_helper = storage_helper.clone();
     let network_helper_socket = std::env::var("NETWORK_HELPER_SOCKET")
         .unwrap_or_default()
         .trim()
@@ -12616,6 +12645,99 @@ mod tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!("browsercloud-node-agent-{name}-{nonce}"))
+    }
+
+    #[tokio::test]
+    async fn recording_hold_capability_is_reprobed_and_fails_closed() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let path = PathBuf::from("/tmp").join(format!(
+            "abc-hp-{}-{}.sock",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let listener = tokio::net::UnixListener::bind(&path).unwrap();
+        let server = tokio::spawn(async move {
+            for mode in ["supported", "legacy", "wrong-id", "stall"] {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let length = stream.read_u32().await.unwrap();
+                assert!(length < 1024);
+                let mut bytes = vec![0; length as usize];
+                stream.read_exact(&mut bytes).await.unwrap();
+                let request: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+                if mode == "stall" {
+                    tokio::time::sleep(Duration::from_millis(750)).await;
+                    continue;
+                }
+                let mut response = serde_json::json!({
+                    "schemaVersion":1, "requestId":request["requestId"], "ok":true,
+                });
+                if mode != "legacy" {
+                    response["recordingLegalHoldSupported"] = true.into();
+                }
+                if mode == "wrong-id" {
+                    response["requestId"] = "other".into();
+                }
+                let bytes = serde_json::to_vec(&response).unwrap();
+                stream.write_u32(bytes.len() as u32).await.unwrap();
+                stream.write_all(&bytes).await.unwrap();
+            }
+        });
+        let helper = Arc::new(
+            StorageHelperClient::new(path.clone(), Duration::from_secs(5), std::env::temp_dir())
+                .unwrap(),
+        );
+        let mut reporter = NodeCapacityReporter {
+            node_id: "node-owned".into(),
+            region: "local".into(),
+            advertised_grpc_target: "unused".into(),
+            control_plane_event_target: "unused".into(),
+            grpc_tls: None,
+            certified_cpu_millis: 1000,
+            certified_memory_mib: 1024,
+            certified_pid_count: 100,
+            certified_gpu_slots: 0,
+            certified_media_slots: 0,
+            safety_margin_percent: 20,
+            max_sessions: 1,
+            supports_desktop: false,
+            supports_gpu: false,
+            supports_media: false,
+            supports_native_os: false,
+            isolation_capable: false,
+            labels: HashMap::from([("existing".into(), "preserved".into())]),
+            pressure_root: std::env::temp_dir(),
+            hold_helper: Some(helper),
+        };
+        let supported = reporter.recording_hold_labels().await;
+        assert_eq!(supported["recordingLegalHold"], "versioned-cas-journal-v1");
+        assert_eq!(supported["existing"], "preserved");
+        for _ in 0..2 {
+            assert_eq!(
+                reporter.recording_hold_labels().await["recordingLegalHold"],
+                "unavailable"
+            );
+        }
+        // A helper with a five-second socket timeout cannot block capacity reporting that long.
+        let started = tokio::time::Instant::now();
+        assert_eq!(
+            reporter.recording_hold_labels().await["recordingLegalHold"],
+            "unavailable"
+        );
+        assert!(started.elapsed() < Duration::from_secs(2));
+        server.await.unwrap();
+        assert_eq!(
+            reporter.recording_hold_labels().await["recordingLegalHold"],
+            "unavailable"
+        );
+        reporter.hold_helper = None;
+        assert_eq!(
+            reporter.recording_hold_labels().await["recordingLegalHold"],
+            "unavailable"
+        );
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]

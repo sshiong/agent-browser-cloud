@@ -8,3 +8,6 @@ anyhow.workspace = true
 helper-contracts = { path = "../helper-contracts" }
 tokio.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

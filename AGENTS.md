@@ -2,7 +2,7 @@
 
 > 更新日期：2026-10-23
 > 基准分支：`main`
-> 编写时基准提交：`b75dbc5 test: refresh read-only perception only after exact stale cursor rejection`
+> 编写时基准提交：`3a903cc feat: route recording legal holds through scoped node RPC and helper IPC`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -308,12 +308,20 @@ progress 166。
 
 ### 最近验证状态
 
+- Recording Hold 已增加当前 Helper 的动态协议探测：旧/未配置 Archive 的 Helper、
+  错误关联、断线和超时均撤回能力，每次心跳重新探测且外层预算 500 ms。Schema 1
+  新字段默认 false，能力只表示协议可用，不表示云端已保全。Rust 250 项、严格 Clippy、
+  四项真实 MinIO Hold 测试通过，见 progress 291；控制面生产者和产品链继续补齐。
+- 3a903cc 主 CI 39903853043、Desktop 39903853063 最终精确 SHA 全成功，包含
+  Java 新契约生成编译、扫描、PostgreSQL、Integration、完整 GameDay、Operator 和桌面。
+  progress 290 已收尾；新能力探测须验证自己的 CI。
+
 - Recording Hold 新增 additive 内部 ApplyRecordingLegalHold RPC 和 Helper IPC，明确 ON/OFF，
   拒绝未指定模式、缺少前序 Proof 的 OFF 和越界身份/Epoch/预算。Helper Client 重验回执
   的操作、Epoch、Recording、状态、版本计数、Hash 和时间；旧响应缺少 Hold 结果不作
   成功。真实 Unix Socket/UID 校验→MinIO ON/OFF 与解除后删除通过，见 progress 290。
-  仍无控制面队列/Gateway/API/UI/删除联锁/未知恢复或能力宣告，正式链待补；当前新增
-  通道尚未完成自己的远端 CI 与完整 mTLS 新方法验收。
+  仍无控制面队列/Gateway/API/UI/删除联锁/未知恢复，正式链待补；通道自身 CI 已通过，
+  动态能力由 progress 291 补齐，完整 mTLS 新方法验收仍缺。
 
 - b75dbc5 主 CI 39823822283、Desktop 39823822034 最终精确 SHA 全成功；Verify、
   扫描、PostgreSQL、Integration、Object Storage/Recording GameDay、Operator 和桌面

@@ -1101,6 +1101,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "helper-contracts",
+ "serde_json",
  "tokio",
  "uuid",
 ]

@@ -222,6 +222,9 @@ pub struct StorageResponse {
     pub recording_deletion: Option<StorageRecordingDeletion>,
     #[serde(default)]
     pub recording_legal_hold: Option<StorageRecordingLegalHold>,
+    /// Protocol availability only; not evidence of cloud IAM or applied protection.
+    #[serde(default)]
+    pub recording_legal_hold_supported: bool,
     #[serde(default)]
     pub profile_export_access: Option<StorageProfileExportAccess>,
     pub error_code: Option<String>,
@@ -503,6 +506,7 @@ mod tests {
         }))
         .unwrap();
         assert!(old.recording_legal_hold.is_none());
+        assert!(!old.recording_legal_hold_supported);
     }
 
     #[tokio::test]

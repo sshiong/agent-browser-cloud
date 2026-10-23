@@ -3358,6 +3358,11 @@ for invariant in (
 # A new Helper response is optional for old operations; missing Hold proof never means success.
 helper_ipc_contract = read("apps/browser-node/crates/helper-contracts/src/lib.rs")
 assert "pub recording_legal_hold: Option<StorageRecordingLegalHold>" in helper_ipc_contract
+assert "pub recording_legal_hold_supported: bool" in helper_ipc_contract
+assert "pub async fn recording_legal_hold_supported" in read(
+    "apps/browser-node/crates/helper-client/src/lib.rs"
+)
+
 assert "pub const SCHEMA_VERSION: u16 = 1;" in helper_ipc_contract
 
 agent_action_service = read(

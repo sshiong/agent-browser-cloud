@@ -156,6 +156,14 @@ impl StorageHelperClient {
         Ok(())
     }
 
+    /// Probes the current helper, including after replacement by an older binary.
+    pub async fn recording_legal_hold_supported(&self) -> anyhow::Result<bool> {
+        Ok(self
+            .call(StorageCommand::Ping)
+            .await?
+            .recording_legal_hold_supported)
+    }
+
     pub async fn acquire_workspace(
         &self,
         tenant_id: &str,
@@ -803,6 +811,49 @@ mod tests {
         let _ = std::fs::remove_file(path);
     }
 
+    #[tokio::test]
+    async fn probes_each_helper_generation_and_rejects_untrusted_acknowledgements() {
+        let path = socket_path("hold-probe");
+        let listener = UnixListener::bind(&path).unwrap();
+        let server = tokio::spawn(async move {
+            for mode in [
+                "supported",
+                "legacy",
+                "disabled",
+                "wrong-id",
+                "wrong-schema",
+                "rejected",
+            ] {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let request: StorageRequest = read_frame(&mut stream).await.unwrap();
+                assert!(matches!(request.command, StorageCommand::Ping));
+                let mut response = serde_json::json!({
+                    "schemaVersion": SCHEMA_VERSION, "requestId": request.request_id, "ok": true
+                });
+                match mode {
+                    "supported" => response["recordingLegalHoldSupported"] = true.into(),
+                    "disabled" => response["recordingLegalHoldSupported"] = false.into(),
+                    "wrong-id" => response["requestId"] = "unrelated".into(),
+                    "wrong-schema" => response["schemaVersion"] = 99.into(),
+                    "rejected" => response["ok"] = false.into(),
+                    _ => {}
+                }
+                write_frame(&mut stream, &response).await.unwrap();
+            }
+        });
+        let client =
+            StorageHelperClient::new(path.clone(), Duration::from_secs(1), std::env::temp_dir())
+                .unwrap();
+        assert!(client.recording_legal_hold_supported().await.unwrap());
+        assert!(!client.recording_legal_hold_supported().await.unwrap());
+        assert!(!client.recording_legal_hold_supported().await.unwrap());
+        for _ in 0..3 {
+            assert!(client.recording_legal_hold_supported().await.is_err());
+        }
+        server.await.unwrap();
+        let _ = std::fs::remove_file(path);
+    }
+
     fn hold_request() -> helper_contracts::StorageRecordingLegalHoldRequest {
         helper_contracts::StorageRecordingLegalHoldRequest {
             operation_id: "hold-owned".into(),
@@ -876,6 +927,7 @@ mod tests {
                     recording_playback_access: None,
                     recording_deletion: None,
                     profile_export_access: None,
+                    recording_legal_hold_supported: false,
                     recording_legal_hold: if mismatch == "missing" {
                         None
                     } else {

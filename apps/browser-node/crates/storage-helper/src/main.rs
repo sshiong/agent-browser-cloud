@@ -213,6 +213,7 @@ async fn serve_connection(
                 recording_deletion: None,
                 profile_export_access: None,
                 recording_legal_hold: Some(hold),
+                recording_legal_hold_supported: false,
                 error_code: None,
                 error_message: None,
             },
@@ -261,6 +262,8 @@ async fn serve_connection(
                 recording_deletion,
                 profile_export_access,
                 recording_legal_hold: None,
+                recording_legal_hold_supported: matches!(request.command, StorageCommand::Ping)
+                    && service.archive.is_some(),
                 error_code: None,
                 error_message: None,
             },
@@ -1644,6 +1647,7 @@ fn rejected(request_id: String, code: &str, message: &str) -> StorageResponse {
         recording_deletion: None,
         profile_export_access: None,
         recording_legal_hold: None,
+        recording_legal_hold_supported: false,
         error_code: Some(code.to_owned()),
         error_message: Some(message.to_owned()),
     }
@@ -1834,7 +1838,7 @@ mod tests {
         let listener = UnixListener::bind(&socket_path).unwrap();
         let peer_uid = Uid::effective().as_raw();
         let server = tokio::spawn(async move {
-            for _ in 0..2 {
+            for _ in 0..3 {
                 let (stream, _) = listener.accept().await.unwrap();
                 serve_connection(stream, peer_uid, service.clone())
                     .await
@@ -1848,6 +1852,22 @@ mod tests {
                 .to_string()
                 .contains("helper peer UID is not authorized"));
         });
+        let mut probe = UnixStream::connect(&socket_path).await.unwrap();
+        write_frame(
+            &mut probe,
+            &StorageRequest {
+                schema_version: SCHEMA_VERSION,
+                request_id: "hold-capability".into(),
+                command: StorageCommand::Ping,
+            },
+        )
+        .await
+        .unwrap();
+        let capability: StorageResponse = read_frame(&mut probe).await.unwrap();
+        assert!(capability.ok && capability.recording_legal_hold_supported);
+        assert_eq!(capability.request_id, "hold-capability");
+        assert!(capability.recording_legal_hold.is_none());
+        drop(probe);
         let mut previous_proof = None;
         for (index, state) in [
             helper_contracts::StorageRecordingLegalHoldState::On,
@@ -1997,6 +2017,46 @@ mod tests {
         .unwrap()
         .to_string()
         .contains("permissions"));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn ping_without_archive_does_not_advertise_recording_hold() {
+        let sequence = TEST_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let root =
+            std::env::temp_dir().join(format!("hold-probe-{}-{sequence}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let socket = root.join("h.sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        let service = Arc::new(StorageService::new(
+            LocalProfileStore::open(root.join("profiles"))
+                .await
+                .unwrap(),
+            None,
+            root.join("imports"),
+        ));
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            serve_connection(stream, Uid::current().as_raw(), service)
+                .await
+                .unwrap();
+        });
+        let mut client = UnixStream::connect(&socket).await.unwrap();
+        write_frame(
+            &mut client,
+            &StorageRequest {
+                schema_version: SCHEMA_VERSION,
+                request_id: "owned-ping".into(),
+                command: StorageCommand::Ping,
+            },
+        )
+        .await
+        .unwrap();
+        let response: StorageResponse = read_frame(&mut client).await.unwrap();
+        assert!(response.ok);
+        assert!(!response.recording_legal_hold_supported);
+        assert_eq!(response.request_id, "owned-ping");
+        server.await.unwrap();
         std::fs::remove_dir_all(root).unwrap();
     }
 

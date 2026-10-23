@@ -65,3 +65,13 @@ Node/RPC/IPC 改动自己的 CI。
    账户/IAM/Object Lock/Legal Hold、跨 Region 和生产环境 Gate。
 
 当前不发布能力宣告或全量生产结论。原十一项目标、组织与许可证决策继续保留。
+
+## 精确提交 CI 收尾
+
+`3a903cc2d8524932b214dc1a233149d5f95f3f00` 的主 CI **39903853043** 和
+Desktop **39903853063** 已核验最终 SHA 与全部 Job 成功：Verify、Java 新 Protobuf
+生成/编译、Build、供应链扫描、PostgreSQL、Integration、Object Storage GameDay、
+Operator、Windows/macOS 均通过。正式链的剩余项保持；现有 Integration 成功并不
+代表控制面已通过新方法完成云保全。完整结果留在
+`/tmp/agentbrowser-hold-transport-ci-final.json` 和
+`/tmp/agentbrowser-hold-transport-desktop-final.json`。

@@ -2,7 +2,7 @@
 
 > 更新日期：2026-10-23
 > 基准分支：`main`
-> 编写时基准提交：`3a903cc feat: route recording legal holds through scoped node RPC and helper IPC`
+> 编写时基准提交：`aa2fdcc feat: probe current storage helper before advertising recording hold protocol`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -308,10 +308,17 @@ progress 166。
 
 ### 最近验证状态
 
+- Recording Hold 控制面 Gateway 已复用正式生产 mTLS 工厂，派发前校验精确请求、
+  能力与 30 秒心跳，派发后只接受绑定身份/Epoch/状态/版本集合计数/Hash/时间的回执。
+  服务端拒绝与坏回执均保留 UNKNOWN，不自行重试或泄露底层 Cause。OrbStack Linux
+  全新生成/编译 Java Protobuf，五项真实双向 TLS 回归通过，见 progress 292。
+  这是契约服务端测试，完整真实 Node/MinIO 产品链、队列/API/SDK/UI/删除联锁仍缺。
+
 - Recording Hold 已增加当前 Helper 的动态协议探测：旧/未配置 Archive 的 Helper、
   错误关联、断线和超时均撤回能力，每次心跳重新探测且外层预算 500 ms。Schema 1
   新字段默认 false，能力只表示协议可用，不表示云端已保全。Rust 250 项、严格 Clippy、
-  四项真实 MinIO Hold 测试通过，见 progress 291；控制面生产者和产品链继续补齐。
+  四项真实 MinIO Hold 测试通过，见 progress 291；Gateway 由 progress 292 补齐，
+  控制面队列生产者和产品链继续补齐。
 - 3a903cc 主 CI 39903853043、Desktop 39903853063 最终精确 SHA 全成功，包含
   Java 新契约生成编译、扫描、PostgreSQL、Integration、完整 GameDay、Operator 和桌面。
   progress 290 已收尾；新能力探测须验证自己的 CI。

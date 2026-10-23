@@ -2,7 +2,7 @@
 
 > 更新日期：2026-10-23
 > 基准分支：`main`
-> 编写时基准提交：`aa2fdcc feat: probe current storage helper before advertising recording hold protocol`
+> 编写时基准提交：`86e4d25 feat: add recording legal hold gateway with exact mTLS receipt validation`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -117,7 +117,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V134 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V135 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -307,6 +307,16 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- V135 新增默认不启用的云保全 authority/不可变请求队列/租户 rollup，与策略和迟到
+  Recording 同事务投影。未知请求不能被新 ON/OFF 覆盖，只有当前 Epoch 的 OFF Proof
+  完成才允许释放；旧直接写 false、删除授权与降级策略受数据库联锁。八项真实 PG17
+  Gate（含双连接迟到录制交错）通过并接 CI，见 progress 293；合成 SQL 回执不算真实
+  云执行。Worker/API/SDK/UI、完整真实 mTLS 产品链仍须接入，当前没有新队列派发器。
+- 86e4d25 主 CI 39907385865、Desktop 39907385833 最终精确 SHA 全成功，含五项
+  Java 双向 TLS 回归、Integration/完整 GameDay；progress 292 已收尾。
+- aa2fdcc 主 CI 39906058046、Desktop 39906058041 最终精确 SHA 全成功，含扫描、
+  PostgreSQL、Integration/完整 GameDay、Operator 与桌面；progress 291 已收尾。
 
 - Recording Hold 控制面 Gateway 已复用正式生产 mTLS 工厂，派发前校验精确请求、
   能力与 30 秒心跳，派发后只接受绑定身份/Epoch/状态/版本集合计数/Hash/时间的回执。

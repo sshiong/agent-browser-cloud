@@ -48,3 +48,11 @@ Java 格式与文档检查通过；本提交完整 CI 仍须收尾。
 VERIFIED 投影、策略 API/四语言 SDK/UI、删除与迟到录制联锁接入后验收。远程 PREPARED
 未知 Intent 不能被新 ON/OFF 覆盖；恢复不能伪造回执或释放保全。
 目标云账户/IAM、客户数据集、真实供应商与生产/组织/许可证 Gate 继续保留。
+
+## 精确提交 CI 收尾
+
+86e4d25691d896df04f6aad99ff0b3f98939247b 的主 CI **39907385865**、Desktop
+**39907385833** 最终精确 SHA、全部 Job 已核验成功。Verify 含五项 Java mTLS 回归，
+扫描、PostgreSQL、Integration/完整 GameDay、Operator、Windows/macOS 全部通过。
+证据为 `/tmp/agentbrowser-hold-gateway-ci-final.json` 和对应 Desktop JSON；完整真实
+Node/MinIO 新方法产品链仍待队列/Worker 接入，不由这次契约测试替代。

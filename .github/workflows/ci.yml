@@ -106,7 +106,9 @@ jobs:
         run: python3 tests/fixtures/build_minio_source_images.py
 
       - name: PostgreSQL recording deletion and Legal Hold ordering
-        run: make test-recording-retention-order
+        run: |
+          make test-recording-retention-order
+          make test-recording-cloud-hold-order
 
       - name: Integration smoke test
         run: make test-integration

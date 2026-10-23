@@ -49,3 +49,10 @@ Object Storage GameDay、Operator、Windows/macOS 全部成功。进度 290 已�
 策略 API/四语言 SDK/UI、删除授权及迟到录制联锁、完整新 RPC mTLS 验收。云端已保全
 只能由精确对象版本集合的执行回执证明，不能由策略保存或能力 Label 推断。
 目标账户/IAM、真实云 Legal Hold、跨 Region、客户数据与组织/许可证 Gate 保留。
+
+## 精确提交 CI 收尾
+
+aa2fdcc2cb355d14ee20f8a925f7f9f7ad01586d 的主 CI **39906058046**、Desktop
+**39906058041** 已读取最终精确 SHA、全部 Job 成功；Verify、扫描、PostgreSQL、
+Integration/完整 GameDay、Operator、Windows/macOS 全部通过。证据位于
+`/tmp/agentbrowser-hold-admission-ci-final.json` 和对应 Desktop JSON。

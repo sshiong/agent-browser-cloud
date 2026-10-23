@@ -2,7 +2,7 @@
 
 > 更新日期：2026-10-23
 > 基准分支：`main`
-> 编写时基准提交：`86e4d25 feat: add recording legal hold gateway with exact mTLS receipt validation`
+> 编写时基准提交：`e5b5085 feat: persist recording cloud hold authority and fence deletion until verified release`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -308,11 +308,19 @@ progress 166。
 
 ### 最近验证状态
 
+- V135 已接真实调度 Worker：独立事务先提交租约，再按 Record→Authority→Job 锁定
+  并调用 Gateway；遗留 EXECUTING 沿原请求恢复，只增加恢复租约，不改变业务 Epoch。
+  旧 Worker 不能越过新租约，未知结果最多十次核对后保持 UNKNOWN，当前 OFF Proof
+  完成前不释放。十项真实 PG Worker + 原十四项删除 Gate 全通过，常规 Java 655 项
+  通过，见 progress 294。API/SDK/UI、完整 JPA/Node/MinIO mTLS 与目标云 Gate 仍缺。
+- e5b5085 主 CI 39909684661、Desktop 39909684638 最终精确 SHA 全成功，含新增
+  SQL Gate、Integration/完整 GameDay、Operator 和桌面；progress 293 已收尾。
+
 - V135 新增默认不启用的云保全 authority/不可变请求队列/租户 rollup，与策略和迟到
   Recording 同事务投影。未知请求不能被新 ON/OFF 覆盖，只有当前 Epoch 的 OFF Proof
   完成才允许释放；旧直接写 false、删除授权与降级策略受数据库联锁。八项真实 PG17
   Gate（含双连接迟到录制交错）通过并接 CI，见 progress 293；合成 SQL 回执不算真实
-  云执行。Worker/API/SDK/UI、完整真实 mTLS 产品链仍须接入，当前没有新队列派发器。
+  云执行。Worker 由 progress 294 接入；API/SDK/UI、完整真实 mTLS 产品链仍须验收。
 - 86e4d25 主 CI 39907385865、Desktop 39907385833 最终精确 SHA 全成功，含五项
   Java 双向 TLS 回归、Integration/完整 GameDay；progress 292 已收尾。
 - aa2fdcc 主 CI 39906058046、Desktop 39906058041 最终精确 SHA 全成功，含扫描、
@@ -322,23 +330,24 @@ progress 166。
   能力与 30 秒心跳，派发后只接受绑定身份/Epoch/状态/版本集合计数/Hash/时间的回执。
   服务端拒绝与坏回执均保留 UNKNOWN，不自行重试或泄露底层 Cause。OrbStack Linux
   全新生成/编译 Java Protobuf，五项真实双向 TLS 回归通过，见 progress 292。
-  这是契约服务端测试，完整真实 Node/MinIO 产品链、队列/API/SDK/UI/删除联锁仍缺。
+  这是契约服务端测试；队列/删除联锁/Worker 后由 progress 293—294 接入，完整真实
+  Node/MinIO 产品链与 API/SDK/UI 仍缺。
 
 - Recording Hold 已增加当前 Helper 的动态协议探测：旧/未配置 Archive 的 Helper、
   错误关联、断线和超时均撤回能力，每次心跳重新探测且外层预算 500 ms。Schema 1
   新字段默认 false，能力只表示协议可用，不表示云端已保全。Rust 250 项、严格 Clippy、
   四项真实 MinIO Hold 测试通过，见 progress 291；Gateway 由 progress 292 补齐，
-  控制面队列生产者和产品链继续补齐。
+  队列与 Worker 后由 progress 293—294 补齐，正式 API/SDK/UI 和完整真实产品链仍缺。
 - 3a903cc 主 CI 39903853043、Desktop 39903853063 最终精确 SHA 全成功，包含
   Java 新契约生成编译、扫描、PostgreSQL、Integration、完整 GameDay、Operator 和桌面。
-  progress 290 已收尾；新能力探测须验证自己的 CI。
+  progress 290 已收尾，能力探测自身 CI 后由 progress 293 核验成功。
 
 - Recording Hold 新增 additive 内部 ApplyRecordingLegalHold RPC 和 Helper IPC，明确 ON/OFF，
   拒绝未指定模式、缺少前序 Proof 的 OFF 和越界身份/Epoch/预算。Helper Client 重验回执
   的操作、Epoch、Recording、状态、版本计数、Hash 和时间；旧响应缺少 Hold 结果不作
   成功。真实 Unix Socket/UID 校验→MinIO ON/OFF 与解除后删除通过，见 progress 290。
-  仍无控制面队列/Gateway/API/UI/删除联锁/未知恢复，正式链待补；通道自身 CI 已通过，
-  动态能力由 progress 291 补齐，完整 mTLS 新方法验收仍缺。
+  其后 progress 291—294 已接能力/Gateway/队列/删除联锁/Worker 与有界原请求核对；
+  API/SDK/UI、PREPARED 长期未知的远端静默证明与完整真实 mTLS 产品链仍缺。
 
 - b75dbc5 主 CI 39823822283、Desktop 39823822034 最终精确 SHA 全成功；Verify、
   扫描、PostgreSQL、Integration、Object Storage/Recording GameDay、Operator 和桌面
@@ -349,21 +358,21 @@ progress 166。
   失败，具体拒绝原因未保留，存储 GameDay 未执行。测试改为同一进程执行观察对，
   仅对精确 STATE_CURSOR_STALE 重新取 Snapshot，最多三次，保持原 Element/Role/Tab，
   未知错误与传输失败不重放；生产围栏不变，任何动作不走此恢复器。八项真实 loopback
-  HTTP 回归、Replay 51 项、完整 OrbStack Integration exit 0/审计链通过；本次提交
-  CI 仍须验证，见 progress 289，原十一项范围保留。
+  HTTP 回归、Replay 51 项、完整 OrbStack Integration exit 0/审计链通过；b75dbc5
+  精确 CI 已完成，见 progress 289，原十一项范围保留。
 
 - 2e18d95 主 CI 39812875183 在既有 Recorder 的损坏 JPEG 测试准备阶段失败：
   新生成的扫描器脚本启动报 ETXTBSY（Text file busy），未进入脱敏断言，新增对象
   存储 Gate 未执行。该测试改为执行仓库静态夹具，脚本内容与生产扫描器逻辑不变；
   Recorder 15 项、严格 Clippy 与格式检查通过，见 progress 288。Operator 成功，
-  本次修复提交仍须自己的 CI；云端 Legal Hold 正式链和原十一项剩余 Gate 保留。
+  修复后 b75dbc5 全链 CI 已收尾；云端 Legal Hold 正式链和原十一项剩余 Gate 保留。
 
 - Recording 逐版本 Legal Hold 的对象存储执行器已具备 ON/OFF、精确 Manifest/版本集合、
   前序 Proof 与递增 Epoch、远端条件写账本及逐版本读回。真实 MinIO 验证历史版本保护、
   ON/OFF、旧请求拒绝、双控制器竞争和客户端超时后才到达的 OFF；未知 Intent 不自动
   重试或被新 ON 覆盖，不输出伪造成功回执。Node RPC/IPC 后由 progress 290 补齐，
-  控制面队列/Gateway、策略 API/UI、删除并发联锁或未知结果恢复仍缺，不声明完整产品
-  能力。Rust 243 项、严格 Clippy、
+  控制面 Gateway/队列/删除联锁/Worker 后由 progress 292—294 接入，策略 API/UI、
+  完整真实链与 PREPARED 长期未知核对仍缺，不声明完整产品能力。Rust 243 项、严格 Clippy、
   完整 OrbStack Object Storage GameDay 通过，目标云 Gate 保留，见 progress 287。
 
 - b2b01c8 主 CI 39219842286、Desktop 39219842284 最终精确 SHA 全成功，包含

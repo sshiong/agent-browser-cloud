@@ -86,3 +86,11 @@ Job 成功，包含 Integration/完整 GameDay；进度 291 已收尾。Gateway 
 新增 Gate 曾在 PostgreSQL 初始化临时 Unix Socket 服务停止时连续两个 setUp 连接失败，
 发生在迁移和业务断言前；ready 检查现固定 TCP 127.0.0.1，等待最终服务器。修复后
 实际八项 Gate 再次全部通过；没有把该夹具故障归因于业务 SQL。
+
+## 精确提交 CI 收尾
+
+e5b50851204807780044c63d614f3551ffed289c 主 CI **39909684661**、Desktop
+**39909684638** 最终精确 SHA、全部 Job 已核验成功，含新增八项 SQL Gate、扫描、
+Integration/完整 GameDay、Operator、Windows/macOS；证据为
+`/tmp/agentbrowser-cloud-hold-sql-ci-final.json` 和对应 Desktop JSON。Worker 后由进度
+294 接入；API/UI、完整真实产品链和目标云结论仍保留。

@@ -12,6 +12,12 @@ trap report_failure ERR
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
+integration_gate_scope="${INTEGRATION_GATE_SCOPE:-full}"
+integration_completed=false
+case "$integration_gate_scope" in
+  full|recording-hold) ;;
+  *) echo 'INTEGRATION_GATE_SCOPE_REJECTED' >&2; exit 1 ;;
+esac
 minio_image="${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z}"
 mc_image="${MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z}"
 
@@ -98,7 +104,11 @@ node_certificate_path="$temp_dir/node.crt"
 node_private_key_path="$temp_dir/node.key"
 
 cleanup() {
-  exit_code=$?
+  local exit_code=$?
+  if [[ "$exit_code" == 0 && "$integration_completed" != true ]]; then
+    echo 'INTEGRATION_SMOKE_INCOMPLETE' >&2
+    exit_code=1
+  fi
   if [[ -n "$control_pid" ]]; then kill "$control_pid" 2>/dev/null || true; fi
   if [[ -n "$control_b_pid" ]]; then kill "$control_b_pid" 2>/dev/null || true; fi
   if [[ -n "$node_pid" ]]; then kill "$node_pid" 2>/dev/null || true; fi
@@ -195,8 +205,11 @@ cleanup() {
   docker rm -f "$postgres_name" "$redis_name" "$minio_name" >/dev/null 2>&1 || true
   docker network rm "$minio_network" >/dev/null 2>&1 || true
   rm -rf "$temp_dir"
+  exit "$exit_code"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 python3 "$repo_root/tests/fixtures/build_minio_source_images.py"
 docker run -d --name "$postgres_name" \
@@ -859,6 +872,13 @@ runtime_builds="$(curl -fsS \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$runtime_builds" | python3 -c \
   'import json,sys; result=json.load(sys.stdin); assert result["total"] == 1; build=result["items"][0]; assert build["buildId"] == "runtime_local_chromium"; assert build["regressionStatus"] == "STABLE"; assert build["signatureVerified"] is True; assert build["artifactDigest"] == "sha256:" + "0"*64; assert build["signingKeyId"] == "local-development"; assert build["sbomUrl"]'
+
+if [[ "$integration_gate_scope" == recording-hold ]]; then
+  source "$repo_root/tests/integration/recording-cloud-hold.sh"
+  echo 'recording_hold_focused_integration=true'
+  integration_completed=true
+  exit 0
+fi
 
 cargo run --quiet --locked --manifest-path apps/browser-node/Cargo.toml \
   -p storage-helper --example create_profile_import -- \
@@ -9075,3 +9095,4 @@ printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"
 printf 'proxy_remote_provider_adapter=true\n'
 printf 'proxy_safe_endpoint_rotation=true\n'
+integration_completed=true

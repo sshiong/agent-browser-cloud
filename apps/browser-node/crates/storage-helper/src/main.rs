@@ -225,13 +225,17 @@ async fn serve_connection(
                     && code
                         .bytes()
                         .all(|byte| byte.is_ascii_uppercase() || byte == b'_');
+                let reason = if safe {
+                    code
+                } else {
+                    "RECORDING_HOLD_RESULT_UNAVAILABLE"
+                };
+                // Log the same bounded code sent over IPC, never the request, object
+                // coordinates, credentials, SDK cause or unsanitized error message.
+                warn!(reason, "recording legal hold rejected");
                 rejected(
                     request.request_id,
-                    if safe {
-                        code
-                    } else {
-                        "RECORDING_HOLD_RESULT_UNAVAILABLE"
-                    },
+                    reason,
                     "Recording Hold was rejected or its remote result is unknown",
                 )
             }

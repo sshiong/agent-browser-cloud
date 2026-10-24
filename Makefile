@@ -35,6 +35,11 @@ test-recording-retention-order:
 test-recording-cloud-hold-order:
 	RECORDING_CLOUD_HOLD_POSTGRES_GATE=true python3 tests/validation/test_recording_cloud_hold_postgres.py
 
+.PHONY: test-recording-native-hold
+# Owned PG/Node/mTLS/Helper/MinIO chain; the default Integration still runs all domains.
+test-recording-native-hold:
+	INTEGRATION_GATE_SCOPE=recording-hold bash tests/integration/smoke.sh
+
 # Optional owned browser contract test; start the local console first (see script docstring).
 test-recording-hold-ui:
 	python3 tests/e2e/recording_hold_policy_ui.py "$${RECORDING_HOLD_UI_PORT:?Set the owned local console port}"

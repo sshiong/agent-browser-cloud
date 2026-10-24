@@ -25,7 +25,8 @@ async fn verify() -> Result<()> {
     );
     ensure!(
         args[2].starts_with("tenants/tenant-recording-native/")
-            && args[2].ends_with("/recordings/rec_22222222222222222222222222222222/"),
+            && (args[2].ends_with("/recordings/rec_22222222222222222222222222222222/")
+                || args[2].ends_with("/recordings/rec_33333333333333333333333333333333/")),
         "owned scope only"
     );
     let config = aws_sdk_s3::Config::builder()

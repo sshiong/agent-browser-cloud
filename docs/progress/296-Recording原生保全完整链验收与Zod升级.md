@@ -2,7 +2,7 @@
 
 > 日期：2026-10-24
 > 基线：2b231664c102934af54531883d971a38b3d24431
-> 状态：本机完整链通过；本提交精确 SHA CI 待验证。
+> 状态：本机与干净 Linux CI 完整链通过，精确 SHA 主 CI/Desktop 全成功。
 
 ## 真实执行与独立回读
 
@@ -52,7 +52,7 @@ CVE-2023-54404，后续 PostgreSQL/Integration/GameDay 未执行；Desktop 40056
 
 前端 153 项 Vitest、noVNC 检查、TypeScript/Vite 构建与 ESLint 通过。私有日志：
 /tmp/agentbrowser-zod-tests.log、/tmp/agentbrowser-zod-build-final.log、
-/tmp/agentbrowser-zod-lint.log。本机未安装 Trivy，修复扫描结论须由本提交 CI 实际确认。
+/tmp/agentbrowser-zod-lint.log。本机未安装 Trivy；db0d2fa 的 CI 扫描已实际通过。
 
 上游依据：[Zod issue](https://github.com/colinhacks/zod/issues/6643)、
 [4.6.7 release](https://github.com/colinhacks/zod/releases/tag/v4.6.7)、
@@ -69,3 +69,11 @@ CVE-2023-54404，后续 PostgreSQL/Integration/GameDay 未执行；Desktop 40056
 进行中上传原生保全、跨 Node 重绑定、PREPARED 长期未知的远端静默证明、目标账户云端
 IAM/Object Lock/跨 Region/长稳仍未完成。原十一项其余外部系统、客户 Replay、Linux
 规模证据、许可证权利人决定和组织 Gate 保留；不作 V16 发布或客户数据处理结论。
+
+## 精确提交 CI 收尾
+
+db0d2fad313cd5d1077222281feb638ffcaff75b 的主 CI **40061229407**、
+Desktop **40061229433** 均 completed/success。Verify、Build、扫描、PostgreSQL
+专用 Gate、完整 Integration、对象存储/Recording GameDay、Operator 与 Windows/macOS
+全部成功。已读取 Verify Job 日志，确认新 ON/OFF 各 52 版本、EMPTY 与
+recording_cloud_hold_native_mtls=true 标记实际执行，未以 Job 名称代替覆盖证据。

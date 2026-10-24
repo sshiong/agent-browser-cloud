@@ -122,3 +122,4 @@ done
 test "$native_recording_deleted" = t
 native_recording_verify_versions EMPTY 0 0
 echo 'recording_cloud_hold_native_mtls=true'
+source "$repo_root/tests/integration/recording-cloud-hold-rejection.sh"

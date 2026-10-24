@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import io.browsercloud.api.EnterpriseOperationsModels.UpsertRetentionPolicyRequest;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -29,6 +30,7 @@ class RecordingLegalHoldPostgresTest {
   private BrowserCapacityApplicationService capacity;
   private AuditApplicationService audit;
   private DataSourceTransactionManager manager;
+  private EnterpriseOperationsApplicationService governance;
 
   @BeforeEach
   void setUp() throws Exception {
@@ -46,6 +48,9 @@ class RecordingLegalHoldPostgresTest {
     jdbc = new JdbcTemplate(source);
     jdbc.execute("CREATE TABLE sessions(id TEXT PRIMARY KEY, tenant_id TEXT, profile_id TEXT)");
     table("V019__enterprise_operations.sql", "enterprise_retention_policies");
+    table("V019__enterprise_operations.sql", "enterprise_regions");
+    jdbc.update(
+        "INSERT INTO enterprise_regions VALUES('primary','PRIMARY','OPEN',0,now(),'owned')");
     table("V102__enterprise_overview_event_stream.sql", "enterprise_overview_events");
     try (var connection = source.getConnection()) {
       connection.setAutoCommit(false);
@@ -54,7 +59,8 @@ class RecordingLegalHoldPostgresTest {
             "V099__session_recording_manifest_projection.sql",
             "V128__recording_retention_physical_deletion.sql",
             "V134__recording_durable_deletion_authority.sql",
-            "V135__recording_cloud_hold_authority.sql"
+            "V135__recording_cloud_hold_authority.sql",
+            "V136__recording_hold_job_event_projection.sql"
           }) {
         try (var statement = connection.createStatement()) {
           statement.execute(Files.readString(migrations().resolve(migration)));
@@ -77,6 +83,18 @@ class RecordingLegalHoldPostgresTest {
     gateway = mock(RecordingLegalHoldNodeGateway.class);
     doAnswer(invocation -> proof(invocation.getArgument(0))).when(gateway).apply(any());
     audit = mock(AuditApplicationService.class);
+    governance =
+        new EnterpriseOperationsApplicationService(
+            jdbc,
+            new com.fasterxml.jackson.databind.ObjectMapper(),
+            audit,
+            mock(ReleaseFreezeApplicationService.class),
+            mock(RecoveryGameDayGovernanceApplicationService.class),
+            "owned-key",
+            "owned-test",
+            false,
+            0,
+            "local");
     manager = new DataSourceTransactionManager(source);
     service = new RecordingLegalHoldApplicationService(jdbc, capacity, gateway, audit, manager);
     jdbc.update(
@@ -205,8 +223,14 @@ class RecordingLegalHoldPostgresTest {
     doThrow(new HoldResultUnknownException("owned-result-still-unknown"))
         .when(gateway)
         .apply(any());
+    var cursor = number("SELECT COALESCE(max(stream_sequence),0) FROM enterprise_overview_events");
     assertThat(service.processNext()).isTrue();
     assertUnknown();
+    assertThat(number("SELECT COALESCE(max(stream_sequence),0) FROM enterprise_overview_events"))
+        .isGreaterThan(cursor);
+    var summary = governance.listRetention("tenant-owned").getFirst().recordingCloudHold();
+    assertThat(summary.status()).isEqualTo("UNKNOWN");
+    assertThat(summary.reconciliationExhausted()).isTrue();
     assertThat(number("SELECT attempt FROM recording_cloud_hold_jobs")).isEqualTo(10);
     assertThat(text("SELECT failure_code FROM recording_cloud_hold_jobs"))
         .isEqualTo("RECORDING_HOLD_RECONCILIATION_EXHAUSTED");
@@ -351,6 +375,101 @@ class RecordingLegalHoldPostgresTest {
         }
       }
     }
+  }
+
+  @Test
+  void policyApiPreservesOmittedCloudFlagAndNeverEquatesSavedWithVerified() {
+    var initial = governance.listRetention("tenant-owned").getFirst();
+    assertThat(initial.cloudHoldRequired()).isTrue();
+    assertThat(initial.recordingCloudHold().status()).isEqualTo("PENDING");
+    var saved =
+        savePolicy(
+            "tenant-owned",
+            new UpsertRetentionPolicyRequest("REMOTE_DESKTOP_RECORDING", 1, false, "primary"));
+    assertThat(saved.cloudHoldRequired()).isTrue();
+    assertThat(saved.recordingCloudHold().desiredMode()).isEqualTo("OFF");
+    assertThat(saved.recordingCloudHold().status()).isEqualTo("PENDING");
+    service.processNext();
+    service.processNext();
+    var verified = governance.listRetention("tenant-owned").getFirst();
+    assertThat(verified.recordingCloudHold().status()).isEqualTo("VERIFIED");
+    assertThat(verified.recordingCloudHold().verifiedOffRecordings()).isEqualTo(1);
+    var disabled =
+        savePolicy(
+            "tenant-owned",
+            new UpsertRetentionPolicyRequest(
+                "REMOTE_DESKTOP_RECORDING", 1, false, "primary", false));
+    assertThat(disabled.cloudHoldRequired()).isFalse();
+    assertThat(disabled.recordingCloudHold().status()).isEqualTo("LOGICAL_ONLY");
+  }
+
+  @Test
+  void cloudPolicyApiIsTenantScopedAndRejectsUnsafeDisableAndWrongDataClass() {
+    assertThatThrownBy(
+            () ->
+                savePolicy(
+                    "tenant-owned",
+                    new UpsertRetentionPolicyRequest(
+                        "REMOTE_DESKTOP_RECORDING", 1, false, "primary", false)))
+        .isInstanceOf(EnterpriseOperationsApplicationService.GovernanceRejectedException.class)
+        .hasMessageContaining("RECORDING_CLOUD_HOLD_NOT_RELEASED");
+    assertThatThrownBy(
+            () ->
+                savePolicy(
+                    "tenant-owned",
+                    new UpsertRetentionPolicyRequest("AUDIT", 30, true, "primary", true)))
+        .isInstanceOf(EnterpriseOperationsApplicationService.GovernanceRejectedException.class)
+        .hasMessageContaining("RECORDING_CLOUD_HOLD_CLASS_REQUIRED");
+    var other =
+        savePolicy(
+            "tenant-other",
+            new UpsertRetentionPolicyRequest("REMOTE_DESKTOP_RECORDING", 1, true, "primary", true));
+    assertThat(other.recordingCloudHold().status()).isEqualTo("NO_RECORDINGS");
+    assertThat(other.recordingCloudHold().pendingRecordings()).isZero();
+    var initial =
+        savePolicy(
+            "tenant-initial",
+            new UpsertRetentionPolicyRequest("REMOTE_DESKTOP_RECORDING", 1, true, "primary"));
+    assertThat(initial.cloudHoldRequired()).isFalse();
+    assertThat(initial.recordingCloudHold().status()).isEqualTo("LOGICAL_ONLY");
+    var notRequested =
+        savePolicy(
+            "tenant-initial",
+            new UpsertRetentionPolicyRequest(
+                "REMOTE_DESKTOP_RECORDING", 1, false, "primary", true));
+    assertThat(notRequested.recordingCloudHold().status()).isEqualTo("NOT_REQUESTED");
+
+    assertThat(
+            governance
+                .listRetention("tenant-owned")
+                .getFirst()
+                .recordingCloudHold()
+                .pendingRecordings())
+        .isEqualTo(1);
+  }
+
+  @Test
+  void desiredPolicyAndQueueProjectionRollBackWhenAuditCannotCommit() {
+    doThrow(new IllegalStateException("owned-policy-audit-failure")).when(audit).append(any());
+    assertThatThrownBy(
+            () ->
+                savePolicy(
+                    "tenant-owned",
+                    new UpsertRetentionPolicyRequest(
+                        "REMOTE_DESKTOP_RECORDING", 1, false, "primary", true)))
+        .isInstanceOf(IllegalStateException.class);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT legal_hold FROM enterprise_retention_policies", Boolean.class))
+        .isTrue();
+    assertThat(text("SELECT desired_mode FROM recording_cloud_hold_authorities")).isEqualTo("ON");
+    assertThat(number("SELECT desired_epoch FROM recording_cloud_hold_authorities")).isEqualTo(1);
+  }
+
+  private io.browsercloud.api.EnterpriseOperationsModels.RetentionPolicyView savePolicy(
+      String tenant, UpsertRetentionPolicyRequest request) {
+    return new org.springframework.transaction.support.TransactionTemplate(manager)
+        .execute(status -> governance.upsertRetention(tenant, request, "owned-admin"));
   }
 
   private static HoldProof proof(HoldRequest request) {

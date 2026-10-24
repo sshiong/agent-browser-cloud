@@ -69,3 +69,11 @@ SSE 覆盖（当前 authority 状态转换有事件）、完整控制面/JPA 审
 e5b5085 主 CI **39909684661**、Desktop **39909684638** 已读取最终精确 SHA 与全部
 Job 成功，包含新八项 SQL Gate、Integration/完整 GameDay、Operator、Windows/macOS；
 进度 293 已收尾。本 Worker 提交须核验自己的 CI。
+
+## 精确提交 CI 收尾
+
+237920ef9c2786ada66703dc845b4bfde133801f 主 CI **39912590714**、Desktop
+**39912590729** 最终精确 SHA、全部 Job 已核验成功，含十项 Worker/十四项删除/八项
+SQL Gate、扫描、Integration/完整 GameDay、Operator、Windows/macOS。证据为
+`/tmp/agentbrowser-hold-worker-ci-final.json` 和对应 Desktop JSON。API/SDK/UI 与同状态
+job 事件后由 progress295 接入，完整真实链及目标云仍待验收。

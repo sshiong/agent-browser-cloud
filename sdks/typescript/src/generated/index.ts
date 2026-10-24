@@ -238,6 +238,7 @@ export type { ProxyRoutingDecision } from './models/ProxyRoutingDecision.js';
 export type { RebindSessionApplicationRequest } from './models/RebindSessionApplicationRequest.js';
 export type { RecordExtensionSampleRequest } from './models/RecordExtensionSampleRequest.js';
 export type { Recording } from './models/Recording.js';
+export type { RecordingCloudHold } from './models/RecordingCloudHold.js';
 export type { RecordingList } from './models/RecordingList.js';
 export type { RecordingPlaybackAccess } from './models/RecordingPlaybackAccess.js';
 export type { RecordingPlaybackGrant } from './models/RecordingPlaybackGrant.js';

@@ -3617,20 +3617,33 @@ type ReleaseFreeze struct {
 }
 
 type UpsertRetentionPolicyRequest struct {
-	DataClass       string `json:"dataClass,omitempty"`
-	RetentionDays   int    `json:"retentionDays,omitempty"`
-	LegalHold       bool   `json:"legalHold,omitempty"`
-	ResidencyRegion string `json:"residencyRegion,omitempty"`
+	DataClass         string `json:"dataClass,omitempty"`
+	RetentionDays     int    `json:"retentionDays,omitempty"`
+	LegalHold         bool   `json:"legalHold,omitempty"`
+	CloudHoldRequired bool   `json:"cloudHoldRequired,omitempty"`
+	ResidencyRegion   string `json:"residencyRegion,omitempty"`
 }
 
 type RetentionPolicy struct {
-	TenantId        string `json:"tenantId,omitempty"`
-	DataClass       string `json:"dataClass,omitempty"`
-	RetentionDays   int    `json:"retentionDays,omitempty"`
-	LegalHold       bool   `json:"legalHold,omitempty"`
-	ResidencyRegion string `json:"residencyRegion,omitempty"`
-	UpdatedBy       string `json:"updatedBy,omitempty"`
-	UpdatedAt       string `json:"updatedAt,omitempty"`
+	TenantId           string             `json:"tenantId,omitempty"`
+	DataClass          string             `json:"dataClass,omitempty"`
+	RetentionDays      int                `json:"retentionDays,omitempty"`
+	LegalHold          bool               `json:"legalHold,omitempty"`
+	ResidencyRegion    string             `json:"residencyRegion,omitempty"`
+	CloudHoldRequired  bool               `json:"cloudHoldRequired,omitempty"`
+	RecordingCloudHold RecordingCloudHold `json:"recordingCloudHold,omitempty"`
+	UpdatedBy          string             `json:"updatedBy,omitempty"`
+	UpdatedAt          string             `json:"updatedAt,omitempty"`
+}
+
+type RecordingCloudHold struct {
+	Status                  string `json:"status,omitempty"`
+	DesiredMode             string `json:"desiredMode,omitempty"`
+	PendingRecordings       int64  `json:"pendingRecordings,omitempty"`
+	UnknownRecordings       int64  `json:"unknownRecordings,omitempty"`
+	VerifiedOnRecordings    int64  `json:"verifiedOnRecordings,omitempty"`
+	VerifiedOffRecordings   int64  `json:"verifiedOffRecordings,omitempty"`
+	ReconciliationExhausted bool   `json:"reconciliationExhausted,omitempty"`
 }
 
 type CreateDeletionReceiptRequest struct {

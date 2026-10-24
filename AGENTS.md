@@ -1,8 +1,8 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-10-23
+> 更新日期：2026-10-24
 > 基准分支：`main`
-> 编写时基准提交：`e5b5085 feat: persist recording cloud hold authority and fence deletion until verified release`
+> 编写时基准提交：`237920e feat: dispatch durable recording holds and fence recovery with immutable requests`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -75,7 +75,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **255 Operations / 357 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **255 Operations / 358 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -117,7 +117,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V135 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V136 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -308,11 +308,21 @@ progress 166。
 
 ### 最近验证状态
 
+- Recording 策略 API 已增加省略即保留的云开关和 managed 集合证明 summary，沿用
+  Tenant/Actor/ADMIN 约束；保存期望与审计同事务，不能冒充云端成功。四语言 SDK 与
+  Manifest 同步，Web/Tauri 区分逻辑/等待/未知/已验证及耗尽，V136 补同状态 job 事件。
+  PG27项、Java655项、前端150项、真实 owned Chrome 交互及契约/SDK通过，见 progress295。
+  真实 JPA/Node/MinIO 完整链、上传时原生 Hold、跨 Node 与目标云 Gate 仍缺。
+- 237920e 主 CI 39912590714、Desktop 39912590729 最终精确 SHA 全成功，含十项
+  PG Worker、十四项删除、八项 SQL Gate、Integration/完整 GameDay、Operator 与桌面；
+  progress 294 已收尾，新 API 提交仍须自己的 CI。
+
 - V135 已接真实调度 Worker：独立事务先提交租约，再按 Record→Authority→Job 锁定
   并调用 Gateway；遗留 EXECUTING 沿原请求恢复，只增加恢复租约，不改变业务 Epoch。
   旧 Worker 不能越过新租约，未知结果最多十次核对后保持 UNKNOWN，当前 OFF Proof
   完成前不释放。十项真实 PG Worker + 原十四项删除 Gate 全通过，常规 Java 655 项
-  通过，见 progress 294。API/SDK/UI、完整 JPA/Node/MinIO mTLS 与目标云 Gate 仍缺。
+  通过，见 progress 294。API/SDK/UI 后由 progress295 接入，完整 JPA/Node/MinIO mTLS、
+  上传时原生 Hold 与目标云 Gate 仍缺。
 - e5b5085 主 CI 39909684661、Desktop 39909684638 最终精确 SHA 全成功，含新增
   SQL Gate、Integration/完整 GameDay、Operator 和桌面；progress 293 已收尾。
 
@@ -320,7 +330,7 @@ progress 166。
   Recording 同事务投影。未知请求不能被新 ON/OFF 覆盖，只有当前 Epoch 的 OFF Proof
   完成才允许释放；旧直接写 false、删除授权与降级策略受数据库联锁。八项真实 PG17
   Gate（含双连接迟到录制交错）通过并接 CI，见 progress 293；合成 SQL 回执不算真实
-  云执行。Worker 由 progress 294 接入；API/SDK/UI、完整真实 mTLS 产品链仍须验收。
+  云执行。Worker/API/SDK/UI 后由 progress294—295 接入，完整真实 mTLS 产品链仍须验收。
 - 86e4d25 主 CI 39907385865、Desktop 39907385833 最终精确 SHA 全成功，含五项
   Java 双向 TLS 回归、Integration/完整 GameDay；progress 292 已收尾。
 - aa2fdcc 主 CI 39906058046、Desktop 39906058041 最终精确 SHA 全成功，含扫描、

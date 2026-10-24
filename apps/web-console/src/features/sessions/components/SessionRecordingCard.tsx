@@ -79,8 +79,11 @@ export function SessionRecordingCard({
                     <ShieldCheck size={10} /> 已提交
                   </span>
                   {item.legalHold && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-warning/30 px-2 py-0.5 text-[9px] text-warning">
-                      <LockKeyhole size={10} /> Legal Hold
+                    <span
+                      title="平台会阻止删除；云端保全证明请查看企业运营。"
+                      className="inline-flex items-center gap-1 rounded-full border border-warning/30 px-2 py-0.5 text-[9px] text-warning"
+                    >
+                      <LockKeyhole size={10} /> 平台保全
                     </span>
                   )}
                 </div>

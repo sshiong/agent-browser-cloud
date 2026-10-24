@@ -98,6 +98,22 @@ export interface MediaQuotaView {
   updatedAt: string;
 }
 
+export interface RecordingCloudHoldView {
+  status:
+    | 'LOGICAL_ONLY'
+    | 'NOT_REQUESTED'
+    | 'NO_RECORDINGS'
+    | 'PENDING'
+    | 'UNKNOWN'
+    | 'VERIFIED';
+  desiredMode: 'ON' | 'OFF';
+  pendingRecordings: number;
+  unknownRecordings: number;
+  verifiedOnRecordings: number;
+  verifiedOffRecordings: number;
+  reconciliationExhausted: boolean;
+}
+
 export interface RetentionPolicyView {
   tenantId: string;
   dataClass: string;
@@ -106,6 +122,8 @@ export interface RetentionPolicyView {
   residencyRegion: string;
   updatedBy: string;
   updatedAt: string;
+  cloudHoldRequired?: boolean;
+  recordingCloudHold?: RecordingCloudHoldView;
 }
 
 export interface SlaExclusionView {

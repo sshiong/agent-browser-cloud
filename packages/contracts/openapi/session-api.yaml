@@ -16813,6 +16813,9 @@ components:
           maximum: 3650
         legalHold:
           type: boolean
+        cloudHoldRequired:
+          type: boolean
+          description: Recording-only cloud protection. Omission preserves existing configuration, initially false; saving desired policy is not an applied cloud proof.
         residencyRegion:
           type: string
           pattern: "^[a-z0-9-]{1,32}$"
@@ -16838,11 +16841,47 @@ components:
           type: boolean
         residencyRegion:
           type: string
+        cloudHoldRequired:
+          type: boolean
+          description: Whether object version protection is requested; independent of its applied state.
+        recordingCloudHold:
+          $ref: '#/components/schemas/RecordingCloudHold'
         updatedBy:
           type: string
         updatedAt:
           type: string
           format: date-time
+    RecordingCloudHold:
+      type: object
+      additionalProperties: false
+      description: Aggregate evidence for the managed, undeleted Recording set only. VERIFIED requires every managed Recording to match desiredMode; it makes no claim about unmanaged or externally modified objects.
+      required: [status, desiredMode, pendingRecordings, unknownRecordings, verifiedOnRecordings, verifiedOffRecordings, reconciliationExhausted]
+      properties:
+        status:
+          type: string
+          enum: [LOGICAL_ONLY, NOT_REQUESTED, NO_RECORDINGS, PENDING, UNKNOWN, VERIFIED]
+        desiredMode:
+          type: string
+          enum: [ON, OFF]
+        pendingRecordings:
+          type: integer
+          format: int64
+          minimum: 0
+        unknownRecordings:
+          type: integer
+          format: int64
+          minimum: 0
+        verifiedOnRecordings:
+          type: integer
+          format: int64
+          minimum: 0
+        verifiedOffRecordings:
+          type: integer
+          format: int64
+          minimum: 0
+        reconciliationExhausted:
+          type: boolean
+          description: At least one UNKNOWN request has exhausted its bounded reconciliation budget; protection must not be released based on elapsed time.
     CreateDeletionReceiptRequest:
       type: object
       additionalProperties: false

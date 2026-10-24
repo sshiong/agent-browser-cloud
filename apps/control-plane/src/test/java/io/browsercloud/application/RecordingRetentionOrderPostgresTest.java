@@ -56,6 +56,7 @@ public class RecordingRetentionOrderPostgresTest {
     jdbc.execute("CREATE TABLE sessions(id TEXT PRIMARY KEY, tenant_id TEXT, profile_id TEXT)");
     executeTable("V019__enterprise_operations.sql", "enterprise_retention_policies");
     executeTable("V019__enterprise_operations.sql", "enterprise_regions");
+    executeTable("V102__enterprise_overview_event_stream.sql", "enterprise_overview_events");
     executeTable(
         "V021__enterprise_governance_evidence.sql", "enterprise_retention_deletion_receipts");
     try (var connection = dataSource.getConnection()) {
@@ -64,7 +65,9 @@ public class RecordingRetentionOrderPostgresTest {
           new String[] {
             "V099__session_recording_manifest_projection.sql",
             "V128__recording_retention_physical_deletion.sql",
-            "V134__recording_durable_deletion_authority.sql"
+            "V134__recording_durable_deletion_authority.sql",
+            "V135__recording_cloud_hold_authority.sql",
+            "V136__recording_hold_job_event_projection.sql"
           }) {
         try (var statement = connection.createStatement()) {
           statement.execute(Files.readString(migrations().resolve(migration)));
@@ -250,7 +253,7 @@ public class RecordingRetentionOrderPostgresTest {
             () ->
                 jdbc.update(
                     """
-        INSERT INTO enterprise_retention_policies VALUES
+        INSERT INTO enterprise_retention_policies(tenant_id,data_class,retention_days,legal_hold,residency_region,updated_by,updated_at) VALUES
           ('tenant-test','REMOTE_DESKTOP_RECORDING',30,true,'primary','old-writer',now())
         """))
         .hasMessageContaining("RECORDING_DELETION_ALREADY_AUTHORIZED");

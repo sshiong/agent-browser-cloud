@@ -44,7 +44,7 @@ BROWSERCLOUD_RECORDING_RETENTION_TEST_PASSWORD="$password" \
   ./gradlew "${arguments[@]}"
 python3 - <<'VERIFY'
 import xml.etree.ElementTree as ET
-for name, minimum in [("RecordingRetentionOrderPostgresTest", 14), ("RecordingLegalHoldPostgresTest", 10)]:
+for name, minimum in [("RecordingRetentionOrderPostgresTest", 14), ("RecordingLegalHoldPostgresTest", 13)]:
     result = ET.parse("apps/control-plane/build/test-results/test/TEST-io.browsercloud.application." + name + ".xml").getroot()
     assert int(result.get("tests", "0")) >= minimum
     assert all(int(result.get(key, "-1")) == 0 for key in ("failures", "errors", "skipped"))

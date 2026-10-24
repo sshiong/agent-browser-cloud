@@ -657,9 +657,11 @@ public final class Models {
 
   public record ReleaseFreeze(String tenantId, Boolean enabled, String phase, Boolean frozen, Double currentBurnRate, Double freezeBurnRateThreshold, Double recoveryBurnRateThreshold, Integer evaluationWindowMinutes, Integer recoveryStableMinutes, String reasonCode, Object stableSince, Object frozenAt, Object clearedAt, String evaluatedAt, Long version) {}
 
-  public record UpsertRetentionPolicyRequest(String dataClass, Integer retentionDays, Boolean legalHold, String residencyRegion) {}
+  public record UpsertRetentionPolicyRequest(String dataClass, Integer retentionDays, Boolean legalHold, Boolean cloudHoldRequired, String residencyRegion) {}
 
-  public record RetentionPolicy(String tenantId, String dataClass, Integer retentionDays, Boolean legalHold, String residencyRegion, String updatedBy, String updatedAt) {}
+  public record RetentionPolicy(String tenantId, String dataClass, Integer retentionDays, Boolean legalHold, String residencyRegion, Boolean cloudHoldRequired, RecordingCloudHold recordingCloudHold, String updatedBy, String updatedAt) {}
+
+  public record RecordingCloudHold(String status, String desiredMode, Long pendingRecordings, Long unknownRecordings, Long verifiedOnRecordings, Long verifiedOffRecordings, Boolean reconciliationExhausted) {}
 
   public record CreateDeletionReceiptRequest(String dataClass, String objectId, String contentDigest) {}
 

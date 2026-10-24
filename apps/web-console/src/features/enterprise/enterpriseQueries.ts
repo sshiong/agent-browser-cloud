@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  upsertRetentionPolicy,
   generateRecoveryGameDayReport,
   getEnterpriseOverview,
   getRecoveryGameDayEvents,
@@ -102,6 +103,15 @@ export function useRecoveryGameDayEvents(gameDayId?: string) {
     queryFn: ({ signal }) => getRecoveryGameDayEvents(gameDayId!, signal),
     enabled: Boolean(gameDayId),
     refetchInterval: 5_000,
+  });
+}
+
+export function useUpsertRetentionPolicy() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: upsertRetentionPolicy,
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: enterpriseOverviewKey }),
   });
 }
 

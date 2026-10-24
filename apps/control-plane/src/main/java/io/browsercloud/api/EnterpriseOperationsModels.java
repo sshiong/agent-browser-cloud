@@ -259,7 +259,22 @@ public final class EnterpriseOperationsModels {
           String dataClass,
       @Min(1) @Max(3650) int retentionDays,
       boolean legalHold,
-      @NotBlank @Pattern(regexp = "^[a-z0-9-]{1,32}$") String residencyRegion) {}
+      @NotBlank @Pattern(regexp = "^[a-z0-9-]{1,32}$") String residencyRegion,
+      Boolean cloudHoldRequired) {
+    public UpsertRetentionPolicyRequest(
+        String dataClass, int retentionDays, boolean legalHold, String residencyRegion) {
+      this(dataClass, retentionDays, legalHold, residencyRegion, null);
+    }
+  }
+
+  public record RecordingCloudHoldView(
+      String status,
+      String desiredMode,
+      long pendingRecordings,
+      long unknownRecordings,
+      long verifiedOnRecordings,
+      long verifiedOffRecordings,
+      boolean reconciliationExhausted) {}
 
   public record RetentionPolicyView(
       String tenantId,
@@ -268,7 +283,11 @@ public final class EnterpriseOperationsModels {
       boolean legalHold,
       String residencyRegion,
       String updatedBy,
-      Instant updatedAt) {}
+      Instant updatedAt,
+      boolean cloudHoldRequired,
+      @com.fasterxml.jackson.annotation.JsonInclude(
+              com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+          RecordingCloudHoldView recordingCloudHold) {}
 
   public record CreateDeletionReceiptRequest(
       @NotBlank

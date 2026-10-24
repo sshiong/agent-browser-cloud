@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { RecordingRetentionPolicy } from './RecordingRetentionPolicy';
 import {
   AlertTriangle,
   BadgeCheck,
@@ -79,6 +80,10 @@ function EnterpriseOverview({
   const latestGameDay = data.recoveryGameDays[0];
   const gameDayEvents = useRecoveryGameDayEvents(latestGameDay?.gameDayId);
   const report = useGenerateRecoveryGameDayReport();
+  const canManageRetention =
+    getRuntimeIdentity()?.roles.some((role) =>
+      ['TENANT_ADMIN', 'SECURITY_ADMIN', 'PLATFORM_ADMIN'].includes(role)
+    ) ?? false;
   const canManageGameDay =
     getRuntimeIdentity()?.roles.includes('PLATFORM_ADMIN') ?? false;
   const readyRegions = data.regions.filter(
@@ -491,18 +496,40 @@ function EnterpriseOverview({
             <Empty label="尚未配置 Retention Policy" />
           ) : (
             <div className="divide-y divide-border-subtle">
-              {data.retentionPolicies.map((policy) => (
-                <Row
-                  key={policy.dataClass}
-                  title={policy.dataClass}
-                  subtitle={`${policy.residencyRegion} · ${policy.retentionDays} days`}
-                  value={policy.legalHold ? 'LEGAL HOLD' : 'ACTIVE'}
-                  detail={relativeTime(policy.updatedAt)}
-                  tone={policy.legalHold ? 'warning' : 'success'}
-                />
-              ))}
+              {data.retentionPolicies.map((policy) =>
+                policy.dataClass === 'REMOTE_DESKTOP_RECORDING' ? (
+                  <RecordingRetentionPolicy
+                    key={policy.dataClass + policy.updatedAt}
+                    policy={policy}
+                    canManage={canManageRetention}
+                  />
+                ) : (
+                  <Row
+                    key={policy.dataClass}
+                    title={policy.dataClass}
+                    subtitle={`${policy.residencyRegion} · ${policy.retentionDays} days`}
+                    value={policy.legalHold ? 'LEGAL HOLD' : 'ACTIVE'}
+                    detail={relativeTime(policy.updatedAt)}
+                    tone={policy.legalHold ? 'warning' : 'success'}
+                  />
+                )
+              )}
             </div>
           )}
+          {canManageRetention &&
+            !data.retentionPolicies.some(
+              (policy) => policy.dataClass === 'REMOTE_DESKTOP_RECORDING'
+            ) && (
+              <RecordingRetentionPolicy
+                isNew
+                canManage
+                policy={{
+                  retentionDays: 31,
+                  legalHold: false,
+                  residencyRegion: data.regions[0]?.regionId ?? 'primary',
+                }}
+              />
+            )}
         </Panel>
 
         <Panel title="Cost Model">

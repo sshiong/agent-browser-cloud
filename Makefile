@@ -6,7 +6,7 @@ RUNTIME_CAPACITY_CYCLES ?= 500
 BROWSER_DENSITY_CONCURRENCY ?= 4
 REAL_CHROMIUM_PATH ?=
 
-.PHONY: docs-generate docs-check test-replay-gate test-recording-privacy test-recording-retention-order test-recording-cloud-hold-order test-native-property-observer
+.PHONY: docs-generate docs-check test-replay-gate test-recording-privacy test-recording-retention-order test-recording-cloud-hold-order test-recording-hold-ui test-native-property-observer
 docs-generate:
 	python3 tools/docs/check_readme.py --write
 
@@ -34,6 +34,11 @@ test-recording-retention-order:
 
 test-recording-cloud-hold-order:
 	RECORDING_CLOUD_HOLD_POSTGRES_GATE=true python3 tests/validation/test_recording_cloud_hold_postgres.py
+
+# Optional owned browser contract test; start the local console first (see script docstring).
+test-recording-hold-ui:
+	python3 tests/e2e/recording_hold_policy_ui.py "$${RECORDING_HOLD_UI_PORT:?Set the owned local console port}"
+
 
 # Install workspace dependencies
 install:

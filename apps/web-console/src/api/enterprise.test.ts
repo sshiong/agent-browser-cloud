@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  upsertRetentionPolicy,
   getEnterpriseOverview,
   streamEnterpriseOverviewChanges,
 } from './enterprise';
@@ -7,6 +8,35 @@ import {
 describe('enterprise operations API', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('writes cloud intent through the tenant-scoped policy API without treating it as proof', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          cloudHoldRequired: true,
+          recordingCloudHold: { status: 'PENDING' },
+        }),
+        { status: 200 }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await upsertRetentionPolicy({
+      dataClass: 'REMOTE_DESKTOP_RECORDING',
+      retentionDays: 31,
+      legalHold: true,
+      residencyRegion: 'primary',
+      cloudHoldRequired: true,
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/enterprise/retention-policies');
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      cloudHoldRequired: true,
+      legalHold: true,
+    });
+    expect(result.recordingCloudHold?.status).toBe('PENDING');
   });
 
   it('loads tenant-scoped production operations data', async () => {

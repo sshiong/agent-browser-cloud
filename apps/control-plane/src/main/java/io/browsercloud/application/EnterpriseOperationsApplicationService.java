@@ -655,6 +655,10 @@ public class EnterpriseOperationsApplicationService {
   @Transactional
   public RetentionPolicyView upsertRetention(
       String tenantId, UpsertRetentionPolicyRequest request, String actorId) {
+    if (Boolean.TRUE.equals(request.cloudHoldRequired())
+        && !"REMOTE_DESKTOP_RECORDING".equals(request.dataClass())) {
+      throw new GovernanceRejectedException("RECORDING_CLOUD_HOLD_CLASS_REQUIRED");
+    }
     if ("REMOTE_DESKTOP_RECORDING".equals(request.dataClass())
         && request.retentionDays() < recordingObjectLockPolicyMinimumRetentionDays) {
       throw new GovernanceRejectedException("OBJECT_LOCK_RETENTION_MINIMUM");
@@ -667,6 +671,14 @@ public class EnterpriseOperationsApplicationService {
       // Same lock order as the database guards and deletion authorization, including no-policy
       // rows.
       jdbc.execute("SELECT pg_advisory_xact_lock(1111706692, 134)");
+      if (Boolean.FALSE.equals(request.cloudHoldRequired())
+          && Boolean.TRUE.equals(
+              jdbc.queryForObject(
+                  "SELECT EXISTS(SELECT 1 FROM recording_cloud_hold_authorities WHERE tenant_id=? AND status NOT IN ('VERIFIED_OFF','DELETED'))",
+                  Boolean.class,
+                  tenantId))) {
+        throw new GovernanceRejectedException("RECORDING_CLOUD_HOLD_NOT_RELEASED");
+      }
       var irreversible =
           jdbc.queryForObject(
               """
@@ -686,21 +698,24 @@ public class EnterpriseOperationsApplicationService {
         """
         INSERT INTO enterprise_retention_policies(
           tenant_id, data_class, retention_days, legal_hold,
-          residency_region, updated_by, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, now())
+          residency_region, updated_by, updated_at, cloud_hold_required
+        ) VALUES (?, ?, ?, ?, ?, ?, now(), COALESCE(?, FALSE))
         ON CONFLICT (tenant_id, data_class) DO UPDATE SET
           retention_days = EXCLUDED.retention_days,
           legal_hold = EXCLUDED.legal_hold,
           residency_region = EXCLUDED.residency_region,
           updated_by = EXCLUDED.updated_by,
-          updated_at = EXCLUDED.updated_at
+          updated_at = EXCLUDED.updated_at,
+          cloud_hold_required = COALESCE(?, enterprise_retention_policies.cloud_hold_required)
         """,
         tenantId,
         request.dataClass(),
         request.retentionDays(),
         request.legalHold(),
         request.residencyRegion(),
-        actorId);
+        actorId,
+        request.cloudHoldRequired(),
+        request.cloudHoldRequired());
     if ("REMOTE_DESKTOP_RECORDING".equals(request.dataClass())) {
       jdbc.update(
           """
@@ -713,15 +728,38 @@ public class EnterpriseOperationsApplicationService {
           request.legalHold(),
           tenantId);
     }
-    return jdbc.query(
-            """
+    var saved =
+        jdbc.query(
+                """
             SELECT * FROM enterprise_retention_policies
             WHERE tenant_id = ? AND data_class = ?
             """,
-            this::retention,
+                this::retention,
+                tenantId,
+                request.dataClass())
+            .getFirst();
+    auditService.append(
+        new AuditRecord(
             tenantId,
-            request.dataClass())
-        .getFirst();
+            null,
+            "RETENTION_POLICY_CHANGED",
+            "USER",
+            actorId,
+            "RETENTION_POLICY",
+            request.dataClass(),
+            "SAVE_DESIRED_POLICY",
+            "SUCCEEDED",
+            Map.of(
+                "legalHold",
+                saved.legalHold(),
+                "cloudHoldRequired",
+                saved.cloudHoldRequired(),
+                "cloudStatus",
+                saved.recordingCloudHold() == null
+                    ? "NOT_APPLICABLE"
+                    : saved.recordingCloudHold().status()),
+            null));
+    return saved;
   }
 
   @Transactional(readOnly = true)
@@ -1706,7 +1744,53 @@ public class EnterpriseOperationsApplicationService {
         result.getBoolean("legal_hold"),
         result.getString("residency_region"),
         result.getString("updated_by"),
-        result.getTimestamp("updated_at").toInstant());
+        result.getTimestamp("updated_at").toInstant(),
+        result.getBoolean("cloud_hold_required"),
+        "REMOTE_DESKTOP_RECORDING".equals(result.getString("data_class"))
+            ? recordingCloudHold(
+                result.getString("tenant_id"),
+                result.getBoolean("legal_hold"),
+                result.getBoolean("cloud_hold_required"))
+            : null);
+  }
+
+  private RecordingCloudHoldView recordingCloudHold(
+      String tenantId, boolean wanted, boolean required) {
+    return jdbc.queryForObject(
+        """
+        SELECT COALESCE(rollup.pending_count,0) AS pending,COALESCE(rollup.unknown_count,0) AS unknown,
+          COALESCE(rollup.verified_on_count,0) AS verified_on,COALESCE(rollup.verified_off_count,0) AS verified_off,
+          EXISTS(SELECT 1 FROM recording_cloud_hold_jobs WHERE tenant_id=? AND state='UNKNOWN' AND attempt>=10) AS exhausted
+          FROM (SELECT ?::text AS tenant_id) scope
+          LEFT JOIN recording_cloud_hold_rollups rollup USING(tenant_id)
+        """,
+        (row, index) -> {
+          var pending = row.getLong("pending");
+          var unknown = row.getLong("unknown");
+          var on = row.getLong("verified_on");
+          var off = row.getLong("verified_off");
+          var total = pending + unknown + on + off;
+          var status =
+              unknown > 0
+                  ? "UNKNOWN"
+                  : pending > 0
+                      ? "PENDING"
+                      : !required
+                          ? "LOGICAL_ONLY"
+                          : total == 0
+                              ? (wanted ? "NO_RECORDINGS" : "NOT_REQUESTED")
+                              : (wanted ? on : off) == total ? "VERIFIED" : "PENDING";
+          return new RecordingCloudHoldView(
+              status,
+              wanted ? "ON" : "OFF",
+              pending,
+              unknown,
+              on,
+              off,
+              row.getBoolean("exhausted"));
+        },
+        tenantId,
+        tenantId);
   }
 
   private SlaExclusionView slaExclusion(ResultSet result, int row) throws SQLException {

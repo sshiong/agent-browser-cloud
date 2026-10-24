@@ -1,6 +1,7 @@
 import { consumeEventStream, requireMatchingEventId } from './eventStream';
 import { DEFAULT_TENANT_ID, identityHeaders, SessionApiError } from './session';
 import type {
+  RetentionPolicyView,
   EnterpriseOverviewChangeType,
   EnterpriseOverviewResponse,
   EnterpriseOverviewStreamChange,
@@ -34,6 +35,19 @@ export async function getEnterpriseOverview(
     { method: 'GET' },
     signal
   );
+}
+
+export async function upsertRetentionPolicy(input: {
+  dataClass: string;
+  retentionDays: number;
+  legalHold: boolean;
+  residencyRegion: string;
+  cloudHoldRequired?: boolean;
+}): Promise<RetentionPolicyView> {
+  return requestEnterprise('/enterprise/retention-policies', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
 }
 
 export async function streamEnterpriseOverviewChanges(callbacks: {

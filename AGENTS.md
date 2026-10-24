@@ -308,6 +308,12 @@ progress 166。
 
 ### 最近验证状态
 
+- Recording ObjectArchive 新增数据段/Marker 首次 create-only PUT 原子 ON 原语：
+  不可变 Scope/逐对象意图、精确版本回读和未知禁止重传，观察到授权后旧链拒绝降级。
+  5项新真实MinIO与原4项Hold/IPC共9项通过，严格Clippy通过，见 progress298。
+  当前未接PG授权/Node/Recorder，未完成最终Manifest或writer静默/所有权交接，不能
+  宣称产品已覆盖进行中上传；原十一项其余范围和新提交CI继续保留。
+
 - 新增真实 Helper Manifest 拒绝→控制面 UNKNOWN→期望 OFF 不覆盖原请求→到期
   扫描不删除的完整链 Gate，S3 独立确认 51 对象/52 版本仍 OFF，不将平台删除联锁当作
   原生保全。OrbStack 专用链、严格 Clippy 与退出完整性检查通过，见 progress297。

@@ -1,6 +1,10 @@
 mod recording_legal_hold;
+mod recording_upload_hold;
 pub use recording_legal_hold::{
     RecordingLegalHoldRequest, RecordingLegalHoldResult, RecordingLegalHoldState,
+};
+pub use recording_upload_hold::{
+    RecordingHeldSegment, RecordingHeldSegmentProof, RecordingUploadHoldScope,
 };
 
 use crate::{atomic_write, secure_create_dir_all, LocalProfileStore, ProfileCheckpointManifest};
@@ -1449,6 +1453,13 @@ impl ObjectArchive {
             hex_sha256(&content) == content_sha256,
             "recording segment integrity verification failed"
         );
+        self.reject_recording_upload_hold_downgrade(
+            tenant_id,
+            profile_id,
+            session_id,
+            recording_id,
+        )
+        .await?;
         let base = self.recording_key_for(tenant_id, profile_id, session_id, recording_id);
         let object_key = format!("{base}/segments/{segment_sequence:020}.ndjson");
         self.put_immutable(&object_key, content.clone()).await?;
@@ -1487,6 +1498,13 @@ impl ObjectArchive {
         started_at_ms: u64,
         ended_at_ms: u64,
     ) -> anyhow::Result<RecordingCommitResult> {
+        self.reject_recording_upload_hold_downgrade(
+            tenant_id,
+            profile_id,
+            session_id,
+            recording_id,
+        )
+        .await?;
         let base = self.recording_key_for(tenant_id, profile_id, session_id, recording_id);
         let marker = RecordingCommitMarker {
             recording_id,

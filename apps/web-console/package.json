@@ -17,7 +17,7 @@
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
-    "@hookform/resolvers": "^3.10.0",
+    "@hookform/resolvers": "^5.2.2",
     "@noble/hashes": "^2.2.0",
     "@novnc/novnc": "1.7.0",
     "@radix-ui/react-dialog": "^1.1.6",
@@ -46,7 +46,7 @@
     "react-router": "8.3.0",
     "recharts": "^2.15.0",
     "tailwind-merge": "^2.6.0",
-    "zod": "^3.24.2",
+    "zod": "^4.6.7",
     "zustand": "^5.0.2"
   },
   "devDependencies": {

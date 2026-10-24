@@ -817,6 +817,7 @@ COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
 RESOURCE_POLICY_COST_TREND_INTERVAL_MS=1000 \
 RECORDING_RETENTION_DELETION_INTERVAL_MS=500 \
+RECORDING_CLOUD_HOLD_INTERVAL_MS=500 \
 SERVER_PORT="$control_port" \
   "$java_bin" -jar "$control_plane_test_jar" \
   >"$temp_dir/control-plane.log" 2>&1 &
@@ -6795,6 +6796,8 @@ recording_deletion_audit_leaks="$(docker exec "$postgres_name" psql -U browsercl
 test "$recording_deletion_audit_leaks" = "0"
 echo "recording_retention_physical_deletion=true"
 echo "recording_retention_versioned_physical_deletion=true"
+
+source "$repo_root/tests/integration/recording-cloud-hold.sh"
 
 confirmation_task="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-tasks" \

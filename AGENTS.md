@@ -308,6 +308,12 @@ progress 166。
 
 ### 最近验证状态
 
+- Recording 正式策略 API→PG/JPA 审计→Worker→真实 mTLS Node→Helper→MinIO
+  完整链本机通过，独立 oracle 验证 51 对象/52 版本 ON/OFF 及最终清空；初始录制元数据
+  与字节为夹具，未证明采集/进行中上传。基线 2b23166 主 CI 因 Zod HIGH 漏洞失败，
+  Desktop 成功；已升级 Zod 4.6.7/resolver 5.2.2，前端153项、构建/lint通过，新 CI待核验。
+  上传时保全、跨 Node、完整链故障注入与目标云 Gate 保留，见 progress296。
+
 - Recording 策略 API 已增加省略即保留的云开关和 managed 集合证明 summary，沿用
   Tenant/Actor/ADMIN 约束；保存期望与审计同事务，不能冒充云端成功。四语言 SDK 与
   Manifest 同步，Web/Tauri 区分逻辑/等待/未知/已验证及耗尽，V136 补同状态 job 事件。

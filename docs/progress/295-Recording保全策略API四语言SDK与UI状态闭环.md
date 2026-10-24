@@ -81,3 +81,7 @@ V135 联锁；旧 Worker 的状态写入也产生相同提示。不得通过删�
 基线 237920e 的主 CI **39912590714**、Desktop **39912590729** 最终精确 SHA、全部
 Job 已核验成功，含十项 PG Worker、十四项删除与八项 SQL Gate、Integration/完整
 GameDay、Operator、Windows/macOS；progress 294 已收尾。本 API 提交须自己的 CI。
+
+后续实证：2b23166 主 CI 40056644352 因既有 Zod HIGH 漏洞失败（后续 Gate 未执行），
+Desktop 40056644390 成功。升级与本机真实 Node/MinIO 完整链验收见 progress296；
+进行中上传、跨 Node 和目标云范围仍保留。

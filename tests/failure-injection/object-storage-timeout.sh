@@ -25,8 +25,8 @@ replica_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1
 
 cleanup() {
   docker unpause "$container_name" >/dev/null 2>&1 || true
-  docker rm -f "$container_name" >/dev/null 2>&1 || true
-  docker rm -f "$replica_container_name" >/dev/null 2>&1 || true
+  docker rm -fv "$container_name" >/dev/null 2>&1 || true
+  docker rm -fv "$replica_container_name" >/dev/null 2>&1 || true
   docker network rm "$network_name" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT

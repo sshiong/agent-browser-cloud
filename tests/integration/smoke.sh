@@ -202,7 +202,7 @@ cleanup() {
     echo '--- redis container log ---' >&2
     docker logs "$redis_name" >&2 2>/dev/null || true
   fi
-  docker rm -f "$postgres_name" "$redis_name" "$minio_name" >/dev/null 2>&1 || true
+  docker rm -fv "$postgres_name" "$redis_name" "$minio_name" >/dev/null 2>&1 || true
   docker network rm "$minio_network" >/dev/null 2>&1 || true
   rm -rf "$temp_dir"
   exit "$exit_code"

@@ -2900,6 +2900,7 @@ dependencies = [
  "base64",
  "bytes",
  "futures-util",
+ "helper-client",
  "helper-contracts",
  "http 1.4.2",
  "nix",

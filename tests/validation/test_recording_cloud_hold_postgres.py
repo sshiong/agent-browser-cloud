@@ -39,7 +39,7 @@ class CloudHoldPostgresTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         if cls.container:
-            subprocess.run(['docker', 'rm', '-f', cls.container], check=True, stdout=subprocess.DEVNULL)
+            subprocess.run(['docker', 'rm', '-fv', cls.container], check=True, stdout=subprocess.DEVNULL)
             cls.container = None
 
     def sql(self, statement, error=None):

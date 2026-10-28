@@ -72,3 +72,5 @@ real_s3_，因此既有完整 GameDay 会实际执行，不是只留在默认 ig
 4. 跨 Node、崩溃/晚到写入/未知超时的完整产品链故障注入、目标云 IAM/Object Lock/
    Legal Hold/长稳。原十一项其余外部供应商、客户 Replay、Linux/Region/组织和许可证
    Gate 全部保留。当前不满足 V16 生产发布条件。
+
+CI 后续收尾：fce3256 主 CI40064401619、Desktop40064401627最终精确 SHA 全成功，Verify 日志确认新 Gate 实际执行；详见 progress299。

@@ -16,7 +16,7 @@ fi
 temp_dir="$(mktemp -d)"
 container_name="recording-retention-test-$(openssl rand -hex 10)"
 cleanup() {
-  docker rm -f "$container_name" >/dev/null 2>&1 || true
+  docker rm -fv "$container_name" >/dev/null 2>&1 || true
   rm -rf "$temp_dir"
 }
 trap cleanup EXIT

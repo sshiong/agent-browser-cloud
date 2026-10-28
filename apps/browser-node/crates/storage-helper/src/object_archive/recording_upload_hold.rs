@@ -3,21 +3,10 @@
 use super::*;
 use aws_sdk_s3::config::retry::RetryConfig;
 use aws_sdk_s3::types::ObjectLockLegalHoldStatus;
+pub use helper_contracts::RecordingUploadHoldScope;
 
 const MAX_BYTES: usize = 16 * 1024 * 1024;
 const MAX_JOURNAL_BYTES: usize = 16 * 1024;
-
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-pub struct RecordingUploadHoldScope {
-    pub operation_id: String,
-    pub authority_epoch: u64,
-    pub placement_epoch: u64,
-    pub tenant_id: String,
-    pub profile_id: String,
-    pub session_id: String,
-    pub recording_id: String,
-}
 
 pub struct RecordingHeldSegment {
     pub sequence: u64,

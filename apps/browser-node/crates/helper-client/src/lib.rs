@@ -5,10 +5,11 @@ use helper_contracts::{
     StorageCommand, StorageRequest, StorageResponse, SCHEMA_VERSION,
 };
 pub use helper_contracts::{
-    StorageCheckpoint, StorageEvidence, StorageEvidenceAccess, StorageRecording,
-    StorageRecordingDeletion, StorageRecordingLegalHold, StorageRecordingLegalHoldRequest,
-    StorageRecordingLegalHoldState, StorageRecordingPlaybackAccess, StorageRestoreStatus,
-    StorageWarmTierSync, StorageWorkspace,
+    RecordingUploadHoldScope, StorageCheckpoint, StorageEvidence, StorageEvidenceAccess,
+    StorageRecording, StorageRecordingDeletion, StorageRecordingLegalHold,
+    StorageRecordingLegalHoldRequest, StorageRecordingLegalHoldState,
+    StorageRecordingPlaybackAccess, StorageRecordingSegmentDescriptor,
+    StorageRecordingUploadHoldProof, StorageRestoreStatus, StorageWarmTierSync, StorageWorkspace,
 };
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -337,6 +338,76 @@ impl StorageHelperClient {
         .await?
         .recording
         .ok_or_else(|| anyhow::anyhow!("storage helper omitted recording segment result"))
+    }
+
+    pub async fn commit_recording_held_segment(
+        &self,
+        workspace: &StorageWorkspace,
+        scope: &RecordingUploadHoldScope,
+        segment: &StorageRecordingSegmentDescriptor,
+    ) -> anyhow::Result<StorageRecording> {
+        self.validate_workspace(
+            workspace,
+            &scope.tenant_id,
+            &scope.profile_id,
+            &scope.session_id,
+        )?;
+        validate_identifier("operation_id", &scope.operation_id)?;
+        validate_identifier("recording_id", &scope.recording_id)?;
+        let hash = |value: &str| {
+            value.len() == 64
+                && value
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        };
+        anyhow::ensure!(
+            scope.operation_id.starts_with("rua_")
+                && scope.authority_epoch > 0
+                && scope.placement_epoch > 0
+                && segment.sequence < 100_000
+                && (1..=16 * 1024 * 1024).contains(&segment.content_bytes)
+                && hash(&segment.content_sha256)
+                && segment.frame_count > 0
+                && segment.redacted_frame_count <= segment.frame_count
+                && (segment.redacted_frame_count == 0 || segment.redacted_region_count > 0)
+                && segment.redaction_policy_version == 2
+                && segment.ended_at_ms >= segment.started_at_ms,
+            "RECORDING_UPLOAD_HOLD_REQUEST_REJECTED"
+        );
+        let result = self
+            .call(StorageCommand::CommitRecordingHeldSegment {
+                scope: scope.clone(),
+                segment: segment.clone(),
+            })
+            .await
+            .map_err(|_| anyhow::anyhow!("RECORDING_UPLOAD_HOLD_RESULT_UNAVAILABLE"))?
+            .recording
+            .ok_or_else(|| anyhow::anyhow!("RECORDING_UPLOAD_HOLD_PROOF_REQUIRED"))?;
+        let proof = result
+            .upload_hold
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("RECORDING_UPLOAD_HOLD_PROOF_REQUIRED"))?;
+        anyhow::ensure!(
+            result.recording_id == scope.recording_id
+                && result.segment_sequence == Some(segment.sequence)
+                && result.content_bytes == segment.content_bytes
+                && result.frame_count == segment.frame_count
+                && result.redacted_frame_count == segment.redacted_frame_count
+                && result.redacted_region_count == segment.redacted_region_count
+                && result.redaction_policy_version == segment.redaction_policy_version
+                && !result.completed
+                && result.object_key.is_none()
+                && result.manifest_sha256.is_none()
+                && result.manifest_bytes == 0
+                && proof.operation_id == scope.operation_id
+                && proof.authority_epoch == scope.authority_epoch
+                && proof.placement_epoch == scope.placement_epoch
+                && proof.object_version_count == 2
+                && hash(&proof.scope_sha256)
+                && hash(&proof.proof_hash),
+            "RECORDING_UPLOAD_HOLD_PROOF_REJECTED"
+        );
+        Ok(result)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -993,5 +1064,162 @@ mod tests {
             .validate_workspace(&workspace, "tenant-test", "profile-test", "session-test")
             .unwrap_err();
         assert!(error.to_string().contains("outside the allowed root"));
+    }
+
+    fn upload_fixture(
+        root: &Path,
+    ) -> (
+        StorageWorkspace,
+        RecordingUploadHoldScope,
+        StorageRecordingSegmentDescriptor,
+    ) {
+        let scope = RecordingUploadHoldScope {
+            operation_id: "rua_owned_client".into(),
+            authority_epoch: 2,
+            placement_epoch: 3,
+            tenant_id: "tenant-upload".into(),
+            profile_id: "profile-upload".into(),
+            session_id: "ses_upload".into(),
+            recording_id: "rec_upload".into(),
+        };
+        let path = root.join("tenants/tenant-upload/profiles/profile-upload/workspaces/ses_upload");
+        let workspace = StorageWorkspace {
+            tenant_id: scope.tenant_id.clone(),
+            profile_id: scope.profile_id.clone(),
+            session_id: scope.session_id.clone(),
+            core_dir: path.join("core").to_string_lossy().into_owned(),
+            ephemeral_dir: path.join("ephemeral").to_string_lossy().into_owned(),
+            profile_write_epoch: 1,
+            restored_checkpoint_id: None,
+            restore_status: StorageRestoreStatus::Empty,
+        };
+        let segment = StorageRecordingSegmentDescriptor {
+            sequence: 4,
+            content_sha256: "a".repeat(64),
+            content_bytes: 1200,
+            frame_count: 1,
+            redacted_frame_count: 1,
+            redacted_region_count: 3,
+            redaction_policy_version: 2,
+            started_at_ms: 1,
+            ended_at_ms: 2,
+        };
+        (workspace, scope, segment)
+    }
+
+    #[tokio::test]
+    async fn held_upload_requires_exact_proof_and_never_downgrades() {
+        for mismatch in [
+            "valid",
+            "operation",
+            "authority",
+            "placement",
+            "count",
+            "scope",
+            "proof",
+            "recording",
+            "sequence",
+            "bytes",
+            "redaction",
+            "completed",
+            "object-key",
+            "missing",
+            "old-helper",
+        ] {
+            let path = socket_path("uh");
+            let listener = UnixListener::bind(&path).unwrap();
+            let server = tokio::spawn(async move {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let request: StorageRequest = read_frame(&mut stream).await.unwrap();
+                let StorageCommand::CommitRecordingHeldSegment { scope, segment } = request.command
+                else {
+                    panic!("held upload was downgraded");
+                };
+                let mut result = serde_json::json!({ "schemaVersion": SCHEMA_VERSION,
+                    "requestId": request.request_id, "ok": true,
+                    "recording": { "recordingId": scope.recording_id, "segmentSequence": segment.sequence,
+                        "contentBytes": segment.content_bytes, "frameCount": segment.frame_count,
+                        "redactedFrameCount": segment.redacted_frame_count, "redactedRegionCount": segment.redacted_region_count,
+                        "redactionPolicyVersion": segment.redaction_policy_version, "completed": false,
+                        "uploadHold": { "operationId": scope.operation_id, "authorityEpoch": scope.authority_epoch,
+                            "placementEpoch": scope.placement_epoch, "scopeSha256": "b".repeat(64),
+                            "proofHash": "c".repeat(64), "objectVersionCount": 2 } } });
+                match mismatch {
+                    "operation" => {
+                        result["recording"]["uploadHold"]["operationId"] = "rua_other".into()
+                    }
+                    "authority" => result["recording"]["uploadHold"]["authorityEpoch"] = 9.into(),
+                    "placement" => result["recording"]["uploadHold"]["placementEpoch"] = 9.into(),
+                    "count" => result["recording"]["uploadHold"]["objectVersionCount"] = 1.into(),
+                    "scope" => result["recording"]["uploadHold"]["scopeSha256"] = "bad".into(),
+                    "proof" => result["recording"]["uploadHold"]["proofHash"] = "bad".into(),
+                    "recording" => result["recording"]["recordingId"] = "rec_other".into(),
+                    "sequence" => result["recording"]["segmentSequence"] = 5.into(),
+                    "bytes" => result["recording"]["contentBytes"] = 1.into(),
+                    "redaction" => result["recording"]["redactionPolicyVersion"] = 1.into(),
+                    "completed" => result["recording"]["completed"] = true.into(),
+                    "object-key" => result["recording"]["objectKey"] = "unexpected".into(),
+                    "missing" => result["recording"]
+                        .as_object_mut()
+                        .unwrap()
+                        .remove("uploadHold")
+                        .map(|_| ())
+                        .unwrap(),
+                    "old-helper" => {
+                        result["ok"] = false.into();
+                        result["errorCode"] = "UNKNOWN_COMMAND".into();
+                    }
+                    _ => {}
+                }
+                write_frame(&mut stream, &result).await.unwrap();
+                assert!(
+                    tokio::time::timeout(Duration::from_millis(40), listener.accept())
+                        .await
+                        .is_err(),
+                    "held upload retried or fell back"
+                );
+            });
+            let root = std::env::temp_dir();
+            let client =
+                StorageHelperClient::new(path.clone(), Duration::from_secs(1), root.clone())
+                    .unwrap();
+            let (workspace, scope, segment) = upload_fixture(&root);
+            assert_eq!(
+                client
+                    .commit_recording_held_segment(&workspace, &scope, &segment)
+                    .await
+                    .is_ok(),
+                mismatch == "valid"
+            );
+            server.await.unwrap();
+            std::fs::remove_file(path).unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn held_upload_rejects_wrong_workspace_and_legacy_privacy_before_connecting() {
+        let root = std::env::temp_dir();
+        let client = StorageHelperClient::new(
+            socket_path("absent"),
+            Duration::from_millis(100),
+            root.clone(),
+        )
+        .unwrap();
+        let (workspace, mut scope, mut segment) = upload_fixture(&root);
+        scope.tenant_id = "other".into();
+        assert!(client
+            .commit_recording_held_segment(&workspace, &scope, &segment)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("workspace identity mismatch"));
+        scope.tenant_id = workspace.tenant_id.clone();
+        segment.redaction_policy_version = 1;
+        assert!(client
+            .commit_recording_held_segment(&workspace, &scope, &segment)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("REQUEST_REJECTED"));
     }
 }

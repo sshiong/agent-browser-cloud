@@ -120,6 +120,12 @@ pub enum StorageCommand {
         started_at_ms: u64,
         ended_at_ms: u64,
     },
+    // A distinct command makes older Helpers reject before any upload. Never
+    // downgrade this to COMMIT_RECORDING_SEGMENT when a response is unsupported.
+    CommitRecordingHeldSegment {
+        scope: RecordingUploadHoldScope,
+        segment: StorageRecordingSegmentDescriptor,
+    },
     CompleteRecording {
         tenant_id: String,
         profile_id: String,
@@ -296,6 +302,47 @@ pub struct StorageRecording {
     #[serde(default)]
     pub manifest_bytes: u64,
     pub completed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upload_hold: Option<StorageRecordingUploadHoldProof>,
+}
+
+// Keep this field order and snake_case serialization stable: the persisted upload
+// authority hashes this exact Scope representation (schema version 1).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct RecordingUploadHoldScope {
+    pub operation_id: String,
+    pub authority_epoch: u64,
+    pub placement_epoch: u64,
+    pub tenant_id: String,
+    pub profile_id: String,
+    pub session_id: String,
+    pub recording_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StorageRecordingSegmentDescriptor {
+    pub sequence: u64,
+    pub content_sha256: String,
+    pub content_bytes: u64,
+    pub frame_count: u64,
+    pub redacted_frame_count: u64,
+    pub redacted_region_count: u64,
+    pub redaction_policy_version: u32,
+    pub started_at_ms: u64,
+    pub ended_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StorageRecordingUploadHoldProof {
+    pub operation_id: String,
+    pub authority_epoch: u64,
+    pub placement_epoch: u64,
+    pub scope_sha256: String,
+    pub proof_hash: String,
+    pub object_version_count: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -521,5 +568,22 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("invalid helper IPC frame length"));
+    }
+
+    #[test]
+    fn upload_scope_preserves_v1_journal_bytes_and_legacy_receipts_have_no_proof() {
+        let persisted = r#"{"operation_id":"rua_owned","authority_epoch":1,"placement_epoch":3,"tenant_id":"tenant-test","profile_id":"profile-test","session_id":"ses_owned","recording_id":"rec_owned"}"#;
+        let scope: RecordingUploadHoldScope = serde_json::from_str(persisted).unwrap();
+        assert_eq!(serde_json::to_string(&scope).unwrap(), persisted);
+        let legacy: StorageRecording = serde_json::from_value(serde_json::json!({
+            "recordingId":"rec_owned", "segmentSequence":0, "objectKey":"legacy-internal-key",
+            "contentBytes":1, "frameCount":1, "completed":false
+        }))
+        .unwrap();
+        assert!(legacy.upload_hold.is_none());
+        assert!(serde_json::to_value(legacy)
+            .unwrap()
+            .get("uploadHold")
+            .is_none());
     }
 }

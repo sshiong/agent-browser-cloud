@@ -2,10 +2,11 @@ use anyhow::Context;
 use base64::Engine;
 use bytes::Bytes;
 use helper_contracts::{
-    read_frame, write_frame, StorageCheckpoint, StorageCommand, StorageEvidence,
-    StorageEvidenceAccess, StorageProfileExportAccess, StorageRecording, StorageRecordingDeletion,
-    StorageRecordingPlaybackAccess, StorageRequest, StorageResponse, StorageRestoreStatus,
-    StorageWarmTierSync, StorageWorkspace, SCHEMA_VERSION,
+    read_frame, write_frame, RecordingUploadHoldScope, StorageCheckpoint, StorageCommand,
+    StorageEvidence, StorageEvidenceAccess, StorageProfileExportAccess, StorageRecording,
+    StorageRecordingDeletion, StorageRecordingPlaybackAccess, StorageRecordingUploadHoldProof,
+    StorageRequest, StorageResponse, StorageRestoreStatus, StorageWarmTierSync, StorageWorkspace,
+    SCHEMA_VERSION,
 };
 use nix::sys::socket::getsockopt;
 use nix::unistd::Uid;
@@ -18,7 +19,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use storage_helper::object_archive::{
     EvidenceDownloadRequest, ObjectArchive, ProfileArchiveCrypto, ProfileExportDownloadRequest,
-    RecordingDeletionRequest, RecordingPlaybackRequest, S3ArchiveConfig, S3RestoreSourceConfig,
+    RecordingDeletionRequest, RecordingHeldSegment, RecordingPlaybackRequest, S3ArchiveConfig,
+    S3RestoreSourceConfig,
 };
 use storage_helper::{LocalProfileStore, ProfileRestoreStatus, ProfileWorkspace};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
@@ -111,6 +113,28 @@ impl StorageService {
         Option<StorageRecordingDeletion>,
         Option<StorageProfileExportAccess>,
     )> {
+        let normalized;
+        let (command, upload_scope) =
+            if let StorageCommand::CommitRecordingHeldSegment { scope, segment } = command {
+                normalized = StorageCommand::CommitRecordingSegment {
+                    tenant_id: scope.tenant_id.clone(),
+                    profile_id: scope.profile_id.clone(),
+                    session_id: scope.session_id.clone(),
+                    recording_id: scope.recording_id.clone(),
+                    segment_sequence: segment.sequence,
+                    content_sha256: segment.content_sha256.clone(),
+                    content_bytes: segment.content_bytes,
+                    frame_count: segment.frame_count,
+                    redacted_frame_count: segment.redacted_frame_count,
+                    redacted_region_count: segment.redacted_region_count,
+                    redaction_policy_version: segment.redaction_policy_version,
+                    started_at_ms: segment.started_at_ms,
+                    ended_at_ms: segment.ended_at_ms,
+                };
+                (&normalized, Some(scope))
+            } else {
+                (command, None)
+            };
         let Some((tenant_id, profile_id)) = command_profile(command) else {
             return Ok((None, None, None, None, None, None, None, None, None));
         };
@@ -121,6 +145,7 @@ impl StorageService {
             self.archive.as_ref(),
             &self.import_staging_root,
             command,
+            upload_scope,
         )
         .await
     }
@@ -289,6 +314,7 @@ async fn execute_storage_operation(
     archive: Option<&ObjectArchive>,
     import_staging_root: &Path,
     command: &StorageCommand,
+    upload_scope: Option<&RecordingUploadHoldScope>,
 ) -> anyhow::Result<(
     Option<StorageWorkspace>,
     Option<StorageCheckpoint>,
@@ -302,7 +328,8 @@ async fn execute_storage_operation(
 )> {
     match command {
         StorageCommand::Ping => Ok((None, None, None, None, None, None, None, None, None)),
-        StorageCommand::ApplyRecordingLegalHold { .. } => {
+        StorageCommand::ApplyRecordingLegalHold { .. }
+        | StorageCommand::CommitRecordingHeldSegment { .. } => {
             anyhow::bail!("Recording Hold requires the dedicated journaled route")
         }
         StorageCommand::Acquire {
@@ -557,6 +584,7 @@ async fn execute_storage_operation(
                     manifest_sha256: None,
                     manifest_bytes: 0,
                     completed: false,
+                    upload_hold: None,
                 }),
                 None,
                 None,
@@ -580,6 +608,10 @@ async fn execute_storage_operation(
             started_at_ms,
             ended_at_ms,
         } => {
+            anyhow::ensure!(
+                upload_scope.is_none() || *redaction_policy_version == 2,
+                "RECORDING_UPLOAD_HOLD_PRIVACY_V2_REQUIRED"
+            );
             validate_recording_identifier("recording_id", recording_id)?;
             anyhow::ensure!(
                 content_sha256.len() == 64
@@ -647,24 +679,57 @@ async fn execute_storage_operation(
                 *redacted_region_count,
                 *redaction_policy_version,
             )?;
-            let object_key = archive
-                .commit_recording_segment(
-                    tenant_id,
-                    profile_id,
-                    session_id,
-                    recording_id,
-                    *segment_sequence,
-                    Bytes::from(content),
-                    content_sha256,
-                    *frame_count,
-                    *redacted_frame_count,
-                    *redacted_region_count,
-                    *redaction_policy_version,
-                    *started_at_ms,
-                    *ended_at_ms,
+            let (object_key, upload_hold) = if let Some(scope) = upload_scope {
+                let proof = archive
+                    .commit_recording_held_segment(
+                        scope,
+                        RecordingHeldSegment {
+                            sequence: *segment_sequence,
+                            content: Bytes::from(content),
+                            content_sha256: content_sha256.clone(),
+                            frame_count: *frame_count,
+                            redacted_frame_count: *redacted_frame_count,
+                            redacted_region_count: *redacted_region_count,
+                            redaction_policy_version: *redaction_policy_version,
+                            started_at_ms: *started_at_ms,
+                            ended_at_ms: *ended_at_ms,
+                        },
+                    )
+                    .await?;
+                (
+                    None,
+                    Some(StorageRecordingUploadHoldProof {
+                        operation_id: scope.operation_id.clone(),
+                        authority_epoch: scope.authority_epoch,
+                        placement_epoch: scope.placement_epoch,
+                        scope_sha256: proof.scope_sha256,
+                        proof_hash: proof.proof_hash,
+                        object_version_count: 2,
+                    }),
                 )
-                .await?;
-            tokio::fs::remove_file(&canonical_path).await?;
+            } else {
+                let object_key = archive
+                    .commit_recording_segment(
+                        tenant_id,
+                        profile_id,
+                        session_id,
+                        recording_id,
+                        *segment_sequence,
+                        Bytes::from(content),
+                        content_sha256,
+                        *frame_count,
+                        *redacted_frame_count,
+                        *redacted_region_count,
+                        *redaction_policy_version,
+                        *started_at_ms,
+                        *ended_at_ms,
+                    )
+                    .await?;
+                tokio::fs::remove_file(&canonical_path).await?;
+                (Some(object_key), None)
+            };
+            // Held bytes stay staged until a future durable Node ACK/cleanup
+            // protocol. Losing the IPC reply must not destroy replay input.
             Ok((
                 None,
                 None,
@@ -672,7 +737,7 @@ async fn execute_storage_operation(
                 Some(StorageRecording {
                     recording_id: recording_id.clone(),
                     segment_sequence: Some(*segment_sequence),
-                    object_key: Some(object_key),
+                    object_key,
                     content_bytes: *content_bytes,
                     frame_count: *frame_count,
                     redacted_frame_count: *redacted_frame_count,
@@ -681,6 +746,7 @@ async fn execute_storage_operation(
                     manifest_sha256: None,
                     manifest_bytes: 0,
                     completed: false,
+                    upload_hold,
                 }),
                 None,
                 None,
@@ -746,6 +812,7 @@ async fn execute_storage_operation(
                     manifest_sha256: Some(committed.manifest_sha256),
                     manifest_bytes: committed.manifest_bytes,
                     completed: true,
+                    upload_hold: None,
                 }),
                 None,
                 None,
@@ -1300,6 +1367,9 @@ fn duration_from_environment(name: &str, default_millis: u64) -> anyhow::Result<
 
 fn command_profile(command: &StorageCommand) -> Option<(&str, &str)> {
     match command {
+        StorageCommand::CommitRecordingHeldSegment { scope, .. } => {
+            Some((&scope.tenant_id, &scope.profile_id))
+        }
         StorageCommand::Ping => None,
         StorageCommand::ApplyRecordingLegalHold { request } => {
             Some((&request.tenant_id, &request.profile_id))
@@ -1750,6 +1820,241 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static TEST_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+
+    #[test]
+    #[ignore = "requires owned TEST_OBJECT_STORAGE_* and Object Lock"]
+    fn real_s3_upload_hold_through_authenticated_ipc() {
+        std::thread::Builder::new()
+            .stack_size(STORAGE_HELPER_WORKER_STACK_BYTES)
+            .spawn(|| {
+                tokio::runtime::Builder::new_multi_thread()
+                    .worker_threads(2)
+                    .thread_stack_size(STORAGE_HELPER_WORKER_STACK_BYTES)
+                    .enable_all()
+                    .build()
+                    .unwrap()
+                    .block_on(upload_hold_ipc_acceptance_body());
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    async fn upload_hold_ipc_acceptance_body() {
+        use aws_sdk_s3::config::{BehaviorVersion, Credentials, Region};
+        use helper_client::{StorageHelperClient, StorageRecordingSegmentDescriptor};
+        let root = std::env::temp_dir().join(format!("u-{}", uuid::Uuid::new_v4().simple()));
+        let store = LocalProfileStore::open(root.clone()).await.unwrap();
+        let scope = RecordingUploadHoldScope {
+            operation_id: format!("rua_{}", uuid::Uuid::new_v4().simple()),
+            authority_epoch: 1,
+            placement_epoch: 3,
+            tenant_id: "tenant-upload-ipc".into(),
+            profile_id: "profile-upload-ipc".into(),
+            session_id: format!("ses_{}", uuid::Uuid::new_v4().simple()),
+            recording_id: format!("rec_{}", uuid::Uuid::new_v4().simple()),
+        };
+        let workspace = workspace_response(
+            store
+                .acquire_workspace(&scope.tenant_id, &scope.profile_id, &scope.session_id)
+                .await
+                .unwrap(),
+        );
+        let directory = verified_recording_directory(
+            Path::new(&workspace.ephemeral_dir),
+            &scope.recording_id,
+            true,
+        )
+        .await
+        .unwrap();
+        let staged = directory.join("segment-00000000000000000000.ndjson");
+        let keyring = root.join("keyring.json");
+        std::fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../../../tests/fixtures/profile-archive-keyring.json"),
+            &keyring,
+        )
+        .unwrap();
+        std::fs::set_permissions(&keyring, std::fs::Permissions::from_mode(0o600)).unwrap();
+        let bucket = std::env::var("TEST_OBJECT_STORAGE_BUCKET").unwrap();
+        let endpoint = std::env::var("TEST_OBJECT_STORAGE_ENDPOINT").unwrap();
+        let access = std::env::var("TEST_OBJECT_STORAGE_ACCESS_KEY_ID").unwrap();
+        let secret = std::env::var("TEST_OBJECT_STORAGE_SECRET_ACCESS_KEY").unwrap();
+        let archive = ObjectArchive::s3(S3ArchiveConfig {
+            bucket: bucket.clone(),
+            region: "us-east-1".into(),
+            endpoint: endpoint.clone(),
+            access_key_id: access.clone(),
+            secret_access_key: secret.clone(),
+            prefix: "held-upload-ipc".into(),
+            connect_timeout: Duration::from_secs(1),
+            operation_timeout: Duration::from_secs(3),
+            allow_http: true,
+            profile_crypto: ProfileArchiveCrypto::from_keyring_file(&keyring).unwrap(),
+        })
+        .unwrap();
+        let oracle = aws_sdk_s3::Client::from_conf(
+            aws_sdk_s3::Config::builder()
+                .behavior_version(BehaviorVersion::latest())
+                .region(Region::new("us-east-1"))
+                .endpoint_url(endpoint)
+                .force_path_style(true)
+                .credentials_provider(Credentials::new(
+                    access,
+                    secret,
+                    None,
+                    None,
+                    "owned-ipc-oracle",
+                ))
+                .build(),
+        );
+        let session_prefix = format!(
+            "held-upload-ipc/tenants/{}/profiles/{}/sessions/{}/",
+            scope.tenant_id, scope.profile_id, scope.session_id
+        );
+        let service = Arc::new(StorageService::new(
+            store,
+            Some(archive),
+            root.join("imports"),
+        ));
+        let socket = root.join("u.sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        let uid = Uid::effective().as_raw();
+        let server = tokio::spawn(async move {
+            for _ in 0..5 {
+                let (stream, _) = listener.accept().await.unwrap();
+                serve_connection(stream, uid, service.clone())
+                    .await
+                    .unwrap();
+            }
+            let (stream, _) = listener.accept().await.unwrap();
+            assert!(serve_connection(stream, uid.saturating_add(1), service)
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("peer UID is not authorized"));
+        });
+        let client =
+            StorageHelperClient::new(socket.clone(), Duration::from_secs(10), root.clone())
+                .unwrap();
+        let frame = serde_json::json!({ "redactionState":"MASKED", "redactedRegionCount":3,
+            "redactionPolicyVersion":2, "privacyScanState":"VERIFIED",
+            "privacyScanVersion":"tesseract-opencv-pii-face-qr-v2",
+            "sanitizedImageSha256":"6e568e1f67fba258184c78181539e5e8fdee447e49bb706fc0ea34fbf12336a5",
+            "ocrDetectedSignalCount":1, "ocrMaskedRegionCount":1, "ocrResidualSignalCount":0,
+            "visualDetectedSignalCount":1, "visualMaskedRegionCount":1, "visualResidualSignalCount":0, "data":"/9j/" });
+        let descriptor = |bytes: &[u8]| StorageRecordingSegmentDescriptor {
+            sequence: 0,
+            content_sha256: format!("{:x}", Sha256::digest(bytes)),
+            content_bytes: bytes.len() as u64,
+            frame_count: 1,
+            redacted_frame_count: 1,
+            redacted_region_count: 3,
+            redaction_policy_version: 2,
+            started_at_ms: 1,
+            ended_at_ms: 2,
+        };
+        let mut bad = frame.clone();
+        bad["privacyScanState"] = "MISSING".into();
+        let bytes = serde_json::to_vec(&bad).unwrap();
+        std::fs::write(&staged, &bytes).unwrap();
+        assert!(client
+            .commit_recording_held_segment(&workspace, &scope, &descriptor(&bytes))
+            .await
+            .is_err());
+        assert!(staged.exists());
+        // Bypass client validation to prove the actual Helper also rejects v1.
+        let mut legacy = descriptor(&bytes);
+        legacy.redaction_policy_version = 1;
+        let mut stream = UnixStream::connect(&socket).await.unwrap();
+        write_frame(
+            &mut stream,
+            &StorageRequest {
+                schema_version: SCHEMA_VERSION,
+                request_id: "owned-v1-rejection".into(),
+                command: StorageCommand::CommitRecordingHeldSegment {
+                    scope: scope.clone(),
+                    segment: legacy,
+                },
+            },
+        )
+        .await
+        .unwrap();
+        let denied: StorageResponse = read_frame(&mut stream).await.unwrap();
+        assert!(!denied.ok);
+        drop(stream);
+        let empty = oracle
+            .list_object_versions()
+            .bucket(&bucket)
+            .prefix(&session_prefix)
+            .send()
+            .await
+            .unwrap();
+        assert!(empty.versions().is_empty() && empty.delete_markers().is_empty());
+        let bytes = serde_json::to_vec(&frame).unwrap();
+        std::fs::write(&staged, &bytes).unwrap();
+        let segment = descriptor(&bytes);
+        let result = client
+            .commit_recording_held_segment(&workspace, &scope, &segment)
+            .await
+            .unwrap();
+        assert_eq!(result.upload_hold.as_ref().unwrap().object_version_count, 2);
+        assert!(result.object_key.is_none() && staged.exists());
+        let replay = client
+            .commit_recording_held_segment(&workspace, &scope, &segment)
+            .await
+            .unwrap();
+        assert_eq!(replay, result);
+        assert!(client
+            .commit_recording_segment(
+                &workspace,
+                &scope.recording_id,
+                0,
+                &segment.content_sha256,
+                segment.content_bytes,
+                1,
+                1,
+                3,
+                2,
+                1,
+                2
+            )
+            .await
+            .is_err());
+        assert!(client
+            .commit_recording_held_segment(&workspace, &scope, &segment)
+            .await
+            .is_err());
+        server.await.unwrap();
+        let versions = oracle
+            .list_object_versions()
+            .bucket(&bucket)
+            .prefix(format!(
+                "{session_prefix}recordings/{}/",
+                scope.recording_id
+            ))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(versions.versions().len(), 2);
+        assert!(versions.delete_markers().is_empty());
+        for version in versions.versions() {
+            let held = oracle
+                .get_object_legal_hold()
+                .bucket(&bucket)
+                .key(version.key().unwrap())
+                .version_id(version.version_id().unwrap())
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(
+                held.legal_hold().unwrap().status(),
+                Some(&aws_sdk_s3::types::ObjectLockLegalHoldStatus::On)
+            );
+        }
+        assert!(staged.exists());
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     #[ignore = "requires owned TEST_OBJECT_STORAGE_* and Object Lock"]

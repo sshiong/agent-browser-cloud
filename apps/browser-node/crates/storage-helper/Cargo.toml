@@ -33,4 +33,5 @@ zeroize.workspace = true
 zstd.workspace = true
 
 [dev-dependencies]
+helper-client = { path = "../helper-client" }
 reqwest.workspace = true

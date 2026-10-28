@@ -5,8 +5,8 @@ use helper_contracts::{
     StorageCommand, StorageRequest, StorageResponse, SCHEMA_VERSION,
 };
 pub use helper_contracts::{
-    RecordingUploadHoldScope, StorageCheckpoint, StorageEvidence, StorageEvidenceAccess,
-    StorageRecording, StorageRecordingDeletion, StorageRecordingLegalHold,
+    RecordingHeldUploadFinalization, RecordingUploadHoldScope, StorageCheckpoint, StorageEvidence,
+    StorageEvidenceAccess, StorageRecording, StorageRecordingDeletion, StorageRecordingLegalHold,
     StorageRecordingLegalHoldRequest, StorageRecordingLegalHoldState,
     StorageRecordingPlaybackAccess, StorageRecordingSegmentDescriptor,
     StorageRecordingUploadHoldProof, StorageRestoreStatus, StorageWarmTierSync, StorageWorkspace,
@@ -397,6 +397,7 @@ impl StorageHelperClient {
                 && result.redaction_policy_version == segment.redaction_policy_version
                 && !result.completed
                 && result.upload_ack_sha256.is_none()
+                && result.upload_seal.is_none()
                 && result.object_key.is_none()
                 && result.manifest_sha256.is_none()
                 && result.manifest_bytes == 0
@@ -409,6 +410,94 @@ impl StorageHelperClient {
             "RECORDING_UPLOAD_HOLD_PROOF_REJECTED"
         );
         Ok(result)
+    }
+
+    pub async fn seal_recording_held_upload(
+        &self,
+        workspace: &StorageWorkspace,
+        scope: &RecordingUploadHoldScope,
+        expected_scope_sha256: &str,
+        finalization: &RecordingHeldUploadFinalization,
+    ) -> anyhow::Result<StorageRecording> {
+        self.validate_workspace(
+            workspace,
+            &scope.tenant_id,
+            &scope.profile_id,
+            &scope.session_id,
+        )?;
+        validate_identifier("operation_id", &scope.operation_id)?;
+        validate_identifier("recording_id", &scope.recording_id)?;
+        let hash = |v: &str| {
+            v.len() == 64
+                && v.bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        };
+        let f = finalization;
+        anyhow::ensure!(
+            scope.operation_id.starts_with("rua_")
+                && scope.authority_epoch > 0
+                && scope.placement_epoch > 0
+                && hash(expected_scope_sha256)
+                && (1..=100_000).contains(&f.segment_count)
+                && f.frame_count > 0
+                && f.redacted_frame_count <= f.frame_count
+                && (f.redacted_frame_count == 0 || f.redacted_region_count > 0)
+                && f.redaction_policy_version == 2
+                && f.ended_at_ms >= f.started_at_ms,
+            "RECORDING_UPLOAD_SEAL_REQUEST_REJECTED"
+        );
+        let r = self
+            .call(StorageCommand::SealRecordingHeldUpload {
+                scope: scope.clone(),
+                expected_scope_sha256: expected_scope_sha256.to_owned(),
+                finalization: f.clone(),
+            })
+            .await
+            .map_err(|_| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_RESULT_UNAVAILABLE"))?
+            .recording
+            .ok_or_else(|| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_PROOF_REQUIRED"))?;
+        let seal = r
+            .upload_seal
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_PROOF_REQUIRED"))?;
+        let p = &seal.proof;
+        let suffix = format!(
+            "tenants/{}/profiles/{}/sessions/{}/recordings/{}/COMMITTED",
+            scope.tenant_id, scope.profile_id, scope.session_id, scope.recording_id
+        );
+        anyhow::ensure!(
+            r.recording_id == scope.recording_id
+                && r.completed
+                && r.segment_sequence.is_none()
+                && r.content_bytes == 0
+                && r.frame_count == f.frame_count
+                && r.redacted_frame_count == f.redacted_frame_count
+                && r.redacted_region_count == f.redacted_region_count
+                && r.redaction_policy_version == f.redaction_policy_version
+                && r.upload_hold.is_none()
+                && r.upload_ack_sha256.is_none()
+                && seal.operation_id == scope.operation_id
+                && seal.authority_epoch == scope.authority_epoch
+                && seal.placement_epoch == scope.placement_epoch
+                && p.protocol_version == 2
+                && p.scope_sha256 == expected_scope_sha256
+                && p.segment_count == f.segment_count
+                && p.object_version_count == 2 * f.segment_count + 1
+                && hash(&p.manifest_sha256)
+                && hash(&p.inventory_sha256)
+                && hash(&p.proof_hash)
+                && p.completed_at_ms > 0
+                && (1..=16 * 1024).contains(&p.manifest_bytes)
+                && r.manifest_bytes == p.manifest_bytes
+                && r.manifest_sha256.as_ref() == Some(&p.manifest_sha256)
+                && r.object_key.as_ref().is_some_and(|k| k.len() <= 1024
+                    && !k.starts_with('/')
+                    && !k.contains("://")
+                    && !k.bytes().any(|b| b.is_ascii_control())
+                    && (k == &suffix || k.ends_with(&format!("/{suffix}")))),
+            "RECORDING_UPLOAD_SEAL_PROOF_REJECTED"
+        );
+        Ok(r)
     }
 
     pub async fn acknowledge_recording_held_segment(
@@ -446,6 +535,7 @@ impl StorageHelperClient {
             completed: false,
             upload_hold: Some(r.proof.clone()),
             upload_ack_sha256: Some(ack.journal_receipt_sha256.clone()),
+            upload_seal: None,
         };
         anyhow::ensure!(actual == expected, "RECORDING_UPLOAD_ACK_RESPONSE_REJECTED");
         Ok(())
@@ -1265,6 +1355,108 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn held_upload_seal_rejects_uncorrelated_proofs_without_fallback() {
+        for mismatch in [
+            "valid",
+            "missing",
+            "legacy",
+            "protocol",
+            "scope",
+            "operation",
+            "authority",
+            "placement",
+            "manifest",
+            "bytes",
+            "segments",
+            "versions",
+            "inventory",
+            "proof",
+            "time",
+            "recording",
+            "completed",
+            "key",
+        ] {
+            let path = socket_path("us");
+            let listener = UnixListener::bind(&path).unwrap();
+            let root = std::env::temp_dir();
+            let (workspace, scope, _) = upload_fixture(&root);
+            let f = RecordingHeldUploadFinalization {
+                segment_count: 1,
+                frame_count: 1,
+                redacted_frame_count: 1,
+                redacted_region_count: 3,
+                redaction_policy_version: 2,
+                started_at_ms: 1,
+                ended_at_ms: 2,
+            };
+            let server = tokio::spawn(async move {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let request: StorageRequest = read_frame(&mut stream).await.unwrap();
+                let StorageCommand::SealRecordingHeldUpload {
+                    scope,
+                    expected_scope_sha256,
+                    ..
+                } = request.command
+                else {
+                    panic!("seal downgraded");
+                };
+                let mut result = serde_json::json!({"schemaVersion": SCHEMA_VERSION, "requestId":request.request_id,
+                    "ok": mismatch != "legacy", "recording": {"recordingId":scope.recording_id, "contentBytes":0,
+                        "frameCount":1, "redactedFrameCount":1, "redactedRegionCount":3, "redactionPolicyVersion":2,
+                        "manifestSha256":"b".repeat(64), "manifestBytes":100, "completed":true,
+                        "objectKey":format!("prefix/tenants/{}/profiles/{}/sessions/{}/recordings/{}/COMMITTED",
+                            scope.tenant_id,scope.profile_id,scope.session_id,scope.recording_id),
+                        "uploadSeal":{"operationId":scope.operation_id,"authorityEpoch":scope.authority_epoch,
+                            "placementEpoch":scope.placement_epoch,"proof":{"protocol_version":2,"scope_sha256":expected_scope_sha256,
+                                "manifest_sha256":"b".repeat(64),"manifest_bytes":100,"segment_count":1,"object_version_count":3,
+                                "inventory_sha256":"c".repeat(64),"proof_hash":"d".repeat(64),"completed_at_ms":1}}}});
+                let r = &mut result["recording"];
+                match mismatch {
+                    "missing" => {
+                        r.as_object_mut().unwrap().remove("uploadSeal");
+                    }
+                    "operation" => r["uploadSeal"]["operationId"] = "rua_other".into(),
+                    "authority" => r["uploadSeal"]["authorityEpoch"] = 0.into(),
+                    "placement" => r["uploadSeal"]["placementEpoch"] = 0.into(),
+                    "protocol" => r["uploadSeal"]["proof"]["protocol_version"] = 1.into(),
+                    "scope" => r["uploadSeal"]["proof"]["scope_sha256"] = "f".repeat(64).into(),
+                    "manifest" => {
+                        r["uploadSeal"]["proof"]["manifest_sha256"] = "f".repeat(64).into()
+                    }
+                    "bytes" => r["uploadSeal"]["proof"]["manifest_bytes"] = 0.into(),
+                    "segments" => r["uploadSeal"]["proof"]["segment_count"] = 2.into(),
+                    "versions" => r["uploadSeal"]["proof"]["object_version_count"] = 2.into(),
+                    "inventory" => r["uploadSeal"]["proof"]["inventory_sha256"] = "invalid".into(),
+                    "proof" => r["uploadSeal"]["proof"]["proof_hash"] = "invalid".into(),
+                    "time" => r["uploadSeal"]["proof"]["completed_at_ms"] = 0.into(),
+                    "recording" => r["recordingId"] = "other".into(),
+                    "completed" => r["completed"] = false.into(),
+                    "key" => r["objectKey"] = "https://external.invalid/COMMITTED".into(),
+                    _ => {}
+                }
+                write_frame(&mut stream, &result).await.unwrap();
+                assert!(
+                    tokio::time::timeout(Duration::from_millis(40), listener.accept())
+                        .await
+                        .is_err()
+                );
+            });
+            let client =
+                StorageHelperClient::new(path.clone(), Duration::from_secs(1), root).unwrap();
+            assert_eq!(
+                client
+                    .seal_recording_held_upload(&workspace, &scope, &"a".repeat(64), &f)
+                    .await
+                    .is_ok(),
+                mismatch == "valid",
+                "{mismatch}"
+            );
+            server.await.unwrap();
+            std::fs::remove_file(path).unwrap();
+        }
+    }
+
+    #[tokio::test]
     async fn held_upload_ack_requires_exact_cleanup_receipt_without_fallback() {
         for mismatch in ["valid", "missing", "hash", "proof", "sequence", "legacy"] {
             let path = socket_path("ua");
@@ -1313,6 +1505,7 @@ mod tests {
                     completed: false,
                     upload_hold: Some(r.proof.clone()),
                     upload_ack_sha256: Some(ack.journal_receipt_sha256),
+                    upload_seal: None,
                 };
                 match mismatch {
                     "missing" => recording.upload_ack_sha256 = None,

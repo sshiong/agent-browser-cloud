@@ -1048,6 +1048,33 @@ mod tests {
                 .commit_recording_held_segment(&scope, segment(1))
                 .await
                 .unwrap();
+            let writer_key = Path::from(format!(
+                "{}/UPLOAD_HOLD/WRITER",
+                archive.recording_deletion_key_for(
+                    &scope.tenant_id,
+                    &scope.profile_id,
+                    &scope.session_id,
+                    &scope.recording_id
+                )
+            ));
+            let writer_before = archive.read_upload_journal(&writer_key).await.unwrap();
+            // Scope correlation is checked before closing WRITER or creating Manifest.
+            assert!(archive
+                .seal_recording_held_upload_for_scope(&scope, &"f".repeat(64), &finalization(2))
+                .await
+                .is_err());
+            assert_eq!(
+                writer_before,
+                archive.read_upload_journal(&writer_key).await.unwrap()
+            );
+            assert_eq!(
+                archive
+                    .recording_object_versions(&base(&archive, &scope), 10)
+                    .await
+                    .unwrap()
+                    .len(),
+                4
+            );
             let mut bad = finalization(2);
             bad.frame_count = 3;
             assert!(archive

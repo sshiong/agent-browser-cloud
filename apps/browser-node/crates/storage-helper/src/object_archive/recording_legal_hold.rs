@@ -1059,12 +1059,16 @@ mod tests {
         let on = direct.apply_recording_legal_hold(r.clone()).await.unwrap();
         proxy.arm.store(true, Ordering::SeqCst);
         let off_request = next(&r, &on);
-        assert!(proxied
+        let off_error = proxied
             .apply_recording_legal_hold(off_request.clone())
             .await
             .unwrap_err()
-            .to_string()
-            .contains("UNKNOWN"));
+            .to_string();
+        assert!(
+            off_error.contains("UNKNOWN"),
+            "{off_error}; owned_proxy_statuses={:?}",
+            proxy.responses.lock().unwrap()
+        );
         // A different client/Node shares the remote journal, even while the first OFF is pending.
         let mut new_on = off_request;
         new_on.authority_epoch += 1;

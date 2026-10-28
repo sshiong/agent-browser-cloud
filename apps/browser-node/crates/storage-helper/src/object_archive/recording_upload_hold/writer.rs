@@ -43,29 +43,7 @@ impl WriterPermit {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecordingHeldUploadFinalization {
-    pub segment_count: u64,
-    pub frame_count: u64,
-    pub redacted_frame_count: u64,
-    pub redacted_region_count: u64,
-    pub redaction_policy_version: u32,
-    pub started_at_ms: u64,
-    pub ended_at_ms: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct RecordingHeldUploadSealProof {
-    pub scope_sha256: String,
-    pub manifest_sha256: String,
-    pub manifest_bytes: u64,
-    pub segment_count: u64,
-    pub object_version_count: u64,
-    pub inventory_sha256: String,
-    pub proof_hash: String,
-    pub completed_at_ms: u64,
-}
+pub use helper_contracts::{RecordingHeldUploadFinalization, RecordingHeldUploadSealProof};
 
 pub struct RecordingHeldUploadSealResult {
     pub commit: RecordingCommitResult,
@@ -348,7 +326,22 @@ impl ObjectArchive {
     ) -> anyhow::Result<RecordingHeldUploadSealResult> {
         tokio::time::timeout(
             Duration::from_secs(120),
-            self.seal_recording_held_upload_inner(scope, finalization),
+            self.seal_recording_held_upload_inner(scope, finalization, None),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_UNKNOWN"))?
+        .map_err(|_| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_REJECTED_OR_UNKNOWN"))
+    }
+
+    pub async fn seal_recording_held_upload_for_scope(
+        &self,
+        scope: &RecordingUploadHoldScope,
+        expected_scope_sha256: &str,
+        finalization: &RecordingHeldUploadFinalization,
+    ) -> anyhow::Result<RecordingHeldUploadSealResult> {
+        tokio::time::timeout(
+            Duration::from_secs(120),
+            self.seal_recording_held_upload_inner(scope, finalization, Some(expected_scope_sha256)),
         )
         .await
         .map_err(|_| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_UNKNOWN"))?
@@ -359,6 +352,7 @@ impl ObjectArchive {
         &self,
         scope: &RecordingUploadHoldScope,
         f: &RecordingHeldUploadFinalization,
+        expected_scope_sha256: Option<&str>,
     ) -> anyhow::Result<RecordingHeldUploadSealResult> {
         for value in [
             &scope.tenant_id,
@@ -404,6 +398,10 @@ impl ObjectArchive {
             "seal requires v2 authority"
         );
         let scope_hash = hex_sha256(&bytes);
+        anyhow::ensure!(
+            expected_scope_sha256.is_none_or(|expected| expected == scope_hash),
+            "seal scope rejected"
+        );
         self.reject_upload_seal_mutation_intents(scope).await?;
         let manifest = Bytes::from(serde_json::to_vec(&RecordingCommitMarker {
             recording_id: &scope.recording_id,
@@ -610,6 +608,7 @@ impl ObjectArchive {
                 manifest_bytes: manifest.len() as u64,
             },
             seal: RecordingHeldUploadSealProof {
+                protocol_version: 2,
                 scope_sha256: commit.scope_sha256,
                 manifest_sha256: commit.manifest_sha256,
                 manifest_bytes: commit.manifest_bytes,

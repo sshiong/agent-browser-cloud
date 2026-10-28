@@ -75,7 +75,8 @@ Key/Version tuple Hash；未更改旧类型的存储契约或减少核验。所�
 
 基线 f676adf 的主 CI **40686294652**、Desktop **40686294673** 精确 SHA 全部成功；
 读取 Verify 日志确认真实 ACK 用例及 UNKNOWN 拒绝 Gate 实际执行，完整 Integration/
-GameDay 成功。progress300 已收尾。本提交仍须自己的完整 CI。
+GameDay 成功。progress300 已收尾。本提交 cce2465 主 CI **40694039631**、Desktop **40694039774** 已核验精确 SHA 全成功；
+主流水线两个 Job 均成功，Verify 日志确认封口用例与 UNKNOWN 拒绝标记实际执行。
 
 本轮专用测试容器/网络均已定向回收；以本轮构建 digest 验证来源且确认无容器引用后，
 删除两个测试 MinIO/mc 镜像。其余8个容器、共用基础镜像/缓存及用户文件保留，未用

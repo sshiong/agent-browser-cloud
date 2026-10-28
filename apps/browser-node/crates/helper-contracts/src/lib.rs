@@ -145,6 +145,11 @@ pub enum StorageCommand {
         started_at_ms: u64,
         ended_at_ms: u64,
     },
+    SealRecordingHeldUpload {
+        scope: RecordingUploadHoldScope,
+        expected_scope_sha256: String,
+        finalization: RecordingHeldUploadFinalization,
+    },
     CommitEvidence {
         tenant_id: String,
         profile_id: String,
@@ -309,6 +314,17 @@ pub struct StorageRecording {
     pub upload_hold: Option<StorageRecordingUploadHoldProof>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upload_ack_sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upload_seal: Option<StorageRecordingUploadSeal>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StorageRecordingUploadSeal {
+    pub operation_id: String,
+    pub authority_epoch: u64,
+    pub placement_epoch: u64,
+    pub proof: RecordingHeldUploadSealProof,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -665,4 +681,29 @@ mod tests {
             .get("uploadHold")
             .is_none());
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecordingHeldUploadFinalization {
+    pub segment_count: u64,
+    pub frame_count: u64,
+    pub redacted_frame_count: u64,
+    pub redacted_region_count: u64,
+    pub redaction_policy_version: u32,
+    pub started_at_ms: u64,
+    pub ended_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RecordingHeldUploadSealProof {
+    pub protocol_version: u32,
+    pub scope_sha256: String,
+    pub manifest_sha256: String,
+    pub manifest_bytes: u64,
+    pub segment_count: u64,
+    pub object_version_count: u64,
+    pub inventory_sha256: String,
+    pub proof_hash: String,
+    pub completed_at_ms: u64,
 }

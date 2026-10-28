@@ -37,6 +37,128 @@ struct StorageService {
 }
 
 impl StorageService {
+    async fn seal_recording_held_upload(
+        &self,
+        scope: &RecordingUploadHoldScope,
+        expected_scope_sha256: &str,
+        finalization: &helper_contracts::RecordingHeldUploadFinalization,
+    ) -> anyhow::Result<StorageRecording> {
+        for id in [
+            &scope.tenant_id,
+            &scope.profile_id,
+            &scope.session_id,
+            &scope.recording_id,
+            &scope.operation_id,
+        ] {
+            anyhow::ensure!(
+                !id.is_empty()
+                    && id.len() <= 128
+                    && id
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-')),
+                "RECORDING_UPLOAD_SEAL_ID_REJECTED"
+            );
+        }
+        anyhow::ensure!(
+            (1..=100_000).contains(&finalization.segment_count)
+                && expected_scope_sha256.len() == 64
+                && expected_scope_sha256
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)),
+            "RECORDING_UPLOAD_SEAL_REQUEST_REJECTED"
+        );
+        let stripe = profile_lock_stripe(
+            &scope.tenant_id,
+            &scope.profile_id,
+            self.profile_locks.len(),
+        );
+        let _guard = self.profile_locks[stripe].lock().await;
+        let workspace = self
+            .store
+            .resume_workspace(&scope.tenant_id, &scope.profile_id, &scope.session_id)
+            .await?;
+        let directory =
+            verified_recording_directory(&workspace.ephemeral_dir, &scope.recording_id, false)
+                .await?;
+        let mut entries = tokio::fs::read_dir(&directory).await?;
+        let mut count = 0u64;
+        let mut totals = [0u64; 3];
+        while let Some(entry) = entries.next_entry().await? {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let sequence: u64 = name
+                .strip_prefix("segment-")
+                .and_then(|n| n.strip_suffix(".ACKED"))
+                .and_then(|n| n.parse().ok())
+                .ok_or_else(|| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_PENDING_SOURCE"))?;
+            anyhow::ensure!(
+                name == format!("segment-{sequence:020}.ACKED")
+                    && sequence < finalization.segment_count
+                    && entry.file_type().await?.is_file(),
+                "RECORDING_UPLOAD_SEAL_ACK_REJECTED"
+            );
+            let bytes = read_recording_upload_ack(&entry.path())
+                .await?
+                .ok_or_else(|| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_ACK_REQUIRED"))?;
+            let ack: helper_contracts::RecordingUploadJournalAcknowledgement =
+                serde_json::from_slice(&bytes)?;
+            let r = &ack.receipt;
+            anyhow::ensure!(
+                r.sha256()? == ack.journal_receipt_sha256
+                    && r.scope == *scope
+                    && r.segment.sequence == sequence
+                    && r.proof.scope_sha256 == expected_scope_sha256,
+                "RECORDING_UPLOAD_SEAL_ACK_REJECTED"
+            );
+            for (total, value) in totals.iter_mut().zip([
+                r.segment.frame_count,
+                r.segment.redacted_frame_count,
+                r.segment.redacted_region_count,
+            ]) {
+                *total = total
+                    .checked_add(value)
+                    .ok_or_else(|| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_COUNTER_BOUND"))?;
+            }
+            count += 1;
+        }
+        anyhow::ensure!(
+            count == finalization.segment_count
+                && totals
+                    == [
+                        finalization.frame_count,
+                        finalization.redacted_frame_count,
+                        finalization.redacted_region_count
+                    ],
+            "RECORDING_UPLOAD_SEAL_ACK_INCOMPLETE"
+        );
+        let result = self
+            .archive
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_ARCHIVE_REQUIRED"))?
+            .seal_recording_held_upload_for_scope(scope, expected_scope_sha256, finalization)
+            .await?;
+        Ok(StorageRecording {
+            recording_id: scope.recording_id.clone(),
+            segment_sequence: None,
+            object_key: Some(result.commit.object_key),
+            content_bytes: 0,
+            frame_count: finalization.frame_count,
+            redacted_frame_count: finalization.redacted_frame_count,
+            redacted_region_count: finalization.redacted_region_count,
+            redaction_policy_version: finalization.redaction_policy_version,
+            manifest_sha256: Some(result.commit.manifest_sha256),
+            manifest_bytes: result.commit.manifest_bytes,
+            completed: true,
+            upload_hold: None,
+            upload_ack_sha256: None,
+            upload_seal: Some(helper_contracts::StorageRecordingUploadSeal {
+                operation_id: scope.operation_id.clone(),
+                authority_epoch: scope.authority_epoch,
+                placement_epoch: scope.placement_epoch,
+                proof: result.seal,
+            }),
+        })
+    }
+
     async fn acknowledge_recording_held_segment(
         &self,
         ack: &helper_contracts::RecordingUploadJournalAcknowledgement,
@@ -189,6 +311,7 @@ impl StorageService {
             completed: false,
             upload_hold: Some(receipt.proof.clone()),
             upload_ack_sha256: Some(ack.journal_receipt_sha256.clone()),
+            upload_seal: None,
         })
     }
 
@@ -269,6 +392,17 @@ impl StorageService {
         Option<StorageRecordingDeletion>,
         Option<StorageProfileExportAccess>,
     )> {
+        if let StorageCommand::SealRecordingHeldUpload {
+            scope,
+            expected_scope_sha256,
+            finalization,
+        } = command
+        {
+            let result = self
+                .seal_recording_held_upload(scope, expected_scope_sha256, finalization)
+                .await?;
+            return Ok((None, None, None, Some(result), None, None, None, None, None));
+        }
         if let StorageCommand::AcknowledgeRecordingHeldSegment { acknowledgement } = command {
             let result = self
                 .acknowledge_recording_held_segment(acknowledgement)
@@ -492,7 +626,8 @@ async fn execute_storage_operation(
         StorageCommand::Ping => Ok((None, None, None, None, None, None, None, None, None)),
         StorageCommand::ApplyRecordingLegalHold { .. }
         | StorageCommand::CommitRecordingHeldSegment { .. }
-        | StorageCommand::AcknowledgeRecordingHeldSegment { .. } => {
+        | StorageCommand::AcknowledgeRecordingHeldSegment { .. }
+        | StorageCommand::SealRecordingHeldUpload { .. } => {
             anyhow::bail!("Recording Hold requires the dedicated journaled route")
         }
         StorageCommand::Acquire {
@@ -749,6 +884,7 @@ async fn execute_storage_operation(
                     completed: false,
                     upload_hold: None,
                     upload_ack_sha256: None,
+                    upload_seal: None,
                 }),
                 None,
                 None,
@@ -912,6 +1048,7 @@ async fn execute_storage_operation(
                     completed: false,
                     upload_hold,
                     upload_ack_sha256: None,
+                    upload_seal: None,
                 }),
                 None,
                 None,
@@ -979,6 +1116,7 @@ async fn execute_storage_operation(
                     completed: true,
                     upload_hold: None,
                     upload_ack_sha256: None,
+                    upload_seal: None,
                 }),
                 None,
                 None,
@@ -1537,7 +1675,8 @@ fn command_profile(command: &StorageCommand) -> Option<(&str, &str)> {
             &acknowledgement.receipt.scope.tenant_id,
             &acknowledgement.receipt.scope.profile_id,
         )),
-        StorageCommand::CommitRecordingHeldSegment { scope, .. } => {
+        StorageCommand::CommitRecordingHeldSegment { scope, .. }
+        | StorageCommand::SealRecordingHeldUpload { scope, .. } => {
             Some((&scope.tenant_id, &scope.profile_id))
         }
         StorageCommand::Ping => None,
@@ -2036,7 +2175,7 @@ mod tests {
                     .enable_all()
                     .build()
                     .unwrap()
-                    .block_on(upload_hold_ipc_acceptance_body(false));
+                    .block_on(upload_hold_ipc_acceptance_body(false, false));
             })
             .unwrap()
             .join()
@@ -2055,14 +2194,33 @@ mod tests {
                     .enable_all()
                     .build()
                     .unwrap()
-                    .block_on(upload_hold_ipc_acceptance_body(true));
+                    .block_on(upload_hold_ipc_acceptance_body(true, false));
             })
             .unwrap()
             .join()
             .unwrap();
     }
 
-    async fn upload_hold_ipc_acceptance_body(with_ack: bool) {
+    #[test]
+    #[ignore = "requires owned TEST_OBJECT_STORAGE_* and Object Lock"]
+    fn real_s3_upload_seal_through_authenticated_ipc() {
+        std::thread::Builder::new()
+            .stack_size(STORAGE_HELPER_WORKER_STACK_BYTES)
+            .spawn(|| {
+                tokio::runtime::Builder::new_multi_thread()
+                    .worker_threads(2)
+                    .thread_stack_size(STORAGE_HELPER_WORKER_STACK_BYTES)
+                    .enable_all()
+                    .build()
+                    .unwrap()
+                    .block_on(upload_hold_ipc_acceptance_body(true, true));
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    async fn upload_hold_ipc_acceptance_body(with_ack: bool, with_seal: bool) {
         use aws_sdk_s3::config::{BehaviorVersion, Credentials, Region};
         use helper_client::{StorageHelperClient, StorageRecordingSegmentDescriptor};
         let root = std::env::temp_dir().join(format!("u-{}", uuid::Uuid::new_v4().simple()));
@@ -2143,7 +2301,13 @@ mod tests {
         let listener = UnixListener::bind(&socket).unwrap();
         let uid = Uid::effective().as_raw();
         let server = tokio::spawn(async move {
-            for _ in 0..if with_ack { 10 } else { 5 } {
+            for _ in 0..if with_seal {
+                15
+            } else if with_ack {
+                10
+            } else {
+                5
+            } {
                 let (stream, _) = listener.accept().await.unwrap();
                 serve_connection(stream, uid, service.clone())
                     .await
@@ -2333,6 +2497,62 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(inventory(&before), inventory(&after));
+            if with_seal {
+                let f = helper_contracts::RecordingHeldUploadFinalization {
+                    segment_count: 1,
+                    frame_count: 1,
+                    redacted_frame_count: 1,
+                    redacted_region_count: 3,
+                    redaction_policy_version: 2,
+                    started_at_ms: 1,
+                    ended_at_ms: 2,
+                };
+                let scope_hash = &result.upload_hold.as_ref().unwrap().scope_sha256;
+                // Pending replacement must prevent sealing before any remote mutation.
+                assert!(client
+                    .seal_recording_held_upload(&workspace, &scope, scope_hash, &f)
+                    .await
+                    .is_err());
+                std::fs::remove_file(&staged).unwrap();
+                let ack_path = directory.join("segment-00000000000000000000.ACKED");
+                let saved_ack = std::fs::read(&ack_path).unwrap();
+                std::fs::remove_file(&ack_path).unwrap();
+                assert!(client
+                    .seal_recording_held_upload(&workspace, &scope, scope_hash, &f)
+                    .await
+                    .is_err());
+                std::fs::write(&ack_path, saved_ack).unwrap();
+                assert!(client
+                    .seal_recording_held_upload(&workspace, &scope, &"f".repeat(64), &f)
+                    .await
+                    .is_err());
+                let unchanged = oracle
+                    .list_object_versions()
+                    .bucket(&bucket)
+                    .prefix(&session_prefix)
+                    .send()
+                    .await
+                    .unwrap();
+                assert_eq!(inventory(&before), inventory(&unchanged));
+                let sealed = client
+                    .seal_recording_held_upload(&workspace, &scope, scope_hash, &f)
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    sealed
+                        .upload_seal
+                        .as_ref()
+                        .unwrap()
+                        .proof
+                        .object_version_count,
+                    3
+                );
+                let replay = client
+                    .seal_recording_held_upload(&workspace, &scope, scope_hash, &f)
+                    .await
+                    .unwrap();
+                assert_eq!(sealed, replay);
+            }
         }
         assert!(client
             .commit_recording_held_segment(&workspace, &scope, &segment)
@@ -2349,7 +2569,7 @@ mod tests {
             .send()
             .await
             .unwrap();
-        assert_eq!(versions.versions().len(), 2);
+        assert_eq!(versions.versions().len(), if with_seal { 3 } else { 2 });
         assert!(versions.delete_markers().is_empty());
         for version in versions.versions() {
             let held = oracle
@@ -2365,7 +2585,7 @@ mod tests {
                 Some(&aws_sdk_s3::types::ObjectLockLegalHoldStatus::On)
             );
         }
-        assert!(staged.exists());
+        assert_eq!(staged.exists(), !with_seal);
         std::fs::remove_dir_all(root).unwrap();
     }
 

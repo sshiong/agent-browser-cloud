@@ -4,7 +4,8 @@ pub use recording_legal_hold::{
     RecordingLegalHoldRequest, RecordingLegalHoldResult, RecordingLegalHoldState,
 };
 pub use recording_upload_hold::{
-    RecordingHeldSegment, RecordingHeldSegmentProof, RecordingUploadHoldScope,
+    RecordingHeldSegment, RecordingHeldSegmentProof, RecordingHeldUploadFinalization,
+    RecordingHeldUploadSealProof, RecordingHeldUploadSealResult, RecordingUploadHoldScope,
 };
 
 use crate::{atomic_write, secure_create_dir_all, LocalProfileStore, ProfileCheckpointManifest};

@@ -1,9 +1,13 @@
 //! Monotonic ON-only upload primitive. Control-plane admission and final ownership
 //! handoff are intentionally not advertised until their contracts are implemented.
 use super::*;
+mod writer;
 use aws_sdk_s3::config::retry::RetryConfig;
 use aws_sdk_s3::types::ObjectLockLegalHoldStatus;
 pub use helper_contracts::RecordingUploadHoldScope;
+pub use writer::{
+    RecordingHeldUploadFinalization, RecordingHeldUploadSealProof, RecordingHeldUploadSealResult,
+};
 
 const MAX_BYTES: usize = 16 * 1024 * 1024;
 const MAX_JOURNAL_BYTES: usize = 16 * 1024;
@@ -124,7 +128,8 @@ impl ObjectArchive {
                 && segment.frame_count > 0
                 && segment.redacted_frame_count <= segment.frame_count
                 && (segment.redacted_frame_count == 0 || segment.redacted_region_count > 0)
-                && (1..=2).contains(&segment.redaction_policy_version)
+                && (segment.redaction_policy_version == 2
+                    || (read_only && segment.redaction_policy_version == 1))
                 && segment.ended_at_ms >= segment.started_at_ms,
             "upload scope or segment rejected"
         );
@@ -144,16 +149,15 @@ impl ObjectArchive {
         );
         let binding = hex_sha256(&serde_json::to_vec(&(&self.bucket, &self.prefix))?);
         let authority = UploadAuthority {
-            schema_version: 1,
+            schema_version: 2,
             scope: scope.clone(),
             archive_binding_sha256: binding,
         };
-        let authority_bytes = serde_json::to_vec(&authority)?;
+        let mut authority_bytes = serde_json::to_vec(&authority)?;
         anyhow::ensure!(
             authority_bytes.len() <= MAX_JOURNAL_BYTES,
             "authority bound"
         );
-        let scope_sha256 = hex_sha256(&authority_bytes);
         let journal_base = format!(
             "{}/UPLOAD_HOLD",
             self.recording_deletion_key_for(
@@ -166,17 +170,22 @@ impl ObjectArchive {
         // Exact content equality fences every later epoch, placement and controller.
         let authority_key = format!("{journal_base}/AUTHORITY");
         if read_only {
+            authority_bytes = self
+                .read_upload_journal(&Path::from(authority_key))
+                .await?
+                .to_vec();
+            let stored: UploadAuthority = serde_json::from_slice(&authority_bytes)?;
             anyhow::ensure!(
-                self.read_upload_journal(&Path::from(authority_key))
-                    .await?
-                    .as_ref()
-                    == authority_bytes,
+                matches!(stored.schema_version, 1 | 2)
+                    && stored.scope == *scope
+                    && stored.archive_binding_sha256 == authority.archive_binding_sha256,
                 "upload authority mismatch"
             );
         } else {
-            self.put_upload_journal_immutable(&authority_key, Bytes::from(authority_bytes))
+            self.put_upload_journal_immutable(&authority_key, Bytes::from(authority_bytes.clone()))
                 .await?;
         }
+        let scope_sha256 = hex_sha256(&authority_bytes);
         let base = self.recording_key_for(
             &scope.tenant_id,
             &scope.profile_id,
@@ -186,41 +195,45 @@ impl ObjectArchive {
         // Reject already visible finalization/deletion or final Hold intents.
         // These preflight checks are not a concurrent writer seal: a future handoff
         // must establish quiescence before it can authorize any OFF or deletion.
-        for key in [
-            format!("{base}/COMMITTED"),
-            format!(
-                "{}/PREPARED",
-                self.recording_deletion_key_for(
-                    &scope.tenant_id,
-                    &scope.profile_id,
-                    &scope.session_id,
-                    &scope.recording_id
-                )
-            ),
-            format!(
-                "{}/COMMITTED",
-                self.recording_deletion_key_for(
-                    &scope.tenant_id,
-                    &scope.profile_id,
-                    &scope.session_id,
-                    &scope.recording_id
-                )
-            ),
-            format!(
-                "{}/LEGAL_HOLD",
-                self.recording_deletion_key_for(
-                    &scope.tenant_id,
-                    &scope.profile_id,
-                    &scope.session_id,
-                    &scope.recording_id
-                )
-            ),
-        ] {
+        for key in if read_only {
+            Vec::new()
+        } else {
+            vec![
+                format!("{base}/COMMITTED"),
+                format!(
+                    "{}/PREPARED",
+                    self.recording_deletion_key_for(
+                        &scope.tenant_id,
+                        &scope.profile_id,
+                        &scope.session_id,
+                        &scope.recording_id
+                    )
+                ),
+                format!(
+                    "{}/COMMITTED",
+                    self.recording_deletion_key_for(
+                        &scope.tenant_id,
+                        &scope.profile_id,
+                        &scope.session_id,
+                        &scope.recording_id
+                    )
+                ),
+                format!(
+                    "{}/LEGAL_HOLD",
+                    self.recording_deletion_key_for(
+                        &scope.tenant_id,
+                        &scope.profile_id,
+                        &scope.session_id,
+                        &scope.recording_id
+                    )
+                ),
+            ]
+        } {
             anyhow::ensure!(self.get_optional(&key).await?.is_none(), "upload closed");
         }
         let object_key = format!("{base}/segments/{:020}.ndjson", segment.sequence);
         let marker_key = format!("{base}/segments/{:020}.COMMITTED", segment.sequence);
-        let marker = Bytes::from(serde_json::to_vec(&RecordingSegmentMarker {
+        let marker = RecordingSegmentMarker {
             recording_id: &scope.recording_id,
             segment_sequence: segment.sequence,
             content_sha256: &segment.content_sha256,
@@ -231,7 +244,17 @@ impl ObjectArchive {
             redaction_policy_version: segment.redaction_policy_version,
             started_at_ms: segment.started_at_ms,
             ended_at_ms: segment.ended_at_ms,
-        })?);
+        };
+        let permit = if read_only {
+            None
+        } else {
+            Some(
+                self.acquire_recording_upload_writer(&journal_base, &scope_sha256, &marker)
+                    .await?,
+            )
+        };
+        let read_only = read_only || permit.as_ref().is_some_and(|permit| permit.replay_only());
+        let marker = Bytes::from(serde_json::to_vec(&marker)?);
         let data_version_id = self
             .put_held_upload_object(
                 &journal_base,
@@ -244,6 +267,10 @@ impl ObjectArchive {
         let marker_version_id = self
             .put_held_upload_object(&journal_base, &scope_sha256, &marker_key, marker, read_only)
             .await?;
+        if let Some(permit) = &permit {
+            self.release_recording_upload_writer(&journal_base, permit)
+                .await?;
+        }
         let proof_hash = hex_sha256(&serde_json::to_vec(&(
             &scope_sha256,
             segment.sequence,
@@ -409,14 +436,25 @@ impl ObjectArchive {
     }
 
     async fn read_upload_journal(&self, key: &Path) -> anyhow::Result<Bytes> {
-        let result = tokio::time::timeout(self.operation_timeout, self.store.get(key)).await??;
+        self.read_upload_journal_optional(key)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("upload journal required"))
+    }
+
+    async fn read_upload_journal_optional(&self, key: &Path) -> anyhow::Result<Option<Bytes>> {
+        let result = match tokio::time::timeout(self.operation_timeout, self.store.get(key)).await?
+        {
+            Ok(value) => value,
+            Err(ObjectStoreError::NotFound { .. }) => return Ok(None),
+            Err(_) => anyhow::bail!("upload journal unavailable"),
+        };
         anyhow::ensure!(
             result.meta.size <= MAX_JOURNAL_BYTES as u64,
             "journal bound"
         );
         let bytes = tokio::time::timeout(self.operation_timeout, result.bytes()).await??;
         anyhow::ensure!(bytes.len() <= MAX_JOURNAL_BYTES, "journal bound");
-        Ok(bytes)
+        Ok(Some(bytes))
     }
 
     async fn put_upload_journal_immutable(&self, key: &str, bytes: Bytes) -> anyhow::Result<()> {
@@ -514,7 +552,7 @@ mod tests {
             frame_count: 1,
             redacted_frame_count: 1,
             redacted_region_count: 1,
-            redaction_policy_version: 1,
+            redaction_policy_version: 2,
             started_at_ms: 1,
             ended_at_ms: 2,
         }
@@ -668,14 +706,7 @@ mod tests {
             let archive = archive();
             let scope = scope();
             let segment = segment(0);
-            let authority = UploadAuthority {
-                schema_version: 1,
-                scope: scope.clone(),
-                archive_binding_sha256: hex_sha256(
-                    &serde_json::to_vec(&(&archive.bucket, &archive.prefix)).unwrap(),
-                ),
-            };
-            let scope_hash = hex_sha256(&serde_json::to_vec(&authority).unwrap());
+            let scope_hash = seed_v2_writer_slot(&archive, &scope, &segment).await;
             let prefix = base(&archive, &scope);
             let key = format!("{prefix}/segments/{:020}.ndjson", 0);
             let key_hash = hex_sha256(key.as_bytes());
@@ -752,14 +783,7 @@ mod tests {
             let archive = archive();
             let scope = scope();
             let segment = segment(0);
-            let authority = UploadAuthority {
-                schema_version: 1,
-                scope: scope.clone(),
-                archive_binding_sha256: hex_sha256(
-                    &serde_json::to_vec(&(&archive.bucket, &archive.prefix)).unwrap(),
-                ),
-            };
-            let scope_hash = hex_sha256(&serde_json::to_vec(&authority).unwrap());
+            let scope_hash = seed_v2_writer_slot(&archive, &scope, &segment).await;
             let prefix = base(&archive, &scope);
             let key = format!("{prefix}/segments/{:020}.ndjson", 0);
             let key_hash = hex_sha256(key.as_bytes());
@@ -879,6 +903,471 @@ mod tests {
             }
             assert_eq!(
                 a.recording_object_versions(&base(&a, &scope), 10)
+                    .await
+                    .unwrap()
+                    .len(),
+                2
+            );
+        });
+    }
+
+    fn finalization(count: u64) -> RecordingHeldUploadFinalization {
+        RecordingHeldUploadFinalization {
+            segment_count: count,
+            frame_count: count,
+            redacted_frame_count: count,
+            redacted_region_count: count,
+            redaction_policy_version: 2,
+            started_at_ms: 1,
+            ended_at_ms: 2,
+        }
+    }
+
+    async fn seed_v2_writer_slot(
+        archive: &ObjectArchive,
+        scope: &RecordingUploadHoldScope,
+        s: &RecordingHeldSegment,
+    ) -> String {
+        let authority = UploadAuthority {
+            schema_version: 2,
+            scope: scope.clone(),
+            archive_binding_sha256: hex_sha256(
+                &serde_json::to_vec(&(&archive.bucket, &archive.prefix)).unwrap(),
+            ),
+        };
+        let bytes = serde_json::to_vec(&authority).unwrap();
+        let hash = hex_sha256(&bytes);
+        let journal = format!(
+            "{}/UPLOAD_HOLD",
+            archive.recording_deletion_key_for(
+                &scope.tenant_id,
+                &scope.profile_id,
+                &scope.session_id,
+                &scope.recording_id
+            )
+        );
+        archive
+            .put_upload_journal_immutable(&format!("{journal}/AUTHORITY"), Bytes::from(bytes))
+            .await
+            .unwrap();
+        let marker = RecordingSegmentMarker {
+            recording_id: &scope.recording_id,
+            segment_sequence: s.sequence,
+            content_sha256: &s.content_sha256,
+            content_bytes: s.content.len() as u64,
+            frame_count: s.frame_count,
+            redacted_frame_count: s.redacted_frame_count,
+            redacted_region_count: s.redacted_region_count,
+            redaction_policy_version: s.redaction_policy_version,
+            started_at_ms: s.started_at_ms,
+            ended_at_ms: s.ended_at_ms,
+        };
+        archive
+            .acquire_recording_upload_writer(&journal, &hash, &marker)
+            .await
+            .unwrap();
+        hash
+    }
+
+    #[test]
+    #[ignore = "requires owned Object Lock-enabled TEST_OBJECT_STORAGE_*"]
+    fn real_s3_upload_writer_tombstone_cannot_reopen_the_lineage() {
+        run_owned(|| async {
+            let archive = archive();
+            let scope = scope();
+            archive
+                .commit_recording_held_segment(&scope, segment(0))
+                .await
+                .unwrap();
+            let key = format!(
+                "{}/UPLOAD_HOLD/WRITER",
+                archive.recording_deletion_key_for(
+                    &scope.tenant_id,
+                    &scope.profile_id,
+                    &scope.session_id,
+                    &scope.recording_id
+                )
+            );
+            archive
+                .version_store
+                .delete_object()
+                .bucket(&archive.bucket)
+                .key(&key)
+                .send()
+                .await
+                .unwrap();
+            let before = archive
+                .version_store
+                .list_object_versions()
+                .bucket(&archive.bucket)
+                .prefix(&key)
+                .send()
+                .await
+                .unwrap();
+            assert!(!before.delete_markers().is_empty());
+            assert!(archive
+                .commit_recording_held_segment(&scope, segment(0))
+                .await
+                .is_err());
+            assert!(archive
+                .seal_recording_held_upload(&scope, &finalization(1))
+                .await
+                .is_err());
+            let after = archive
+                .version_store
+                .list_object_versions()
+                .bucket(&archive.bucket)
+                .prefix(&key)
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(before.versions().len(), after.versions().len());
+            assert_eq!(before.delete_markers().len(), after.delete_markers().len());
+            assert_eq!(
+                archive
+                    .recording_object_versions(&base(&archive, &scope), 10)
+                    .await
+                    .unwrap()
+                    .len(),
+                2
+            );
+        });
+    }
+
+    #[test]
+    #[ignore = "requires owned Object Lock-enabled TEST_OBJECT_STORAGE_*"]
+    fn real_s3_upload_seal_manifest_is_on_and_late_writes_are_fenced() {
+        run_owned(|| async {
+            let archive = archive();
+            let scope = scope();
+            let segment_zero = archive
+                .commit_recording_held_segment(&scope, segment(0))
+                .await
+                .unwrap();
+            archive
+                .commit_recording_held_segment(&scope, segment(1))
+                .await
+                .unwrap();
+            let mut bad = finalization(2);
+            bad.frame_count = 3;
+            assert!(archive
+                .seal_recording_held_upload(&scope, &bad)
+                .await
+                .is_err());
+            let sealed = archive
+                .seal_recording_held_upload(&scope, &finalization(2))
+                .await
+                .unwrap();
+            assert_eq!(sealed.seal.object_version_count, 5);
+            assert_eq!(sealed.commit.manifest_sha256, sealed.seal.manifest_sha256);
+            let replay = archive
+                .seal_recording_held_upload(&scope, &finalization(2))
+                .await
+                .unwrap();
+            assert_eq!(replay.seal, sealed.seal);
+            assert!(archive
+                .commit_recording_held_segment(&scope, segment(2))
+                .await
+                .is_err());
+            assert_eq!(
+                archive
+                    .verify_recording_held_segment(&scope, segment(0))
+                    .await
+                    .unwrap(),
+                segment_zero
+            );
+            let prefix = base(&archive, &scope);
+            let versions = archive
+                .recording_object_versions(&prefix, 10)
+                .await
+                .unwrap();
+            assert_eq!(versions.len(), 5);
+            for version in &versions {
+                let held = archive
+                    .version_store
+                    .get_object_legal_hold()
+                    .bucket(&archive.bucket)
+                    .key(&version.key)
+                    .version_id(&version.version_id)
+                    .send()
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    held.legal_hold().unwrap().status(),
+                    Some(&ObjectLockLegalHoldStatus::On)
+                );
+            }
+            let manifest = versions
+                .iter()
+                .find(|v| v.key == sealed.commit.object_key)
+                .unwrap();
+            assert!(archive
+                .version_store
+                .delete_object()
+                .bucket(&archive.bucket)
+                .key(&manifest.key)
+                .version_id(&manifest.version_id)
+                .send()
+                .await
+                .is_err());
+        });
+    }
+
+    #[test]
+    #[ignore = "requires owned Object Lock-enabled TEST_OBJECT_STORAGE_*"]
+    fn real_s3_upload_seal_never_expires_an_unresolved_writer_slot() {
+        run_owned(|| async {
+            let archive = archive();
+            let scope = scope();
+            let proof = archive
+                .commit_recording_held_segment(&scope, segment(0))
+                .await
+                .unwrap();
+            let journal = format!(
+                "{}/UPLOAD_HOLD",
+                archive.recording_deletion_key_for(
+                    &scope.tenant_id,
+                    &scope.profile_id,
+                    &scope.session_id,
+                    &scope.recording_id
+                )
+            );
+            let next = segment(1);
+            let marker = RecordingSegmentMarker {
+                recording_id: &scope.recording_id,
+                segment_sequence: 1,
+                content_sha256: &next.content_sha256,
+                content_bytes: next.content.len() as u64,
+                frame_count: 1,
+                redacted_frame_count: 1,
+                redacted_region_count: 1,
+                redaction_policy_version: 2,
+                started_at_ms: 1,
+                ended_at_ms: 2,
+            };
+            // Reconstruct crash-after-slot-CAS, before any object intent/dispatch.
+            let _permit = archive
+                .acquire_recording_upload_writer(&journal, &proof.scope_sha256, &marker)
+                .await
+                .unwrap();
+            let before = archive.get(&format!("{journal}/WRITER")).await.unwrap();
+            for _ in 0..2 {
+                assert!(archive
+                    .seal_recording_held_upload(&scope, &finalization(1))
+                    .await
+                    .is_err());
+            }
+            assert!(archive
+                .commit_recording_held_segment(&scope, segment(2))
+                .await
+                .is_err());
+            assert_eq!(
+                archive.get(&format!("{journal}/WRITER")).await.unwrap(),
+                before
+            );
+            assert!(archive
+                .get_optional(&format!("{}/COMMITTED", base(&archive, &scope)))
+                .await
+                .unwrap()
+                .is_none());
+            assert_eq!(
+                archive
+                    .recording_object_versions(&base(&archive, &scope), 10)
+                    .await
+                    .unwrap()
+                    .len(),
+                2
+            );
+        });
+    }
+
+    #[test]
+    #[ignore = "requires owned Object Lock-enabled TEST_OBJECT_STORAGE_*"]
+    fn real_s3_upload_seal_cas_races_one_append_without_late_versions() {
+        run_owned(|| async {
+            let a = archive();
+            let b = archive();
+            let scope = scope();
+            a.commit_recording_held_segment(&scope, segment(0))
+                .await
+                .unwrap();
+            let summary = finalization(1);
+            let (sealed, appended) = tokio::join!(
+                a.seal_recording_held_upload(&scope, &summary),
+                b.commit_recording_held_segment(&scope, segment(1))
+            );
+            assert!(sealed.is_ok() || appended.is_ok());
+            let expected = if sealed.is_ok() {
+                assert!(appended.is_err());
+                3
+            } else {
+                assert!(appended.is_ok());
+                assert_eq!(
+                    a.seal_recording_held_upload(&scope, &finalization(2))
+                        .await
+                        .unwrap()
+                        .seal
+                        .object_version_count,
+                    5
+                );
+                5
+            };
+            assert_eq!(
+                a.recording_object_versions(&base(&a, &scope), 10)
+                    .await
+                    .unwrap()
+                    .len(),
+                expected
+            );
+        });
+    }
+
+    #[test]
+    #[ignore = "requires owned Object Lock-enabled TEST_OBJECT_STORAGE_*"]
+    fn real_s3_upload_seal_preserves_foreign_history_and_refuses_adoption() {
+        run_owned(|| async {
+            let archive = archive();
+            let scope = scope();
+            archive
+                .commit_recording_held_segment(&scope, segment(0))
+                .await
+                .unwrap();
+            let key = format!("{}/segments/{:020}.ndjson", base(&archive, &scope), 0);
+            let foreign = archive
+                .version_store
+                .put_object()
+                .bucket(&archive.bucket)
+                .key(&key)
+                .object_lock_legal_hold_status(ObjectLockLegalHoldStatus::On)
+                .body(ByteStream::from(segment(0).content))
+                .send()
+                .await
+                .unwrap();
+            assert!(archive
+                .seal_recording_held_upload(&scope, &finalization(1))
+                .await
+                .is_err());
+            let journal = format!(
+                "{}/UPLOAD_HOLD",
+                archive.recording_deletion_key_for(
+                    &scope.tenant_id,
+                    &scope.profile_id,
+                    &scope.session_id,
+                    &scope.recording_id
+                )
+            );
+            assert!(archive
+                .get_optional(&format!("{journal}/SEALED"))
+                .await
+                .unwrap()
+                .is_none());
+            let held = archive
+                .version_store
+                .get_object_legal_hold()
+                .bucket(&archive.bucket)
+                .key(&key)
+                .version_id(foreign.version_id().unwrap())
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(
+                held.legal_hold().unwrap().status(),
+                Some(&ObjectLockLegalHoldStatus::On)
+            );
+        });
+    }
+
+    #[test]
+    #[ignore = "requires owned Object Lock-enabled TEST_OBJECT_STORAGE_*"]
+    fn real_s3_upload_v1_authority_only_allows_read_only_receipt_verification() {
+        run_owned(|| async {
+            let archive = archive();
+            let scope = scope();
+            let s = segment(0);
+            let authority = UploadAuthority {
+                schema_version: 1,
+                scope: scope.clone(),
+                archive_binding_sha256: hex_sha256(
+                    &serde_json::to_vec(&(&archive.bucket, &archive.prefix)).unwrap(),
+                ),
+            };
+            let bytes = serde_json::to_vec(&authority).unwrap();
+            let scope_hash = hex_sha256(&bytes);
+            let journal = format!(
+                "{}/UPLOAD_HOLD",
+                archive.recording_deletion_key_for(
+                    &scope.tenant_id,
+                    &scope.profile_id,
+                    &scope.session_id,
+                    &scope.recording_id
+                )
+            );
+            archive
+                .put_upload_journal_immutable(&format!("{journal}/AUTHORITY"), Bytes::from(bytes))
+                .await
+                .unwrap();
+            let prefix = base(&archive, &scope);
+            let marker = Bytes::from(
+                serde_json::to_vec(&RecordingSegmentMarker {
+                    recording_id: &scope.recording_id,
+                    segment_sequence: 0,
+                    content_sha256: &s.content_sha256,
+                    content_bytes: s.content.len() as u64,
+                    frame_count: 1,
+                    redacted_frame_count: 1,
+                    redacted_region_count: 1,
+                    redaction_policy_version: 2,
+                    started_at_ms: 1,
+                    ended_at_ms: 2,
+                })
+                .unwrap(),
+            );
+            let data_id = archive
+                .put_held_upload_object(
+                    &journal,
+                    &scope_hash,
+                    &format!("{prefix}/segments/{:020}.ndjson", 0),
+                    s.content,
+                    false,
+                )
+                .await
+                .unwrap();
+            let marker_id = archive
+                .put_held_upload_object(
+                    &journal,
+                    &scope_hash,
+                    &format!("{prefix}/segments/{:020}.COMMITTED", 0),
+                    marker,
+                    false,
+                )
+                .await
+                .unwrap();
+            let proof = archive
+                .verify_recording_held_segment(&scope, segment(0))
+                .await
+                .unwrap();
+            assert_eq!(
+                proof.proof_hash,
+                hex_sha256(
+                    &serde_json::to_vec(&(&scope_hash, 0u64, &data_id, &marker_id)).unwrap()
+                )
+            );
+            assert!(archive
+                .commit_recording_held_segment(&scope, segment(1))
+                .await
+                .is_err());
+            assert!(archive
+                .seal_recording_held_upload(&scope, &finalization(1))
+                .await
+                .is_err());
+            assert!(archive
+                .get_optional(&format!("{journal}/WRITER"))
+                .await
+                .unwrap()
+                .is_none());
+            assert_eq!(
+                archive
+                    .recording_object_versions(&prefix, 10)
                     .await
                     .unwrap()
                     .len(),

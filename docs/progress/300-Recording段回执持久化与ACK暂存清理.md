@@ -76,3 +76,7 @@ PostgreSQL 活动录制登记与权威上传授权、Node/Recorder 正式调用�
 最终 Manifest 原子 ON、并发关闭写入/所有权交接、最终 Hold 队列安全承接、跨 Node、
 真实进程/网络故障和目标云 Gate 均未完成。真实外部系统、客户 Replay、Linux/Region/
 组织与许可证等原十一项范围继续保留，当前不满足 V16 生产发布条件。
+
+后续收尾：f676adf主CI40686294652、Desktop40686294673精确SHA全成功，真实ACK用例
+已确认实际执行。progress301增加存储层原生Manifest与v2参与者CAS封口；正式调用、
+PG授权、跨Node/旧写入器围栏和Hold显式交接仍保留。

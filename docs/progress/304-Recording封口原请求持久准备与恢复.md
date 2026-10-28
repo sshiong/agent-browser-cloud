@@ -38,7 +38,10 @@ FULL synchronous / IMMEDIATE 事务先核对完整连续段集合、Scope/Archiv
 测试镜像；其余8个容器、用户文件、基础镜像和共享缓存保留。无全局prune；清理记录
 /tmp/agentbrowser-seal-request-cleanup.json。
 
-基线242bc32主CI40719477515仍运行，Operator已成功；Desktop40719477473的Windows/macOS精确SHA均已成功。不能将本地通过视为这些远端运行已成功，新提交另需自己的CI。
+基线242bc32主CI40719477515、Desktop40719477473精确SHA均成功。本提交cacd11d
+主CI40721913323在Integration的假成功Outcome完成请求因40P01事务冲突503失败，
+Operator成功；Desktop40721913209中Windows成功、macOS取消，不能记为全通过。
+后续有界契约重试与失败续行验证见progress305，新提交须核验自己的CI。
 
 正式Recorder/Node调用、PG活动录制与权威准入、持久恢复调度/重试预算、生产者停止
 并await、跨Node恢复、Seal到Hold显式安全承接、旧非感知写入器部署资格/Placement

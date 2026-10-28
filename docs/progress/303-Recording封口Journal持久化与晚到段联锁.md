@@ -48,7 +48,8 @@ RECORDING_HOLD_BUCKET_CONFIGURATION_UNAVAILABLE，代理只有读取、没有 Ho
 
 基线3bd317e主CI **40698720830**、Desktop **40698720732** 精确SHA全成功，
 含Operator、Windows/macOS；Verify日志确认新封口IPC、客户端错配矩阵及完整链
-UNKNOWN拒绝标记均实际执行。progress302已收尾。本提交仍须自己的CI。
+UNKNOWN拒绝标记均实际执行。progress302已收尾。本提交242bc32主CI40719477515、Desktop40719477473精确SHA全成功；
+Verify日志已确认封口Journal竞争、真实IPC和原生UNKNOWN拒绝标记实际执行。
 
 专用容器/网络均0，以本轮构建digest确认来源且无容器引用后删除MinIO/mc两个
 测试镜像。保留其余8个容器、用户文件、基础镜像及共享缓存，无全局prune；见

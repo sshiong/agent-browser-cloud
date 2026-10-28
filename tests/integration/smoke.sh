@@ -6408,14 +6408,31 @@ curl -fsS -X POST \
   -H 'X-Roles: OUTCOME_VERIFIER_WORKER' \
   -d "{\"claimToken\":\"${false_outcome_token}\"}" >/dev/null
 false_outcome_hash="$(printf '%s' 'business-error-visible' | shasum -a 256 | awk '{print $1}')"
-curl -fsS -X POST \
-  "http://localhost:${control_b_port}/api/v1/agent-outcome-jobs/${false_outcome_job_id}:complete" \
-  -H 'Content-Type: application/json' \
-  -H 'X-Tenant-Id: platform-control' \
-  -H 'X-Actor-Id: outcome-worker-false-success' \
-  -H 'X-Roles: OUTCOME_VERIFIER_WORKER' \
-  -d "{\"claimToken\":\"${false_outcome_token}\",\"decision\":\"VERIFIED\",\"reasonCodes\":[\"GOAL_SATISFIED\"],\"confidence\":0.98,\"deploymentId\":\"outcome-integration-v1\",\"modelRevision\":\"reviewer-integration-revision-v1\",\"providerRequestId\":\"req_false_success\",\"inputTokens\":90,\"outputTokens\":18,\"latencyMs\":30,\"outputHash\":\"${false_outcome_hash}\"}" | python3 -c \
-  'import json,sys; job=json.load(sys.stdin); assert job["state"] == "NOT_VERIFIED"; assert job["decision"] == "NOT_VERIFIED"; assert job["reasonCodes"] == ["EXPECTED_OUTCOME_NOT_MET"]'
+# A 40P01/40001 response means the transaction rolled back; repeat the exact body only
+# for the server's explicit retryable envelope. Other failures remain terminal.
+false_outcome_complete_body="{\"claimToken\":\"${false_outcome_token}\",\"decision\":\"VERIFIED\",\"reasonCodes\":[\"GOAL_SATISFIED\"],\"confidence\":0.98,\"deploymentId\":\"outcome-integration-v1\",\"modelRevision\":\"reviewer-integration-revision-v1\",\"providerRequestId\":\"req_false_success\",\"inputTokens\":90,\"outputTokens\":18,\"latencyMs\":30,\"outputHash\":\"${false_outcome_hash}\"}"
+false_outcome_complete_status=""
+for false_outcome_complete_attempt in $(seq 1 5); do
+  false_outcome_complete_status="$(curl -sS --max-time 15 -o "$temp_dir/false-outcome-complete.json" -w '%{http_code}' -X POST \
+    "http://localhost:${control_b_port}/api/v1/agent-outcome-jobs/${false_outcome_job_id}:complete" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: platform-control' \
+    -H 'X-Actor-Id: outcome-worker-false-success' \
+    -H 'X-Roles: OUTCOME_VERIFIER_WORKER' \
+    -d "$false_outcome_complete_body")"
+  if [[ "$false_outcome_complete_status" = "200" ]]; then break; fi
+  if [[ "$false_outcome_complete_status" != "503" ]] || ! python3 -c \
+    'import json,sys; e=json.load(open(sys.argv[1])); assert e.get("code")=="DATABASE_TRANSACTION_RETRY" and e.get("details",{}).get("retryable") is True' \
+    "$temp_dir/false-outcome-complete.json"; then
+    echo 'FALSE_OUTCOME_COMPLETION_NONRETRYABLE' >&2
+    exit 1
+  fi
+  sleep 0.25
+done
+test "$false_outcome_complete_status" = "200"
+python3 -c \
+  'import json,sys; job=json.load(open(sys.argv[1])); assert job["state"] == "NOT_VERIFIED"; assert job["decision"] == "NOT_VERIFIED"; assert job["reasonCodes"] == ["EXPECTED_OUTCOME_NOT_MET"]' \
+  "$temp_dir/false-outcome-complete.json"
 curl -fsS "http://localhost:${control_b_port}/api/v1/agent-tasks/${false_success_task_id}" \
   -H 'X-Tenant-Id: tenant-integration' | python3 -c \
   'import json,sys; task=json.load(sys.stdin); assert task["state"] == "FAILED"; assert task["lastError"] == "AGENT_OUTCOME_NOT_VERIFIED"; outcome=task["outcomeVerification"]; assert outcome["status"] == "NOT_VERIFIED"; assert outcome["reasonCodes"] == ["EXPECTED_OUTCOME_NOT_MET"]; results=outcome["expectedOutcomeEvaluations"]; assert len(results) == 1; assert results[0]["outcomeId"] == "impossible-final-title"; assert results[0]["status"] == "NOT_SATISFIED"; assert results[0]["reasonCode"] == "EXPECTED_PAGE_TITLE_MISMATCH"; assert len(results[0]["observedValueHash"]) == 64'

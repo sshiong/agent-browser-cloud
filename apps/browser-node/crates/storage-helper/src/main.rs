@@ -2574,11 +2574,13 @@ mod tests {
                         .object_version_count,
                     3
                 );
+                // Cloud completion exists, but the local result has not been committed.
+                // Reconcile the durable original request through the common client entry point.
                 let replay = client
-                    .seal_recording_held_upload(&workspace, &scope, scope_hash, &f)
+                    .resume_recording_held_upload_seal(&workspace, &reopened, &scope)
                     .await
                     .unwrap();
-                assert_eq!(sealed, replay);
+                assert_eq!(sealed.upload_seal.as_ref(), Some(&replay.seal));
                 let durable = node_journal::PersistedRecordingUploadSeal {
                     scope: scope.clone(),
                     finalization: f.clone(),

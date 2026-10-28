@@ -1101,6 +1101,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "helper-contracts",
+ "node-journal",
+ "rusqlite",
  "serde_json",
  "tokio",
  "uuid",

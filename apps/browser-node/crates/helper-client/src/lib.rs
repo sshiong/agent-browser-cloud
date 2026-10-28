@@ -412,6 +412,51 @@ impl StorageHelperClient {
         Ok(result)
     }
 
+    /// One bounded reconciliation attempt using the immutable request committed before dispatch.
+    /// An error never clears/replaces that request or falls back to ordinary completion.
+    pub async fn resume_recording_held_upload_seal(
+        &self,
+        workspace: &StorageWorkspace,
+        journal: &node_journal::SqliteNodeJournal,
+        scope: &RecordingUploadHoldScope,
+    ) -> anyhow::Result<node_journal::PersistedRecordingUploadSeal> {
+        self.validate_workspace(
+            workspace,
+            &scope.tenant_id,
+            &scope.profile_id,
+            &scope.session_id,
+        )?;
+        let request = journal
+            .recording_upload_seal_request(&scope.tenant_id, &scope.session_id, &scope.recording_id)
+            .await
+            .map_err(|_| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_REQUEST_UNAVAILABLE"))?
+            .ok_or_else(|| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_REQUEST_REQUIRED"))?;
+        anyhow::ensure!(
+            request.scope == *scope,
+            "RECORDING_UPLOAD_SEAL_REQUEST_FENCED"
+        );
+        let result = self
+            .seal_recording_held_upload(
+                workspace,
+                &request.scope,
+                &request.expected_scope_sha256,
+                &request.finalization,
+            )
+            .await?;
+        let evidence = node_journal::PersistedRecordingUploadSeal {
+            scope: request.scope,
+            finalization: request.finalization,
+            seal: result
+                .upload_seal
+                .ok_or_else(|| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_PROOF_REQUIRED"))?,
+        };
+        journal
+            .record_recording_upload_seal(&evidence)
+            .await
+            .map_err(|_| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_LOCAL_COMMIT_UNKNOWN"))?;
+        Ok(evidence)
+    }
+
     pub async fn seal_recording_held_upload(
         &self,
         workspace: &StorageWorkspace,
@@ -1352,6 +1397,246 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("REQUEST_REJECTED"));
+    }
+
+    #[tokio::test]
+    async fn seal_recovery_reuses_original_request_after_lost_invalid_or_uncommitted_response() {
+        for fault in ["lost-response", "invalid-proof", "local-commit"] {
+            let root = std::env::temp_dir();
+            let path = socket_path("sr");
+            let db_path = path.with_extension("sqlite");
+            let (workspace, scope, mut segment) = upload_fixture(&root);
+            segment.sequence = 0;
+            let journal = node_journal::SqliteNodeJournal::open(&db_path)
+                .await
+                .unwrap();
+            let receipt = helper_contracts::RecordingUploadReceipt {
+                schema_version: 1,
+                scope: scope.clone(),
+                segment,
+                proof: StorageRecordingUploadHoldProof {
+                    operation_id: scope.operation_id.clone(),
+                    authority_epoch: scope.authority_epoch,
+                    placement_epoch: scope.placement_epoch,
+                    scope_sha256: "a".repeat(64),
+                    proof_hash: "b".repeat(64),
+                    object_version_count: 2,
+                },
+            };
+            journal
+                .record_recording_upload_receipt(&receipt)
+                .await
+                .unwrap();
+            let prepared = node_journal::RecordingUploadSealRequest {
+                scope: scope.clone(),
+                expected_scope_sha256: "a".repeat(64),
+                finalization: RecordingHeldUploadFinalization {
+                    segment_count: 1,
+                    frame_count: receipt.segment.frame_count,
+                    redacted_frame_count: receipt.segment.redacted_frame_count,
+                    redacted_region_count: receipt.segment.redacted_region_count,
+                    redaction_policy_version: 2,
+                    started_at_ms: receipt.segment.started_at_ms,
+                    ended_at_ms: receipt.segment.ended_at_ms,
+                },
+            };
+            journal
+                .prepare_recording_upload_seal(&prepared)
+                .await
+                .unwrap();
+            let listener = UnixListener::bind(&path).unwrap();
+            let server_db = db_path.clone();
+            let server = tokio::spawn(async move {
+                let mut original = None;
+                for attempt in 0..2 {
+                    let (mut stream, _) = listener.accept().await.unwrap();
+                    let request: StorageRequest = read_frame(&mut stream).await.unwrap();
+                    let command = serde_json::to_value(&request.command).unwrap();
+                    if let Some(original) = &original {
+                        assert_eq!(original, &command);
+                    } else {
+                        original = Some(command);
+                    }
+                    let StorageCommand::SealRecordingHeldUpload {
+                        scope,
+                        expected_scope_sha256,
+                        finalization: f,
+                    } = request.command
+                    else {
+                        panic!("recovery downgraded");
+                    };
+                    if attempt == 0 && fault == "lost-response" {
+                        drop(stream);
+                        continue;
+                    }
+                    if attempt == 0 && fault == "local-commit" {
+                        rusqlite::Connection::open(&server_db).unwrap().execute_batch("CREATE TRIGGER owned_deny_seal BEFORE INSERT ON recording_upload_seals BEGIN SELECT RAISE(ABORT,'OWNED_TEST_FAILURE'); END;").unwrap();
+                    }
+                    let recording = StorageRecording {
+                        recording_id: scope.recording_id.clone(),
+                        segment_sequence: None,
+                        object_key: Some(format!(
+                            "prefix/tenants/{}/profiles/{}/sessions/{}/recordings/{}/COMMITTED",
+                            scope.tenant_id, scope.profile_id, scope.session_id, scope.recording_id
+                        )),
+                        content_bytes: 0,
+                        frame_count: f.frame_count,
+                        redacted_frame_count: f.redacted_frame_count,
+                        redacted_region_count: f.redacted_region_count,
+                        redaction_policy_version: 2,
+                        manifest_sha256: Some("b".repeat(64)),
+                        manifest_bytes: 100,
+                        completed: true,
+                        upload_hold: None,
+                        upload_ack_sha256: None,
+                        upload_seal: Some(helper_contracts::StorageRecordingUploadSeal {
+                            operation_id: scope.operation_id,
+                            authority_epoch: scope.authority_epoch,
+                            placement_epoch: scope.placement_epoch,
+                            proof: helper_contracts::RecordingHeldUploadSealProof {
+                                protocol_version: 2,
+                                scope_sha256: if attempt == 0 && fault == "invalid-proof" {
+                                    "f".repeat(64)
+                                } else {
+                                    expected_scope_sha256
+                                },
+                                manifest_sha256: "b".repeat(64),
+                                manifest_bytes: 100,
+                                segment_count: f.segment_count,
+                                object_version_count: 3,
+                                inventory_sha256: "c".repeat(64),
+                                proof_hash: "d".repeat(64),
+                                completed_at_ms: 1,
+                            },
+                        }),
+                    };
+                    write_frame(&mut stream,&serde_json::json!({"schemaVersion":SCHEMA_VERSION,"requestId":request.request_id,
+                        "ok":true,"recording":recording})).await.unwrap();
+                }
+                assert!(
+                    tokio::time::timeout(Duration::from_millis(40), listener.accept())
+                        .await
+                        .is_err()
+                );
+            });
+            let client =
+                StorageHelperClient::new(path.clone(), Duration::from_secs(1), root).unwrap();
+            let error = client
+                .resume_recording_held_upload_seal(&workspace, &journal, &scope)
+                .await
+                .unwrap_err()
+                .to_string();
+            if fault == "local-commit" {
+                assert_eq!(error, "RECORDING_UPLOAD_SEAL_LOCAL_COMMIT_UNKNOWN");
+                rusqlite::Connection::open(&db_path)
+                    .unwrap()
+                    .execute_batch("DROP TRIGGER owned_deny_seal;")
+                    .unwrap();
+            }
+            assert!(journal
+                .recording_upload_seal(&scope.tenant_id, &scope.session_id, &scope.recording_id)
+                .await
+                .unwrap()
+                .is_none());
+            drop(journal);
+            let recovered = node_journal::SqliteNodeJournal::open(&db_path)
+                .await
+                .unwrap();
+            assert_eq!(
+                recovered
+                    .recording_upload_seal_request(
+                        &scope.tenant_id,
+                        &scope.session_id,
+                        &scope.recording_id
+                    )
+                    .await
+                    .unwrap(),
+                Some(prepared)
+            );
+            let evidence = client
+                .resume_recording_held_upload_seal(&workspace, &recovered, &scope)
+                .await
+                .unwrap();
+            assert_eq!(
+                recovered
+                    .recording_upload_seal(&scope.tenant_id, &scope.session_id, &scope.recording_id)
+                    .await
+                    .unwrap(),
+                Some(evidence)
+            );
+            server.await.unwrap();
+            drop(recovered);
+            std::fs::remove_file(path).unwrap();
+            std::fs::remove_file(db_path).unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn seal_recovery_requires_prepared_exact_scope_before_connecting() {
+        let root = std::env::temp_dir();
+        let path = socket_path("sf");
+        let db = path.with_extension("sqlite");
+        let listener = UnixListener::bind(&path).unwrap();
+        let journal = node_journal::SqliteNodeJournal::open(&db).await.unwrap();
+        let (workspace, scope, mut segment) = upload_fixture(&root);
+        segment.sequence = 0;
+        let client = StorageHelperClient::new(path.clone(), Duration::from_secs(1), root).unwrap();
+        assert!(client
+            .resume_recording_held_upload_seal(&workspace, &journal, &scope)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("REQUEST_REQUIRED"));
+        let receipt = helper_contracts::RecordingUploadReceipt {
+            schema_version: 1,
+            scope: scope.clone(),
+            segment,
+            proof: StorageRecordingUploadHoldProof {
+                operation_id: scope.operation_id.clone(),
+                authority_epoch: scope.authority_epoch,
+                placement_epoch: scope.placement_epoch,
+                scope_sha256: "a".repeat(64),
+                proof_hash: "b".repeat(64),
+                object_version_count: 2,
+            },
+        };
+        journal
+            .record_recording_upload_receipt(&receipt)
+            .await
+            .unwrap();
+        journal
+            .prepare_recording_upload_seal(&node_journal::RecordingUploadSealRequest {
+                scope: scope.clone(),
+                expected_scope_sha256: "a".repeat(64),
+                finalization: RecordingHeldUploadFinalization {
+                    segment_count: 1,
+                    frame_count: receipt.segment.frame_count,
+                    redacted_frame_count: receipt.segment.redacted_frame_count,
+                    redacted_region_count: receipt.segment.redacted_region_count,
+                    redaction_policy_version: 2,
+                    started_at_ms: receipt.segment.started_at_ms,
+                    ended_at_ms: receipt.segment.ended_at_ms,
+                },
+            })
+            .await
+            .unwrap();
+        let mut wrong = scope;
+        wrong.placement_epoch += 1;
+        assert!(client
+            .resume_recording_held_upload_seal(&workspace, &journal, &wrong)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("REQUEST_FENCED"));
+        assert!(
+            tokio::time::timeout(Duration::from_millis(40), listener.accept())
+                .await
+                .is_err()
+        );
+        drop(listener);
+        drop(journal);
+        std::fs::remove_file(path).unwrap();
+        std::fs::remove_file(db).unwrap();
     }
 
     #[tokio::test]

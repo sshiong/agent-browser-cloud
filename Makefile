@@ -241,6 +241,7 @@ supply-chain-check:
 
 # Run integration tests
 test-integration:
+	python3 -m unittest discover -s tests/integration -p 'test_*.py'
 	./tests/integration/smoke.sh
 
 # Run authorized public URLs through the real Browser Node and Chrome

@@ -6,8 +6,10 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 helper-contracts = { path = "../helper-contracts" }
+node-journal = { path = "../node-journal" }
 tokio.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+rusqlite.workspace = true
 serde_json.workspace = true

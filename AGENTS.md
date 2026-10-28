@@ -1,6 +1,6 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-10-28
+> 更新日期：2026-10-29
 > 基准分支：`main`
 > 编写时基准提交：`237920e feat: dispatch durable recording holds and fence recovery with immutable requests`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
@@ -307,6 +307,13 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- Recording 封口增加不可变原请求准备与精确恢复，本地准备完成即以DB触发器拒绝
+  新段登记；结果须匹配已有准备。Journal16项、真实MinIO/IPC18项、严格Clippy通过，
+  见 progress304。本轮专用容器/网络及两个测试镜像已清理，其余8容器保留。
+  242bc32主CI40719477515仍运行、Operator已成功；Desktop40719477473精确SHA已成功。
+  组件兼容入口仍允许无准备的既有封口证据；正式Recorder/PG授权、恢复调度、生产者
+  静默、Hold交接/跨Node及原十一项其他外部/环境/组织/许可证Gate继续保留。
 
 - Recording 新增 FULL事务不可变封口Journal，核对连续全量段回执后落盘，并以DB
   触发器拒绝封口后新增段；精确重放保留。客户端/契约/SQLite29项、真实MinIO/IPC

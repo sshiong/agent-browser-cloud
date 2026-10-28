@@ -2534,8 +2534,35 @@ mod tests {
                     .await
                     .unwrap();
                 assert_eq!(inventory(&before), inventory(&unchanged));
+                let request = node_journal::RecordingUploadSealRequest {
+                    scope: scope.clone(),
+                    finalization: f.clone(),
+                    expected_scope_sha256: scope_hash.clone(),
+                };
+                reopened
+                    .prepare_recording_upload_seal(&request)
+                    .await
+                    .unwrap();
+                drop(reopened);
+                let reopened = node_journal::SqliteNodeJournal::open(&journal_path)
+                    .await
+                    .unwrap();
+                let request = reopened
+                    .recording_upload_seal_request(
+                        &scope.tenant_id,
+                        &scope.session_id,
+                        &scope.recording_id,
+                    )
+                    .await
+                    .unwrap()
+                    .unwrap();
                 let sealed = client
-                    .seal_recording_held_upload(&workspace, &scope, scope_hash, &f)
+                    .seal_recording_held_upload(
+                        &workspace,
+                        &request.scope,
+                        &request.expected_scope_sha256,
+                        &request.finalization,
+                    )
                     .await
                     .unwrap();
                 assert_eq!(

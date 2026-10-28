@@ -12,6 +12,14 @@ use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct RecordingUploadSealRequest {
+    pub scope: RecordingUploadHoldScope,
+    pub finalization: RecordingHeldUploadFinalization,
+    pub expected_scope_sha256: String,
+}
+
 /// Local immutable evidence only; does not authorize releasing a cloud Hold.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -139,6 +147,25 @@ impl SqliteNodeJournal {
                         receipt_sha256 TEXT NOT NULL CHECK (length(receipt_sha256) = 64),
                         PRIMARY KEY(tenant_id, session_id, recording_id, segment_sequence)
                     );
+                    CREATE TABLE IF NOT EXISTS recording_upload_seal_requests (
+                        tenant_id TEXT NOT NULL, session_id TEXT NOT NULL, recording_id TEXT NOT NULL,
+                        request_json BLOB NOT NULL CHECK(length(request_json) BETWEEN 1 AND 16384),
+                        PRIMARY KEY(tenant_id, session_id, recording_id)
+                    );
+                    CREATE TRIGGER IF NOT EXISTS recording_upload_seal_request_no_update
+                        BEFORE UPDATE ON recording_upload_seal_requests BEGIN
+                        SELECT RAISE(ABORT, 'RECORDING_UPLOAD_SEAL_REQUEST_IMMUTABLE'); END;
+                    CREATE TRIGGER IF NOT EXISTS recording_upload_seal_request_no_delete
+                        BEFORE DELETE ON recording_upload_seal_requests BEGIN
+                        SELECT RAISE(ABORT, 'RECORDING_UPLOAD_SEAL_REQUEST_IMMUTABLE'); END;
+                    CREATE TRIGGER IF NOT EXISTS recording_upload_prepared_no_new_segment
+                        BEFORE INSERT ON recording_upload_receipts
+                        WHEN EXISTS(SELECT 1 FROM recording_upload_seal_requests s WHERE s.tenant_id=NEW.tenant_id
+                            AND s.session_id=NEW.session_id AND s.recording_id=NEW.recording_id)
+                        AND NOT EXISTS(SELECT 1 FROM recording_upload_receipts r WHERE r.tenant_id=NEW.tenant_id
+                            AND r.session_id=NEW.session_id AND r.recording_id=NEW.recording_id
+                            AND r.segment_sequence=NEW.segment_sequence)
+                        BEGIN SELECT RAISE(ABORT, 'RECORDING_UPLOAD_SEAL_PREPARED'); END;
                     CREATE TABLE IF NOT EXISTS recording_upload_seals (
                         tenant_id TEXT NOT NULL, session_id TEXT NOT NULL, recording_id TEXT NOT NULL,
                         seal_json BLOB NOT NULL CHECK(length(seal_json) BETWEEN 1 AND 16384),
@@ -206,6 +233,54 @@ impl SqliteNodeJournal {
         }).await
     }
 
+    /// Commit the exact request before contacting Helper. Unknown outcomes retain it forever.
+    pub async fn prepare_recording_upload_seal(
+        &self,
+        request: &RecordingUploadSealRequest,
+    ) -> anyhow::Result<()> {
+        let request = request.clone();
+        let bytes = serde_json::to_vec(&request)?;
+        let f = &request.finalization;
+        anyhow::ensure!(
+            bytes.len() <= 16384
+                && (1..=100_000).contains(&f.segment_count)
+                && f.redaction_policy_version == 2
+                && f.frame_count > 0
+                && f.started_at_ms <= f.ended_at_ms,
+            "RECORDING_UPLOAD_SEAL_REQUEST_REJECTED"
+        );
+        self.with_connection(move |mut connection| {
+            connection.pragma_update(None,"synchronous","FULL")?;
+            let transaction=connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            let s=&request.scope;
+            validate_seal_receipts(&transaction,s,&request.finalization,&request.expected_scope_sha256)?;
+            let complete:Option<Vec<u8>>=transaction.query_row("SELECT seal_json FROM recording_upload_seals WHERE tenant_id=? AND session_id=? AND recording_id=?",params![s.tenant_id,s.session_id,s.recording_id],|r|r.get(0)).optional()?;
+            if let Some(complete)=complete {
+                let complete:PersistedRecordingUploadSeal=serde_json::from_slice(&complete)?;
+                anyhow::ensure!(complete.scope==*s && complete.finalization==request.finalization && complete.seal.proof.scope_sha256==request.expected_scope_sha256,"RECORDING_UPLOAD_SEAL_REQUEST_CONFLICT");
+            }
+            transaction.execute("INSERT INTO recording_upload_seal_requests VALUES(?,?,?,?) ON CONFLICT DO NOTHING",params![s.tenant_id,s.session_id,s.recording_id,bytes])?;
+            let stored:Vec<u8>=transaction.query_row("SELECT request_json FROM recording_upload_seal_requests WHERE tenant_id=? AND session_id=? AND recording_id=?",params![s.tenant_id,s.session_id,s.recording_id],|r|r.get(0))?;
+            anyhow::ensure!(stored==bytes,"RECORDING_UPLOAD_SEAL_REQUEST_CONFLICT");
+            transaction.commit()?;
+            Ok(())
+        }).await
+    }
+
+    pub async fn recording_upload_seal_request(
+        &self,
+        tenant: &str,
+        session: &str,
+        recording: &str,
+    ) -> anyhow::Result<Option<RecordingUploadSealRequest>> {
+        let (tenant, session, recording) =
+            (tenant.to_owned(), session.to_owned(), recording.to_owned());
+        self.with_connection(move |connection| {
+            let bytes:Option<Vec<u8>>=connection.query_row("SELECT request_json FROM recording_upload_seal_requests WHERE tenant_id=? AND session_id=? AND recording_id=?",params![tenant,session,recording],|r|r.get(0)).optional()?;
+            bytes.map(|b|serde_json::from_slice(&b).map_err(Into::into)).transpose()
+        }).await
+    }
+
     /// Persist only when every contiguous segment receipt agrees with the sealed inventory.
     /// The shared SQLite write lock orders sealing against concurrent segment registration.
     pub async fn record_recording_upload_seal(
@@ -248,25 +323,11 @@ impl SqliteNodeJournal {
             let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
             let s = &evidence.scope;
             let f = &evidence.finalization;
-            {
-                let mut statement = transaction.prepare("SELECT segment_sequence,receipt_json,receipt_sha256 FROM recording_upload_receipts WHERE tenant_id=? AND session_id=? AND recording_id=? ORDER BY segment_sequence")?;
-                let mut rows = statement.query(params![s.tenant_id,s.session_id,s.recording_id])?;
-                let mut count = 0u64;
-                let mut totals = [0u64;3];
-                while let Some(row) = rows.next()? {
-                    let sequence: u64 = row.get(0)?;
-                    let receipt: RecordingUploadReceipt = serde_json::from_slice(&row.get::<_,Vec<u8>>(1)?)?;
-                    anyhow::ensure!(count<f.segment_count && sequence==count && receipt.segment.sequence==sequence
-                        && receipt.scope==*s && receipt.sha256()?==row.get::<_,String>(2)?
-                        && receipt.proof.scope_sha256==evidence.seal.proof.scope_sha256
-                        && receipt.segment.started_at_ms>=f.started_at_ms && receipt.segment.ended_at_ms<=f.ended_at_ms,
-                        "RECORDING_UPLOAD_SEAL_RECEIPTS_REJECTED");
-                    for (total,value) in totals.iter_mut().zip([receipt.segment.frame_count,receipt.segment.redacted_frame_count,receipt.segment.redacted_region_count]) {
-                        *total=total.checked_add(value).ok_or_else(||anyhow::anyhow!("RECORDING_UPLOAD_SEAL_COUNTER_BOUND"))?;
-                    }
-                    count+=1;
-                }
-                anyhow::ensure!(count==f.segment_count && totals==[f.frame_count,f.redacted_frame_count,f.redacted_region_count], "RECORDING_UPLOAD_SEAL_RECEIPTS_INCOMPLETE");
+            validate_seal_receipts(&transaction, s, f, &evidence.seal.proof.scope_sha256)?;
+            let pending: Option<Vec<u8>> = transaction.query_row("SELECT request_json FROM recording_upload_seal_requests WHERE tenant_id=? AND session_id=? AND recording_id=?",params![s.tenant_id,s.session_id,s.recording_id],|r|r.get(0)).optional()?;
+            if let Some(pending) = pending {
+                let request: RecordingUploadSealRequest = serde_json::from_slice(&pending)?;
+                anyhow::ensure!(request.scope==*s && request.finalization==*f && request.expected_scope_sha256==evidence.seal.proof.scope_sha256,"RECORDING_UPLOAD_SEAL_REQUEST_CONFLICT");
             }
             transaction.execute("INSERT INTO recording_upload_seals VALUES(?,?,?,?) ON CONFLICT DO NOTHING",params![s.tenant_id,s.session_id,s.recording_id,bytes])?;
             let stored: Vec<u8> = transaction.query_row("SELECT seal_json FROM recording_upload_seals WHERE tenant_id=? AND session_id=? AND recording_id=?", params![s.tenant_id,s.session_id,s.recording_id],|r|r.get(0))?;
@@ -919,6 +980,54 @@ impl SqliteNodeJournal {
     }
 }
 
+fn validate_seal_receipts(
+    transaction: &rusqlite::Transaction<'_>,
+    s: &RecordingUploadHoldScope,
+    f: &RecordingHeldUploadFinalization,
+    expected_scope_sha256: &str,
+) -> anyhow::Result<()> {
+    let mut statement = transaction.prepare("SELECT segment_sequence,receipt_json,receipt_sha256 FROM recording_upload_receipts WHERE tenant_id=? AND session_id=? AND recording_id=? ORDER BY segment_sequence")?;
+    let mut rows = statement.query(params![s.tenant_id, s.session_id, s.recording_id])?;
+    let mut count = 0u64;
+    let mut totals = [0u64; 3];
+    while let Some(row) = rows.next()? {
+        let sequence: u64 = row.get(0)?;
+        let receipt: RecordingUploadReceipt = serde_json::from_slice(&row.get::<_, Vec<u8>>(1)?)?;
+        anyhow::ensure!(
+            count < f.segment_count
+                && sequence == count
+                && receipt.segment.sequence == sequence
+                && receipt.scope == *s
+                && receipt.sha256()? == row.get::<_, String>(2)?
+                && receipt.proof.scope_sha256 == expected_scope_sha256
+                && receipt.segment.started_at_ms >= f.started_at_ms
+                && receipt.segment.ended_at_ms <= f.ended_at_ms,
+            "RECORDING_UPLOAD_SEAL_RECEIPTS_REJECTED"
+        );
+        for (total, value) in totals.iter_mut().zip([
+            receipt.segment.frame_count,
+            receipt.segment.redacted_frame_count,
+            receipt.segment.redacted_region_count,
+        ]) {
+            *total = total
+                .checked_add(value)
+                .ok_or_else(|| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_COUNTER_BOUND"))?;
+        }
+        count += 1;
+    }
+    anyhow::ensure!(
+        count == f.segment_count
+            && totals
+                == [
+                    f.frame_count,
+                    f.redacted_frame_count,
+                    f.redacted_region_count
+                ],
+        "RECORDING_UPLOAD_SEAL_RECEIPTS_INCOMPLETE"
+    );
+    Ok(())
+}
+
 fn map_command_result(row: &rusqlite::Row<'_>) -> rusqlite::Result<PersistedCommandResult> {
     Ok(PersistedCommandResult {
         acknowledgement: PersistedAcknowledgement {
@@ -1094,6 +1203,125 @@ mod tests {
                 object_version_count: 2,
             },
         }
+    }
+
+    #[tokio::test]
+    async fn prepared_seal_survives_unknown_and_fences_changed_requests_and_new_segments() {
+        let path = temporary_database("seal-prepared");
+        let journal = SqliteNodeJournal::open(&path).await.unwrap();
+        let evidence = upload_seal();
+        let request = RecordingUploadSealRequest {
+            scope: evidence.scope.clone(),
+            finalization: evidence.finalization.clone(),
+            expected_scope_sha256: evidence.seal.proof.scope_sha256.clone(),
+        };
+        assert!(journal
+            .prepare_recording_upload_seal(&request)
+            .await
+            .is_err());
+        journal
+            .record_recording_upload_receipt(&upload_receipt())
+            .await
+            .unwrap();
+        journal
+            .prepare_recording_upload_seal(&request)
+            .await
+            .unwrap();
+        drop(journal);
+        let recovered = SqliteNodeJournal::open(&path).await.unwrap();
+        let s = &request.scope;
+        assert_eq!(
+            recovered
+                .recording_upload_seal_request(&s.tenant_id, &s.session_id, &s.recording_id)
+                .await
+                .unwrap(),
+            Some(request.clone())
+        );
+        assert!(recovered
+            .recording_upload_seal(&s.tenant_id, &s.session_id, &s.recording_id)
+            .await
+            .unwrap()
+            .is_none());
+        recovered
+            .prepare_recording_upload_seal(&request)
+            .await
+            .unwrap();
+        let mut changed = request.clone();
+        changed.finalization.ended_at_ms += 1;
+        assert!(recovered
+            .prepare_recording_upload_seal(&changed)
+            .await
+            .is_err());
+        let mut late = upload_receipt();
+        late.segment.sequence = 1;
+        assert!(recovered
+            .record_recording_upload_receipt(&late)
+            .await
+            .is_err());
+        recovered
+            .record_recording_upload_receipt(&upload_receipt())
+            .await
+            .unwrap();
+        let mut wrong = evidence.clone();
+        wrong.finalization.ended_at_ms += 1;
+        assert!(recovered
+            .record_recording_upload_seal(&wrong)
+            .await
+            .is_err());
+        recovered
+            .record_recording_upload_seal(&evidence)
+            .await
+            .unwrap();
+        let connection = Connection::open(&path).unwrap();
+        assert!(connection
+            .execute(
+                "UPDATE recording_upload_seal_requests SET request_json=request_json",
+                []
+            )
+            .is_err());
+        assert!(connection
+            .execute("DELETE FROM recording_upload_seal_requests", [])
+            .is_err());
+        drop(connection);
+        drop(recovered);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn prepare_seal_and_append_choose_one_sqlite_order() {
+        let path = temporary_database("seal-prepare-race");
+        let a = SqliteNodeJournal::open(&path).await.unwrap();
+        let b = SqliteNodeJournal::open(&path).await.unwrap();
+        a.record_recording_upload_receipt(&upload_receipt())
+            .await
+            .unwrap();
+        let e = upload_seal();
+        let request = RecordingUploadSealRequest {
+            scope: e.scope,
+            finalization: e.finalization,
+            expected_scope_sha256: e.seal.proof.scope_sha256,
+        };
+        let mut late = upload_receipt();
+        late.segment.sequence = 1;
+        let (prepared, appended) = tokio::join!(
+            a.prepare_recording_upload_seal(&request),
+            b.record_recording_upload_receipt(&late)
+        );
+        assert_ne!(prepared.is_ok(), appended.is_ok());
+        assert_eq!(
+            a.recording_upload_seal_request(
+                &request.scope.tenant_id,
+                &request.scope.session_id,
+                &request.scope.recording_id
+            )
+            .await
+            .unwrap()
+            .is_some(),
+            prepared.is_ok()
+        );
+        drop(a);
+        drop(b);
+        let _ = std::fs::remove_file(path);
     }
 
     fn upload_seal() -> PersistedRecordingUploadSeal {

@@ -308,6 +308,14 @@ progress 166。
 
 ### 最近验证状态
 
+- 新增 Node Journal FULL事务不可变段回执及独立 Helper ACK：先只读核对既有上传
+  证明，再持久化本地标记后清理精确暂存文件；重放不上传，替换文件保留。客户端/契约/
+  SQLite共25项，真实MinIO/IPC共11项及严格Clippy通过，见 progress300。
+  c75de6e主CI40679550959、Desktop40679550767精确SHA全成功，新提交CI待核验。
+  本轮测试容器/网络为0，两个未用测试镜像已删除；其余8容器及共用缓存保留。
+  正式Recorder调用/背压、PG授权、Manifest/静默与所有权交接和原十一项其余Gate仍缺，
+  不声明生产进行中上传已完成；ACK Hash不是Helper独立证明Node DB已持久化的签名。
+
 - 上传保全新增独立 Helper IPC/客户端，复用安全文件读取与逐帧证明校验，新路径
   强制 v2；缺失/错误 Proof 或旧 Helper 不回退普通上传。真实 Unix UID/MinIO 链与旧
   Hold 共10项、客户端/契约13项、全Workspace严格Clippy通过，见 progress299。

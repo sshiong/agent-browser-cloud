@@ -4,6 +4,7 @@
 //! 再向 Control Plane 发布。进程在两者之间崩溃时，重启后会继续重投事件。
 
 use anyhow::Context;
+use helper_contracts::{RecordingUploadJournalAcknowledgement, RecordingUploadReceipt};
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -119,12 +120,59 @@ impl SqliteNodeJournal {
                     CREATE INDEX IF NOT EXISTS idx_command_results_pending_event
                         ON command_results(event_delivered, created_at_ms)
                         WHERE event_payload IS NOT NULL;
+                    CREATE TABLE IF NOT EXISTS recording_upload_receipts (
+                        tenant_id TEXT NOT NULL, session_id TEXT NOT NULL, recording_id TEXT NOT NULL,
+                        segment_sequence INTEGER NOT NULL CHECK (segment_sequence BETWEEN 0 AND 99999),
+                        receipt_json BLOB NOT NULL CHECK (length(receipt_json) BETWEEN 1 AND 16384),
+                        receipt_sha256 TEXT NOT NULL CHECK (length(receipt_sha256) = 64),
+                        PRIMARY KEY(tenant_id, session_id, recording_id, segment_sequence)
+                    );
+                    CREATE TRIGGER IF NOT EXISTS recording_upload_receipt_no_update
+                        BEFORE UPDATE ON recording_upload_receipts BEGIN
+                        SELECT RAISE(ABORT, 'RECORDING_UPLOAD_RECEIPT_IMMUTABLE'); END;
+                    CREATE TRIGGER IF NOT EXISTS recording_upload_receipt_no_delete
+                        BEFORE DELETE ON recording_upload_receipts BEGIN
+                        SELECT RAISE(ABORT, 'RECORDING_UPLOAD_RECEIPT_IMMUTABLE'); END;
                     "#,
                 )?;
                 Ok(())
             })
             .await?;
         Ok(journal)
+    }
+
+    /// Return an ACK only after an immutable, FULL-synchronous SQLite commit.
+    /// This attests local receipt persistence, not Control Plane upload admission.
+    pub async fn record_recording_upload_receipt(
+        &self,
+        receipt: &RecordingUploadReceipt,
+    ) -> anyhow::Result<RecordingUploadJournalAcknowledgement> {
+        let hash = receipt.sha256()?;
+        let receipt = receipt.clone();
+        self.with_connection(move |mut connection| {
+            connection.pragma_update(None, "synchronous", "FULL")?;
+            let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            let s = &receipt.scope;
+            let prior: Option<(Vec<u8>, String)> = transaction.query_row(
+                "SELECT receipt_json,receipt_sha256 FROM recording_upload_receipts WHERE tenant_id=? AND session_id=? AND recording_id=? LIMIT 1",
+                params![s.tenant_id, s.session_id, s.recording_id], |row| Ok((row.get(0)?,row.get(1)?))).optional()?;
+            if let Some((bytes, stored_hash)) = prior {
+                let prior: RecordingUploadReceipt = serde_json::from_slice(&bytes)?;
+                anyhow::ensure!(prior.sha256()? == stored_hash && prior.scope == *s
+                    && prior.proof.scope_sha256 == receipt.proof.scope_sha256,
+                    "RECORDING_UPLOAD_JOURNAL_SCOPE_FENCED");
+            }
+            let bytes = serde_json::to_vec(&receipt)?;
+            transaction.execute("INSERT INTO recording_upload_receipts VALUES(?,?,?,?,?,?) ON CONFLICT DO NOTHING",
+                params![s.tenant_id, s.session_id, s.recording_id, receipt.segment.sequence, bytes, hash])?;
+            let (stored, stored_hash): (Vec<u8>, String) = transaction.query_row(
+                "SELECT receipt_json,receipt_sha256 FROM recording_upload_receipts WHERE tenant_id=? AND session_id=? AND recording_id=? AND segment_sequence=?",
+                params![s.tenant_id, s.session_id, s.recording_id, receipt.segment.sequence],
+                |row| Ok((row.get(0)?,row.get(1)?)))?;
+            anyhow::ensure!(stored == bytes && stored_hash == hash, "RECORDING_UPLOAD_JOURNAL_RECEIPT_FENCED");
+            transaction.commit()?;
+            Ok(RecordingUploadJournalAcknowledgement { receipt, journal_receipt_sha256: hash })
+        }).await
     }
 
     pub async fn command_result(
@@ -889,6 +937,149 @@ mod tests {
         reopened.mark_event_delivered("evt_1").await.unwrap();
         assert!(reopened.is_event_delivered("evt_1").await.unwrap());
         assert!(reopened.pending_events(10).await.unwrap().is_empty());
+        let _ = std::fs::remove_file(path);
+    }
+
+    fn upload_receipt() -> RecordingUploadReceipt {
+        use helper_contracts::{
+            RecordingUploadHoldScope, StorageRecordingSegmentDescriptor,
+            StorageRecordingUploadHoldProof,
+        };
+        RecordingUploadReceipt {
+            schema_version: 1,
+            scope: RecordingUploadHoldScope {
+                operation_id: "rua_journal".into(),
+                authority_epoch: 1,
+                placement_epoch: 2,
+                tenant_id: "tenant-journal".into(),
+                profile_id: "profile-journal".into(),
+                session_id: "ses_journal".into(),
+                recording_id: "rec_journal".into(),
+            },
+            segment: StorageRecordingSegmentDescriptor {
+                sequence: 0,
+                content_sha256: "c".repeat(64),
+                content_bytes: 900,
+                frame_count: 1,
+                redacted_frame_count: 1,
+                redacted_region_count: 3,
+                redaction_policy_version: 2,
+                started_at_ms: 1,
+                ended_at_ms: 2,
+            },
+            proof: StorageRecordingUploadHoldProof {
+                operation_id: "rua_journal".into(),
+                authority_epoch: 1,
+                placement_epoch: 2,
+                scope_sha256: "a".repeat(64),
+                proof_hash: "b".repeat(64),
+                object_version_count: 2,
+            },
+        }
+    }
+
+    #[tokio::test]
+    async fn upload_receipt_is_durable_idempotent_and_immutable() {
+        let path = temporary_database("upload-durable");
+        let receipt = upload_receipt();
+        let journal = SqliteNodeJournal::open(&path).await.unwrap();
+        let ack = journal
+            .record_recording_upload_receipt(&receipt)
+            .await
+            .unwrap();
+        assert_eq!(ack.journal_receipt_sha256, receipt.sha256().unwrap());
+        drop(journal);
+        let reopened = SqliteNodeJournal::open(&path).await.unwrap();
+        assert_eq!(
+            reopened
+                .record_recording_upload_receipt(&receipt)
+                .await
+                .unwrap(),
+            ack
+        );
+        let connection = Connection::open(&path).unwrap();
+        assert_eq!(
+            connection
+                .query_row("SELECT count(*) FROM recording_upload_receipts", [], |r| {
+                    r.get::<_, i64>(0)
+                })
+                .unwrap(),
+            1
+        );
+        assert!(connection
+            .execute(
+                "UPDATE recording_upload_receipts SET receipt_sha256=?",
+                params!["f".repeat(64)]
+            )
+            .is_err());
+        assert!(connection
+            .execute("DELETE FROM recording_upload_receipts", [])
+            .is_err());
+        drop(connection);
+        drop(reopened);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn upload_receipt_conflicts_do_not_replace_prior_proof_or_scope() {
+        let path = temporary_database("upload-conflict");
+        let journal = SqliteNodeJournal::open(&path).await.unwrap();
+        let receipt = upload_receipt();
+        let ack = journal
+            .record_recording_upload_receipt(&receipt)
+            .await
+            .unwrap();
+        let mut conflict = receipt.clone();
+        conflict.proof.proof_hash = "d".repeat(64);
+        assert!(journal
+            .record_recording_upload_receipt(&conflict)
+            .await
+            .is_err());
+        conflict = receipt.clone();
+        conflict.scope.placement_epoch += 1;
+        conflict.proof.placement_epoch = conflict.scope.placement_epoch;
+        conflict.segment.sequence += 1;
+        assert!(journal
+            .record_recording_upload_receipt(&conflict)
+            .await
+            .is_err());
+        conflict = receipt.clone();
+        conflict.proof.scope_sha256 = "e".repeat(64);
+        conflict.segment.sequence += 1;
+        assert!(journal
+            .record_recording_upload_receipt(&conflict)
+            .await
+            .is_err());
+        assert_eq!(
+            journal
+                .record_recording_upload_receipt(&receipt)
+                .await
+                .unwrap(),
+            ack
+        );
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn concurrent_upload_receipts_choose_one_immutable_proof() {
+        let path = temporary_database("upload-concurrent");
+        let a = SqliteNodeJournal::open(&path).await.unwrap();
+        let b = SqliteNodeJournal::open(&path).await.unwrap();
+        let left = upload_receipt();
+        let mut right = left.clone();
+        right.proof.proof_hash = "e".repeat(64);
+        let (one, two) = tokio::join!(
+            a.record_recording_upload_receipt(&left),
+            b.record_recording_upload_receipt(&right)
+        );
+        assert_ne!(one.is_ok(), two.is_ok());
+        let (accepted, denied) = if one.is_ok() {
+            (left, right)
+        } else {
+            (right, left)
+        };
+        assert!(a.record_recording_upload_receipt(&accepted).await.is_ok());
+        assert!(a.record_recording_upload_receipt(&denied).await.is_err());
         let _ = std::fs::remove_file(path);
     }
 

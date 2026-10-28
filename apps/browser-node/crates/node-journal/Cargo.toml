@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 async-trait.workspace = true
 anyhow.workspace = true
+helper-contracts = { path = "../helper-contracts" }
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true

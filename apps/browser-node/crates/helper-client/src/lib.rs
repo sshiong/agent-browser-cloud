@@ -396,6 +396,7 @@ impl StorageHelperClient {
                 && result.redacted_region_count == segment.redacted_region_count
                 && result.redaction_policy_version == segment.redaction_policy_version
                 && !result.completed
+                && result.upload_ack_sha256.is_none()
                 && result.object_key.is_none()
                 && result.manifest_sha256.is_none()
                 && result.manifest_bytes == 0
@@ -408,6 +409,46 @@ impl StorageHelperClient {
             "RECORDING_UPLOAD_HOLD_PROOF_REJECTED"
         );
         Ok(result)
+    }
+
+    pub async fn acknowledge_recording_held_segment(
+        &self,
+        workspace: &StorageWorkspace,
+        ack: &helper_contracts::RecordingUploadJournalAcknowledgement,
+    ) -> anyhow::Result<()> {
+        let r = &ack.receipt;
+        let s = &r.scope;
+        let d = &r.segment;
+        self.validate_workspace(workspace, &s.tenant_id, &s.profile_id, &s.session_id)?;
+        anyhow::ensure!(
+            r.sha256()? == ack.journal_receipt_sha256,
+            "RECORDING_UPLOAD_ACK_HASH_REJECTED"
+        );
+        let actual = self
+            .call(StorageCommand::AcknowledgeRecordingHeldSegment {
+                acknowledgement: ack.clone(),
+            })
+            .await
+            .map_err(|_| anyhow::anyhow!("RECORDING_UPLOAD_ACK_RESULT_UNAVAILABLE"))?
+            .recording
+            .ok_or_else(|| anyhow::anyhow!("RECORDING_UPLOAD_ACK_REQUIRED"))?;
+        let expected = StorageRecording {
+            recording_id: s.recording_id.clone(),
+            segment_sequence: Some(d.sequence),
+            object_key: None,
+            content_bytes: d.content_bytes,
+            frame_count: d.frame_count,
+            redacted_frame_count: d.redacted_frame_count,
+            redacted_region_count: d.redacted_region_count,
+            redaction_policy_version: d.redaction_policy_version,
+            manifest_sha256: None,
+            manifest_bytes: 0,
+            completed: false,
+            upload_hold: Some(r.proof.clone()),
+            upload_ack_sha256: Some(ack.journal_receipt_sha256.clone()),
+        };
+        anyhow::ensure!(actual == expected, "RECORDING_UPLOAD_ACK_RESPONSE_REJECTED");
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1221,5 +1262,85 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("REQUEST_REJECTED"));
+    }
+
+    #[tokio::test]
+    async fn held_upload_ack_requires_exact_cleanup_receipt_without_fallback() {
+        for mismatch in ["valid", "missing", "hash", "proof", "sequence", "legacy"] {
+            let path = socket_path("ua");
+            let listener = UnixListener::bind(&path).unwrap();
+            let root = std::env::temp_dir();
+            let (workspace, scope, segment) = upload_fixture(&root);
+            let receipt = helper_contracts::RecordingUploadReceipt {
+                schema_version: 1,
+                proof: StorageRecordingUploadHoldProof {
+                    operation_id: scope.operation_id.clone(),
+                    authority_epoch: scope.authority_epoch,
+                    placement_epoch: scope.placement_epoch,
+                    scope_sha256: "a".repeat(64),
+                    proof_hash: "b".repeat(64),
+                    object_version_count: 2,
+                },
+                scope,
+                segment,
+            };
+            let ack = helper_contracts::RecordingUploadJournalAcknowledgement {
+                journal_receipt_sha256: receipt.sha256().unwrap(),
+                receipt,
+            };
+            let server = tokio::spawn(async move {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let request: StorageRequest = read_frame(&mut stream).await.unwrap();
+                let StorageCommand::AcknowledgeRecordingHeldSegment {
+                    acknowledgement: ack,
+                } = request.command
+                else {
+                    panic!("ACK downgraded");
+                };
+                let r = &ack.receipt;
+                let d = &r.segment;
+                let mut recording = StorageRecording {
+                    recording_id: r.scope.recording_id.clone(),
+                    segment_sequence: Some(d.sequence),
+                    object_key: None,
+                    content_bytes: d.content_bytes,
+                    frame_count: d.frame_count,
+                    redacted_frame_count: d.redacted_frame_count,
+                    redacted_region_count: d.redacted_region_count,
+                    redaction_policy_version: d.redaction_policy_version,
+                    manifest_sha256: None,
+                    manifest_bytes: 0,
+                    completed: false,
+                    upload_hold: Some(r.proof.clone()),
+                    upload_ack_sha256: Some(ack.journal_receipt_sha256),
+                };
+                match mismatch {
+                    "missing" => recording.upload_ack_sha256 = None,
+                    "hash" => recording.upload_ack_sha256 = Some("d".repeat(64)),
+                    "proof" => recording.upload_hold.as_mut().unwrap().proof_hash = "e".repeat(64),
+                    "sequence" => recording.segment_sequence = Some(d.sequence + 1),
+                    _ => {}
+                }
+                let response = serde_json::json!({ "schemaVersion": SCHEMA_VERSION, "requestId":request.request_id,
+                    "ok": mismatch != "legacy", "recording": recording });
+                write_frame(&mut stream, &response).await.unwrap();
+                assert!(
+                    tokio::time::timeout(Duration::from_millis(40), listener.accept())
+                        .await
+                        .is_err()
+                );
+            });
+            let client =
+                StorageHelperClient::new(path.clone(), Duration::from_secs(1), root).unwrap();
+            assert_eq!(
+                client
+                    .acknowledge_recording_held_segment(&workspace, &ack)
+                    .await
+                    .is_ok(),
+                mismatch == "valid"
+            );
+            server.await.unwrap();
+            std::fs::remove_file(path).unwrap();
+        }
     }
 }

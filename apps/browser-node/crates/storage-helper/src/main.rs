@@ -13,6 +13,7 @@ use nix::unistd::Uid;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
+use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -23,7 +24,7 @@ use storage_helper::object_archive::{
     S3RestoreSourceConfig,
 };
 use storage_helper::{LocalProfileStore, ProfileRestoreStatus, ProfileWorkspace};
-use tokio::io::{AsyncReadExt, AsyncSeekExt};
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::Mutex;
 use tracing::{error, info, warn};
@@ -36,6 +37,161 @@ struct StorageService {
 }
 
 impl StorageService {
+    async fn acknowledge_recording_held_segment(
+        &self,
+        ack: &helper_contracts::RecordingUploadJournalAcknowledgement,
+    ) -> anyhow::Result<StorageRecording> {
+        let receipt = &ack.receipt;
+        anyhow::ensure!(
+            receipt.sha256()? == ack.journal_receipt_sha256,
+            "RECORDING_UPLOAD_ACK_HASH_REJECTED"
+        );
+        let scope = &receipt.scope;
+        let segment = &receipt.segment;
+        let stripe = profile_lock_stripe(
+            &scope.tenant_id,
+            &scope.profile_id,
+            self.profile_locks.len(),
+        );
+        let _guard = self.profile_locks[stripe].lock().await;
+        let workspace = self
+            .store
+            .resume_workspace(&scope.tenant_id, &scope.profile_id, &scope.session_id)
+            .await?;
+        let directory =
+            verified_recording_directory(&workspace.ephemeral_dir, &scope.recording_id, false)
+                .await?;
+        let source = directory.join(format!("segment-{:020}.ndjson", segment.sequence));
+        let ack_path = directory.join(format!("segment-{:020}.ACKED", segment.sequence));
+        let expected = serde_json::to_vec(ack)?;
+        anyhow::ensure!(expected.len() <= 16 * 1024, "RECORDING_UPLOAD_ACK_BOUND");
+        let prior = read_recording_upload_ack(&ack_path).await?;
+        if let Some(prior) = &prior {
+            anyhow::ensure!(*prior == expected, "RECORDING_UPLOAD_ACK_CONFLICT");
+        }
+        let file = tokio::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(nix::libc::O_NOFOLLOW)
+            .open(&source)
+            .await;
+        match file {
+            Ok(mut file) => {
+                let opened = file.metadata().await?;
+                anyhow::ensure!(
+                    opened.is_file() && opened.len() == segment.content_bytes,
+                    "RECORDING_UPLOAD_ACK_SOURCE_REJECTED"
+                );
+                let mut content = Vec::with_capacity(segment.content_bytes as usize);
+                (&mut file)
+                    .take(segment.content_bytes + 1)
+                    .read_to_end(&mut content)
+                    .await?;
+                anyhow::ensure!(
+                    content.len() as u64 == segment.content_bytes
+                        && format!("{:x}", Sha256::digest(&content)) == segment.content_sha256,
+                    "RECORDING_UPLOAD_ACK_SOURCE_CHANGED"
+                );
+                verify_recording_segment_redaction(
+                    &content,
+                    segment.frame_count,
+                    segment.redacted_frame_count,
+                    segment.redacted_region_count,
+                    segment.redaction_policy_version,
+                )?;
+                if prior.is_none() {
+                    let archive = self
+                        .archive
+                        .as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("RECORDING_UPLOAD_ACK_STORAGE_REQUIRED"))?;
+                    let proof = archive
+                        .verify_recording_held_segment(
+                            scope,
+                            RecordingHeldSegment {
+                                sequence: segment.sequence,
+                                content: Bytes::from(content),
+                                content_sha256: segment.content_sha256.clone(),
+                                frame_count: segment.frame_count,
+                                redacted_frame_count: segment.redacted_frame_count,
+                                redacted_region_count: segment.redacted_region_count,
+                                redaction_policy_version: segment.redaction_policy_version,
+                                started_at_ms: segment.started_at_ms,
+                                ended_at_ms: segment.ended_at_ms,
+                            },
+                        )
+                        .await?;
+                    anyhow::ensure!(
+                        proof.scope_sha256 == receipt.proof.scope_sha256
+                            && proof.proof_hash == receipt.proof.proof_hash,
+                        "RECORDING_UPLOAD_ACK_PROOF_REJECTED"
+                    );
+                    match tokio::fs::OpenOptions::new()
+                        .write(true)
+                        .create_new(true)
+                        .mode(0o600)
+                        .open(&ack_path)
+                        .await
+                    {
+                        Ok(mut marker) => {
+                            marker.write_all(&expected).await?;
+                            marker.sync_all().await?;
+                        }
+                        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                            anyhow::ensure!(
+                                read_recording_upload_ack(&ack_path).await?.as_ref()
+                                    == Some(&expected),
+                                "RECORDING_UPLOAD_ACK_CONFLICT"
+                            );
+                        }
+                        Err(e) => return Err(e.into()),
+                    }
+                }
+                // A durable marker precedes unlink. Replays can finish after a crash
+                // between these steps, without re-uploading any pixels.
+                sync_recording_ack_directory(&directory).await?;
+                let current = tokio::fs::symlink_metadata(&source).await?;
+                anyhow::ensure!(
+                    current.is_file()
+                        && !current.file_type().is_symlink()
+                        && (
+                            current.dev(),
+                            current.ino(),
+                            current.len(),
+                            current.mtime(),
+                            current.mtime_nsec()
+                        ) == (
+                            opened.dev(),
+                            opened.ino(),
+                            opened.len(),
+                            opened.mtime(),
+                            opened.mtime_nsec()
+                        ),
+                    "RECORDING_UPLOAD_ACK_SOURCE_CHANGED"
+                );
+                tokio::fs::remove_file(&source).await?;
+                sync_recording_ack_directory(&directory).await?;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound && prior.is_some() => {
+                sync_recording_ack_directory(&directory).await?;
+            }
+            Err(_) => anyhow::bail!("RECORDING_UPLOAD_ACK_SOURCE_REQUIRED"),
+        }
+        Ok(StorageRecording {
+            recording_id: scope.recording_id.clone(),
+            segment_sequence: Some(segment.sequence),
+            object_key: None,
+            content_bytes: segment.content_bytes,
+            frame_count: segment.frame_count,
+            redacted_frame_count: segment.redacted_frame_count,
+            redacted_region_count: segment.redacted_region_count,
+            redaction_policy_version: segment.redaction_policy_version,
+            manifest_sha256: None,
+            manifest_bytes: 0,
+            completed: false,
+            upload_hold: Some(receipt.proof.clone()),
+            upload_ack_sha256: Some(ack.journal_receipt_sha256.clone()),
+        })
+    }
+
     fn new(
         store: LocalProfileStore,
         archive: Option<ObjectArchive>,
@@ -113,6 +269,12 @@ impl StorageService {
         Option<StorageRecordingDeletion>,
         Option<StorageProfileExportAccess>,
     )> {
+        if let StorageCommand::AcknowledgeRecordingHeldSegment { acknowledgement } = command {
+            let result = self
+                .acknowledge_recording_held_segment(acknowledgement)
+                .await?;
+            return Ok((None, None, None, Some(result), None, None, None, None, None));
+        }
         let normalized;
         let (command, upload_scope) =
             if let StorageCommand::CommitRecordingHeldSegment { scope, segment } = command {
@@ -329,7 +491,8 @@ async fn execute_storage_operation(
     match command {
         StorageCommand::Ping => Ok((None, None, None, None, None, None, None, None, None)),
         StorageCommand::ApplyRecordingLegalHold { .. }
-        | StorageCommand::CommitRecordingHeldSegment { .. } => {
+        | StorageCommand::CommitRecordingHeldSegment { .. }
+        | StorageCommand::AcknowledgeRecordingHeldSegment { .. } => {
             anyhow::bail!("Recording Hold requires the dedicated journaled route")
         }
         StorageCommand::Acquire {
@@ -585,6 +748,7 @@ async fn execute_storage_operation(
                     manifest_bytes: 0,
                     completed: false,
                     upload_hold: None,
+                    upload_ack_sha256: None,
                 }),
                 None,
                 None,
@@ -747,6 +911,7 @@ async fn execute_storage_operation(
                     manifest_bytes: 0,
                     completed: false,
                     upload_hold,
+                    upload_ack_sha256: None,
                 }),
                 None,
                 None,
@@ -813,6 +978,7 @@ async fn execute_storage_operation(
                     manifest_bytes: committed.manifest_bytes,
                     completed: true,
                     upload_hold: None,
+                    upload_ack_sha256: None,
                 }),
                 None,
                 None,
@@ -1367,6 +1533,10 @@ fn duration_from_environment(name: &str, default_millis: u64) -> anyhow::Result<
 
 fn command_profile(command: &StorageCommand) -> Option<(&str, &str)> {
     match command {
+        StorageCommand::AcknowledgeRecordingHeldSegment { acknowledgement } => Some((
+            &acknowledgement.receipt.scope.tenant_id,
+            &acknowledgement.receipt.scope.profile_id,
+        )),
         StorageCommand::CommitRecordingHeldSegment { scope, .. } => {
             Some((&scope.tenant_id, &scope.profile_id))
         }
@@ -1451,6 +1621,39 @@ fn validate_import_identifier(name: &str, value: &str, prefix: &str) -> anyhow::
             ),
         "{name} is invalid"
     );
+    Ok(())
+}
+
+async fn read_recording_upload_ack(path: &Path) -> anyhow::Result<Option<Vec<u8>>> {
+    let mut file = match tokio::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .custom_flags(nix::libc::O_NOFOLLOW)
+        .open(path)
+        .await
+    {
+        Ok(file) => file,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(_) => anyhow::bail!("RECORDING_UPLOAD_ACK_MARKER_REJECTED"),
+    };
+    let metadata = file.metadata().await?;
+    anyhow::ensure!(
+        metadata.is_file() && metadata.len() <= 16 * 1024,
+        "RECORDING_UPLOAD_ACK_BOUND"
+    );
+    let mut bytes = Vec::new();
+    (&mut file)
+        .take(16 * 1024 + 1)
+        .read_to_end(&mut bytes)
+        .await?;
+    anyhow::ensure!(bytes.len() <= 16 * 1024, "RECORDING_UPLOAD_ACK_BOUND");
+    file.sync_all().await?;
+    Ok(Some(bytes))
+}
+
+async fn sync_recording_ack_directory(path: &Path) -> anyhow::Result<()> {
+    let path = path.to_owned();
+    tokio::task::spawn_blocking(move || std::fs::File::open(path)?.sync_all()).await??;
     Ok(())
 }
 
@@ -1833,14 +2036,33 @@ mod tests {
                     .enable_all()
                     .build()
                     .unwrap()
-                    .block_on(upload_hold_ipc_acceptance_body());
+                    .block_on(upload_hold_ipc_acceptance_body(false));
             })
             .unwrap()
             .join()
             .unwrap();
     }
 
-    async fn upload_hold_ipc_acceptance_body() {
+    #[test]
+    #[ignore = "requires owned TEST_OBJECT_STORAGE_* and Object Lock"]
+    fn real_s3_upload_hold_ack_follows_durable_node_journal() {
+        std::thread::Builder::new()
+            .stack_size(STORAGE_HELPER_WORKER_STACK_BYTES)
+            .spawn(|| {
+                tokio::runtime::Builder::new_multi_thread()
+                    .worker_threads(2)
+                    .thread_stack_size(STORAGE_HELPER_WORKER_STACK_BYTES)
+                    .enable_all()
+                    .build()
+                    .unwrap()
+                    .block_on(upload_hold_ipc_acceptance_body(true));
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    async fn upload_hold_ipc_acceptance_body(with_ack: bool) {
         use aws_sdk_s3::config::{BehaviorVersion, Credentials, Region};
         use helper_client::{StorageHelperClient, StorageRecordingSegmentDescriptor};
         let root = std::env::temp_dir().join(format!("u-{}", uuid::Uuid::new_v4().simple()));
@@ -1921,7 +2143,7 @@ mod tests {
         let listener = UnixListener::bind(&socket).unwrap();
         let uid = Uid::effective().as_raw();
         let server = tokio::spawn(async move {
-            for _ in 0..5 {
+            for _ in 0..if with_ack { 10 } else { 5 } {
                 let (stream, _) = listener.accept().await.unwrap();
                 serve_connection(stream, uid, service.clone())
                     .await
@@ -2021,6 +2243,97 @@ mod tests {
             )
             .await
             .is_err());
+        if with_ack {
+            let before = oracle
+                .list_object_versions()
+                .bucket(&bucket)
+                .prefix(&session_prefix)
+                .send()
+                .await
+                .unwrap();
+            let inventory =
+                |v: &aws_sdk_s3::operation::list_object_versions::ListObjectVersionsOutput| {
+                    v.versions()
+                        .iter()
+                        .map(|v| {
+                            (
+                                v.key().unwrap().to_owned(),
+                                v.version_id().unwrap().to_owned(),
+                            )
+                        })
+                        .collect::<BTreeSet<_>>()
+                };
+            let receipt = helper_contracts::RecordingUploadReceipt {
+                schema_version: 1,
+                scope: scope.clone(),
+                segment: segment.clone(),
+                proof: result.upload_hold.clone().unwrap(),
+            };
+            let journal_path = root.join("node-journal.sqlite");
+            let journal = node_journal::SqliteNodeJournal::open(&journal_path)
+                .await
+                .unwrap();
+            let ack = journal
+                .record_recording_upload_receipt(&receipt)
+                .await
+                .unwrap();
+            drop(journal);
+            let reopened = node_journal::SqliteNodeJournal::open(&journal_path)
+                .await
+                .unwrap();
+            assert_eq!(
+                reopened
+                    .record_recording_upload_receipt(&receipt)
+                    .await
+                    .unwrap(),
+                ack
+            );
+            let mut bad_ack = ack.clone();
+            bad_ack.receipt.proof.proof_hash = "f".repeat(64);
+            bad_ack.journal_receipt_sha256 = bad_ack.receipt.sha256().unwrap();
+            assert!(client
+                .acknowledge_recording_held_segment(&workspace, &bad_ack)
+                .await
+                .is_err());
+            assert!(
+                staged.exists()
+                    && !directory
+                        .join("segment-00000000000000000000.ACKED")
+                        .exists()
+            );
+            client
+                .acknowledge_recording_held_segment(&workspace, &ack)
+                .await
+                .unwrap();
+            assert!(!staged.exists());
+            client
+                .acknowledge_recording_held_segment(&workspace, &ack)
+                .await
+                .unwrap();
+            assert!(!staged.exists());
+            // Reconstruct the crash window after the durable marker but before
+            // unlink. The same ACK must finish cleanup without remote mutations.
+            std::fs::write(&staged, &bytes).unwrap();
+            client
+                .acknowledge_recording_held_segment(&workspace, &ack)
+                .await
+                .unwrap();
+            assert!(!staged.exists());
+            std::fs::write(&staged, b"unrelated replacement").unwrap();
+            assert!(client
+                .acknowledge_recording_held_segment(&workspace, &ack)
+                .await
+                .is_err());
+            assert_eq!(std::fs::read(&staged).unwrap(), b"unrelated replacement");
+            let after = oracle
+                .list_object_versions()
+                .bucket(&bucket)
+                .prefix(&session_prefix)
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(inventory(&before), inventory(&after));
+        }
         assert!(client
             .commit_recording_held_segment(&workspace, &scope, &segment)
             .await

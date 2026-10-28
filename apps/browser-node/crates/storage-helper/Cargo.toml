@@ -34,4 +34,5 @@ zstd.workspace = true
 
 [dev-dependencies]
 helper-client = { path = "../helper-client" }
+node-journal = { path = "../node-journal" }
 reqwest.workspace = true

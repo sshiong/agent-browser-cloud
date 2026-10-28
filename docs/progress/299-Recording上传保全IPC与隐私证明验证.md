@@ -77,3 +77,7 @@ cleanup 改为 docker rm -fv，仅作用各运行自己生成的名称，避免�
 跨 Node/真实进程崩溃/晚到写入完整链故障 Gate。当前原语及 IPC 没有授予 OFF 或宣称
 可删除活动录制。目标云、真实外部系统/客户 Replay、Linux/多 Region/组织与许可证等
 原十一项目标范围继续保留；不满足 V16 生产发布条件。
+
+后续：c75de6e 主CI40679550959、Desktop40679550767精确SHA全成功，Verify日志确认
+新IPC用例实际执行。progress300增加Node Journal段回执和Helper ACK清理接口；正式
+Recorder调用、背压/有界性与控制面授权/最终交接仍保留。

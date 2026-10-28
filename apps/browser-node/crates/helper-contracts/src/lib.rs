@@ -126,6 +126,9 @@ pub enum StorageCommand {
         scope: RecordingUploadHoldScope,
         segment: StorageRecordingSegmentDescriptor,
     },
+    AcknowledgeRecordingHeldSegment {
+        acknowledgement: RecordingUploadJournalAcknowledgement,
+    },
     CompleteRecording {
         tenant_id: String,
         profile_id: String,
@@ -304,6 +307,82 @@ pub struct StorageRecording {
     pub completed: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upload_hold: Option<StorageRecordingUploadHoldProof>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upload_ack_sha256: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RecordingUploadReceipt {
+    pub schema_version: u32,
+    pub scope: RecordingUploadHoldScope,
+    pub segment: StorageRecordingSegmentDescriptor,
+    pub proof: StorageRecordingUploadHoldProof,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RecordingUploadJournalAcknowledgement {
+    pub receipt: RecordingUploadReceipt,
+    pub journal_receipt_sha256: String,
+}
+
+impl RecordingUploadReceipt {
+    pub fn validate(&self) -> anyhow::Result<()> {
+        let s = &self.scope;
+        let d = &self.segment;
+        let p = &self.proof;
+        let id = |s: &str| {
+            !s.is_empty()
+                && s.len() <= 128
+                && s.bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+        };
+        let hash = |s: &str| {
+            s.len() == 64
+                && s.bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        };
+        anyhow::ensure!(
+            self.schema_version == 1
+                && [
+                    &s.tenant_id,
+                    &s.profile_id,
+                    &s.session_id,
+                    &s.recording_id,
+                    &s.operation_id
+                ]
+                .into_iter()
+                .all(|v| id(v))
+                && s.operation_id.starts_with("rua_")
+                && s.authority_epoch > 0
+                && s.placement_epoch > 0
+                && d.sequence < 100_000
+                && (1..=16 * 1024 * 1024).contains(&d.content_bytes)
+                && hash(&d.content_sha256)
+                && d.frame_count > 0
+                && d.redacted_frame_count <= d.frame_count
+                && (d.redacted_frame_count == 0 || d.redacted_region_count > 0)
+                && d.redaction_policy_version == 2
+                && d.ended_at_ms >= d.started_at_ms
+                && p.operation_id == s.operation_id
+                && p.authority_epoch == s.authority_epoch
+                && p.placement_epoch == s.placement_epoch
+                && p.object_version_count == 2
+                && hash(&p.scope_sha256)
+                && hash(&p.proof_hash),
+            "RECORDING_UPLOAD_RECEIPT_REJECTED"
+        );
+        Ok(())
+    }
+
+    pub fn sha256(&self) -> anyhow::Result<String> {
+        use sha2::Digest;
+        self.validate()?;
+        let bytes = serde_json::to_vec(self)?;
+        anyhow::ensure!(bytes.len() <= 16 * 1024, "RECORDING_UPLOAD_RECEIPT_BOUND");
+        Ok(format!("{:x}", sha2::Sha256::digest(bytes)))
+    }
 }
 
 // Keep this field order and snake_case serialization stable: the persisted upload

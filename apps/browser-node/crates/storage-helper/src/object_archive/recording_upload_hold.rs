@@ -75,17 +75,34 @@ impl ObjectArchive {
     ) -> anyhow::Result<RecordingHeldSegmentProof> {
         tokio::time::timeout(
             Duration::from_secs(60),
-            self.commit_recording_held_segment_inner(scope, segment),
+            self.commit_recording_held_segment_inner(scope, segment, false),
         )
         .await
         .map_err(|_| anyhow::anyhow!("RECORDING_UPLOAD_HOLD_RESULT_UNKNOWN"))?
         .map_err(|_| anyhow::anyhow!("RECORDING_UPLOAD_HOLD_REJECTED_OR_UNKNOWN"))
     }
 
+    /// ACK verification is read-only: even a missing PREPARED/COMMITTED receipt
+    /// cannot turn a cleanup request into another data or journal PUT.
+    pub async fn verify_recording_held_segment(
+        &self,
+        scope: &RecordingUploadHoldScope,
+        segment: RecordingHeldSegment,
+    ) -> anyhow::Result<RecordingHeldSegmentProof> {
+        tokio::time::timeout(
+            Duration::from_secs(60),
+            self.commit_recording_held_segment_inner(scope, segment, true),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("RECORDING_UPLOAD_VERIFY_UNKNOWN"))?
+        .map_err(|_| anyhow::anyhow!("RECORDING_UPLOAD_VERIFY_REJECTED"))
+    }
+
     async fn commit_recording_held_segment_inner(
         &self,
         scope: &RecordingUploadHoldScope,
         segment: RecordingHeldSegment,
+        read_only: bool,
     ) -> anyhow::Result<RecordingHeldSegmentProof> {
         for value in [
             &scope.operation_id,
@@ -147,11 +164,19 @@ impl ObjectArchive {
             )
         );
         // Exact content equality fences every later epoch, placement and controller.
-        self.put_upload_journal_immutable(
-            &format!("{journal_base}/AUTHORITY"),
-            Bytes::from(authority_bytes),
-        )
-        .await?;
+        let authority_key = format!("{journal_base}/AUTHORITY");
+        if read_only {
+            anyhow::ensure!(
+                self.read_upload_journal(&Path::from(authority_key))
+                    .await?
+                    .as_ref()
+                    == authority_bytes,
+                "upload authority mismatch"
+            );
+        } else {
+            self.put_upload_journal_immutable(&authority_key, Bytes::from(authority_bytes))
+                .await?;
+        }
         let base = self.recording_key_for(
             &scope.tenant_id,
             &scope.profile_id,
@@ -208,10 +233,16 @@ impl ObjectArchive {
             ended_at_ms: segment.ended_at_ms,
         })?);
         let data_version_id = self
-            .put_held_upload_object(&journal_base, &scope_sha256, &object_key, segment.content)
+            .put_held_upload_object(
+                &journal_base,
+                &scope_sha256,
+                &object_key,
+                segment.content,
+                read_only,
+            )
             .await?;
         let marker_version_id = self
-            .put_held_upload_object(&journal_base, &scope_sha256, &marker_key, marker)
+            .put_held_upload_object(&journal_base, &scope_sha256, &marker_key, marker, read_only)
             .await?;
         let proof_hash = hex_sha256(&serde_json::to_vec(&(
             &scope_sha256,
@@ -234,6 +265,7 @@ impl ObjectArchive {
         scope_sha256: &str,
         key: &str,
         content: Bytes,
+        read_only: bool,
     ) -> anyhow::Result<String> {
         let key_sha256 = hex_sha256(key.as_bytes());
         let content_sha256 = hex_sha256(&content);
@@ -247,21 +279,27 @@ impl ObjectArchive {
             nonce: uuid::Uuid::new_v4().to_string(),
         };
         let bytes = serde_json::to_vec(&proposed)?;
-        let created = tokio::time::timeout(
-            self.operation_timeout,
-            self.store.put_opts(
-                &intent_key,
-                Bytes::from(bytes).into(),
-                PutOptions {
-                    mode: PutMode::Create,
-                    ..Default::default()
-                },
-            ),
-        )
-        .await?;
+        let created = if read_only {
+            None
+        } else {
+            Some(
+                tokio::time::timeout(
+                    self.operation_timeout,
+                    self.store.put_opts(
+                        &intent_key,
+                        Bytes::from(bytes).into(),
+                        PutOptions {
+                            mode: PutMode::Create,
+                            ..Default::default()
+                        },
+                    ),
+                )
+                .await?,
+            )
+        };
         let (intent, may_send) = match created {
-            Ok(_) => (proposed, true),
-            Err(ObjectStoreError::AlreadyExists { .. }) => {
+            Some(Ok(_)) => (proposed, true),
+            None | Some(Err(ObjectStoreError::AlreadyExists { .. })) => {
                 let bytes = self.read_upload_journal(&intent_key).await?;
                 let existing: UploadIntent = serde_json::from_slice(&bytes)?;
                 anyhow::ensure!(
@@ -275,7 +313,7 @@ impl ObjectArchive {
                 );
                 (existing, false)
             }
-            Err(_) => anyhow::bail!("intent result unknown"),
+            Some(Err(_)) => anyhow::bail!("intent result unknown"),
         };
         let client = aws_sdk_s3::Client::from_conf(
             self.version_store
@@ -357,11 +395,16 @@ impl ObjectArchive {
             .into_bytes();
         anyhow::ensure!(read == content, "version content rejected");
         // Immutable proof records contain the exact version; they never authorize OFF.
-        self.put_upload_journal_immutable(
-            &format!("{journal_base}/writes/{key_sha256}/COMMITTED"),
-            Bytes::from(serde_json::to_vec(&(&intent, id))?),
-        )
-        .await?;
+        let key = format!("{journal_base}/writes/{key_sha256}/COMMITTED");
+        let bytes = Bytes::from(serde_json::to_vec(&(&intent, id))?);
+        if read_only {
+            anyhow::ensure!(
+                self.read_upload_journal(&Path::from(key)).await? == bytes,
+                "upload commit proof missing or changed"
+            );
+        } else {
+            self.put_upload_journal_immutable(&key, bytes).await?;
+        }
         Ok(id.to_owned())
     }
 

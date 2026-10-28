@@ -50,7 +50,9 @@ ObjectArchive 新增绑定 expected_scope_sha256 的入口，在读取不可变 
 
 基线 cce2465 主 CI 40694039631、Desktop 40694039774 精确 SHA 全成功；主流水线
 两个 Job 均成功，Verify 日志实际包含封口测试与 UNKNOWN 完整链拒绝标记。
-progress301 已补收尾；本提交仍须自己的完整 CI。
+progress301 已补收尾；本提交3bd317e主CI **40698720830**、Desktop **40698720732**
+精确SHA全成功，Operator/Windows/macOS均成功；Verify日志已确认新封口IPC、
+客户端拒绝矩阵和完整链UNKNOWN拒绝标记实际执行。
 
 测试退出后，专用容器/网络均为0。以本次构建日志 digest 确认来源、检查无容器引用后，
 删除两个 MinIO/mc 测试镜像；其余8个容器、用户文件、基础镜像和共用缓存保留，未用

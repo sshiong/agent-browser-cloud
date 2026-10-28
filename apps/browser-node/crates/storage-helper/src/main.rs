@@ -2552,6 +2552,40 @@ mod tests {
                     .await
                     .unwrap();
                 assert_eq!(sealed, replay);
+                let durable = node_journal::PersistedRecordingUploadSeal {
+                    scope: scope.clone(),
+                    finalization: f.clone(),
+                    seal: sealed.upload_seal.clone().unwrap(),
+                };
+                reopened
+                    .record_recording_upload_seal(&durable)
+                    .await
+                    .unwrap();
+                drop(reopened);
+                let recovered = node_journal::SqliteNodeJournal::open(&journal_path)
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    recovered
+                        .recording_upload_seal(
+                            &scope.tenant_id,
+                            &scope.session_id,
+                            &scope.recording_id
+                        )
+                        .await
+                        .unwrap(),
+                    Some(durable.clone())
+                );
+                recovered
+                    .record_recording_upload_seal(&durable)
+                    .await
+                    .unwrap();
+                let mut late_receipt = receipt.clone();
+                late_receipt.segment.sequence = 1;
+                assert!(recovered
+                    .record_recording_upload_receipt(&late_receipt)
+                    .await
+                    .is_err());
             }
         }
         assert!(client

@@ -683,7 +683,7 @@ mod tests {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct RecordingHeldUploadFinalization {
     pub segment_count: u64,

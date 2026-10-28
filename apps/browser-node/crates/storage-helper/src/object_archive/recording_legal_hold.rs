@@ -565,6 +565,13 @@ mod tests {
     }
 
     fn archive(endpoint: String) -> ObjectArchive {
+        archive_with_operation_timeout(endpoint, Duration::from_millis(500))
+    }
+
+    fn archive_with_operation_timeout(
+        endpoint: String,
+        operation_timeout: Duration,
+    ) -> ObjectArchive {
         ObjectArchive::s3(S3ArchiveConfig {
             bucket: std::env::var("TEST_OBJECT_STORAGE_BUCKET").unwrap(),
             region: "us-east-1".into(),
@@ -573,7 +580,7 @@ mod tests {
             secret_access_key: std::env::var("TEST_OBJECT_STORAGE_SECRET_ACCESS_KEY").unwrap(),
             prefix: "legal-hold-acceptance".into(),
             connect_timeout: Duration::from_millis(500),
-            operation_timeout: Duration::from_millis(500),
+            operation_timeout,
             allow_http: true,
             profile_crypto: ProfileArchiveCrypto::for_test(
                 "test-key-v1",
@@ -901,7 +908,9 @@ mod tests {
                                 let delayed = legal_hold_put && a.load(Ordering::SeqCst);
                                 if delayed {
                                     d.fetch_add(1, Ordering::SeqCst);
-                                    std::thread::sleep(Duration::from_millis(1500));
+                                    // Exceed the fault-specific 5s operation budget while allowing
+                                    // ordinary proxied metadata reads to finish before injection.
+                                    std::thread::sleep(Duration::from_millis(6500));
                                 }
                                 let mut remote =
                                     TcpStream::connect_timeout(&target, Duration::from_secs(5))
@@ -1054,7 +1063,8 @@ mod tests {
         let direct = archive(endpoint.clone());
         let r = fixture(&direct).await;
         let proxy = DeferredOffProxy::start(&endpoint);
-        let proxied = archive(proxy.endpoint.clone());
+        let proxied =
+            archive_with_operation_timeout(proxy.endpoint.clone(), Duration::from_secs(5));
         // Establish ON directly. The proxy is scoped to the OFF fault being tested.
         let on = direct.apply_recording_legal_hold(r.clone()).await.unwrap();
         proxy.arm.store(true, Ordering::SeqCst);

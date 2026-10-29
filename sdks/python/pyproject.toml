@@ -7,6 +7,7 @@ name = "agent-browser-cloud"
 version = "0.1.0"
 description = "Agent Browser Cloud Python SDK"
 requires-python = ">=3.10"
+license = {file = "LICENSE"}
 
 [tool.setuptools.packages.find]
 where = ["."]

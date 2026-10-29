@@ -58,13 +58,15 @@ def build_wheel(root: pathlib.Path, output: pathlib.Path, version: str) -> pathl
         f"Version: {version}\n"
         "Summary: OpenAPI-generated Agent Browser Cloud Python SDK\n"
         "Requires-Python: >=3.10\n"
-        "License: UNLICENSED\n\n"
+        "License: MIT\n"
+        "License-File: LICENSE\n\n"
     ).encode()
     wheel_metadata = (
         "Wheel-Version: 1.0\nGenerator: browsercloud-release-builder@1\n"
         "Root-Is-Purelib: true\nTag: py3-none-any\n\n"
     ).encode()
-    entries.extend([(f"{dist}/METADATA", metadata), (f"{dist}/WHEEL", wheel_metadata)])
+    entries.extend([(f"{dist}/METADATA", metadata), (f"{dist}/WHEEL", wheel_metadata),
+                    (f"{dist}/LICENSE", (root / "LICENSE").read_bytes())])
     record_rows = [[name, wheel_digest(data), str(len(data))] for name, data in sorted(entries)]
     record_rows.append([f"{dist}/RECORD", "", ""])
     buffer = io.StringIO(newline="")
@@ -114,7 +116,8 @@ def build_java(root: pathlib.Path, output: pathlib.Path, version: str) -> list[p
         "Created-By: browsercloud-release-builder@1\r\n\r\n"
     ).encode()
     jar = output / f"agent-browser-cloud-sdk-{version}.jar"
-    class_entries = [("META-INF/MANIFEST.MF", manifest)] + [
+    class_entries = [("META-INF/MANIFEST.MF", manifest),
+                     ("META-INF/LICENSE", (root / "LICENSE").read_bytes())] + [
         (source.relative_to(classes).as_posix(), source.read_bytes())
         for source in classes.rglob("*.class")
     ]
@@ -126,7 +129,7 @@ def build_java(root: pathlib.Path, output: pathlib.Path, version: str) -> list[p
         [
             (source.relative_to(source_root).as_posix(), source.read_bytes())
             for source in source_root.rglob("*.java")
-        ],
+        ] + [("META-INF/LICENSE", (root / "LICENSE").read_bytes())],
     )
     pom = output / f"agent-browser-cloud-sdk-{version}.pom"
     shutil.copyfile(root / "sdks/java/pom.xml", pom)
@@ -134,6 +137,18 @@ def build_java(root: pathlib.Path, output: pathlib.Path, version: str) -> list[p
 
 
 def verify_artifacts(artifacts: list[pathlib.Path], version: str) -> None:
+    expected_license = (pathlib.Path(__file__).resolve().parents[2] / "LICENSE").read_bytes()
+    for artifact in artifacts:
+        if artifact.suffix in (".whl", ".jar", ".zip"):
+            with zipfile.ZipFile(artifact) as archive:
+                licenses = [n for n in archive.namelist() if n.endswith("/LICENSE")]
+                if len(licenses) != 1 or archive.read(licenses[0]) != expected_license:
+                    fail("SDK archive must contain the exact project MIT license")
+        elif artifact.name.endswith(".tgz"):
+            with tarfile.open(artifact, "r:gz") as archive:
+                license_file = archive.extractfile("package/LICENSE")
+                if license_file is None or license_file.read() != expected_license:
+                    fail("TypeScript tarball must contain the exact project MIT license")
     wheel = next(path for path in artifacts if path.suffix == ".whl")
     with zipfile.ZipFile(wheel) as archive:
         names = set(archive.namelist())

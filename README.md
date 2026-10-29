@@ -230,3 +230,7 @@ curl -H 'X-Tenant-Id: tenant-local' \
 | 缓存         | Redis 7               |
 | 内部协议     | Protobuf              |
 | 外部 API     | OpenAPI 3.1           |
+
+## 许可证
+
+项目自有代码使用 [MIT License](LICENSE)，版权人 song。第三方依赖与资源保留各自的许可证和声明。

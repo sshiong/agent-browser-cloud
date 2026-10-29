@@ -15,7 +15,7 @@ cd "$repo_root"
 integration_gate_scope="${INTEGRATION_GATE_SCOPE:-full}"
 integration_completed=false
 case "$integration_gate_scope" in
-  full|recording-hold) ;;
+  full|recording-hold|recording-projection) ;;
   *) echo 'INTEGRATION_GATE_SCOPE_REJECTED' >&2; exit 1 ;;
 esac
 minio_image="${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z}"
@@ -536,6 +536,7 @@ start_browser_node() {
   PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
   STORAGE_HELPER_SOCKET="$temp_dir/storage-helper.sock" \
   RECORDING_PRIVACY_SCANNER_PATH="$repo_root/tests/fixtures/recording-privacy-scanner-protocol-fixture.py" \
+  FAKE_CHROMIUM_RECORDING_JPEG="$([[ "$integration_gate_scope" == recording-projection ]] && printf '%s' "$repo_root/tests/fixtures/recording-projection-frame.jpg" || true)" \
   OBJECT_STORAGE_ENABLED=true \
   NETWORK_HELPER_SOCKET="$temp_dir/network-helper.sock" \
   FAKE_CHROMIUM_REQUIRE_PROXY=true \
@@ -1685,6 +1686,12 @@ for _ in $(seq 1 80); do
   sleep 0.25
 done
 test "$cold_proxy_probe_count" -ge 1
+if [[ "$integration_gate_scope" == recording-projection ]]; then
+  python3 "$repo_root/tests/integration/recording-node-projection.py" \
+    "$control_port" "$postgres_name" "$temp_dir/runtime" "$proxy_binding_id"
+  integration_completed=true
+  exit 0
+fi
 proxy_binding_viewer_write_status="$(curl -sS \
   -o "$temp_dir/proxy-binding-viewer-write.json" -w '%{http_code}' \
   -X POST "http://localhost:${control_port}/api/v1/proxy-bindings" \

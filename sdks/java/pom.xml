@@ -11,7 +11,8 @@
   <url>https://github.com/sshiong/agent-browser-cloud</url>
   <licenses>
     <license>
-      <name>UNLICENSED</name>
+      <name>MIT License</name>
+      <url>https://opensource.org/license/mit/</url>
       <distribution>repo</distribution>
     </license>
   </licenses>

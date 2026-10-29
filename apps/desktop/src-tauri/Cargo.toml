@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Agent Browser Cloud desktop container"
 authors = ["Agent Browser Cloud"]
 edition = "2021"
+license = "MIT"
 rust-version = "1.77.2"
 
 [lib]

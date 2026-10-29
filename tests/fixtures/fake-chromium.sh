@@ -176,6 +176,8 @@ class Handler(BaseHTTPRequestHandler):
         global uploaded_file, download_event_version
         reported_native_dialog_sequence = 0
         screenshot_pause_evaluation = None
+        self.screencast_active = False
+        self.screencast_sent = 0
         self.websocket_write_lock = threading.Lock()
         key = self.headers.get("Sec-WebSocket-Key", "")
         accept = base64.b64encode(
@@ -234,6 +236,16 @@ class Handler(BaseHTTPRequestHandler):
                         }
                 else:
                     expression = command.get("params", {}).get("expression", "")
+                    if os.environ.get("FAKE_CHROMIUM_RECORDING_JPEG") and (
+                        "return {version: 1, viewportWidth, viewportHeight, regions}" in expression
+                    ):
+                        self.write_websocket_text(json.dumps({
+                            "id": command["id"], "result": {"result": {"type": "object", "value": {
+                                "version": 1, "viewportWidth": 16, "viewportHeight": 16,
+                                "regions": [{"left": 0, "top": 0, "width": 4, "height": 4}],
+                            }}},
+                        }))
+                        continue
                     if expression.startswith("debugger;\n//# sourceURL=agent-browser-evidence-freeze-"):
                         freeze_url = expression.split("sourceURL=", 1)[1]
                         self.write_websocket_text(json.dumps({
@@ -677,6 +689,21 @@ class Handler(BaseHTTPRequestHandler):
                         "id": command["id"],
                         "error": {"code": -32602, "message": "invalid staged file"},
                     }
+            elif method == "Page.startScreencast" and os.environ.get("FAKE_CHROMIUM_RECORDING_JPEG"):
+                self.screencast_active = True
+                timer = threading.Timer(0.1, self.emit_recording_frame)
+                timer.daemon = True
+                timer.start()
+                response = {"id": command["id"], "result": {}}
+            elif method == "Page.screencastFrameAck" and self.screencast_active:
+                assert command.get("params", {}).get("sessionId") == self.screencast_sent
+                timer = threading.Timer(0.1, self.emit_recording_frame)
+                timer.daemon = True
+                timer.start()
+                response = {"id": command["id"], "result": {}}
+            elif method == "Page.stopScreencast":
+                self.screencast_active = False
+                response = {"id": command["id"], "result": {}}
             elif method == "Page.captureScreenshot":
                 if command.get("params", {}).get("format") != "jpeg":
                     response = {
@@ -861,6 +888,22 @@ class Handler(BaseHTTPRequestHandler):
             "sessionId": "fake-page-session",
             "params": {"requestId": request_id},
         }))
+
+    def emit_recording_frame(self):
+        # Opt-in protocol fixture: exactly two frames, second only after the first ACK.
+        if not self.screencast_active or self.screencast_sent >= 2:
+            return
+        self.screencast_sent += 1
+        try:
+            self.write_websocket_text(json.dumps({
+                "method": "Page.screencastFrame", "params": {
+                    "sessionId": self.screencast_sent,
+                    "data": base64.b64encode(Path(os.environ["FAKE_CHROMIUM_RECORDING_JPEG"]).read_bytes()).decode(),
+                    "metadata": {"timestamp": time.time(), "deviceWidth": 16, "deviceHeight": 16},
+                },
+            }))
+        except (BrokenPipeError, ConnectionError, OSError):
+            self.screencast_active = False
 
     def read_exact(self, length):
         result = b""

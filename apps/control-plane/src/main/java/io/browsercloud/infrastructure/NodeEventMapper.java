@@ -932,7 +932,6 @@ public class NodeEventMapper {
           var payload = SessionRecordingFinalizedEvent.parseFrom(envelope.getPayload());
           requireText(payload.getRecordingId(), "recording_id");
           requireText(payload.getNodeId(), "node_id");
-          requireText(payload.getManifestObjectKey(), "manifest_object_key");
           var objectKey = payload.getManifestObjectKey();
           var normalizedObjectKey = "/" + objectKey;
           var tenantRecordingRoot = "/tenants/" + envelope.getTenantId() + "/profiles/";
@@ -942,7 +941,9 @@ public class NodeEventMapper {
                   + "/recordings/"
                   + payload.getRecordingId()
                   + "/COMMITTED";
-          if (!payload.getRecordingId().matches("^rec_[0-9a-f]{32}$")
+          if (objectKey.isBlank()
+              || objectKey.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 1024
+              || !payload.getRecordingId().matches("^rec_[0-9a-f]{32}$")
               || payload.getNodeId().length() > 128
               || payload.getSegmentCount() > 1_000_000L
               || payload.getFrameCount() > 1_000_000_000L

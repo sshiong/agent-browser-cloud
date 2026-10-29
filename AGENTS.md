@@ -308,6 +308,14 @@ progress 166。
 
 ### 最近验证状态
 
+- 正式Recorder→Helper→mTLS→Inbox/PG→API投影及用途绑定v2播放通过（2帧/1段），
+  修复对象Key误限128字符与Node播放只认v1，见 progress309。Java657项、严格Clippy、
+  完整Integration与文档检查通过；本轮专用容器/网络0，两闲置镜像已清，原8容器保留。
+  089ce46主CI40823227744、Desktop40823227804精确SHA全成功；新提交CI待核验。
+  权利人已明确选择MIT、署名song；根LICENSE、自有元数据和四语言发布包统一，8项
+  SDK发布产物验证通过，见 progress310。原第11项关闭，上传准入/默认None/交接/跨Node
+  及原十一项其余外部、环境与组织Gate继续保留。CDP/Scanner协议夹具不冒充真实Chrome。
+
 - 修复真实Recorder v2最终事件无法通过Java Mapper/PG约束、以及生产JDBC保存期限
   参数类型推断错误。V137短DDL扩展1/2、V138独立验证，历史v1不改写；真实PG30项
   无跳过通过、Java656项与格式检查通过，见 progress308。完整Integration通过；已清专用容器/网络和两MinIO镜像，原8容器与旧空网络保留。
@@ -320,7 +328,7 @@ progress 166。
   24帧/2段/5版本，OCR检测24次且残留0；真实扫描构建12项回归、常规19项和严格
   Clippy通过，见 progress307。7172b27主CI40820328460与Desktop40820328447精确SHA全成功；本机macOS+Linux扫描容器不冒充
   目标Linux整机/PG授权。默认Node仍None，PG准入/交接/跨Node及原十一项其他Gate保留。
-  已清专用容器/网络、扫描镜像Tag和两MinIO镜像，原8容器保留；许可证选择待权利人回复。
+  已清专用容器/网络、扫描镜像Tag和两MinIO镜像，原8容器保留；许可证已由权利人确认为MIT/song（见progress310）。
   8b27080主CI40817340480、Desktop40817340494精确SHA全成功。
 
 - Recorder增加内部可选保全路径（段上传→Journal→ACK），Manifest移到capture/
@@ -1320,7 +1328,7 @@ progress 166。
 | 8 | Proxy 生产能力 | **通用仓库链已闭环**：业务结果学习、Profile 粘性、受约束探索、Challenge 隔离、商业 Basic Auth、统一 SPI、远程 Gateway、Safe Point Endpoint 轮换，见 progress 211—216 | 具体供应商插件、真实账号 OAuth/签名、云 Secret、账单对账、客户 SLA Replay/熔断仍未完成 |
 | 9 | V16 生产基础设施 | **未完成，发布阻断** | 目标 Linux/云 CNI、CSI、KMS、IAM、LSM、多 Region、HSM、Pager/GameDay 和组织审批 |
 | 10 | 环境配置复制/导出 | **已确认并闭环**：正式 Clone API 与无敏感配置导出，见 progress 210 | 真实外部导入生态兼容只作为持续验证，不再重做仓库主链 |
-| 11 | 开源许可证 | **待确认，发布阻断** | 权利人必须明确选择 MIT、其他许可证或 UNLICENSED；Agent 不得擅自替权利人作法律选择 |
+| 11 | 开源许可证 | **已完成**：权利人明确选择MIT，署名song，根LICENSE、自有元数据和四语言SDK包已统一，见progress310 | 第三方依赖保留各自声明；Registry发布与其他组织Gate仍须独立验收 |
 
 **当前正在处理的主任务**：继续关闭上述持续目标中仍可在仓库内推进的缺口。Cross-Origin
 审计确认现有 Application Adapter 缺少第三方 iframe 动作协议、可信身份绑定与事务结果回执；
@@ -1632,8 +1640,7 @@ Delete API 或短期签名 URL 冒充目标云监管保留。
 ### P2：组织 Gate
 
 - Primary/Secondary Owner、RACI、Threat Review、Residual Risk、Staging 证据、发布审批、值班与生产签字。
-- [待确认] 由权利人决定仓库采用 MIT、其他明确许可证或保持 UNLICENSED；在确认前不得自行添加
-  许可证文本或对外宣称开源授权已完成。
+- [已确认] 权利人于2026-10-29明确选择MIT开源、版权人song；根LICENSE、自有元数据与SDK发布包已统一，见progress310。
 
 完整而细粒度的清单仍以 `docs/progress/33-当前未实现清单.md` 为准。
 

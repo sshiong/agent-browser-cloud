@@ -10458,7 +10458,7 @@ impl NodeControlServiceRpc for NodeControlService {
             || !(1..=24).contains(&request.segment_limit)
             || request.redacted_frame_count > request.frame_count
             || (request.redacted_frame_count > 0 && request.redacted_region_count == 0)
-            || request.redaction_policy_version != 1
+            || !(1..=2).contains(&request.redaction_policy_version)
             || request.started_at_ms < 0
             || request.ended_at_ms < request.started_at_ms
             || !(30..=120).contains(&request.expires_in_seconds)

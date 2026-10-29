@@ -247,3 +247,7 @@ authenticated principal.
 | Cache | Redis 7 |
 | Internal protocol | Protobuf |
 | External API | OpenAPI 3.1 |
+
+## License
+
+Project-owned code is licensed under the [MIT License](LICENSE), copyright song. Third-party dependencies and assets retain their own licenses and notices.

@@ -40,6 +40,11 @@ test-recording-cloud-hold-order:
 test-recording-native-hold:
 	INTEGRATION_GATE_SCOPE=recording-hold bash tests/integration/smoke.sh
 
+.PHONY: test-recording-node-projection
+# Production Recorder/Helper/mTLS/Inbox/PG/API; CDP and scanner are protocol fixtures.
+test-recording-node-projection:
+	INTEGRATION_GATE_SCOPE=recording-projection bash tests/integration/smoke.sh
+
 # Optional owned browser contract test; start the local console first (see script docstring).
 test-recording-hold-ui:
 	python3 tests/e2e/recording_hold_policy_ui.py "$${RECORDING_HOLD_UI_PORT:?Set the owned local console port}"

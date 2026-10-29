@@ -1550,6 +1550,59 @@ class NodeEventMapperTest {
   }
 
   @Test
+  void shouldBoundRecordingObjectKeysByUtf8BytesWithoutApplyingEntityIdLength() {
+    var recording = "rec_1234567890abcdef1234567890abcdef";
+    var prefix = "tenants/tenant-test/profiles/";
+    var suffix = "/sessions/ses_test/recordings/" + recording + "/COMMITTED";
+    var payload =
+        SessionRecordingFinalizedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setRecordingId(recording)
+            .setNodeId("node-test")
+            .setSegmentCount(1)
+            .setFrameCount(2)
+            .setRedactedFrameCount(2)
+            .setRedactedRegionCount(2)
+            .setRedactionPolicyVersion(2)
+            .setManifestSha256("b".repeat(64))
+            .setManifestBytes(512)
+            .setStartedAtMs(1_785_283_100_000L)
+            .setEndedAtMs(1_785_283_200_000L);
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt-recording-long-key")
+            .setEventType(NodeEventMapper.SESSION_RECORDING_FINALIZED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(5);
+    var limit = prefix + "p".repeat(1024 - prefix.length() - suffix.length()) + suffix;
+    assertThat(
+            mapper
+                .toCommand(
+                    envelope
+                        .setPayload(payload.setManifestObjectKey(limit).build().toByteString())
+                        .build())
+                .event())
+        .isInstanceOf(NodeEvent.RecordingFinalized.class);
+    for (var invalid :
+        new String[] {
+          "",
+          " ",
+          prefix + "p".repeat(1025 - prefix.length() - suffix.length()) + suffix,
+          prefix + "界".repeat(400) + suffix
+        }) {
+      assertThatThrownBy(
+              () ->
+                  mapper.toCommand(
+                      envelope
+                          .setPayload(payload.setManifestObjectKey(invalid).build().toByteString())
+                          .build()))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("recording manifest metadata");
+    }
+  }
+
+  @Test
   void shouldRejectRecordingManifestOutsideTenantSessionPrefix() {
     var payload =
         SessionRecordingFinalizedEvent.newBuilder()

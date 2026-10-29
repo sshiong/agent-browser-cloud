@@ -117,7 +117,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V136 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V138 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -308,10 +308,17 @@ progress 166。
 
 ### 最近验证状态
 
+- 修复真实Recorder v2最终事件无法通过Java Mapper/PG约束、以及生产JDBC保存期限
+  参数类型推断错误。V137短DDL扩展1/2、V138独立验证，历史v1不改写；真实PG30项
+  无跳过通过、Java656项与格式检查通过，见 progress308。完整Integration通过；已清专用容器/网络和两MinIO镜像，原8容器与旧空网络保留。
+  PG上传准入、默认None、交接/旧写入器/跨Node与原十一项其余Gate保留。
+  7172b27主CI40820328460、Desktop40820328447精确SHA全成功，Linux真实Chrome
+  保全用例实际执行：22帧/2段/5原生ON版本、OCR22次。新提交CI仍须独立核验。
+
 - 新增真实Chrome→Recorder→真实Tesseract/OpenCV→UID Helper→MinIO保全录制
   Gate，采集中原生ON独立核验、双join后封口。最终18项S3/IPC+新E2E1项通过：
   24帧/2段/5版本，OCR检测24次且残留0；真实扫描构建12项回归、常规19项和严格
-  Clippy通过，见 progress307。新CI步骤待本提交核验；本机macOS+Linux扫描容器不冒充
+  Clippy通过，见 progress307。7172b27主CI40820328460与Desktop40820328447精确SHA全成功；本机macOS+Linux扫描容器不冒充
   目标Linux整机/PG授权。默认Node仍None，PG准入/交接/跨Node及原十一项其他Gate保留。
   已清专用容器/网络、扫描镜像Tag和两MinIO镜像，原8容器保留；许可证选择待权利人回复。
   8b27080主CI40817340480、Desktop40817340494精确SHA全成功。

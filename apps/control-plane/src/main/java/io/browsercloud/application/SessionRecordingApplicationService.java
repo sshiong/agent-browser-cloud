@@ -47,7 +47,7 @@ public class SessionRecordingApplicationService {
             manifest_sha256, manifest_bytes, started_at, ended_at,
             retention_until, legal_hold)
         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-               ? + make_interval(days => COALESCE(policy.retention_days, ?)),
+               CAST(? AS timestamptz) + make_interval(days => COALESCE(policy.retention_days, ?)),
                COALESCE(policy.legal_hold, FALSE)
           FROM (SELECT 1) seed
           LEFT JOIN enterprise_retention_policies policy

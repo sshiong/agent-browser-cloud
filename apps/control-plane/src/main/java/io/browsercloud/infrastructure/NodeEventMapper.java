@@ -949,7 +949,8 @@ public class NodeEventMapper {
               || payload.getDroppedFrames() > 1_000_000_000L
               || payload.getRedactedFrameCount() > payload.getFrameCount()
               || payload.getRedactedRegionCount() > payload.getFrameCount() * 256L
-              || payload.getRedactionPolicyVersion() != 1
+              || (payload.getRedactionPolicyVersion() != 1
+                  && payload.getRedactionPolicyVersion() != 2)
               || !payload.getManifestSha256().matches("^[0-9a-f]{64}$")
               || payload.getManifestBytes() <= 0
               || payload.getManifestBytes() > 1024L * 1024L

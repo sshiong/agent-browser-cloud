@@ -1510,6 +1510,46 @@ class NodeEventMapperTest {
   }
 
   @Test
+  void shouldPreserveRecordingRedactionVersionAcrossSupportedAndUnknownWireValues() {
+    var base =
+        SessionRecordingFinalizedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setRecordingId("rec_1234567890abcdef1234567890abcdef")
+            .setSegmentCount(1)
+            .setFrameCount(4)
+            .setRedactedFrameCount(4)
+            .setRedactedRegionCount(4)
+            .setManifestObjectKey(
+                "tenants/tenant-test/profiles/profile-test/sessions/ses_test/recordings/rec_1234567890abcdef1234567890abcdef/COMMITTED")
+            .setManifestSha256("b".repeat(64))
+            .setManifestBytes(512)
+            .setStartedAtMs(1_785_283_100_000L)
+            .setEndedAtMs(1_785_283_200_000L)
+            .setNodeId("node-test");
+    for (int version : new int[] {0, 1, 2, 3, -1}) {
+      var envelope =
+          EventEnvelope.newBuilder()
+              .setEventId("evt-recording-version-" + version)
+              .setEventType(NodeEventMapper.SESSION_RECORDING_FINALIZED)
+              .setTenantId("tenant-test")
+              .setSessionId("ses_test")
+              .setSequence(5)
+              .setPayload(base.setRedactionPolicyVersion(version).build().toByteString())
+              .build();
+      if (version == 1 || version == 2) {
+        assertThat(mapper.toCommand(envelope).event())
+            .isInstanceOfSatisfying(
+                NodeEvent.RecordingFinalized.class,
+                recording -> assertThat(recording.redactionPolicyVersion()).isEqualTo(version));
+      } else {
+        assertThatThrownBy(() -> mapper.toCommand(envelope))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("recording manifest metadata");
+      }
+    }
+  }
+
+  @Test
   void shouldRejectRecordingManifestOutsideTenantSessionPrefix() {
     var payload =
         SessionRecordingFinalizedEvent.newBuilder()

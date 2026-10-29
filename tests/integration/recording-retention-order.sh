@@ -34,7 +34,7 @@ done
 docker exec "$container_name" pg_isready -h 127.0.0.1 -U recording_retention_test >/dev/null
 port="$(docker port "$container_name" 5432/tcp | sed -n 's/^127\.0\.0\.1://p')"
 [[ "$port" =~ ^[0-9]+$ ]]
-arguments=(-p apps/control-plane test --tests io.browsercloud.application.RecordingRetentionOrderPostgresTest --tests io.browsercloud.application.RecordingLegalHoldPostgresTest --rerun)
+arguments=(-p apps/control-plane test --tests io.browsercloud.application.RecordingRetentionOrderPostgresTest --tests io.browsercloud.application.RecordingLegalHoldPostgresTest --tests io.browsercloud.application.RecordingRedactionVersionPostgresTest --rerun)
 if [[ "${RECORDING_RETENTION_TEST_SKIP_PROTO:-false}" == true ]]; then
   test -d apps/control-plane/build/generated/source/proto/main/java
   arguments+=(-x generateProto)
@@ -44,7 +44,7 @@ BROWSERCLOUD_RECORDING_RETENTION_TEST_PASSWORD="$password" \
   ./gradlew "${arguments[@]}"
 python3 - <<'VERIFY'
 import xml.etree.ElementTree as ET
-for name, minimum in [("RecordingRetentionOrderPostgresTest", 14), ("RecordingLegalHoldPostgresTest", 13)]:
+for name, minimum in [("RecordingRetentionOrderPostgresTest", 14), ("RecordingLegalHoldPostgresTest", 13), ("RecordingRedactionVersionPostgresTest", 3)]:
     result = ET.parse("apps/control-plane/build/test-results/test/TEST-io.browsercloud.application." + name + ".xml").getroot()
     assert int(result.get("tests", "0")) >= minimum
     assert all(int(result.get(key, "-1")) == 0 for key in ("failures", "errors", "skipped"))

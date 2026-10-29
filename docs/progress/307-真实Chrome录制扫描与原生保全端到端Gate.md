@@ -70,3 +70,10 @@ Windows/macOS。Verify日志确认生产者屏障、writer panic清理、ACK失�
 旧非感知写入器部署/Placement围栏、跨Node、目标云KMS/IAM/复制及生产运营Gate。
 原十一项目标未整体完成。许可证分发选择已在本线程向权利人询问（MIT需版权名或保留
 专有），尚未收到决定，未自行更改许可证。其余真实外部系统/客户Replay/组织Gate保留。
+
+## 后续精确 SHA CI 核验
+
+7172b2733898e3e9329c4f8e8b22b1237a3a866f 的主 CI40820328460（verify与Operator）
+及 Desktop40820328447（Windows/macOS）全部成功；新增 Linux真实Chrome保全录制步骤
+实际执行通过：22帧/2段/5原生ON版本、OCR22次。完整日志保存在本地私有文件，不公开凭据/业务日志。此结果不扩展为
+目标客户 Linux 长稳、真实外部系统或 PG 上传准入证据。

@@ -233,6 +233,21 @@ impl SqliteNodeJournal {
         }).await
     }
 
+    /// Read the archive binding from a validated, durable first segment receipt.
+    pub async fn recording_upload_scope_hash(
+        &self,
+        scope: &RecordingUploadHoldScope,
+    ) -> anyhow::Result<String> {
+        let scope = scope.clone();
+        self.with_connection(move |connection| {
+            let (bytes,hash):(Vec<u8>,String)=connection.query_row("SELECT receipt_json,receipt_sha256 FROM recording_upload_receipts WHERE tenant_id=? AND session_id=? AND recording_id=? AND segment_sequence=0",
+                params![scope.tenant_id,scope.session_id,scope.recording_id],|r|Ok((r.get(0)?,r.get(1)?)))?;
+            let receipt:RecordingUploadReceipt=serde_json::from_slice(&bytes)?;
+            anyhow::ensure!(receipt.scope==scope && receipt.sha256()?==hash,"RECORDING_UPLOAD_JOURNAL_SCOPE_FENCED");
+            Ok(receipt.proof.scope_sha256)
+        }).await
+    }
+
     /// Commit the exact request before contacting Helper. Unknown outcomes retain it forever.
     pub async fn prepare_recording_upload_seal(
         &self,

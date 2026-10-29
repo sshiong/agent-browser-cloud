@@ -43,6 +43,14 @@ pub struct RecordingSpec {
     pub workspace: StorageWorkspace,
     pub storage_helper: Arc<StorageHelperClient>,
     pub privacy_scanner_path: PathBuf,
+    /// Trusted internal admission only. Default Node registration leaves this disabled.
+    pub upload_hold: Option<RecordingUploadContext>,
+}
+
+#[derive(Clone)]
+pub struct RecordingUploadContext {
+    pub scope: helper_client::RecordingUploadHoldScope,
+    pub journal: Arc<node_journal::SqliteNodeJournal>,
 }
 
 struct RegisteredRecording {
@@ -498,7 +506,20 @@ impl SessionRecorderRegistry {
 }
 
 async fn start_recording(spec: RecordingSpec) -> anyhow::Result<ActiveRecording> {
-    let recording_id = format!("rec_{}", uuid::Uuid::new_v4().simple());
+    let recording_id = if let Some(context) = &spec.upload_hold {
+        anyhow::ensure!(
+            context.scope.tenant_id == spec.workspace.tenant_id
+                && context.scope.profile_id == spec.workspace.profile_id
+                && context.scope.session_id == spec.session_id
+                && context.scope.operation_id.starts_with("rua_")
+                && context.scope.authority_epoch > 0
+                && context.scope.placement_epoch > 0,
+            "RECORDING_UPLOAD_CONTEXT_REJECTED"
+        );
+        context.scope.recording_id.clone()
+    } else {
+        format!("rec_{}", uuid::Uuid::new_v4().simple())
+    };
     let prepared = spec
         .storage_helper
         .prepare_recording(&spec.workspace, &recording_id)
@@ -570,7 +591,7 @@ async fn run_recording(
     // completion marker after a CDP/redaction failure, even if all earlier frames were safe.
     let capture_failed = Arc::new(std::sync::atomic::AtomicBool::new(true));
     let writer_capture_failed = Arc::clone(&capture_failed);
-    let mut writer = tokio::spawn(async move {
+    let writer = tokio::spawn(async move {
         write_segments(
             writer_spec,
             writer_recording_id,
@@ -585,7 +606,7 @@ async fn run_recording(
     let privacy_scanner_path = spec.privacy_scanner_path.clone();
     let capture_drops = Arc::clone(&dropped_frames);
     let capture_completion_signal = Arc::clone(&capture_failed);
-    let mut capture = tokio::spawn(async move {
+    let capture = tokio::spawn(async move {
         capture_frames(
             &capture_endpoint,
             &privacy_scanner_path,
@@ -603,28 +624,31 @@ async fn run_recording(
             let _ = controller_stop.send(true);
         }
     });
+    let pending = join_recording_producers(capture, writer, capture_stop_tx).await;
+    stop_forwarder.abort();
+    finalize_recording(&spec, pending?).await
+}
+
+async fn join_recording_producers(
+    mut capture: JoinHandle<anyhow::Result<()>>,
+    mut writer: JoinHandle<anyhow::Result<PendingRecording>>,
+    capture_stop_tx: watch::Sender<bool>,
+) -> anyhow::Result<PendingRecording> {
     let (capture_result, writer_result) = tokio::select! {
         capture_result = &mut capture => {
-            let capture_result = capture_result
-                .map_err(|error| anyhow::anyhow!("recording capture join failed: {error}"))?;
-            let writer_result = writer
-                .await
-                .map_err(|error| anyhow::anyhow!("recording segment writer join failed: {error}"))?;
+            let capture_result = capture_result.unwrap_or_else(|error| Err(anyhow::anyhow!("recording capture join failed: {error}")));
+            let writer_result = writer.await.unwrap_or_else(|error| Err(anyhow::anyhow!("recording segment writer join failed: {error}")));
             (capture_result, writer_result)
         }
         writer_result = &mut writer => {
-            let writer_result = writer_result
-                .map_err(|error| anyhow::anyhow!("recording segment writer join failed: {error}"))?;
+            let writer_result = writer_result.unwrap_or_else(|error| Err(anyhow::anyhow!("recording segment writer join failed: {error}")));
             let _ = capture_stop_tx.send(true);
-            let capture_result = capture
-                .await
-                .map_err(|error| anyhow::anyhow!("recording capture join failed: {error}"))?;
+            let capture_result = capture.await.unwrap_or_else(|error| Err(anyhow::anyhow!("recording capture join failed: {error}")));
             (capture_result, writer_result)
         }
     };
-    stop_forwarder.abort();
     match (capture_result, writer_result) {
-        (Ok(()), Ok(summary)) => Ok(summary),
+        (Ok(()), Ok(pending)) => Ok(pending),
         (Err(capture), Ok(_)) => Err(capture),
         (Ok(()), Err(writer)) => Err(writer),
         (Err(capture), Err(writer)) => Err(anyhow::anyhow!(
@@ -1104,7 +1128,7 @@ async fn write_segments(
     mut frames: mpsc::Receiver<CapturedFrame>,
     dropped_frames: Arc<std::sync::atomic::AtomicU64>,
     capture_failed: Arc<std::sync::atomic::AtomicBool>,
-) -> anyhow::Result<RecordingSummary> {
+) -> anyhow::Result<PendingRecording> {
     let recording_started_at = now_millis();
     let directory = PathBuf::from(&spec.workspace.ephemeral_dir)
         .join("recordings")
@@ -1143,20 +1167,87 @@ async fn write_segments(
         "recording capture failed before a redaction-safe completion marker could be committed"
     );
     let ended_at_ms = now_millis();
-    let completed = spec
-        .storage_helper
-        .complete_recording(
-            &spec.workspace,
-            &recording_id,
-            sequence,
-            total_frames,
-            redacted_frame_count,
-            redacted_region_count,
-            RECORDING_REDACTION_POLICY_VERSION,
-            recording_started_at,
-            ended_at_ms,
-        )
-        .await?;
+    Ok(PendingRecording {
+        recording_id,
+        segment_count: sequence,
+        frame_count: total_frames,
+        dropped_frames: dropped_frames.load(std::sync::atomic::Ordering::Relaxed),
+        redacted_frame_count,
+        redacted_region_count,
+        started_at_ms: recording_started_at,
+        ended_at_ms,
+    })
+}
+
+#[derive(Debug)]
+struct PendingRecording {
+    recording_id: String,
+    segment_count: u64,
+    frame_count: u64,
+    dropped_frames: u64,
+    redacted_frame_count: u64,
+    redacted_region_count: u64,
+    started_at_ms: u64,
+    ended_at_ms: u64,
+}
+
+// Called only after both capture and writer JoinHandles have completed successfully.
+async fn finalize_recording(
+    spec: &RecordingSpec,
+    pending: PendingRecording,
+) -> anyhow::Result<RecordingSummary> {
+    let PendingRecording {
+        recording_id,
+        segment_count: sequence,
+        frame_count: total_frames,
+        dropped_frames,
+        redacted_frame_count,
+        redacted_region_count,
+        started_at_ms: recording_started_at,
+        ended_at_ms,
+    } = pending;
+    let completed = if let Some(context) = &spec.upload_hold {
+        anyhow::ensure!(
+            context.scope.recording_id == recording_id,
+            "RECORDING_UPLOAD_CONTEXT_REJECTED"
+        );
+        spec.storage_helper
+            .finalize_recording_held_upload(
+                &spec.workspace,
+                &context.journal,
+                &node_journal::RecordingUploadSealRequest {
+                    scope: context.scope.clone(),
+                    expected_scope_sha256: context
+                        .journal
+                        .recording_upload_scope_hash(&context.scope)
+                        .await?,
+                    finalization: helper_client::RecordingHeldUploadFinalization {
+                        segment_count: sequence,
+                        frame_count: total_frames,
+                        redacted_frame_count,
+                        redacted_region_count,
+                        redaction_policy_version: RECORDING_REDACTION_POLICY_VERSION,
+                        started_at_ms: recording_started_at,
+                        ended_at_ms,
+                    },
+                },
+            )
+            .await?
+    } else {
+        spec.storage_helper
+            .complete_recording(
+                &spec.workspace,
+                &recording_id,
+                sequence,
+                total_frames,
+                redacted_frame_count,
+                redacted_region_count,
+                RECORDING_REDACTION_POLICY_VERSION,
+                recording_started_at,
+                ended_at_ms,
+            )
+            .await?
+    };
     anyhow::ensure!(
         completed.completed
             && completed.frame_count == total_frames
@@ -1178,7 +1269,7 @@ async fn write_segments(
         recording_id,
         segment_count: sequence,
         frame_count: total_frames,
-        dropped_frames: dropped_frames.load(std::sync::atomic::Ordering::Relaxed),
+        dropped_frames,
         redacted_frame_count,
         redacted_region_count,
         redaction_policy_version: RECORDING_REDACTION_POLICY_VERSION,
@@ -1273,6 +1364,43 @@ async fn commit_segment(
     segment.file.flush().await?;
     segment.file.sync_data().await?;
     let content_sha256 = format!("{:x}", segment.hasher.clone().finalize());
+    if let Some(context) = &spec.upload_hold {
+        anyhow::ensure!(
+            context.scope.recording_id == recording_id,
+            "RECORDING_UPLOAD_CONTEXT_REJECTED"
+        );
+        let descriptor = helper_client::StorageRecordingSegmentDescriptor {
+            sequence: segment.sequence,
+            content_sha256,
+            content_bytes: segment.bytes,
+            frame_count: segment.frames,
+            redacted_frame_count: segment.redacted_frames,
+            redacted_region_count: segment.redacted_regions,
+            redaction_policy_version: RECORDING_REDACTION_POLICY_VERSION,
+            started_at_ms: segment.started_at_ms,
+            ended_at_ms: segment.ended_at_ms,
+        };
+        let committed = spec
+            .storage_helper
+            .commit_recording_held_segment(&spec.workspace, &context.scope, &descriptor)
+            .await?;
+        let receipt = helper_client::RecordingUploadReceipt {
+            schema_version: 1,
+            scope: context.scope.clone(),
+            segment: descriptor,
+            proof: committed
+                .upload_hold
+                .ok_or_else(|| anyhow::anyhow!("RECORDING_UPLOAD_HOLD_PROOF_REQUIRED"))?,
+        };
+        let ack = context
+            .journal
+            .record_recording_upload_receipt(&receipt)
+            .await?;
+        spec.storage_helper
+            .acknowledge_recording_held_segment(&spec.workspace, &ack)
+            .await?;
+        return Ok(());
+    }
     let committed = spec
         .storage_helper
         .commit_recording_segment(
@@ -3020,6 +3148,7 @@ mod tests {
                     },
                     storage_helper: helper,
                     privacy_scanner_path: PathBuf::from("/privacy-scanner-not-reached"),
+                    upload_hold: None,
                 },
                 active: Some(ActiveRecording {
                     stop,
@@ -3062,3 +3191,6 @@ mod tests {
             .is_none());
     }
 }
+
+#[cfg(test)]
+mod held_upload_tests;

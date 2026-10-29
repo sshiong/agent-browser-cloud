@@ -5,11 +5,12 @@ use helper_contracts::{
     StorageCommand, StorageRequest, StorageResponse, SCHEMA_VERSION,
 };
 pub use helper_contracts::{
-    RecordingHeldUploadFinalization, RecordingUploadHoldScope, StorageCheckpoint, StorageEvidence,
-    StorageEvidenceAccess, StorageRecording, StorageRecordingDeletion, StorageRecordingLegalHold,
-    StorageRecordingLegalHoldRequest, StorageRecordingLegalHoldState,
-    StorageRecordingPlaybackAccess, StorageRecordingSegmentDescriptor,
-    StorageRecordingUploadHoldProof, StorageRestoreStatus, StorageWarmTierSync, StorageWorkspace,
+    RecordingHeldUploadFinalization, RecordingUploadHoldScope, RecordingUploadReceipt,
+    StorageCheckpoint, StorageEvidence, StorageEvidenceAccess, StorageRecording,
+    StorageRecordingDeletion, StorageRecordingLegalHold, StorageRecordingLegalHoldRequest,
+    StorageRecordingLegalHoldState, StorageRecordingPlaybackAccess,
+    StorageRecordingSegmentDescriptor, StorageRecordingUploadHoldProof, StorageRestoreStatus,
+    StorageWarmTierSync, StorageWorkspace,
 };
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -420,6 +421,36 @@ impl StorageHelperClient {
         journal: &node_journal::SqliteNodeJournal,
         scope: &RecordingUploadHoldScope,
     ) -> anyhow::Result<node_journal::PersistedRecordingUploadSeal> {
+        self.reconcile_recording_held_upload_seal(workspace, journal, scope)
+            .await
+            .map(|(_, evidence)| evidence)
+    }
+
+    /// Explicit trusted caller entry point; persists preparation before any remote write.
+    pub async fn finalize_recording_held_upload(
+        &self,
+        workspace: &StorageWorkspace,
+        journal: &node_journal::SqliteNodeJournal,
+        request: &node_journal::RecordingUploadSealRequest,
+    ) -> anyhow::Result<StorageRecording> {
+        self.validate_workspace(
+            workspace,
+            &request.scope.tenant_id,
+            &request.scope.profile_id,
+            &request.scope.session_id,
+        )?;
+        journal.prepare_recording_upload_seal(request).await?;
+        self.reconcile_recording_held_upload_seal(workspace, journal, &request.scope)
+            .await
+            .map(|(recording, _)| recording)
+    }
+
+    async fn reconcile_recording_held_upload_seal(
+        &self,
+        workspace: &StorageWorkspace,
+        journal: &node_journal::SqliteNodeJournal,
+        scope: &RecordingUploadHoldScope,
+    ) -> anyhow::Result<(StorageRecording, node_journal::PersistedRecordingUploadSeal)> {
         self.validate_workspace(
             workspace,
             &scope.tenant_id,
@@ -448,13 +479,14 @@ impl StorageHelperClient {
             finalization: request.finalization,
             seal: result
                 .upload_seal
+                .clone()
                 .ok_or_else(|| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_PROOF_REQUIRED"))?,
         };
         journal
             .record_recording_upload_seal(&evidence)
             .await
             .map_err(|_| anyhow::anyhow!("RECORDING_UPLOAD_SEAL_LOCAL_COMMIT_UNKNOWN"))?;
-        Ok(evidence)
+        Ok((result, evidence))
     }
 
     pub async fn seal_recording_held_upload(

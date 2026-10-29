@@ -53,7 +53,10 @@ DATABASE_TRANSACTION_RETRY、details.retryable严格为布尔true。网络错误
 修正仍待新CI。死锁锁顺序分析仍为后续产品稳定性工作。
 
 cacd11d Desktop40721913209中Windows成功、macOS取消，整体失败；没有把取消视为
-通过。新提交须核验自己的CI及Desktop。私有日志
+通过。本提交6f4fc76主CI40726646167及Desktop40726646122精确SHA所有Jobs成功，
+含Operator/Windows/macOS；Verify日志确认新失败续行单测、真实封口IPC、原生
+UNKNOWN拒绝及Integration3项独立回归执行。统一恢复入口的真实链后续已验证，
+不再仅停留本机daemon故障时的编译证据。私有日志
 /tmp/agentbrowser-seal-request-ci-failed.log、/tmp/agentbrowser-seal-request-macos.log。
 
 ## 资源与剩余

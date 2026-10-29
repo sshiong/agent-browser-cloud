@@ -5742,6 +5742,7 @@ impl NodeControlService {
                                     .session_recorders
                                     .register(
                                         RecordingSpec {
+                                            upload_hold: None,
                                             session_id: command.session_id.clone(),
                                             cdp_endpoint: handle.cdp_endpoint.clone(),
                                             workspace: workspace.clone(),

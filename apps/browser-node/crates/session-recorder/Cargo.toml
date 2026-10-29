@@ -8,6 +8,7 @@ anyhow.workspace = true
 base64.workspace = true
 futures-util.workspace = true
 helper-client = { path = "../helper-client" }
+node-journal = { path = "../node-journal" }
 jpeg-decoder.workspace = true
 jpeg-encoder.workspace = true
 reqwest.workspace = true
@@ -18,3 +19,6 @@ tokio.workspace = true
 tokio-tungstenite.workspace = true
 tracing.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+helper-contracts = { path = "../helper-contracts" }

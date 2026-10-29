@@ -4928,10 +4928,25 @@ test "$high_level_act_state" = "COMPLETED"
 
 high_level_wait_task=""
 for wait_attempt in 1 2 3; do
-  high_level_wait_snapshot="$(curl -fsS \
-    "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
-    -H 'X-Tenant-Id: tenant-integration' \
-    -H 'X-Roles: TENANT_VIEWER')"
+  # Wait for fresh authoritative perception; never plan an action from a stale snapshot.
+  high_level_wait_snapshot_status=""
+  for snapshot_attempt in $(seq 1 40); do
+    high_level_wait_snapshot_status="$(curl -sS --max-time 10 -o "$temp_dir/high-level-wait-snapshot.json" -w '%{http_code}' \
+      "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
+      -H 'X-Tenant-Id: tenant-integration' \
+      -H 'X-Roles: TENANT_VIEWER')"
+    if [[ "$high_level_wait_snapshot_status" = "200" ]]; then break; fi
+    if [[ "$high_level_wait_snapshot_status" != "422" ]] || ! python3 -c \
+      'import json,sys; e=json.load(open(sys.argv[1])); assert e.get("code")=="AGENT_BROWSER_PERCEPTION_REJECTED" and e.get("details",{}).get("reason")=="BROWSER_STATE_STALE"' \
+      "$temp_dir/high-level-wait-snapshot.json"; then
+      echo 'HIGH_LEVEL_WAIT_SNAPSHOT_NONRETRYABLE' >&2
+      exit 1
+    fi
+    echo "HIGH_LEVEL_WAIT_SNAPSHOT_STALE attempt=$snapshot_attempt"
+    sleep 0.25
+  done
+  test "$high_level_wait_snapshot_status" = "200"
+  high_level_wait_snapshot="$(<"$temp_dir/high-level-wait-snapshot.json")"
   high_level_wait_request="$(python3 - "$high_level_wait_snapshot" <<'PY'
 import json
 import sys

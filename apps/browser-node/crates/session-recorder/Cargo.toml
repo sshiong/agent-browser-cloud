@@ -21,4 +21,5 @@ tracing.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+aws-sdk-s3.workspace = true
 helper-contracts = { path = "../helper-contracts" }

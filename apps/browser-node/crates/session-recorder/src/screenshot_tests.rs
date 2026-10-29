@@ -360,3 +360,353 @@ async fn real_chromium_screenshot_navigation_and_cancellation_preserve_page_boot
     control.close(None).await.unwrap();
     chrome.stop().await;
 }
+
+struct OwnedRecordingHelper {
+    child: Child,
+    root: PathBuf,
+}
+
+impl Drop for OwnedRecordingHelper {
+    fn drop(&mut self) {
+        let _ = self.child.start_kill();
+        let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
+
+#[test]
+#[ignore = "requires owned MinIO, real Chrome, compiled Helper and real privacy scanner"]
+fn real_chromium_held_recording_scans_and_seals_native_on_versions() {
+    std::thread::Builder::new()
+        .stack_size(8 * 1024 * 1024)
+        .spawn(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .thread_stack_size(8 * 1024 * 1024)
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(Box::pin(real_held_recording_body()));
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+async fn real_held_recording_body() {
+    use aws_sdk_s3::config::{BehaviorVersion, Credentials, Region};
+    let endpoint = std::env::var("TEST_OBJECT_STORAGE_ENDPOINT").unwrap();
+    let url = reqwest::Url::parse(&endpoint).unwrap();
+    assert_eq!(url.scheme(), "http");
+    assert_eq!(url.host_str(), Some("127.0.0.1"));
+    let bucket = std::env::var("TEST_OBJECT_STORAGE_BUCKET").unwrap();
+    let access = std::env::var("TEST_OBJECT_STORAGE_ACCESS_KEY_ID").unwrap();
+    let secret = std::env::var("TEST_OBJECT_STORAGE_SECRET_ACCESS_KEY").unwrap();
+    assert!(
+        access == "browsercloud-test" && secret == "browsercloud-test-secret",
+        "owned fixture credentials required"
+    );
+    let helper_path = PathBuf::from(std::env::var("REAL_STORAGE_HELPER_PATH").unwrap());
+    let scanner = PathBuf::from(std::env::var("REAL_RECORDING_PRIVACY_SCANNER_PATH").unwrap());
+    assert!(helper_path.is_absolute() && scanner.is_absolute());
+    let scan_test = Command::new(&scanner)
+        .arg("--self-test")
+        .output()
+        .await
+        .unwrap();
+    assert!(scan_test.status.success(), "real privacy self-test failed");
+    let self_test: Value = serde_json::from_slice(&scan_test.stdout).unwrap();
+    assert_eq!(self_test["ready"], true);
+    assert_eq!(self_test["scanVersion"], RECORDING_PRIVACY_SCAN_VERSION);
+    let suffix = uuid::Uuid::new_v4().simple().to_string();
+    let root = PathBuf::from("/tmp").join(format!("ab-rhe-{suffix}"));
+    tokio::fs::create_dir(&root).await.unwrap();
+    tokio::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
+        .await
+        .unwrap();
+    let keyring = root.join("keys.json");
+    tokio::fs::write(
+        &keyring,
+        include_bytes!("../../../../../tests/fixtures/profile-archive-keyring.json"),
+    )
+    .await
+    .unwrap();
+    tokio::fs::set_permissions(&keyring, std::fs::Permissions::from_mode(0o600))
+        .await
+        .unwrap();
+    let socket = root.join("h.sock");
+    let storage = root.join("profiles");
+    let prefix = format!("real-held-e2e/{suffix}");
+    let helper_child = Command::new(helper_path)
+        .env("APP_ENVIRONMENT", "test")
+        .env("STORAGE_HELPER_SOCKET", &socket)
+        .env("PROFILE_STORAGE_ROOT", &storage)
+        .env("OBJECT_STORAGE_ENABLED", "true")
+        .env("OBJECT_STORAGE_ENDPOINT", &endpoint)
+        .env("OBJECT_STORAGE_BUCKET", &bucket)
+        .env("OBJECT_STORAGE_ACCESS_KEY_ID", &access)
+        .env("OBJECT_STORAGE_SECRET_ACCESS_KEY", &secret)
+        .env("OBJECT_STORAGE_PREFIX", &prefix)
+        .env("PROFILE_ARCHIVE_KEYRING_FILE", &keyring)
+        .env("OBJECT_STORAGE_OPERATION_TIMEOUT_MS", "10000")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .kill_on_drop(true)
+        .spawn()
+        .unwrap();
+    let mut helper = OwnedRecordingHelper {
+        child: helper_child,
+        root: root.clone(),
+    };
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
+    while !socket.exists() {
+        assert!(
+            helper.child.try_wait().unwrap().is_none(),
+            "owned Helper exited before ready"
+        );
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "owned Helper ready deadline"
+        );
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    let client =
+        Arc::new(StorageHelperClient::new(socket, Duration::from_secs(120), storage).unwrap());
+    let session = format!("ses_{suffix}");
+    let recording = format!("rec_{suffix}");
+    let workspace = client
+        .acquire_workspace("tenant-held-e2e", "profile-held-e2e", &session)
+        .await
+        .unwrap();
+    let scope = helper_client::RecordingUploadHoldScope {
+        operation_id: format!("rua_{suffix}"),
+        authority_epoch: 1,
+        placement_epoch: 1,
+        tenant_id: workspace.tenant_id.clone(),
+        profile_id: workspace.profile_id.clone(),
+        session_id: session.clone(),
+        recording_id: recording.clone(),
+    };
+    let journal_path = root.join("node.sqlite");
+    let journal = Arc::new(
+        node_journal::SqliteNodeJournal::open(&journal_path)
+            .await
+            .unwrap(),
+    );
+    let chrome = OwnedChrome::start().await;
+    let version: Value = reqwest::Client::new()
+        .get(format!("{}/json/version", chrome.endpoint))
+        .timeout(CDP_TIMEOUT)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let (mut browser, _) =
+        tokio_tungstenite::connect_async(version["webSocketDebuggerUrl"].as_str().unwrap())
+            .await
+            .unwrap();
+    let targets = send_command_value(&mut browser, 1, "Target.getTargets", json!({}))
+        .await
+        .unwrap();
+    for (index, target) in targets["result"]["targetInfos"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .enumerate()
+    {
+        if target["type"] == "page" && target["targetId"] != chrome.target {
+            send_command(
+                &mut browser,
+                index as i64 + 2,
+                "Target.closeTarget",
+                json!({"targetId":target["targetId"]}),
+            )
+            .await
+            .unwrap();
+        }
+    }
+    browser.close(None).await.unwrap();
+    let mut page = chrome.connect().await;
+    chrome.navigate(&mut page, "held-recording", 10).await;
+    send_command(&mut page,30,"Runtime.evaluate",json!({"expression":
+        "const p=document.createElement('div');p.style='font:32px Arial;background:white;color:black';p.textContent='owned.user@example.com';document.body.appendChild(p);setInterval(()=>document.getElementById('root').textContent='Owned frame '+window.ticks,100);true"})).await.unwrap();
+    let registry = SessionRecorderRegistry::default();
+    registry
+        .register(
+            RecordingSpec {
+                session_id: session.clone(),
+                cdp_endpoint: chrome.endpoint.clone(),
+                workspace: workspace.clone(),
+                storage_helper: Arc::clone(&client),
+                privacy_scanner_path: scanner,
+                upload_hold: Some(RecordingUploadContext {
+                    scope: scope.clone(),
+                    journal: Arc::clone(&journal),
+                }),
+            },
+            true,
+        )
+        .await
+        .unwrap();
+    let oracle = aws_sdk_s3::Client::from_conf(
+        aws_sdk_s3::Config::builder()
+            .behavior_version(BehaviorVersion::latest())
+            .endpoint_url(&endpoint)
+            .region(Region::new("us-east-1"))
+            .force_path_style(true)
+            .credentials_provider(Credentials::new(
+                access,
+                secret,
+                None,
+                None,
+                "owned-held-recording",
+            ))
+            .build(),
+    );
+    let object_prefix = format!(
+        "{prefix}/tenants/{}/profiles/{}/sessions/{}/recordings/{}/",
+        scope.tenant_id, scope.profile_id, session, recording
+    );
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(90);
+    loop {
+        if journal.recording_upload_scope_hash(&scope).await.is_ok() {
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "first held segment deadline"
+        );
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+    // Producer is still enabled: observe native ON before requesting finalization.
+    {
+        let sessions = registry.sessions.lock().await;
+        assert!(
+            !sessions
+                .get(&session)
+                .unwrap()
+                .active
+                .as_ref()
+                .unwrap()
+                .task
+                .is_finished(),
+            "capture ended before native upload observation"
+        );
+    }
+    let during = oracle
+        .list_object_versions()
+        .bucket(&bucket)
+        .prefix(&object_prefix)
+        .send()
+        .await
+        .unwrap();
+    assert!(during.versions().len() >= 2);
+    for version in during.versions() {
+        assert!(
+            !version.key().unwrap().ends_with("/COMMITTED")
+                || version.key().unwrap().contains("/segments/")
+        );
+        let hold = oracle
+            .get_object_legal_hold()
+            .bucket(&bucket)
+            .key(version.key().unwrap())
+            .version_id(version.version_id().unwrap())
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(
+            hold.legal_hold().unwrap().status(),
+            Some(&aws_sdk_s3::types::ObjectLockLegalHoldStatus::On)
+        );
+    }
+    let summary = registry
+        .set_enabled(&session, false)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        summary.frame_count > 0 && summary.segment_count > 0 && summary.redacted_frame_count > 0
+    );
+    let versions = oracle
+        .list_object_versions()
+        .bucket(&bucket)
+        .prefix(&object_prefix)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        versions.versions().len() as u64,
+        summary.segment_count * 2 + 1
+    );
+    assert!(versions.delete_markers().is_empty());
+    let mut scanned = 0u64;
+    let mut ocr_detections = 0u64;
+    for version in versions.versions() {
+        let hold = oracle
+            .get_object_legal_hold()
+            .bucket(&bucket)
+            .key(version.key().unwrap())
+            .version_id(version.version_id().unwrap())
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(
+            hold.legal_hold().unwrap().status(),
+            Some(&aws_sdk_s3::types::ObjectLockLegalHoldStatus::On)
+        );
+        if version.key().unwrap().ends_with(".ndjson") {
+            let object = oracle
+                .get_object()
+                .bucket(&bucket)
+                .key(version.key().unwrap())
+                .version_id(version.version_id().unwrap())
+                .send()
+                .await
+                .unwrap();
+            let body = object.body.collect().await.unwrap().into_bytes();
+            for line in body.split(|b| *b == b'\n').filter(|l| !l.is_empty()) {
+                let frame: Value = serde_json::from_slice(line).unwrap();
+                assert_eq!(frame["privacyScanState"], "VERIFIED");
+                assert_eq!(frame["redactionPolicyVersion"], 2);
+                assert_eq!(frame["ocrResidualSignalCount"], 0);
+                assert_eq!(frame["visualResidualSignalCount"], 0);
+                let pixels = base64::engine::general_purpose::STANDARD
+                    .decode(frame["data"].as_str().unwrap())
+                    .unwrap();
+                assert_eq!(
+                    frame["sanitizedImageSha256"],
+                    format!("{:x}", Sha256::digest(&pixels))
+                );
+                ocr_detections += frame["ocrDetectedSignalCount"].as_u64().unwrap();
+                scanned += 1;
+            }
+        }
+    }
+    assert_eq!(scanned, summary.frame_count);
+    assert!(ocr_detections > 0, "owned visible PII was not classified");
+    assert!(journal
+        .recording_upload_seal(&scope.tenant_id, &session, &recording)
+        .await
+        .unwrap()
+        .is_some());
+    registry
+        .acknowledge_summary(&session, &recording)
+        .await
+        .unwrap();
+    registry.unregister(&session).await.unwrap();
+    drop(registry);
+    drop(journal);
+    drop(page);
+    drop(chrome);
+    drop(client);
+    helper.child.kill().await.unwrap();
+    let _ = helper.child.wait().await;
+    println!(
+        "REAL_HELD_RECORDING_E2E_OK frames={} segments={} versions={} ocr_detections={}",
+        summary.frame_count,
+        summary.segment_count,
+        summary.segment_count * 2 + 1,
+        ocr_detections
+    );
+}

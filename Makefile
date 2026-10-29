@@ -284,6 +284,11 @@ test-turnstile-interactive:
 test-postgres-outage:
 	./tests/failure-injection/postgres-outage.sh
 
+.PHONY: test-real-held-recording
+# Owned real Chrome + production privacy scanner + authenticated Helper + native S3 Hold.
+test-real-held-recording:
+	RECORDING_HELD_E2E=true OBJECT_STORAGE_TEST_FOCUS=legal-hold ./tests/failure-injection/object-storage-timeout.sh
+
 # Verify S3-compatible checkpoint commit ordering, bounded timeout, and retry safety
 test-object-storage:
 	./tests/failure-injection/object-storage-timeout.sh

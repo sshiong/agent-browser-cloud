@@ -116,6 +116,12 @@ jobs:
       - name: Object Storage checkpoint and recording GameDay
         run: make test-object-storage
 
+      - name: Real Chrome recording with native upload Hold
+        timeout-minutes: 5
+        run: |
+          real_chromium_path="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          REAL_CHROMIUM_PATH="$real_chromium_path" make test-real-held-recording
+
   kubernetes-operator-e2e:
     runs-on: ubuntu-24.04
     timeout-minutes: 15

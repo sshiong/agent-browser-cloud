@@ -2728,6 +2728,7 @@ name = "session-recorder"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "aws-sdk-s3",
  "base64",
  "futures-util",
  "helper-client",

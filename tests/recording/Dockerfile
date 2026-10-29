@@ -1,4 +1,5 @@
-FROM debian:bookworm-slim
+ARG PRIVACY_BASE_IMAGE=debian:bookworm-slim
+FROM ${PRIVACY_BASE_IMAGE}
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
         opencv-data python3 python3-numpy python3-opencv tesseract-ocr tesseract-ocr-eng tesseract-ocr-chi-sim \

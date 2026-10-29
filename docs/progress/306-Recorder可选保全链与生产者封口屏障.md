@@ -70,7 +70,9 @@ write_segments只返回PendingRecording计数，不再提交Manifest。run_recor
 
 基线6f4fc76主CI40726646167及Desktop40726646122精确SHA所有Jobs成功（含Operator/
 Windows/macOS）。Verify日志确认统一恢复失败续行、真实封口IPC、UNKNOWN原生
-拒绝，以及Integration的3项无服务回归实际执行。progress305已补收尾，新提交另需CI。
+拒绝，以及Integration的3项无服务回归实际执行。progress305已补收尾。本提交8b27080主CI40817340480、Desktop40817340494
+精确SHA所有Jobs成功；Verify日志已确认新生产者屏障、panic清理、ACK失败保留与
+完整链原生UNKNOWN拒绝，未只依赖绿标。
 
 本轮MinIO与两轮Integration的专用容器/网络均已回收，确认构建digest来源、无容器
 引用后删除两个测试MinIO/mc镜像。原有8容器保留；另有一个2026-08-13创建的空

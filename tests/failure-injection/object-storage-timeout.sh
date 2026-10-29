@@ -23,13 +23,41 @@ replica_bucket="${bucket}-replica"
 port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')"
 replica_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')"
 
+held_e2e="${RECORDING_HELD_E2E:-false}"
+[[ "$held_e2e" == true || "$held_e2e" == false ]]
+privacy_image=""
+scanner_container=""
+scanner_root=""
 cleanup() {
   docker unpause "$container_name" >/dev/null 2>&1 || true
   docker rm -fv "$container_name" >/dev/null 2>&1 || true
   docker rm -fv "$replica_container_name" >/dev/null 2>&1 || true
   docker network rm "$network_name" >/dev/null 2>&1 || true
+  if [[ -n "$scanner_container" ]]; then docker rm -fv "$scanner_container" >/dev/null 2>&1 || true; fi
+  if [[ -n "$privacy_image" ]]; then docker image rm "$privacy_image" >/dev/null 2>&1 || true; fi
+  if [[ -n "$scanner_root" ]]; then rm -rf "$scanner_root"; fi
 }
 trap cleanup EXIT
+
+if [[ "$held_e2e" == true ]]; then
+  [[ -n "${REAL_CHROMIUM_PATH:-}" && -x "$REAL_CHROMIUM_PATH" ]]
+  cargo build --locked --manifest-path "$repo_root/apps/browser-node/Cargo.toml" --bin storage-helper
+  privacy_image="browsercloud-held-recording-privacy-$RANDOM-$$:test"
+  scanner_container="browsercloud-held-recording-scanner-$RANDOM-$$"
+  scanner_root="$(mktemp -d /tmp/ab-held-scanner.XXXXXX)"
+  docker build --build-arg "PRIVACY_BASE_IMAGE=${RECORDING_PRIVACY_BASE_IMAGE:-debian:bookworm-slim}" \
+    -f "$repo_root/tests/recording/Dockerfile" -t "$privacy_image" "$repo_root"
+  scanner_image_id="$(docker image inspect --format '{{.Id}}' "$privacy_image")"
+  docker_endpoint="$(docker context inspect --format '{{.Endpoints.docker.Host}}')"
+  python3 - "$scanner_root/scanner" "$(command -v docker)" "$docker_endpoint" "$scanner_container" "$scanner_image_id" <<'PYWRAPPER'
+import pathlib,shlex,sys
+path,docker,endpoint,name,image=sys.argv[1:]
+argv=[docker,'--host',endpoint,'run','--pull=never','--rm','--name',name,'-i','--network=none','--read-only','--tmpfs','/tmp:rw,noexec,nosuid,size=32m',image,'python3','apps/browser-node/scripts/recording_privacy_scanner.py']
+p=pathlib.Path(path)
+p.write_text('#!/bin/sh\nexec '+shlex.join(argv)+' "$@"\n')
+p.chmod(0o700)
+PYWRAPPER
+fi
 
 python3 "$repo_root/tests/fixtures/build_minio_source_images.py"
 docker network create "$network_name" >/dev/null
@@ -83,6 +111,17 @@ run_legal_hold_tests() {
     cargo test --locked --manifest-path apps/browser-node/Cargo.toml \
     -p storage-helper real_s3_ \
     -- --ignored --test-threads=1
+  if [[ "$held_e2e" == true ]]; then
+    TEST_OBJECT_STORAGE_ENDPOINT="http://127.0.0.1:${port}" \
+    TEST_OBJECT_STORAGE_BUCKET="$bucket" \
+    TEST_OBJECT_STORAGE_ACCESS_KEY_ID="$access_key" \
+    TEST_OBJECT_STORAGE_SECRET_ACCESS_KEY="$secret_key" \
+    REAL_STORAGE_HELPER_PATH="$repo_root/apps/browser-node/target/debug/storage-helper" \
+    REAL_RECORDING_PRIVACY_SCANNER_PATH="$scanner_root/scanner" \
+      cargo test --locked --manifest-path "$repo_root/apps/browser-node/Cargo.toml" -p session-recorder \
+      screenshot_tests::real_chromium_held_recording_scans_and_seals_native_on_versions \
+      -- --ignored --exact --nocapture
+  fi
 }
 if [[ "${OBJECT_STORAGE_TEST_FOCUS:-all}" == legal-hold ]]; then
   run_legal_hold_tests

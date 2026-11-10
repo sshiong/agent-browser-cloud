@@ -117,7 +117,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V138 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V139 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -307,6 +307,11 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- 用户新增并确认可选部署MCP开发。开发计划与V139连接/环境额度基础已落地，
+  真实PG并发创建和启动均2选1，撤销/过期/释放/身份检查通过，见 progress315。
+  专用容器/匿名卷已清理，原16容器保留。认证/API原子绑定、Gateway、UI与部署
+  profile仍待实现，当前无可用MCP端点；附加需求不取消原十一项持续目标。
 
 - 前置22cc7d6主CI42771531383扫描失败，新增x/net v0.60.0 HIGH，未再列出zip；
   Provider升级x/net0.62.0及配套sys/text，-race测试与vet通过，见 progress314。

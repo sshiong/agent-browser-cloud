@@ -29,6 +29,10 @@ test-native-property-observer:
 test-recording-privacy:
 	docker build -f tests/recording/Dockerfile -t browsercloud-recording-privacy-test:local .
 
+.PHONY: test-agent-connection-quota
+test-agent-connection-quota:
+	python3 tests/integration/agent_connection_quota.py
+
 test-recording-retention-order:
 	./tests/integration/recording-retention-order.sh
 

@@ -108,6 +108,7 @@ jobs:
       - name: PostgreSQL recording deletion and Legal Hold ordering
         run: |
           make test-recording-retention-order
+          make test-agent-connection-quota
           make test-recording-cloud-hold-order
 
       - name: Integration smoke test

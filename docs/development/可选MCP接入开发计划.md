@@ -56,3 +56,5 @@ start_environment/stop_environment/delete_environment/get_operation。
 记录；新功能未接入口前不产生业务流量。上线需单独核对 Flyway 锁等待与实际表规模。
 
 首批V139及make test-agent-connection-quota已完成真实PG并发创建/启动、撤销、过期、身份与删除态检查，见[progress315](../progress/315-可选MCP开发启动与连接额度数据库基础.md)。后续阶段尚未完成。
+
+内部应用层已增加连接创建/撤销、环境创建事务绑定、幂等重放、额度与归属详情/分页查询；真实PG应用测试通过，见[progress316](../progress/316-MCP连接创建绑定与归属查询应用层.md)。完整生命周期、认证与Gateway仍待继续。

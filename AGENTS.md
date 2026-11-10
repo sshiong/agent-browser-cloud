@@ -1,6 +1,6 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-10-29
+> 更新日期：2026-11-10
 > 基准分支：`main`
 > 编写时基准提交：`237920e feat: dispatch durable recording holds and fence recovery with immutable requests`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
@@ -307,6 +307,11 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- 7d9db9a主CI40836953863在漏洞扫描因Desktop间接zip4.6.1的CRITICAL失败；
+  后续集成未执行，Operator与Desktop40836953873成功。已升级Updater2.14.1/
+  Tauri2.12.5/build2.7.4，zip9.5.0；本机Desktop测试/格式/check通过，见 progress311。
+  新提交漏洞扫描与双平台构建待CI确认。本轮未创建Docker资源，其余原十一项Gate保留。
 
 - 正式Recorder→Helper→mTLS→Inbox/PG→API投影及用途绑定v2播放通过（2帧/1段），
   修复对象Key误限128字符与Node播放只认v1，见 progress309。Java657项、严格Clippy、

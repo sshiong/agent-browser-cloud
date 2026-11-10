@@ -44,8 +44,8 @@ public class AgentConnectionController {
 
   @PostMapping
   @Transactional
-  public AgentConnectionAccessService.IssuedConnection create(
-      @RequestBody CreateConnection request) {
+  public org.springframework.http.ResponseEntity<AgentConnectionAccessService.IssuedConnection>
+      create(@RequestBody CreateConnection request) {
     var p = identity.current();
     var result =
         access.issue(
@@ -57,7 +57,10 @@ public class AgentConnectionController {
             request.expiresAt(),
             request.allowedTools());
     record(result.connection().connectionId(), "CREATED");
-    return result;
+    return org.springframework.http.ResponseEntity.ok()
+        .header("Cache-Control", "no-store")
+        .header("Pragma", "no-cache")
+        .body(result);
   }
 
   @PatchMapping("/{connectionId}")

@@ -3,6 +3,7 @@ package io.browsercloud.application;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import io.browsercloud.application.NodeEventIngestionService.NodeEventRejectedException;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.domain.session.ResourceClass;
@@ -130,6 +131,35 @@ class RecordingRedactionVersionPostgresTest {
           .isInstanceOf(DataIntegrityViolationException.class);
       assertThat(rowHash(modern)).isEqualTo(original);
     }
+    assertThat(rowHash(legacy)).isEqualTo(legacyHash);
+  }
+
+  @Test
+  void rejectsConflictingManifestOrEventIdentityWithoutChangingExistingEvidence() throws Exception {
+    migrate("V137__recording_redaction_v2_projection.sql");
+    migrate("V138__validate_recording_redaction_v2_projection.sql");
+    var modern = id();
+    project(modern, 2);
+    var original = rowHash(modern);
+    assertThatThrownBy(() -> project(modern, 1))
+        .isInstanceOf(NodeEventRejectedException.class)
+        .hasMessageContaining("RECORDING_MANIFEST_IDENTITY_CONFLICT");
+    assertThat(rowHash(modern)).isEqualTo(original);
+    var conflicting = id();
+    jdbc.update(
+        "UPDATE session_recordings SET event_id=? WHERE recording_id=?",
+        "evt_" + conflicting,
+        modern);
+    var reassigned = rowHash(modern);
+    assertThatThrownBy(() -> project(conflicting, 2))
+        .isInstanceOf(NodeEventRejectedException.class);
+    assertThat(rowHash(modern)).isEqualTo(reassigned);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM session_recordings WHERE recording_id=?",
+                Integer.class,
+                conflicting))
+        .isZero();
     assertThat(rowHash(legacy)).isEqualTo(legacyHash);
   }
 

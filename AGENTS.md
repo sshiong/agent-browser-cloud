@@ -308,6 +308,12 @@ progress 166。
 
 ### 最近验证状态
 
+- Recording投影遇唯一冲突后新增不可变元数据精确核验，异体Manifest/事件ID冲突
+  以固定原因拒绝，原证据不改写；精确重放保留。真实PG31项无跳过、Java回归通过，
+  见 progress312。本轮专用PG容器已清理，保留其他16容器和共享基础镜像。
+  基线22cc7d6主CI仍运行，Desktop Windows运行/macOS取消未验证；新提交CI待核验。
+  上传准入/交接/跨Node及其余原十一项目标Gate继续保留。
+
 - 7d9db9a主CI40836953863在漏洞扫描因Desktop间接zip4.6.1的CRITICAL失败；
   后续集成未执行，Operator与Desktop40836953873成功。已升级Updater2.14.1/
   Tauri2.12.5/build2.7.4，zip9.5.0；本机Desktop测试/格式/check通过，见 progress311。

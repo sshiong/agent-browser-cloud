@@ -2,6 +2,7 @@ package io.browsercloud.application;
 
 import static io.browsercloud.api.SessionRecordingModels.*;
 
+import io.browsercloud.application.NodeEventIngestionService.NodeEventRejectedException;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.coordinator.exceptions.SessionNotFoundException;
@@ -38,8 +39,9 @@ public class SessionRecordingApplicationService {
 
   @Transactional
   public void record(String tenantId, String eventId, NodeEvent.RecordingFinalized recording) {
-    jdbc.update(
-        """
+    var inserted =
+        jdbc.update(
+            """
         INSERT INTO session_recordings(
             recording_id, event_id, tenant_id, session_id, node_id,
             segment_count, frame_count, dropped_frames, redacted_frame_count,
@@ -55,25 +57,56 @@ public class SessionRecordingApplicationService {
            AND policy.data_class = 'REMOTE_DESKTOP_RECORDING'
         ON CONFLICT DO NOTHING
         """,
-        recording.recordingId(),
-        eventId,
-        tenantId,
-        recording.sessionId(),
-        recording.nodeId(),
-        recording.segmentCount(),
-        recording.frameCount(),
-        recording.droppedFrames(),
-        recording.redactedFrameCount(),
-        recording.redactedRegionCount(),
-        recording.redactionPolicyVersion(),
-        recording.manifestObjectKey(),
-        recording.manifestSha256(),
-        recording.manifestBytes(),
-        Timestamp.from(Instant.ofEpochMilli(recording.startedAtMs())),
-        Timestamp.from(Instant.ofEpochMilli(recording.endedAtMs())),
-        Timestamp.from(Instant.ofEpochMilli(recording.endedAtMs())),
-        defaultRetentionDays,
-        tenantId);
+            recording.recordingId(),
+            eventId,
+            tenantId,
+            recording.sessionId(),
+            recording.nodeId(),
+            recording.segmentCount(),
+            recording.frameCount(),
+            recording.droppedFrames(),
+            recording.redactedFrameCount(),
+            recording.redactedRegionCount(),
+            recording.redactionPolicyVersion(),
+            recording.manifestObjectKey(),
+            recording.manifestSha256(),
+            recording.manifestBytes(),
+            Timestamp.from(Instant.ofEpochMilli(recording.startedAtMs())),
+            Timestamp.from(Instant.ofEpochMilli(recording.endedAtMs())),
+            Timestamp.from(Instant.ofEpochMilli(recording.endedAtMs())),
+            defaultRetentionDays,
+            tenantId);
+    if (inserted == 0) {
+      var matching =
+          jdbc.queryForObject(
+              """
+          SELECT count(*) FROM session_recordings
+           WHERE recording_id=? AND tenant_id=? AND session_id=? AND node_id=?
+             AND segment_count=? AND frame_count=? AND dropped_frames=?
+             AND redacted_frame_count=? AND redacted_region_count=?
+             AND redaction_policy_version=? AND manifest_object_key=?
+             AND manifest_sha256=? AND manifest_bytes=? AND started_at=? AND ended_at=?
+          """,
+              Long.class,
+              recording.recordingId(),
+              tenantId,
+              recording.sessionId(),
+              recording.nodeId(),
+              recording.segmentCount(),
+              recording.frameCount(),
+              recording.droppedFrames(),
+              recording.redactedFrameCount(),
+              recording.redactedRegionCount(),
+              recording.redactionPolicyVersion(),
+              recording.manifestObjectKey(),
+              recording.manifestSha256(),
+              recording.manifestBytes(),
+              Timestamp.from(Instant.ofEpochMilli(recording.startedAtMs())),
+              Timestamp.from(Instant.ofEpochMilli(recording.endedAtMs())));
+      if (matching == null || matching != 1L) {
+        throw new NodeEventRejectedException("RECORDING_MANIFEST_IDENTITY_CONFLICT");
+      }
+    }
   }
 
   @Transactional(readOnly = true)

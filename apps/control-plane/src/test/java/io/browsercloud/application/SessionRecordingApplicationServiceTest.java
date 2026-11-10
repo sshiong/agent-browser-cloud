@@ -31,6 +31,7 @@ class SessionRecordingApplicationServiceTest {
 
   @BeforeEach
   void configureSession() {
+    when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
     when(sessions.require("ses_test"))
         .thenReturn(
             new SessionContext(
@@ -69,6 +70,7 @@ class SessionRecordingApplicationServiceTest {
   void shouldRaiseDefaultRetentionAboveTheBucketLockWindow() {
     var lockedJdbc = Mockito.mock(JdbcTemplate.class);
     var locked = new SessionRecordingApplicationService(lockedJdbc, sessions, 31);
+    when(lockedJdbc.update(anyString(), any(Object[].class))).thenReturn(1);
 
     locked.record("tenant-test", "evt-locked-recording", recording());
 

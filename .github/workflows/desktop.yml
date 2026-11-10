@@ -16,7 +16,7 @@ jobs:
       matrix:
         include:
           - platform: macOS
-            os: macos-14
+            os: macos-15
           - platform: Windows
             os: windows-2022
     runs-on: ${{ matrix.os }}

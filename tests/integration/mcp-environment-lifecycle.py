@@ -47,7 +47,7 @@ async def main():
     async with httpx.AsyncClient(base_url=base,headers=admin,trust_env=False,timeout=30) as http:
         async def management(path,body=None):
             r=await http.post(path,json=body);assert r.status_code==200, 'MCP_MANAGEMENT_FAILED'
-            if path == '/agent-connections': assert 'no-store' in r.headers.get('cache-control', '').lower().split(', ') 
+            if path == '/agent-connections': assert 'no-store' in r.headers.get('cache-control', '').lower().split(', ')
             return r.json()
         config={'name':'Owned MCP Agent','maximumEnvironments':2,'maximumRunning':1,'expiresAt':(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat()}
         issued=await management('/agent-connections',config)

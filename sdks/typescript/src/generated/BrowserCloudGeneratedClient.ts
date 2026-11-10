@@ -7,6 +7,7 @@ import type { OpenAPIConfig } from './core/OpenAPI.js';
 import { FetchHttpRequest } from './core/FetchHttpRequest.js';
 import { AdministrationService } from './services/AdministrationService.js';
 import { AgentService } from './services/AgentService.js';
+import { AgentConnectionService } from './services/AgentConnectionService.js';
 import { AgentSafetyService } from './services/AgentSafetyService.js';
 import { AgentToolService } from './services/AgentToolService.js';
 import { AuditService } from './services/AuditService.js';
@@ -45,6 +46,7 @@ type HttpRequestConstructor = new (config: OpenAPIConfig) => BaseHttpRequest;
 export class BrowserCloudGeneratedClient {
     public readonly administration: AdministrationService;
     public readonly agent: AgentService;
+    public readonly agentConnection: AgentConnectionService;
     public readonly agentSafety: AgentSafetyService;
     public readonly agentTool: AgentToolService;
     public readonly audit: AuditService;
@@ -95,6 +97,7 @@ export class BrowserCloudGeneratedClient {
         });
         this.administration = new AdministrationService(this.request);
         this.agent = new AgentService(this.request);
+        this.agentConnection = new AgentConnectionService(this.request);
         this.agentSafety = new AgentSafetyService(this.request);
         this.agentTool = new AgentToolService(this.request);
         this.audit = new AuditService(this.request);

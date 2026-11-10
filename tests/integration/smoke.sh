@@ -15,7 +15,7 @@ cd "$repo_root"
 integration_gate_scope="${INTEGRATION_GATE_SCOPE:-full}"
 integration_completed=false
 case "$integration_gate_scope" in
-  full|recording-hold|recording-projection) ;;
+  full|recording-hold|recording-projection|mcp) ;;
   *) echo 'INTEGRATION_GATE_SCOPE_REJECTED' >&2; exit 1 ;;
 esac
 minio_image="${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z}"
@@ -1686,6 +1686,11 @@ for _ in $(seq 1 80); do
   sleep 0.25
 done
 test "$cold_proxy_probe_count" -ge 1
+if [[ "$integration_gate_scope" == mcp ]]; then
+  "${MCP_PYTHON:?Set MCP_PYTHON to the Gateway virtualenv interpreter}" "$repo_root/tests/integration/mcp-environment-lifecycle.py"     "$control_port" "$proxy_binding_id"
+  integration_completed=true
+  exit 0
+fi
 if [[ "$integration_gate_scope" == recording-projection ]]; then
   python3 "$repo_root/tests/integration/recording-node-projection.py" \
     "$control_port" "$postgres_name" "$temp_dir/runtime" "$proxy_binding_id"

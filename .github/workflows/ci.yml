@@ -111,6 +111,11 @@ jobs:
           make test-agent-connection-quota
           make test-recording-cloud-hold-order
 
+      - name: Optional MCP protocol and lifecycle
+        run: |
+          make test-mcp-gateway
+          make test-mcp-integration
+
       - name: Integration smoke test
         run: make test-integration
 

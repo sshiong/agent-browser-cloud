@@ -2,6 +2,71 @@
 
 package generated
 
+type AgentConnectionCreateRequest struct {
+	Name                string   `json:"name,omitempty"`
+	MaximumEnvironments int      `json:"maximumEnvironments,omitempty"`
+	MaximumRunning      int      `json:"maximumRunning,omitempty"`
+	ExpiresAt           string   `json:"expiresAt,omitempty"`
+	AllowedTools        []string `json:"allowedTools,omitempty"`
+}
+
+type AgentConnectionView struct {
+	ConnectionId        string   `json:"connectionId,omitempty"`
+	Name                string   `json:"name,omitempty"`
+	Subject             string   `json:"subject,omitempty"`
+	MaximumEnvironments int      `json:"maximumEnvironments,omitempty"`
+	MaximumRunning      int      `json:"maximumRunning,omitempty"`
+	ExpiresAt           string   `json:"expiresAt,omitempty"`
+	Enabled             bool     `json:"enabled,omitempty"`
+	AllowedTools        []string `json:"allowedTools,omitempty"`
+}
+
+type AgentConnectionIssued struct {
+	Connection  AgentConnectionView `json:"connection,omitempty"`
+	AccessToken string              `json:"accessToken,omitempty"`
+}
+
+type AgentConnectionQuotaUpdate struct {
+	MaximumEnvironments int `json:"maximumEnvironments,omitempty"`
+	MaximumRunning      int `json:"maximumRunning,omitempty"`
+}
+
+type AgentConnectionQuota struct {
+	MaximumEnvironments int   `json:"maximumEnvironments,omitempty"`
+	MaximumRunning      int   `json:"maximumRunning,omitempty"`
+	EnvironmentsUsed    int64 `json:"environmentsUsed,omitempty"`
+	RunningUsed         int64 `json:"runningUsed,omitempty"`
+}
+
+type AgentConnectionIdentity struct {
+	TenantId     string   `json:"tenantId,omitempty"`
+	ConnectionId string   `json:"connectionId,omitempty"`
+	AllowedTools []string `json:"allowedTools,omitempty"`
+}
+
+type AgentEnvironmentCreation struct {
+	SessionId string                 `json:"sessionId,omitempty"`
+	Created   *CreateSessionResponse `json:"created,omitempty"`
+	Replay    bool                   `json:"replay,omitempty"`
+}
+
+type AgentEnvironmentList struct {
+	Items  []SessionView `json:"items,omitempty"`
+	Limit  int           `json:"limit,omitempty"`
+	Offset int           `json:"offset,omitempty"`
+}
+
+type AgentManagedOperation struct {
+	OperationId string `json:"operationId,omitempty"`
+	SessionId   string `json:"sessionId,omitempty"`
+	State       string `json:"state,omitempty"`
+	Phase       string `json:"phase,omitempty"`
+}
+
+type AgentConnectionMutation struct {
+	AdditionalProperties map[string]any `json:"-"`
+}
+
 type WorkspaceOverview struct {
 	Sessions     WorkspaceSessionSummary     `json:"sessions,omitempty"`
 	Operations   WorkspaceOperationSummary   `json:"operations,omitempty"`

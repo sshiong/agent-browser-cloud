@@ -22,6 +22,31 @@ x-local-agent-worker: &local-agent-worker
     start_period: 10s
 
 services:
+  mcp-gateway:
+    profiles: [mcp]
+    build:
+      context: apps/mcp-gateway
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=32m
+    environment:
+      CONTROL_PLANE_URL: http://control-plane:8080
+      MCP_ALLOW_INTERNAL_HTTP: "true"
+      MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-127.0.0.1:* localhost:*}
+      MCP_ALLOWED_ORIGINS: ${MCP_ALLOWED_ORIGINS:-http://127.0.0.1:* http://localhost:*}
+    ports:
+      - "127.0.0.1:8130:8130"
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8130/healthz', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
   local-agent-secrets:
     image: alpine:3.22
     restart: "no"

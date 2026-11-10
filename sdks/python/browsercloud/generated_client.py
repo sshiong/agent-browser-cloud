@@ -40,6 +40,19 @@ class ApiError(Exception):
 Transport = Callable[[str, str, Mapping[str, str], bytes | None], tuple[int, Mapping[str, str], bytes]]
 
 OPERATIONS: dict[str, Operation] = {
+    'listAgentConnections': Operation('listAgentConnections', 'GET', '/api/v1/agent-connections', (), (), ('X-Tenant-Id',), '', False, 'array<AgentConnectionView>'),
+    'createAgentConnection': Operation('createAgentConnection', 'POST', '/api/v1/agent-connections', (), (), ('X-Tenant-Id',), 'AgentConnectionCreateRequest', True, 'AgentConnectionIssued'),
+    'configureAgentConnectionQuota': Operation('configureAgentConnectionQuota', 'PATCH', '/api/v1/agent-connections/{connectionId}', ('connectionId',), (), ('X-Tenant-Id',), 'AgentConnectionQuotaUpdate', True, 'AgentConnectionMutation'),
+    'revokeAgentConnection': Operation('revokeAgentConnection', 'POST', '/api/v1/agent-connections/{connectionId}:revoke', ('connectionId',), (), ('X-Tenant-Id',), '', False, 'AgentConnectionMutation'),
+    'getAgentConnectionIdentity': Operation('getAgentConnectionIdentity', 'GET', '/api/v1/agent-access/identity', (), (), (), '', False, 'AgentConnectionIdentity'),
+    'getAgentConnectionQuota': Operation('getAgentConnectionQuota', 'GET', '/api/v1/agent-access/quota', (), (), (), '', False, 'AgentConnectionQuota'),
+    'listAgentEnvironments': Operation('listAgentEnvironments', 'GET', '/api/v1/agent-access/environments', (), ('limit', 'offset'), (), '', False, 'AgentEnvironmentList'),
+    'createAgentEnvironment': Operation('createAgentEnvironment', 'POST', '/api/v1/agent-access/environments', (), (), ('Idempotency-Key',), 'CreateSessionRequest', True, 'AgentEnvironmentCreation'),
+    'getAgentEnvironment': Operation('getAgentEnvironment', 'GET', '/api/v1/agent-access/environments/{sessionId}', ('sessionId',), (), (), '', False, 'SessionView'),
+    'deleteAgentEnvironment': Operation('deleteAgentEnvironment', 'DELETE', '/api/v1/agent-access/environments/{sessionId}', ('sessionId',), (), ('Idempotency-Key',), '', False, 'BatchDeleteSessionsResponse'),
+    'getAgentManagedOperation': Operation('getAgentManagedOperation', 'GET', '/api/v1/agent-access/operations/{operationId}', ('operationId',), (), (), '', False, 'AgentManagedOperation'),
+    'startAgentEnvironment': Operation('startAgentEnvironment', 'POST', '/api/v1/agent-access/environments/{sessionId}:start', ('sessionId',), (), ('Idempotency-Key',), '', False, 'OperationResponse'),
+    'stopAgentEnvironment': Operation('stopAgentEnvironment', 'POST', '/api/v1/agent-access/environments/{sessionId}:stop', ('sessionId',), (), ('Idempotency-Key',), '', False, 'OperationResponse'),
     'getWorkspaceOverview': Operation('getWorkspaceOverview', 'GET', '/api/v1/workspace-overview', (), (), (), '', False, 'WorkspaceOverview'),
     'streamWorkspaceOverviewChanges': Operation('streamWorkspaceOverviewChanges', 'GET', '/api/v1/workspace-overview/event-stream', (), (), ('Last-Event-ID',), '', False, 'string'),
     'getTenantCoordinatorRoute': Operation('getTenantCoordinatorRoute', 'GET', '/api/v1/coordinator/tenant-route', (), (), (), '', False, 'TenantRoute'),
@@ -362,6 +375,45 @@ class BrowserCloudGeneratedClient:
                 return response.status, dict(response.headers), response.read()
         except urllib.error.HTTPError as error:
             return error.code, dict(error.headers), error.read()
+
+    def listAgentConnections(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('listAgentConnections', path=path, query=query, body=body, headers=headers)
+
+    def createAgentConnection(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('createAgentConnection', path=path, query=query, body=body, headers=headers)
+
+    def configureAgentConnectionQuota(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('configureAgentConnectionQuota', path=path, query=query, body=body, headers=headers)
+
+    def revokeAgentConnection(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('revokeAgentConnection', path=path, query=query, body=body, headers=headers)
+
+    def getAgentConnectionIdentity(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getAgentConnectionIdentity', path=path, query=query, body=body, headers=headers)
+
+    def getAgentConnectionQuota(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getAgentConnectionQuota', path=path, query=query, body=body, headers=headers)
+
+    def listAgentEnvironments(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('listAgentEnvironments', path=path, query=query, body=body, headers=headers)
+
+    def createAgentEnvironment(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('createAgentEnvironment', path=path, query=query, body=body, headers=headers)
+
+    def getAgentEnvironment(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getAgentEnvironment', path=path, query=query, body=body, headers=headers)
+
+    def deleteAgentEnvironment(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('deleteAgentEnvironment', path=path, query=query, body=body, headers=headers)
+
+    def getAgentManagedOperation(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getAgentManagedOperation', path=path, query=query, body=body, headers=headers)
+
+    def startAgentEnvironment(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('startAgentEnvironment', path=path, query=query, body=body, headers=headers)
+
+    def stopAgentEnvironment(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('stopAgentEnvironment', path=path, query=query, body=body, headers=headers)
 
     def getWorkspaceOverview(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('getWorkspaceOverview', path=path, query=query, body=body, headers=headers)

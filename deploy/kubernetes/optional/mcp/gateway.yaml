@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: mcp-gateway}
+  template:
+    metadata:
+      labels: {app: mcp-gateway}
+    spec:
+      automountServiceAccountToken: false
+      securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: gateway
+          image: mcp-gateway:latest
+          ports: [{containerPort: 8130, name: http}]
+          env:
+            - {name: CONTROL_PLANE_URL, value: 'http://control-plane:8080'}
+            - {name: MCP_ALLOW_INTERNAL_HTTP, value: 'true'}
+            - {name: MCP_ALLOWED_HOSTS, value: 'mcp.example.invalid'}
+            - {name: MCP_ALLOWED_ORIGINS, value: 'https://mcp.example.invalid'}
+          securityContext: {readOnlyRootFilesystem: true, allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: '1', memory: 512Mi}
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes:
+        - name: tmp
+          emptyDir: {medium: Memory, sizeLimit: 32Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-gateway
+spec:
+  type: ClusterIP
+  selector: {app: mcp-gateway}
+  ports: [{name: http, port: 8130, targetPort: http}]

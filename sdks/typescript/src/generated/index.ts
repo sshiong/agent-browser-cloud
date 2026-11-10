@@ -31,6 +31,15 @@ export type { AgentBrowserTargetList } from './models/AgentBrowserTargetList.js'
 export type { AgentClipboard } from './models/AgentClipboard.js';
 export type { AgentClipboardBridge } from './models/AgentClipboardBridge.js';
 export type { AgentConfirmation } from './models/AgentConfirmation.js';
+export type { AgentConnectionCreateRequest } from './models/AgentConnectionCreateRequest.js';
+export type { AgentConnectionIdentity } from './models/AgentConnectionIdentity.js';
+export type { AgentConnectionIssued } from './models/AgentConnectionIssued.js';
+export type { AgentConnectionMutation } from './models/AgentConnectionMutation.js';
+export type { AgentConnectionQuota } from './models/AgentConnectionQuota.js';
+export type { AgentConnectionQuotaUpdate } from './models/AgentConnectionQuotaUpdate.js';
+export type { AgentConnectionView } from './models/AgentConnectionView.js';
+export type { AgentEnvironmentCreation } from './models/AgentEnvironmentCreation.js';
+export type { AgentEnvironmentList } from './models/AgentEnvironmentList.js';
 export type { AgentExecutionJob } from './models/AgentExecutionJob.js';
 export type { AgentExecutionJobClaim } from './models/AgentExecutionJobClaim.js';
 export type { AgentExecutionJobClaimRequest } from './models/AgentExecutionJobClaimRequest.js';
@@ -40,6 +49,7 @@ export type { AgentExecutionWait } from './models/AgentExecutionWait.js';
 export type { AgentHumanHandoff } from './models/AgentHumanHandoff.js';
 export type { AgentInputSecret } from './models/AgentInputSecret.js';
 export type { AgentInstructionSource } from './models/AgentInstructionSource.js';
+export type { AgentManagedOperation } from './models/AgentManagedOperation.js';
 export type { AgentOutcomeJob } from './models/AgentOutcomeJob.js';
 export type { AgentOutcomeJobClaim } from './models/AgentOutcomeJobClaim.js';
 export type { AgentOutcomeJobClaimRequest } from './models/AgentOutcomeJobClaimRequest.js';
@@ -394,6 +404,7 @@ export type { WriteAgentClipboardRequest } from './models/WriteAgentClipboardReq
 
 export { AdministrationService } from './services/AdministrationService.js';
 export { AgentService } from './services/AgentService.js';
+export { AgentConnectionService } from './services/AgentConnectionService.js';
 export { AgentSafetyService } from './services/AgentSafetyService.js';
 export { AgentToolService } from './services/AgentToolService.js';
 export { AuditService } from './services/AuditService.js';

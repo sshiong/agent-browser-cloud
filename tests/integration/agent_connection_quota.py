@@ -36,9 +36,9 @@ with tempfile.TemporaryDirectory(prefix='agentbrowser-mcp-quota-') as temp:
             if run(['docker', 'exec', name, 'pg_isready', '-U', 'postgres']).returncode == 0:
                 break
             time.sleep(.25)
-        schema = Path('database/migrations/V139__agent_connection_quota_authority.sql').read_text()
-        sql('CREATE TABLE sessions(id TEXT PRIMARY KEY); BEGIN;' + schema + 'COMMIT;')
-        sql("INSERT INTO agent_connections VALUES('conn','tenant','Test','subject',true,1,1,now()+interval '1 day');")
+        schema = Path('database/migrations/V139__agent_connection_quota_authority.sql').read_text() + Path('database/migrations/V140__agent_connection_access_and_lifecycle.sql').read_text()
+        sql("CREATE TABLE sessions(id TEXT PRIMARY KEY,tenant_id TEXT DEFAULT 'tenant',state TEXT DEFAULT 'CREATED',deleted_at TIMESTAMPTZ); BEGIN;" + schema + "COMMIT;")
+        sql("INSERT INTO agent_connections(connection_id,tenant_id,display_name,principal_subject,enabled,maximum_environments,maximum_running,expires_at) VALUES('conn','tenant','Test','subject',true,1,1,now()+interval '1 day');")
         # Two separate real transactions race for the final environment slot.
         def contender(i):
             r = run(['docker','exec','-i',name,'psql','-U','postgres','-At','-v','ON_ERROR_STOP=1'], input='BEGIN;' + insert('res'+str(i),'key'+str(i),True) + 'SELECT pg_sleep(0.2); COMMIT;')
@@ -70,6 +70,21 @@ with tempfile.TemporaryDirectory(prefix='agentbrowser-mcp-quota-') as temp:
         print('agent_connection_quota_concurrent_starts=true contenders=2 winners=1')
         sql("UPDATE agent_connections SET expires_at=now()-interval '1 second';")
         sql(insert('expired','expired'), False)
+        sql("TRUNCATE agent_connection_environments; UPDATE agent_connections SET enabled=true,expires_at=now()+interval '1 day',maximum_environments=2,maximum_running=1;")
+        sql("INSERT INTO sessions(id) VALUES('ses_one'),('ses_two');")
+        sql(insert('one','one') + insert('two','two'))
+        sql("UPDATE agent_connection_environments SET session_id='ses_one' WHERE reservation_id='one'; UPDATE agent_connection_environments SET session_id='ses_two' WHERE reservation_id='two';")
+        sql("UPDATE sessions SET state='STARTING' WHERE id='ses_one';")
+        sql("UPDATE sessions SET state='STARTING' WHERE id='ses_two';", False)
+        assert sql("SELECT state FROM sessions WHERE id='ses_two'") == 'CREATED'
+        sql("UPDATE sessions SET state='RUNNING' WHERE id='ses_one'; UPDATE sessions SET state='HIBERNATING' WHERE id='ses_one';")
+        sql("UPDATE sessions SET state='STARTING' WHERE id='ses_two';", False)
+        sql("UPDATE sessions SET state='HIBERNATED' WHERE id='ses_one'; UPDATE sessions SET state='STARTING' WHERE id='ses_two'; UPDATE sessions SET state='FAILED' WHERE id='ses_two';")
+        assert sql("SELECT running_reserved FROM agent_connection_environments WHERE reservation_id='two'") == 't'
+        sql("UPDATE sessions SET state='TERMINATED' WHERE id='ses_two'; UPDATE sessions SET deleted_at=now() WHERE id='ses_one';")
+        assert sql("SELECT state FROM agent_connection_environments WHERE reservation_id='one'") == 'DELETED'
+        assert sql("SELECT count(*) FROM agent_connection_environments WHERE running_reserved") == '0'
+        print('agent_connection_canonical_session_quota_and_release=true')
         print('agent_connection_quota_postgres=true concurrent_creates=2 winners=1')
         print('agent_connection_quota_revocation_release_and_identity=true')
     finally:

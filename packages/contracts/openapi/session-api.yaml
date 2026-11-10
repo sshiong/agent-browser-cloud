@@ -4,14 +4,372 @@ info:
   version: 1.0.0
   description: Control Plane Session API v1.
   license:
-    name: Proprietary
-    identifier: LicenseRef-Proprietary
+    name: MIT
+    identifier: MIT
 servers:
   - url: /
     description: Same-origin API endpoint
 security:
   - bearerAuth: []
 paths:
+  "/api/v1/agent-connections":
+    get:
+      operationId: listAgentConnections
+      summary: listAgentConnections
+      tags:
+      - AgentConnection
+      parameters:
+      - "$ref": "#/components/parameters/TenantId"
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/AgentConnectionView"
+        '401':
+          description: Authentication required
+        '403':
+          description: Connection, role or tool access rejected
+        '409':
+          description: Quota, lifecycle or identity conflict
+    post:
+      operationId: createAgentConnection
+      summary: createAgentConnection
+      tags:
+      - AgentConnection
+      parameters:
+      - "$ref": "#/components/parameters/TenantId"
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AgentConnectionIssued"
+        '401':
+          description: Authentication required
+        '403':
+          description: Connection, role or tool access rejected
+        '409':
+          description: Quota, lifecycle or identity conflict
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/AgentConnectionCreateRequest"
+  "/api/v1/agent-connections/{connectionId}":
+    patch:
+      operationId: configureAgentConnectionQuota
+      summary: configureAgentConnectionQuota
+      tags:
+      - AgentConnection
+      parameters:
+      - name: connectionId
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 128
+      - "$ref": "#/components/parameters/TenantId"
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AgentConnectionMutation"
+        '401':
+          description: Authentication required
+        '403':
+          description: Connection, role or tool access rejected
+        '409':
+          description: Quota, lifecycle or identity conflict
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/AgentConnectionQuotaUpdate"
+  "/api/v1/agent-connections/{connectionId}:revoke":
+    post:
+      operationId: revokeAgentConnection
+      summary: revokeAgentConnection
+      tags:
+      - AgentConnection
+      parameters:
+      - name: connectionId
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 128
+      - "$ref": "#/components/parameters/TenantId"
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AgentConnectionMutation"
+        '401':
+          description: Authentication required
+        '403':
+          description: Connection, role or tool access rejected
+        '409':
+          description: Quota, lifecycle or identity conflict
+  "/api/v1/agent-access/identity":
+    get:
+      operationId: getAgentConnectionIdentity
+      summary: getAgentConnectionIdentity
+      tags:
+      - AgentConnection
+      parameters: []
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AgentConnectionIdentity"
+        '401':
+          description: Authentication required
+        '403':
+          description: Connection, role or tool access rejected
+        '409':
+          description: Quota, lifecycle or identity conflict
+      security:
+      - agentConnectionBearer: []
+  "/api/v1/agent-access/quota":
+    get:
+      operationId: getAgentConnectionQuota
+      summary: getAgentConnectionQuota
+      tags:
+      - AgentConnection
+      parameters: []
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AgentConnectionQuota"
+        '401':
+          description: Authentication required
+        '403':
+          description: Connection, role or tool access rejected
+        '409':
+          description: Quota, lifecycle or identity conflict
+      security:
+      - agentConnectionBearer: []
+  "/api/v1/agent-access/environments":
+    get:
+      operationId: listAgentEnvironments
+      summary: listAgentEnvironments
+      tags:
+      - AgentConnection
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AgentEnvironmentList"
+        '401':
+          description: Authentication required
+        '403':
+          description: Connection, role or tool access rejected
+        '409':
+          description: Quota, lifecycle or identity conflict
+      security:
+      - agentConnectionBearer: []
+    post:
+      operationId: createAgentEnvironment
+      summary: createAgentEnvironment
+      tags:
+      - AgentConnection
+      parameters:
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AgentEnvironmentCreation"
+        '401':
+          description: Authentication required
+        '403':
+          description: Connection, role or tool access rejected
+        '409':
+          description: Quota, lifecycle or identity conflict
+      security:
+      - agentConnectionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/CreateSessionRequest"
+  "/api/v1/agent-access/environments/{sessionId}":
+    get:
+      operationId: getAgentEnvironment
+      summary: getAgentEnvironment
+      tags:
+      - AgentConnection
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 128
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SessionView"
+        '401':
+          description: Authentication required
+        '403':
+          description: Connection, role or tool access rejected
+        '409':
+          description: Quota, lifecycle or identity conflict
+      security:
+      - agentConnectionBearer: []
+    delete:
+      operationId: deleteAgentEnvironment
+      summary: deleteAgentEnvironment
+      tags:
+      - AgentConnection
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 128
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/BatchDeleteSessionsResponse"
+        '401':
+          description: Authentication required
+        '403':
+          description: Connection, role or tool access rejected
+        '409':
+          description: Quota, lifecycle or identity conflict
+      security:
+      - agentConnectionBearer: []
+  "/api/v1/agent-access/operations/{operationId}":
+    get:
+      operationId: getAgentManagedOperation
+      summary: getAgentManagedOperation
+      tags:
+      - AgentConnection
+      parameters:
+      - name: operationId
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 128
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AgentManagedOperation"
+        '401':
+          description: Authentication required
+        '403':
+          description: Connection, role or tool access rejected
+        '409':
+          description: Quota, lifecycle or identity conflict
+      security:
+      - agentConnectionBearer: []
+  "/api/v1/agent-access/environments/{sessionId}:start":
+    post:
+      operationId: startAgentEnvironment
+      summary: startAgentEnvironment
+      tags:
+      - AgentConnection
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 128
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/OperationResponse"
+        '401':
+          description: Authentication required
+        '403':
+          description: Connection, role or tool access rejected
+        '409':
+          description: Quota, lifecycle or identity conflict
+      security:
+      - agentConnectionBearer: []
+  "/api/v1/agent-access/environments/{sessionId}:stop":
+    post:
+      operationId: stopAgentEnvironment
+      summary: stopAgentEnvironment
+      tags:
+      - AgentConnection
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 128
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/OperationResponse"
+        '401':
+          description: Authentication required
+        '403':
+          description: Connection, role or tool access rejected
+        '409':
+          description: Quota, lifecycle or identity conflict
+      security:
+      - agentConnectionBearer: []
   /api/v1/workspace-overview:
     get:
       operationId: getWorkspaceOverview
@@ -6384,6 +6742,10 @@ paths:
           $ref: "#/components/responses/Conflict"
 components:
   securitySchemes:
+    agentConnectionBearer:
+      type: http
+      scheme: bearer
+      description: Dedicated opaque connection credential. Accepted only by agent-access endpoints.
     bearerAuth:
       type: http
       scheme: bearer
@@ -6560,6 +6922,227 @@ components:
         type: string
         pattern: "^gameday_[A-Za-z0-9]{20}$"
   schemas:
+    AgentConnectionCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - maximumEnvironments
+      - maximumRunning
+      - expiresAt
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        maximumEnvironments:
+          type: integer
+          minimum: 0
+          maximum: 10000
+        maximumRunning:
+          type: integer
+          minimum: 0
+          maximum: 10000
+        expiresAt:
+          type: string
+          format: date-time
+        allowedTools:
+          type: array
+          minItems: 1
+          maxItems: 8
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+            - quota
+            - list
+            - get
+            - create
+            - start
+            - stop
+            - delete
+            - operation
+    AgentConnectionView:
+      type: object
+      additionalProperties: false
+      required:
+      - connectionId
+      - name
+      - subject
+      - maximumEnvironments
+      - maximumRunning
+      - expiresAt
+      - enabled
+      - allowedTools
+      properties:
+        connectionId:
+          type: string
+        name:
+          type: string
+        subject:
+          type: string
+        maximumEnvironments:
+          type: integer
+          minimum: 0
+          maximum: 10000
+        maximumRunning:
+          type: integer
+          minimum: 0
+          maximum: 10000
+        expiresAt:
+          type: string
+          format: date-time
+        enabled:
+          type: boolean
+        allowedTools:
+          type: array
+          minItems: 1
+          maxItems: 8
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+            - quota
+            - list
+            - get
+            - create
+            - start
+            - stop
+            - delete
+            - operation
+    AgentConnectionIssued:
+      type: object
+      additionalProperties: false
+      required:
+      - connection
+      - accessToken
+      properties:
+        connection:
+          "$ref": "#/components/schemas/AgentConnectionView"
+        accessToken:
+          type: string
+          description: Returned once; store securely. Never included in list or audit.
+    AgentConnectionQuotaUpdate:
+      type: object
+      additionalProperties: false
+      required:
+      - maximumEnvironments
+      - maximumRunning
+      properties:
+        maximumEnvironments:
+          type: integer
+          minimum: 0
+          maximum: 10000
+        maximumRunning:
+          type: integer
+          minimum: 0
+          maximum: 10000
+    AgentConnectionQuota:
+      type: object
+      additionalProperties: false
+      required:
+      - maximumEnvironments
+      - maximumRunning
+      - environmentsUsed
+      - runningUsed
+      properties:
+        maximumEnvironments:
+          type: integer
+          minimum: 0
+          maximum: 10000
+        maximumRunning:
+          type: integer
+          minimum: 0
+          maximum: 10000
+        environmentsUsed:
+          type: integer
+          format: int64
+          minimum: 0
+        runningUsed:
+          type: integer
+          format: int64
+          minimum: 0
+    AgentConnectionIdentity:
+      type: object
+      additionalProperties: false
+      required:
+      - tenantId
+      - connectionId
+      - allowedTools
+      properties:
+        tenantId:
+          type: string
+        connectionId:
+          type: string
+        allowedTools:
+          type: array
+          minItems: 1
+          maxItems: 8
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+            - quota
+            - list
+            - get
+            - create
+            - start
+            - stop
+            - delete
+            - operation
+    AgentEnvironmentCreation:
+      type: object
+      additionalProperties: false
+      required:
+      - sessionId
+      - created
+      - replay
+      properties:
+        sessionId:
+          type: string
+        created:
+          oneOf:
+          - "$ref": "#/components/schemas/CreateSessionResponse"
+          - type: 'null'
+        replay:
+          type: boolean
+    AgentEnvironmentList:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - limit
+      - offset
+      properties:
+        items:
+          type: array
+          items:
+            "$ref": "#/components/schemas/SessionView"
+        limit:
+          type: integer
+        offset:
+          type: integer
+    AgentManagedOperation:
+      type: object
+      additionalProperties: false
+      required:
+      - operationId
+      - sessionId
+      - state
+      - phase
+      properties:
+        operationId:
+          type: string
+        sessionId:
+          type: string
+        state:
+          type: string
+        phase:
+          type: string
+    AgentConnectionMutation:
+      type: object
+      additionalProperties:
+        type: boolean
     WorkspaceOverview:
       type: object
       additionalProperties: false

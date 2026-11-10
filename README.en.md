@@ -154,7 +154,7 @@ broken local links in either README.
 
 | Directory | Git-tracked modules |
 | --- | --- |
-| `apps/` | [agent-worker](apps/agent-worker/), [application-adapter](apps/application-adapter/), [browser-node](apps/browser-node/), [control-plane](apps/control-plane/), [desktop](apps/desktop/), [gameday-worker](apps/gameday-worker/), [validation-worker](apps/validation-worker/), [web-console](apps/web-console/) |
+| `apps/` | [agent-worker](apps/agent-worker/), [application-adapter](apps/application-adapter/), [browser-node](apps/browser-node/), [control-plane](apps/control-plane/), [desktop](apps/desktop/), [gameday-worker](apps/gameday-worker/), [mcp-gateway](apps/mcp-gateway/), [validation-worker](apps/validation-worker/), [web-console](apps/web-console/) |
 | `packages/` | [contracts](packages/contracts/) |
 | `sdks/` | [go](sdks/go/), [java](sdks/java/), [python](sdks/python/), [typescript](sdks/typescript/) |
 | `database/` | [migrations](database/migrations/), [online-migrations](database/online-migrations/), [seeds](database/seeds/) |

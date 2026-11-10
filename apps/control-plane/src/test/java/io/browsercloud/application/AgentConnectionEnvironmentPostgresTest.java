@@ -43,7 +43,8 @@ class AgentConnectionEnvironmentPostgresTest {
     source.setCurrentSchema(schema);
     jdbc = new JdbcTemplate(source);
     tx = new TransactionTemplate(new DataSourceTransactionManager(source));
-    jdbc.execute("CREATE TABLE sessions(id TEXT PRIMARY KEY)");
+    jdbc.execute(
+        "CREATE TABLE sessions(id TEXT PRIMARY KEY,tenant_id TEXT DEFAULT 'tenant',state TEXT DEFAULT 'CREATED',deleted_at TIMESTAMPTZ)");
     var root = Path.of("").toAbsolutePath();
     while (root != null && !Files.isDirectory(root.resolve("database/migrations")))
       root = root.getParent();
@@ -52,6 +53,10 @@ class AgentConnectionEnvironmentPostgresTest {
         Files.readString(
             root.resolve("database/migrations/V139__agent_connection_quota_authority.sql"));
     tx.executeWithoutResult(status -> jdbc.execute(migration));
+    var accessMigration =
+        Files.readString(
+            root.resolve("database/migrations/V140__agent_connection_access_and_lifecycle.sql"));
+    tx.executeWithoutResult(status -> jdbc.execute(accessMigration));
     sessions = mock(SessionApplicationService.class);
     service =
         new AgentConnectionEnvironmentApplicationService(
@@ -72,11 +77,43 @@ class AgentConnectionEnvironmentPostgresTest {
   }
 
   @Test
+  void opaqueCredentialIsOneTimeIssuedScopedRevocableAndNeverListed() {
+    var access = new AgentConnectionAccessService(jdbc, service);
+    var issued =
+        tx.execute(
+            status ->
+                access.issue(
+                    "tenant",
+                    "Limited",
+                    "subject",
+                    3,
+                    1,
+                    Instant.now().plusSeconds(3600),
+                    java.util.List.of("list", "get")));
+    assertThat(issued.accessToken()).startsWith("abc_mcp_");
+    var authenticated = access.authenticate(issued.accessToken());
+    assertThat(authenticated.connectionId()).isEqualTo(issued.connection().connectionId());
+    assertThat(authenticated.tools()).containsExactlyInAnyOrder("list", "get");
+    assertThat(access.authenticate("abc_mcp_" + "x".repeat(43))).isNull();
+    assertThat(access.list("tenant").toString()).doesNotContain(issued.accessToken());
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT credential_sha256 FROM agent_connections WHERE connection_id=?",
+                String.class,
+                issued.connection().connectionId()))
+        .doesNotContain(issued.accessToken())
+        .hasSize(64);
+    tx.executeWithoutResult(
+        status -> service.revokeConnection("tenant", issued.connection().connectionId()));
+    assertThat(access.authenticate(issued.accessToken())).isNull();
+  }
+
+  @Test
   void bindsCreationAndReplaysWithoutCreatingAgainOrExposingAnotherPrincipal() throws Exception {
     when(sessions.create(any(), anyString(), eq("subject"), anyString(), eq(false)))
         .thenAnswer(
             call -> {
-              jdbc.update("INSERT INTO sessions VALUES('ses_owned')");
+              jdbc.update("INSERT INTO sessions(id) VALUES('ses_owned')");
               return new CreateSessionResponse("ses_owned", "op_owned", "CREATED", null, null);
             });
     var request = request("profile");
@@ -138,7 +175,7 @@ class AgentConnectionEnvironmentPostgresTest {
     when(sessions.create(any(), anyString(), anyString(), anyString(), eq(false)))
         .thenAnswer(
             call -> {
-              jdbc.update("INSERT INTO sessions VALUES('ses_failed')");
+              jdbc.update("INSERT INTO sessions(id) VALUES('ses_failed')");
               throw new IllegalStateException("OWNED_CREATE_FAILURE");
             });
     var request = request("profile");

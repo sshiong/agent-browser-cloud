@@ -46,15 +46,19 @@ start_environment/stop_environment/delete_environment/get_operation。
 跨租户/跨连接拒绝；撤销立即拒绝；停止/删除只在权威完成后归还名额；Gateway 重启不丢
 额度；关闭 Gateway 保留环境。现有默认 Compose/个人安全部署回归必须保持通过。
 
-## 本轮实现状态
+## 当前验收状态（2026-11-10）
 
-开发已开始：首批落地连接和环境名额的数据库结构及数据库级并发额度防线。
-后续认证、正式 API/生命周期绑定、Gateway、管理 UI 和部署 profile 尚未完成，当前不可
-对外宣称 MCP 已可接入。此附加功能不取消原十一项持续目标及现有 CI 修复工作。
+首版环境管理MCP已实现：独立Streamable HTTP Gateway、8工具、一次性连接Bearer凭据、
+管理端创建/配额调整/撤销、按连接归属、权威Session状态触发运行额度、幂等创建/删除、
+正式Coordinator启停和操作进度；Compose mcp profile默认关闭、独立Kubernetes可选目录。
 
-迁移采用新建表与函数，不修改既有 Session 行。回退应用时保留表，禁止删除已有连接/名额
-记录；新功能未接入口前不产生业务流量。上线需单独核对 Flyway 锁等待与实际表规模。
+官方MCP客户端→Gateway→正式Java/PG/Node/Helper完整生命周期通过，CDP使用协议夹具。
+并行启动只允许一个、环境总数限额、重放、跨连接拒绝、撤销与Gateway重启后环境保留均通过。
+真实Chrome设置页的创建/额度/撤销与凭据不落localStorage测试通过（API为显式夹具）。
+协议测试与数据库生命周期/凭据测试通过，四语言SDK及Manifest同步为268操作/368 Schema。
 
-首批V139及make test-agent-connection-quota已完成真实PG并发创建/启动、撤销、过期、身份与删除态检查，见[progress315](../progress/315-可选MCP开发启动与连接额度数据库基础.md)。后续阶段尚未完成。
-
-内部应用层已增加连接创建/撤销、环境创建事务绑定、幂等重放、额度与归属详情/分页查询；真实PG应用测试通过，见[progress316](../progress/316-MCP连接创建绑定与归属查询应用层.md)。完整生命周期、认证与Gateway仍待继续。
+使用方式见[Gateway说明](../../apps/mcp-gateway/README.md)。当前是静态Bearer连接模式，
+不是OAuth自动发现；只接受OAuth交互授权的平台尚需后续客户端适配。页面操作工具
+snapshot/find/act等为下一批，不在首版8个环境管理工具内。Kubernetes目标Ingress/TLS/
+网络策略和镜像摘要需部署方配置并验收；本机完整链不等于目标集群生产证据。
+新提交CI仍须核验；原十一项剩余目标不因此关闭。

@@ -54,6 +54,19 @@ func (e *APIError) Error() string {
 }
 
 var Operations = map[string]Operation{
+	"listAgentConnections":                       {OperationID: "listAgentConnections", Method: "GET", Path: "/api/v1/agent-connections", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "array<AgentConnectionView>"},
+	"createAgentConnection":                      {OperationID: "createAgentConnection", Method: "POST", Path: "/api/v1/agent-connections", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "AgentConnectionCreateRequest", RequestRequired: true, ResponseSchema: "AgentConnectionIssued"},
+	"configureAgentConnectionQuota":              {OperationID: "configureAgentConnectionQuota", Method: "PATCH", Path: "/api/v1/agent-connections/{connectionId}", PathParameters: []string{"connectionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "AgentConnectionQuotaUpdate", RequestRequired: true, ResponseSchema: "AgentConnectionMutation"},
+	"revokeAgentConnection":                      {OperationID: "revokeAgentConnection", Method: "POST", Path: "/api/v1/agent-connections/{connectionId}:revoke", PathParameters: []string{"connectionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentConnectionMutation"},
+	"getAgentConnectionIdentity":                 {OperationID: "getAgentConnectionIdentity", Method: "GET", Path: "/api/v1/agent-access/identity", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentConnectionIdentity"},
+	"getAgentConnectionQuota":                    {OperationID: "getAgentConnectionQuota", Method: "GET", Path: "/api/v1/agent-access/quota", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentConnectionQuota"},
+	"listAgentEnvironments":                      {OperationID: "listAgentEnvironments", Method: "GET", Path: "/api/v1/agent-access/environments", PathParameters: nil, QueryParameters: []string{"limit", "offset"}, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentEnvironmentList"},
+	"createAgentEnvironment":                     {OperationID: "createAgentEnvironment", Method: "POST", Path: "/api/v1/agent-access/environments", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key"}, RequestSchema: "CreateSessionRequest", RequestRequired: true, ResponseSchema: "AgentEnvironmentCreation"},
+	"getAgentEnvironment":                        {OperationID: "getAgentEnvironment", Method: "GET", Path: "/api/v1/agent-access/environments/{sessionId}", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "SessionView"},
+	"deleteAgentEnvironment":                     {OperationID: "deleteAgentEnvironment", Method: "DELETE", Path: "/api/v1/agent-access/environments/{sessionId}", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "BatchDeleteSessionsResponse"},
+	"getAgentManagedOperation":                   {OperationID: "getAgentManagedOperation", Method: "GET", Path: "/api/v1/agent-access/operations/{operationId}", PathParameters: []string{"operationId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentManagedOperation"},
+	"startAgentEnvironment":                      {OperationID: "startAgentEnvironment", Method: "POST", Path: "/api/v1/agent-access/environments/{sessionId}:start", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "OperationResponse"},
+	"stopAgentEnvironment":                       {OperationID: "stopAgentEnvironment", Method: "POST", Path: "/api/v1/agent-access/environments/{sessionId}:stop", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "OperationResponse"},
 	"getWorkspaceOverview":                       {OperationID: "getWorkspaceOverview", Method: "GET", Path: "/api/v1/workspace-overview", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "WorkspaceOverview"},
 	"streamWorkspaceOverviewChanges":             {OperationID: "streamWorkspaceOverviewChanges", Method: "GET", Path: "/api/v1/workspace-overview/event-stream", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"Last-Event-ID"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "string"},
 	"getTenantCoordinatorRoute":                  {OperationID: "getTenantCoordinatorRoute", Method: "GET", Path: "/api/v1/coordinator/tenant-route", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "TenantRoute"},
@@ -422,6 +435,45 @@ func (c *Client) Call(ctx context.Context, operationID string, request Request) 
 	return payload, response, nil
 }
 
+func (c *Client) ListAgentConnections(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "listAgentConnections", request)
+}
+func (c *Client) CreateAgentConnection(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "createAgentConnection", request)
+}
+func (c *Client) ConfigureAgentConnectionQuota(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "configureAgentConnectionQuota", request)
+}
+func (c *Client) RevokeAgentConnection(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "revokeAgentConnection", request)
+}
+func (c *Client) GetAgentConnectionIdentity(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "getAgentConnectionIdentity", request)
+}
+func (c *Client) GetAgentConnectionQuota(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "getAgentConnectionQuota", request)
+}
+func (c *Client) ListAgentEnvironments(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "listAgentEnvironments", request)
+}
+func (c *Client) CreateAgentEnvironment(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "createAgentEnvironment", request)
+}
+func (c *Client) GetAgentEnvironment(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "getAgentEnvironment", request)
+}
+func (c *Client) DeleteAgentEnvironment(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "deleteAgentEnvironment", request)
+}
+func (c *Client) GetAgentManagedOperation(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "getAgentManagedOperation", request)
+}
+func (c *Client) StartAgentEnvironment(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "startAgentEnvironment", request)
+}
+func (c *Client) StopAgentEnvironment(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "stopAgentEnvironment", request)
+}
 func (c *Client) GetWorkspaceOverview(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "getWorkspaceOverview", request)
 }

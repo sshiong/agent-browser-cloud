@@ -21,6 +21,7 @@ import {
   useWorkspaceSettings,
 } from './settingsQueries';
 import type { WorkspaceSettingsRequest } from '@/types/settings';
+import { AgentConnectionsSection } from './AgentConnectionsSection';
 
 export function SettingsPage() {
   const query = useWorkspaceSettings();
@@ -370,6 +371,8 @@ export function SettingsPage() {
               </form>
             )}
           </section>
+
+          <AgentConnectionsSection />
 
           <section
             id="desktop-settings"

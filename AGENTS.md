@@ -75,7 +75,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **255 Operations / 358 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **268 Operations / 368 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -117,7 +117,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V139 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V140 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -307,6 +307,12 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- 首版可选MCP环境管理已实现，见 progress317：8工具、连接凭据/权限/撤销、
+  设置UI、正式生命周期/归属/配额、Compose默认关闭及独立K8s可选目录。官方客户端
+  经Gateway→Java/PG/Node完整链通过（CDP夹具），真实Chrome UI夹具及协议/PG测试通过。
+  OpenAPI/四SDK同步268操作/368Schema。当前CI待核验，静态Bearer不冒充OAuth客户端兼容。
+  专用容器0、两闲置镜像清理，其他16容器保留；原十一项未完成目标继续保留。
 
 - 按用户要求优先MCP：新增内部连接创建/撤销、主体/Tenant检查、环境创建事务
   绑定、幂等重放、额度及归属分页/详情。Java回归及真实PG合计33项通过，见 progress316。

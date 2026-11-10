@@ -70,3 +70,6 @@ docker-compose.override.yml
 
 # Gradle Wrapper is a reviewed build bootstrap artifact.
 !gradle/wrapper/gradle-wrapper.jar
+
+# Local optional Gateway Python environment
+.venv/

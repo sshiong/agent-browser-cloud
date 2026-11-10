@@ -7,6 +7,26 @@ import java.util.Map;
 public final class Models {
   private Models() {}
 
+  public record AgentConnectionCreateRequest(String name, Integer maximumEnvironments, Integer maximumRunning, String expiresAt, List<String> allowedTools) {}
+
+  public record AgentConnectionView(String connectionId, String name, String subject, Integer maximumEnvironments, Integer maximumRunning, String expiresAt, Boolean enabled, List<String> allowedTools) {}
+
+  public record AgentConnectionIssued(AgentConnectionView connection, String accessToken) {}
+
+  public record AgentConnectionQuotaUpdate(Integer maximumEnvironments, Integer maximumRunning) {}
+
+  public record AgentConnectionQuota(Integer maximumEnvironments, Integer maximumRunning, Long environmentsUsed, Long runningUsed) {}
+
+  public record AgentConnectionIdentity(String tenantId, String connectionId, List<String> allowedTools) {}
+
+  public record AgentEnvironmentCreation(String sessionId, CreateSessionResponse created, Boolean replay) {}
+
+  public record AgentEnvironmentList(List<SessionView> items, Integer limit, Integer offset) {}
+
+  public record AgentManagedOperation(String operationId, String sessionId, String state, String phase) {}
+
+  public record AgentConnectionMutation(Map<String, Object> values) {}
+
   public record WorkspaceOverview(WorkspaceSessionSummary sessions, WorkspaceOperationSummary operations, WorkspaceBrowserNodeSummary browserNodes, WorkspaceProxySummary proxies, WorkspaceAgentSummary agents, WorkspaceCostSummary cost, WorkspaceSecuritySummary security, Long cursor, String generatedAt) {}
 
   public record WorkspaceSessionSummary(Long total, Long running, Long pending, Long unhealthy, Long hibernated, Long terminated) {}

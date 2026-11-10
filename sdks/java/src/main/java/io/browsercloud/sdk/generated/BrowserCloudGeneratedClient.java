@@ -30,6 +30,19 @@ public final class BrowserCloudGeneratedClient {
     public int status() { return status; } public String code() { return code; } public String requestId() { return requestId; }
   }
   public static final Map<String, Operation> OPERATIONS = List.of(
+    operation("listAgentConnections", "GET", "/api/v1/agent-connections", List.of(), List.of(), List.of("X-Tenant-Id"), "", false, "array<AgentConnectionView>"),
+    operation("createAgentConnection", "POST", "/api/v1/agent-connections", List.of(), List.of(), List.of("X-Tenant-Id"), "AgentConnectionCreateRequest", true, "AgentConnectionIssued"),
+    operation("configureAgentConnectionQuota", "PATCH", "/api/v1/agent-connections/{connectionId}", List.of("connectionId"), List.of(), List.of("X-Tenant-Id"), "AgentConnectionQuotaUpdate", true, "AgentConnectionMutation"),
+    operation("revokeAgentConnection", "POST", "/api/v1/agent-connections/{connectionId}:revoke", List.of("connectionId"), List.of(), List.of("X-Tenant-Id"), "", false, "AgentConnectionMutation"),
+    operation("getAgentConnectionIdentity", "GET", "/api/v1/agent-access/identity", List.of(), List.of(), List.of(), "", false, "AgentConnectionIdentity"),
+    operation("getAgentConnectionQuota", "GET", "/api/v1/agent-access/quota", List.of(), List.of(), List.of(), "", false, "AgentConnectionQuota"),
+    operation("listAgentEnvironments", "GET", "/api/v1/agent-access/environments", List.of(), List.of("limit", "offset"), List.of(), "", false, "AgentEnvironmentList"),
+    operation("createAgentEnvironment", "POST", "/api/v1/agent-access/environments", List.of(), List.of(), List.of("Idempotency-Key"), "CreateSessionRequest", true, "AgentEnvironmentCreation"),
+    operation("getAgentEnvironment", "GET", "/api/v1/agent-access/environments/{sessionId}", List.of("sessionId"), List.of(), List.of(), "", false, "SessionView"),
+    operation("deleteAgentEnvironment", "DELETE", "/api/v1/agent-access/environments/{sessionId}", List.of("sessionId"), List.of(), List.of("Idempotency-Key"), "", false, "BatchDeleteSessionsResponse"),
+    operation("getAgentManagedOperation", "GET", "/api/v1/agent-access/operations/{operationId}", List.of("operationId"), List.of(), List.of(), "", false, "AgentManagedOperation"),
+    operation("startAgentEnvironment", "POST", "/api/v1/agent-access/environments/{sessionId}:start", List.of("sessionId"), List.of(), List.of("Idempotency-Key"), "", false, "OperationResponse"),
+    operation("stopAgentEnvironment", "POST", "/api/v1/agent-access/environments/{sessionId}:stop", List.of("sessionId"), List.of(), List.of("Idempotency-Key"), "", false, "OperationResponse"),
     operation("getWorkspaceOverview", "GET", "/api/v1/workspace-overview", List.of(), List.of(), List.of(), "", false, "WorkspaceOverview"),
     operation("streamWorkspaceOverviewChanges", "GET", "/api/v1/workspace-overview/event-stream", List.of(), List.of(), List.of("Last-Event-ID"), "", false, "string"),
     operation("getTenantCoordinatorRoute", "GET", "/api/v1/coordinator/tenant-route", List.of(), List.of(), List.of(), "", false, "TenantRoute"),
@@ -317,6 +330,19 @@ public final class BrowserCloudGeneratedClient {
   private static Transport httpTransport() { var client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build(); return (method, uri, headers, body) -> { var builder = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(30)).method(method, body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(body)); headers.forEach(builder::header); var response = client.send(builder.build(), HttpResponse.BodyHandlers.ofString()); return new Response(response.statusCode(), response.headers().map().entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.join(",", entry.getValue()))), response.body()); }; }
   private static String jsonString(String json, String key, String fallback) { var matcher = java.util.regex.Pattern.compile("\"" + java.util.regex.Pattern.quote(key) + "\"\s*:\s*\"((?:\\.|[^\"])*)\"").matcher(json == null ? "" : json); return matcher.find() ? matcher.group(1).replace("\\\"", "\"").replace("\\\\", "\\") : fallback; }
 
+  public Response listAgentConnections(Request request) { return call("listAgentConnections", request); }
+  public Response createAgentConnection(Request request) { return call("createAgentConnection", request); }
+  public Response configureAgentConnectionQuota(Request request) { return call("configureAgentConnectionQuota", request); }
+  public Response revokeAgentConnection(Request request) { return call("revokeAgentConnection", request); }
+  public Response getAgentConnectionIdentity(Request request) { return call("getAgentConnectionIdentity", request); }
+  public Response getAgentConnectionQuota(Request request) { return call("getAgentConnectionQuota", request); }
+  public Response listAgentEnvironments(Request request) { return call("listAgentEnvironments", request); }
+  public Response createAgentEnvironment(Request request) { return call("createAgentEnvironment", request); }
+  public Response getAgentEnvironment(Request request) { return call("getAgentEnvironment", request); }
+  public Response deleteAgentEnvironment(Request request) { return call("deleteAgentEnvironment", request); }
+  public Response getAgentManagedOperation(Request request) { return call("getAgentManagedOperation", request); }
+  public Response startAgentEnvironment(Request request) { return call("startAgentEnvironment", request); }
+  public Response stopAgentEnvironment(Request request) { return call("stopAgentEnvironment", request); }
   public Response getWorkspaceOverview(Request request) { return call("getWorkspaceOverview", request); }
   public Response streamWorkspaceOverviewChanges(Request request) { return call("streamWorkspaceOverviewChanges", request); }
   public Response getTenantCoordinatorRoute(Request request) { return call("getTenantCoordinatorRoute", request); }

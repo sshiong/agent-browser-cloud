@@ -308,6 +308,11 @@ progress 166。
 
 ### 最近验证状态
 
+- 前置22cc7d6主CI42771531383扫描失败，新增x/net v0.60.0 HIGH，未再列出zip；
+  Provider升级x/net0.62.0及配套sys/text，-race测试与vet通过，见 progress314。
+  同时将十一项总表Recording纠正为部分完成，明确PG上传准入/默认None/交接等缺口。
+  e4aa6b8双平台原生测试已过、unsigned构建运行中；新提交扫描和全CI仍待核验。
+
 - 查明macOS启动取消来自GitHub退役runner：Job129682413851 annotation明确
   macos-14-arm64-us-default不受支持。Desktop矩阵迁移到官方支持的macos-15，
   保留完整原生测试与构建，见 progress313。新runner实际构建仍待本提交CI。
@@ -1338,7 +1343,7 @@ progress 166。
 | 2 | Cross-Origin iframe | **部分完成**：Opaque Frame 安全投影与精确授权单击已闭环；真实 Chrome Replay 的逐 case 证据 Gate 见 progress 217 | 跨域文本、密码、OTP、键盘、滑动、多击、第三方登录/支付/账号决策仍 Human Handoff；进一步自动化需显式 Provider 协议、授权 Replay 和可信结果回执 |
 | 3 | 真实网站与真实浏览器验证 | **部分完成，本机公开演示集两轮通过**：真实 Chrome 登录、公开固定 OTP、Turnstile 测试 Widget、Profile 恢复、Vision、公开 SPA/购物车/IdP 与独立 OIDC/PKCE/SSO 已有逐 case 证据；完整 17 例在两个相邻新建 Session 连续通过，见 progress 276；Dataset 授权/Host/Capability 预检见 progress 218 | 两轮短时回放不证明生产长稳。完整稳定区域、目标企业租户映射/MFA/ACR/Logout、真实 SMS/Email/TOTP、支付与客户 SPA 仍未完成；Catalog 不替代客户授权，旧失败根因不能统一追溯 |
 | 4 | 外部模型请求快速取消 | **客户端链已确认并闭环**：lease/epoch/cancel 会终止 HTTP transport/socket，迟到结果受围栏，见 progress 181/196 | Provider 服务端推理/计费强取消只有供应商提供 Cancel API 才可实现，不能由通用 OpenAI-compatible HTTP 客户端保证 |
-| 5 | Recording 治理与隐私 | **仓库链已闭环**：用途绑定播放、物理删除、Object Lock/WORM 基线、全帧 OCR/PII/正面人脸/二维码遮罩，见 progress 200—203 | 目标云 Apply/IAM、云原生 Legal Hold 深度联动、客户视觉集与侧脸/证件/医学影像等扩展类别 |
+| 5 | Recording 治理与隐私 | **部分完成**：用途绑定播放、物理删除、WORM与逐帧扫描已实现；真实采集/原生保全组件及正式v2投影/播放分别通过，见progress200—203/307—309/312 | PG上传准入、默认Node upload_hold=None启用、Seal→Hold交接、旧写入器围栏、跨Node仍缺；目标云Apply/IAM及客户视觉类别验证仍未完成 |
 | 6 | Profile 安全与灾备 | **仓库链已闭环**：应用层加密、SQLite/LevelDB 感知恢复、Multipart Resume、只读跨 Region Restore，见 progress 183/205—207 | 目标云 KMS/IAM/Replication、真实 RPO/RTO 和 Region 切换证书 |
 | 7 | Remote Desktop 弱网与规模 | **仓库反馈调速与本仓库 noVNC 输入围栏已闭环**：弱网动态合帧/基线恢复/临时降质、逐连接低分辨率、绘制后 Fence 调速、Frame ID 输入核对与过期释放、最近一帧绘制时帧龄下界估计，见 progress 208—209/225—226/228/230/232—234 | 旧 Viewer 输入围栏覆盖、精确物理显示帧龄、硬件 Codec、目标 Linux 八客户端小时级多协作者长稳 |
 | 8 | Proxy 生产能力 | **通用仓库链已闭环**：业务结果学习、Profile 粘性、受约束探索、Challenge 隔离、商业 Basic Auth、统一 SPI、远程 Gateway、Safe Point Endpoint 轮换，见 progress 211—216 | 具体供应商插件、真实账号 OAuth/签名、云 Secret、账单对账、客户 SLA Replay/熔断仍未完成 |

@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import socket
+import subprocess
 import threading
 import unittest
 
@@ -38,8 +39,38 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
             do_POST = handle_api
             do_DELETE = handle_api
             def log_message(self, *_): pass
-        self.upstream = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        image = os.environ.get('MCP_TEST_CONTAINER_IMAGE')
+        self.upstream = ThreadingHTTPServer(('0.0.0.0' if image else '127.0.0.1', 0), Handler)
         self.thread = threading.Thread(target=self.upstream.serve_forever, daemon=True); self.thread.start()
+        if image:
+            self.addCleanup(self.thread.join, 3)
+            self.addCleanup(self.upstream.server_close)
+            self.addCleanup(self.upstream.shutdown)
+            # Exercise the shipped image with the same non-root/read-only constraints as Compose.
+            container = subprocess.check_output([
+                'docker', 'run', '-d', '--read-only', '--cap-drop=ALL',
+                '--security-opt=no-new-privileges:true', '--tmpfs', '/tmp:rw,noexec,nosuid,size=16m',
+                '--add-host=host.docker.internal:host-gateway', '-p', '127.0.0.1::8130',
+                '-e', f'CONTROL_PLANE_URL=http://host.docker.internal:{self.upstream.server_port}',
+                '-e', 'MCP_ALLOW_INTERNAL_HTTP=true', image,
+            ], text=True).strip()
+            self.addCleanup(subprocess.run, ['docker', 'rm', '-fv', container],
+                stdout=subprocess.DEVNULL, check=True)
+            details = json.loads(subprocess.check_output(['docker', 'inspect', container], text=True))[0]
+            self.assertEqual(details['Config']['User'], '65532:65532')
+            self.assertTrue(details['HostConfig']['ReadonlyRootfs'])
+            port = details['NetworkSettings']['Ports']['8130/tcp'][0]['HostPort']
+            self.url = f'http://127.0.0.1:{port}/mcp'
+            async with httpx.AsyncClient(trust_env=False) as client:
+                for _ in range(200):
+                    try:
+                        response = await client.get(self.url.replace('/mcp', '/healthz'))
+                        if response.status_code == 200:
+                            return
+                    except httpx.TransportError:
+                        pass
+                    await asyncio.sleep(.05)
+            self.fail('MCP_CONTAINER_NOT_READY')
         os.environ['CONTROL_PLANE_URL'] = f'http://127.0.0.1:{self.upstream.server_port}'
         spec = importlib.util.spec_from_file_location('owned_gateway', Path(__file__).with_name('gateway.py'))
         self.module = importlib.util.module_from_spec(spec); spec.loader.exec_module(self.module)
@@ -53,6 +84,8 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.server.started)
 
     async def asyncTearDown(self):
+        if os.environ.get('MCP_TEST_CONTAINER_IMAGE'):
+            return
         self.server.should_exit = True
         await asyncio.wait_for(self.task, 10)
         self.sock.close(); self.upstream.shutdown(); self.upstream.server_close(); self.thread.join(3)

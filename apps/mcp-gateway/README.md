@@ -37,3 +37,10 @@ CONTROL_PLANE_URL固定配置，禁止由工具调用者指定。非loopback HTT
 MCP_ALLOW_INTERNAL_HTTP=true时允许，用于可信集群内部；外部上游必须HTTPS。
 Gateway不存长期凭据，每个请求都向控制面验证连接；控制面不透明凭据只允许agent-access
 路径，不能调用普通管理员API。工具权限在控制面逐次检查，不依赖模型自觉遵守。
+
+## 开发验收
+
+`make test-mcp-gateway` 使用官方客户端验证协议；`make test-mcp-container` 构建实际
+Dockerfile，并在非root、只读容器中重复协议测试，结束时清理专用容器与随机镜像。
+两者上游均为显式API夹具。`make test-mcp-integration` 另验正式Java/PG/Node生命周期
+和并发额度（CDP为协议夹具）。macOS运行Docker测试前按根AGENTS.md核验OrbStack。

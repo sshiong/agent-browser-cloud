@@ -29,13 +29,16 @@ test-native-property-observer:
 test-recording-privacy:
 	docker build -f tests/recording/Dockerfile -t browsercloud-recording-privacy-test:local .
 
-.PHONY: install-mcp test-mcp-gateway test-mcp-integration
+.PHONY: install-mcp test-mcp-gateway test-mcp-container test-mcp-integration
 install-mcp:
 	python3 -m venv apps/mcp-gateway/.venv
 	apps/mcp-gateway/.venv/bin/pip install -r apps/mcp-gateway/requirements.lock
 
 test-mcp-gateway: install-mcp
 	apps/mcp-gateway/.venv/bin/python -m unittest discover -s apps/mcp-gateway -p 'test_*.py'
+
+test-mcp-container: install-mcp
+	apps/mcp-gateway/.venv/bin/python tests/integration/mcp-container-smoke.py
 
 test-mcp-integration: install-mcp
 	MCP_PYTHON="$(CURDIR)/apps/mcp-gateway/.venv/bin/python" INTEGRATION_GATE_SCOPE=mcp bash tests/integration/smoke.sh

@@ -114,6 +114,7 @@ jobs:
       - name: Optional MCP protocol and lifecycle
         run: |
           make test-mcp-gateway
+          make test-mcp-container
           make test-mcp-integration
 
       - name: Integration smoke test

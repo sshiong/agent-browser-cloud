@@ -308,6 +308,11 @@ progress 166。
 
 ### 最近验证状态
 
+- MCP实际Docker镜像验收通过：Python3.12锁定依赖、UID65532/只读容器，官方
+  客户端验证8工具、认证/Origin/撤销；主机协议回归通过，新增自动清理的容器CI Gate。
+  见 progress320。c538b1e主CI/Desktop仍运行、Operator成功，不能宣称全CI通过。
+  本轮专用容器0、测试镜像及两基础标签已清，其他16容器保留；契约268/368不变。
+
 - MCP四语言SDK完整测试补验：修复Python/Go/Java旧255操作数断言，新增连接
   凭据/幂等/启动/列表/删除实际请求测试；make test-sdk及8项发布产物验证全通过，
   见 progress319。e9f59de主CI因此旧断言失败，Desktop双平台与Operator成功；

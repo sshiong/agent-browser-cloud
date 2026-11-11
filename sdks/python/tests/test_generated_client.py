@@ -24,7 +24,7 @@ class GeneratedClientTest(unittest.TestCase):
             transport=transport,
         )
         result = client.getSession(path={"sessionId": "ses_1"})
-        self.assertEqual(255, len(OPERATIONS))
+        self.assertEqual(268, len(OPERATIONS))
         self.assertEqual(
             "/api/v1/sessions/{sessionId}/agent-browser/handoff",
             OPERATIONS["handoffAgentBrowser"].path,
@@ -39,6 +39,33 @@ class GeneratedClientTest(unittest.TestCase):
         self.assertTrue(issubclass(SessionView, dict))
         self.assertTrue(issubclass(ProxyRoutingDecision, dict))
         self.assertTrue(issubclass(AgentBrowserEvaluation, dict))
+
+    def test_mcp_connection_environment_requests_keep_credentials_and_idempotency(self):
+        captured = []
+
+        def transport(method, url, headers, body):
+            captured.append((method, url, headers, body))
+            return 200, {"Content-Type": "application/json"}, b'{"sessionId":"ses_owned"}'
+
+        client = BrowserCloudGeneratedClient(
+            "https://browser.example", tenant_id="tenant-owned",
+            access_token="abc_mcp_fixture", transport=transport,
+        )
+        body = {"tenantId": "tenant-owned", "profileId": "profile-owned", "resourcePolicy": {"mode": "AUTO"}}
+        client.createAgentEnvironment(body=body, headers={"Idempotency-Key": "create-owned"})
+        method, url, headers, encoded = captured[-1]
+        self.assertEqual("POST", method)
+        self.assertEqual("https://browser.example/api/v1/agent-access/environments", url)
+        self.assertEqual("Bearer abc_mcp_fixture", headers["Authorization"])
+        self.assertEqual("create-owned", headers["Idempotency-Key"])
+        self.assertEqual(body, json.loads(encoded))
+        client.startAgentEnvironment(path={"sessionId": "ses_owned"}, headers={"Idempotency-Key": "start-owned"})
+        self.assertEqual("https://browser.example/api/v1/agent-access/environments/ses_owned:start", captured[-1][1])
+        client.listAgentEnvironments(query={"limit": 10, "offset": 20})
+        self.assertTrue(captured[-1][1].endswith("?limit=10&offset=20"))
+        client.deleteAgentEnvironment(path={"sessionId": "ses_owned"}, headers={"Idempotency-Key": "delete-owned"})
+        self.assertEqual("DELETE", captured[-1][0])
+        self.assertNotIn("abc_mcp_fixture", captured[-1][1])
 
     def test_query_allowlist_and_structured_error(self):
         client = BrowserCloudGeneratedClient(

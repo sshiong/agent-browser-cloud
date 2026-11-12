@@ -28,6 +28,7 @@ ENV VITE_OIDC_ROLES_CLAIM=${VITE_OIDC_ROLES_CLAIM}
 ENV VITE_OIDC_TENANT_CLAIM=${VITE_OIDC_TENANT_CLAIM}
 RUN corepack enable
 COPY apps/web-console/package.json apps/web-console/pnpm-lock.yaml ./
+COPY apps/web-console/patches ./patches
 RUN pnpm install --frozen-lockfile
 COPY apps/web-console ./
 RUN pnpm build

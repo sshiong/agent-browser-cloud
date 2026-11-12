@@ -9,5 +9,6 @@ COPY cancellable_http.py /app/cancellable_http.py
 COPY reviewer_worker.py /app/reviewer_worker.py
 COPY outcome_verifier_worker.py /app/outcome_verifier_worker.py
 COPY vision_worker.py /app/vision_worker.py
+RUN chmod 0444 /app/*.py
 USER 65532:65532
 ENTRYPOINT ["/usr/bin/tini", "--", "python", "/app/agent_worker.py"]

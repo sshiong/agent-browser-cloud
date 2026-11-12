@@ -1,8 +1,10 @@
 """Optional Agent Browser Cloud MCP Gateway; authority remains in Control Plane."""
 import contextvars
+import asyncio
 import json
 import os
 from urllib.parse import urlparse
+from typing import Any
 
 import httpx
 from mcp.server.fastmcp import FastMCP
@@ -111,6 +113,28 @@ async def browser_delete_environment(environment_id: str, idempotency_key: str) 
 async def browser_get_operation(operation_id: str) -> dict:
     """Read an operation only when its environment belongs to this connection."""
     return await api("/operations/" + identifier(operation_id, "op_"))
+
+
+@server.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+async def browser_wait_operation(operation_id: str, timeout_seconds: int = 10) -> dict[str, Any]:
+    """Wait up to 25 seconds for COMMITTED, ABORTED or TIMED_OUT. A wait timeout does not cancel the operation or release quota. Continue querying the same operation ID; do not repeat the write with a new key. Requires operation permission."""
+    path = "/operations/" + identifier(operation_id, "op_")
+    if not 1 <= timeout_seconds <= 25:
+        raise ValueError("WAIT_TIMEOUT_INVALID")
+    last = None
+    # Bound the entire read, including an upstream HTTP call and sleeps.
+    try:
+        async with asyncio.timeout(timeout_seconds):
+            while True:
+                last = await api(path)
+                state = last.get("state")
+                if state in ("COMMITTED", "ABORTED", "TIMED_OUT"):
+                    return {"completed": True, "waitTimedOut": False,
+                        "succeeded": state == "COMMITTED", "operation": last}
+                await asyncio.sleep(.5)
+    except TimeoutError:
+        return {"completed": False, "waitTimedOut": True,
+            "succeeded": False, "operation": last}
 
 
 class AuthenticatedGateway:

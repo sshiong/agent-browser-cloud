@@ -62,3 +62,9 @@ start_environment/stop_environment/delete_environment/get_operation。
 snapshot/find/act等为下一批，不在首版8个环境管理工具内。Kubernetes目标Ingress/TLS/
 网络策略和镜像摘要需部署方配置并验收；本机完整链不等于目标集群生产证据。
 新提交CI仍须核验；原十一项剩余目标不因此关闭。
+
+## 2026-11-12 后续完善
+
+9d326fd精确SHA主CI43160973474和Desktop43160973405全部成功，包括MCP协议、实际容器
+和正式生命周期步骤。新增第9个工具browser_wait_operation，有界等待并提供结构化结果，
+不新增控制面接口或工具权限；页面操作工具与OAuth兼容仍按前述后续范围处理。

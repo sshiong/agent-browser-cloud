@@ -20,6 +20,7 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.revoked = False
         self.calls = []
+        self.operation_states = ['COMMITTED']
         test = self
         class Handler(BaseHTTPRequestHandler):
             def handle_api(self):
@@ -28,6 +29,11 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
                 test.calls.append((self.command, self.path, body))
                 authenticated = self.headers.get('Authorization') == 'Bearer fixture' and not test.revoked
                 data = {'tenantId': 'owned'} if self.path.endswith('/identity') else {'accepted': True}
+                if '/operations/' in self.path:
+                    state = test.operation_states[0]
+                    if len(test.operation_states) > 1:
+                        test.operation_states.pop(0)
+                    data = {'operationId': 'op_owned', 'state': state}
                 if self.command == 'POST' and self.path.endswith('/environments'):
                     data = {'sessionId': 'ses_owned', 'tenantId': body['tenantId']}
                 encoded = json.dumps(data).encode()
@@ -100,7 +106,7 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 listed = await session.list_tools()
-                self.assertEqual(len(listed.tools), 8)
+                self.assertEqual(len(listed.tools), 9)
                 actions = {
                     'browser_get_quota': {}, 'browser_list_environments': {},
                     'browser_get_environment': {'environment_id': 'ses_owned'},
@@ -109,6 +115,7 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
                     'browser_stop_environment': {'environment_id': 'ses_owned', 'idempotency_key': 'owned-stop'},
                     'browser_delete_environment': {'environment_id': 'ses_owned', 'idempotency_key': 'owned-delete'},
                     'browser_get_operation': {'operation_id': 'op_owned'},
+                    'browser_wait_operation': {'operation_id': 'op_owned'},
                 }
                 for name, arguments in actions.items():
                     result = await session.call_tool(name, arguments)
@@ -124,3 +131,27 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
         async with httpx.AsyncClient(trust_env=False) as client:
             response = await client.post(self.url, json={}, headers={'Authorization': 'Bearer fixture'})
             self.assertEqual(response.status_code, 401)
+
+    async def test_wait_terminal_failure_timeout_and_validation(self):
+        async with streamablehttp_client(self.url, headers={'Authorization': 'Bearer fixture'}) as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                async def wait(**arguments):
+                    return await session.call_tool('browser_wait_operation',
+                        {'operation_id': 'op_owned', **arguments})
+                for terminal in ('COMMITTED', 'ABORTED', 'TIMED_OUT'):
+                    self.operation_states = ['ACTIVE', terminal]
+                    result = await wait()
+                    self.assertFalse(result.isError)
+                    data = result.structuredContent
+                    self.assertTrue(data['completed'])
+                    self.assertFalse(data['waitTimedOut'])
+                    self.assertEqual(data['succeeded'], terminal == 'COMMITTED')
+                self.operation_states = ['UNKNOWN']
+                result = await wait(timeout_seconds=1)
+                self.assertFalse(result.isError)
+                self.assertFalse(result.structuredContent['completed'])
+                self.assertTrue(result.structuredContent['waitTimedOut'])
+                for seconds in (0, 26):
+                    self.assertTrue((await wait(timeout_seconds=seconds)).isError)
+                self.assertTrue(all(method == 'GET' for method, _, _ in self.calls))

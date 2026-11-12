@@ -44,3 +44,11 @@ Gateway不存长期凭据，每个请求都向控制面验证连接；控制面�
 Dockerfile，并在非root、只读容器中重复协议测试，结束时清理专用容器与随机镜像。
 两者上游均为显式API夹具。`make test-mcp-integration` 另验正式Java/PG/Node生命周期
 和并发额度（CDP为协议夹具）。macOS运行Docker测试前按根AGENTS.md核验OrbStack。
+
+## 等待异步操作
+
+首版8个工具之外，新增 `browser_wait_operation(operation_id, timeout_seconds=10)`，
+一次等待1—25秒。返回 completed、waitTimedOut、succeeded 和最后一次operation投影；
+只有COMMITTED表示成功，ABORTED/TIMED_OUT表示已结束但失败，未知状态继续等待。
+等待到期不取消控制面操作，也不释放额度；继续使用原operationId查询，写请求保持原幂等键。
+沿用operation权限与连接归属检查，每次轮询重新认证，不新增授权或绕过权限。

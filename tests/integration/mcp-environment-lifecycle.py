@@ -62,7 +62,7 @@ async def main():
             async with streamablehttp_client(url,headers={'Authorization':'Bearer '+token}) as (read,write,_):
                 async with ClientSession(read,write) as client:
                     await client.initialize()
-                    assert len((await client.list_tools()).tools)==8
+                    assert len((await client.list_tools()).tools)==9
                     async def call(name,args=None):return unpack(await client.call_tool(name,args or {}))
                     sessions=[]
                     for n in range(2):
@@ -81,6 +81,8 @@ async def main():
                     assert (await call('browser_get_quota'))['runningUsed']==1
                     operation=unpack(starts[index])['operationId']
                     assert (await call('browser_get_operation',{'operation_id':operation}))['operationId']==operation
+                    waited=await call('browser_wait_operation',{'operation_id':operation})
+                    assert waited['completed'] and waited['succeeded'] and not waited['waitTimedOut']
                     await call('browser_stop_environment',{'environment_id':running,'idempotency_key':'stop'})
                     await wait_state(running,'HIBERNATED')
                     assert (await call('browser_get_quota'))['runningUsed']==0

@@ -162,16 +162,26 @@ public class NodeCommandDispatchClaimService implements CoordinatorShardLocality
   }
 
   private void heartbeat(Instant now) {
+    // Every claim and locality check still consults PostgreSQL. Avoid writing (and row-locking)
+    // an already fresh lease on each 25 ms cancellation scan; no process-local cache can hide
+    // unregister, failover or transaction rollback. Renew after one third of the lease duration.
     jdbc.update(
         """
         INSERT INTO coordinator_dispatch_workers(
             worker_id, started_at, heartbeat_at, lease_until
-        ) VALUES (
-            :workerId, :now, :now, :leaseUntil
         )
+        SELECT :workerId, :now, :now, :leaseUntil
+         WHERE NOT EXISTS (
+           SELECT 1 FROM coordinator_dispatch_workers
+            WHERE worker_id = :workerId
+              AND heartbeat_at > :renewAfter
+              AND lease_until >= :minimumLeaseUntil
+         )
         ON CONFLICT(worker_id) DO UPDATE SET
             heartbeat_at = excluded.heartbeat_at,
             lease_until = excluded.lease_until
+        WHERE coordinator_dispatch_workers.heartbeat_at <= :renewAfter
+           OR coordinator_dispatch_workers.lease_until < :minimumLeaseUntil
         """,
         Map.of(
             "workerId",
@@ -179,7 +189,11 @@ public class NodeCommandDispatchClaimService implements CoordinatorShardLocality
             "now",
             Timestamp.from(now),
             "leaseUntil",
-            Timestamp.from(now.plus(workerLeaseDuration))));
+            Timestamp.from(now.plus(workerLeaseDuration)),
+            "renewAfter",
+            Timestamp.from(now.minus(workerLeaseDuration.dividedBy(3))),
+            "minimumLeaseUntil",
+            Timestamp.from(now.plus(workerLeaseDuration.multipliedBy(2).dividedBy(3)))));
   }
 
   @Transactional

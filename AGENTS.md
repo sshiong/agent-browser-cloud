@@ -1,6 +1,6 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-11-11
+> 更新日期：2026-11-12
 > 基准分支：`main`
 > 编写时基准提交：`237920e feat: dispatch durable recording holds and fence recovery with immutable requests`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
@@ -307,6 +307,11 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- MCP额度PG测试启动围栏修复，见 progress321：168afa9主CI在首批DDL失败，
+  本机旧测试复现；改等最终TCP服务，增加initdb延迟回归及安全SQLSTATE诊断。
+  完整额度测试及延迟回归通过，专用资源已清、当前其他18容器保留；Desktop双平台
+  与Operator成功，新提交主CI待验，正式配额/契约268/368不变。
 
 - MCP实际Docker镜像验收通过：Python3.12锁定依赖、UID65532/只读容器，官方
   客户端验证8工具、认证/Origin/撤销；主机协议回归通过，新增自动清理的容器CI Gate。

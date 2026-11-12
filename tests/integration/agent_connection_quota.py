@@ -4,6 +4,7 @@ import concurrent.futures
 import os
 from pathlib import Path
 import secrets
+import re
 import subprocess
 import tempfile
 import time
@@ -24,18 +25,28 @@ with tempfile.TemporaryDirectory(prefix='agentbrowser-mcp-quota-') as temp:
     env = Path(temp) / 'postgres.env'
     env.write_text('POSTGRES_PASSWORD=' + secrets.token_hex(24) + '\n')
     env.chmod(0o600)
+    # Keep the temporary Unix-only server alive long enough to exercise startup fencing.
+    init = Path(temp) / 'startup.sql'
+    init.write_text('SELECT pg_sleep(3);\n')
+    init.chmod(0o644)
     def sql(source, success=True):
-        r = run(['docker', 'exec', '-i', name, 'psql', '-U', 'postgres', '-At', '-v', 'ON_ERROR_STOP=1'], input=source)
-        assert (r.returncode == 0) == success, 'MCP_QUOTA_SQL_EXPECTATION_FAILED'
+        r = run(['docker', 'exec', '-i', name, 'psql', '-U', 'postgres', '-At', '-v', 'ON_ERROR_STOP=1', '-v', 'VERBOSITY=sqlstate'], input=source)
+        code = re.search(r'ERROR:\s+([0-9A-Z]{5})\b', r.stderr)
+        assert (r.returncode == 0) == success, 'MCP_QUOTA_SQL_EXPECTATION_FAILED sqlstate=' + (code[1] if code else 'unavailable')
         return r.stdout.strip()
     def insert(identity, key, running=False):
         return f"INSERT INTO agent_connection_environments(reservation_id,connection_id,tenant_id,request_key,request_sha256,state,running_reserved) VALUES('{identity}','conn','tenant','{key}','" + 'a'*64 + f"','CREATING',{str(running).lower()});"
     try:
-        assert run(['docker', 'run', '-d', '--name', name, '--env-file', str(env), 'postgres:17']).returncode == 0
+        assert run(['docker', 'run', '-d', '--name', name, '--env-file', str(env),
+            '--mount', f'type=bind,source={init},target=/docker-entrypoint-initdb.d/startup.sql,readonly', 'postgres:17']).returncode == 0
+        # The image's temporary initdb server accepts Unix socket connections, then exits.
+        # Only the final server listens on TCP; migrations must wait for that server.
         for _ in range(120):
-            if run(['docker', 'exec', name, 'pg_isready', '-U', 'postgres']).returncode == 0:
+            if run(['docker', 'exec', name, 'pg_isready', '-h', '127.0.0.1', '-U', 'postgres']).returncode == 0:
                 break
             time.sleep(.25)
+        else:
+            raise AssertionError('MCP_QUOTA_POSTGRES_TCP_NOT_READY')
         schema = Path('database/migrations/V139__agent_connection_quota_authority.sql').read_text() + Path('database/migrations/V140__agent_connection_access_and_lifecycle.sql').read_text()
         sql("CREATE TABLE sessions(id TEXT PRIMARY KEY,tenant_id TEXT DEFAULT 'tenant',state TEXT DEFAULT 'CREATED',deleted_at TIMESTAMPTZ); BEGIN;" + schema + "COMMIT;")
         sql("INSERT INTO agent_connections(connection_id,tenant_id,display_name,principal_subject,enabled,maximum_environments,maximum_running,expires_at) VALUES('conn','tenant','Test','subject',true,1,1,now()+interval '1 day');")

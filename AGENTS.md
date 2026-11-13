@@ -1,6 +1,6 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-11-12
+> 更新日期：2026-11-13
 > 基准分支：`main`
 > 编写时基准提交：`237920e feat: dispatch durable recording holds and fence recovery with immutable requests`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
@@ -307,6 +307,12 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- Oracle ARM真实Chromium/MCP单环境完整生命周期已通过，见 progress326：用户授权
+  暂停aitown后端后PSI降至0.04、节点NORMAL/OPEN；官方客户端9工具、创建/启动/
+  等待成功/停止/删除及额度归零通过。71秒内恢复aitown，数据库全程运行，测试连接
+  撤销且环境无残留，11项目服务运行、四Worker健康。共享压力共存长稳、对象存储/
+  OIDC、完整模型Agent任务与生产Gate仍未通过；本轮仅补真实验收证据。
 
 - Oracle 空闲派发 Lease 写放大已修复并替换 ARM 镜像，见 progress325：PG 权威新鲜检查
   不再重复写行，实机十秒只更新10次；Java691项与真实PG并发/过期/注销恢复通过。

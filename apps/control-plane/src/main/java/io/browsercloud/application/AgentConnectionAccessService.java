@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AgentConnectionAccessService {
-  public static final Set<String> TOOLS =
+  private static final Set<String> DEFAULT_TOOLS =
       Set.of("quota", "list", "get", "create", "start", "stop", "delete", "operation");
   private final JdbcTemplate jdbc;
   private final AgentConnectionEnvironmentApplicationService environments;
@@ -45,9 +45,9 @@ public class AgentConnectionAccessService {
       int running,
       Instant expiry,
       List<String> tools) {
-    var allowed = tools == null ? TOOLS : new HashSet<>(tools);
+    var allowed = tools == null ? DEFAULT_TOOLS : new HashSet<>(tools);
     if (allowed.isEmpty()
-        || !TOOLS.containsAll(allowed)
+        || !allowed.stream().allMatch(tool -> DEFAULT_TOOLS.contains(tool) || "direct".equals(tool))
         || (tools != null && allowed.size() != tools.size()))
       throw new IllegalArgumentException("AGENT_CONNECTION_TOOLS_INVALID");
     var id = environments.createConnection(tenant, name, subject, total, running, expiry);

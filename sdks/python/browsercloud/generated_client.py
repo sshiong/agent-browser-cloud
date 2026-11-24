@@ -50,6 +50,9 @@ OPERATIONS: dict[str, Operation] = {
     'createAgentEnvironment': Operation('createAgentEnvironment', 'POST', '/api/v1/agent-access/environments', (), (), ('Idempotency-Key',), 'CreateSessionRequest', True, 'AgentEnvironmentCreation'),
     'getAgentEnvironment': Operation('getAgentEnvironment', 'GET', '/api/v1/agent-access/environments/{sessionId}', ('sessionId',), (), (), '', False, 'SessionView'),
     'deleteAgentEnvironment': Operation('deleteAgentEnvironment', 'DELETE', '/api/v1/agent-access/environments/{sessionId}', ('sessionId',), (), ('Idempotency-Key',), '', False, 'BatchDeleteSessionsResponse'),
+    'snapshotAgentConnectionBrowser': Operation('snapshotAgentConnectionBrowser', 'GET', '/api/v1/agent-access/environments/{sessionId}/browser/snapshot', ('sessionId',), (), (), '', False, 'AgentBrowserSnapshot'),
+    'actAgentConnectionBrowser': Operation('actAgentConnectionBrowser', 'POST', '/api/v1/agent-access/environments/{sessionId}/browser/act', ('sessionId',), (), ('Idempotency-Key',), 'ExecuteAgentBrowserActionsRequest', True, 'AgentTask'),
+    'getAgentConnectionBrowserTask': Operation('getAgentConnectionBrowserTask', 'GET', '/api/v1/agent-access/environments/{sessionId}/browser/tasks/{taskId}', ('sessionId', 'taskId'), (), (), '', False, 'AgentTask'),
     'getAgentManagedOperation': Operation('getAgentManagedOperation', 'GET', '/api/v1/agent-access/operations/{operationId}', ('operationId',), (), (), '', False, 'AgentManagedOperation'),
     'startAgentEnvironment': Operation('startAgentEnvironment', 'POST', '/api/v1/agent-access/environments/{sessionId}:start', ('sessionId',), (), ('Idempotency-Key',), '', False, 'OperationResponse'),
     'stopAgentEnvironment': Operation('stopAgentEnvironment', 'POST', '/api/v1/agent-access/environments/{sessionId}:stop', ('sessionId',), (), ('Idempotency-Key',), '', False, 'OperationResponse'),
@@ -405,6 +408,15 @@ class BrowserCloudGeneratedClient:
 
     def deleteAgentEnvironment(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('deleteAgentEnvironment', path=path, query=query, body=body, headers=headers)
+
+    def snapshotAgentConnectionBrowser(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('snapshotAgentConnectionBrowser', path=path, query=query, body=body, headers=headers)
+
+    def actAgentConnectionBrowser(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('actAgentConnectionBrowser', path=path, query=query, body=body, headers=headers)
+
+    def getAgentConnectionBrowserTask(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getAgentConnectionBrowserTask', path=path, query=query, body=body, headers=headers)
 
     def getAgentManagedOperation(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('getAgentManagedOperation', path=path, query=query, body=body, headers=headers)

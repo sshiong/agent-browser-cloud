@@ -15,6 +15,7 @@ const tools: [AgentTool, string][] = [
   ['stop', '停止环境'],
   ['delete', '删除环境'],
   ['operation', '操作进度'],
+  ['direct', '直接操作网页'],
 ];
 const field =
   'w-full border border-border-subtle bg-surface-2 p-2 text-sm text-text-primary';
@@ -32,7 +33,7 @@ export function AgentConnectionsSection() {
   const [running, setRunning] = useState(3);
   const [days, setDays] = useState(7);
   const [selected, setSelected] = useState<AgentTool[]>(
-    tools.map(([key]) => key)
+    tools.map(([key]) => key).filter((key) => key !== 'direct')
   );
   const [issued, setIssued] = useState<{
     connection: AgentConnection;

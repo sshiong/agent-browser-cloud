@@ -50,8 +50,12 @@ async def main():
             if path == '/agent-connections': assert 'no-store' in r.headers.get('cache-control', '').lower().split(', ')
             return r.json()
         config={'name':'Owned MCP Agent','maximumEnvironments':2,'maximumRunning':1,'expiresAt':(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat()}
-        issued=await management('/agent-connections',config)
+        default=await management('/agent-connections',{**config,'name':'Default scope connection'})
+        assert 'direct' not in default['connection']['allowedTools']
+        issued=await management('/agent-connections',{**config,'allowedTools':[
+            'quota','list','get','create','start','stop','delete','operation','direct']})
         token=issued['accessToken'];connection=issued['connection']['connectionId']
+        assert 'direct' in issued['connection']['allowedTools']
         async def wait_state(session, wanted):
             for _ in range(120):
                 r=await http.get('/sessions/'+session);assert r.status_code==200
@@ -62,7 +66,7 @@ async def main():
             async with streamablehttp_client(url,headers={'Authorization':'Bearer '+token}) as (read,write,_):
                 async with ClientSession(read,write) as client:
                     await client.initialize()
-                    assert len((await client.list_tools()).tools)==9
+                    assert len((await client.list_tools()).tools)==13
                     async def call(name,args=None):return unpack(await client.call_tool(name,args or {}))
                     sessions=[]
                     for n in range(2):
@@ -78,6 +82,36 @@ async def main():
                     index=next(n for n,r in enumerate(starts) if not r.isError)
                     running=sessions[index];stopped=sessions[1-index]
                     await wait_state(running,'RUNNING')
+                    async with httpx.AsyncClient(base_url=base, headers={
+                        'Authorization':'Bearer '+default['accessToken']}, trust_env=False) as limited:
+                        response=await limited.get(f'/agent-access/environments/{running}/browser/snapshot')
+                        assert response.status_code==403 and response.json()['code']=='AGENT_TOOL_FORBIDDEN'
+                    await management('/agent-connections/'+default['connection']['connectionId']+':revoke')
+                    for _ in range(80):
+                        snapshot_result=await client.call_tool('browser_snapshot',{'environment_id':running})
+                        if not snapshot_result.isError:
+                            snapshot=unpack(snapshot_result)
+                            targets=[t for t in snapshot['state']['targets']
+                                     if t['role']=='button' and t['visible'] and t['interactive']
+                                     and t['enabled'] and t['inViewport'] and not t['occluded']
+                                     and not t['sensitive']]
+                            if targets: break
+                        await asyncio.sleep(.25)
+                    else: raise AssertionError('MCP_DIRECT_SNAPSHOT_NOT_READY')
+                    action=await call('browser_act',{'environment_id':running,
+                        'goal':'Hover the test button','state_cursor':snapshot['stateCursor'],
+                        'idempotency_key':'direct-hover','actions':[{'toolId':'HOVER_TARGET',
+                        'targetRef':targets[0]['elementId'],'targetRevision':snapshot['state']['targetRevision']}]})
+                    for _ in range(80):
+                        action=await call('browser_get_action_task',{'environment_id':running,
+                            'task_id':action['taskId']})
+                        if action['state']=='COMPLETED': break
+                        assert action['state']=='RUNNING', 'MCP_DIRECT_ACTION_FAILED_'+action['state']
+                        await asyncio.sleep(.25)
+                    else: raise AssertionError('MCP_DIRECT_ACTION_TIMEOUT')
+                    assert any(r['toolId']=='EXECUTE_ACTIONS' and r['output']['completedActions']==1
+                               for r in action['executionResults'])
+                    print('mcp_direct_action_and_scope=true')
                     assert (await call('browser_get_quota'))['runningUsed']==1
                     operation=unpack(starts[index])['operationId']
                     assert (await call('browser_get_operation',{'operation_id':operation}))['operationId']==operation
@@ -90,10 +124,18 @@ async def main():
                     assert deleted['deletedCount']==1
                     assert (await call('browser_delete_environment',{'environment_id':running,'idempotency_key':'delete'}))['deletionId']==deleted['deletionId']
                     assert (await call('browser_get_quota'))['environmentsUsed']==1
-                    other=await management('/agent-connections',{**config,'name':'Other connection'})
+                    other=await management('/agent-connections',{**config,'name':'Other connection',
+                        'allowedTools':['get','list','direct']})
                     async with httpx.AsyncClient(base_url=base,headers={'Authorization':'Bearer '+other['accessToken']},trust_env=False) as outsider:
                         assert (await outsider.get('/agent-access/environments/'+stopped)).status_code==403
                         assert (await outsider.get('/agent-access/environments')).json()['items']==[]
+                        assert (await outsider.get(f'/agent-access/environments/{stopped}/browser/snapshot')).status_code==403
+                        assert (await outsider.get(f'/agent-access/environments/{stopped}/browser/tasks/agt_other')).status_code==403
+                        assert (await outsider.post(f'/agent-access/environments/{stopped}/browser/act',
+                            headers={'Idempotency-Key':'unowned-act'},json={'goal':'Open test page',
+                            'expectedStateCursor':'1:1:'+'a'*64,'actions':[],
+                            'navigateUrl':'https://example.com'})).status_code==403
+                    await management('/agent-connections/'+other['connection']['connectionId']+':revoke')
         # Gateway shutdown preserves the stopped environment. Restart with the same credential.
         assert (await http.get('/sessions/'+stopped)).status_code==200
         async with gateway() as url:

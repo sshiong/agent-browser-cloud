@@ -385,7 +385,7 @@ public final class Models {
 
   public record ProviderEvidenceListResponse(List<ProviderEvidence> items, Long total) {}
 
-  public record ExecuteAgentBrowserActionsRequest(String goal, String expectedStateCursor, List<AgentBatchActionRequest> actions, Boolean stopOnError) {}
+  public record ExecuteAgentBrowserActionsRequest(String goal, String expectedStateCursor, List<AgentBatchActionRequest> actions, Boolean stopOnError, String executionMode, String navigateUrl) {}
 
   public record WaitForAgentBrowserRequest(String goal, String expectedStateCursor, String waitCondition, String targetRef, Integer timeoutMs) {}
 

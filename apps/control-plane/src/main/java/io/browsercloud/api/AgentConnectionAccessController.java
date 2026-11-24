@@ -19,18 +19,27 @@ public class AgentConnectionAccessController {
   private final SessionDeletionApplicationService deletion;
   private final CoordinatorCommandRoutingService routing;
   private final JdbcTemplate jdbc;
+  private final AgentBrowserPerceptionService perception;
+  private final AgentBrowserActionApplicationService browserActions;
+  private final AgentApplicationService tasks;
 
   public AgentConnectionAccessController(
       AgentConnectionEnvironmentApplicationService environments,
       SessionApplicationService sessions,
       SessionDeletionApplicationService deletion,
       CoordinatorCommandRoutingService routing,
-      JdbcTemplate jdbc) {
+      JdbcTemplate jdbc,
+      AgentBrowserPerceptionService perception,
+      AgentBrowserActionApplicationService browserActions,
+      AgentApplicationService tasks) {
     this.environments = environments;
     this.sessions = sessions;
     this.deletion = deletion;
     this.routing = routing;
     this.jdbc = jdbc;
+    this.perception = perception;
+    this.browserActions = browserActions;
+    this.tasks = tasks;
   }
 
   private Identity who(Authentication authentication, String tool) {
@@ -170,6 +179,57 @@ public class AgentConnectionAccessController {
     return rows.getFirst();
   }
 
+  @GetMapping("/environments/{sessionId}/browser/snapshot")
+  public AgentBrowserPerceptionModels.SnapshotView snapshot(
+      Authentication authentication, @PathVariable String sessionId) {
+    var identity = directEnvironment(authentication, sessionId);
+    return perception.snapshot(sessionId, identity.tenantId());
+  }
+
+  @PostMapping("/environments/{sessionId}/browser/act")
+  public AgentTaskView act(
+      Authentication authentication,
+      @PathVariable String sessionId,
+      @RequestHeader("Idempotency-Key") String key,
+      @Valid @RequestBody AgentBrowserActionModels.ExecuteActionsRequest request) {
+    var identity = directEnvironment(authentication, sessionId);
+    return browserActions.act(
+        sessionId,
+        identity.tenantId(),
+        commandKey(identity, sessionId, "act", key),
+        new AgentBrowserActionModels.ExecuteActionsRequest(
+            request.goal(),
+            request.expectedStateCursor(),
+            request.actions(),
+            request.stopOnError(),
+            AgentBrowserActionModels.ExecutionMode.DIRECT,
+            request.navigateUrl()));
+  }
+
+  @GetMapping("/environments/{sessionId}/browser/tasks/{taskId}")
+  public AgentTaskView browserTask(
+      Authentication authentication, @PathVariable String sessionId, @PathVariable String taskId) {
+    var identity = directEnvironment(authentication, sessionId);
+    var owned =
+        jdbc.queryForObject(
+            "SELECT count(*) FROM agent_tasks WHERE task_id=? AND tenant_id=? AND session_id=?",
+            Long.class,
+            taskId,
+            identity.tenantId(),
+            sessionId);
+    if (owned == null || owned != 1L) {
+      throw new AgentApplicationService.AgentTaskNotFoundException();
+    }
+    return tasks.get(taskId, identity.tenantId());
+  }
+
+  private Identity directEnvironment(Authentication authentication, String sessionId) {
+    var identity = who(authentication, "direct");
+    environments.environment(
+        identity.tenantId(), identity.subject(), identity.connectionId(), sessionId);
+    return identity;
+  }
+
   private String commandKey(Identity i, String session, String action, String key) {
     if (key.isBlank() || key.length() > 128)
       throw new IllegalArgumentException("AGENT_IDEMPOTENCY_KEY_INVALID");
@@ -184,6 +244,12 @@ public class AgentConnectionAccessController {
     } catch (java.security.NoSuchAlgorithmException e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  @ExceptionHandler(AgentBrowserActionApplicationService.AgentBrowserActionRejectedException.class)
+  ResponseEntity<?> browserActionRejected(
+      AgentBrowserActionApplicationService.AgentBrowserActionRejectedException error) {
+    return ResponseEntity.status(409).body(Map.of("code", error.getMessage()));
   }
 
   @ExceptionHandler(IllegalArgumentException.class)

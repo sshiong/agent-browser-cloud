@@ -22,6 +22,18 @@ OAuth交互授权的客户端须另行适配，不承诺所有平台均支持静
 不确定的写结果使用相同幂等键重放。运行中不能删除，先停止。停止会保存Profile，删除不删除
 Profile。过渡和未知状态保留运行名额；只有控制面权威终态才归还。
 
+在设置的 Agent 连接中勾选 **直接操作网页**，然后给外部 AI 使用新签发的连接凭据。
+该权限可用于连接自己创建的运行中环境。调用顺序如下。
+
+1. `browser_snapshot` 获取当前页面和 `stateCursor`。
+2. 首次打开网页时，用 `browser_navigate` 提交目标 HTTP(S) URL。
+3. 读取新快照，用 `browser_act` 提交低风险动作。每个目标动作使用快照中的
+   `elementId` 作为 `targetRef`，并传入 `targetRevision`。
+4. 用 `browser_get_action_task` 检查任务和动作结果。页面变化时重新取快照。
+
+直连操作由外部 AI 决定下一步，控制面负责校验并直接派发。敏感输入和需要模型审核的
+动作返回明确拒绝，已有的人工确认与部署配置的结果验证继续生效。
+
 关闭Gateway：`docker compose --profile mcp stop mcp-gateway`。不使用`down -v`，不会清理
 核心服务或环境。撤销单个连接立即拒绝其后续请求，无需停止Gateway。
 

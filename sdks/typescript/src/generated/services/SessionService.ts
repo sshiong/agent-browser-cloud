@@ -524,7 +524,7 @@ export class SessionService {
     }
     /**
      * Perform one ordered state-fenced Browser action batch
-     * Canonical high-level browser.act tool. It persists one auditable Agent Task and retains reviewer, confirmation, state freshness, stable-target rebinding and human-input priority.
+     * Canonical high-level browser.act tool. It persists one auditable Agent Task and retains confirmation, state freshness, stable-target rebinding and human-input priority. Select DIRECT to dispatch a batch that passes deterministic low-risk review.
      *
      * @returns AgentTask Persisted task after immediate execution or durable enqueue.
      * @throws ApiError

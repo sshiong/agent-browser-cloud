@@ -541,7 +541,7 @@ start_browser_node() {
   NETWORK_HELPER_SOCKET="$temp_dir/network-helper.sock" \
   FAKE_CHROMIUM_REQUIRE_PROXY=true \
   FAKE_CHROMIUM_ARGUMENT_LOG="$temp_dir/fake-chromium-args.log" \
-  FAKE_CHROMIUM_MUTATE_STATE_AFTER=2 \
+  FAKE_CHROMIUM_MUTATE_STATE_AFTER="$([[ "$integration_gate_scope" == mcp ]] && printf 0 || printf 2)" \
   FAKE_CHROMIUM_DELAY_PROFILE_FRAGMENT=profile-recovering-failover \
   FAKE_CHROMIUM_DELAY_START_NUMBER=2 \
   FAKE_CHROMIUM_STARTUP_DELAY_SECONDS=30 \
@@ -4908,7 +4908,8 @@ import sys
 snapshot = json.loads(sys.argv[1])
 target = next(item for item in snapshot["state"]["targets"] if item["role"] == "button")
 print(json.dumps({
-    "goal": "Hover the current primary button through the high-level act tool",
+    "goal": "Hover the current primary button",
+    "executionMode": "DIRECT",
     "expectedStateCursor": snapshot["stateCursor"],
     "actions": [{
         "toolId": "HOVER_TARGET",

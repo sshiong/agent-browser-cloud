@@ -2140,6 +2140,8 @@ type ExecuteAgentBrowserActionsRequest struct {
 	ExpectedStateCursor string                    `json:"expectedStateCursor,omitempty"`
 	Actions             []AgentBatchActionRequest `json:"actions,omitempty"`
 	StopOnError         bool                      `json:"stopOnError,omitempty"`
+	ExecutionMode       string                    `json:"executionMode,omitempty"`
+	NavigateUrl         string                    `json:"navigateUrl,omitempty"`
 }
 
 type WaitForAgentBrowserRequest struct {

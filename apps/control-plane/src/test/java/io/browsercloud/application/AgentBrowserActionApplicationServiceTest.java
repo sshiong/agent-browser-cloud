@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import io.browsercloud.api.AgentBrowserActionModels.ExecuteActionsRequest;
+import io.browsercloud.api.AgentBrowserActionModels.ExecutionMode;
 import io.browsercloud.api.AgentBrowserActionModels.HandoffRequest;
 import io.browsercloud.api.AgentBrowserActionModels.WaitRequest;
 import io.browsercloud.api.AgentBrowserPerceptionModels.SnapshotView;
@@ -85,6 +86,122 @@ class AgentBrowserActionApplicationServiceTest {
         .isEqualTo(ToolId.EXECUTE_ACTIONS);
     org.assertj.core.api.Assertions.assertThat(create.getValue().maxActions()).isEqualTo(4);
     verify(reviewer).routeForExecution("agt_1234567890abcdef", "tenant-test", "idem:execute");
+  }
+
+  @Test
+  void directDispatchRunsOnlyAfterDeterministicGovernanceAndSkipsQueues() {
+    var task = mock(AgentTaskView.class);
+    when(task.taskId()).thenReturn("agt_1234567890abcdef");
+    when(task.state()).thenReturn(TaskState.PLANNED);
+    when(tasks.create(anyString(), anyString(), any(), eq("direct:create"))).thenReturn(task);
+    var request = request("9:2:" + "a".repeat(64));
+    var direct =
+        new ExecuteActionsRequest(
+            request.goal(),
+            request.expectedStateCursor(),
+            request.actions(),
+            true,
+            ExecutionMode.DIRECT);
+
+    service.act("ses_1234567890abcdef", "tenant-test", "direct", direct);
+
+    var ordered = inOrder(reviewer, routing);
+    ordered.verify(reviewer).requireDirectEligible("agt_1234567890abcdef", "tenant-test");
+    ordered
+        .verify(routing)
+        .execute(
+            eq("ses_1234567890abcdef"),
+            eq("tenant-test"),
+            anyString(),
+            eq("direct:execute"),
+            any(),
+            eq(AgentTaskView.class),
+            any());
+    verifyNoMoreInteractions(reviewer);
+    verifyNoInteractions(externalWorker);
+  }
+
+  @Test
+  void directDispatchDoesNotFallbackWhenThePlanRequiresReview() {
+    var task = mock(AgentTaskView.class);
+    when(task.taskId()).thenReturn("agt_1234567890abcdef");
+    when(task.state()).thenReturn(TaskState.PLANNED);
+    when(tasks.create(anyString(), anyString(), any(), eq("direct:create"))).thenReturn(task);
+    doThrow(
+            new AgentBrowserActionApplicationService.AgentBrowserActionRejectedException(
+                "DIRECT_EXECUTION_REQUIRES_MANAGED_REVIEW"))
+        .when(reviewer)
+        .requireDirectEligible("agt_1234567890abcdef", "tenant-test");
+    var request = request("9:2:" + "a".repeat(64));
+
+    assertThatThrownBy(
+            () ->
+                service.act(
+                    "ses_1234567890abcdef",
+                    "tenant-test",
+                    "direct",
+                    new ExecuteActionsRequest(
+                        request.goal(),
+                        request.expectedStateCursor(),
+                        request.actions(),
+                        true,
+                        ExecutionMode.DIRECT)))
+        .hasMessage("DIRECT_EXECUTION_REQUIRES_MANAGED_REVIEW");
+    verifyNoInteractions(routing, execution, externalWorker);
+  }
+
+  @Test
+  void directNavigationUsesTheFencedNavigationStepWithoutRequiringTheCurrentHost() {
+    var cursor = "9:2:" + "a".repeat(64);
+    var snapshot = mock(SnapshotView.class);
+    when(snapshot.stateCursor()).thenReturn(cursor);
+    when(perception.snapshot("ses_1234567890abcdef", "tenant-test")).thenReturn(snapshot);
+    var task = mock(AgentTaskView.class);
+    when(task.state()).thenReturn(TaskState.PLANNED);
+    when(task.taskId()).thenReturn("agt_1234567890abcdef");
+    var create = ArgumentCaptor.forClass(CreateAgentTaskRequest.class);
+    when(tasks.create(anyString(), anyString(), create.capture(), eq("navigate:create")))
+        .thenReturn(task);
+
+    service.act(
+        "ses_1234567890abcdef",
+        "tenant-test",
+        "navigate",
+        new ExecuteActionsRequest(
+            "Open the test page",
+            cursor,
+            List.of(),
+            true,
+            ExecutionMode.DIRECT,
+            "https://example.net/test"));
+
+    org.assertj.core.api.Assertions.assertThat(create.getValue().startUrl())
+        .isEqualTo("https://example.net/test");
+    org.assertj.core.api.Assertions.assertThat(create.getValue().allowedDomains())
+        .containsExactly("example.net");
+    org.assertj.core.api.Assertions.assertThat(create.getValue().actions()).isEmpty();
+    verify(reviewer).requireDirectEligible("agt_1234567890abcdef", "tenant-test");
+  }
+
+  @Test
+  void directInputCannotConsumeASecretWhileBuildingThePlan() {
+    var action =
+        new CreateAgentTaskRequest.BatchActionRequest(
+            ToolId.CLICK_TARGET, "e123", 2L, null, "secret-reference", null, null, null, null);
+    assertThatThrownBy(
+            () ->
+                service.act(
+                    "ses_1234567890abcdef",
+                    "tenant-test",
+                    "direct",
+                    new ExecuteActionsRequest(
+                        "Click a button",
+                        "9:2:" + "a".repeat(64),
+                        List.of(action),
+                        true,
+                        ExecutionMode.DIRECT)))
+        .hasMessage("DIRECT_EXECUTION_REQUIRES_MANAGED_REVIEW");
+    verifyNoInteractions(tasks, reviewer, routing, externalWorker);
   }
 
   @Test

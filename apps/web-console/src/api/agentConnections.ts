@@ -8,7 +8,8 @@ export type AgentTool =
   | 'start'
   | 'stop'
   | 'delete'
-  | 'operation';
+  | 'operation'
+  | 'direct';
 export interface AgentConnection {
   connectionId: string;
   name: string;

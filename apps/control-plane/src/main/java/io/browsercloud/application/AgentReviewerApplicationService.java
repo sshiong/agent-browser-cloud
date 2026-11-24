@@ -213,6 +213,23 @@ public class AgentReviewerApplicationService {
     enqueueForExecutionLocked(task, idempotencyKey);
   }
 
+  static boolean allowsDirectPrimitive(ToolId tool) {
+    return tool != null && LOW_RISK_TOOLS.contains(tool);
+  }
+
+  /** Direct callers may only execute plans already eligible for deterministic review. */
+  @Transactional
+  public void requireDirectEligible(String taskId, String tenantId) {
+    var task = requireTask(taskId, tenantId);
+    if (!TaskState.PLANNED.name().equals(task.getState())
+        || !"NOT_REQUIRED".equals(task.getReviewerStatus())
+        || reviewRoutingDecision(task, Instant.now())
+            != ReviewRoutingDecision.DETERMINISTIC_BYPASS) {
+      throw new AgentBrowserActionApplicationService.AgentBrowserActionRejectedException(
+          "DIRECT_EXECUTION_REQUIRES_MANAGED_REVIEW");
+    }
+  }
+
   /** Queue one exact plan for independent review before any execution job becomes visible. */
   @Transactional
   public void enqueueForExecution(String taskId, String tenantId, String idempotencyKey) {

@@ -48,8 +48,13 @@ with tempfile.TemporaryDirectory(prefix='agentbrowser-mcp-quota-') as temp:
         else:
             raise AssertionError('MCP_QUOTA_POSTGRES_TCP_NOT_READY')
         schema = Path('database/migrations/V139__agent_connection_quota_authority.sql').read_text() + Path('database/migrations/V140__agent_connection_access_and_lifecycle.sql').read_text()
+        schema += Path('database/migrations/V141__agent_connection_direct_browser_scope.sql').read_text()
         sql("CREATE TABLE sessions(id TEXT PRIMARY KEY,tenant_id TEXT DEFAULT 'tenant',state TEXT DEFAULT 'CREATED',deleted_at TIMESTAMPTZ); BEGIN;" + schema + "COMMIT;")
         sql("INSERT INTO agent_connections(connection_id,tenant_id,display_name,principal_subject,enabled,maximum_environments,maximum_running,expires_at) VALUES('conn','tenant','Test','subject',true,1,1,now()+interval '1 day');")
+        assert sql("SELECT 'direct' = ANY(allowed_tools) FROM agent_connections") == 'f'
+        sql("UPDATE agent_connections SET allowed_tools=array_append(allowed_tools, 'direct');")
+        assert sql("SELECT 'direct' = ANY(allowed_tools) FROM agent_connections") == 't'
+        sql("UPDATE agent_connections SET allowed_tools=ARRAY['arbitrary'];", False)
         # Two separate real transactions race for the final environment slot.
         def contender(i):
             r = run(['docker','exec','-i',name,'psql','-U','postgres','-At','-v','ON_ERROR_STOP=1'], input='BEGIN;' + insert('res'+str(i),'key'+str(i),True) + 'SELECT pg_sleep(0.2); COMMIT;')

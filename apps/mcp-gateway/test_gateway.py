@@ -106,8 +106,16 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 listed = await session.list_tools()
-                self.assertEqual(len(listed.tools), 9)
+                self.assertEqual(len(listed.tools), 13)
                 actions = {
+                    'browser_navigate': {'environment_id': 'ses_owned', 'goal': 'Open the test page',
+                        'state_cursor': '1:1:' + 'a' * 64, 'idempotency_key': 'direct-nav',
+                        'url': 'https://example.com'},
+                    'browser_snapshot': {'environment_id': 'ses_owned'},
+                    'browser_act': {'environment_id': 'ses_owned', 'goal': 'Hover a test button',
+                        'state_cursor': '1:1:' + 'a' * 64, 'idempotency_key': 'direct-act',
+                        'actions': [{'toolId': 'HOVER_TARGET', 'targetRef': 'e1', 'targetRevision': 1}]},
+                    'browser_get_action_task': {'environment_id': 'ses_owned', 'task_id': 'agt_owned'},
                     'browser_get_quota': {}, 'browser_list_environments': {},
                     'browser_get_environment': {'environment_id': 'ses_owned'},
                     'browser_create_environment': {'profile_id': 'profile-owned', 'idempotency_key': 'owned-create'},

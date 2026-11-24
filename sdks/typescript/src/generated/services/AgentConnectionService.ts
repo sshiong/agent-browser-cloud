@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { AgentBrowserSnapshot } from '../models/AgentBrowserSnapshot.js';
 import type { AgentConnectionCreateRequest } from '../models/AgentConnectionCreateRequest.js';
 import type { AgentConnectionIdentity } from '../models/AgentConnectionIdentity.js';
 import type { AgentConnectionIssued } from '../models/AgentConnectionIssued.js';
@@ -12,8 +13,10 @@ import type { AgentConnectionView } from '../models/AgentConnectionView.js';
 import type { AgentEnvironmentCreation } from '../models/AgentEnvironmentCreation.js';
 import type { AgentEnvironmentList } from '../models/AgentEnvironmentList.js';
 import type { AgentManagedOperation } from '../models/AgentManagedOperation.js';
+import type { AgentTask } from '../models/AgentTask.js';
 import type { BatchDeleteSessionsResponse } from '../models/BatchDeleteSessionsResponse.js';
 import type { CreateSessionRequest } from '../models/CreateSessionRequest.js';
+import type { ExecuteAgentBrowserActionsRequest } from '../models/ExecuteAgentBrowserActionsRequest.js';
 import type { OperationResponse } from '../models/OperationResponse.js';
 import type { SessionView } from '../models/SessionView.js';
 import type { CancelablePromise } from '../core/CancelablePromise.js';
@@ -275,6 +278,93 @@ export class AgentConnectionService {
                 401: `Authentication required`,
                 403: `Connection, role or tool access rejected`,
                 409: `Quota, lifecycle or identity conflict`,
+            },
+        });
+    }
+    /**
+     * Read the current browser state of an owned environment
+     * Requires the opt-in direct permission on the connection.
+     * @returns AgentBrowserSnapshot Successful result.
+     * @throws ApiError
+     */
+    public snapshotAgentConnectionBrowser({
+        sessionId,
+    }: {
+        sessionId: string,
+    }): CancelablePromise<AgentBrowserSnapshot> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/agent-access/environments/{sessionId}/browser/snapshot',
+            path: {
+                'sessionId': sessionId,
+            },
+            errors: {
+                401: `Authentication required.`,
+                403: `Connection, ownership or tool access rejected.`,
+                409: `State or idempotency conflict.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
+            },
+        });
+    }
+    /**
+     * Dispatch an explicit low-risk action batch directly
+     * Requires the opt-in direct permission on the connection.
+     * @returns AgentTask Successful result.
+     * @throws ApiError
+     */
+    public actAgentConnectionBrowser({
+        sessionId,
+        idempotencyKey,
+        requestBody,
+    }: {
+        sessionId: string,
+        idempotencyKey: string,
+        requestBody: ExecuteAgentBrowserActionsRequest,
+    }): CancelablePromise<AgentTask> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-access/environments/{sessionId}/browser/act',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                401: `Authentication required.`,
+                403: `Connection, ownership or tool access rejected.`,
+                409: `State or idempotency conflict.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
+            },
+        });
+    }
+    /**
+     * Read an action task in an owned environment
+     * Requires the opt-in direct permission on the connection.
+     * @returns AgentTask Successful result.
+     * @throws ApiError
+     */
+    public getAgentConnectionBrowserTask({
+        sessionId,
+        taskId,
+    }: {
+        sessionId: string,
+        taskId: string,
+    }): CancelablePromise<AgentTask> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/agent-access/environments/{sessionId}/browser/tasks/{taskId}',
+            path: {
+                'sessionId': sessionId,
+                'taskId': taskId,
+            },
+            errors: {
+                401: `Authentication required.`,
+                403: `Connection, ownership or tool access rejected.`,
+                409: `State or idempotency conflict.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
             },
         });
     }

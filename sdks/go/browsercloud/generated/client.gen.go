@@ -64,6 +64,9 @@ var Operations = map[string]Operation{
 	"createAgentEnvironment":                     {OperationID: "createAgentEnvironment", Method: "POST", Path: "/api/v1/agent-access/environments", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key"}, RequestSchema: "CreateSessionRequest", RequestRequired: true, ResponseSchema: "AgentEnvironmentCreation"},
 	"getAgentEnvironment":                        {OperationID: "getAgentEnvironment", Method: "GET", Path: "/api/v1/agent-access/environments/{sessionId}", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "SessionView"},
 	"deleteAgentEnvironment":                     {OperationID: "deleteAgentEnvironment", Method: "DELETE", Path: "/api/v1/agent-access/environments/{sessionId}", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "BatchDeleteSessionsResponse"},
+	"snapshotAgentConnectionBrowser":             {OperationID: "snapshotAgentConnectionBrowser", Method: "GET", Path: "/api/v1/agent-access/environments/{sessionId}/browser/snapshot", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentBrowserSnapshot"},
+	"actAgentConnectionBrowser":                  {OperationID: "actAgentConnectionBrowser", Method: "POST", Path: "/api/v1/agent-access/environments/{sessionId}/browser/act", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key"}, RequestSchema: "ExecuteAgentBrowserActionsRequest", RequestRequired: true, ResponseSchema: "AgentTask"},
+	"getAgentConnectionBrowserTask":              {OperationID: "getAgentConnectionBrowserTask", Method: "GET", Path: "/api/v1/agent-access/environments/{sessionId}/browser/tasks/{taskId}", PathParameters: []string{"sessionId", "taskId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTask"},
 	"getAgentManagedOperation":                   {OperationID: "getAgentManagedOperation", Method: "GET", Path: "/api/v1/agent-access/operations/{operationId}", PathParameters: []string{"operationId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentManagedOperation"},
 	"startAgentEnvironment":                      {OperationID: "startAgentEnvironment", Method: "POST", Path: "/api/v1/agent-access/environments/{sessionId}:start", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "OperationResponse"},
 	"stopAgentEnvironment":                       {OperationID: "stopAgentEnvironment", Method: "POST", Path: "/api/v1/agent-access/environments/{sessionId}:stop", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "OperationResponse"},
@@ -464,6 +467,15 @@ func (c *Client) GetAgentEnvironment(ctx context.Context, request Request) (any,
 }
 func (c *Client) DeleteAgentEnvironment(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "deleteAgentEnvironment", request)
+}
+func (c *Client) SnapshotAgentConnectionBrowser(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "snapshotAgentConnectionBrowser", request)
+}
+func (c *Client) ActAgentConnectionBrowser(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "actAgentConnectionBrowser", request)
+}
+func (c *Client) GetAgentConnectionBrowserTask(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "getAgentConnectionBrowserTask", request)
 }
 func (c *Client) GetAgentManagedOperation(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "getAgentManagedOperation", request)

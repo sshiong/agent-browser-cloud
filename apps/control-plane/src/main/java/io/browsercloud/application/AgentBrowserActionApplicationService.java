@@ -50,6 +50,37 @@ public class AgentBrowserActionApplicationService {
   public AgentTaskView act(
       String sessionId, String tenantId, String idempotencyKey, ExecuteActionsRequest request) {
     var snapshot = freshSnapshot(sessionId, tenantId, request.expectedStateCursor());
+    if (request.navigateUrl() != null) {
+      if (request.executionMode() != ExecutionMode.DIRECT || !request.actions().isEmpty()) {
+        throw new AgentBrowserActionRejectedException("DIRECT_NAVIGATION_MUST_BE_SEPARATE");
+      }
+      var create =
+          new CreateAgentTaskRequest(
+              request.goal(),
+              request.navigateUrl(),
+              List.of(domain(request.navigateUrl())),
+              4,
+              0,
+              List.of(),
+              List.of());
+      return createAndExecuteDirect(sessionId, tenantId, idempotencyKey, create);
+    }
+    if (request.actions().isEmpty()) {
+      throw new AgentBrowserActionRejectedException("ACTION_BATCH_SIZE_INVALID");
+    }
+    if (request.executionMode() == ExecutionMode.DIRECT
+        && request.actions().stream()
+            .anyMatch(
+                action ->
+                    !AgentReviewerApplicationService.allowsDirectPrimitive(action.toolId())
+                        || action.secretId() != null
+                        || action.value() != null
+                        || (action.dataClass() != null
+                            && action.dataClass()
+                                != io.browsercloud.domain.agent.AgentModels.ActionDataClass
+                                    .PUBLIC))) {
+      throw new AgentBrowserActionRejectedException("DIRECT_EXECUTION_REQUIRES_MANAGED_REVIEW");
+    }
     var domains = allowedDomains(snapshot);
     request.actions().stream()
         .filter(action -> action.toolId() == ToolId.OPEN_TAB)
@@ -78,6 +109,9 @@ public class AgentBrowserActionApplicationService {
             0,
             List.of(),
             List.of(batch));
+    if (request.executionMode() == ExecutionMode.DIRECT) {
+      return createAndExecuteDirect(sessionId, tenantId, idempotencyKey, create);
+    }
     return createAndRoute(sessionId, tenantId, idempotencyKey, create);
   }
 
@@ -125,6 +159,16 @@ public class AgentBrowserActionApplicationService {
     return createAndRoute(sessionId, tenantId, idempotencyKey, create);
   }
 
+  private AgentTaskView createAndExecuteDirect(
+      String sessionId, String tenantId, String key, CreateAgentTaskRequest create) {
+    var task = tasks.create(sessionId, tenantId, create, key + ":create");
+    if (task.state() != TaskState.PLANNED) {
+      return task;
+    }
+    reviewer.requireDirectEligible(task.taskId(), tenantId);
+    return executeInline(sessionId, tenantId, key + ":execute", task.taskId());
+  }
+
   private AgentTaskView createAndRoute(
       String sessionId, String tenantId, String idempotencyKey, CreateAgentTaskRequest create) {
     var task = tasks.create(sessionId, tenantId, create, idempotencyKey + ":create");
@@ -141,14 +185,19 @@ public class AgentBrowserActionApplicationService {
     if (externalWorker.enabled()) {
       return externalWorker.enqueue(task.taskId(), tenantId, executeKey);
     }
+    return executeInline(sessionId, tenantId, executeKey, task.taskId());
+  }
+
+  private AgentTaskView executeInline(
+      String sessionId, String tenantId, String executeKey, String taskId) {
     return routing.execute(
         sessionId,
         tenantId,
         AGENT_EXECUTE,
         executeKey,
-        new AgentExecute(tenantId, task.taskId(), executeKey),
+        new AgentExecute(tenantId, taskId, executeKey),
         AgentTaskView.class,
-        () -> execution.execute(task.taskId(), tenantId, executeKey));
+        () -> execution.execute(taskId, tenantId, executeKey));
   }
 
   private io.browsercloud.api.AgentBrowserPerceptionModels.SnapshotView freshSnapshot(

@@ -13,12 +13,35 @@ import java.util.List;
 public final class AgentBrowserActionModels {
   private AgentBrowserActionModels() {}
 
+  public enum ExecutionMode {
+    MANAGED,
+    DIRECT
+  }
+
   public record ExecuteActionsRequest(
       @NotBlank @Size(max = 2_000) String goal,
       @NotBlank @Size(max = 256) String expectedStateCursor,
-      @NotNull @Valid @Size(min = 1, max = 20)
-          List<CreateAgentTaskRequest.BatchActionRequest> actions,
-      Boolean stopOnError) {
+      @NotNull @Valid @Size(max = 20) List<CreateAgentTaskRequest.BatchActionRequest> actions,
+      Boolean stopOnError,
+      ExecutionMode executionMode,
+      @Size(max = 2048) String navigateUrl) {
+    public ExecuteActionsRequest(
+        String goal,
+        String expectedStateCursor,
+        List<CreateAgentTaskRequest.BatchActionRequest> actions,
+        Boolean stopOnError) {
+      this(goal, expectedStateCursor, actions, stopOnError, ExecutionMode.MANAGED, null);
+    }
+
+    public ExecuteActionsRequest(
+        String goal,
+        String expectedStateCursor,
+        List<CreateAgentTaskRequest.BatchActionRequest> actions,
+        Boolean stopOnError,
+        ExecutionMode executionMode) {
+      this(goal, expectedStateCursor, actions, stopOnError, executionMode, null);
+    }
+
     public ExecuteActionsRequest {
       actions = actions == null ? List.of() : List.copyOf(actions);
     }

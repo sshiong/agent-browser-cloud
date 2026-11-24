@@ -5,5 +5,5 @@
 export type AgentConnectionIdentity = {
     tenantId: string;
     connectionId: string;
-    allowedTools: Array<'quota' | 'list' | 'get' | 'create' | 'start' | 'stop' | 'delete' | 'operation'>;
+    allowedTools: Array<'quota' | 'list' | 'get' | 'create' | 'start' | 'stop' | 'delete' | 'operation' | 'direct'>;
 };

@@ -11,7 +11,7 @@ class AgentConnectionCreateRequest(TypedDict, total=False):
     maximumEnvironments: int
     maximumRunning: int
     expiresAt: str
-    allowedTools: list[Literal['quota', 'list', 'get', 'create', 'start', 'stop', 'delete', 'operation']]
+    allowedTools: list[Literal['quota', 'list', 'get', 'create', 'start', 'stop', 'delete', 'operation', 'direct']]
 
 class AgentConnectionView(TypedDict, total=False):
     connectionId: str
@@ -21,7 +21,7 @@ class AgentConnectionView(TypedDict, total=False):
     maximumRunning: int
     expiresAt: str
     enabled: bool
-    allowedTools: list[Literal['quota', 'list', 'get', 'create', 'start', 'stop', 'delete', 'operation']]
+    allowedTools: list[Literal['quota', 'list', 'get', 'create', 'start', 'stop', 'delete', 'operation', 'direct']]
 
 class AgentConnectionIssued(TypedDict, total=False):
     connection: AgentConnectionView
@@ -40,7 +40,7 @@ class AgentConnectionQuota(TypedDict, total=False):
 class AgentConnectionIdentity(TypedDict, total=False):
     tenantId: str
     connectionId: str
-    allowedTools: list[Literal['quota', 'list', 'get', 'create', 'start', 'stop', 'delete', 'operation']]
+    allowedTools: list[Literal['quota', 'list', 'get', 'create', 'start', 'stop', 'delete', 'operation', 'direct']]
 
 class AgentEnvironmentCreation(TypedDict, total=False):
     sessionId: str
@@ -1862,6 +1862,8 @@ class ExecuteAgentBrowserActionsRequest(TypedDict, total=False):
     expectedStateCursor: str
     actions: list[AgentBatchActionRequest]
     stopOnError: bool
+    executionMode: Literal['MANAGED', 'DIRECT']
+    navigateUrl: str
 
 class WaitForAgentBrowserRequest(TypedDict, total=False):
     goal: str

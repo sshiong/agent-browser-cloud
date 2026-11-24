@@ -284,6 +284,86 @@ paths:
           description: Quota, lifecycle or identity conflict
       security:
       - agentConnectionBearer: []
+  /api/v1/agent-access/environments/{sessionId}/browser/snapshot:
+    get:
+      operationId: snapshotAgentConnectionBrowser
+      summary: Read the current browser state of an owned environment
+      description: Requires the opt-in direct permission on the connection.
+      tags: [AgentConnection]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Successful result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentBrowserSnapshot"
+        "401":
+          description: Authentication required.
+        "403":
+          description: Connection, ownership or tool access rejected.
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /api/v1/agent-access/environments/{sessionId}/browser/act:
+    post:
+      operationId: actAgentConnectionBrowser
+      summary: Dispatch an explicit low-risk action batch directly
+      description: Requires the opt-in direct permission on the connection.
+      tags: [AgentConnection]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExecuteAgentBrowserActionsRequest"
+      responses:
+        "200":
+          description: Successful result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTask"
+        "401":
+          description: Authentication required.
+        "403":
+          description: Connection, ownership or tool access rejected.
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /api/v1/agent-access/environments/{sessionId}/browser/tasks/{taskId}:
+    get:
+      operationId: getAgentConnectionBrowserTask
+      summary: Read an action task in an owned environment
+      description: Requires the opt-in direct permission on the connection.
+      tags: [AgentConnection]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: taskId
+          in: path
+          required: true
+          schema: {type: string, maxLength: 128}
+      responses:
+        "200":
+          description: Successful result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTask"
+        "401":
+          description: Authentication required.
+        "403":
+          description: Connection, ownership or tool access rejected.
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
   "/api/v1/agent-access/operations/{operationId}":
     get:
       operationId: getAgentManagedOperation
@@ -1001,7 +1081,8 @@ paths:
       summary: Perform one ordered state-fenced Browser action batch
       description: >
         Canonical high-level browser.act tool. It persists one auditable Agent Task and retains
-        reviewer, confirmation, state freshness, stable-target rebinding and human-input priority.
+        confirmation, state freshness, stable-target rebinding and human-input priority.
+        Select DIRECT to dispatch a batch that passes deterministic low-risk review.
       tags: [Session, Agent, State]
       parameters:
         - $ref: "#/components/parameters/SessionId"
@@ -6949,7 +7030,7 @@ components:
         allowedTools:
           type: array
           minItems: 1
-          maxItems: 8
+          maxItems: 9
           uniqueItems: true
           items:
             type: string
@@ -6962,6 +7043,7 @@ components:
             - stop
             - delete
             - operation
+            - direct
     AgentConnectionView:
       type: object
       additionalProperties: false
@@ -6997,7 +7079,7 @@ components:
         allowedTools:
           type: array
           minItems: 1
-          maxItems: 8
+          maxItems: 9
           uniqueItems: true
           items:
             type: string
@@ -7010,6 +7092,7 @@ components:
             - stop
             - delete
             - operation
+            - direct
     AgentConnectionIssued:
       type: object
       additionalProperties: false
@@ -7077,7 +7160,7 @@ components:
         allowedTools:
           type: array
           minItems: 1
-          maxItems: 8
+          maxItems: 9
           uniqueItems: true
           items:
             type: string
@@ -7090,6 +7173,7 @@ components:
             - stop
             - delete
             - operation
+            - direct
     AgentEnvironmentCreation:
       type: object
       additionalProperties: false
@@ -13151,13 +13235,21 @@ components:
           pattern: "^[0-9]+:[0-9]+:[a-f0-9]{64}$"
         actions:
           type: array
-          minItems: 1
           maxItems: 20
           items:
             $ref: "#/components/schemas/AgentBatchActionRequest"
         stopOnError:
           type: boolean
           default: true
+        executionMode:
+          type: string
+          enum: [MANAGED, DIRECT]
+          default: MANAGED
+          description: DIRECT dispatches eligible low-risk actions through the Control Plane without queueing the plan reviewer or execution worker. Required approvals and configured outcome verification still apply.
+        navigateUrl:
+          type: string
+          maxLength: 2048
+          description: Navigate the active tab in DIRECT mode. Send an empty actions array and take a fresh snapshot before acting.
     WaitForAgentBrowserRequest:
       type: object
       additionalProperties: false

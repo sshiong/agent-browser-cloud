@@ -7,5 +7,5 @@ export type AgentConnectionCreateRequest = {
     maximumEnvironments: number;
     maximumRunning: number;
     expiresAt: string;
-    allowedTools?: Array<'quota' | 'list' | 'get' | 'create' | 'start' | 'stop' | 'delete' | 'operation'>;
+    allowedTools?: Array<'quota' | 'list' | 'get' | 'create' | 'start' | 'stop' | 'delete' | 'operation' | 'direct'>;
 };

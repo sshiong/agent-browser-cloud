@@ -137,6 +137,39 @@ async def browser_wait_operation(operation_id: str, timeout_seconds: int = 10) -
             "succeeded": False, "operation": last}
 
 
+@server.tool(annotations={"readOnlyHint": True})
+async def browser_snapshot(environment_id: str) -> dict:
+    """Read the current page, actionable targets and state cursor of an owned running environment. Requires direct permission."""
+    return await api("/environments/" + identifier(environment_id, "ses_") + "/browser/snapshot")
+
+
+@server.tool(annotations={"idempotentHint": True, "destructiveHint": False})
+async def browser_act(environment_id: str, goal: str, state_cursor: str,
+                      actions: list[dict[str, Any]], idempotency_key: str) -> dict:
+    """Run 1–20 low-risk actions chosen by the caller. For example HOVER_TARGET, CLICK_TARGET or SCROLL. For a target, pass toolId, targetRef (elementId from snapshot) and targetRevision. If STATE_CURSOR_STALE, take a new snapshot. Requires direct permission. Check the returned task for completion."""
+    if not 1 <= len(actions) <= 20:
+        raise ValueError("ACTION_BATCH_SIZE_INVALID")
+    return await api("/environments/" + identifier(environment_id, "ses_") + "/browser/act",
+        "POST", {"goal": goal, "expectedStateCursor": state_cursor, "actions": actions,
+                 "stopOnError": True}, idempotency_key)
+
+
+@server.tool(annotations={"idempotentHint": True, "destructiveHint": False})
+async def browser_navigate(environment_id: str, goal: str, state_cursor: str,
+                           url: str, idempotency_key: str) -> dict:
+    """Navigate the active tab to an explicitly authorized HTTP(S) URL. Take a fresh snapshot after completion. Requires direct permission."""
+    return await api("/environments/" + identifier(environment_id, "ses_") + "/browser/act",
+        "POST", {"goal": goal, "expectedStateCursor": state_cursor, "actions": [],
+                 "navigateUrl": url}, idempotency_key)
+
+
+@server.tool(annotations={"readOnlyHint": True})
+async def browser_get_action_task(environment_id: str, task_id: str) -> dict:
+    """Read a browser action task and its results within the same owned environment. Requires direct permission."""
+    return await api("/environments/" + identifier(environment_id, "ses_") +
+        "/browser/tasks/" + identifier(task_id, "agt_"))
+
+
 class AuthenticatedGateway:
     def __init__(self, app):
         self.app = app

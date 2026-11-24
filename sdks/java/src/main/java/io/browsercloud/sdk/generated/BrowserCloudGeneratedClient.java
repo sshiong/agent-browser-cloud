@@ -40,6 +40,9 @@ public final class BrowserCloudGeneratedClient {
     operation("createAgentEnvironment", "POST", "/api/v1/agent-access/environments", List.of(), List.of(), List.of("Idempotency-Key"), "CreateSessionRequest", true, "AgentEnvironmentCreation"),
     operation("getAgentEnvironment", "GET", "/api/v1/agent-access/environments/{sessionId}", List.of("sessionId"), List.of(), List.of(), "", false, "SessionView"),
     operation("deleteAgentEnvironment", "DELETE", "/api/v1/agent-access/environments/{sessionId}", List.of("sessionId"), List.of(), List.of("Idempotency-Key"), "", false, "BatchDeleteSessionsResponse"),
+    operation("snapshotAgentConnectionBrowser", "GET", "/api/v1/agent-access/environments/{sessionId}/browser/snapshot", List.of("sessionId"), List.of(), List.of(), "", false, "AgentBrowserSnapshot"),
+    operation("actAgentConnectionBrowser", "POST", "/api/v1/agent-access/environments/{sessionId}/browser/act", List.of("sessionId"), List.of(), List.of("Idempotency-Key"), "ExecuteAgentBrowserActionsRequest", true, "AgentTask"),
+    operation("getAgentConnectionBrowserTask", "GET", "/api/v1/agent-access/environments/{sessionId}/browser/tasks/{taskId}", List.of("sessionId", "taskId"), List.of(), List.of(), "", false, "AgentTask"),
     operation("getAgentManagedOperation", "GET", "/api/v1/agent-access/operations/{operationId}", List.of("operationId"), List.of(), List.of(), "", false, "AgentManagedOperation"),
     operation("startAgentEnvironment", "POST", "/api/v1/agent-access/environments/{sessionId}:start", List.of("sessionId"), List.of(), List.of("Idempotency-Key"), "", false, "OperationResponse"),
     operation("stopAgentEnvironment", "POST", "/api/v1/agent-access/environments/{sessionId}:stop", List.of("sessionId"), List.of(), List.of("Idempotency-Key"), "", false, "OperationResponse"),
@@ -340,6 +343,9 @@ public final class BrowserCloudGeneratedClient {
   public Response createAgentEnvironment(Request request) { return call("createAgentEnvironment", request); }
   public Response getAgentEnvironment(Request request) { return call("getAgentEnvironment", request); }
   public Response deleteAgentEnvironment(Request request) { return call("deleteAgentEnvironment", request); }
+  public Response snapshotAgentConnectionBrowser(Request request) { return call("snapshotAgentConnectionBrowser", request); }
+  public Response actAgentConnectionBrowser(Request request) { return call("actAgentConnectionBrowser", request); }
+  public Response getAgentConnectionBrowserTask(Request request) { return call("getAgentConnectionBrowserTask", request); }
   public Response getAgentManagedOperation(Request request) { return call("getAgentManagedOperation", request); }
   public Response startAgentEnvironment(Request request) { return call("startAgentEnvironment", request); }
   public Response stopAgentEnvironment(Request request) { return call("stopAgentEnvironment", request); }

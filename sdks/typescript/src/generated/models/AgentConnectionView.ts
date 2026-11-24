@@ -10,5 +10,5 @@ export type AgentConnectionView = {
     maximumRunning: number;
     expiresAt: string;
     enabled: boolean;
-    allowedTools: Array<'quota' | 'list' | 'get' | 'create' | 'start' | 'stop' | 'delete' | 'operation'>;
+    allowedTools: Array<'quota' | 'list' | 'get' | 'create' | 'start' | 'stop' | 'delete' | 'operation' | 'direct'>;
 };

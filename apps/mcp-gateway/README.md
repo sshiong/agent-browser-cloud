@@ -28,7 +28,9 @@ Profile。过渡和未知状态保留运行名额；只有控制面权威终态�
 1. `browser_snapshot` 获取当前页面和 `stateCursor`。
 2. 首次打开网页时，用 `browser_navigate` 提交目标 HTTP(S) URL。
 3. 读取新快照，用 `browser_act` 提交低风险动作。每个目标动作使用快照中的
-   `elementId` 作为 `targetRef`，并传入 `targetRevision`。
+   `elementId` 作为 `targetRef`，并传入 `targetRevision`。拖动用 `DRAG_TARGET`，
+   传入终点的 `endTargetRef` 和 `durationMs`。长按使用相同的起点和终点。
+   滑动用 `SWIPE_TARGET`，传入像素位移 `deltaX`、`deltaY` 和时长。
 4. 用 `browser_get_action_task` 检查任务和动作结果。页面变化时重新取快照。
 
 直连操作由外部 AI 决定下一步，控制面负责校验并直接派发。敏感输入和需要模型审核的

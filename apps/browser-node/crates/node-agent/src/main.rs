@@ -5039,12 +5039,19 @@ impl NodeControlService {
                                 .mouse_move(start.0, start.1, next(&mut sequence)?)
                                 .await?;
                             input.mouse_down(0, next(&mut sequence)?).await?;
-                            for index in 1..=8_i32 {
-                                let x = start.0 + (end.0 - start.0) * index / 8;
-                                let y = start.1 + (end.1 - start.1) * index / 8;
-                                input.mouse_move(x, y, next(&mut sequence)?).await?;
-                                tokio::time::sleep(Duration::from_millis(u64::from(duration / 8)))
+                            if start == end {
+                                tokio::time::sleep(Duration::from_millis(u64::from(duration)))
                                     .await;
+                            } else {
+                                for index in 1..=8_i32 {
+                                    let x = start.0 + (end.0 - start.0) * index / 8;
+                                    let y = start.1 + (end.1 - start.1) * index / 8;
+                                    input.mouse_move(x, y, next(&mut sequence)?).await?;
+                                    tokio::time::sleep(Duration::from_millis(u64::from(
+                                        duration / 8,
+                                    )))
+                                    .await;
+                                }
                             }
                             input.mouse_up(0, next(&mut sequence)?).await
                         }

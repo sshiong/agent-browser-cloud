@@ -98,20 +98,31 @@ async def main():
                             if targets: break
                         await asyncio.sleep(.25)
                     else: raise AssertionError('MCP_DIRECT_SNAPSHOT_NOT_READY')
+                    state = snapshot['state']
+                    source = targets[0]['elementId']
+                    destination = next(t['elementId'] for t in state['targets']
+                                       if t['role'] == 'textbox' and not t['sensitive']
+                                       and t['interactive'] and t['inViewport'] and not t['occluded'])
+                    target_binding = {'targetRef': source, 'targetRevision': state['targetRevision']}
+                    gestures = [
+                        {'toolId': 'DRAG_TARGET', **target_binding, 'endTargetRef': source, 'durationMs': 180},
+                        {'toolId': 'DRAG_TARGET', **target_binding, 'endTargetRef': destination, 'durationMs': 160},
+                        {'toolId': 'SWIPE_TARGET', **target_binding, 'deltaX': 100, 'deltaY': 50, 'durationMs': 160},
+                    ]
                     action=await call('browser_act',{'environment_id':running,
-                        'goal':'Hover the test button','state_cursor':snapshot['stateCursor'],
-                        'idempotency_key':'direct-hover','actions':[{'toolId':'HOVER_TARGET',
-                        'targetRef':targets[0]['elementId'],'targetRevision':snapshot['state']['targetRevision']}]})
+                        'goal':'Exercise the demo page pointer controls','state_cursor':snapshot['stateCursor'],
+                        'idempotency_key':'direct-gestures','actions':gestures})
                     for _ in range(80):
                         action=await call('browser_get_action_task',{'environment_id':running,
                             'task_id':action['taskId']})
                         if action['state']=='COMPLETED': break
-                        assert action['state']=='RUNNING', 'MCP_DIRECT_ACTION_FAILED_'+action['state']
+                        assert action['state']=='RUNNING', 'MCP_DIRECT_ACTION_FAILED_'+str(action.get('lastError'))
                         await asyncio.sleep(.25)
                     else: raise AssertionError('MCP_DIRECT_ACTION_TIMEOUT')
-                    assert any(r['toolId']=='EXECUTE_ACTIONS' and r['output']['completedActions']==1
-                               for r in action['executionResults'])
-                    print('mcp_direct_action_and_scope=true')
+                    batch = next(r['output'] for r in action['executionResults'] if r['toolId']=='EXECUTE_ACTIONS')
+                    assert batch['completedActions'] == len(gestures)
+                    assert all(result['status'] == 'SUCCEEDED' for result in batch['actions'])
+                    print('mcp_direct_action_and_scope=true hold=true drag=true swipe=true')
                     assert (await call('browser_get_quota'))['runningUsed']==1
                     operation=unpack(starts[index])['operationId']
                     assert (await call('browser_get_operation',{'operation_id':operation}))['operationId']==operation

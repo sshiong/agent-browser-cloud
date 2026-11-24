@@ -86,7 +86,10 @@ const sourceOptions: Array<{
   { value: 'THIRD_PARTY_WIDGET', label: '第三方组件' },
 ];
 
-type DraftAction = CreateAgentActionRequest & { clientId: string };
+type DraftAction = Omit<CreateAgentActionRequest, 'toolId'> & {
+  clientId: string;
+  toolId: CreateAgentActionRequest['toolId'] | 'HOLD_TARGET';
+};
 type DraftExpectedOutcome = Omit<AgentExpectedOutcomeRequest, 'outcomeId'> & {
   clientId: string;
 };
@@ -115,6 +118,39 @@ const actionOptions: Array<{
   { value: 'WAIT_FOR', label: '等待状态' },
   { value: 'REQUEST_HUMAN_TAKEOVER', label: '请求人工接管' },
 ];
+
+const directActionOptions: typeof actionOptions = [
+  { value: 'CLICK_TARGET', label: '点击目标' },
+  { value: 'HOLD_TARGET', label: '长按目标' },
+  { value: 'DRAG_TARGET', label: '拖动到目标' },
+  { value: 'SWIPE_TARGET', label: '从目标滑动' },
+  { value: 'SCROLL', label: '滚动页面' },
+];
+
+function requiresActionTarget(toolId: DraftAction['toolId']) {
+  return (
+    toolId === 'CLICK_TARGET' ||
+    toolId === 'TYPE_TEXT' ||
+    toolId === 'HOLD_TARGET' ||
+    toolId === 'DRAG_TARGET' ||
+    toolId === 'SWIPE_TARGET'
+  );
+}
+
+function isDirectTarget(
+  target: InteractiveTargetView | undefined
+): target is InteractiveTargetView & { elementId: string } {
+  return Boolean(
+    target?.elementId &&
+    target.visible &&
+    target.enabled &&
+    target.bounds &&
+    target.interactive &&
+    target.inViewport &&
+    !target.occluded &&
+    !target.sensitive
+  );
+}
 
 const agentPolicyBudgets: Record<
   AgentPolicy,
@@ -184,10 +220,10 @@ export function AutomationPage() {
   );
   const agentPolicy = selectedSession?.agentPolicy ?? 'BALANCED';
   const policyBudget = agentPolicyBudgets[agentPolicy];
-  const permittedActionOptions = actionOptions.filter((option) => {
+  const permittedActionOptions = (
+    direct ? directActionOptions : actionOptions
+  ).filter((option) => {
     if (agentPolicy === 'DISABLED') return false;
-    if (direct && !['CLICK_TARGET', 'SCROLL'].includes(option.value))
-      return false;
     if (
       agentPolicy === 'RESTRICTED' &&
       !['WAIT_FOR', 'REQUEST_HUMAN_TAKEOVER'].includes(option.value)
@@ -297,32 +333,9 @@ export function AutomationPage() {
               expectedStateCursor: snapshot.stateCursor,
               executionMode: 'DIRECT',
               navigateUrl: startUrl.trim() || undefined,
-              actions: rebound.map((action): AgentBatchActionRequest => {
-                if (action.toolId === 'SCROLL') {
-                  return {
-                    toolId: 'SCROLL',
-                    scrollDeltaY: action.scrollDeltaY,
-                  };
-                }
-                const target = snapshot.state.targets.find(
-                  (candidate) => candidate.targetRef === action.targetRef
-                );
-                if (
-                  action.toolId !== 'CLICK_TARGET' ||
-                  !target?.elementId ||
-                  target.sensitive ||
-                  !target.interactive ||
-                  !target.inViewport ||
-                  target.occluded
-                ) {
-                  throw new Error('请选择当前页面可见、可操作的目标。');
-                }
-                return {
-                  toolId: 'CLICK_TARGET',
-                  targetRef: target.elementId,
-                  targetRevision: snapshot.state.targetRevision,
-                };
-              }),
+              actions: rebound.map((action) =>
+                toDirectActionRequest(action, snapshot.state)
+              ),
             };
           },
         });
@@ -555,7 +568,7 @@ export function AutomationPage() {
                 </h2>
                 <p className="mt-0.5 text-[10px] leading-4 text-text-muted">
                   {direct
-                    ? '按你指定的顺序执行导航、点击或滚动。'
+                    ? '按顺序执行导航、点击、长按、拖动、滑动或滚动。'
                     : '创建计划后，可在任务详情中审核并执行。'}
                 </p>
               </div>
@@ -854,7 +867,7 @@ export function AutomationPage() {
               {actions.length === 0 ? (
                 <div className="border border-dashed border-border-default bg-surface-2/40 px-3 py-4 text-center text-[10px] text-text-muted">
                   {direct
-                    ? '填写网址，或添加点击、滚动动作。'
+                    ? '填写网址，或添加页面动作。'
                     : '无写动作；计划仅执行状态读取与验证。'}
                 </div>
               ) : (
@@ -1078,12 +1091,7 @@ function ActionEditor({
       target.visible &&
       target.enabled &&
       target.bounds &&
-      (!direct ||
-        (target.elementId &&
-          target.interactive &&
-          target.inViewport &&
-          !target.occluded &&
-          !target.sensitive))
+      (!direct || isDirectTarget(target))
   );
   const icon =
     action.toolId === 'CLICK_TARGET' ? (
@@ -1099,16 +1107,10 @@ function ActionEditor({
     );
 
   function switchTool(toolId: DraftAction['toolId']) {
-    const base: DraftAction = { clientId: action.clientId, toolId };
-    if (toolId === 'CLICK_TARGET' || toolId === 'TYPE_TEXT') {
-      base.targetRevision = targetRevision;
-    }
-    if (toolId === 'SCROLL') base.scrollDeltaY = 600;
-    if (toolId === 'WAIT_FOR') {
-      base.waitCondition = 'STATE_STABLE';
-      base.timeoutMs = 5000;
-    }
-    onChange(base);
+    onChange({
+      ...createDraftAction(toolId, targetRevision),
+      clientId: action.clientId,
+    });
   }
 
   return (
@@ -1142,7 +1144,7 @@ function ActionEditor({
         </button>
       </div>
 
-      {(action.toolId === 'CLICK_TARGET' || action.toolId === 'TYPE_TEXT') && (
+      {requiresActionTarget(action.toolId) && (
         <div className="mt-3 space-y-2">
           <select
             aria-label={`动作 ${index + 1} 目标`}
@@ -1318,6 +1320,95 @@ function ActionEditor({
         </div>
       )}
 
+      {action.toolId === 'DRAG_TARGET' && (
+        <div className="mt-3">
+          <Field label={`动作 ${index + 1} 拖动终点`}>
+            <select
+              className={inputClass}
+              value={action.endTargetRef ?? ''}
+              onChange={(event) =>
+                onChange({
+                  ...action,
+                  endTargetRef: event.target.value || undefined,
+                })
+              }
+            >
+              <option value="">选择终点</option>
+              {actionableTargets
+                .filter((target) => target.targetRef !== action.targetRef)
+                .map((target) => (
+                  <option key={target.targetRef} value={target.targetRef}>
+                    {target.name || target.role}
+                  </option>
+                ))}
+            </select>
+          </Field>
+        </div>
+      )}
+
+      {action.toolId === 'SWIPE_TARGET' && (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <Field label={`动作 ${index + 1} 横向位移（像素）`}>
+            <input
+              type="number"
+              min={-4000}
+              max={4000}
+              className={inputClass}
+              value={action.deltaX ?? ''}
+              onChange={(event) =>
+                onChange({
+                  ...action,
+                  deltaX: event.target.value
+                    ? Number(event.target.value)
+                    : undefined,
+                })
+              }
+            />
+          </Field>
+          <Field label={`动作 ${index + 1} 纵向位移（像素）`}>
+            <input
+              type="number"
+              min={-4000}
+              max={4000}
+              className={inputClass}
+              value={action.deltaY ?? ''}
+              onChange={(event) =>
+                onChange({
+                  ...action,
+                  deltaY: event.target.value
+                    ? Number(event.target.value)
+                    : undefined,
+                })
+              }
+            />
+          </Field>
+        </div>
+      )}
+
+      {['HOLD_TARGET', 'DRAG_TARGET', 'SWIPE_TARGET'].includes(
+        action.toolId
+      ) && (
+        <div className="mt-3">
+          <Field label={`动作 ${index + 1} 时长（毫秒）`}>
+            <input
+              type="number"
+              min={80}
+              max={5000}
+              className={inputClass}
+              value={action.durationMs ?? ''}
+              onChange={(event) =>
+                onChange({
+                  ...action,
+                  durationMs: event.target.value
+                    ? Number(event.target.value)
+                    : undefined,
+                })
+              }
+            />
+          </Field>
+        </div>
+      )}
+
       {action.toolId === 'REQUEST_HUMAN_TAKEOVER' && (
         <p className="mt-3 border border-warning/20 bg-warning/5 px-3 py-2 text-[9px] leading-4 text-warning">
           此动作必须位于计划末尾。Agent 只创建交接请求；具体 Actor
@@ -1341,7 +1432,36 @@ function isActionComplete(
           target.bounds
       )
     : undefined;
+  const validGestureDuration =
+    Number.isInteger(action.durationMs) &&
+    (action.durationMs ?? 0) >= 80 &&
+    (action.durationMs ?? 0) <= 5000;
+  const validGesture = Boolean(
+    action.targetRevision &&
+    isDirectTarget(currentTarget) &&
+    validGestureDuration
+  );
   switch (action.toolId) {
+    case 'HOLD_TARGET':
+      return validGesture;
+    case 'DRAG_TARGET':
+      return (
+        validGesture &&
+        action.endTargetRef !== action.targetRef &&
+        isDirectTarget(
+          currentState?.targets.find(
+            (target) => target.targetRef === action.endTargetRef
+          )
+        )
+      );
+    case 'SWIPE_TARGET':
+      return (
+        validGesture &&
+        [action.deltaX ?? 0, action.deltaY ?? 0].every(
+          (value) => Number.isInteger(value) && Math.abs(value) <= 4000
+        ) &&
+        Boolean(action.deltaX || action.deltaY)
+      );
     case 'CLICK_TARGET':
       return Boolean(action.targetRevision && currentTarget);
     case 'TYPE_TEXT':
@@ -1379,8 +1499,13 @@ function createDraftAction(
     clientId: crypto.randomUUID(),
     toolId,
   };
-  if (toolId === 'CLICK_TARGET' || toolId === 'TYPE_TEXT') {
-    action.targetRevision = targetRevision;
+  if (requiresActionTarget(toolId)) action.targetRevision = targetRevision;
+  if (toolId === 'HOLD_TARGET') action.durationMs = 600;
+  if (toolId === 'DRAG_TARGET' || toolId === 'SWIPE_TARGET')
+    action.durationMs = 300;
+  if (toolId === 'SWIPE_TARGET') {
+    action.deltaX = 0;
+    action.deltaY = -120;
   }
   if (toolId === 'SCROLL') action.scrollDeltaY = 600;
   if (toolId === 'WAIT_FOR') {
@@ -1391,6 +1516,7 @@ function createDraftAction(
 }
 
 function toActionRequest(action: DraftAction): CreateAgentActionRequest {
+  if (action.toolId === 'HOLD_TARGET') throw new Error('长按仅用于直接执行。');
   return {
     toolId: action.toolId,
     targetRef: action.targetRef,
@@ -1404,6 +1530,62 @@ function toActionRequest(action: DraftAction): CreateAgentActionRequest {
   };
 }
 
+function toDirectActionRequest(
+  action: DraftAction,
+  state: BrowserStateView
+): AgentBatchActionRequest {
+  if (action.toolId === 'SCROLL') {
+    return { toolId: 'SCROLL', scrollDeltaY: action.scrollDeltaY };
+  }
+  const source = state.targets.find(
+    (target) => target.targetRef === action.targetRef
+  );
+  if (!isDirectTarget(source))
+    throw new Error('请选择当前页面可见、可操作的目标。');
+  const binding = {
+    targetRef: source.elementId,
+    targetRevision: state.targetRevision,
+  };
+  switch (action.toolId) {
+    case 'CLICK_TARGET':
+      return { toolId: 'CLICK_TARGET', ...binding };
+    case 'HOLD_TARGET':
+      return {
+        toolId: 'DRAG_TARGET',
+        ...binding,
+        endTargetRef: source.elementId,
+        durationMs: action.durationMs,
+      };
+    case 'DRAG_TARGET': {
+      const destination = state.targets.find(
+        (target) => target.targetRef === action.endTargetRef
+      );
+      if (
+        !isDirectTarget(destination) ||
+        destination.elementId === source.elementId
+      ) {
+        throw new Error('请选择当前页面的拖动终点。');
+      }
+      return {
+        toolId: 'DRAG_TARGET',
+        ...binding,
+        endTargetRef: destination.elementId,
+        durationMs: action.durationMs,
+      };
+    }
+    case 'SWIPE_TARGET':
+      return {
+        toolId: 'SWIPE_TARGET',
+        ...binding,
+        deltaX: action.deltaX,
+        deltaY: action.deltaY,
+        durationMs: action.durationMs,
+      };
+    default:
+      throw new Error('直接执行不支持此动作。');
+  }
+}
+
 function rebindActionsToState(
   actions: DraftAction[],
   previousState: BrowserStateView,
@@ -1415,29 +1597,33 @@ function rebindActionsToState(
   const latestTargets = new Map(
     latestState.targets.map((target) => [target.targetRef, target])
   );
+  function rebind(targetRef: string | undefined) {
+    if (!targetRef) return undefined;
+    const exact = latestTargets.get(targetRef);
+    if (exact) return exact;
+    const previousTarget = previousTargets.get(targetRef);
+    if (!previousTarget) return undefined;
+    const identity = targetStableIdentity(previousTarget.targetRef);
+    const matches = latestState.targets.filter(
+      (candidate) =>
+        identity &&
+        targetStableIdentity(candidate.targetRef) === identity &&
+        candidate.role === previousTarget.role &&
+        candidate.name === previousTarget.name
+    );
+    return matches.length === 1 ? matches[0] : undefined;
+  }
+
   const rebound: DraftAction[] = [];
   for (const action of actions) {
-    if (action.toolId !== 'CLICK_TARGET' && action.toolId !== 'TYPE_TEXT') {
+    if (!requiresActionTarget(action.toolId)) {
       rebound.push(action);
       continue;
     }
-    const previousTarget = action.targetRef
-      ? previousTargets.get(action.targetRef)
-      : undefined;
-    let target = action.targetRef
-      ? latestTargets.get(action.targetRef)
-      : undefined;
-    if (!target && previousTarget) {
-      const stableIdentity = targetStableIdentity(previousTarget.targetRef);
-      const stableMatches = latestState.targets.filter(
-        (candidate) =>
-          stableIdentity &&
-          targetStableIdentity(candidate.targetRef) === stableIdentity &&
-          candidate.role === previousTarget.role &&
-          candidate.name === previousTarget.name
-      );
-      target = stableMatches.length === 1 ? stableMatches[0] : undefined;
-    }
+    const target = rebind(action.targetRef);
+    const destination =
+      action.toolId === 'DRAG_TARGET' ? rebind(action.endTargetRef) : undefined;
+    if (action.toolId === 'DRAG_TARGET' && !destination) return null;
     const invalidTextTarget =
       action.toolId === 'TYPE_TEXT' &&
       (target?.sensitive ||
@@ -1454,6 +1640,7 @@ function rebindActionsToState(
     rebound.push({
       ...action,
       targetRef: target.targetRef,
+      endTargetRef: destination?.targetRef,
       targetRevision: latestState.targetRevision,
     });
   }

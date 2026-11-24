@@ -23,11 +23,13 @@ target = {
     "occluded": False,
     "bounds": {"x": 15, "y": 20, "width": 80, "height": 30},
 }
+destination = {**target, "targetRef": "target:4:drop", "elementId": "e_drop",
+               "name": "Drop area", "bounds": {"x": 150, "y": 120, "width": 80, "height": 30}}
 state = {
     "sessionId": session_id, "url": "https://example.test",
     "title": "Fixture", "stateVersion": 10, "targetRevision": 4,
     "contextEpoch": 1, "stateHash": "a" * 64, "stateQuality": "COMPLETE",
-    "freshness": "FRESH", "targets": [target],
+    "freshness": "FRESH", "targets": [target, destination],
 }
 task = {
     "taskId": "agt_direct_fixture", "sessionId": session_id,
@@ -96,7 +98,7 @@ with sync_playwright() as runtime:
 
     page.get_by_role("button", name="添加结构化动作").click()
     action_type = page.get_by_label("动作 1 类型")
-    expect(action_type.locator("option")).to_have_count(2)
+    expect(action_type.locator("option")).to_have_count(5)
     page.get_by_label("动作 1 目标").select_option(target["targetRef"])
     run.click()
     expect(page.get_by_role("alert").filter(has_text=re.compile("页面状态已变化"))).to_be_visible()
@@ -110,6 +112,21 @@ with sync_playwright() as runtime:
         "toolId": "CLICK_TARGET", "targetRef": target["elementId"],
         "targetRevision": state["targetRevision"],
     }]
+    add = page.get_by_role("button", name="添加结构化动作")
+    for index, kind in enumerate(("HOLD_TARGET", "DRAG_TARGET", "SWIPE_TARGET"), start=1):
+        add.click()
+        page.get_by_label(f"动作 {index} 类型").select_option(kind)
+        page.get_by_label(f"动作 {index} 目标").select_option(target["targetRef"])
+    page.get_by_label("动作 2 拖动终点").select_option(destination["targetRef"])
+    page.get_by_label("动作 3 横向位移（像素）").fill("120")
+    run.click()
+    expect(action_type).to_have_count(0)
+    binding = {"targetRef": target["elementId"], "targetRevision": state["targetRevision"]}
+    assert writes[-1][0]["actions"] == [
+        {"toolId": "DRAG_TARGET", **binding, "endTargetRef": target["elementId"], "durationMs": 600},
+        {"toolId": "DRAG_TARGET", **binding, "endTargetRef": destination["elementId"], "durationMs": 300},
+        {"toolId": "SWIPE_TARGET", **binding, "deltaX": 120, "deltaY": -120, "durationMs": 300},
+    ]
     mode.select_option("MANAGED")
     expect(page.get_by_label("授权域名")).to_be_visible()
     expect(page.get_by_role("button", name="运行安全校验并生成计划")).to_be_visible()
@@ -118,4 +135,4 @@ with sync_playwright() as runtime:
     expect(page.get_by_label("运行中的 Session")).to_have_value(session_id)
     assert not errors, errors
     browser.close()
-print("console_direct_mode=true navigation=true click=true stale_recovery=true")
+print("console_direct_mode=true navigation=true click=true stale_recovery=true gestures=true")

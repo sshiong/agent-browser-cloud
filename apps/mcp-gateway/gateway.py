@@ -146,7 +146,12 @@ async def browser_snapshot(environment_id: str) -> dict:
 @server.tool(annotations={"idempotentHint": True, "destructiveHint": False})
 async def browser_act(environment_id: str, goal: str, state_cursor: str,
                       actions: list[dict[str, Any]], idempotency_key: str) -> dict:
-    """Run 1–20 low-risk actions chosen by the caller. For example HOVER_TARGET, CLICK_TARGET or SCROLL. For a target, pass toolId, targetRef (elementId from snapshot) and targetRevision. If STATE_CURSOR_STALE, take a new snapshot. Requires direct permission. Check the returned task for completion."""
+    """Run 1–20 low-risk actions. Use elementId and targetRevision from browser_snapshot.
+    CLICK_TARGET clicks once. DRAG_TARGET takes endTargetRef and durationMs (up to 5000).
+    Use the same element for both drag endpoints to hold it in place.
+    SWIPE_TARGET takes deltaX/deltaY in pixels and durationMs. SCROLL scrolls the page.
+    Requires direct permission. Read the task result and refresh a stale cursor before retrying.
+    """
     if not 1 <= len(actions) <= 20:
         raise ValueError("ACTION_BATCH_SIZE_INVALID")
     return await api("/environments/" + identifier(environment_id, "ses_") + "/browser/act",

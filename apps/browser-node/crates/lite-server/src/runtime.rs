@@ -3,9 +3,16 @@
 use crate::backpressure::{
     read_host_io_psi_some10, BackpressureSnapshot, GradedBackpressure, PressureSample,
 };
+use crate::events::{EventBus, LiteMetrics};
 use crate::profile::{restore_profile_checkpoint, save_profile_checkpoint};
-use crate::security::{validate_identifier, validate_navigation_url, validate_proxy_url};
-use crate::store::{AgentTokenRecord, LiteStore, ProfileCheckpointRecord, SessionRecord};
+use crate::security::{
+    hex_encode, validate_identifier, validate_navigation_url, validate_proxy_url,
+};
+use crate::store::{
+    AgentTokenRecord, CredentialMetadata, LiteStore, ProfileCheckpointRecord, SessionRecord,
+    StoredCredential,
+};
+use crate::vault::{normalize_allowed_domain, url_matches_allowed_domain, CredentialVault};
 use anyhow::{bail, ensure, Context, Result};
 use chrono::{DateTime, Utc};
 use futures_util::{SinkExt, StreamExt};
@@ -16,6 +23,7 @@ use runtime_supervisor::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use state_collector::{
     diff_states, BrowserStateCollector, CdpStateCollector, CurrentState, DiffOutcome,
     DropdownSelectionProbe,
@@ -108,6 +116,7 @@ pub struct ActionStepParams {
     pub target_revision: Option<u64>,
     pub end_target: Option<String>,
     pub value: Option<String>,
+    pub value_ref: Option<String>,
     pub key: Option<String>,
     pub button: Option<u8>,
     pub delta_x: Option<i32>,
@@ -145,7 +154,20 @@ pub struct WaitParams {
     #[serde(default = "default_wait_mode")]
     pub mode: String,
     pub target: Option<String>,
+    pub text: Option<String>,
+    pub url_contains: Option<String>,
+    pub title_contains: Option<String>,
+    pub stable_frames: Option<u32>,
     pub timeout_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct CreateCredentialParams {
+    pub label: String,
+    pub allowed_domain: String,
+    pub secret_value: String,
+    pub ttl_seconds: Option<u64>,
 }
 
 fn default_wait_mode() -> String {
@@ -192,6 +214,9 @@ struct LiveSessionState {
 pub struct LiteRuntime {
     pub config: LiteConfig,
     pub store: Arc<LiteStore>,
+    pub vault: Arc<CredentialVault>,
+    pub events: Arc<EventBus>,
+    pub metrics: Arc<LiteMetrics>,
     supervisor: Arc<ChromiumRuntimeSupervisor>,
     collector: Arc<CdpStateCollector>,
     live: Arc<Mutex<HashMap<String, LiveSessionState>>>,
@@ -205,6 +230,9 @@ impl LiteRuntime {
         std::fs::create_dir_all(config.data_dir.join("profiles"))?;
         std::fs::create_dir_all(config.data_dir.join("cache"))?;
         std::fs::create_dir_all(config.data_dir.join("checkpoints"))?;
+        let vault = Arc::new(CredentialVault::open_or_create(
+            &config.data_dir.join("vault.key"),
+        )?);
         let _ = store.mark_stale_running_hibernated();
         Ok(Self {
             supervisor: Arc::new(ChromiumRuntimeSupervisor::new(config.chromium_path.clone())),
@@ -216,9 +244,151 @@ impl LiteRuntime {
                 Duration::from_secs(15),
             ))),
             sys: Arc::new(Mutex::new(sysinfo::System::new())),
+            events: Arc::new(EventBus::new()),
+            metrics: Arc::new(LiteMetrics::default()),
+            vault,
             config,
             store,
         })
+    }
+
+    pub fn create_credential(
+        &self,
+        caller: &AgentTokenRecord,
+        params: CreateCredentialParams,
+    ) -> Result<CredentialMetadata> {
+        let label = params.label.trim();
+        ensure!(
+            !label.is_empty() && label.len() <= 128,
+            "CREDENTIAL_LABEL_INVALID"
+        );
+        let allowed_domain = normalize_allowed_domain(&params.allowed_domain)?;
+        let credential_id = format!("cred_{}", &Uuid::new_v4().simple().to_string()[..16]);
+        let ciphertext_b64 = self.vault.encrypt(
+            &caller.agent_id,
+            &credential_id,
+            &allowed_domain,
+            &params.secret_value,
+        )?;
+        let now = Utc::now();
+        let expires_at = params.ttl_seconds.map(|ttl| {
+            (now + chrono::Duration::seconds(ttl.clamp(60, 31_536_000) as i64)).to_rfc3339()
+        });
+        let meta = CredentialMetadata {
+            credential_id: credential_id.clone(),
+            owner_agent_id: caller.agent_id.clone(),
+            label: label.to_owned(),
+            allowed_domain: allowed_domain.clone(),
+            expires_at,
+            revoked: false,
+            created_at: now.to_rfc3339(),
+        };
+        self.store.insert_credential(&StoredCredential {
+            meta: meta.clone(),
+            ciphertext_b64,
+        })?;
+        self.store.record_audit(
+            &caller.agent_id,
+            None,
+            "CREDENTIAL_CREATE",
+            "OK",
+            Some(&allowed_domain),
+        );
+        self.events.publish(
+            "credential.created",
+            &caller.agent_id,
+            None,
+            None,
+            json!({ "credentialId": credential_id, "allowedDomain": allowed_domain }),
+        );
+        Ok(meta)
+    }
+
+    pub fn list_credentials(&self, caller: &AgentTokenRecord) -> Result<Vec<CredentialMetadata>> {
+        self.store.list_credentials_for_agent(&caller.agent_id)
+    }
+
+    pub fn revoke_credential(
+        &self,
+        caller: &AgentTokenRecord,
+        credential_id: &str,
+    ) -> Result<bool> {
+        validate_identifier(credential_id, "cred_")?;
+        let revoked = self
+            .store
+            .revoke_credential(credential_id, &caller.agent_id)?;
+        if revoked {
+            self.store.record_audit(
+                &caller.agent_id,
+                None,
+                "CREDENTIAL_REVOKE",
+                "OK",
+                Some(credential_id),
+            );
+            self.events.publish(
+                "credential.revoked",
+                &caller.agent_id,
+                None,
+                None,
+                json!({ "credentialId": credential_id }),
+            );
+        }
+        Ok(revoked)
+    }
+
+    /// Resolves a `cred_...` value_ref into plaintext strictly in memory after validating owner,
+    /// non-revocation, non-expiry, and exact/suffix domain match against the active page URL.
+    pub fn resolve_credential_for_url(
+        &self,
+        caller: &AgentTokenRecord,
+        credential_id: &str,
+        page_url: &str,
+    ) -> Result<String> {
+        validate_identifier(credential_id, "cred_")?;
+        let stored = self
+            .store
+            .get_credential(credential_id)?
+            .ok_or_else(|| anyhow::anyhow!("CREDENTIAL_NOT_FOUND"))?;
+        ensure!(
+            stored.meta.owner_agent_id == caller.agent_id,
+            "CREDENTIAL_ACCESS_DENIED"
+        );
+        ensure!(!stored.meta.revoked, "CREDENTIAL_REVOKED");
+        if let Some(exp) = stored.meta.expires_at.as_deref() {
+            if let Ok(dt) = DateTime::parse_from_rfc3339(exp) {
+                ensure!(Utc::now() < dt.with_timezone(&Utc), "CREDENTIAL_EXPIRED");
+            }
+        }
+        ensure!(
+            url_matches_allowed_domain(page_url, &stored.meta.allowed_domain),
+            "CREDENTIAL_DOMAIN_MISMATCH"
+        );
+        self.vault.decrypt(
+            &stored.meta.owner_agent_id,
+            &stored.meta.credential_id,
+            &stored.meta.allowed_domain,
+            &stored.ciphertext_b64,
+        )
+    }
+
+    /// Resolves the private loopback active-page CDP WebSocket URL for an authenticated and
+    /// owned session so `/api/v1/lite/sessions/:id/cdp` can proxy Playwright/CDP safely.
+    pub async fn active_page_ws_for_agent(
+        &self,
+        caller: &AgentTokenRecord,
+        session_id: &str,
+    ) -> Result<String> {
+        let record = self.require_owned_session(caller, session_id)?;
+        self.ensure_running(&record).await?;
+        let ws = self.collector.active_page_websocket(session_id).await?;
+        self.store.record_audit(
+            &caller.agent_id,
+            Some(session_id),
+            "CDP_PROXY_ATTACH",
+            "OK",
+            None,
+        );
+        Ok(ws)
     }
 
     pub async fn warm_pool_len(&self) -> usize {
@@ -427,6 +597,13 @@ impl LiteRuntime {
             .store
             .get_session(&session_id)?
             .ok_or_else(|| anyhow::anyhow!("SESSION_NOT_FOUND"))?;
+        self.events.publish(
+            "session.created",
+            &caller.agent_id,
+            Some(&session_id),
+            None,
+            json!({ "state": updated.state, "profileId": updated.profile_id }),
+        );
         Ok(json!({
             "session": updated,
             "backpressure": self.backpressure_snapshot().await,
@@ -467,6 +644,13 @@ impl LiteRuntime {
             "NAVIGATE",
             "OK",
             Some(&state.url),
+        );
+        self.events.publish(
+            "session.navigated",
+            &caller.agent_id,
+            Some(session_id),
+            None,
+            json!({ "url": state.url, "stateVersion": state.state_version }),
         );
         Ok(json!({
             "sessionId": session_id,
@@ -612,7 +796,7 @@ impl LiteRuntime {
         let record = self.require_owned_session(caller, session_id)?;
         self.ensure_running(&record).await?;
         let started = Instant::now();
-        let state = self.execute_single_step(session_id, &step).await?;
+        let state = self.execute_single_step(caller, session_id, &step).await?;
         self.store
             .touch_session_activity(session_id, Some(&state.url))?;
         self.store.record_audit(
@@ -621,6 +805,13 @@ impl LiteRuntime {
             &format!("ACT:{}", step.action),
             "OK",
             None,
+        );
+        self.events.publish(
+            "session.acted",
+            &caller.agent_id,
+            Some(session_id),
+            None,
+            json!({ "action": step.action, "stateVersion": state.state_version }),
         );
         Ok(json!({
             "sessionId": session_id,
@@ -673,7 +864,7 @@ impl LiteRuntime {
                 break;
             }
             let step_start = Instant::now();
-            match self.execute_single_step(session_id, step).await {
+            match self.execute_single_step(caller, session_id, step).await {
                 Ok(state) => {
                     outcomes.push(BatchStepOutcome {
                         index,
@@ -749,6 +940,9 @@ impl LiteRuntime {
         let budget = Duration::from_millis(params.timeout_ms.unwrap_or(5_000).clamp(100, 30_000));
         let deadline = Instant::now() + budget;
         let mut previous_hash: Option<String> = None;
+        let mut previous_visual_hash: Option<String> = None;
+        let mut stable_visual_count: u32 = 0;
+        let required_visual_frames = params.stable_frames.unwrap_or(2).clamp(2, 5);
 
         loop {
             let state = self.refresh_state(session_id).await?;
@@ -770,6 +964,55 @@ impl LiteRuntime {
                     previous_hash.as_deref() == Some(state.content_hash.as_str())
                         || (state.page_stability.evidence_fresh
                             && state.page_stability.dom_quiet_millis >= 300)
+                }
+                "visual_stable" => {
+                    let ws_url = self.collector.active_page_websocket(session_id).await?;
+                    let b64_png =
+                        capture_cdp_screenshot(&ws_url, json!({ "format": "png" })).await?;
+                    let mut hasher = Sha256::new();
+                    hasher.update(b64_png.as_bytes());
+                    let frame_hash = hex_encode(&hasher.finalize());
+                    if previous_visual_hash.as_deref() == Some(frame_hash.as_str()) {
+                        stable_visual_count = stable_visual_count.saturating_add(1);
+                    } else {
+                        previous_visual_hash = Some(frame_hash);
+                        stable_visual_count = 1;
+                    }
+                    stable_visual_count >= required_visual_frames
+                }
+                "app_condition" => {
+                    let has_any = params.url_contains.is_some()
+                        || params.title_contains.is_some()
+                        || params.text.is_some();
+                    ensure!(has_any, "WAIT_CONDITION_REQUIRED");
+                    let url_ok = params
+                        .url_contains
+                        .as_deref()
+                        .map(|needle| state.url.contains(needle))
+                        .unwrap_or(true);
+                    let title_ok = params
+                        .title_contains
+                        .as_deref()
+                        .map(|needle| state.title.contains(needle))
+                        .unwrap_or(true);
+                    let text_ok = params
+                        .text
+                        .as_deref()
+                        .map(|needle| {
+                            let needle_lc = needle.to_ascii_lowercase();
+                            state.title.to_ascii_lowercase().contains(&needle_lc)
+                                || state.targets.iter().any(|t| {
+                                    t.visible
+                                        && !t.sensitive
+                                        && (t.name.as_deref().is_some_and(|n| {
+                                            n.to_ascii_lowercase().contains(&needle_lc)
+                                        }) || t.value.as_deref().is_some_and(|v| {
+                                            v.to_ascii_lowercase().contains(&needle_lc)
+                                        }))
+                                })
+                        })
+                        .unwrap_or(true);
+                    url_ok && title_ok && text_ok
                 }
                 _ => {
                     state.document_ready_state == "complete"
@@ -967,6 +1210,13 @@ impl LiteRuntime {
             },
             "OK",
             None,
+        );
+        self.events.publish(
+            "session.closed",
+            &caller.agent_id,
+            Some(session_id),
+            None,
+            json!({ "state": next_state }),
         );
         Ok(json!({
             "sessionId": session_id,
@@ -1232,6 +1482,7 @@ impl LiteRuntime {
 
     async fn execute_single_step(
         &self,
+        caller: &AgentTokenRecord,
         session_id: &str,
         step: &ActionStepParams,
     ) -> Result<CurrentState> {
@@ -1437,21 +1688,49 @@ impl LiteRuntime {
                             input.key_up(InputKey::Backspace, next()).await?;
                         }
                         "type" | "type_text" => {
-                            let text = step
-                                .value
+                            let resolved_secret;
+                            let text: &str = if let Some(cred_ref) = step
+                                .value_ref
                                 .as_deref()
-                                .filter(|v| !v.is_empty())
-                                .ok_or_else(|| anyhow::anyhow!("TEXT_VALUE_REQUIRED"))?;
+                                .map(str::trim)
+                                .filter(|s| !s.is_empty())
+                            {
+                                resolved_secret = self.resolve_credential_for_url(
+                                    caller,
+                                    cred_ref,
+                                    &current.url,
+                                )?;
+                                &resolved_secret
+                            } else {
+                                step.value
+                                    .as_deref()
+                                    .filter(|v| !v.is_empty())
+                                    .ok_or_else(|| anyhow::anyhow!("TEXT_VALUE_REQUIRED"))?
+                            };
                             input.mouse_move(cx, cy, next()).await?;
                             input.mouse_click(0, 1, next()).await?;
                             input.insert_text(text, next()).await?;
                         }
                         "fill" => {
-                            let text = step
-                                .value
+                            let resolved_secret;
+                            let text: &str = if let Some(cred_ref) = step
+                                .value_ref
                                 .as_deref()
-                                .filter(|v| !v.is_empty())
-                                .ok_or_else(|| anyhow::anyhow!("TEXT_VALUE_REQUIRED"))?;
+                                .map(str::trim)
+                                .filter(|s| !s.is_empty())
+                            {
+                                resolved_secret = self.resolve_credential_for_url(
+                                    caller,
+                                    cred_ref,
+                                    &current.url,
+                                )?;
+                                &resolved_secret
+                            } else {
+                                step.value
+                                    .as_deref()
+                                    .filter(|v| !v.is_empty())
+                                    .ok_or_else(|| anyhow::anyhow!("TEXT_VALUE_REQUIRED"))?
+                            };
                             input.mouse_move(cx, cy, next()).await?;
                             input.mouse_click(0, 1, next()).await?;
                             select_all_and_type(&input, text, &mut next).await?;

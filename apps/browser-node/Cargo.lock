@@ -1628,6 +1628,8 @@ dependencies = [
  "futures-util",
  "http 1.4.2",
  "http-body-util",
+ "hyper",
+ "hyper-util",
  "input-sandbox",
  "reqwest 0.12.28",
  "ring",

@@ -64,6 +64,24 @@ pub struct ProfileCheckpointRecord {
     pub created_at: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CredentialMetadata {
+    pub credential_id: String,
+    pub owner_agent_id: String,
+    pub label: String,
+    pub allowed_domain: String,
+    pub expires_at: Option<String>,
+    pub revoked: bool,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct StoredCredential {
+    pub meta: CredentialMetadata,
+    pub ciphertext_b64: String,
+}
+
 pub struct LiteStore {
     conn: Mutex<Connection>,
 }
@@ -132,6 +150,18 @@ impl LiteStore {
                 detail TEXT,
                 created_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS credentials (
+                credential_id TEXT PRIMARY KEY,
+                owner_agent_id TEXT NOT NULL,
+                label TEXT NOT NULL,
+                allowed_domain TEXT NOT NULL,
+                ciphertext_b64 TEXT NOT NULL,
+                expires_at TEXT,
+                revoked INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_credentials_owner ON credentials(owner_agent_id);
             "#,
         )?;
         // Expand-only migration for existing L0 SQLite databases created before isolation_mode.
@@ -500,6 +530,88 @@ impl LiteStore {
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         Ok(rows)
+    }
+
+    pub fn insert_credential(&self, cred: &StoredCredential) -> Result<()> {
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        conn.execute(
+            "INSERT INTO credentials
+             (credential_id, owner_agent_id, label, allowed_domain, ciphertext_b64, expires_at, revoked, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                cred.meta.credential_id,
+                cred.meta.owner_agent_id,
+                cred.meta.label,
+                cred.meta.allowed_domain,
+                cred.ciphertext_b64,
+                cred.meta.expires_at,
+                if cred.meta.revoked { 1i64 } else { 0i64 },
+                cred.meta.created_at,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_credentials_for_agent(
+        &self,
+        owner_agent_id: &str,
+    ) -> Result<Vec<CredentialMetadata>> {
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        let mut stmt = conn.prepare(
+            "SELECT credential_id, owner_agent_id, label, allowed_domain, expires_at, revoked, created_at
+             FROM credentials
+             WHERE owner_agent_id = ?1 AND revoked = 0
+             ORDER BY created_at DESC",
+        )?;
+        let rows = stmt
+            .query_map(params![owner_agent_id], |row| {
+                Ok(CredentialMetadata {
+                    credential_id: row.get(0)?,
+                    owner_agent_id: row.get(1)?,
+                    label: row.get(2)?,
+                    allowed_domain: row.get(3)?,
+                    expires_at: row.get(4)?,
+                    revoked: row.get::<_, i64>(5)? != 0,
+                    created_at: row.get(6)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    pub fn get_credential(&self, credential_id: &str) -> Result<Option<StoredCredential>> {
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        let row = conn
+            .query_row(
+                "SELECT credential_id, owner_agent_id, label, allowed_domain, ciphertext_b64, expires_at, revoked, created_at
+                 FROM credentials WHERE credential_id = ?1",
+                params![credential_id],
+                |row| {
+                    Ok(StoredCredential {
+                        meta: CredentialMetadata {
+                            credential_id: row.get(0)?,
+                            owner_agent_id: row.get(1)?,
+                            label: row.get(2)?,
+                            allowed_domain: row.get(3)?,
+                            expires_at: row.get(5)?,
+                            revoked: row.get::<_, i64>(6)? != 0,
+                            created_at: row.get(7)?,
+                        },
+                        ciphertext_b64: row.get(4)?,
+                    })
+                },
+            )
+            .optional()?;
+        Ok(row)
+    }
+
+    pub fn revoke_credential(&self, credential_id: &str, owner_agent_id: &str) -> Result<bool> {
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        let affected = conn.execute(
+            "UPDATE credentials SET revoked = 1 WHERE credential_id = ?1 AND owner_agent_id = ?2",
+            params![credential_id, owner_agent_id],
+        )?;
+        Ok(affected > 0)
     }
 
     pub fn record_audit(

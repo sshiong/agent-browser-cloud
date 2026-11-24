@@ -30,6 +30,8 @@ base64.workspace = true
 chrono.workspace = true
 futures-util.workspace = true
 http.workspace = true
+hyper = { version = "1", features = ["http1", "server"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
 reqwest.workspace = true
 ring.workspace = true
 rusqlite.workspace = true

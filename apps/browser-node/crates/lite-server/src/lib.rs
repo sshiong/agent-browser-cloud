@@ -5,11 +5,13 @@
 //! zero Java, PostgreSQL, Redis, Python, or external model API key dependencies.
 
 pub mod backpressure;
+pub mod events;
 pub mod mcp;
 pub mod profile;
 pub mod runtime;
 pub mod security;
 pub mod store;
+pub mod vault;
 
 pub use mcp::build_router;
 pub use runtime::{LiteConfig, LiteRuntime};
@@ -364,6 +366,227 @@ mod integration_tests {
             .await
             .unwrap();
         assert_eq!(after_revoke.status(), StatusCode::UNAUTHORIZED);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn phase3_credential_vault_sse_replay_trace_metrics_and_cdp_proxy_guards() {
+        let dir = std::env::temp_dir().join(format!("lite-p3-{}", Uuid::new_v4().simple()));
+        let store = Arc::new(LiteStore::open(&dir.join("lite.sqlite3")).unwrap());
+        let agent_a = store
+            .create_token(
+                "agent_a",
+                "Agent A",
+                vec!["mcp".into(), "sessions".into()],
+                3,
+            )
+            .unwrap();
+        let agent_b = store
+            .create_token(
+                "agent_b",
+                "Agent B",
+                vec!["mcp".into(), "sessions".into()],
+                3,
+            )
+            .unwrap();
+        let rt = Arc::new(
+            LiteRuntime::new(
+                LiteConfig {
+                    data_dir: dir.clone(),
+                    ..LiteConfig::default()
+                },
+                store,
+            )
+            .unwrap(),
+        );
+        let app = build_router(rt.clone());
+
+        // 1. Create encrypted credential via REST; plaintext must NOT appear in response.
+        let cred_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/lite/credentials")
+                    .header("content-type", "application/json")
+                    .header("x-trace-id", "trc_custom_001")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(
+                        json!({
+                            "label": "App Password",
+                            "allowed_domain": "login.example.com",
+                            "secret_value": "TopSecret#2026"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(cred_resp.status(), StatusCode::CREATED);
+        assert_eq!(
+            cred_resp.headers().get("x-trace-id").unwrap(),
+            "trc_custom_001"
+        );
+        let cred_bytes = cred_resp.into_body().collect().await.unwrap().to_bytes();
+        let cred_str = String::from_utf8_lossy(&cred_bytes);
+        assert!(!cred_str.contains("TopSecret#2026"));
+        let cred_json: Value = serde_json::from_slice(&cred_bytes).unwrap();
+        let cred_id = cred_json["credential"]["credentialId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+
+        // In-memory resolution works ONLY for owner + authorized domain.
+        assert_eq!(
+            rt.resolve_credential_for_url(&agent_a.token, &cred_id, "https://login.example.com/in")
+                .unwrap(),
+            "TopSecret#2026"
+        );
+        assert!(rt
+            .resolve_credential_for_url(&agent_a.token, &cred_id, "https://phishing.invalid/in")
+            .unwrap_err()
+            .to_string()
+            .contains("CREDENTIAL_DOMAIN_MISMATCH"));
+        assert!(rt
+            .resolve_credential_for_url(&agent_b.token, &cred_id, "https://login.example.com/in")
+            .unwrap_err()
+            .to_string()
+            .contains("CREDENTIAL_ACCESS_DENIED"));
+
+        // 2. Create a session for Agent A and check SSE replay isolation (`Last-Event-ID`).
+        let s_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/lite/sessions")
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(
+                        json!({ "name": "S1", "start": false }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(s_resp.status(), StatusCode::CREATED);
+        let s_json = json_body(s_resp).await;
+        let ses_id = s_json["session"]["sessionId"].as_str().unwrap().to_owned();
+
+        let sse_a = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/lite/events?once=true")
+                    .header("last-event-id", "1")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(sse_a.status(), StatusCode::OK);
+        let sse_a_body = String::from_utf8(
+            sse_a
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes()
+                .to_vec(),
+        )
+        .unwrap();
+        assert!(sse_a_body.contains("event: session.created"));
+        assert!(!sse_a_body.contains("event: credential.created")); // id=1 skipped via Last-Event-ID
+
+        let sse_b = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/lite/events?once=true")
+                    .header("authorization", format!("Bearer {}", agent_b.bearer_token))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let sse_b_body = String::from_utf8(
+            sse_b
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes()
+                .to_vec(),
+        )
+        .unwrap();
+        assert!(sse_b_body.is_empty(), "Agent B must not see Agent A events");
+
+        // 3. CDP proxy rejects unauthenticated (401), non-upgrade (426), and cross-agent (403).
+        let cdp_unauth = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/v1/lite/sessions/{ses_id}/cdp"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(cdp_unauth.status(), StatusCode::UNAUTHORIZED);
+
+        let cdp_no_ws = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/v1/lite/sessions/{ses_id}/cdp"))
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(cdp_no_ws.status(), StatusCode::UPGRADE_REQUIRED);
+
+        let cdp_cross_agent = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/v1/lite/sessions/{ses_id}/cdp"))
+                    .header("authorization", format!("Bearer {}", agent_b.bearer_token))
+                    .header("sec-websocket-key", "dGhlIHNhbXBsZSBub25jZQ==")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(cdp_cross_agent.status(), StatusCode::FORBIDDEN);
+
+        // 4. Prometheus `/metrics` exposes lite counters and gauges.
+        let metrics_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/metrics")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(metrics_resp.status(), StatusCode::OK);
+        let metrics_text = String::from_utf8(
+            metrics_resp
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes()
+                .to_vec(),
+        )
+        .unwrap();
+        assert!(metrics_text.contains("browsercloud_lite_requests_total"));
+        assert!(metrics_text.contains("browsercloud_lite_events_published_total"));
 
         let _ = std::fs::remove_dir_all(&dir);
     }

@@ -161,10 +161,10 @@ async fn main() -> Result<()> {
         .post(format!("{base_url}/api/v1/lite/tokens"))
         .header("authorization", format!("Bearer {admin_token}"))
         .json(&json!({
-            "agent_id": "bench_agent_a",
+            "agentId": "bench_agent_a",
             "label": "Benchmark Agent A",
             "scopes": ["mcp", "sessions"],
-            "max_sessions": 2
+            "maxSessions": 2
         }))
         .send()
         .await?
@@ -174,10 +174,10 @@ async fn main() -> Result<()> {
         .post(format!("{base_url}/api/v1/lite/tokens"))
         .header("authorization", format!("Bearer {admin_token}"))
         .json(&json!({
-            "agent_id": "bench_agent_b",
+            "agentId": "bench_agent_b",
             "label": "Benchmark Agent B",
             "scopes": ["mcp", "sessions"],
-            "max_sessions": 2
+            "maxSessions": 2
         }))
         .send()
         .await?
@@ -241,50 +241,64 @@ async fn main() -> Result<()> {
     let sv1 = obs_tree["result"]["structuredContent"]["stateVersion"]
         .as_u64()
         .unwrap_or(0);
-    let targets = obs_tree["result"]["structuredContent"]["tree"]["targets"]
+    let targets = obs_tree["result"]["structuredContent"]["summary"]["targets"]
         .as_array()
         .cloned()
         .unwrap_or_default();
 
-    let find_target = |needle: &str| -> Option<String> {
+    let target_id = |t: &Value| -> Option<String> {
+        t.get("element_id")
+            .or_else(|| t.get("elementId"))
+            .or_else(|| t.get("target_ref"))
+            .or_else(|| t.get("targetRef"))
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned)
+    };
+    let find_by_name = |needle: &str| -> Option<String> {
         targets.iter().find_map(|t| {
             let name = t.get("name").and_then(Value::as_str).unwrap_or("");
-            let selector = t.get("selector").and_then(Value::as_str).unwrap_or("");
-            if name.contains(needle) || selector.contains(needle) {
-                t.get("elementId")
-                    .or_else(|| t.get("targetRef"))
-                    .and_then(Value::as_str)
-                    .map(ToOwned::to_owned)
+            if name.contains(needle) {
+                target_id(t)
+            } else {
+                None
+            }
+        })
+    };
+    let find_by_control = |ctrl: &str| -> Option<String> {
+        targets.iter().find_map(|t| {
+            let ct = t.get("control_type").and_then(Value::as_str).unwrap_or("");
+            if ct == ctrl {
+                target_id(t)
             } else {
                 None
             }
         })
     };
 
-    let bump_target = find_target("Increment Counter").or_else(|| find_target("bump-btn"));
-    let query_target = find_target("Enter query").or_else(|| find_target("query"));
-    let secret_target = find_target("Vault secret").or_else(|| find_target("secret"));
-    let role_target = find_target("role").or_else(|| find_target("Role"));
-    let submit_target = find_target("Apply Filter").or_else(|| find_target("submit-btn"));
+    let bump_target = find_by_name("Increment Counter").context("missing bump-btn target")?;
+    let query_target = find_by_name("Search Query")
+        .or_else(|| find_by_control("text"))
+        .context("missing query input target")?;
+    let secret_target = find_by_control("password").context("missing password input target")?;
+    let role_target = find_by_control("select-one")
+        .or_else(|| find_by_name("Role"))
+        .context("missing select target")?;
+    let submit_target = find_by_name("Apply Filter").context("missing submit button target")?;
 
     // Click counter button so page changes minimally, then compare `diff` vs `tree`.
-    let mut act_click_ms = 0u64;
-    if let Some(ref btn) = bump_target {
-        let (act_res, ms, _) = mcp_call(
-            &client,
-            &base_url,
-            &bearer_a,
-            4,
-            "browser_act",
-            json!({ "session_id": ses_a, "action": "click", "target": btn }),
-        )
-        .await?;
-        ensure!(
-            act_res["result"]["isError"] != true,
-            "click failed: {act_res}"
-        );
-        act_click_ms = ms;
-    }
+    let (act_res, act_click_ms, _) = mcp_call(
+        &client,
+        &base_url,
+        &bearer_a,
+        4,
+        "browser_act",
+        json!({ "session_id": ses_a, "action": "click", "target": bump_target }),
+    )
+    .await?;
+    ensure!(
+        act_res["result"]["isError"] != true,
+        "click failed: {act_res}"
+    );
 
     let (obs_diff, obs_diff_ms, diff_bytes) = mcp_call(
         &client,
@@ -319,36 +333,25 @@ async fn main() -> Result<()> {
         "credential plaintext leaked!"
     );
 
-    let mut batch_steps = Vec::new();
-    if let Some(ref qt) = query_target {
-        batch_steps.push(json!({ "action": "fill", "target": qt, "value": "rust-lite" }));
-    }
-    if let Some(ref st) = secret_target {
-        batch_steps.push(json!({ "action": "fill", "target": st, "value_ref": cred_id }));
-    }
-    if let Some(ref rt) = role_target {
-        batch_steps.push(json!({ "action": "select", "target": rt, "value": "Operator" }));
-    }
-    if let Some(ref sub) = submit_target {
-        batch_steps.push(json!({ "action": "click", "target": sub }));
-    }
-    let mut batch_ms = 0u64;
-    if !batch_steps.is_empty() {
-        let (batch_res, ms, _) = mcp_call(
-            &client,
-            &base_url,
-            &bearer_a,
-            6,
-            "browser_act_batch",
-            json!({ "session_id": ses_a, "steps": batch_steps }),
-        )
-        .await?;
-        ensure!(
-            batch_res["result"]["structuredContent"]["succeeded"] == true,
-            "act_batch failed: {batch_res}"
-        );
-        batch_ms = ms;
-    }
+    let batch_steps = vec![
+        json!({ "action": "fill", "target": query_target, "value": "rust-lite" }),
+        json!({ "action": "fill", "target": secret_target, "value_ref": cred_id }),
+        json!({ "action": "select", "target": role_target, "value": "Operator" }),
+        json!({ "action": "click", "target": submit_target }),
+    ];
+    let (batch_res, batch_ms, _) = mcp_call(
+        &client,
+        &base_url,
+        &bearer_a,
+        6,
+        "browser_act_batch",
+        json!({ "session_id": ses_a, "steps": batch_steps }),
+    )
+    .await?;
+    ensure!(
+        batch_res["result"]["structuredContent"]["succeeded"] == true,
+        "act_batch failed: {batch_res}"
+    );
 
     let (wait_res, wait_ms, _) = mcp_call(
         &client,

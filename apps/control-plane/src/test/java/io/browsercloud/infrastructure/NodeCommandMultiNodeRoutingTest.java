@@ -210,6 +210,70 @@ class NodeCommandMultiNodeRoutingTest {
   }
 
   @Test
+  void defersInFlightNodeCommandWithoutConsumingAttemptsOrHumanWait() throws Exception {
+    var server = startRejectingServer("COMMAND_IN_PROGRESS");
+    var mapper = new ObjectMapper();
+    var event =
+        outbox(
+            mapper,
+            new NodeCommand(
+                "msg_in_progress",
+                "AgentAction",
+                "node_one",
+                "ses_0000000000000005",
+                "tenant-a",
+                2,
+                1,
+                1,
+                "agent-in-progress",
+                new byte[0]));
+    event.setRouteEpoch(2L);
+    event.setCoordinatorShardId(3);
+    event.setDispatchOwner("dispatcher-test");
+    var outboxRepository = mock(OutboxEventJpaRepository.class);
+    when(outboxRepository.findById(event.getEventId())).thenReturn(Optional.of(event));
+    when(outboxRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    var claimService = mock(NodeCommandDispatchClaimService.class);
+    when(claimService.claimReady(any())).thenReturn(List.of(event.getEventId()));
+    when(claimService.workerId()).thenReturn("dispatcher-test");
+    var routeAuthority = mock(CoordinatorRouteAuthority.class);
+    when(routeAuthority.resolve("ses_0000000000000005"))
+        .thenReturn(
+            new CoordinatorRouteAuthority.SessionRoute(
+                "ses_0000000000000005", "tenant-a", 2, 0, 3));
+    var nodeRepository = mock(BrowserNodeJpaRepository.class);
+    when(nodeRepository.findById("node_one"))
+        .thenReturn(Optional.of(node("node_one", server.getPort())));
+    var waitProjection = mock(AgentExecutionWaitProjectionService.class);
+    var dispatcher =
+        new NodeCommandOutboxDispatcher(
+            outboxRepository,
+            claimService,
+            mapper,
+            mock(AgentActionPayloadService.class),
+            waitProjection,
+            mock(SessionEvidenceGovernanceStore.class),
+            mock(AgentBrowserScreenshotStore.class),
+            mock(AgentBrowserEvaluationStore.class),
+            mock(SessionResourceAdjustmentLifecycleService.class),
+            routeAuthority,
+            nodeRepository,
+            new GrpcTransportFactory("local", false, "", "", "", "browser-node.internal"),
+            "127.0.0.1:1");
+
+    dispatcher.dispatchPending();
+    dispatcher.closeChannels();
+
+    assertThat(event.getPublishedAt()).isNull();
+    assertThat(event.getPublishAttempts()).isZero();
+    assertThat(event.getLastError()).isEqualTo("COMMAND_IN_PROGRESS");
+    assertThat(event.getNextAttemptAt()).isAfter(Instant.now());
+    assertThat(event.getDeadLetteredAt()).isNull();
+    assertThat(event.getDispatchOwner()).isNull();
+    org.mockito.Mockito.verifyNoInteractions(waitProjection);
+  }
+
+  @Test
   void deadLettersAnOutboxCommandAfterItsRouteEpochMoves() throws Exception {
     var mapper = new ObjectMapper();
     var event =

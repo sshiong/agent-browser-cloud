@@ -12,7 +12,11 @@ import java.net.URI;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionOperations;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Coarse Browser Gateway: validates one state cursor, persists one ordered plan, then executes it.
@@ -26,6 +30,26 @@ public class AgentBrowserActionApplicationService {
   private final AgentExecutionWorkerApplicationService externalWorker;
   private final AgentReviewerApplicationService reviewer;
   private final CoordinatorCommandRoutingService routing;
+  private final TransactionOperations transactions;
+
+  @Autowired
+  public AgentBrowserActionApplicationService(
+      AgentBrowserPerceptionService perception,
+      AgentApplicationService tasks,
+      AgentExecutionService execution,
+      AgentExecutionWorkerApplicationService externalWorker,
+      AgentReviewerApplicationService reviewer,
+      CoordinatorCommandRoutingService routing,
+      PlatformTransactionManager transactionManager) {
+    this(
+        perception,
+        tasks,
+        execution,
+        externalWorker,
+        reviewer,
+        routing,
+        new TransactionTemplate(transactionManager));
+  }
 
   public AgentBrowserActionApplicationService(
       AgentBrowserPerceptionService perception,
@@ -34,12 +58,31 @@ public class AgentBrowserActionApplicationService {
       AgentExecutionWorkerApplicationService externalWorker,
       AgentReviewerApplicationService reviewer,
       CoordinatorCommandRoutingService routing) {
+    this(
+        perception,
+        tasks,
+        execution,
+        externalWorker,
+        reviewer,
+        routing,
+        TransactionOperations.withoutTransaction());
+  }
+
+  AgentBrowserActionApplicationService(
+      AgentBrowserPerceptionService perception,
+      AgentApplicationService tasks,
+      AgentExecutionService execution,
+      AgentExecutionWorkerApplicationService externalWorker,
+      AgentReviewerApplicationService reviewer,
+      CoordinatorCommandRoutingService routing,
+      TransactionOperations transactions) {
     this.perception = perception;
     this.tasks = tasks;
     this.execution = execution;
     this.externalWorker = externalWorker;
     this.reviewer = reviewer;
     this.routing = routing;
+    this.transactions = transactions;
   }
 
   public AgentTaskView execute(
@@ -87,6 +130,9 @@ public class AgentBrowserActionApplicationService {
         .map(CreateAgentTaskRequest.BatchActionRequest::tabUrl)
         .map(AgentBrowserActionApplicationService::domain)
         .forEach(domains::add);
+    if (domains.isEmpty()) {
+      throw new AgentBrowserActionRejectedException("STATE_URL_INVALID");
+    }
     var batch =
         new CreateAgentTaskRequest.ActionRequest(
             ToolId.EXECUTE_ACTIONS,
@@ -118,6 +164,7 @@ public class AgentBrowserActionApplicationService {
   public AgentTaskView waitFor(
       String sessionId, String tenantId, String idempotencyKey, WaitRequest request) {
     var snapshot = freshSnapshot(sessionId, tenantId, request.expectedStateCursor());
+    var domains = requireAllowedDomains(snapshot);
     var wait =
         new CreateAgentTaskRequest.ActionRequest(
             ToolId.WAIT_FOR,
@@ -130,42 +177,39 @@ public class AgentBrowserActionApplicationService {
             request.waitCondition(),
             request.timeoutMs());
     var create =
-        new CreateAgentTaskRequest(
-            request.goal(),
-            null,
-            List.copyOf(allowedDomains(snapshot)),
-            4,
-            0,
-            List.of(),
-            List.of(wait));
+        new CreateAgentTaskRequest(request.goal(), null, domains, 4, 0, List.of(), List.of(wait));
     return createAndRoute(sessionId, tenantId, idempotencyKey, create);
   }
 
   public AgentTaskView handoff(
       String sessionId, String tenantId, String idempotencyKey, HandoffRequest request) {
     var snapshot = freshSnapshot(sessionId, tenantId, request.expectedStateCursor());
+    var domains = requireAllowedDomains(snapshot);
     var handoff =
         new CreateAgentTaskRequest.ActionRequest(
             ToolId.REQUEST_HUMAN_TAKEOVER, null, null, null, null, null, null, null, null);
     var create =
         new CreateAgentTaskRequest(
-            request.goal(),
-            null,
-            List.copyOf(allowedDomains(snapshot)),
-            4,
-            0,
-            List.of(),
-            List.of(handoff));
+            request.goal(), null, domains, 4, 0, List.of(), List.of(handoff));
     return createAndRoute(sessionId, tenantId, idempotencyKey, create);
   }
 
   private AgentTaskView createAndExecuteDirect(
       String sessionId, String tenantId, String key, CreateAgentTaskRequest create) {
-    var task = tasks.create(sessionId, tenantId, create, key + ":create");
-    if (task.state() != TaskState.PLANNED) {
+    // Keep creation and deterministic direct-eligibility validation in one transaction so a
+    // rejected direct request rolls back cleanly instead of leaving an orphaned PLANNED task.
+    var task =
+        transactions.execute(
+            status -> {
+              var created = tasks.create(sessionId, tenantId, create, key + ":create");
+              if (created.state() == TaskState.PLANNED) {
+                reviewer.requireDirectEligible(created.taskId(), tenantId);
+              }
+              return created;
+            });
+    if (task == null || task.state() != TaskState.PLANNED) {
       return task;
     }
-    reviewer.requireDirectEligible(task.taskId(), tenantId);
     return executeInline(sessionId, tenantId, key + ":execute", task.taskId());
   }
 
@@ -209,10 +253,22 @@ public class AgentBrowserActionApplicationService {
     return snapshot;
   }
 
+  private static List<String> requireAllowedDomains(
+      io.browsercloud.api.AgentBrowserPerceptionModels.SnapshotView snapshot) {
+    var domains = allowedDomains(snapshot);
+    if (domains.isEmpty()) {
+      throw new AgentBrowserActionRejectedException("STATE_URL_INVALID");
+    }
+    return List.copyOf(domains);
+  }
+
   private static LinkedHashSet<String> allowedDomains(
       io.browsercloud.api.AgentBrowserPerceptionModels.SnapshotView snapshot) {
     var domains = new LinkedHashSet<String>();
-    domains.add(domain(snapshot.state().url()));
+    var current = domainOrNull(snapshot.state().url());
+    if (current != null) {
+      domains.add(current);
+    }
     snapshot.tabs().stream()
         .map(tab -> domainOrNull(tab.url()))
         .filter(java.util.Objects::nonNull)

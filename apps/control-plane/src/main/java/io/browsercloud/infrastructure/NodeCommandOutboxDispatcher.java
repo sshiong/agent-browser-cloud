@@ -38,6 +38,7 @@ public class NodeCommandOutboxDispatcher {
   private static final Logger log = LoggerFactory.getLogger(NodeCommandOutboxDispatcher.class);
   private static final int MAX_ATTEMPTS = 10;
   private static final String HUMAN_INPUT_PRIORITY = "HUMAN_INPUT_PRIORITY";
+  private static final String COMMAND_IN_PROGRESS = "COMMAND_IN_PROGRESS";
   private static final Set<String> TERMINAL_REJECTIONS =
       Set.of(
           "UNSUPPORTED_COMMAND",
@@ -132,6 +133,13 @@ public class NodeCommandOutboxDispatcher {
             recordHumanInputDeferral(event);
             log.debug(
                 "Browser Node deferred Agent command {} while human input has priority",
+                command.messageId());
+            continue;
+          }
+          if (COMMAND_IN_PROGRESS.equals(acknowledgement.getErrorCode())) {
+            recordInFlightDeferral(event);
+            log.debug(
+                "Browser Node command {} is still executing in flight; polling for completion",
                 command.messageId());
             continue;
           }
@@ -248,6 +256,17 @@ public class NodeCommandOutboxDispatcher {
    */
   private void recordHumanInputDeferral(io.browsercloud.persistence.OutboxEventEntity event) {
     event.setLastError(HUMAN_INPUT_PRIORITY);
+    event.setNextAttemptAt(Instant.now().plusMillis(500));
+    event.releaseDispatchClaim();
+    outboxRepository.save(event);
+  }
+
+  /**
+   * 长动作（如导航、WAIT_FOR、长按手势或协作让步中的 Batch）在超过单次 gRPC 超时后仍由 Node 持久执行。 Node 返回 COMMAND_IN_PROGRESS
+   * 表示尚未落盘结果而非失败，因此不消耗重试次数，也不触发指数退避。
+   */
+  private void recordInFlightDeferral(io.browsercloud.persistence.OutboxEventEntity event) {
+    event.setLastError(COMMAND_IN_PROGRESS);
     event.setNextAttemptAt(Instant.now().plusMillis(500));
     event.releaseDispatchClaim();
     outboxRepository.save(event);

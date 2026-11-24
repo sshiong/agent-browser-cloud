@@ -98,7 +98,7 @@ with sync_playwright() as runtime:
 
     page.get_by_role("button", name="添加结构化动作").click()
     action_type = page.get_by_label("动作 1 类型")
-    expect(action_type.locator("option")).to_have_count(5)
+    expect(action_type.locator("option")).to_have_count(10)
     page.get_by_label("动作 1 目标").select_option(target["targetRef"])
     run.click()
     expect(page.get_by_role("alert").filter(has_text=re.compile("页面状态已变化"))).to_be_visible()
@@ -126,6 +126,18 @@ with sync_playwright() as runtime:
         {"toolId": "DRAG_TARGET", **binding, "endTargetRef": target["elementId"], "durationMs": 600},
         {"toolId": "DRAG_TARGET", **binding, "endTargetRef": destination["elementId"], "durationMs": 300},
         {"toolId": "SWIPE_TARGET", **binding, "deltaX": 120, "deltaY": -120, "durationMs": 300},
+    ]
+    add.click()
+    page.get_by_label("动作 1 类型").select_option("PRESS_KEY")
+    page.get_by_label("动作 1 目标").select_option(target["targetRef"])
+    page.get_by_label("动作 1 按键").select_option("Tab")
+    add.click()
+    page.get_by_label("动作 2 类型").select_option("WAIT_FOR")
+    run.click()
+    expect(action_type).to_have_count(0)
+    assert writes[-1][0]["actions"] == [
+        {"toolId": "PRESS_KEY", **binding, "key": "Tab"},
+        {"toolId": "WAIT_FOR", "waitCondition": "STATE_STABLE", "timeoutMs": 5000},
     ]
     mode.select_option("MANAGED")
     expect(page.get_by_label("授权域名")).to_be_visible()

@@ -47,7 +47,7 @@ export const NoVncViewport = forwardRef<
   {
     sessionId,
     bindingEpoch,
-    viewOnly = false,
+    viewOnly = true,
     quality = 'SMOOTH',
     resolutionScalePercent = 75,
     onConnectionState,

@@ -21,6 +21,8 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
         self.revoked = False
         self.calls = []
         self.operation_states = ['COMMITTED']
+        self.task_states = ['COMPLETED']
+        self.error_response = None
         test = self
         class Handler(BaseHTTPRequestHandler):
             def handle_api(self):
@@ -28,16 +30,24 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
                 body = json.loads(self.rfile.read(length)) if length else None
                 test.calls.append((self.command, self.path, body))
                 authenticated = self.headers.get('Authorization') == 'Bearer fixture' and not test.revoked
+                status = 200 if authenticated else 401
                 data = {'tenantId': 'owned'} if self.path.endswith('/identity') else {'accepted': True}
-                if '/operations/' in self.path:
+                if authenticated and test.error_response and not self.path.endswith('/identity'):
+                    status, data = test.error_response
+                elif '/operations/' in self.path:
                     state = test.operation_states[0]
                     if len(test.operation_states) > 1:
                         test.operation_states.pop(0)
                     data = {'operationId': 'op_owned', 'state': state}
-                if self.command == 'POST' and self.path.endswith('/environments'):
+                elif '/browser/tasks/' in self.path:
+                    state = test.task_states[0]
+                    if len(test.task_states) > 1:
+                        test.task_states.pop(0)
+                    data = {'taskId': 'agt_owned', 'state': state}
+                elif self.command == 'POST' and self.path.endswith('/environments'):
                     data = {'sessionId': 'ses_owned', 'tenantId': body['tenantId']}
                 encoded = json.dumps(data).encode()
-                self.send_response(200 if authenticated else 401)
+                self.send_response(status)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Content-Length', str(len(encoded)))
                 self.end_headers(); self.wfile.write(encoded)
@@ -106,7 +116,7 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 listed = await session.list_tools()
-                self.assertEqual(len(listed.tools), 13)
+                self.assertEqual(len(listed.tools), 14)
                 actions = {
                     'browser_navigate': {'environment_id': 'ses_owned', 'goal': 'Open the test page',
                         'state_cursor': '1:1:' + 'a' * 64, 'idempotency_key': 'direct-nav',
@@ -116,6 +126,7 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
                         'state_cursor': '1:1:' + 'a' * 64, 'idempotency_key': 'direct-act',
                         'actions': [{'toolId': 'HOVER_TARGET', 'targetRef': 'e1', 'targetRevision': 1}]},
                     'browser_get_action_task': {'environment_id': 'ses_owned', 'task_id': 'agt_owned'},
+                    'browser_wait_action_task': {'environment_id': 'ses_owned', 'task_id': 'agt_owned'},
                     'browser_get_quota': {}, 'browser_list_environments': {},
                     'browser_get_environment': {'environment_id': 'ses_owned'},
                     'browser_create_environment': {'profile_id': 'profile-owned', 'idempotency_key': 'owned-create'},
@@ -162,4 +173,38 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(result.structuredContent['waitTimedOut'])
                 for seconds in (0, 26):
                     self.assertTrue((await wait(timeout_seconds=seconds)).isError)
+                self.assertTrue(all(method == 'GET' for method, _, _ in self.calls))
+
+    async def test_wait_action_task_and_reason_propagation(self):
+        async with streamablehttp_client(self.url, headers={'Authorization': 'Bearer fixture'}) as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                async def wait(**arguments):
+                    return await session.call_tool('browser_wait_action_task',
+                        {'environment_id': 'ses_owned', 'task_id': 'agt_owned', **arguments})
+                for settled in ('COMPLETED', 'FAILED', 'BLOCKED', 'WAITING_FOR_HUMAN'):
+                    self.task_states = ['RUNNING', 'VERIFYING_OUTCOME', settled]
+                    result = await wait()
+                    self.assertFalse(result.isError)
+                    data = result.structuredContent
+                    self.assertTrue(data['completed'])
+                    self.assertFalse(data['waitTimedOut'])
+                    self.assertEqual(data['succeeded'], settled == 'COMPLETED')
+                    self.assertEqual(data['state'], settled)
+                self.task_states = ['RUNNING']
+                result = await wait(timeout_seconds=1)
+                self.assertFalse(result.isError)
+                self.assertFalse(result.structuredContent['completed'])
+                self.assertTrue(result.structuredContent['waitTimedOut'])
+                self.assertEqual(result.structuredContent['state'], 'RUNNING')
+                for seconds in (0, 26):
+                    self.assertTrue((await wait(timeout_seconds=seconds)).isError)
+                self.error_response = (422, {
+                    'code': 'AGENT_BROWSER_PERCEPTION_REJECTED',
+                    'details': {'reason': 'BROWSER_STATE_STALE'},
+                })
+                rejected = await session.call_tool('browser_snapshot', {'environment_id': 'ses_owned'})
+                self.assertTrue(rejected.isError)
+                self.assertIn('BROWSER_STATE_STALE', rejected.content[0].text)
+                self.error_response = None
                 self.assertTrue(all(method == 'GET' for method, _, _ in self.calls))

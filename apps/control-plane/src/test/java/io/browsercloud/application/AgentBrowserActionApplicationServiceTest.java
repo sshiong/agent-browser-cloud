@@ -367,6 +367,63 @@ class AgentBrowserActionApplicationServiceTest {
   }
 
   @Test
+  void directOpenTabFromBlankPageUsesExplicitTabDomain() {
+    var cursor = "1:1:" + "c".repeat(64);
+    var blankState =
+        new BrowserStateView(
+            "ses_1234567890abcdef",
+            1,
+            1,
+            1,
+            "about:blank",
+            "",
+            "c".repeat(64),
+            "COMPLETE",
+            "complete",
+            500,
+            true,
+            List.of(),
+            List.of(new BrowserStateView.BrowserTabView("tab-blank", "about:blank", "", true)),
+            "tab-blank");
+    when(perception.snapshot("ses_1234567890abcdef", "tenant-test"))
+        .thenReturn(new SnapshotView(cursor, blankState));
+    var task = mock(AgentTaskView.class);
+    when(task.taskId()).thenReturn("agt_1234567890abcdef");
+    when(task.state()).thenReturn(TaskState.PLANNED);
+    var create = ArgumentCaptor.forClass(CreateAgentTaskRequest.class);
+    when(tasks.create(anyString(), anyString(), create.capture(), eq("open-tab:create")))
+        .thenReturn(task);
+
+    service.act(
+        "ses_1234567890abcdef",
+        "tenant-test",
+        "open-tab",
+        new ExecuteActionsRequest(
+            "Open docs tab",
+            cursor,
+            List.of(
+                new CreateAgentTaskRequest.BatchActionRequest(
+                    ToolId.OPEN_TAB,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    "https://docs.example.test/start",
+                    null)),
+            true,
+            ExecutionMode.DIRECT));
+
+    org.assertj.core.api.Assertions.assertThat(create.getValue().allowedDomains())
+        .containsExactly("docs.example.test");
+    verify(reviewer).requireDirectEligible("agt_1234567890abcdef", "tenant-test");
+  }
+
+  @Test
   void rejectsStaleHighLevelWaitAndHandoffBeforeCreatingTasks() {
     var stale = "8:2:" + "b".repeat(64);
 

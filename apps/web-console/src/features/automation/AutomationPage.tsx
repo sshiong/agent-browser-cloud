@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router';
 import {
   AlertTriangle,
@@ -30,6 +31,7 @@ import {
   LoadingPanel,
 } from '@/components/feedback/AsyncStates';
 import {
+  sessionKeys,
   useBrowserState,
   useSessionResourceStream,
   useSessions,
@@ -121,15 +123,36 @@ const actionOptions: Array<{
 
 const directActionOptions: typeof actionOptions = [
   { value: 'CLICK_TARGET', label: '点击目标' },
+  { value: 'DOUBLE_CLICK_TARGET', label: '双击目标' },
+  { value: 'RIGHT_CLICK_TARGET', label: '右键目标' },
+  { value: 'HOVER_TARGET', label: '悬停目标' },
   { value: 'HOLD_TARGET', label: '长按目标' },
   { value: 'DRAG_TARGET', label: '拖动到目标' },
   { value: 'SWIPE_TARGET', label: '从目标滑动' },
+  { value: 'PRESS_KEY', label: '按键' },
   { value: 'SCROLL', label: '滚动页面' },
+  { value: 'WAIT_FOR', label: '等待状态' },
 ];
+
+const boundedKeyOptions = [
+  'Enter',
+  'Tab',
+  'Escape',
+  'Backspace',
+  'Delete',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+] as const;
 
 function requiresActionTarget(toolId: DraftAction['toolId']) {
   return (
     toolId === 'CLICK_TARGET' ||
+    toolId === 'DOUBLE_CLICK_TARGET' ||
+    toolId === 'RIGHT_CLICK_TARGET' ||
+    toolId === 'HOVER_TARGET' ||
+    toolId === 'PRESS_KEY' ||
     toolId === 'TYPE_TEXT' ||
     toolId === 'HOLD_TARGET' ||
     toolId === 'DRAG_TARGET' ||
@@ -171,6 +194,7 @@ const agentPolicyBudgets: Record<
 };
 
 export function AutomationPage() {
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const tasksQuery = useAgentTaskSummaries();
   const sessionsQuery = useSessions({ state: 'RUNNING', limit: 100 });
@@ -237,10 +261,50 @@ export function AutomationPage() {
   });
 
   useEffect(() => {
+    const paramSession = searchParams.get('session');
+    if (paramSession) {
+      setSessionId((current) => {
+        if (current === paramSession) return current;
+        setDirectActions([]);
+        setBindingError('');
+        return paramSession;
+      });
+    }
+    const paramMode = searchParams.get('mode');
+    if (paramMode === 'direct') {
+      setExecutionMode('DIRECT');
+    } else if (paramMode === 'managed') {
+      setExecutionMode('MANAGED');
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!selectedTaskId && tasks[0]) {
       setSelectedTaskId(tasks[0].taskId);
     }
   }, [selectedTaskId, tasks]);
+
+  const selectedTaskState = selectedTask?.state;
+  const selectedTaskSessionId = selectedTask?.sessionId;
+  const selectedTaskKey = selectedTask?.taskId;
+  useEffect(() => {
+    if (
+      sessionId &&
+      selectedTaskKey &&
+      selectedTaskSessionId === sessionId &&
+      (selectedTaskState === 'COMPLETED' || selectedTaskState === 'FAILED')
+    ) {
+      void queryClient.invalidateQueries({
+        queryKey: sessionKeys.browserState(sessionId),
+      });
+    }
+  }, [
+    queryClient,
+    selectedTaskKey,
+    selectedTaskSessionId,
+    selectedTaskState,
+    sessionId,
+  ]);
 
   useEffect(() => {
     if (!sessionId && sessionsQuery.data?.items[0]) {
@@ -266,7 +330,7 @@ export function AutomationPage() {
   );
   const navigationConflict = Boolean(startUrl.trim() && actions.length);
   const actionsValid = actions.every((action) =>
-    isActionComplete(action, browserState.data)
+    isActionComplete(action, browserState.data, direct)
   );
   const expectedOutcomesValid = expectedOutcomes.every(
     (outcome) =>
@@ -323,7 +387,12 @@ export function AutomationPage() {
           sessionId,
           buildRequest: (snapshot) => {
             const rebound = browserState.data
-              ? rebindActionsToState(actions, browserState.data, snapshot.state)
+              ? rebindActionsToState(
+                  actions,
+                  browserState.data,
+                  snapshot.state,
+                  true
+                )
               : actions;
             if (!rebound) {
               throw new Error('目标已变化，请重新选择后再执行。');
@@ -568,7 +637,7 @@ export function AutomationPage() {
                 </h2>
                 <p className="mt-0.5 text-[10px] leading-4 text-text-muted">
                   {direct
-                    ? '按顺序执行导航、点击、长按、拖动、滑动或滚动。'
+                    ? '按顺序执行导航、点击、悬停、按键、长按、拖动、滑动、滚动或等待。'
                     : '创建计划后，可在任务详情中审核并执行。'}
                 </p>
               </div>
@@ -1011,8 +1080,23 @@ function directActionErrorMessage(error: Error) {
     if (reason === 'STATE_CURSOR_STALE' || reason === 'BROWSER_STATE_STALE') {
       return '页面状态已变化。请确认当前目标后重试。';
     }
+    if (reason === 'BROWSER_STATE_UNAVAILABLE') {
+      return '当前环境尚未上报可执行页面状态，请稍候重试。';
+    }
     if (reason === 'DIRECT_EXECUTION_REQUIRES_MANAGED_REVIEW') {
       return '此动作需要审核。请选择托管执行。';
+    }
+    if (reason === 'DIRECT_NAVIGATION_MUST_BE_SEPARATE') {
+      return '直接执行要求导航与页面动作分步提交。';
+    }
+    if (reason === 'STATE_URL_INVALID') {
+      return '当前页面或目标网址不是有效的 HTTP(S) 地址。';
+    }
+    if (reason === 'ACTION_BATCH_SIZE_INVALID') {
+      return '单次直接执行最多包含 20 个动作。';
+    }
+    if (typeof reason === 'string' && reason) {
+      return `${error.message} (${reason})`;
     }
   }
   return error.message;
@@ -1320,6 +1404,29 @@ function ActionEditor({
         </div>
       )}
 
+      {action.toolId === 'PRESS_KEY' && (
+        <div className="mt-3">
+          <Field label={`动作 ${index + 1} 按键`}>
+            <select
+              className={cn(inputClass, 'font-mono')}
+              value={action.key ?? 'Enter'}
+              onChange={(event) =>
+                onChange({
+                  ...action,
+                  key: event.target.value,
+                })
+              }
+            >
+              {boundedKeyOptions.map((keyName) => (
+                <option key={keyName} value={keyName}>
+                  {keyName}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+      )}
+
       {action.toolId === 'DRAG_TARGET' && (
         <div className="mt-3">
           <Field label={`动作 ${index + 1} 拖动终点`}>
@@ -1421,7 +1528,8 @@ function ActionEditor({
 
 function isActionComplete(
   action: DraftAction,
-  currentState?: BrowserStateView | null
+  currentState?: BrowserStateView | null,
+  direct = false
 ) {
   const currentTarget = action.targetRef
     ? currentState?.targets.find(
@@ -1432,6 +1540,7 @@ function isActionComplete(
           target.bounds
       )
     : undefined;
+  const validDirectTarget = !direct || isDirectTarget(currentTarget);
   const validGestureDuration =
     Number.isInteger(action.durationMs) &&
     (action.durationMs ?? 0) >= 80 &&
@@ -1463,7 +1572,19 @@ function isActionComplete(
         Boolean(action.deltaX || action.deltaY)
       );
     case 'CLICK_TARGET':
-      return Boolean(action.targetRevision && currentTarget);
+    case 'DOUBLE_CLICK_TARGET':
+    case 'RIGHT_CLICK_TARGET':
+    case 'HOVER_TARGET':
+      return Boolean(
+        action.targetRevision && currentTarget && validDirectTarget
+      );
+    case 'PRESS_KEY':
+      return Boolean(
+        action.targetRevision &&
+        currentTarget &&
+        validDirectTarget &&
+        action.key?.trim()
+      );
     case 'TYPE_TEXT':
       return Boolean(
         action.value?.trim() &&
@@ -1488,6 +1609,8 @@ function isActionComplete(
       );
     case 'REQUEST_HUMAN_TAKEOVER':
       return true;
+    default:
+      return false;
   }
 }
 
@@ -1500,6 +1623,7 @@ function createDraftAction(
     toolId,
   };
   if (requiresActionTarget(toolId)) action.targetRevision = targetRevision;
+  if (toolId === 'PRESS_KEY') action.key = 'Enter';
   if (toolId === 'HOLD_TARGET') action.durationMs = 600;
   if (toolId === 'DRAG_TARGET' || toolId === 'SWIPE_TARGET')
     action.durationMs = 300;
@@ -1537,6 +1661,21 @@ function toDirectActionRequest(
   if (action.toolId === 'SCROLL') {
     return { toolId: 'SCROLL', scrollDeltaY: action.scrollDeltaY };
   }
+  if (action.toolId === 'WAIT_FOR') {
+    const waitTarget =
+      action.waitCondition === 'TARGET_PRESENT'
+        ? state.targets.find((target) => target.targetRef === action.targetRef)
+        : undefined;
+    return {
+      toolId: 'WAIT_FOR',
+      waitCondition: action.waitCondition,
+      timeoutMs: action.timeoutMs,
+      targetRef:
+        action.waitCondition === 'TARGET_PRESENT'
+          ? (waitTarget?.elementId ?? action.targetRef)
+          : undefined,
+    };
+  }
   const source = state.targets.find(
     (target) => target.targetRef === action.targetRef
   );
@@ -1548,7 +1687,16 @@ function toDirectActionRequest(
   };
   switch (action.toolId) {
     case 'CLICK_TARGET':
-      return { toolId: 'CLICK_TARGET', ...binding };
+    case 'DOUBLE_CLICK_TARGET':
+    case 'RIGHT_CLICK_TARGET':
+    case 'HOVER_TARGET':
+      return { toolId: action.toolId, ...binding };
+    case 'PRESS_KEY':
+      return {
+        toolId: 'PRESS_KEY',
+        ...binding,
+        key: action.key || 'Enter',
+      };
     case 'HOLD_TARGET':
       return {
         toolId: 'DRAG_TARGET',
@@ -1589,7 +1737,8 @@ function toDirectActionRequest(
 function rebindActionsToState(
   actions: DraftAction[],
   previousState: BrowserStateView,
-  latestState: BrowserStateView
+  latestState: BrowserStateView,
+  direct = false
 ): DraftAction[] | null {
   const previousTargets = new Map(
     previousState.targets.map((target) => [target.targetRef, target])
@@ -1603,6 +1752,12 @@ function rebindActionsToState(
     if (exact) return exact;
     const previousTarget = previousTargets.get(targetRef);
     if (!previousTarget) return undefined;
+    if (previousTarget.elementId) {
+      const byElementId = latestState.targets.filter(
+        (candidate) => candidate.elementId === previousTarget.elementId
+      );
+      if (byElementId.length === 1) return byElementId[0];
+    }
     const identity = targetStableIdentity(previousTarget.targetRef);
     const matches = latestState.targets.filter(
       (candidate) =>
@@ -1623,7 +1778,12 @@ function rebindActionsToState(
     const target = rebind(action.targetRef);
     const destination =
       action.toolId === 'DRAG_TARGET' ? rebind(action.endTargetRef) : undefined;
-    if (action.toolId === 'DRAG_TARGET' && !destination) return null;
+    if (
+      action.toolId === 'DRAG_TARGET' &&
+      (!destination || (direct && !isDirectTarget(destination)))
+    ) {
+      return null;
+    }
     const invalidTextTarget =
       action.toolId === 'TYPE_TEXT' &&
       (target?.sensitive ||
@@ -1633,6 +1793,7 @@ function rebindActionsToState(
       !target.visible ||
       !target.enabled ||
       !target.bounds ||
+      (direct && !isDirectTarget(target)) ||
       invalidTextTarget
     ) {
       return null;

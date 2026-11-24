@@ -28,10 +28,13 @@ Profile。过渡和未知状态保留运行名额；只有控制面权威终态�
 1. `browser_snapshot` 获取当前页面和 `stateCursor`。
 2. 首次打开网页时，用 `browser_navigate` 提交目标 HTTP(S) URL。
 3. 读取新快照，用 `browser_act` 提交低风险动作。每个目标动作使用快照中的
-   `elementId` 作为 `targetRef`，并传入 `targetRevision`。拖动用 `DRAG_TARGET`，
-   传入终点的 `endTargetRef` 和 `durationMs`。长按使用相同的起点和终点。
-   滑动用 `SWIPE_TARGET`，传入像素位移 `deltaX`、`deltaY` 和时长。
-4. 用 `browser_get_action_task` 检查任务和动作结果。页面变化时重新取快照。
+   `elementId` 作为 `targetRef`，并传入 `targetRevision`。支持点击/双击/右键/悬停、
+   勾选/取消勾选、按键（`PRESS_KEY`）、拖动（`DRAG_TARGET`，传入终点的 `endTargetRef`
+   和 `durationMs`，长按使用相同的起点和终点）、滑动（`SWIPE_TARGET`，传入像素位移
+   `deltaX`、`deltaY` 和时长）、滚轮（`MOUSE_WHEEL`）、滚动（`SCROLL`）、等待（`WAIT_FOR`）、
+   新建/切换标签页（`OPEN_TAB`/`SWITCH_TAB`）与关闭原生弹窗（`DISMISS_DIALOG`）。
+4. 用 `browser_wait_action_task`（有界等待 1—25 秒）或 `browser_get_action_task` 检查任务
+   和动作结果。等待超时不取消任务，继续查询原 `taskId`。页面变化时重新取快照。
 
 直连操作由外部 AI 决定下一步，控制面负责校验并直接派发。敏感输入和需要模型审核的
 动作返回明确拒绝，已有的人工确认与部署配置的结果验证继续生效。

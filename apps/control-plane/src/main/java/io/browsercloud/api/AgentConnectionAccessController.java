@@ -252,6 +252,13 @@ public class AgentConnectionAccessController {
     return ResponseEntity.status(409).body(Map.of("code", error.getMessage()));
   }
 
+  @ExceptionHandler(AgentBrowserPerceptionService.PerceptionException.class)
+  ResponseEntity<?> browserPerceptionRejected(
+      AgentBrowserPerceptionService.PerceptionException error) {
+    var status = "STATE_CURSOR_STALE".equals(error.getMessage()) ? 409 : 422;
+    return ResponseEntity.status(status).body(Map.of("code", error.getMessage()));
+  }
+
   @ExceptionHandler(IllegalArgumentException.class)
   ResponseEntity<?> invalid() {
     return ResponseEntity.badRequest().body(Map.of("code", "AGENT_REQUEST_INVALID"));

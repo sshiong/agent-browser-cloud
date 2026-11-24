@@ -66,7 +66,7 @@ async def main():
             async with streamablehttp_client(url,headers={'Authorization':'Bearer '+token}) as (read,write,_):
                 async with ClientSession(read,write) as client:
                     await client.initialize()
-                    assert len((await client.list_tools()).tools)==13
+                    assert len((await client.list_tools()).tools)==14
                     async def call(name,args=None):return unpack(await client.call_tool(name,args or {}))
                     sessions=[]
                     for n in range(2):
@@ -112,13 +112,10 @@ async def main():
                     action=await call('browser_act',{'environment_id':running,
                         'goal':'Exercise the demo page pointer controls','state_cursor':snapshot['stateCursor'],
                         'idempotency_key':'direct-gestures','actions':gestures})
-                    for _ in range(80):
-                        action=await call('browser_get_action_task',{'environment_id':running,
-                            'task_id':action['taskId']})
-                        if action['state']=='COMPLETED': break
-                        assert action['state']=='RUNNING', 'MCP_DIRECT_ACTION_FAILED_'+str(action.get('lastError'))
-                        await asyncio.sleep(.25)
-                    else: raise AssertionError('MCP_DIRECT_ACTION_TIMEOUT')
+                    waited_task=await call('browser_wait_action_task',{'environment_id':running,
+                        'task_id':action['taskId'],'timeout_seconds':20})
+                    assert waited_task['completed'] and waited_task['succeeded'] and not waited_task['waitTimedOut'], 'MCP_DIRECT_ACTION_FAILED_'+str(waited_task)
+                    action=waited_task['task']
                     batch = next(r['output'] for r in action['executionResults'] if r['toolId']=='EXECUTE_ACTIONS')
                     assert batch['completedActions'] == len(gestures)
                     assert all(result['status'] == 'SUCCEEDED' for result in batch['actions'])

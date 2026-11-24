@@ -308,6 +308,16 @@ progress 166。
 
 ### 最近验证状态
 
+- Agent 自主操作顺滑度与可靠性修复已完成，见 [progress328](docs/progress/328-Agent自主操作顺滑度与可靠性修复.md)：
+  Browser Node `CdpDesktopInput` 改为复用持久 CDP WebSocket 并补齐异常/重试 `release_all`、
+  长按保活与终点坐标校验；Control Plane 修复 `COMMAND_IN_PROGRESS` 误计失败退避、直连拒绝
+  事务回滚防孤立 `PLANNED` 任务、`about:blank` 直接 `OPEN_TAB` 与感知错误码透传；MCP 新增第
+  14 个工具 `browser_wait_action_task` 并透传 `details.reason`；Web/Desktop 收紧 `NoVncViewport`
+  默认 `viewOnly=true`、补齐直连状态自动刷新/`elementId` 重绑定及双击/右键/悬停/按键/等待动作。
+  Rust（`input-sandbox` 10 项、`node-agent` 35 项、`remote-desktop-gateway` 36 项、fmt/clippy）、
+  Java 全量与 Spotless、MCP 官方客户端协议 3 项、Web lint/format/test（153+5 项）/build 均通过；
+  OpenAPI（271/368）与数据库版本（V141）不变，Oracle 实机验收仍待完成。
+
 - 外部 AI 直连模式已加入，见 [progress327](docs/progress/327-外部AI直连浏览器操作.md)。MCP 默认关闭直连授权，
   显式授权后可读取快照、导航、派发低风险动作和查询任务。普通 Web/桌面可在执行控制台
   选择直接执行，也可从运行中环境详情进入。通用长按、拖动和滑动已通过 Chrome 界面与 MCP 联调。SDK 支持 `DIRECT`，正式契约为 271 Operations /

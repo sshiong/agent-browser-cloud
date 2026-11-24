@@ -4876,6 +4876,7 @@ impl NodeControlService {
                             break;
                         }
                         Err(error) => {
+                            let _ = input.release_all().await;
                             last_error = Some(error);
                             if attempt + 1 < maximum_attempts {
                                 tokio::time::sleep(Duration::from_millis(150)).await;
@@ -4940,17 +4941,27 @@ impl NodeControlService {
                             "key input contains unsupported fields"
                         );
                         let key = bounded_input_key(&payload.key)?;
-                        input
-                            .mouse_move(start.0, start.1, next(&mut sequence)?)
-                            .await?;
-                        if payload.tool_id != "KEY_UP" {
-                            input.mouse_click(0, 1, next(&mut sequence)?).await?;
+                        let key_result: anyhow::Result<()> = async {
+                            input
+                                .mouse_move(start.0, start.1, next(&mut sequence)?)
+                                .await?;
+                            if payload.tool_id != "KEY_UP" {
+                                input.mouse_click(0, 1, next(&mut sequence)?).await?;
+                            }
+                            if payload.tool_id != "KEY_UP" {
+                                input.key_down(key.clone(), next(&mut sequence)?).await?;
+                            }
+                            if payload.tool_id != "KEY_DOWN" {
+                                input.key_up(key, next(&mut sequence)?).await?;
+                            }
+                            Ok(())
                         }
-                        if payload.tool_id != "KEY_UP" {
-                            input.key_down(key.clone(), next(&mut sequence)?).await?;
-                        }
-                        if payload.tool_id != "KEY_DOWN" {
-                            input.key_up(key, next(&mut sequence)?).await?;
+                        .await;
+                        if let Err(error) = key_result {
+                            if payload.tool_id == "PRESS_KEY" {
+                                let _ = input.release_all().await;
+                            }
+                            return Err(error);
                         }
                     }
                     "MOUSE_MOVE" => {
@@ -5029,10 +5040,18 @@ impl NodeControlService {
                                 )
                                 .await?
                         };
-                        let end = (
-                            (destination.bounds.x + destination.bounds.width / 2.0).round() as i32,
-                            (destination.bounds.y + destination.bounds.height / 2.0).round() as i32,
+                        let end_x = destination.bounds.x + destination.bounds.width / 2.0;
+                        let end_y = destination.bounds.y + destination.bounds.height / 2.0;
+                        anyhow::ensure!(
+                            end_x.is_finite()
+                                && end_y.is_finite()
+                                && end_x >= 0.0
+                                && end_y >= 0.0
+                                && end_x <= i32::MAX as f64
+                                && end_y <= i32::MAX as f64,
+                            "drag destination center is outside the input coordinate range"
                         );
+                        let end = (end_x.round() as i32, end_y.round() as i32);
                         let duration = payload.duration_ms.max(80);
                         let drag_result: anyhow::Result<()> = async {
                             input
@@ -5040,8 +5059,13 @@ impl NodeControlService {
                                 .await?;
                             input.mouse_down(0, next(&mut sequence)?).await?;
                             if start == end {
-                                tokio::time::sleep(Duration::from_millis(u64::from(duration)))
-                                    .await;
+                                let mut remaining = u64::from(duration);
+                                while remaining > 0 {
+                                    let slice = remaining.min(250);
+                                    tokio::time::sleep(Duration::from_millis(slice)).await;
+                                    remaining -= slice;
+                                    input.keep_alive().await;
+                                }
                             } else {
                                 for index in 1..=8_i32 {
                                     let x = start.0 + (end.0 - start.0) * index / 8;

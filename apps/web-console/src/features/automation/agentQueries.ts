@@ -17,6 +17,7 @@ import {
   rejectAgentHandoff,
   rejectAgentTask,
 } from '@/api/agent';
+import { sessionKeys } from '@/features/sessions/api/sessionQueries';
 import type {
   AgentBrowserSnapshot,
   CreateAgentTaskRequest,
@@ -167,15 +168,22 @@ export function useDirectBrowserAction() {
       ) => ExecuteAgentBrowserActionsRequest;
     }) => {
       const snapshot = await getAgentBrowserSnapshot(sessionId);
+      queryClient.setQueryData(
+        sessionKeys.browserState(sessionId),
+        snapshot.state
+      );
       return actAgentBrowser(
         sessionId,
         buildRequest(snapshot),
         `agent-direct-${crypto.randomUUID()}`
       );
     },
-    onSuccess: (task) => {
+    onSuccess: (task, variables) => {
       queryClient.setQueryData(agentTaskKeys.detail(task.taskId), task);
       void queryClient.invalidateQueries({ queryKey: agentTaskKeys.all });
+      void queryClient.invalidateQueries({
+        queryKey: sessionKeys.browserState(variables.sessionId),
+      });
     },
   });
 }

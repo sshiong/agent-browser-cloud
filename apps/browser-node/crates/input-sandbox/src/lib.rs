@@ -113,12 +113,39 @@ struct CdpTarget {
     web_socket_debugger_url: String,
 }
 
+type WsStream =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+struct CdpSocket {
+    url: String,
+    stream: WsStream,
+    next_id: i64,
+}
+
+enum CdpSendError {
+    TransportClosed(anyhow::Error),
+    Other(anyhow::Error),
+}
+
+impl CdpSendError {
+    fn is_transport_closed(&self) -> bool {
+        matches!(self, Self::TransportClosed(_))
+    }
+
+    fn into_anyhow(self) -> anyhow::Error {
+        match self {
+            Self::TransportClosed(error) | Self::Other(error) => error,
+        }
+    }
+}
+
 /// 通过 Browser Node 内部 CDP 连接执行真实输入。
 ///
 /// 所有输入都按 sequence 串行，旧 sequence 被拒绝，重复 sequence 幂等忽略。
 #[derive(Clone)]
 pub struct CdpDesktopInput {
     websocket_url: Arc<RwLock<String>>,
+    connection: Arc<Mutex<Option<CdpSocket>>>,
     ledger: Arc<Mutex<InputLedger>>,
     last_activity: Arc<Mutex<Instant>>,
 }
@@ -149,6 +176,7 @@ impl CdpDesktopInput {
         Self::require_loopback_websocket(&websocket_url)?;
         Ok(Self {
             websocket_url: Arc::new(RwLock::new(websocket_url)),
+            connection: Arc::new(Mutex::new(None)),
             ledger: Arc::new(Mutex::new(InputLedger::default())),
             last_activity: Arc::new(Mutex::new(Instant::now())),
         })
@@ -165,8 +193,15 @@ impl CdpDesktopInput {
             return Ok(());
         }
         self.release_all().await?;
+        *self.connection.lock().await = None;
         *self.websocket_url.write().await = websocket_url.to_owned();
         Ok(())
+    }
+
+    /// Refreshes activity timestamp while an intentional bounded hold gesture is active so
+    /// the idle watchdog does not prematurely release a held button.
+    pub async fn keep_alive(&self) {
+        self.mark_activity().await;
     }
 
     fn require_loopback_websocket(websocket_url: &str) -> anyhow::Result<()> {
@@ -361,34 +396,92 @@ impl CdpDesktopInput {
 
     async fn send(&self, method: &str, params: serde_json::Value) -> anyhow::Result<()> {
         let websocket_url = self.websocket_url.read().await.clone();
-        let (mut socket, _) = timeout(
+        let mut connection = self.connection.lock().await;
+        if connection
+            .as_ref()
+            .is_some_and(|active| active.url != websocket_url)
+        {
+            *connection = None;
+        }
+        if let Some(active) = connection.as_mut() {
+            match Self::send_on_socket(active, method, &params).await {
+                Ok(()) => return Ok(()),
+                Err(error) if error.is_transport_closed() => {
+                    // The page target or an idle DevTools connection closed between actions;
+                    // drop the dead socket and reconnect once on a clean session.
+                    *connection = None;
+                }
+                Err(error) => {
+                    *connection = None;
+                    return Err(error.into_anyhow());
+                }
+            }
+        }
+        let (stream, _) = timeout(
             Duration::from_secs(3),
             tokio_tungstenite::connect_async(&websocket_url),
         )
         .await
         .map_err(|_| anyhow::anyhow!("CDP input connection timed out"))??;
-        socket
-            .send(Message::Text(
-                serde_json::json!({"id": 1, "method": method, "params": params}).to_string(),
-            ))
-            .await?;
-        while let Some(message) = timeout(Duration::from_secs(3), socket.next())
-            .await
-            .map_err(|_| anyhow::anyhow!("CDP input command timed out"))?
-        {
-            let Message::Text(text) = message? else {
-                continue;
-            };
-            let response: serde_json::Value = serde_json::from_str(&text)?;
-            if response.get("id").and_then(serde_json::Value::as_i64) != Some(1) {
-                continue;
+        let mut active = CdpSocket {
+            url: websocket_url,
+            stream,
+            next_id: 1,
+        };
+        match Self::send_on_socket(&mut active, method, &params).await {
+            Ok(()) => {
+                *connection = Some(active);
+                Ok(())
             }
-            if let Some(error) = response.get("error") {
-                anyhow::bail!("CDP input command failed: {error}");
-            }
-            return Ok(());
+            Err(error) => Err(error.into_anyhow()),
         }
-        anyhow::bail!("CDP websocket closed before input acknowledgement")
+    }
+
+    async fn send_on_socket(
+        active: &mut CdpSocket,
+        method: &str,
+        params: &serde_json::Value,
+    ) -> Result<(), CdpSendError> {
+        let request_id = active.next_id;
+        active.next_id = active.next_id.checked_add(1).unwrap_or(1);
+        active
+            .stream
+            .send(Message::Text(
+                serde_json::json!({"id": request_id, "method": method, "params": params})
+                    .to_string(),
+            ))
+            .await
+            .map_err(|error| CdpSendError::TransportClosed(error.into()))?;
+        while let Some(message) = timeout(Duration::from_secs(3), active.stream.next())
+            .await
+            .map_err(|_| CdpSendError::Other(anyhow::anyhow!("CDP input command timed out")))?
+        {
+            match message {
+                Ok(Message::Text(text)) => {
+                    let response: serde_json::Value = serde_json::from_str(&text)
+                        .map_err(|error| CdpSendError::Other(error.into()))?;
+                    if response.get("id").and_then(serde_json::Value::as_i64) != Some(request_id) {
+                        continue;
+                    }
+                    if let Some(error) = response.get("error") {
+                        return Err(CdpSendError::Other(anyhow::anyhow!(
+                            "CDP input command failed: {error}"
+                        )));
+                    }
+                    return Ok(());
+                }
+                Ok(Message::Close(_)) => {
+                    return Err(CdpSendError::TransportClosed(anyhow::anyhow!(
+                        "CDP websocket closed before input acknowledgement"
+                    )));
+                }
+                Ok(_) => continue,
+                Err(error) => return Err(CdpSendError::TransportClosed(error.into())),
+            }
+        }
+        Err(CdpSendError::TransportClosed(anyhow::anyhow!(
+            "CDP websocket closed before input acknowledgement"
+        )))
     }
 
     async fn mark_activity(&self) {
@@ -978,6 +1071,7 @@ mod tests {
 
         let input = CdpDesktopInput {
             websocket_url: Arc::new(RwLock::new(format!("ws://{old_address}/devtools/page/old"))),
+            connection: Arc::new(Mutex::new(None)),
             ledger: Arc::new(Mutex::new(InputLedger::default())),
             last_activity: Arc::new(Mutex::new(Instant::now())),
         };
@@ -1007,6 +1101,54 @@ mod tests {
         assert!(!input.ledger_snapshot().await.has_any_input());
         old_task.await.unwrap();
         new_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn reuses_persistent_cdp_websocket_across_actions_and_keeps_hold_alive() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let connections = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let connections_counter = connections.clone();
+        let (sender, mut receiver) = mpsc::channel(8);
+        let server_task = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            connections_counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            for _ in 0..4 {
+                let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                    panic!("expected CDP text command");
+                };
+                let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+                sender.send(request.clone()).await.unwrap();
+                socket
+                    .send(Message::Text(
+                        serde_json::json!({"id": request["id"], "result": {}}).to_string(),
+                    ))
+                    .await
+                    .unwrap();
+            }
+        });
+
+        let input = CdpDesktopInput {
+            websocket_url: Arc::new(RwLock::new(format!("ws://{address}/devtools/page/1"))),
+            connection: Arc::new(Mutex::new(None)),
+            ledger: Arc::new(Mutex::new(InputLedger::default())),
+            last_activity: Arc::new(Mutex::new(Instant::now())),
+        };
+        input.mouse_move(12, 34, 1).await.unwrap();
+        input.mouse_down(0, 2).await.unwrap();
+        input.keep_alive().await;
+        assert!(!input.release_if_idle(Duration::from_secs(1)).await.unwrap());
+        input.mouse_move(40, 50, 3).await.unwrap();
+        input.mouse_up(0, 4).await.unwrap();
+
+        let ids: Vec<i64> = (0..4)
+            .map(|_| receiver.try_recv().unwrap()["id"].as_i64().unwrap())
+            .collect();
+        assert_eq!(ids, vec![1, 2, 3, 4]);
+        assert_eq!(connections.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert!(!input.ledger_snapshot().await.has_any_input());
+        server_task.await.unwrap();
     }
 
     #[tokio::test]

@@ -40,13 +40,21 @@ async def api(path, method="GET", body=None, key=None, token=None):
             headers=headers, json=body)
     if response.status_code >= 400:
         code = "CONTROL_PLANE_REQUEST_REJECTED"
+        reason = None
         try:
-            candidate = response.json().get("code", "")
-            if candidate and len(candidate) < 100 and all(c.isupper() or c == "_" for c in candidate):
+            payload = response.json()
+            candidate = payload.get("code", "")
+            if candidate and len(candidate) < 100 and all(c.isupper() or c.isdigit() or c == "_" for c in candidate):
                 code = candidate
+            details = payload.get("details")
+            if isinstance(details, dict):
+                detail_reason = details.get("reason", "")
+                if detail_reason and len(detail_reason) < 100 and all(c.isupper() or c.isdigit() or c == "_" for c in detail_reason):
+                    reason = detail_reason
         except (ValueError, AttributeError):
             pass
-        raise ValueError(f"{code}: HTTP {response.status_code}")
+        detail = f"{code} ({reason})" if reason and reason != code else code
+        raise ValueError(f"{detail}: HTTP {response.status_code}")
     return response.json()
 
 
@@ -147,10 +155,13 @@ async def browser_snapshot(environment_id: str) -> dict:
 async def browser_act(environment_id: str, goal: str, state_cursor: str,
                       actions: list[dict[str, Any]], idempotency_key: str) -> dict:
     """Run 1–20 low-risk actions. Use elementId and targetRevision from browser_snapshot.
-    CLICK_TARGET clicks once. DRAG_TARGET takes endTargetRef and durationMs (up to 5000).
-    Use the same element for both drag endpoints to hold it in place.
-    SWIPE_TARGET takes deltaX/deltaY in pixels and durationMs. SCROLL scrolls the page.
-    Requires direct permission. Read the task result and refresh a stale cursor before retrying.
+    Supported primitives: CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET,
+    CHECK_TARGET, UNCHECK_TARGET, PRESS_KEY (key), DRAG_TARGET (endTargetRef, durationMs <= 5000;
+    same start/end holds in place), SWIPE_TARGET (deltaX, deltaY, durationMs), MOUSE_WHEEL
+    (deltaX, deltaY), SCROLL (scrollDeltaY), WAIT_FOR (waitCondition, timeoutMs), OPEN_TAB
+    (tabUrl), SWITCH_TAB (tabId), and DISMISS_DIALOG (dialogId).
+    Requires direct permission. Wait for the returned task via browser_wait_action_task and
+    refresh a stale cursor before retrying.
     """
     if not 1 <= len(actions) <= 20:
         raise ValueError("ACTION_BATCH_SIZE_INVALID")
@@ -162,7 +173,7 @@ async def browser_act(environment_id: str, goal: str, state_cursor: str,
 @server.tool(annotations={"idempotentHint": True, "destructiveHint": False})
 async def browser_navigate(environment_id: str, goal: str, state_cursor: str,
                            url: str, idempotency_key: str) -> dict:
-    """Navigate the active tab to an explicitly authorized HTTP(S) URL. Take a fresh snapshot after completion. Requires direct permission."""
+    """Navigate the active tab to an explicitly authorized HTTP(S) URL. Wait with browser_wait_action_task and take a fresh snapshot after completion. Requires direct permission."""
     return await api("/environments/" + identifier(environment_id, "ses_") + "/browser/act",
         "POST", {"goal": goal, "expectedStateCursor": state_cursor, "actions": [],
                  "navigateUrl": url}, idempotency_key)
@@ -173,6 +184,30 @@ async def browser_get_action_task(environment_id: str, task_id: str) -> dict:
     """Read a browser action task and its results within the same owned environment. Requires direct permission."""
     return await api("/environments/" + identifier(environment_id, "ses_") +
         "/browser/tasks/" + identifier(task_id, "agt_"))
+
+
+@server.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+async def browser_wait_action_task(environment_id: str, task_id: str,
+                                   timeout_seconds: int = 10) -> dict[str, Any]:
+    """Wait up to 25 seconds for a browser action task to finish (COMPLETED, FAILED, BLOCKED, WAITING_FOR_HUMAN or AWAITING_CONFIRMATION). A wait timeout does not cancel the task; continue polling the same task ID instead of repeating the write with a new idempotency key. Requires direct permission."""
+    path = ("/environments/" + identifier(environment_id, "ses_") +
+            "/browser/tasks/" + identifier(task_id, "agt_"))
+    if not 1 <= timeout_seconds <= 25:
+        raise ValueError("WAIT_TIMEOUT_INVALID")
+    last = None
+    settled_states = ("COMPLETED", "FAILED", "BLOCKED", "WAITING_FOR_HUMAN", "AWAITING_CONFIRMATION")
+    try:
+        async with asyncio.timeout(timeout_seconds):
+            while True:
+                last = await api(path)
+                state = last.get("state")
+                if state in settled_states:
+                    return {"completed": True, "waitTimedOut": False,
+                        "succeeded": state == "COMPLETED", "state": state, "task": last}
+                await asyncio.sleep(.25)
+    except TimeoutError:
+        return {"completed": False, "waitTimedOut": True,
+            "succeeded": False, "state": (last or {}).get("state"), "task": last}
 
 
 class AuthenticatedGateway:

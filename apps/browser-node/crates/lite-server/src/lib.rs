@@ -41,7 +41,7 @@ mod integration_tests {
                 "agent_a",
                 "Codex A",
                 vec!["mcp".to_owned(), "sessions".to_owned()],
-                2,
+                3,
             )
             .unwrap();
         let agent_b = store
@@ -75,6 +75,7 @@ mod integration_tests {
         let hjson = json_body(health).await;
         assert_eq!(hjson["tier"], "L0_LITE");
         assert_eq!(hjson["runtime"], "rust");
+        assert_eq!(hjson["warmPoolReady"], 0);
 
         // 2. Unauthenticated MCP request rejected with 401.
         let unauth = app
@@ -185,6 +186,72 @@ mod integration_tests {
             .unwrap()
             .to_owned();
         assert!(session_id.starts_with("ses_"));
+        assert_eq!(
+            created["result"]["structuredContent"]["session"]["isolationMode"],
+            "process"
+        );
+
+        // 5b. Opt-in context isolation mode works, invalid mode is rejected fail-closed.
+        let ctx_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/mcp")
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(
+                        json!({
+                            "jsonrpc": "2.0",
+                            "id": 301,
+                            "method": "tools/call",
+                            "params": {
+                                "name": "browser_create",
+                                "arguments": { "name": "A-Ctx", "start": false, "isolation_mode": "context" }
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let ctx_json = json_body(ctx_resp).await;
+        assert_eq!(
+            ctx_json["result"]["structuredContent"]["session"]["isolationMode"],
+            "context"
+        );
+
+        let bad_iso = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/mcp")
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(
+                        json!({
+                            "jsonrpc": "2.0",
+                            "id": 302,
+                            "method": "tools/call",
+                            "params": {
+                                "name": "browser_create",
+                                "arguments": { "name": "Bad", "start": false, "isolation_mode": "shared_unsafe" }
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let bad_iso_json = json_body(bad_iso).await;
+        assert_eq!(bad_iso_json["result"]["isError"], true);
+        assert!(bad_iso_json["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("ISOLATION_MODE_INVALID"));
 
         // 6. Agent B CANNOT see or close Agent A's session!
         let list_b = app

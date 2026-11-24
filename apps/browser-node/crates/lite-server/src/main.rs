@@ -30,6 +30,11 @@ async fn main() -> Result<()> {
         .and_then(|v| v.parse().ok())
         .unwrap_or(4)
         .clamp(1, 64);
+    let warm_pool_size: usize = std::env::var("LITE_WARM_POOL_SIZE")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0)
+        .min(4);
     let default_idle_timeout_seconds: u64 = std::env::var("LITE_IDLE_TIMEOUT_SECONDS")
         .ok()
         .and_then(|v| v.parse().ok())
@@ -63,6 +68,7 @@ async fn main() -> Result<()> {
         data_dir,
         chromium_path,
         max_sessions,
+        warm_pool_size,
         default_idle_timeout_seconds,
         allow_private_network,
         allowed_hosts,

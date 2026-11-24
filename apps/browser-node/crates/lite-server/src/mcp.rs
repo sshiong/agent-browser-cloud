@@ -68,6 +68,7 @@ async fn healthz(State(rt): State<Arc<LiteRuntime>>) -> Json<Value> {
         "tier": "L0_LITE",
         "runtime": "rust",
         "runningSessions": running,
+        "warmPoolReady": rt.warm_pool_len().await,
         "maxSessions": rt.config.max_sessions,
         "backpressure": bp,
     }))
@@ -643,6 +644,12 @@ pub fn mcp_tool_catalog() -> Vec<Value> {
                     "profile_id": { "type": "string" },
                     "proxy_url": { "type": "string" },
                     "start_url": { "type": "string" },
+                    "isolation_mode": {
+                        "type": "string",
+                        "enum": ["process", "context"],
+                        "default": "process",
+                        "description": "'process' (default, strong per-session Chromium process isolation) or 'context' (lightweight opt-in same-agent isolation; does not provide process-level isolation)"
+                    },
                     "idle_timeout_seconds": { "type": "integer", "minimum": 30, "maximum": 86400 },
                     "start": { "type": "boolean", "default": true }
                 }

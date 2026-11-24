@@ -45,6 +45,7 @@ pub struct SessionRecord {
     pub state: String,
     pub proxy_url: Option<String>,
     pub current_url: Option<String>,
+    pub isolation_mode: String,
     pub idle_timeout_seconds: u64,
     pub created_at: String,
     pub updated_at: String,
@@ -103,6 +104,7 @@ impl LiteStore {
                 state TEXT NOT NULL,
                 proxy_url TEXT,
                 current_url TEXT,
+                isolation_mode TEXT NOT NULL DEFAULT 'process',
                 idle_timeout_seconds INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
@@ -132,6 +134,11 @@ impl LiteStore {
             );
             "#,
         )?;
+        // Expand-only migration for existing L0 SQLite databases created before isolation_mode.
+        let _ = conn.execute(
+            "ALTER TABLE browser_sessions ADD COLUMN isolation_mode TEXT NOT NULL DEFAULT 'process'",
+            [],
+        );
         Ok(Self {
             conn: Mutex::new(conn),
         })
@@ -333,8 +340,8 @@ impl LiteStore {
         conn.execute(
             "INSERT INTO browser_sessions
              (session_id, owner_agent_id, display_name, profile_id, state, proxy_url, current_url,
-              idle_timeout_seconds, created_at, updated_at, last_activity_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+              isolation_mode, idle_timeout_seconds, created_at, updated_at, last_activity_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
                 record.session_id,
                 record.owner_agent_id,
@@ -343,6 +350,7 @@ impl LiteStore {
                 record.state,
                 record.proxy_url,
                 record.current_url,
+                record.isolation_mode,
                 record.idle_timeout_seconds as i64,
                 record.created_at,
                 record.updated_at,
@@ -357,7 +365,7 @@ impl LiteStore {
         let row = conn
             .query_row(
                 "SELECT session_id, owner_agent_id, display_name, profile_id, state, proxy_url,
-                        current_url, idle_timeout_seconds, created_at, updated_at, last_activity_at
+                        current_url, isolation_mode, idle_timeout_seconds, created_at, updated_at, last_activity_at
                  FROM browser_sessions WHERE session_id = ?1",
                 params![session_id],
                 Self::map_session,
@@ -374,11 +382,11 @@ impl LiteStore {
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
         let sql = if include_closed {
             "SELECT session_id, owner_agent_id, display_name, profile_id, state, proxy_url,
-                    current_url, idle_timeout_seconds, created_at, updated_at, last_activity_at
+                    current_url, isolation_mode, idle_timeout_seconds, created_at, updated_at, last_activity_at
              FROM browser_sessions WHERE owner_agent_id = ?1 ORDER BY created_at DESC"
         } else {
             "SELECT session_id, owner_agent_id, display_name, profile_id, state, proxy_url,
-                    current_url, idle_timeout_seconds, created_at, updated_at, last_activity_at
+                    current_url, isolation_mode, idle_timeout_seconds, created_at, updated_at, last_activity_at
              FROM browser_sessions WHERE owner_agent_id = ?1 AND state != 'CLOSED' ORDER BY created_at DESC"
         };
         let mut stmt = conn.prepare(sql)?;
@@ -392,7 +400,7 @@ impl LiteStore {
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
         let mut stmt = conn.prepare(
             "SELECT session_id, owner_agent_id, display_name, profile_id, state, proxy_url,
-                    current_url, idle_timeout_seconds, created_at, updated_at, last_activity_at
+                    current_url, isolation_mode, idle_timeout_seconds, created_at, updated_at, last_activity_at
              FROM browser_sessions WHERE state IN ('RUNNING', 'IDLE')",
         )?;
         let rows = stmt
@@ -521,10 +529,11 @@ impl LiteStore {
             state: row.get(4)?,
             proxy_url: row.get(5)?,
             current_url: row.get(6)?,
-            idle_timeout_seconds: row.get::<_, i64>(7)?.max(0) as u64,
-            created_at: row.get(8)?,
-            updated_at: row.get(9)?,
-            last_activity_at: row.get(10)?,
+            isolation_mode: row.get(7)?,
+            idle_timeout_seconds: row.get::<_, i64>(8)?.max(0) as u64,
+            created_at: row.get(9)?,
+            updated_at: row.get(10)?,
+            last_activity_at: row.get(11)?,
         })
     }
 }
@@ -563,6 +572,7 @@ mod tests {
                 state: "RUNNING".to_owned(),
                 proxy_url: None,
                 current_url: None,
+                isolation_mode: "process".to_owned(),
                 idle_timeout_seconds: 600,
                 created_at: now.clone(),
                 updated_at: now.clone(),

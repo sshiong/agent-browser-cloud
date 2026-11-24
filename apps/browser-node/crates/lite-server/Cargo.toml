@@ -16,6 +16,10 @@ path = "src/main.rs"
 name = "browsercloud-ctl"
 path = "src/bin/ctl.rs"
 
+[[bin]]
+name = "browsercloud-mcp-bridge"
+path = "src/bin/mcp_bridge.rs"
+
 [dependencies]
 runtime-supervisor = { path = "../runtime-supervisor" }
 input-sandbox = { path = "../input-sandbox" }

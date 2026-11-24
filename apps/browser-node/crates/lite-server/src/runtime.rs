@@ -38,6 +38,7 @@ pub struct LiteConfig {
     pub data_dir: PathBuf,
     pub chromium_path: PathBuf,
     pub max_sessions: u32,
+    pub warm_pool_size: usize,
     pub default_idle_timeout_seconds: u64,
     pub allow_private_network: bool,
     pub allowed_hosts: Vec<String>,
@@ -50,6 +51,7 @@ impl Default for LiteConfig {
             data_dir: PathBuf::from("./.local/lite-data"),
             chromium_path: PathBuf::from("/usr/bin/chromium"),
             max_sessions: 4,
+            warm_pool_size: 0,
             default_idle_timeout_seconds: DEFAULT_IDLE_TIMEOUT_SECS,
             allow_private_network: false,
             allowed_hosts: vec!["127.0.0.1:*".to_owned(), "localhost:*".to_owned()],
@@ -68,6 +70,7 @@ pub struct CreateSessionParams {
     pub profile_id: Option<String>,
     pub proxy_url: Option<String>,
     pub start_url: Option<String>,
+    pub isolation_mode: Option<String>,
     pub idle_timeout_seconds: Option<u64>,
     #[serde(default = "default_true")]
     pub start: bool,
@@ -171,10 +174,19 @@ pub struct CloseSessionParams {
     pub hibernate: bool,
 }
 
+struct WarmInstance {
+    warm_id: String,
+    cdp_endpoint: String,
+    profile_dir: PathBuf,
+    cache_dir: PathBuf,
+}
+
 struct LiveSessionState {
+    runtime_key: String,
     cdp_endpoint: String,
     input: Arc<CdpDesktopInput>,
     last_states: Vec<CurrentState>,
+    warm_handoff: Option<(PathBuf, PathBuf, PathBuf)>,
 }
 
 pub struct LiteRuntime {
@@ -183,6 +195,7 @@ pub struct LiteRuntime {
     supervisor: Arc<ChromiumRuntimeSupervisor>,
     collector: Arc<CdpStateCollector>,
     live: Arc<Mutex<HashMap<String, LiveSessionState>>>,
+    warm_pool: Arc<Mutex<Vec<WarmInstance>>>,
     backpressure: Arc<Mutex<GradedBackpressure>>,
     sys: Arc<Mutex<sysinfo::System>>,
 }
@@ -197,6 +210,7 @@ impl LiteRuntime {
             supervisor: Arc::new(ChromiumRuntimeSupervisor::new(config.chromium_path.clone())),
             collector: Arc::new(CdpStateCollector::new()),
             live: Arc::new(Mutex::new(HashMap::new())),
+            warm_pool: Arc::new(Mutex::new(Vec::new())),
             backpressure: Arc::new(Mutex::new(GradedBackpressure::new(
                 12,
                 Duration::from_secs(15),
@@ -205,6 +219,74 @@ impl LiteRuntime {
             config,
             store,
         })
+    }
+
+    pub async fn warm_pool_len(&self) -> usize {
+        self.warm_pool.lock().await.len()
+    }
+
+    /// Replenishes the clean Warm Pool (Section 4.3). Every warm instance starts with a brand-new,
+    /// empty profile directory and is never returned to the pool after being assigned to any user
+    /// or session.
+    pub async fn replenish_warm_pool(&self) {
+        if self.config.warm_pool_size == 0 {
+            return;
+        }
+        let bp = self.backpressure_snapshot().await;
+        if !matches!(bp.state, crate::backpressure::BackpressureState::Normal) {
+            return;
+        }
+        let needed = {
+            let current = self.warm_pool.lock().await.len();
+            self.config.warm_pool_size.saturating_sub(current)
+        };
+        for _ in 0..needed {
+            let running = self.store.count_running_sessions_total().unwrap_or(0) as usize;
+            let warm_now = self.warm_pool.lock().await.len();
+            if running + warm_now >= self.config.max_sessions as usize {
+                break;
+            }
+            let warm_id = format!("warm_{}", &Uuid::new_v4().simple().to_string()[..12]);
+            let Ok(cdp_port) = allocate_ephemeral_port() else {
+                break;
+            };
+            let profile_dir = self.config.data_dir.join("profiles").join(&warm_id);
+            let cache_dir = self.config.data_dir.join("cache").join(&warm_id);
+            if std::fs::create_dir_all(&profile_dir).is_err()
+                || std::fs::create_dir_all(&cache_dir).is_err()
+            {
+                break;
+            }
+            let spec = RuntimeSpec {
+                session_id: warm_id.clone(),
+                runtime_build_id: "lite-chromium-warm-v1".to_owned(),
+                profile_dir: profile_dir.clone(),
+                cache_dir: cache_dir.clone(),
+                proxy_server: None,
+                display: ":99".to_owned(),
+                cdp_port,
+                vnc_port: None,
+                extension_dirs: Vec::new(),
+                resource_limits: RuntimeResourceLimits::local_test_default(),
+                browser_identity: BrowserIdentitySpec::default(),
+            };
+            match self.supervisor.start(spec).await {
+                Ok(handle) => {
+                    self.warm_pool.lock().await.push(WarmInstance {
+                        warm_id,
+                        cdp_endpoint: handle.cdp_endpoint,
+                        profile_dir,
+                        cache_dir,
+                    });
+                }
+                Err(error) => {
+                    tracing::debug!(error = %error, "Warm pool pre-warm skipped");
+                    let _ = std::fs::remove_dir_all(&profile_dir);
+                    let _ = std::fs::remove_dir_all(&cache_dir);
+                    break;
+                }
+            }
+        }
     }
 
     pub async fn sample_pressure(&self) -> BackpressureSnapshot {
@@ -291,6 +373,16 @@ impl LiteRuntime {
             .idle_timeout_seconds
             .unwrap_or(self.config.default_idle_timeout_seconds)
             .clamp(30, 86_400);
+        let isolation_mode = match params
+            .isolation_mode
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            None | Some("process") => "process".to_owned(),
+            Some("context") => "context".to_owned(),
+            Some(_) => bail!("ISOLATION_MODE_INVALID"),
+        };
         let now = Utc::now().to_rfc3339();
         let initial_state = if params.start {
             "CREATING"
@@ -303,6 +395,7 @@ impl LiteRuntime {
             display_name,
             profile_id: profile_id.clone(),
             state: initial_state.to_owned(),
+            isolation_mode,
             proxy_url,
             current_url: start_url.clone(),
             idle_timeout_seconds,
@@ -881,15 +974,15 @@ impl LiteRuntime {
     /// Chromium processes, hibernates idle sessions, and refreshes host backpressure.
     pub async fn maintenance_tick(&self) {
         let _ = self.sample_pressure().await;
-        let live_ids: Vec<(String, Arc<CdpDesktopInput>)> = {
+        let live_entries: Vec<(String, String, Arc<CdpDesktopInput>)> = {
             let live = self.live.lock().await;
             live.iter()
-                .map(|(id, s)| (id.clone(), s.input.clone()))
+                .map(|(id, s)| (id.clone(), s.runtime_key.clone(), s.input.clone()))
                 .collect()
         };
-        for (session_id, input) in live_ids {
+        for (session_id, runtime_key, input) in live_entries {
             let _ = input.release_if_idle(INPUT_WATCHDOG_IDLE_TIMEOUT).await;
-            if let Ok(health) = self.supervisor.health(&session_id).await {
+            if let Ok(health) = self.supervisor.health(&runtime_key).await {
                 if matches!(health, RuntimeHealth::Crashed(_)) {
                     tracing::warn!(session_id, ?health, "Detected crashed Chromium runtime");
                     let _ = self.stop_live_session(&session_id).await;
@@ -899,6 +992,7 @@ impl LiteRuntime {
                 }
             }
         }
+        self.replenish_warm_pool().await;
         if let Ok(running) = self.store.list_running_sessions() {
             let now = Utc::now();
             for session in running {
@@ -930,6 +1024,12 @@ impl LiteRuntime {
             let _ = self.stop_live_session(&id).await;
             let _ = self.store.update_session_state(&id, "HIBERNATED", None);
         }
+        let warm: Vec<WarmInstance> = self.warm_pool.lock().await.drain(..).collect();
+        for inst in warm {
+            let _ = self.supervisor.stop(&inst.warm_id).await;
+            let _ = std::fs::remove_dir_all(&inst.profile_dir);
+            let _ = std::fs::remove_dir_all(&inst.cache_dir);
+        }
         self.supervisor.stop_all().await;
     }
 
@@ -960,9 +1060,15 @@ impl LiteRuntime {
     }
 
     async fn ensure_running(&self, record: &SessionRecord) -> Result<()> {
-        if self.is_live(&record.session_id).await {
+        if let Some(runtime_key) = self
+            .live
+            .lock()
+            .await
+            .get(&record.session_id)
+            .map(|s| s.runtime_key.clone())
+        {
             if matches!(
-                self.supervisor.health(&record.session_id).await,
+                self.supervisor.health(&runtime_key).await,
                 Ok(RuntimeHealth::Healthy | RuntimeHealth::Degraded(_))
             ) {
                 return Ok(());
@@ -976,46 +1082,85 @@ impl LiteRuntime {
             "NODE_MAX_SESSIONS_REACHED"
         );
 
-        let cdp_port = allocate_ephemeral_port()?;
         let profile_dir = self.profile_dir(&record.profile_id);
-        let cache_dir = self.config.data_dir.join("cache").join(&record.session_id);
-        std::fs::create_dir_all(&profile_dir)?;
-        std::fs::create_dir_all(&cache_dir)?;
-
-        let spec = RuntimeSpec {
-            session_id: record.session_id.clone(),
-            runtime_build_id: "lite-chromium-v1".to_owned(),
-            profile_dir,
-            cache_dir,
-            proxy_server: record.proxy_url.clone(),
-            display: ":99".to_owned(),
-            cdp_port,
-            vnc_port: None,
-            extension_dirs: Vec::new(),
-            resource_limits: RuntimeResourceLimits::local_test_default(),
-            browser_identity: BrowserIdentitySpec::default(),
-        };
+        let profile_is_fresh = !profile_dir.exists()
+            || std::fs::read_dir(&profile_dir)
+                .map(|mut d| d.next().is_none())
+                .unwrap_or(false);
 
         self.store
             .update_session_state(&record.session_id, "RESTORING", None)?;
-        let handle = self.supervisor.start(spec).await?;
+
+        // Clean Warm Pool handoff: only for brand-new empty profiles with no custom proxy, and
+        // each warm instance is consumed once and never returned to the pool.
+        let claimed_warm = if profile_is_fresh && record.proxy_url.is_none() {
+            let mut pool = self.warm_pool.lock().await;
+            let mut valid = None;
+            while let Some(candidate) = pool.pop() {
+                if matches!(
+                    self.supervisor.health(&candidate.warm_id).await,
+                    Ok(RuntimeHealth::Healthy)
+                ) {
+                    valid = Some(candidate);
+                    break;
+                }
+                let _ = self.supervisor.stop(&candidate.warm_id).await;
+                let _ = std::fs::remove_dir_all(&candidate.profile_dir);
+                let _ = std::fs::remove_dir_all(&candidate.cache_dir);
+            }
+            valid
+        } else {
+            None
+        };
+
+        let (runtime_key, cdp_endpoint, warm_handoff) = if let Some(warm) = claimed_warm {
+            (
+                warm.warm_id,
+                warm.cdp_endpoint,
+                Some((warm.profile_dir, profile_dir, warm.cache_dir)),
+            )
+        } else {
+            let cdp_port = allocate_ephemeral_port()?;
+            let cache_dir = self.config.data_dir.join("cache").join(&record.session_id);
+            std::fs::create_dir_all(&profile_dir)?;
+            std::fs::create_dir_all(&cache_dir)?;
+
+            let spec = RuntimeSpec {
+                session_id: record.session_id.clone(),
+                runtime_build_id: "lite-chromium-v1".to_owned(),
+                profile_dir,
+                cache_dir,
+                proxy_server: record.proxy_url.clone(),
+                display: ":99".to_owned(),
+                cdp_port,
+                vnc_port: None,
+                extension_dirs: Vec::new(),
+                resource_limits: RuntimeResourceLimits::local_test_default(),
+                browser_identity: BrowserIdentitySpec::default(),
+            };
+            let handle = self.supervisor.start(spec).await?;
+            (record.session_id.clone(), handle.cdp_endpoint, None)
+        };
+
         self.collector
-            .register_runtime(&record.session_id, &handle.cdp_endpoint)
+            .register_runtime(&record.session_id, &cdp_endpoint)
             .await?;
         let _ = self
             .collector
             .start_native_dialog_monitor(&record.session_id)
             .await;
-        let input = Arc::new(CdpDesktopInput::connect(&handle.cdp_endpoint).await?);
+        let input = Arc::new(CdpDesktopInput::connect(&cdp_endpoint).await?);
 
         {
             let mut live = self.live.lock().await;
             live.insert(
                 record.session_id.clone(),
                 LiveSessionState {
-                    cdp_endpoint: handle.cdp_endpoint,
+                    runtime_key,
+                    cdp_endpoint,
                     input,
                     last_states: Vec::new(),
+                    warm_handoff,
                 },
             );
         }
@@ -1026,12 +1171,32 @@ impl LiteRuntime {
 
     async fn stop_live_session(&self, session_id: &str) -> Result<()> {
         let removed = self.live.lock().await.remove(session_id);
-        if let Some(live) = removed {
+        let (runtime_key, warm_handoff) = if let Some(live) = removed {
             let _ = live.input.release_all().await;
             let _ = live.cdp_endpoint;
-        }
+            (live.runtime_key, live.warm_handoff)
+        } else {
+            (session_id.to_owned(), None)
+        };
         self.collector.unregister_runtime(session_id).await;
-        let _ = self.supervisor.stop(session_id).await;
+        let _ = self.supervisor.stop(&runtime_key).await;
+        if let Some((warm_profile_dir, target_profile_dir, warm_cache_dir)) = warm_handoff {
+            if warm_profile_dir.exists() {
+                if let Some(parent) = target_profile_dir.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                if target_profile_dir.exists() {
+                    let _ = std::fs::remove_dir_all(&target_profile_dir);
+                }
+                if std::fs::rename(&warm_profile_dir, &target_profile_dir).is_err() {
+                    let _ = std::fs::create_dir_all(&target_profile_dir);
+                }
+            }
+            let _ = std::fs::remove_dir_all(&warm_cache_dir);
+            if let Some(warm_parent) = warm_cache_dir.parent() {
+                let _ = std::fs::remove_dir(warm_parent);
+            }
+        }
         Ok(())
     }
 

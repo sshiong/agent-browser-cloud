@@ -116,12 +116,14 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 listed = await session.list_tools()
-                self.assertEqual(len(listed.tools), 14)
+                self.assertEqual(len(listed.tools), 16)
                 actions = {
                     'browser_navigate': {'environment_id': 'ses_owned', 'goal': 'Open the test page',
                         'state_cursor': '1:1:' + 'a' * 64, 'idempotency_key': 'direct-nav',
                         'url': 'https://example.com'},
                     'browser_snapshot': {'environment_id': 'ses_owned'},
+                    'browser_find': {'environment_id': 'ses_owned', 'query': 'Continue', 'roles': ['button']},
+                    'browser_inspect': {'environment_id': 'ses_owned', 'state_cursor': '1:1:' + 'a' * 64, 'element_ids': ['e1']},
                     'browser_act': {'environment_id': 'ses_owned', 'goal': 'Hover a test button',
                         'state_cursor': '1:1:' + 'a' * 64, 'idempotency_key': 'direct-act',
                         'actions': [{'toolId': 'HOVER_TARGET', 'targetRef': 'e1', 'targetRevision': 1}]},
@@ -129,7 +131,8 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
                     'browser_wait_action_task': {'environment_id': 'ses_owned', 'task_id': 'agt_owned'},
                     'browser_get_quota': {}, 'browser_list_environments': {},
                     'browser_get_environment': {'environment_id': 'ses_owned'},
-                    'browser_create_environment': {'profile_id': 'profile-owned', 'idempotency_key': 'owned-create'},
+                    'browser_create_environment': {'profile_id': 'profile-owned', 'idempotency_key': 'owned-create',
+                        'display_name': 'Agent Runner', 'agent_policy': 'INTERACTIVE'},
                     'browser_start_environment': {'environment_id': 'ses_owned', 'idempotency_key': 'owned-start'},
                     'browser_stop_environment': {'environment_id': 'ses_owned', 'idempotency_key': 'owned-stop'},
                     'browser_delete_environment': {'environment_id': 'ses_owned', 'idempotency_key': 'owned-delete'},

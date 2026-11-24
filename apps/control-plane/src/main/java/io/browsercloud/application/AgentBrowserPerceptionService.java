@@ -30,10 +30,13 @@ public class AgentBrowserPerceptionService {
             .orElseThrow(() -> new PerceptionException("BROWSER_STATE_UNAVAILABLE"));
     requireExecutable(state);
     var visibleText =
-        state.targets().stream()
-            .filter(target -> target.visible() && !target.sensitive())
-            .flatMap(
-                target -> java.util.stream.Stream.of(safe(target.name()), safe(target.value())))
+        java.util.stream.Stream.concat(
+                java.util.stream.Stream.of(safe(state.title())),
+                state.targets().stream()
+                    .filter(target -> target.visible() && !target.sensitive())
+                    .flatMap(
+                        target ->
+                            java.util.stream.Stream.of(safe(target.name()), safe(target.value()))))
             .filter(value -> !value.isBlank())
             .distinct()
             .collect(java.util.stream.Collectors.joining(" · "));
@@ -141,6 +144,7 @@ public class AgentBrowserPerceptionService {
             safe(target.elementId()),
             safe(target.role()),
             safe(target.name()),
+            target.sensitive() ? "" : safe(target.value()),
             safe(target.controlType()),
             safe(target.visibilityReason()))
         .anyMatch(value -> value.toLowerCase(Locale.ROOT).contains(query));

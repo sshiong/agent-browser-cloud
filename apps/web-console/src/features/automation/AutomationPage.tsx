@@ -126,8 +126,12 @@ const directActionOptions: typeof actionOptions = [
   { value: 'DOUBLE_CLICK_TARGET', label: '双击目标' },
   { value: 'RIGHT_CLICK_TARGET', label: '右键目标' },
   { value: 'HOVER_TARGET', label: '悬停目标' },
+  { value: 'TYPE_TEXT', label: '输入公开文本' },
+  { value: 'FILL', label: '填充公开文本' },
+  { value: 'CLEAR_TARGET', label: '清空输入框' },
+  { value: 'SELECT_OPTION', label: '选择下拉项' },
   { value: 'HOLD_TARGET', label: '长按目标' },
-  { value: 'DRAG_TARGET', label: '拖动到目标' },
+  { value: 'DRAG_TARGET', label: '拖动目标' },
   { value: 'SWIPE_TARGET', label: '从目标滑动' },
   { value: 'PRESS_KEY', label: '按键' },
   { value: 'SCROLL', label: '滚动页面' },
@@ -154,6 +158,9 @@ function requiresActionTarget(toolId: DraftAction['toolId']) {
     toolId === 'HOVER_TARGET' ||
     toolId === 'PRESS_KEY' ||
     toolId === 'TYPE_TEXT' ||
+    toolId === 'FILL' ||
+    toolId === 'CLEAR_TARGET' ||
+    toolId === 'SELECT_OPTION' ||
     toolId === 'HOLD_TARGET' ||
     toolId === 'DRAG_TARGET' ||
     toolId === 'SWIPE_TARGET'
@@ -1245,12 +1252,17 @@ function ActionEditor({
             <option value="">选择当前状态目标</option>
             {actionableTargets.map((target) => {
               const typeForbidden =
-                action.toolId === 'TYPE_TEXT' &&
-                (!['textbox', 'combobox'].includes(target.role) ||
-                  (target.sensitive &&
-                    !['CREDENTIAL', 'OTP'].includes(
-                      action.dataClass ?? 'PUBLIC'
-                    )));
+                ((action.toolId === 'TYPE_TEXT' ||
+                  action.toolId === 'FILL' ||
+                  action.toolId === 'CLEAR_TARGET') &&
+                  (!['textbox', 'combobox'].includes(target.role) ||
+                    (target.sensitive &&
+                      (direct ||
+                        !['CREDENTIAL', 'OTP'].includes(
+                          action.dataClass ?? 'PUBLIC'
+                        ))))) ||
+                (action.toolId === 'SELECT_OPTION' &&
+                  (target.role !== 'combobox' || target.sensitive));
               return (
                 <option
                   key={target.targetRef}
@@ -1263,9 +1275,17 @@ function ActionEditor({
               );
             })}
           </select>
-          {action.toolId === 'TYPE_TEXT' && (
-            <div className="grid grid-cols-[minmax(0,1fr)_92px] gap-2">
-              {['CREDENTIAL', 'OTP'].includes(action.dataClass ?? 'PUBLIC') ? (
+          {(action.toolId === 'TYPE_TEXT' ||
+            action.toolId === 'FILL' ||
+            action.toolId === 'SELECT_OPTION') && (
+            <div
+              className={cn(
+                'grid gap-2',
+                direct ? 'grid-cols-1' : 'grid-cols-[minmax(0,1fr)_92px]'
+              )}
+            >
+              {!direct &&
+              ['CREDENTIAL', 'OTP'].includes(action.dataClass ?? 'PUBLIC') ? (
                 <input
                   value={action.secretId ?? ''}
                   onChange={(event) =>
@@ -1282,43 +1302,53 @@ function ActionEditor({
                 />
               ) : (
                 <input
+                  aria-label={`动作 ${index + 1} 文本内容`}
                   value={action.value ?? ''}
                   onChange={(event) =>
                     onChange({
                       ...action,
                       value: event.target.value,
                       secretId: undefined,
+                      dataClass: direct ? 'PUBLIC' : action.dataClass,
                     })
                   }
                   maxLength={2000}
-                  placeholder="明确授权的非凭证文本"
+                  placeholder={
+                    action.toolId === 'SELECT_OPTION'
+                      ? '输入非敏感下拉选项值'
+                      : '明确授权的非敏感公开文本（禁止凭据/密码/OTP）'
+                  }
                   autoComplete="off"
                   className={inputClass}
                 />
               )}
-              <select
-                aria-label="输入数据分类"
-                value={action.dataClass ?? 'PUBLIC'}
-                onChange={(event) =>
-                  onChange({
-                    ...action,
-                    dataClass: event.target
-                      .value as CreateAgentActionRequest['dataClass'],
-                    value: ['CREDENTIAL', 'OTP'].includes(event.target.value)
-                      ? undefined
-                      : action.value,
-                    secretId: ['CREDENTIAL', 'OTP'].includes(event.target.value)
-                      ? action.secretId
-                      : undefined,
-                  })
-                }
-                className={inputClass}
-              >
-                <option value="PUBLIC">PUBLIC</option>
-                <option value="PII">PII</option>
-                <option value="CREDENTIAL">CREDENTIAL</option>
-                <option value="OTP">OTP</option>
-              </select>
+              {!direct && (
+                <select
+                  aria-label="输入数据分类"
+                  value={action.dataClass ?? 'PUBLIC'}
+                  onChange={(event) =>
+                    onChange({
+                      ...action,
+                      dataClass: event.target
+                        .value as CreateAgentActionRequest['dataClass'],
+                      value: ['CREDENTIAL', 'OTP'].includes(event.target.value)
+                        ? undefined
+                        : action.value,
+                      secretId: ['CREDENTIAL', 'OTP'].includes(
+                        event.target.value
+                      )
+                        ? action.secretId
+                        : undefined,
+                    })
+                  }
+                  className={inputClass}
+                >
+                  <option value="PUBLIC">PUBLIC</option>
+                  <option value="PII">PII</option>
+                  <option value="CREDENTIAL">CREDENTIAL</option>
+                  <option value="OTP">OTP</option>
+                </select>
+              )}
             </div>
           )}
           <p className="font-mono text-[8px] text-text-muted">
@@ -1428,8 +1458,11 @@ function ActionEditor({
       )}
 
       {action.toolId === 'DRAG_TARGET' && (
-        <div className="mt-3">
-          <Field label={`动作 ${index + 1} 拖动终点`}>
+        <div className="mt-3 space-y-2">
+          <Field
+            label={`动作 ${index + 1} 拖动终点`}
+            hint="留空则按下方像素位移拖动"
+          >
             <select
               className={inputClass}
               value={action.endTargetRef ?? ''}
@@ -1437,10 +1470,12 @@ function ActionEditor({
                 onChange({
                   ...action,
                   endTargetRef: event.target.value || undefined,
+                  deltaX: event.target.value ? undefined : action.deltaX,
+                  deltaY: event.target.value ? undefined : action.deltaY,
                 })
               }
             >
-              <option value="">选择终点</option>
+              <option value="">选择终点（或按像素位移）</option>
               {actionableTargets
                 .filter((target) => target.targetRef !== action.targetRef)
                 .map((target) => (
@@ -1450,6 +1485,44 @@ function ActionEditor({
                 ))}
             </select>
           </Field>
+          {!action.endTargetRef && (
+            <div className="grid grid-cols-2 gap-2">
+              <Field label={`动作 ${index + 1} 拖动横向位移（像素）`}>
+                <input
+                  type="number"
+                  min={-4000}
+                  max={4000}
+                  className={inputClass}
+                  value={action.deltaX ?? ''}
+                  onChange={(event) =>
+                    onChange({
+                      ...action,
+                      deltaX: event.target.value
+                        ? Number(event.target.value)
+                        : undefined,
+                    })
+                  }
+                />
+              </Field>
+              <Field label={`动作 ${index + 1} 拖动纵向位移（像素）`}>
+                <input
+                  type="number"
+                  min={-4000}
+                  max={4000}
+                  className={inputClass}
+                  value={action.deltaY ?? ''}
+                  onChange={(event) =>
+                    onChange({
+                      ...action,
+                      deltaY: event.target.value
+                        ? Number(event.target.value)
+                        : undefined,
+                    })
+                  }
+                />
+              </Field>
+            </div>
+          )}
         </div>
       )}
 
@@ -1553,16 +1626,26 @@ function isActionComplete(
   switch (action.toolId) {
     case 'HOLD_TARGET':
       return validGesture;
-    case 'DRAG_TARGET':
+    case 'DRAG_TARGET': {
+      if (action.endTargetRef) {
+        return (
+          validGesture &&
+          action.endTargetRef !== action.targetRef &&
+          isDirectTarget(
+            currentState?.targets.find(
+              (target) => target.targetRef === action.endTargetRef
+            )
+          )
+        );
+      }
       return (
         validGesture &&
-        action.endTargetRef !== action.targetRef &&
-        isDirectTarget(
-          currentState?.targets.find(
-            (target) => target.targetRef === action.endTargetRef
-          )
-        )
+        [action.deltaX ?? 0, action.deltaY ?? 0].every(
+          (value) => Number.isInteger(value) && Math.abs(value) <= 4000
+        ) &&
+        Boolean(action.deltaX || action.deltaY)
       );
+    }
     case 'SWIPE_TARGET':
       return (
         validGesture &&
@@ -1586,12 +1669,31 @@ function isActionComplete(
         action.key?.trim()
       );
     case 'TYPE_TEXT':
+    case 'FILL':
       return Boolean(
         action.value?.trim() &&
         action.targetRevision &&
         currentTarget &&
+        validDirectTarget &&
         !currentTarget.sensitive &&
         ['textbox', 'combobox'].includes(currentTarget.role)
+      );
+    case 'CLEAR_TARGET':
+      return Boolean(
+        action.targetRevision &&
+        currentTarget &&
+        validDirectTarget &&
+        !currentTarget.sensitive &&
+        ['textbox', 'combobox'].includes(currentTarget.role)
+      );
+    case 'SELECT_OPTION':
+      return Boolean(
+        action.value?.trim() &&
+        action.targetRevision &&
+        currentTarget &&
+        validDirectTarget &&
+        !currentTarget.sensitive &&
+        currentTarget.role === 'combobox'
       );
     case 'SCROLL':
       return Boolean(
@@ -1690,7 +1792,17 @@ function toDirectActionRequest(
     case 'DOUBLE_CLICK_TARGET':
     case 'RIGHT_CLICK_TARGET':
     case 'HOVER_TARGET':
+    case 'CLEAR_TARGET':
       return { toolId: action.toolId, ...binding };
+    case 'TYPE_TEXT':
+    case 'FILL':
+    case 'SELECT_OPTION':
+      return {
+        toolId: action.toolId,
+        ...binding,
+        value: action.value,
+        dataClass: 'PUBLIC',
+      };
     case 'PRESS_KEY':
       return {
         toolId: 'PRESS_KEY',
@@ -1705,6 +1817,15 @@ function toDirectActionRequest(
         durationMs: action.durationMs,
       };
     case 'DRAG_TARGET': {
+      if (!action.endTargetRef) {
+        return {
+          toolId: 'DRAG_TARGET',
+          ...binding,
+          deltaX: action.deltaX ?? 0,
+          deltaY: action.deltaY ?? 0,
+          durationMs: action.durationMs,
+        };
+      }
       const destination = state.targets.find(
         (target) => target.targetRef === action.endTargetRef
       );
@@ -1777,17 +1898,24 @@ function rebindActionsToState(
     }
     const target = rebind(action.targetRef);
     const destination =
-      action.toolId === 'DRAG_TARGET' ? rebind(action.endTargetRef) : undefined;
+      action.toolId === 'DRAG_TARGET' && action.endTargetRef
+        ? rebind(action.endTargetRef)
+        : undefined;
     if (
       action.toolId === 'DRAG_TARGET' &&
+      action.endTargetRef &&
       (!destination || (direct && !isDirectTarget(destination)))
     ) {
       return null;
     }
     const invalidTextTarget =
-      action.toolId === 'TYPE_TEXT' &&
-      (target?.sensitive ||
-        !['textbox', 'combobox'].includes(target?.role ?? ''));
+      ((action.toolId === 'TYPE_TEXT' ||
+        action.toolId === 'FILL' ||
+        action.toolId === 'CLEAR_TARGET') &&
+        (target?.sensitive ||
+          !['textbox', 'combobox'].includes(target?.role ?? ''))) ||
+      (action.toolId === 'SELECT_OPTION' &&
+        (target?.sensitive || target?.role !== 'combobox'));
     if (
       !target ||
       !target.visible ||

@@ -59,6 +59,52 @@ class CoordinatorDeadlineCommandExecutorTest {
     verify(workflowService).deadLetter(workflow, "NO_SAFE_AUTOMATIC_COMPENSATION");
   }
 
+  @Test
+  void releasesNodeCapacityWhenWorkflowTimeoutTerminatesSession() {
+    var sessionRepository = mock(io.browsercloud.coordinator.SessionRepository.class);
+    var browserCapacity = mock(BrowserCapacityApplicationService.class);
+    var capacityAware =
+        new CoordinatorDeadlineCommandExecutor(
+            operations,
+            workflows,
+            workflowService,
+            coordinator,
+            proxies,
+            resourceAdjustments,
+            sessionRepository,
+            browserCapacity);
+    var workflow = workflow("RELEASE_PROXY");
+    when(workflows.findById("wf_test")).thenReturn(Optional.of(workflow));
+    when(workflowService.timeout(workflow, "PHASE_DEADLINE_EXCEEDED"))
+        .thenReturn(new DurableWorkflowApplicationService.TimeoutDecision(workflow, true));
+    when(operations.findById("op_test")).thenReturn(Optional.of(activeOperation()));
+    var terminated =
+        new io.browsercloud.domain.session.SessionContext(
+            "ses_0000000000000001",
+            "tenant-a",
+            "profile-1",
+            null,
+            "rt-1",
+            null,
+            null,
+            1,
+            1,
+            0,
+            0,
+            io.browsercloud.domain.session.ResourceClass.L2,
+            io.browsercloud.domain.session.SessionState.TERMINATED,
+            "",
+            java.time.Instant.now(),
+            java.time.Instant.now());
+    when(sessionRepository.require("ses_0000000000000001")).thenReturn(terminated);
+
+    capacityAware.workflowTimeout("ses_0000000000000001", "wf_test");
+
+    verify(browserCapacity).release("ses_0000000000000001");
+    verify(proxies).release("ses_0000000000000001");
+    verify(workflowService).markCompensated(workflow, "proxy-released");
+  }
+
   private static DurableWorkflowEntity workflow(String compensationAction) {
     var workflow = new DurableWorkflowEntity();
     workflow.setWorkflowId("wf_test");

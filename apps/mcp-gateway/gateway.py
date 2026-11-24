@@ -87,15 +87,26 @@ async def browser_get_environment(environment_id: str) -> dict:
 @server.tool(annotations={"idempotentHint": True, "destructiveHint": False})
 async def browser_create_environment(profile_id: str, idempotency_key: str,
     region: str = "local", runtime_build_id: str | None = None,
-    proxy_binding_profile_id: str | None = None) -> dict:
-    """Create a stopped environment. Reuse the same idempotency key after an uncertain result; start separately."""
+    proxy_binding_profile_id: str | None = None,
+    display_name: str | None = None,
+    agent_policy: str | None = None) -> dict:
+    """Create a stopped environment with AUTO resource policy. Reuse the same idempotency key after an uncertain result; start separately. Optionally set display_name or agent_policy (BALANCED or INTERACTIVE for larger action batches)."""
     identity = await api("/identity")
-    body = {"tenantId": identity["tenantId"], "profileId": profile_id,
+    body: dict[str, Any] = {"tenantId": identity["tenantId"], "profileId": profile_id,
         "region": region, "resourcePolicy": {"mode": "AUTO"}}
     if runtime_build_id is not None:
         body["runtimeBuildId"] = runtime_build_id
     if proxy_binding_profile_id is not None:
         body["proxyBindingProfileId"] = proxy_binding_profile_id
+    if display_name is not None:
+        cleaned = display_name.strip()
+        if not cleaned or len(cleaned) > 128:
+            raise ValueError("DISPLAY_NAME_INVALID")
+        body["metadata"] = {"displayName": cleaned}
+    if agent_policy is not None:
+        if agent_policy not in ("BALANCED", "INTERACTIVE"):
+            raise ValueError("AGENT_POLICY_INVALID")
+        body["agentPolicy"] = agent_policy
     return await api("/environments", "POST", body, idempotency_key)
 
 
@@ -147,21 +158,55 @@ async def browser_wait_operation(operation_id: str, timeout_seconds: int = 10) -
 
 @server.tool(annotations={"readOnlyHint": True})
 async def browser_snapshot(environment_id: str) -> dict:
-    """Read the current page, actionable targets and state cursor of an owned running environment. Requires direct permission."""
+    """Read the current page summary, actionable targets, regional stability, and state cursor of an owned running environment. Requires direct permission."""
     return await api("/environments/" + identifier(environment_id, "ses_") + "/browser/snapshot")
+
+
+@server.tool(annotations={"readOnlyHint": True})
+async def browser_find(environment_id: str, query: str,
+                       roles: list[str] | None = None,
+                       include_hidden: bool = False,
+                       limit: int = 20) -> dict:
+    """Search actionable elements on the current page by semantic name, text value, role, control type, or stable elementId without transferring the full snapshot. Returns matching targets and the current stateCursor. Requires direct permission."""
+    cleaned = query.strip()
+    if not cleaned or len(cleaned) > 256:
+        raise ValueError("FIND_QUERY_INVALID")
+    if not 1 <= limit <= 100:
+        raise ValueError("PAGINATION_INVALID")
+    body: dict[str, Any] = {"query": cleaned, "includeHidden": include_hidden, "limit": limit}
+    if roles:
+        if len(roles) > 16:
+            raise ValueError("FIND_ROLES_INVALID")
+        body["roles"] = roles
+    return await api("/environments/" + identifier(environment_id, "ses_") + "/browser/find",
+        "POST", body)
+
+
+@server.tool(annotations={"readOnlyHint": True})
+async def browser_inspect(environment_id: str, state_cursor: str,
+                          element_ids: list[str]) -> dict:
+    """Inspect 1–50 exact elementIds from a stateCursor without a Browser Node round trip. Fails closed with STATE_CURSOR_STALE if the page changed. Requires direct permission."""
+    if not 1 <= len(element_ids) <= 50:
+        raise ValueError("INSPECT_ELEMENT_COUNT_INVALID")
+    return await api("/environments/" + identifier(environment_id, "ses_") + "/browser/inspect",
+        "POST", {"stateCursor": state_cursor, "elementIds": element_ids})
 
 
 @server.tool(annotations={"idempotentHint": True, "destructiveHint": False})
 async def browser_act(environment_id: str, goal: str, state_cursor: str,
                       actions: list[dict[str, Any]], idempotency_key: str) -> dict:
-    """Run 1–20 low-risk actions. Use elementId and targetRevision from browser_snapshot.
+    """Run 1–20 direct browser actions. Use elementId and targetRevision from browser_snapshot or browser_find.
     Supported primitives: CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET,
-    CHECK_TARGET, UNCHECK_TARGET, PRESS_KEY (key), DRAG_TARGET (endTargetRef, durationMs <= 5000;
-    same start/end holds in place), SWIPE_TARGET (deltaX, deltaY, durationMs), MOUSE_WHEEL
-    (deltaX, deltaY), SCROLL (scrollDeltaY), WAIT_FOR (waitCondition, timeoutMs), OPEN_TAB
-    (tabUrl), SWITCH_TAB (tabId), and DISMISS_DIALOG (dialogId).
-    Requires direct permission. Wait for the returned task via browser_wait_action_task and
-    refresh a stale cursor before retrying.
+    CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT/FILL/SELECT_OPTION (non-sensitive PUBLIC textbox/combobox
+    targets only; credentials/OTP/PII rejected), CLEAR_TARGET (non-sensitive textbox/combobox),
+    PRESS_KEY (key), DRAG_TARGET (either endTargetRef for element-to-element drag / same-element
+    long-press hold, OR deltaX/deltaY pixel offset for atomic mouse drags such as sliders, durationMs
+    <= 5000), SWIPE_TARGET (touch swipe deltaX/deltaY, durationMs), MOUSE_DOWN/MOUSE_MOVE/DROP_TARGET/
+    MOUSE_UP (30s think-safe drag window), MOUSE_WHEEL (deltaX, deltaY), SCROLL (scrollDeltaY),
+    WAIT_FOR (waitCondition, timeoutMs), OPEN_TAB (tabUrl), SWITCH_TAB (tabId), DISMISS_DIALOG (dialogId).
+    Prefer atomic DRAG_TARGET over split MOUSE_DOWN + DROP_TARGET so thinking never drops a drag.
+    Wait for the returned task via browser_wait_action_task and refresh a stale cursor before retrying.
+    Requires direct permission.
     """
     if not 1 <= len(actions) <= 20:
         raise ValueError("ACTION_BATCH_SIZE_INVALID")

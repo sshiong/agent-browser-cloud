@@ -95,7 +95,7 @@ public class AgentConnectionEnvironmentApplicationService {
       String requestKey,
       CreateSessionRequest request,
       String traceId) {
-    requireConnection(tenant, subject, connection);
+    requireConnectionForUpdate(tenant, subject, connection);
     if (request == null
         || !tenant.equals(request.tenantId())
         || requestKey == null
@@ -149,9 +149,9 @@ public class AgentConnectionEnvironmentApplicationService {
     return new EnvironmentCreation(result.sessionId(), result, false);
   }
 
-  @Transactional
+  @Transactional(readOnly = true)
   public Quota quota(String tenant, String subject, String connection) {
-    requireConnection(tenant, subject, connection);
+    requireConnectionReadOnly(tenant, subject, connection);
     return jdbc.queryForObject(
         """
         SELECT maximum_environments,maximum_running,
@@ -166,10 +166,10 @@ public class AgentConnectionEnvironmentApplicationService {
         tenant);
   }
 
-  @Transactional
+  @Transactional(readOnly = true)
   public io.browsercloud.api.SessionView environment(
       String tenant, String subject, String connection, String session) {
-    requireConnection(tenant, subject, connection);
+    requireConnectionReadOnly(tenant, subject, connection);
     if (jdbc.queryForObject(
             """
         SELECT count(*) FROM agent_connection_environments
@@ -185,10 +185,10 @@ public class AgentConnectionEnvironmentApplicationService {
     return sessions.get(session, tenant);
   }
 
-  @Transactional
+  @Transactional(readOnly = true)
   public java.util.List<io.browsercloud.api.SessionView> environments(
       String tenant, String subject, String connection, int limit, int offset) {
-    requireConnection(tenant, subject, connection);
+    requireConnectionReadOnly(tenant, subject, connection);
     if (limit < 1 || limit > 100 || offset < 0) {
       throw new ConnectionRejectedException("AGENT_ENVIRONMENT_PAGINATION_INVALID");
     }
@@ -207,13 +207,32 @@ public class AgentConnectionEnvironmentApplicationService {
     return ids.stream().map(id -> sessions.get(id, tenant)).toList();
   }
 
-  private void requireConnection(String tenant, String subject, String connection) {
-    var found =
-        jdbc.query(
-            """
+  private void requireConnectionForUpdate(String tenant, String subject, String connection) {
+    requireConnection(
+        tenant,
+        subject,
+        connection,
+        """
         SELECT principal_subject,enabled,expires_at FROM agent_connections
          WHERE connection_id=? AND tenant_id=? FOR UPDATE
-        """,
+        """);
+  }
+
+  private void requireConnectionReadOnly(String tenant, String subject, String connection) {
+    requireConnection(
+        tenant,
+        subject,
+        connection,
+        """
+        SELECT principal_subject,enabled,expires_at FROM agent_connections
+         WHERE connection_id=? AND tenant_id=?
+        """);
+  }
+
+  private void requireConnection(String tenant, String subject, String connection, String sql) {
+    var found =
+        jdbc.query(
+            sql,
             (r, n) ->
                 r.getString(1).equals(subject)
                     && r.getBoolean(2)

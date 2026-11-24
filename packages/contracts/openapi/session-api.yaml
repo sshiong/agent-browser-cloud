@@ -307,6 +307,70 @@ paths:
           $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/UnprocessableEntity"
+      security:
+        - agentConnectionBearer: []
+  /api/v1/agent-access/environments/{sessionId}/browser/find:
+    post:
+      operationId: findAgentConnectionBrowserElements
+      summary: Find structured elements in an owned environment without re-reading the full snapshot
+      description: Requires the opt-in direct permission on the connection.
+      tags: [AgentConnection]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentBrowserFindRequest"
+      responses:
+        "200":
+          description: Bounded semantic matches from the authoritative current state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentBrowserTargetList"
+        "401":
+          description: Authentication required.
+        "403":
+          description: Connection, ownership or tool access rejected.
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      security:
+        - agentConnectionBearer: []
+  /api/v1/agent-access/environments/{sessionId}/browser/inspect:
+    post:
+      operationId: inspectAgentConnectionBrowserElements
+      summary: Inspect exact elements from a state cursor in an owned environment
+      description: Requires the opt-in direct permission on the connection.
+      tags: [AgentConnection]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentBrowserInspectRequest"
+      responses:
+        "200":
+          description: Requested elements from the exact state cursor.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentBrowserTargetList"
+        "401":
+          description: Authentication required.
+        "403":
+          description: Connection, ownership or tool access rejected.
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      security:
+        - agentConnectionBearer: []
   /api/v1/agent-access/environments/{sessionId}/browser/act:
     post:
       operationId: actAgentConnectionBrowser

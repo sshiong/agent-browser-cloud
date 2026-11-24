@@ -25,13 +25,18 @@ Profile。过渡和未知状态保留运行名额；只有控制面权威终态�
 在设置的 Agent 连接中勾选 **直接操作网页**，然后给外部 AI 使用新签发的连接凭据。
 该权限可用于连接自己创建的运行中环境。调用顺序如下。
 
-1. `browser_snapshot` 获取当前页面和 `stateCursor`。
-2. 首次打开网页时，用 `browser_navigate` 提交目标 HTTP(S) URL。
-3. 读取新快照，用 `browser_act` 提交低风险动作。每个目标动作使用快照中的
+1. `browser_snapshot` 获取当前页面摘要、区域稳定性、`targets` 和 `stateCursor`；
+   大页面优先使用 `browser_find`（按名称/文本值/角色/ID 搜索目标）和 `browser_inspect`
+   （按精确游标读取指定元素）减少 Token 消耗。
+2. 首次打开网页时，用 `browser_navigate` 提交目标 HTTP(S) URL，并用
+   `browser_wait_action_task` 等待完成。
+3. 读取新快照或搜索目标，用 `browser_act` 提交直连动作。每个目标动作使用
    `elementId` 作为 `targetRef`，并传入 `targetRevision`。支持点击/双击/右键/悬停、
-   勾选/取消勾选、按键（`PRESS_KEY`）、拖动（`DRAG_TARGET`，传入终点的 `endTargetRef`
-   和 `durationMs`，长按使用相同的起点和终点）、滑动（`SWIPE_TARGET`，传入像素位移
-   `deltaX`、`deltaY` 和时长）、滚轮（`MOUSE_WHEEL`）、滚动（`SCROLL`）、等待（`WAIT_FOR`）、
+   勾选/取消勾选、非敏感公共文本输入/填充/清空/下拉选择（`TYPE_TEXT`/`FILL`/
+   `CLEAR_TARGET`/`SELECT_OPTION`，凭据/OTP/PII/敏感输入框仍拒绝）、按键（`PRESS_KEY`）、
+   原子鼠标拖动（`DRAG_TARGET`：可传终点 `endTargetRef`，同起点终点即原位长按，也可传
+   `deltaX`/`deltaY` 像素偏移以原子拖动滑块，避免多轮思考导致松开失败，最长 5000ms）、
+   触控滑动（`SWIPE_TARGET`）、滚轮（`MOUSE_WHEEL`）、滚动（`SCROLL`）、等待（`WAIT_FOR`）、
    新建/切换标签页（`OPEN_TAB`/`SWITCH_TAB`）与关闭原生弹窗（`DISMISS_DIALOG`）。
 4. 用 `browser_wait_action_task`（有界等待 1—25 秒）或 `browser_get_action_task` 检查任务
    和动作结果。等待超时不取消任务，继续查询原 `taskId`。页面变化时重新取快照。

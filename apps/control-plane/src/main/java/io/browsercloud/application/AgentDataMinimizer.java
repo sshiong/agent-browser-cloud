@@ -16,6 +16,8 @@ final class AgentDataMinimizer {
       Pattern.compile(
           "(?iu)(password|passwd|pwd|cookie|otp|one[-_ ]?time[-_ ]?code|authorization|bearer|"
               + "密码|验证码|口令)\\s*[:=：]\\s*\\S+");
+  private static final Pattern BEARER_TOKEN =
+      Pattern.compile("(?i)\\bbearer\\s+[A-Za-z0-9._~+/=-]{12,}");
 
   private AgentDataMinimizer() {}
 
@@ -29,6 +31,7 @@ final class AgentDataMinimizer {
   }
 
   static boolean containsCredentialLikeValue(String value) {
-    return value != null && CREDENTIAL_VALUE.matcher(value).find();
+    return value != null
+        && (CREDENTIAL_VALUE.matcher(value).find() || BEARER_TOKEN.matcher(value).find());
   }
 }

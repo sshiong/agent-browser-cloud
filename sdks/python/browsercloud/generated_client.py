@@ -51,6 +51,8 @@ OPERATIONS: dict[str, Operation] = {
     'getAgentEnvironment': Operation('getAgentEnvironment', 'GET', '/api/v1/agent-access/environments/{sessionId}', ('sessionId',), (), (), '', False, 'SessionView'),
     'deleteAgentEnvironment': Operation('deleteAgentEnvironment', 'DELETE', '/api/v1/agent-access/environments/{sessionId}', ('sessionId',), (), ('Idempotency-Key',), '', False, 'BatchDeleteSessionsResponse'),
     'snapshotAgentConnectionBrowser': Operation('snapshotAgentConnectionBrowser', 'GET', '/api/v1/agent-access/environments/{sessionId}/browser/snapshot', ('sessionId',), (), (), '', False, 'AgentBrowserSnapshot'),
+    'findAgentConnectionBrowserElements': Operation('findAgentConnectionBrowserElements', 'POST', '/api/v1/agent-access/environments/{sessionId}/browser/find', ('sessionId',), (), (), 'AgentBrowserFindRequest', True, 'AgentBrowserTargetList'),
+    'inspectAgentConnectionBrowserElements': Operation('inspectAgentConnectionBrowserElements', 'POST', '/api/v1/agent-access/environments/{sessionId}/browser/inspect', ('sessionId',), (), (), 'AgentBrowserInspectRequest', True, 'AgentBrowserTargetList'),
     'actAgentConnectionBrowser': Operation('actAgentConnectionBrowser', 'POST', '/api/v1/agent-access/environments/{sessionId}/browser/act', ('sessionId',), (), ('Idempotency-Key',), 'ExecuteAgentBrowserActionsRequest', True, 'AgentTask'),
     'getAgentConnectionBrowserTask': Operation('getAgentConnectionBrowserTask', 'GET', '/api/v1/agent-access/environments/{sessionId}/browser/tasks/{taskId}', ('sessionId', 'taskId'), (), (), '', False, 'AgentTask'),
     'getAgentManagedOperation': Operation('getAgentManagedOperation', 'GET', '/api/v1/agent-access/operations/{operationId}', ('operationId',), (), (), '', False, 'AgentManagedOperation'),
@@ -411,6 +413,12 @@ class BrowserCloudGeneratedClient:
 
     def snapshotAgentConnectionBrowser(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('snapshotAgentConnectionBrowser', path=path, query=query, body=body, headers=headers)
+
+    def findAgentConnectionBrowserElements(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('findAgentConnectionBrowserElements', path=path, query=query, body=body, headers=headers)
+
+    def inspectAgentConnectionBrowserElements(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('inspectAgentConnectionBrowserElements', path=path, query=query, body=body, headers=headers)
 
     def actAgentConnectionBrowser(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('actAgentConnectionBrowser', path=path, query=query, body=body, headers=headers)

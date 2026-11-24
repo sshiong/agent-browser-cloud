@@ -65,6 +65,8 @@ var Operations = map[string]Operation{
 	"getAgentEnvironment":                        {OperationID: "getAgentEnvironment", Method: "GET", Path: "/api/v1/agent-access/environments/{sessionId}", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "SessionView"},
 	"deleteAgentEnvironment":                     {OperationID: "deleteAgentEnvironment", Method: "DELETE", Path: "/api/v1/agent-access/environments/{sessionId}", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "BatchDeleteSessionsResponse"},
 	"snapshotAgentConnectionBrowser":             {OperationID: "snapshotAgentConnectionBrowser", Method: "GET", Path: "/api/v1/agent-access/environments/{sessionId}/browser/snapshot", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentBrowserSnapshot"},
+	"findAgentConnectionBrowserElements":         {OperationID: "findAgentConnectionBrowserElements", Method: "POST", Path: "/api/v1/agent-access/environments/{sessionId}/browser/find", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "AgentBrowserFindRequest", RequestRequired: true, ResponseSchema: "AgentBrowserTargetList"},
+	"inspectAgentConnectionBrowserElements":      {OperationID: "inspectAgentConnectionBrowserElements", Method: "POST", Path: "/api/v1/agent-access/environments/{sessionId}/browser/inspect", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "AgentBrowserInspectRequest", RequestRequired: true, ResponseSchema: "AgentBrowserTargetList"},
 	"actAgentConnectionBrowser":                  {OperationID: "actAgentConnectionBrowser", Method: "POST", Path: "/api/v1/agent-access/environments/{sessionId}/browser/act", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key"}, RequestSchema: "ExecuteAgentBrowserActionsRequest", RequestRequired: true, ResponseSchema: "AgentTask"},
 	"getAgentConnectionBrowserTask":              {OperationID: "getAgentConnectionBrowserTask", Method: "GET", Path: "/api/v1/agent-access/environments/{sessionId}/browser/tasks/{taskId}", PathParameters: []string{"sessionId", "taskId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTask"},
 	"getAgentManagedOperation":                   {OperationID: "getAgentManagedOperation", Method: "GET", Path: "/api/v1/agent-access/operations/{operationId}", PathParameters: []string{"operationId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentManagedOperation"},
@@ -470,6 +472,12 @@ func (c *Client) DeleteAgentEnvironment(ctx context.Context, request Request) (a
 }
 func (c *Client) SnapshotAgentConnectionBrowser(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "snapshotAgentConnectionBrowser", request)
+}
+func (c *Client) FindAgentConnectionBrowserElements(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "findAgentConnectionBrowserElements", request)
+}
+func (c *Client) InspectAgentConnectionBrowserElements(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "inspectAgentConnectionBrowserElements", request)
 }
 func (c *Client) ActAgentConnectionBrowser(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "actAgentConnectionBrowser", request)

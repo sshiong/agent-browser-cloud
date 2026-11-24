@@ -186,6 +186,24 @@ public class AgentConnectionAccessController {
     return perception.snapshot(sessionId, identity.tenantId());
   }
 
+  @PostMapping("/environments/{sessionId}/browser/find")
+  public AgentBrowserPerceptionModels.TargetListView find(
+      Authentication authentication,
+      @PathVariable String sessionId,
+      @Valid @RequestBody AgentBrowserPerceptionModels.FindRequest request) {
+    var identity = directEnvironment(authentication, sessionId);
+    return perception.find(sessionId, identity.tenantId(), request);
+  }
+
+  @PostMapping("/environments/{sessionId}/browser/inspect")
+  public AgentBrowserPerceptionModels.TargetListView inspect(
+      Authentication authentication,
+      @PathVariable String sessionId,
+      @Valid @RequestBody AgentBrowserPerceptionModels.InspectRequest request) {
+    var identity = directEnvironment(authentication, sessionId);
+    return perception.inspect(sessionId, identity.tenantId(), request);
+  }
+
   @PostMapping("/environments/{sessionId}/browser/act")
   public AgentTaskView act(
       Authentication authentication,

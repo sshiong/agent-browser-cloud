@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,16 +29,28 @@ public class SessionDeletionApplicationService {
   private final OperationRepository operations;
   private final IdempotencyService idempotency;
   private final AuditApplicationService audit;
+  private final BrowserCapacityApplicationService browserCapacity;
+
+  @Autowired
+  public SessionDeletionApplicationService(
+      NamedParameterJdbcTemplate jdbc,
+      OperationRepository operations,
+      IdempotencyService idempotency,
+      AuditApplicationService audit,
+      BrowserCapacityApplicationService browserCapacity) {
+    this.jdbc = jdbc;
+    this.operations = operations;
+    this.idempotency = idempotency;
+    this.audit = audit;
+    this.browserCapacity = browserCapacity;
+  }
 
   public SessionDeletionApplicationService(
       NamedParameterJdbcTemplate jdbc,
       OperationRepository operations,
       IdempotencyService idempotency,
       AuditApplicationService audit) {
-    this.jdbc = jdbc;
-    this.operations = operations;
-    this.idempotency = idempotency;
-    this.audit = audit;
+    this(jdbc, operations, idempotency, audit, null);
   }
 
   @Transactional
@@ -128,6 +141,9 @@ public class SessionDeletionApplicationService {
     }
 
     for (var sessionId : sessionIds) {
+      if (browserCapacity != null) {
+        browserCapacity.release(sessionId);
+      }
       audit.append(
           new AuditApplicationService.AuditRecord(
               tenantId,

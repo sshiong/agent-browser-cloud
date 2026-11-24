@@ -367,6 +367,169 @@ class AgentBrowserActionApplicationServiceTest {
   }
 
   @Test
+  void directPublicTextFillAndSelectAllowNonSensitiveTargetsAndRejectSensitiveOrCredentialInput() {
+    var cursor = "9:2:" + "a".repeat(64);
+    var publicTextbox =
+        new BrowserStateView.InteractiveTargetView(
+            "target:2:search",
+            "e_search",
+            "textbox",
+            "Search",
+            "",
+            "text",
+            new BrowserStateView.BoundsView(10, 20, 200, 32),
+            true,
+            true,
+            false,
+            false,
+            null,
+            null,
+            true,
+            "main",
+            true,
+            false,
+            null);
+    var passwordTextbox =
+        new BrowserStateView.InteractiveTargetView(
+            "target:2:password",
+            "e_password",
+            "textbox",
+            "Password",
+            "",
+            "password",
+            new BrowserStateView.BoundsView(10, 60, 200, 32),
+            true,
+            true,
+            true,
+            false,
+            null,
+            null,
+            true,
+            "main",
+            true,
+            false,
+            null);
+    var state =
+        new BrowserStateView(
+            "ses_1234567890abcdef",
+            3,
+            9,
+            2,
+            "https://example.com/search",
+            "Search",
+            "a".repeat(64),
+            "COMPLETE",
+            "complete",
+            500,
+            true,
+            List.of(publicTextbox, passwordTextbox),
+            List.of(
+                new BrowserStateView.BrowserTabView(
+                    "tab-search", "https://example.com/search", "Search", true)),
+            "tab-search");
+    when(perception.snapshot("ses_1234567890abcdef", "tenant-test"))
+        .thenReturn(new SnapshotView(cursor, state));
+    var task = mock(AgentTaskView.class);
+    when(task.taskId()).thenReturn("agt_1234567890abcdef");
+    when(task.state()).thenReturn(TaskState.PLANNED);
+    when(tasks.create(anyString(), anyString(), any(), eq("direct-fill:create"))).thenReturn(task);
+
+    service.act(
+        "ses_1234567890abcdef",
+        "tenant-test",
+        "direct-fill",
+        new ExecuteActionsRequest(
+            "Search for browser automation",
+            cursor,
+            List.of(
+                new CreateAgentTaskRequest.BatchActionRequest(
+                    ToolId.FILL,
+                    "e_search",
+                    2L,
+                    "browser automation",
+                    null,
+                    io.browsercloud.domain.agent.AgentModels.ActionDataClass.PUBLIC,
+                    null,
+                    null,
+                    null)),
+            true,
+            ExecutionMode.DIRECT));
+    verify(reviewer).requireDirectEligible("agt_1234567890abcdef", "tenant-test");
+
+    assertThatThrownBy(
+            () ->
+                service.act(
+                    "ses_1234567890abcdef",
+                    "tenant-test",
+                    "direct-sensitive",
+                    new ExecuteActionsRequest(
+                        "Fill password",
+                        cursor,
+                        List.of(
+                            new CreateAgentTaskRequest.BatchActionRequest(
+                                ToolId.FILL,
+                                "e_password",
+                                2L,
+                                "not-allowed",
+                                null,
+                                io.browsercloud.domain.agent.AgentModels.ActionDataClass.PUBLIC,
+                                null,
+                                null,
+                                null)),
+                        true,
+                        ExecutionMode.DIRECT)))
+        .hasMessage("DIRECT_EXECUTION_REQUIRES_MANAGED_REVIEW");
+
+    assertThatThrownBy(
+            () ->
+                service.act(
+                    "ses_1234567890abcdef",
+                    "tenant-test",
+                    "direct-pii",
+                    new ExecuteActionsRequest(
+                        "Fill PII",
+                        cursor,
+                        List.of(
+                            new CreateAgentTaskRequest.BatchActionRequest(
+                                ToolId.FILL,
+                                "e_search",
+                                2L,
+                                "john@example.com",
+                                null,
+                                io.browsercloud.domain.agent.AgentModels.ActionDataClass.PII,
+                                null,
+                                null,
+                                null)),
+                        true,
+                        ExecutionMode.DIRECT)))
+        .hasMessage("DIRECT_EXECUTION_REQUIRES_MANAGED_REVIEW");
+
+    assertThatThrownBy(
+            () ->
+                service.act(
+                    "ses_1234567890abcdef",
+                    "tenant-test",
+                    "direct-cred",
+                    new ExecuteActionsRequest(
+                        "Fill token",
+                        cursor,
+                        List.of(
+                            new CreateAgentTaskRequest.BatchActionRequest(
+                                ToolId.FILL,
+                                "e_search",
+                                2L,
+                                "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.sig",
+                                null,
+                                io.browsercloud.domain.agent.AgentModels.ActionDataClass.PUBLIC,
+                                null,
+                                null,
+                                null)),
+                        true,
+                        ExecutionMode.DIRECT)))
+        .hasMessage("DIRECT_EXECUTION_REQUIRES_MANAGED_REVIEW");
+  }
+
+  @Test
   void directOpenTabFromBlankPageUsesExplicitTabDomain() {
     var cursor = "1:1:" + "c".repeat(64);
     var blankState =

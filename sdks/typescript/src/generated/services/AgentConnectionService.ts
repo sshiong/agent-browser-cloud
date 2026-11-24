@@ -2,7 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { AgentBrowserFindRequest } from '../models/AgentBrowserFindRequest.js';
+import type { AgentBrowserInspectRequest } from '../models/AgentBrowserInspectRequest.js';
 import type { AgentBrowserSnapshot } from '../models/AgentBrowserSnapshot.js';
+import type { AgentBrowserTargetList } from '../models/AgentBrowserTargetList.js';
 import type { AgentConnectionCreateRequest } from '../models/AgentConnectionCreateRequest.js';
 import type { AgentConnectionIdentity } from '../models/AgentConnectionIdentity.js';
 import type { AgentConnectionIssued } from '../models/AgentConnectionIssued.js';
@@ -298,6 +301,64 @@ export class AgentConnectionService {
             path: {
                 'sessionId': sessionId,
             },
+            errors: {
+                401: `Authentication required.`,
+                403: `Connection, ownership or tool access rejected.`,
+                409: `State or idempotency conflict.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
+            },
+        });
+    }
+    /**
+     * Find structured elements in an owned environment without re-reading the full snapshot
+     * Requires the opt-in direct permission on the connection.
+     * @returns AgentBrowserTargetList Bounded semantic matches from the authoritative current state.
+     * @throws ApiError
+     */
+    public findAgentConnectionBrowserElements({
+        sessionId,
+        requestBody,
+    }: {
+        sessionId: string,
+        requestBody: AgentBrowserFindRequest,
+    }): CancelablePromise<AgentBrowserTargetList> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-access/environments/{sessionId}/browser/find',
+            path: {
+                'sessionId': sessionId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                401: `Authentication required.`,
+                403: `Connection, ownership or tool access rejected.`,
+                409: `State or idempotency conflict.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
+            },
+        });
+    }
+    /**
+     * Inspect exact elements from a state cursor in an owned environment
+     * Requires the opt-in direct permission on the connection.
+     * @returns AgentBrowserTargetList Requested elements from the exact state cursor.
+     * @throws ApiError
+     */
+    public inspectAgentConnectionBrowserElements({
+        sessionId,
+        requestBody,
+    }: {
+        sessionId: string,
+        requestBody: AgentBrowserInspectRequest,
+    }): CancelablePromise<AgentBrowserTargetList> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-access/environments/{sessionId}/browser/inspect',
+            path: {
+                'sessionId': sessionId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
             errors: {
                 401: `Authentication required.`,
                 403: `Connection, ownership or tool access rejected.`,

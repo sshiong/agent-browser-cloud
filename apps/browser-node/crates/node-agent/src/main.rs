@@ -81,6 +81,9 @@ const MICRO_BATCH_SETTLE_TIMEOUT: Duration = Duration::from_secs(5);
 const MICRO_BATCH_SETTLE_POLL: Duration = Duration::from_millis(100);
 const MICRO_BATCH_NETWORK_QUIET: u64 = 250;
 const MICRO_BATCH_COMPONENT_QUIET: u64 = 250;
+/// Allow multi-turn AI thinking between MOUSE_DOWN and DROP_TARGET/MOUSE_UP without premature
+/// watchdog release, while still reclaiming truly abandoned input if an agent stops responding.
+const INPUT_WATCHDOG_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 const DEFAULT_RECORDING_PRIVACY_SCANNER_PATH: &str =
     "/usr/local/libexec/browsercloud/recording-privacy-scanner";
 
@@ -126,6 +129,72 @@ fn micro_batch_current_state_ready(state: &CurrentState) -> bool {
         && state.network_evidence_fresh
         && state.network_quiet_millis >= MICRO_BATCH_NETWORK_QUIET
         && component_stability_ready(state)
+}
+
+/// Evaluates bounded target-level regional stability for continuously changing pages
+/// (BestEffortStableState / unstableRegions). Never relaxes sensitive targets, active
+/// form/write transactions, or missing isolated-observer proof.
+fn regional_action_ready(
+    state: &CurrentState,
+    tool_id: &str,
+    target_ref: &str,
+    end_target_ref: &str,
+) -> bool {
+    if !matches!(
+        state.quality,
+        StateQuality::Complete | StateQuality::DepthLimited
+    ) || state.document_ready_state != "complete"
+        || !state.native_dialog_evidence_fresh
+        || !state.native_dialogs.is_empty()
+        || !state.regional_stability.evidence_fresh
+        || !state.regional_stability.max_wait_reached
+        || !state.regional_stability.transaction_free
+    {
+        return false;
+    }
+    if tool_id == "SCROLL" {
+        return !state.regional_stability.stable_regions.is_empty();
+    }
+    let find_safe_stable = |reference: &str| -> bool {
+        if reference.is_empty() {
+            return false;
+        }
+        let mut matches = state
+            .targets
+            .iter()
+            .filter(|target| target.target_ref == reference || target.element_id == reference);
+        let Some(target) = matches.next() else {
+            return false;
+        };
+        if matches.next().is_some()
+            || target.sensitive
+            || !target.visible
+            || !target.enabled
+            || !target.interactive
+            || !target.in_viewport
+            || target.occluded
+        {
+            return false;
+        }
+        state.regional_stability.ready_for(&target.element_id)
+    };
+    if !find_safe_stable(target_ref) {
+        return false;
+    }
+    if tool_id == "DRAG_TARGET" && !end_target_ref.is_empty() && end_target_ref != target_ref {
+        return find_safe_stable(end_target_ref);
+    }
+    true
+}
+
+fn action_state_ready(
+    state: &CurrentState,
+    tool_id: &str,
+    target_ref: &str,
+    end_target_ref: &str,
+) -> bool {
+    micro_batch_current_state_ready(state)
+        || regional_action_ready(state, tool_id, target_ref, end_target_ref)
 }
 
 fn action_requires_stable_page(tool_id: &str) -> bool {
@@ -188,8 +257,12 @@ fn rebound_single_action(
         "single action state cursor is stale"
     );
     anyhow::ensure!(
-        micro_batch_current_state_ready(current)
-            && current.native_dialog_evidence_fresh
+        action_state_ready(
+            current,
+            &payload.tool_id,
+            &payload.main_document_element_id,
+            &payload.main_document_end_element_id,
+        ) && current.native_dialog_evidence_fresh
             && current.native_dialogs.is_empty()
             && current.tabs.iter().filter(|tab| tab.active).count() == 1
             && current
@@ -244,7 +317,7 @@ fn rebound_single_action(
         Ok(())
     };
     validate(&payload.main_document_element_id, &payload.target_ref)?;
-    if payload.tool_id == "DRAG_TARGET" {
+    if payload.tool_id == "DRAG_TARGET" && !payload.end_target_ref.is_empty() {
         validate(
             &payload.main_document_end_element_id,
             &payload.end_target_ref,
@@ -259,7 +332,7 @@ fn rebound_single_action(
     rebound
         .target_ref
         .clone_from(&payload.main_document_element_id);
-    if payload.tool_id == "DRAG_TARGET" {
+    if payload.tool_id == "DRAG_TARGET" && !payload.end_target_ref.is_empty() {
         rebound
             .end_target_ref
             .clone_from(&payload.main_document_end_element_id);
@@ -307,19 +380,20 @@ async fn prepare_single_target_action(
                     rebound.target_revision,
                 )
                 .await?;
-            let destination = if rebound.tool_id == "DRAG_TARGET" {
-                Some(
-                    collector
-                        .resolve_target(
-                            &rebound.session_id,
-                            &rebound.end_target_ref,
-                            rebound.target_revision,
-                        )
-                        .await?,
-                )
-            } else {
-                None
-            };
+            let destination =
+                if rebound.tool_id == "DRAG_TARGET" && !rebound.end_target_ref.is_empty() {
+                    Some(
+                        collector
+                            .resolve_target(
+                                &rebound.session_id,
+                                &rebound.end_target_ref,
+                                rebound.target_revision,
+                            )
+                            .await?,
+                    )
+                } else {
+                    None
+                };
             Ok::<_, anyhow::Error>((source, destination))
         }
         .await;
@@ -4406,16 +4480,31 @@ impl NodeControlService {
                     || current.content_hash == payload.base_content_hash),
             "agent action batch state cursor is stale"
         );
-        if payload
+        if let Some(first) = payload
             .actions
             .first()
-            .is_some_and(|action| action_requires_stable_page(&action.tool_id))
-            && !micro_batch_current_state_ready(&current)
+            .filter(|action| action_requires_stable_page(&action.tool_id))
         {
-            current = self
-                .settle_after_dynamic_micro_batch(&payload.session_id, &current)
-                .await
-                .context("agent action batch initial page state is unstable")?;
+            let first_target = if first.element_id.is_empty() {
+                first.target_ref.as_str()
+            } else {
+                first.element_id.as_str()
+            };
+            let first_end = if first.end_element_id.is_empty() {
+                first.end_target_ref.as_str()
+            } else {
+                first.end_element_id.as_str()
+            };
+            if !action_state_ready(&current, &first.tool_id, first_target, first_end) {
+                current = self
+                    .settle_for_action(
+                        &payload.session_id,
+                        &current,
+                        Some((first.tool_id.as_str(), first_target, first_end)),
+                    )
+                    .await
+                    .context("agent action batch initial page state is unstable")?;
+            }
         }
         let mut outcomes = Vec::with_capacity(payload.actions.len());
         let mut micro_batch_index = 1_u32;
@@ -4518,8 +4607,21 @@ impl NodeControlService {
                         if let Some(reason) =
                             dynamic_micro_batch_boundary(&before, &current, actions_in_micro_batch)
                         {
+                            let next_action = &payload.actions[action_index + 1];
+                            let next_target = if next_action.element_id.is_empty() {
+                                next_action.target_ref.as_str()
+                            } else {
+                                next_action.element_id.as_str()
+                            };
+                            let next_end = if next_action.end_element_id.is_empty() {
+                                next_action.end_target_ref.as_str()
+                            } else {
+                                next_action.end_element_id.as_str()
+                            };
+                            let regional_hint = action_requires_stable_page(&next_action.tool_id)
+                                .then_some((next_action.tool_id.as_str(), next_target, next_end));
                             match self
-                                .settle_after_dynamic_micro_batch(&payload.session_id, &current)
+                                .settle_for_action(&payload.session_id, &current, regional_hint)
                                 .await
                             {
                                 Ok(settled) => {
@@ -4606,10 +4708,11 @@ impl NodeControlService {
         Ok((current, outcomes))
     }
 
-    async fn settle_after_dynamic_micro_batch(
+    async fn settle_for_action(
         &self,
         session_id: &str,
         current: &CurrentState,
+        regional_target: Option<(&str, &str, &str)>,
     ) -> anyhow::Result<CurrentState> {
         let deadline = tokio::time::Instant::now() + MICRO_BATCH_SETTLE_TIMEOUT;
         let mut previous = current.clone();
@@ -4629,7 +4732,8 @@ impl NodeControlService {
                      network_fresh={}, network_quiet_ms={}, active_tab_network_requests={:?}, \
                      active_tab_network_request_kinds={:?}, stability_fresh={}, \
                      dom_quiet_ms={}, layout_quiet_ms={}, focus_quiet_ms={}, \
-                     route_quiet_ms={})",
+                     route_quiet_ms={}, regional_fresh={}, regional_max_wait={}, \
+                     regional_tx_free={}, stable_regions={}, unstable_regions={})",
                     previous.state_version,
                     previous.target_revision,
                     previous.document_ready_state,
@@ -4642,6 +4746,11 @@ impl NodeControlService {
                     previous.page_stability.layout_quiet_millis,
                     previous.page_stability.focus_quiet_millis,
                     previous.page_stability.route_quiet_millis,
+                    previous.regional_stability.evidence_fresh,
+                    previous.regional_stability.max_wait_reached,
+                    previous.regional_stability.transaction_free,
+                    previous.regional_stability.stable_regions.len(),
+                    previous.regional_stability.unstable_regions.len(),
                 );
             }
             tokio::time::sleep(MICRO_BATCH_SETTLE_POLL).await;
@@ -4651,6 +4760,15 @@ impl NodeControlService {
                 .await?;
             if micro_batch_state_is_settled(&previous, &next) {
                 return Ok(next);
+            }
+            if let Some((tool_id, target_ref, end_target_ref)) = regional_target {
+                if previous.url == next.url
+                    && previous.active_tab_id == next.active_tab_id
+                    && previous.native_dialogs == next.native_dialogs
+                    && regional_action_ready(&next, tool_id, target_ref, end_target_ref)
+                {
+                    return Ok(next);
+                }
             }
             previous = next;
         }
@@ -5020,38 +5138,56 @@ impl NodeControlService {
                             .await?;
                     }
                     "DRAG_TARGET" => {
+                        let has_end_target = !payload.end_target_ref.is_empty();
+                        let has_delta = payload.delta_x != 0 || payload.delta_y != 0;
                         anyhow::ensure!(
-                            !payload.end_target_ref.is_empty()
+                            (has_end_target ^ has_delta)
                                 && payload.key.is_empty()
                                 && payload.button == 0
-                                && payload.delta_x == 0
-                                && payload.delta_y == 0
+                                && payload.delta_x.unsigned_abs() <= 4_000
+                                && payload.delta_y.unsigned_abs() <= 4_000
                                 && payload.duration_ms <= 5_000,
                             "drag input is invalid"
                         );
-                        let destination = if let Some(target) = prepared_destination {
-                            target
+                        let end = if has_end_target {
+                            let destination = if let Some(target) = prepared_destination {
+                                target
+                            } else {
+                                self.state_collector
+                                    .resolve_target(
+                                        &payload.session_id,
+                                        &payload.end_target_ref,
+                                        payload.target_revision,
+                                    )
+                                    .await?
+                            };
+                            let end_x = destination.bounds.x + destination.bounds.width / 2.0;
+                            let end_y = destination.bounds.y + destination.bounds.height / 2.0;
+                            anyhow::ensure!(
+                                end_x.is_finite()
+                                    && end_y.is_finite()
+                                    && end_x >= 0.0
+                                    && end_y >= 0.0
+                                    && end_x <= i32::MAX as f64
+                                    && end_y <= i32::MAX as f64,
+                                "drag destination center is outside the input coordinate range"
+                            );
+                            (end_x.round() as i32, end_y.round() as i32)
                         } else {
-                            self.state_collector
-                                .resolve_target(
-                                    &payload.session_id,
-                                    &payload.end_target_ref,
-                                    payload.target_revision,
-                                )
-                                .await?
+                            let end_x = start
+                                .0
+                                .checked_add(payload.delta_x)
+                                .ok_or_else(|| anyhow::anyhow!("drag x coordinate overflow"))?;
+                            let end_y = start
+                                .1
+                                .checked_add(payload.delta_y)
+                                .ok_or_else(|| anyhow::anyhow!("drag y coordinate overflow"))?;
+                            anyhow::ensure!(
+                                end_x >= 0 && end_y >= 0,
+                                "drag destination leaves the viewport"
+                            );
+                            (end_x, end_y)
                         };
-                        let end_x = destination.bounds.x + destination.bounds.width / 2.0;
-                        let end_y = destination.bounds.y + destination.bounds.height / 2.0;
-                        anyhow::ensure!(
-                            end_x.is_finite()
-                                && end_y.is_finite()
-                                && end_x >= 0.0
-                                && end_y >= 0.0
-                                && end_x <= i32::MAX as f64
-                                && end_y <= i32::MAX as f64,
-                            "drag destination center is outside the input coordinate range"
-                        );
-                        let end = (end_x.round() as i32, end_y.round() as i32);
                         let duration = payload.duration_ms.max(80);
                         let drag_result: anyhow::Result<()> = async {
                             input
@@ -5067,14 +5203,15 @@ impl NodeControlService {
                                     input.keep_alive().await;
                                 }
                             } else {
+                                let step_delay = u64::from(duration / 8);
                                 for index in 1..=8_i32 {
                                     let x = start.0 + (end.0 - start.0) * index / 8;
                                     let y = start.1 + (end.1 - start.1) * index / 8;
                                     input.mouse_move(x, y, next(&mut sequence)?).await?;
-                                    tokio::time::sleep(Duration::from_millis(u64::from(
-                                        duration / 8,
-                                    )))
-                                    .await;
+                                    if step_delay > 0 {
+                                        tokio::time::sleep(Duration::from_millis(step_delay)).await;
+                                    }
+                                    input.keep_alive().await;
                                 }
                             }
                             input.mouse_up(0, next(&mut sequence)?).await
@@ -5096,10 +5233,17 @@ impl NodeControlService {
                                 && input.ledger_snapshot().await.pressed_buttons.contains(&0),
                             "drop requires one active bounded drag"
                         );
-                        input
-                            .mouse_move(start.0, start.1, next(&mut sequence)?)
-                            .await?;
-                        input.mouse_up(0, next(&mut sequence)?).await?;
+                        let drop_result: anyhow::Result<()> = async {
+                            input
+                                .mouse_move(start.0, start.1, next(&mut sequence)?)
+                                .await?;
+                            input.mouse_up(0, next(&mut sequence)?).await
+                        }
+                        .await;
+                        if let Err(error) = drop_result {
+                            let _ = input.release_all().await;
+                            return Err(error);
+                        }
                     }
                     "SWIPE_TARGET" => {
                         anyhow::ensure!(
@@ -5133,6 +5277,7 @@ impl NodeControlService {
                                 input.touch_move(x, y, next(&mut sequence)?).await?;
                                 tokio::time::sleep(Duration::from_millis(u64::from(duration / 8)))
                                     .await;
+                                input.keep_alive().await;
                             }
                             input.touch_end(next(&mut sequence)?).await
                         }
@@ -7157,9 +7302,22 @@ impl NodeControlService {
                                         if action_requires_stable_page(&payload.tool_id) {
                                             let mut current = self.state_collector
                                                 .collect_current_state(&payload.session_id).await?;
-                                            if !micro_batch_current_state_ready(&current) {
-                                                current = self.settle_after_dynamic_micro_batch(
-                                                    &payload.session_id, &current).await
+                                            let source_ref = if payload.main_document_element_id.is_empty() {
+                                                payload.target_ref.as_str()
+                                            } else {
+                                                payload.main_document_element_id.as_str()
+                                            };
+                                            let end_ref = if payload.main_document_end_element_id.is_empty() {
+                                                payload.end_target_ref.as_str()
+                                            } else {
+                                                payload.main_document_end_element_id.as_str()
+                                            };
+                                            if !action_state_ready(&current, &payload.tool_id, source_ref, end_ref) {
+                                                current = self.settle_for_action(
+                                                    &payload.session_id,
+                                                    &current,
+                                                    Some((payload.tool_id.as_str(), source_ref, end_ref)),
+                                                ).await
                                                     .context("agent action page state is unstable")?;
                                             }
                                             ready_current = Some(current);
@@ -8671,7 +8829,8 @@ impl NodeControlService {
                         if let Some(input) =
                             service.input_brokers.lock().await.get(&session_id).cloned()
                         {
-                            if let Err(error) = input.release_if_idle(Duration::from_secs(5)).await
+                            if let Err(error) =
+                                input.release_if_idle(INPUT_WATCHDOG_IDLE_TIMEOUT).await
                             {
                                 tracing::warn!(
                                     session_id,
@@ -11849,6 +12008,119 @@ mod tests {
             dynamic_micro_batch_boundary(&before, &after, 1),
             Some("LAYOUT_CHANGING")
         );
+    }
+
+    #[test]
+    fn regional_action_ready_allows_proven_stable_non_sensitive_targets_only() {
+        let mut state = micro_batch_state();
+        // Simulate a continuously updating dashboard (DOM + network never quiet globally)
+        state.network_quiet_millis = 0;
+        state.page_stability.dom_quiet_millis = 0;
+        assert!(!micro_batch_current_state_ready(&state));
+
+        let stable_id = "e0123456789abcdef01234567".to_owned();
+        let sensitive_id = "e1123456789abcdef01234567".to_owned();
+        let unstable_id = "e2123456789abcdef01234567".to_owned();
+        let make_target = |id: &str, sensitive: bool| state_collector::InteractiveTarget {
+            target_ref: format!("target:4:{id}"),
+            element_id: id.to_owned(),
+            role: "button".into(),
+            name: Some("Action".into()),
+            value: None,
+            control_type: Some("button".into()),
+            bounds: Some(state_collector::Bounds {
+                x: 10.0,
+                y: 20.0,
+                width: 80.0,
+                height: 30.0,
+            }),
+            enabled: true,
+            visible: true,
+            sensitive,
+            focused: false,
+            checked: None,
+            selected: None,
+            interactive: true,
+            frame_id: "main".into(),
+            in_viewport: true,
+            occluded: false,
+            visibility_reason: None,
+        };
+        state.targets = vec![
+            make_target(&stable_id, false),
+            make_target(&sensitive_id, true),
+            make_target(&unstable_id, false),
+        ];
+        state.regional_stability = state_collector::RegionalStabilityObservation {
+            evidence_fresh: true,
+            max_wait_reached: true,
+            changing_millis: 3_000,
+            transaction_free: true,
+            stable_regions: vec![
+                state_collector::StableTargetRegion {
+                    element_id: stable_id.clone(),
+                    bounds: state_collector::Bounds {
+                        x: 10.0,
+                        y: 20.0,
+                        width: 80.0,
+                        height: 30.0,
+                    },
+                    quiet_millis: 2_000,
+                    consecutive_samples: 4,
+                },
+                state_collector::StableTargetRegion {
+                    element_id: sensitive_id.clone(),
+                    bounds: state_collector::Bounds {
+                        x: 10.0,
+                        y: 20.0,
+                        width: 80.0,
+                        height: 30.0,
+                    },
+                    quiet_millis: 2_000,
+                    consecutive_samples: 4,
+                },
+            ],
+            unstable_regions: vec![state_collector::UnstableTargetRegion {
+                element_id: unstable_id.clone(),
+                bounds: None,
+                reason: "TARGET_CHANGING".to_owned(),
+            }],
+        };
+
+        assert!(regional_action_ready(
+            &state,
+            "CLICK_TARGET",
+            &stable_id,
+            ""
+        ));
+        assert!(regional_action_ready(&state, "DRAG_TARGET", &stable_id, ""));
+        assert!(regional_action_ready(&state, "SCROLL", "", ""));
+        assert!(!regional_action_ready(
+            &state,
+            "CLICK_TARGET",
+            &sensitive_id,
+            ""
+        ));
+        assert!(!regional_action_ready(
+            &state,
+            "CLICK_TARGET",
+            &unstable_id,
+            ""
+        ));
+        assert!(!regional_action_ready(
+            &state,
+            "DRAG_TARGET",
+            &stable_id,
+            &unstable_id
+        ));
+
+        state.regional_stability.transaction_free = false;
+        assert!(!regional_action_ready(
+            &state,
+            "CLICK_TARGET",
+            &stable_id,
+            ""
+        ));
     }
 
     #[test]

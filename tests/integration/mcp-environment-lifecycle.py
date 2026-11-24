@@ -66,7 +66,7 @@ async def main():
             async with streamablehttp_client(url,headers={'Authorization':'Bearer '+token}) as (read,write,_):
                 async with ClientSession(read,write) as client:
                     await client.initialize()
-                    assert len((await client.list_tools()).tools)==14
+                    assert len((await client.list_tools()).tools)==16
                     async def call(name,args=None):return unpack(await client.call_tool(name,args or {}))
                     sessions=[]
                     for n in range(2):
@@ -103,11 +103,18 @@ async def main():
                     destination = next(t['elementId'] for t in state['targets']
                                        if t['role'] == 'textbox' and not t['sensitive']
                                        and t['interactive'] and t['inViewport'] and not t['occluded'])
+                    found = await call('browser_find', {'environment_id': running, 'query': 'button', 'roles': ['button']})
+                    assert found['targets'], 'MCP_DIRECT_FIND_EMPTY'
+                    inspected = await call('browser_inspect', {'environment_id': running,
+                        'state_cursor': found['stateCursor'], 'element_ids': [source]})
+                    assert inspected['targets'][0]['elementId'] == source
                     target_binding = {'targetRef': source, 'targetRevision': state['targetRevision']}
                     gestures = [
                         {'toolId': 'DRAG_TARGET', **target_binding, 'endTargetRef': source, 'durationMs': 180},
                         {'toolId': 'DRAG_TARGET', **target_binding, 'endTargetRef': destination, 'durationMs': 160},
+                        {'toolId': 'DRAG_TARGET', **target_binding, 'deltaX': 80, 'deltaY': 0, 'durationMs': 160},
                         {'toolId': 'SWIPE_TARGET', **target_binding, 'deltaX': 100, 'deltaY': 50, 'durationMs': 160},
+                        {'toolId': 'FILL', 'targetRef': destination, 'targetRevision': state['targetRevision'], 'value': 'agent query', 'dataClass': 'PUBLIC'},
                     ]
                     action=await call('browser_act',{'environment_id':running,
                         'goal':'Exercise the demo page pointer controls','state_cursor':snapshot['stateCursor'],

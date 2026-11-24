@@ -98,7 +98,7 @@ with sync_playwright() as runtime:
 
     page.get_by_role("button", name="添加结构化动作").click()
     action_type = page.get_by_label("动作 1 类型")
-    expect(action_type.locator("option")).to_have_count(10)
+    expect(action_type.locator("option")).to_have_count(14)
     page.get_by_label("动作 1 目标").select_option(target["targetRef"])
     run.click()
     expect(page.get_by_role("alert").filter(has_text=re.compile("页面状态已变化"))).to_be_visible()

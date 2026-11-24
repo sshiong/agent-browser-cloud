@@ -186,6 +186,166 @@ class AgentReviewerRiskRoutingTest {
         .isEqualTo(AgentReviewerApplicationService.ReviewRoutingDecision.MODEL_REVIEW_REQUIRED);
   }
 
+  @Test
+  void directPublicTextEligibilityAllowsPublicFillButRejectsSensitiveAndManagedBypass()
+      throws Exception {
+    var now = Instant.now();
+    var publicAction =
+        new io.browsercloud.domain.agent.AgentModels.ActionInput(
+            "action_1",
+            ToolId.FILL,
+            "e_search",
+            "e_search",
+            2L,
+            "sealed-public-text",
+            "a".repeat(64),
+            12,
+            io.browsercloud.domain.agent.AgentModels.ActionDataClass.PUBLIC,
+            null,
+            null,
+            null,
+            false,
+            1,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+    var publicBatch =
+        new io.browsercloud.domain.agent.AgentModels.StepInput(
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            false,
+            1,
+            List.of(publicAction),
+            true);
+    var publicStep =
+        new PlanStep(
+            "step_1234567890abcdef",
+            ToolId.EXECUTE_ACTIONS,
+            RiskClass.R2_DATA_CHANGE,
+            null,
+            publicBatch,
+            "fill public search",
+            List.of("user_goal", "platform_policy"),
+            TrustLevel.TRUSTED,
+            List.of(),
+            false,
+            ExecutionStrategy.SEMANTIC_DOM,
+            "COMPLETE",
+            "BATCH",
+            "cap_1234567890abcdef",
+            "opaque-token");
+    var publicPlan =
+        new AgentPlan("intent_1234567890abcdef", List.of(publicStep), 4, 0, now.plusSeconds(300));
+    var publicTask =
+        new AgentTaskEntity(
+            "agt_1234567890abcdef",
+            "tenant-test",
+            "ses_1234567890abcdef",
+            "Search public docs",
+            "PLANNED",
+            RiskClass.R2_DATA_CHANGE.name(),
+            "ALLOWED",
+            null,
+            AgentPolicy.BALANCED,
+            mapper.writeValueAsString(List.of("example.test")),
+            mapper.writeValueAsString(publicPlan),
+            "[]",
+            now);
+
+    assertThat(service.reviewRoutingDecision(publicTask, now))
+        .isEqualTo(AgentReviewerApplicationService.ReviewRoutingDecision.MODEL_REVIEW_REQUIRED);
+    assertThat(service.isDirectPublicTextEligible(publicTask, now)).isTrue();
+
+    var piiAction =
+        new io.browsercloud.domain.agent.AgentModels.ActionInput(
+            "action_1",
+            ToolId.FILL,
+            "e_email",
+            "e_email",
+            2L,
+            "sealed-pii",
+            "b".repeat(64),
+            12,
+            io.browsercloud.domain.agent.AgentModels.ActionDataClass.PII,
+            null,
+            null,
+            null,
+            false,
+            1,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+    var piiStep =
+        new PlanStep(
+            "step_1234567890abcdef",
+            ToolId.EXECUTE_ACTIONS,
+            RiskClass.R2_DATA_CHANGE,
+            null,
+            new io.browsercloud.domain.agent.AgentModels.StepInput(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false,
+                1,
+                List.of(piiAction),
+                true),
+            "fill pii",
+            List.of("user_goal", "platform_policy"),
+            TrustLevel.TRUSTED,
+            List.of(),
+            false,
+            ExecutionStrategy.SEMANTIC_DOM,
+            "COMPLETE",
+            "BATCH",
+            "cap_1234567890abcdef",
+            "opaque-token");
+    var piiTask =
+        new AgentTaskEntity(
+            "agt_2234567890abcdef",
+            "tenant-test",
+            "ses_1234567890abcdef",
+            "Fill profile email",
+            "PLANNED",
+            RiskClass.R2_DATA_CHANGE.name(),
+            "ALLOWED",
+            null,
+            AgentPolicy.BALANCED,
+            mapper.writeValueAsString(List.of("example.test")),
+            mapper.writeValueAsString(
+                new AgentPlan(
+                    "intent_2234567890abcdef", List.of(piiStep), 4, 0, now.plusSeconds(300))),
+            "[]",
+            now);
+    assertThat(service.isDirectPublicTextEligible(piiTask, now)).isFalse();
+  }
+
   private AgentTaskEntity task(RiskClass taskRisk, RiskClass stepRisk, List<String> taintLabels) {
     var now = Instant.now();
     var tool =

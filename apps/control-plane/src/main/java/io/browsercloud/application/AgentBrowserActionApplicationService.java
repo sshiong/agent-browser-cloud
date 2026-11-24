@@ -113,15 +113,7 @@ public class AgentBrowserActionApplicationService {
     }
     if (request.executionMode() == ExecutionMode.DIRECT
         && request.actions().stream()
-            .anyMatch(
-                action ->
-                    !AgentReviewerApplicationService.allowsDirectPrimitive(action.toolId())
-                        || action.secretId() != null
-                        || action.value() != null
-                        || (action.dataClass() != null
-                            && action.dataClass()
-                                != io.browsercloud.domain.agent.AgentModels.ActionDataClass
-                                    .PUBLIC))) {
+            .anyMatch(action -> !isDirectActionAllowed(action, snapshot.state()))) {
       throw new AgentBrowserActionRejectedException("DIRECT_EXECUTION_REQUIRES_MANAGED_REVIEW");
     }
     var domains = allowedDomains(snapshot);
@@ -274,6 +266,59 @@ public class AgentBrowserActionApplicationService {
         .filter(java.util.Objects::nonNull)
         .forEach(domains::add);
     return domains;
+  }
+
+  private static boolean isDirectActionAllowed(
+      CreateAgentTaskRequest.BatchActionRequest action,
+      io.browsercloud.api.BrowserStateView state) {
+    if (action == null
+        || action.secretId() != null
+        || (action.dataClass() != null
+            && action.dataClass()
+                != io.browsercloud.domain.agent.AgentModels.ActionDataClass.PUBLIC)) {
+      return false;
+    }
+    if (AgentReviewerApplicationService.allowsDirectPrimitive(action.toolId())) {
+      return action.value() == null;
+    }
+    if (!AgentReviewerApplicationService.allowsDirectPublicTextPrimitive(action.toolId())) {
+      return false;
+    }
+    if (action.toolId() == ToolId.CLEAR_TARGET) {
+      if (action.value() != null) {
+        return false;
+      }
+    } else if (action.value() == null
+        || action.value().isBlank()
+        || action.value().length() > 2_000
+        || AgentDataMinimizer.containsCredentialLikeValue(action.value())) {
+      return false;
+    }
+    if (action.targetRef() == null || action.targetRef().isBlank()) {
+      return false;
+    }
+    var target =
+        state.targets().stream()
+            .filter(
+                candidate ->
+                    action.targetRef().equals(candidate.elementId())
+                        || action.targetRef().equals(candidate.targetRef()))
+            .findFirst()
+            .orElse(null);
+    if (target == null
+        || target.sensitive()
+        || !target.visible()
+        || !target.enabled()
+        || !target.interactive()
+        || !target.inViewport()
+        || target.occluded()
+        || target.bounds() == null) {
+      return false;
+    }
+    if (action.toolId() == ToolId.SELECT_OPTION) {
+      return "combobox".equals(target.role());
+    }
+    return java.util.Set.of("textbox", "combobox").contains(target.role());
   }
 
   private static String domain(String url) {

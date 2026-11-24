@@ -41,6 +41,8 @@ public final class BrowserCloudGeneratedClient {
     operation("getAgentEnvironment", "GET", "/api/v1/agent-access/environments/{sessionId}", List.of("sessionId"), List.of(), List.of(), "", false, "SessionView"),
     operation("deleteAgentEnvironment", "DELETE", "/api/v1/agent-access/environments/{sessionId}", List.of("sessionId"), List.of(), List.of("Idempotency-Key"), "", false, "BatchDeleteSessionsResponse"),
     operation("snapshotAgentConnectionBrowser", "GET", "/api/v1/agent-access/environments/{sessionId}/browser/snapshot", List.of("sessionId"), List.of(), List.of(), "", false, "AgentBrowserSnapshot"),
+    operation("findAgentConnectionBrowserElements", "POST", "/api/v1/agent-access/environments/{sessionId}/browser/find", List.of("sessionId"), List.of(), List.of(), "AgentBrowserFindRequest", true, "AgentBrowserTargetList"),
+    operation("inspectAgentConnectionBrowserElements", "POST", "/api/v1/agent-access/environments/{sessionId}/browser/inspect", List.of("sessionId"), List.of(), List.of(), "AgentBrowserInspectRequest", true, "AgentBrowserTargetList"),
     operation("actAgentConnectionBrowser", "POST", "/api/v1/agent-access/environments/{sessionId}/browser/act", List.of("sessionId"), List.of(), List.of("Idempotency-Key"), "ExecuteAgentBrowserActionsRequest", true, "AgentTask"),
     operation("getAgentConnectionBrowserTask", "GET", "/api/v1/agent-access/environments/{sessionId}/browser/tasks/{taskId}", List.of("sessionId", "taskId"), List.of(), List.of(), "", false, "AgentTask"),
     operation("getAgentManagedOperation", "GET", "/api/v1/agent-access/operations/{operationId}", List.of("operationId"), List.of(), List.of(), "", false, "AgentManagedOperation"),
@@ -344,6 +346,8 @@ public final class BrowserCloudGeneratedClient {
   public Response getAgentEnvironment(Request request) { return call("getAgentEnvironment", request); }
   public Response deleteAgentEnvironment(Request request) { return call("deleteAgentEnvironment", request); }
   public Response snapshotAgentConnectionBrowser(Request request) { return call("snapshotAgentConnectionBrowser", request); }
+  public Response findAgentConnectionBrowserElements(Request request) { return call("findAgentConnectionBrowserElements", request); }
+  public Response inspectAgentConnectionBrowserElements(Request request) { return call("inspectAgentConnectionBrowserElements", request); }
   public Response actAgentConnectionBrowser(Request request) { return call("actAgentConnectionBrowser", request); }
   public Response getAgentConnectionBrowserTask(Request request) { return call("getAgentConnectionBrowserTask", request); }
   public Response getAgentManagedOperation(Request request) { return call("getAgentManagedOperation", request); }

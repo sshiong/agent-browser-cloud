@@ -754,14 +754,18 @@ public class AgentApplicationService {
           : "";
     }
     if (toolId == ToolId.DRAG_TARGET) {
-      if (action.endTargetRef() == null
-          || action.endTargetRef().isBlank()
+      var hasEndTarget = action.endTargetRef() != null && !action.endTargetRef().isBlank();
+      var hasDelta = !zero(action.deltaX()) || !zero(action.deltaY());
+      if (hasEndTarget == hasDelta
           || action.key() != null
           || action.button() != null
-          || action.deltaX() != null
-          || action.deltaY() != null
+          || invalidDelta(action.deltaX())
+          || invalidDelta(action.deltaY())
           || invalidDuration(action.durationMs())) {
         return "DRAG_INPUT_INVALID";
+      }
+      if (!hasEndTarget) {
+        return "";
       }
       var destination =
           state.targets().stream()

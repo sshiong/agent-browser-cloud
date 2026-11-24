@@ -75,7 +75,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **271 Operations / 368 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **273 Operations / 368 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -307,6 +307,17 @@ progress 166。
   客户视觉数据集 Replay、侧脸/证件/医学影像等扩展类别和目标云 Legal Hold 仍是生产 Gate。
 
 ### 最近验证状态
+
+- 外部 AI 直连非敏感文本输入、区域稳定动作、MCP 精准感知、防误松拖动与资源回收闭环已完成，见 [progress329](docs/progress/329-外部AI直连文本输入与区域稳定拖动及资源回收闭环.md)：
+  Control Plane 在保留托管模式 `R2_DATA_CHANGE` 模型 Reviewer 不变前提下，为直连模式放行带非敏感 `PUBLIC`/非凭据围栏的
+  `TYPE_TEXT`/`FILL`/`CLEAR_TARGET`/`SELECT_OPTION`（并补齐 `Bearer <token>` 拦截）；新增
+  `agent-access` `/browser/find`、`/browser/inspect` 与更丰富的 `visibleTextSummary`/`find` 值匹配；
+  修复 MCP 只读路径误加 `FOR UPDATE` 行锁，并在超时终止与软删除时释放节点容量预留；Browser Node 将输入空闲看门狗
+  扩至 30 秒防跨轮拖动思考误释放，`DRAG_TARGET` 支持单次原子像素偏移（`deltaX`/`deltaY`）并保活，同时把
+  `BestEffortStableState/unstableRegions` 接入非敏感目标的动作就绪与等待闭环；MCP Gateway 扩至 16 工具
+  （新增 `browser_find`/`browser_inspect` 与可选创建参数），Web 控制台直连扩至 14 项动作。Rust（`node-agent`
+  36 项+clippy）、Java（700 项+Spotless）、OpenAPI（273/368）与四语言 SDK 全量测试及发布包、MCP 3 项协议测试、
+  Web lint/format/test（153+5）/build 均通过；V141 不变，区域独立 Outcome 闭环与 Oracle 实机验收仍待完成。
 
 - Agent 自主操作顺滑度与可靠性修复已完成，见 [progress328](docs/progress/328-Agent自主操作顺滑度与可靠性修复.md)：
   Browser Node `CdpDesktopInput` 改为复用持久 CDP WebSocket 并补齐异常/重试 `release_all`、
@@ -1723,10 +1734,10 @@ Delete API 或短期签名 URL 冒充目标云监管保留。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
 5. Recording 目标账户 Object Lock Apply/IAM、客户视觉数据集 Replay 和目标云原生 Legal Hold
    联动；仓库 WORM、到期对象删除 Worker 及全帧隐私 v2 已由 progress 201—203 完成。
-6. 持续变化页面已有 Node 稳定 Target 区域采样、正式权威投影与隔离事件观察（progress 262—264），但
-   风险授权、稳定区域动作与独立 Outcome 的 `BestEffortStableState/unstableRegions`
-   产品闭环尚未完成；
-   当前普通动作与 Batch 仍要求当前文档网络 quiet。不能按长轮询路径/年龄忽略未知请求，
+6. 持续变化页面已有 Node 稳定 Target 区域采样、正式权威投影、隔离事件观察（progress 262—264）与
+   非敏感目标的区域稳定动作就绪/等待闭环（progress 329），但高风险区域授权与独立 Outcome 区域的
+   `BestEffortStableState/unstableRegions` 完整验证闭环尚未完成；
+   未证明区域稳定或敏感目标仍要求当前文档网络 quiet。不能按长轮询路径/年龄忽略未知请求，
    不能把全页伪造为稳定；高风险、实体/当前页围栏和独立 Outcome 证明须继续成立。
 
 ### P1/P2：目标环境与外部集成 Gate

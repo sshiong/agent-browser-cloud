@@ -136,6 +136,8 @@ public class AgentActionToolService {
             && !capturedTargets.source().isEmpty()
             && capturedTargets.source().equals(step.input().targetRef())
             && (step.toolId() != ToolId.DRAG_TARGET
+                || step.input().endTargetRef() == null
+                || step.input().endTargetRef().isBlank()
                 || capturedTargets.destination().equals(step.input().endTargetRef()))
             && mayRebindMainDocument(step, authoritativeTaskRisk, step.riskClass(), policy)
             && browserCapacity.nodeHasCapability(
@@ -259,11 +261,13 @@ public class AgentActionToolService {
             ToolId.TOUCH_END)
         .contains(step.toolId())) return new MainDocumentTargets("", "");
     var source = mainDocumentElementId(step.input().targetRef(), state);
-    var destination =
+    var requiresDestination =
         step.toolId() == ToolId.DRAG_TARGET
-            ? mainDocumentElementId(step.input().endTargetRef(), state)
-            : "";
-    if (source.isEmpty() || (step.toolId() == ToolId.DRAG_TARGET && destination.isEmpty())) {
+            && step.input().endTargetRef() != null
+            && !step.input().endTargetRef().isBlank();
+    var destination =
+        requiresDestination ? mainDocumentElementId(step.input().endTargetRef(), state) : "";
+    if (source.isEmpty() || (requiresDestination && destination.isEmpty())) {
       return new MainDocumentTargets("", "");
     }
     return new MainDocumentTargets(source, destination);
@@ -731,14 +735,18 @@ public class AgentActionToolService {
       return;
     }
     if (toolId == ToolId.DRAG_TARGET) {
-      if (input.endTargetRef() == null
-          || input.endTargetRef().isBlank()
+      var hasEndTarget = input.endTargetRef() != null && !input.endTargetRef().isBlank();
+      var hasDelta = !zero(input.deltaX()) || !zero(input.deltaY());
+      if (hasEndTarget == hasDelta
           || input.key() != null
           || input.button() != null
-          || input.deltaX() != null
-          || input.deltaY() != null
+          || invalidDelta(input.deltaX())
+          || invalidDelta(input.deltaY())
           || invalidDuration(input.durationMs())) {
         throw new ActionToolException("DRAG_INPUT_INVALID");
+      }
+      if (!hasEndTarget) {
+        return;
       }
       var destination =
           state.targets().stream()

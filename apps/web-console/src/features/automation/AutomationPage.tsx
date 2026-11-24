@@ -126,8 +126,8 @@ const directActionOptions: typeof actionOptions = [
   { value: 'DOUBLE_CLICK_TARGET', label: '双击目标' },
   { value: 'RIGHT_CLICK_TARGET', label: '右键目标' },
   { value: 'HOVER_TARGET', label: '悬停目标' },
-  { value: 'TYPE_TEXT', label: '输入公开文本' },
-  { value: 'FILL', label: '填充公开文本' },
+  { value: 'TYPE_TEXT', label: '输入文本' },
+  { value: 'FILL', label: '填充文本' },
   { value: 'CLEAR_TARGET', label: '清空输入框' },
   { value: 'SELECT_OPTION', label: '选择下拉项' },
   { value: 'HOLD_TARGET', label: '长按目标' },
@@ -167,18 +167,26 @@ function requiresActionTarget(toolId: DraftAction['toolId']) {
   );
 }
 
+function isOffscreenOnlyTarget(target: InteractiveTargetView | undefined) {
+  return Boolean(
+    target &&
+    !target.visible &&
+    !target.inViewport &&
+    !target.occluded &&
+    target.visibilityReason === 'OUTSIDE_VIEWPORT'
+  );
+}
+
 function isDirectTarget(
   target: InteractiveTargetView | undefined
 ): target is InteractiveTargetView & { elementId: string } {
   return Boolean(
     target?.elementId &&
-    target.visible &&
     target.enabled &&
     target.bounds &&
     target.interactive &&
-    target.inViewport &&
     !target.occluded &&
-    !target.sensitive
+    ((target.visible && target.inViewport) || isOffscreenOnlyTarget(target))
   );
 }
 
@@ -1179,7 +1187,7 @@ function ActionEditor({
 }) {
   const actionableTargets = targets.filter(
     (target) =>
-      target.visible &&
+      (target.visible || isOffscreenOnlyTarget(target)) &&
       target.enabled &&
       target.bounds &&
       (!direct || isDirectTarget(target))
@@ -1256,13 +1264,16 @@ function ActionEditor({
                   action.toolId === 'FILL' ||
                   action.toolId === 'CLEAR_TARGET') &&
                   (!['textbox', 'combobox'].includes(target.role) ||
-                    (target.sensitive &&
-                      (direct ||
-                        !['CREDENTIAL', 'OTP'].includes(
-                          action.dataClass ?? 'PUBLIC'
-                        ))))) ||
+                    (!direct &&
+                      target.sensitive &&
+                      !['CREDENTIAL', 'OTP'].includes(
+                        action.dataClass ?? 'PUBLIC'
+                      )))) ||
                 (action.toolId === 'SELECT_OPTION' &&
-                  (target.role !== 'combobox' || target.sensitive));
+                  (!['combobox', 'listbox', 'button', 'generic'].includes(
+                    target.role
+                  ) ||
+                    (!direct && target.sensitive)));
               return (
                 <option
                   key={target.targetRef}
@@ -1270,6 +1281,10 @@ function ActionEditor({
                   disabled={typeForbidden}
                 >
                   {target.sensitive ? '🔒 ' : ''}
+                  {!target.inViewport &&
+                  target.visibilityReason === 'OUTSIDE_VIEWPORT'
+                    ? '↕ '
+                    : ''}
                   {target.role} · {target.name || target.targetRef}
                 </option>
               );
@@ -1315,8 +1330,10 @@ function ActionEditor({
                   maxLength={2000}
                   placeholder={
                     action.toolId === 'SELECT_OPTION'
-                      ? '输入非敏感下拉选项值'
-                      : '明确授权的非敏感公开文本（禁止凭据/密码/OTP）'
+                      ? '输入下拉选项文本或值（自动展开自定义下拉框）'
+                      : direct
+                        ? '输入文本内容（直连模式支持直接填写密码/登录框）'
+                        : '明确授权的文本内容'
                   }
                   autoComplete="off"
                   className={inputClass}
@@ -1801,7 +1818,7 @@ function toDirectActionRequest(
         toolId: action.toolId,
         ...binding,
         value: action.value,
-        dataClass: 'PUBLIC',
+        dataClass: source.sensitive ? 'CREDENTIAL' : 'PUBLIC',
       };
     case 'PRESS_KEY':
       return {
@@ -1912,15 +1929,22 @@ function rebindActionsToState(
       ((action.toolId === 'TYPE_TEXT' ||
         action.toolId === 'FILL' ||
         action.toolId === 'CLEAR_TARGET') &&
-        (target?.sensitive ||
+        ((!direct && target?.sensitive) ||
           !['textbox', 'combobox'].includes(target?.role ?? ''))) ||
       (action.toolId === 'SELECT_OPTION' &&
-        (target?.sensitive || target?.role !== 'combobox'));
+        ((!direct && target?.sensitive) ||
+          !['combobox', 'listbox', 'button', 'generic'].includes(
+            target?.role ?? ''
+          )));
+    const targetReachable = Boolean(
+      target &&
+      target.enabled &&
+      target.bounds &&
+      (target.visible || isOffscreenOnlyTarget(target))
+    );
     if (
       !target ||
-      !target.visible ||
-      !target.enabled ||
-      !target.bounds ||
+      !targetReachable ||
       (direct && !isDirectTarget(target)) ||
       invalidTextTarget
     ) {

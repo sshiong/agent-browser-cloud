@@ -574,6 +574,10 @@ public class AgentExecutionService {
           return;
         }
         if (ASYNC_ACTIONS.contains(step.toolId())) {
+          var directAuthorized =
+              task.getReviewerReasonCodes() != null
+                  && task.getReviewerReasonCodes()
+                      .contains(AgentReviewerApplicationService.DIRECT_EXECUTION_REASON);
           var pending =
               actionToolService.authorizeAndQueue(
                   task.getTenantId(),
@@ -583,7 +587,8 @@ public class AgentExecutionService {
                   plan.intentId(),
                   step,
                   now,
-                  RiskClass.valueOf(task.getRiskClass()));
+                  RiskClass.valueOf(task.getRiskClass()),
+                  directAuthorized);
           task.markAsyncPending(
               index,
               step.stepId(),

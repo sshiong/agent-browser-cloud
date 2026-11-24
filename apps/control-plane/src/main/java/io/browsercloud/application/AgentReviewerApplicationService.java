@@ -54,6 +54,7 @@ public class AgentReviewerApplicationService {
   private static final SecureRandom RANDOM = new SecureRandom();
   private static final String ROUTING_POLICY_REVISION = "risk-tier-v1";
   private static final String LOW_RISK_BYPASS_REASON = "DETERMINISTIC_LOW_RISK_BYPASS";
+  static final String DIRECT_EXECUTION_REASON = "DIRECT_EXECUTION_AUTHORIZED";
   private static final Set<String> LOW_RISK_TRUSTED_SOURCES =
       Set.of("user_goal", "platform_policy");
   private static final Set<ToolId> LOW_RISK_TOOLS =
@@ -88,8 +89,14 @@ public class AgentReviewerApplicationService {
           ToolId.GET_URL,
           ToolId.GET_PAGE_SUMMARY,
           ToolId.REQUEST_HUMAN_TAKEOVER);
-  private static final Set<ToolId> DIRECT_PUBLIC_TEXT_TOOLS =
-      Set.of(ToolId.TYPE_TEXT, ToolId.FILL, ToolId.CLEAR_TARGET, ToolId.SELECT_OPTION);
+  private static final Set<ToolId> DIRECT_TEXT_AND_CONTROL_TOOLS =
+      Set.of(
+          ToolId.TYPE_TEXT,
+          ToolId.FILL,
+          ToolId.CLEAR_TARGET,
+          ToolId.SELECT_OPTION,
+          ToolId.CLOSE_TAB,
+          ToolId.ACCEPT_DIALOG);
   private static final Set<String> REVIEW_REASON_CODES =
       Set.of(
           "SAFE",
@@ -220,13 +227,14 @@ public class AgentReviewerApplicationService {
   }
 
   static boolean allowsDirectPublicTextPrimitive(ToolId tool) {
-    return tool != null && DIRECT_PUBLIC_TEXT_TOOLS.contains(tool);
+    return tool != null && DIRECT_TEXT_AND_CONTROL_TOOLS.contains(tool);
   }
 
   /**
-   * Direct callers may execute plans eligible for deterministic low-risk bypass, OR explicitly
-   * fenced non-sensitive PUBLIC text/select/clear batches (never credentials, OTP, PII, or
-   * confirmation-required goals).
+   * Direct callers may execute any full browser interaction plan (including typing credentials or
+   * passwords explicitly supplied by the authorized direct caller, selecting dropdowns, closing
+   * tabs, and accepting dialogs) while host/platform isolation (`ALLOWED` intent, trusted sources,
+   * zero taint, and allowed domains) remains strictly enforced.
    */
   @Transactional
   public void requireDirectEligible(String taskId, String tenantId) {
@@ -239,6 +247,8 @@ public class AgentReviewerApplicationService {
       throw new AgentBrowserActionApplicationService.AgentBrowserActionRejectedException(
           "DIRECT_EXECUTION_REQUIRES_MANAGED_REVIEW");
     }
+    task.markReviewerNotRequired(write(List.of(DIRECT_EXECUTION_REASON)), now);
+    tasks.save(task);
   }
 
   /** Queue one exact plan for independent review before any execution job becomes visible. */
@@ -443,9 +453,6 @@ public class AgentReviewerApplicationService {
         || input.sealedPayload() != null
         || input.payloadHash() != null
         || input.payloadLength() != null
-        || input.allowSensitiveTarget()
-        || (input.dataClass() != null
-            && input.dataClass() != io.browsercloud.domain.agent.AgentModels.ActionDataClass.PUBLIC)
         || !allowedTargetUrl(input.tabUrl(), allowedDomains)
         || input.actions() == null
         || input.actions().isEmpty()) {
@@ -454,24 +461,22 @@ public class AgentReviewerApplicationService {
     return input.actions().stream()
         .anyMatch(
             action -> {
-              if (action == null
-                  || action.allowSensitiveTarget()
-                  || (action.dataClass() != null
-                      && action.dataClass()
-                          != io.browsercloud.domain.agent.AgentModels.ActionDataClass.PUBLIC)
-                  || !allowedTargetUrl(action.tabUrl(), allowedDomains)) {
+              if (action == null || !allowedTargetUrl(action.tabUrl(), allowedDomains)) {
                 return true;
               }
-              if (LOW_RISK_TOOLS.contains(action.toolId())) {
+              if (LOW_RISK_TOOLS.contains(action.toolId()) || action.toolId() == ToolId.CLOSE_TAB) {
                 return action.sealedPayload() != null
                     || action.payloadHash() != null
                     || action.payloadLength() != null;
               }
-              if (DIRECT_PUBLIC_TEXT_TOOLS.contains(action.toolId())) {
+              if (DIRECT_TEXT_AND_CONTROL_TOOLS.contains(action.toolId())) {
                 if (action.toolId() == ToolId.CLEAR_TARGET) {
                   return action.sealedPayload() != null
                       || action.payloadHash() != null
                       || action.payloadLength() != null;
+                }
+                if (action.toolId() == ToolId.ACCEPT_DIALOG && action.sealedPayload() == null) {
+                  return action.payloadHash() != null || action.payloadLength() != null;
                 }
                 return action.sealedPayload() == null
                     || action.payloadLength() == null

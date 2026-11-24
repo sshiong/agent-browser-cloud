@@ -193,7 +193,7 @@ public class AgentBrowserActionApplicationService {
     var task =
         transactions.execute(
             status -> {
-              var created = tasks.create(sessionId, tenantId, create, key + ":create");
+              var created = tasks.createDirect(sessionId, tenantId, create, key + ":create");
               if (created.state() == TaskState.PLANNED) {
                 reviewer.requireDirectEligible(created.taskId(), tenantId);
               }
@@ -271,18 +271,19 @@ public class AgentBrowserActionApplicationService {
   private static boolean isDirectActionAllowed(
       CreateAgentTaskRequest.BatchActionRequest action,
       io.browsercloud.api.BrowserStateView state) {
-    if (action == null
-        || action.secretId() != null
-        || (action.dataClass() != null
-            && action.dataClass()
-                != io.browsercloud.domain.agent.AgentModels.ActionDataClass.PUBLIC)) {
+    if (action == null || action.secretId() != null) {
       return false;
     }
-    if (AgentReviewerApplicationService.allowsDirectPrimitive(action.toolId())) {
+    if (AgentReviewerApplicationService.allowsDirectPrimitive(action.toolId())
+        || action.toolId() == ToolId.CLOSE_TAB) {
       return action.value() == null;
     }
     if (!AgentReviewerApplicationService.allowsDirectPublicTextPrimitive(action.toolId())) {
       return false;
+    }
+    if (action.toolId() == ToolId.ACCEPT_DIALOG) {
+      return action.value() == null
+          || (!action.value().isBlank() && action.value().length() <= 2_000);
     }
     if (action.toolId() == ToolId.CLEAR_TARGET) {
       if (action.value() != null) {
@@ -290,8 +291,7 @@ public class AgentBrowserActionApplicationService {
       }
     } else if (action.value() == null
         || action.value().isBlank()
-        || action.value().length() > 2_000
-        || AgentDataMinimizer.containsCredentialLikeValue(action.value())) {
+        || action.value().length() > 2_000) {
       return false;
     }
     if (action.targetRef() == null || action.targetRef().isBlank()) {
@@ -306,17 +306,16 @@ public class AgentBrowserActionApplicationService {
             .findFirst()
             .orElse(null);
     if (target == null
-        || target.sensitive()
-        || !target.visible()
         || !target.enabled()
         || !target.interactive()
-        || !target.inViewport()
         || target.occluded()
-        || target.bounds() == null) {
+        || target.bounds() == null
+        || (!target.visible()
+            && !(!target.inViewport() && "OUTSIDE_VIEWPORT".equals(target.visibilityReason())))) {
       return false;
     }
     if (action.toolId() == ToolId.SELECT_OPTION) {
-      return "combobox".equals(target.role());
+      return java.util.Set.of("combobox", "listbox", "button", "generic").contains(target.role());
     }
     return java.util.Set.of("textbox", "combobox").contains(target.role());
   }

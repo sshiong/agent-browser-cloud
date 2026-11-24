@@ -270,21 +270,21 @@ class AgentReviewerRiskRoutingTest {
         .isEqualTo(AgentReviewerApplicationService.ReviewRoutingDecision.MODEL_REVIEW_REQUIRED);
     assertThat(service.isDirectPublicTextEligible(publicTask, now)).isTrue();
 
-    var piiAction =
+    var credAction =
         new io.browsercloud.domain.agent.AgentModels.ActionInput(
             "action_1",
             ToolId.FILL,
-            "e_email",
-            "e_email",
+            "e_password",
+            "e_password",
             2L,
-            "sealed-pii",
+            "sealed-cred",
             "b".repeat(64),
             12,
-            io.browsercloud.domain.agent.AgentModels.ActionDataClass.PII,
+            io.browsercloud.domain.agent.AgentModels.ActionDataClass.CREDENTIAL,
             null,
             null,
             null,
-            false,
+            true,
             1,
             null,
             null,
@@ -296,7 +296,7 @@ class AgentReviewerRiskRoutingTest {
             null,
             null,
             null);
-    var piiStep =
+    var credStep =
         new PlanStep(
             "step_1234567890abcdef",
             ToolId.EXECUTE_ACTIONS,
@@ -314,9 +314,9 @@ class AgentReviewerRiskRoutingTest {
                 null,
                 false,
                 1,
-                List.of(piiAction),
+                List.of(credAction),
                 true),
-            "fill pii",
+            "fill direct password",
             List.of("user_goal", "platform_policy"),
             TrustLevel.TRUSTED,
             List.of(),
@@ -326,12 +326,12 @@ class AgentReviewerRiskRoutingTest {
             "BATCH",
             "cap_1234567890abcdef",
             "opaque-token");
-    var piiTask =
+    var credTask =
         new AgentTaskEntity(
             "agt_2234567890abcdef",
             "tenant-test",
             "ses_1234567890abcdef",
-            "Fill profile email",
+            "Fill login password",
             "PLANNED",
             RiskClass.R2_DATA_CHANGE.name(),
             "ALLOWED",
@@ -340,10 +340,48 @@ class AgentReviewerRiskRoutingTest {
             mapper.writeValueAsString(List.of("example.test")),
             mapper.writeValueAsString(
                 new AgentPlan(
-                    "intent_2234567890abcdef", List.of(piiStep), 4, 0, now.plusSeconds(300))),
+                    "intent_2234567890abcdef", List.of(credStep), 4, 0, now.plusSeconds(300))),
             "[]",
             now);
-    assertThat(service.isDirectPublicTextEligible(piiTask, now)).isFalse();
+    assertThat(service.reviewRoutingDecision(credTask, now))
+        .isEqualTo(AgentReviewerApplicationService.ReviewRoutingDecision.MODEL_REVIEW_REQUIRED);
+    assertThat(service.isDirectPublicTextEligible(credTask, now)).isTrue();
+
+    var taintedStep =
+        new PlanStep(
+            "step_3234567890abcdef",
+            ToolId.EXECUTE_ACTIONS,
+            RiskClass.R2_DATA_CHANGE,
+            null,
+            credStep.input(),
+            "tainted",
+            List.of("user_goal", "platform_policy"),
+            TrustLevel.TRUSTED,
+            List.of("EXTERNAL_TAINT"),
+            false,
+            ExecutionStrategy.SEMANTIC_DOM,
+            "COMPLETE",
+            "BATCH",
+            "cap_1234567890abcdef",
+            "opaque-token");
+    var taintedTask =
+        new AgentTaskEntity(
+            "agt_3234567890abcdef",
+            "tenant-test",
+            "ses_1234567890abcdef",
+            "Fill tainted",
+            "PLANNED",
+            RiskClass.R2_DATA_CHANGE.name(),
+            "ALLOWED",
+            null,
+            AgentPolicy.BALANCED,
+            mapper.writeValueAsString(List.of("example.test")),
+            mapper.writeValueAsString(
+                new AgentPlan(
+                    "intent_3234567890abcdef", List.of(taintedStep), 4, 0, now.plusSeconds(300))),
+            "[]",
+            now);
+    assertThat(service.isDirectPublicTextEligible(taintedTask, now)).isFalse();
   }
 
   private AgentTaskEntity task(RiskClass taskRisk, RiskClass stepRisk, List<String> taintLabels) {

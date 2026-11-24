@@ -57,8 +57,8 @@ use session_recorder::{
 use sha2::{Digest, Sha256};
 use state_collector::{
     diff_states, AgentJavascriptEvaluationRequest, BrowserStateCollector, BrowserTransactionPolicy,
-    CdpStateCollector, CurrentState, DiffOutcome, ResolvedTarget, StateDiff, StateQuality,
-    TabResourcePolicy,
+    CdpStateCollector, CurrentState, DiffOutcome, DropdownSelectionProbe, ResolvedTarget,
+    StateDiff, StateQuality, TabResourcePolicy,
 };
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -166,13 +166,16 @@ fn regional_action_ready(
         let Some(target) = matches.next() else {
             return false;
         };
+        let offscreen_only = !target.visible
+            && !target.in_viewport
+            && !target.occluded
+            && target.visibility_reason.as_deref() == Some("OUTSIDE_VIEWPORT");
         if matches.next().is_some()
             || target.sensitive
-            || !target.visible
             || !target.enabled
             || !target.interactive
-            || !target.in_viewport
             || target.occluded
+            || (!offscreen_only && (!target.visible || !target.in_viewport))
         {
             return false;
         }
@@ -4834,7 +4837,7 @@ impl NodeControlService {
                     target
                 } else {
                     self.state_collector
-                        .resolve_target(
+                        .resolve_target_for_action(
                             &payload.session_id,
                             &payload.target_ref,
                             payload.target_revision,
@@ -4858,14 +4861,20 @@ impl NodeControlService {
                         (1..=10).contains(&effective_attempts),
                         "type text retry budget is invalid"
                     );
-                    anyhow::ensure!(
-                        matches!(target.role.as_str(), "textbox" | "combobox"),
-                        "type target role is not supported"
-                    );
-                    anyhow::ensure!(
-                        payload.tool_id != "SELECT_OPTION" || target.role == "combobox",
-                        "select target role is not supported"
-                    );
+                    if payload.tool_id == "SELECT_OPTION" {
+                        anyhow::ensure!(
+                            matches!(
+                                target.role.as_str(),
+                                "combobox" | "listbox" | "button" | "generic"
+                            ),
+                            "select target role is not supported"
+                        );
+                    } else {
+                        anyhow::ensure!(
+                            matches!(target.role.as_str(), "textbox" | "combobox"),
+                            "type target role is not supported"
+                        );
+                    }
                     anyhow::ensure!(
                         payload.sealed_text.is_empty() && !payload.text.is_empty(),
                         "type text must be materialized only for Node dispatch"
@@ -4914,62 +4923,122 @@ impl NodeControlService {
                     "target center is outside the input coordinate range"
                 );
                 let input = self.active_input_broker(&payload.session_id).await?;
-                let maximum_attempts = if matches!(payload.tool_id.as_str(), "TYPE_TEXT" | "FILL") {
-                    if payload.maximum_attempts == 0 {
-                        1
-                    } else {
-                        payload.maximum_attempts
-                    }
-                } else {
-                    1
-                };
-                let mut last_error = None;
-                for attempt in 0..maximum_attempts {
-                    let base = input.ledger_snapshot().await.last_sequence;
-                    let sequence = |offset: u64| {
-                        base.checked_add(offset)
-                            .ok_or_else(|| anyhow::anyhow!("input sequence overflow"))
-                    };
-                    let result: anyhow::Result<()> = async {
-                        input
-                            .mouse_move(
-                                center_x.round() as i32,
-                                center_y.round() as i32,
-                                sequence(1)?,
-                            )
-                            .await?;
-                        match payload.tool_id.as_str() {
-                            "HOVER_TARGET" => {}
-                            "DOUBLE_CLICK_TARGET" => {
-                                input.mouse_click(0, 2, sequence(2)?).await?;
+                if payload.tool_id == "SELECT_OPTION" {
+                    match self
+                        .state_collector
+                        .select_option_probe(&payload.session_id, &target.path, &payload.text)
+                        .await?
+                    {
+                        DropdownSelectionProbe::NativeSelected => {
+                            input.keep_alive().await;
+                        }
+                        DropdownSelectionProbe::NativeOptionNotFound => {
+                            anyhow::bail!("dropdown option not found in select element");
+                        }
+                        DropdownSelectionProbe::CustomDropdown { is_text_input } => {
+                            let mut seq = input.ledger_snapshot().await.last_sequence;
+                            let next = |seq: &mut u64| -> anyhow::Result<u64> {
+                                *seq = seq
+                                    .checked_add(1)
+                                    .ok_or_else(|| anyhow::anyhow!("input sequence overflow"))?;
+                                Ok(*seq)
+                            };
+                            let select_result: anyhow::Result<()> = async {
+                                // Click the dropdown trigger so hidden menu options mount/appear.
+                                input
+                                    .mouse_move(
+                                        center_x.round() as i32,
+                                        center_y.round() as i32,
+                                        next(&mut seq)?,
+                                    )
+                                    .await?;
+                                input.mouse_click(0, 1, next(&mut seq)?).await?;
+                                tokio::time::sleep(Duration::from_millis(180)).await;
+                                input.keep_alive().await;
+                                if let Some((opt_x, opt_y)) = self
+                                    .state_collector
+                                    .find_visible_dropdown_option(
+                                        &payload.session_id,
+                                        &payload.text,
+                                    )
+                                    .await?
+                                {
+                                    input.mouse_move(opt_x, opt_y, next(&mut seq)?).await?;
+                                    input.mouse_click(0, 1, next(&mut seq)?).await?;
+                                    return Ok(());
+                                }
+                                if is_text_input {
+                                    input.key_down(InputKey::Control, next(&mut seq)?).await?;
+                                    input
+                                        .key_down(
+                                            InputKey::Character("a".to_owned()),
+                                            next(&mut seq)?,
+                                        )
+                                        .await?;
+                                    input
+                                        .key_up(
+                                            InputKey::Character("a".to_owned()),
+                                            next(&mut seq)?,
+                                        )
+                                        .await?;
+                                    input.key_up(InputKey::Control, next(&mut seq)?).await?;
+                                    input.insert_text(&payload.text, next(&mut seq)?).await?;
+                                    tokio::time::sleep(Duration::from_millis(180)).await;
+                                    input.keep_alive().await;
+                                    if let Some((opt_x, opt_y)) = self
+                                        .state_collector
+                                        .find_visible_dropdown_option(
+                                            &payload.session_id,
+                                            &payload.text,
+                                        )
+                                        .await?
+                                    {
+                                        input.mouse_move(opt_x, opt_y, next(&mut seq)?).await?;
+                                        input.mouse_click(0, 1, next(&mut seq)?).await?;
+                                    } else {
+                                        input.key_down(InputKey::Enter, next(&mut seq)?).await?;
+                                        input.key_up(InputKey::Enter, next(&mut seq)?).await?;
+                                    }
+                                    return Ok(());
+                                }
+                                // Retry once for slow animations or lazily rendered dropdown menus.
+                                tokio::time::sleep(Duration::from_millis(220)).await;
+                                input.keep_alive().await;
+                                if let Some((opt_x, opt_y)) = self
+                                    .state_collector
+                                    .find_visible_dropdown_option(
+                                        &payload.session_id,
+                                        &payload.text,
+                                    )
+                                    .await?
+                                {
+                                    input.mouse_move(opt_x, opt_y, next(&mut seq)?).await?;
+                                    input.mouse_click(0, 1, next(&mut seq)?).await?;
+                                    return Ok(());
+                                }
+                                anyhow::bail!("dropdown option not found after opening menu")
                             }
-                            "RIGHT_CLICK_TARGET" => {
-                                input.mouse_click(2, 1, sequence(2)?).await?;
-                            }
-                            "CHECK_TARGET" if target.checked == Some(true) => {}
-                            "UNCHECK_TARGET" if target.checked == Some(false) => {}
-                            _ => {
-                                input.mouse_click(0, 1, sequence(2)?).await?;
+                            .await;
+                            if let Err(error) = select_result {
+                                let _ = input.release_all().await;
+                                return Err(error);
                             }
                         }
-                        if payload.tool_id == "CLEAR_TARGET" {
-                            input.key_down(InputKey::Control, sequence(3)?).await?;
-                            input
-                                .key_down(InputKey::Character("a".to_owned()), sequence(4)?)
-                                .await?;
-                            input
-                                .key_up(InputKey::Character("a".to_owned()), sequence(5)?)
-                                .await?;
-                            input.key_up(InputKey::Control, sequence(6)?).await?;
-                            input.key_down(InputKey::Backspace, sequence(7)?).await?;
-                            input.key_up(InputKey::Backspace, sequence(8)?).await?;
-                        } else if matches!(
-                            payload.tool_id.as_str(),
-                            "TYPE_TEXT" | "FILL" | "PASTE_AGENT_CLIPBOARD" | "SELECT_OPTION"
-                        ) {
-                            // FILL and Clipboard paste replace the field. Sensitive TYPE_TEXT also
-                            // replaces on every retry so a password or OTP is never appended twice.
-                            if payload.tool_id != "TYPE_TEXT" || payload.allow_sensitive_target {
+                        DropdownSelectionProbe::FallbackKeyboard => {
+                            let base = input.ledger_snapshot().await.last_sequence;
+                            let sequence = |offset: u64| {
+                                base.checked_add(offset)
+                                    .ok_or_else(|| anyhow::anyhow!("input sequence overflow"))
+                            };
+                            let fallback_result: anyhow::Result<()> = async {
+                                input
+                                    .mouse_move(
+                                        center_x.round() as i32,
+                                        center_y.round() as i32,
+                                        sequence(1)?,
+                                    )
+                                    .await?;
+                                input.mouse_click(0, 1, sequence(2)?).await?;
                                 input.key_down(InputKey::Control, sequence(4)?).await?;
                                 input
                                     .key_down(InputKey::Character("a".to_owned()), sequence(5)?)
@@ -4978,32 +5047,112 @@ impl NodeControlService {
                                     .key_up(InputKey::Character("a".to_owned()), sequence(6)?)
                                     .await?;
                                 input.key_up(InputKey::Control, sequence(7)?).await?;
-                            }
-                            input.insert_text(&payload.text, sequence(8)?).await?;
-                            if payload.tool_id == "SELECT_OPTION" {
+                                input.insert_text(&payload.text, sequence(8)?).await?;
                                 input.key_down(InputKey::Enter, sequence(9)?).await?;
                                 input.key_up(InputKey::Enter, sequence(10)?).await?;
+                                Ok(())
                             }
-                        }
-                        Ok(())
-                    }
-                    .await;
-                    match result {
-                        Ok(()) => {
-                            last_error = None;
-                            break;
-                        }
-                        Err(error) => {
-                            let _ = input.release_all().await;
-                            last_error = Some(error);
-                            if attempt + 1 < maximum_attempts {
-                                tokio::time::sleep(Duration::from_millis(150)).await;
+                            .await;
+                            if let Err(error) = fallback_result {
+                                let _ = input.release_all().await;
+                                return Err(error);
                             }
                         }
                     }
-                }
-                if let Some(error) = last_error {
-                    return Err(error);
+                } else {
+                    let maximum_attempts =
+                        if matches!(payload.tool_id.as_str(), "TYPE_TEXT" | "FILL") {
+                            if payload.maximum_attempts == 0 {
+                                1
+                            } else {
+                                payload.maximum_attempts
+                            }
+                        } else {
+                            1
+                        };
+                    let mut last_error = None;
+                    for attempt in 0..maximum_attempts {
+                        let base = input.ledger_snapshot().await.last_sequence;
+                        let sequence = |offset: u64| {
+                            base.checked_add(offset)
+                                .ok_or_else(|| anyhow::anyhow!("input sequence overflow"))
+                        };
+                        let result: anyhow::Result<()> = async {
+                            input
+                                .mouse_move(
+                                    center_x.round() as i32,
+                                    center_y.round() as i32,
+                                    sequence(1)?,
+                                )
+                                .await?;
+                            match payload.tool_id.as_str() {
+                                "HOVER_TARGET" => {}
+                                "DOUBLE_CLICK_TARGET" => {
+                                    input.mouse_click(0, 2, sequence(2)?).await?;
+                                }
+                                "RIGHT_CLICK_TARGET" => {
+                                    input.mouse_click(2, 1, sequence(2)?).await?;
+                                }
+                                "CHECK_TARGET" if target.checked == Some(true) => {}
+                                "UNCHECK_TARGET" if target.checked == Some(false) => {}
+                                _ => {
+                                    input.mouse_click(0, 1, sequence(2)?).await?;
+                                }
+                            }
+                            if payload.tool_id == "CLEAR_TARGET" {
+                                input.key_down(InputKey::Control, sequence(3)?).await?;
+                                input
+                                    .key_down(InputKey::Character("a".to_owned()), sequence(4)?)
+                                    .await?;
+                                input
+                                    .key_up(InputKey::Character("a".to_owned()), sequence(5)?)
+                                    .await?;
+                                input.key_up(InputKey::Control, sequence(6)?).await?;
+                                input.key_down(InputKey::Backspace, sequence(7)?).await?;
+                                input.key_up(InputKey::Backspace, sequence(8)?).await?;
+                            } else if matches!(
+                                payload.tool_id.as_str(),
+                                "TYPE_TEXT" | "FILL" | "PASTE_AGENT_CLIPBOARD" | "SELECT_OPTION"
+                            ) {
+                                // FILL and Clipboard paste replace the field. Sensitive TYPE_TEXT also
+                                // replaces on every retry so a password or OTP is never appended twice.
+                                if payload.tool_id != "TYPE_TEXT" || payload.allow_sensitive_target
+                                {
+                                    input.key_down(InputKey::Control, sequence(4)?).await?;
+                                    input
+                                        .key_down(InputKey::Character("a".to_owned()), sequence(5)?)
+                                        .await?;
+                                    input
+                                        .key_up(InputKey::Character("a".to_owned()), sequence(6)?)
+                                        .await?;
+                                    input.key_up(InputKey::Control, sequence(7)?).await?;
+                                }
+                                input.insert_text(&payload.text, sequence(8)?).await?;
+                                if payload.tool_id == "SELECT_OPTION" {
+                                    input.key_down(InputKey::Enter, sequence(9)?).await?;
+                                    input.key_up(InputKey::Enter, sequence(10)?).await?;
+                                }
+                            }
+                            Ok(())
+                        }
+                        .await;
+                        match result {
+                            Ok(()) => {
+                                last_error = None;
+                                break;
+                            }
+                            Err(error) => {
+                                let _ = input.release_all().await;
+                                last_error = Some(error);
+                                if attempt + 1 < maximum_attempts {
+                                    tokio::time::sleep(Duration::from_millis(150)).await;
+                                }
+                            }
+                        }
+                    }
+                    if let Some(error) = last_error {
+                        return Err(error);
+                    }
                 }
             }
             "PRESS_KEY" | "DRAG_TARGET" | "DROP_TARGET" | "SWIPE_TARGET" | "MOUSE_MOVE"
@@ -5021,7 +5170,7 @@ impl NodeControlService {
                     target
                 } else {
                     self.state_collector
-                        .resolve_target(
+                        .resolve_target_for_action(
                             &payload.session_id,
                             &payload.target_ref,
                             payload.target_revision,
@@ -5154,7 +5303,7 @@ impl NodeControlService {
                                 target
                             } else {
                                 self.state_collector
-                                    .resolve_target(
+                                    .resolve_target_for_action(
                                         &payload.session_id,
                                         &payload.end_target_ref,
                                         payload.target_revision,

@@ -167,7 +167,7 @@ async def browser_find(environment_id: str, query: str,
                        roles: list[str] | None = None,
                        include_hidden: bool = False,
                        limit: int = 20) -> dict:
-    """Search actionable elements on the current page by semantic name, text value, role, control type, or stable elementId without transferring the full snapshot. Returns matching targets and the current stateCursor. Requires direct permission."""
+    """Search actionable elements on the current page (including below-the-fold OUTSIDE_VIEWPORT elements, which auto-scroll into view when acted upon) by semantic name, text value, select option labels, role, control type, or stable elementId without transferring the full snapshot. Returns matching targets and the current stateCursor. Requires direct permission."""
     cleaned = query.strip()
     if not cleaned or len(cleaned) > 256:
         raise ValueError("FIND_QUERY_INVALID")
@@ -196,14 +196,18 @@ async def browser_inspect(environment_id: str, state_cursor: str,
 async def browser_act(environment_id: str, goal: str, state_cursor: str,
                       actions: list[dict[str, Any]], idempotency_key: str) -> dict:
     """Run 1–20 direct browser actions. Use elementId and targetRevision from browser_snapshot or browser_find.
+    Offscreen elements (OUTSIDE_VIEWPORT) are automatically scrolled into view before acting.
     Supported primitives: CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET,
-    CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT/FILL/SELECT_OPTION (non-sensitive PUBLIC textbox/combobox
-    targets only; credentials/OTP/PII rejected), CLEAR_TARGET (non-sensitive textbox/combobox),
-    PRESS_KEY (key), DRAG_TARGET (either endTargetRef for element-to-element drag / same-element
-    long-press hold, OR deltaX/deltaY pixel offset for atomic mouse drags such as sliders, durationMs
-    <= 5000), SWIPE_TARGET (touch swipe deltaX/deltaY, durationMs), MOUSE_DOWN/MOUSE_MOVE/DROP_TARGET/
-    MOUSE_UP (30s think-safe drag window), MOUSE_WHEEL (deltaX, deltaY), SCROLL (scrollDeltaY),
-    WAIT_FOR (waitCondition, timeoutMs), OPEN_TAB (tabUrl), SWITCH_TAB (tabId), DISMISS_DIALOG (dialogId).
+    CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT/FILL/CLEAR_TARGET (any textbox/combobox including login
+    or password inputs when explicitly provided), SELECT_OPTION (works on both native <select> and
+    click-to-open custom dropdown triggers: combobox/listbox/button/generic — automatically clicks
+    to reveal hidden menu options and selects the matching option), PRESS_KEY (key),
+    DRAG_TARGET (either endTargetRef for element-to-element drag / same-element long-press hold, OR
+    deltaX/deltaY pixel offset for atomic mouse drags such as sliders, durationMs <= 5000),
+    SWIPE_TARGET (touch swipe deltaX/deltaY, durationMs), MOUSE_DOWN/MOUSE_MOVE/DROP_TARGET/MOUSE_UP
+    (30s think-safe drag window), MOUSE_WHEEL (deltaX, deltaY), SCROLL (scrollDeltaY),
+    WAIT_FOR (waitCondition, timeoutMs), OPEN_TAB (tabUrl), SWITCH_TAB (tabId), CLOSE_TAB (tabId),
+    ACCEPT_DIALOG (dialogId, optional value), DISMISS_DIALOG (dialogId).
     Prefer atomic DRAG_TARGET over split MOUSE_DOWN + DROP_TARGET so thinking never drops a drag.
     Wait for the returned task via browser_wait_action_task and refresh a stale cursor before retrying.
     Requires direct permission.

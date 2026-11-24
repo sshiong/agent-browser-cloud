@@ -666,6 +666,20 @@ pub struct ResolvedTarget {
     pub path: String,
 }
 
+/// Result of probing a dropdown target before executing `SELECT_OPTION`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DropdownSelectionProbe {
+    /// Native `<select>` matched the requested option and dispatched `input`/`change`.
+    NativeSelected,
+    /// Target is a native `<select>`, but no enabled `<option>` matched the requested value/label.
+    NativeOptionNotFound,
+    /// Target is a custom dropdown trigger (options may only render after clicking the trigger).
+    CustomDropdown { is_text_input: bool },
+    /// The CDP endpoint did not return a structured DOM probe (e.g., fixture stub); fall back to
+    /// keyboard selection.
+    FallbackKeyboard,
+}
+
 impl CdpStateCollector {
     pub fn new() -> Self {
         Self::default()
@@ -2112,9 +2126,10 @@ impl CdpStateCollector {
                 '[role="button"]', '[role="link"]', '[role="checkbox"]',
                 '[role="radio"]', '[role="textbox"]', '[role="combobox"]',
                 '[role="switch"]', '[role="slider"]', '[role="option"]',
-                '[role="menuitem"]', '[role="tab"]', '[role="alert"]',
-                '[role="status"]', '[role="dialog"]', '[role="alertdialog"]',
-                '[tabindex]'
+                '[role="menuitem"]', '[role="menuitemradio"]', '[role="menuitemcheckbox"]',
+                '[role="listbox"]', '[role="treeitem"]', '[role="tab"]',
+                '[role="alert"]', '[role="status"]', '[role="dialog"]', '[role="alertdialog"]',
+                '[aria-haspopup]', '[aria-expanded]', '[tabindex]'
               ].join(',');
               const accessibilityFor = (element) => {
                 try {
@@ -2145,31 +2160,53 @@ impl CdpStateCollector {
                 return 'generic';
               };
               const nameFor = (element) => {
-                const accessibility = accessibilityFor(element);
-                if (accessibility?.name) return String(accessibility.name).slice(0, 256);
-                const aria = element.getAttribute('aria-label');
-                if (aria) return aria.slice(0, 256);
-                const labelledBy = element.getAttribute('aria-labelledby');
-                if (labelledBy) {
-                  const labelled = labelledBy.split(/\s+/)
-                    .map((id) => element.ownerDocument.getElementById(id)?.textContent || '')
-                    .join(' ').trim();
-                  if (labelled) return labelled.slice(0, 256);
+                const baseName = () => {
+                  const accessibility = accessibilityFor(element);
+                  if (accessibility?.name) return String(accessibility.name).slice(0, 256);
+                  const aria = element.getAttribute('aria-label');
+                  if (aria) return aria.slice(0, 256);
+                  const labelledBy = element.getAttribute('aria-labelledby');
+                  if (labelledBy) {
+                    const labelled = labelledBy.split(/\s+/)
+                      .map((id) => element.ownerDocument.getElementById(id)?.textContent || '')
+                      .join(' ').trim();
+                    if (labelled) return labelled.slice(0, 256);
+                  }
+                  if (element.labels?.length) {
+                    const labelled = Array.from(element.labels)
+                      .map((label) => label.textContent || '').join(' ').trim();
+                    if (labelled) return labelled.slice(0, 256);
+                  }
+                  const type = (element.getAttribute('type') || '').toLowerCase();
+                  if (type === 'password') return null;
+                  if (['submit', 'button', 'reset'].includes(type)) {
+                    const label = String(element.value || '').trim();
+                    if (label) return label.slice(0, 256);
+                  }
+                  if (element.tagName === 'SELECT') {
+                    const fallback = element.getAttribute('title')
+                      || element.getAttribute('name')
+                      || element.getAttribute('id') || '';
+                    return fallback.trim().slice(0, 256) || null;
+                  }
+                  const text = element.innerText || element.getAttribute('alt')
+                    || element.getAttribute('title') || element.getAttribute('placeholder') || '';
+                  return text.trim().slice(0, 256) || null;
+                };
+                const base = baseName();
+                if (element.tagName === 'SELECT' && element.options?.length) {
+                  const labels = Array.from(element.options)
+                    .filter((opt) => !opt.disabled)
+                    .map((opt) => String(opt.textContent || opt.label || opt.value || '').trim())
+                    .filter(Boolean)
+                    .slice(0, 12);
+                  if (labels.length) {
+                    const summary = `[options: ${labels.join(' | ')}]`;
+                    const combined = base ? `${base} ${summary}` : summary;
+                    return combined.slice(0, 256);
+                  }
                 }
-                if (element.labels?.length) {
-                  const labelled = Array.from(element.labels)
-                    .map((label) => label.textContent || '').join(' ').trim();
-                  if (labelled) return labelled.slice(0, 256);
-                }
-                const type = (element.getAttribute('type') || '').toLowerCase();
-                if (type === 'password') return null;
-                if (['submit', 'button', 'reset'].includes(type)) {
-                  const label = String(element.value || '').trim();
-                  if (label) return label.slice(0, 256);
-                }
-                const text = element.innerText || element.getAttribute('alt')
-                  || element.getAttribute('title') || element.getAttribute('placeholder') || '';
-                return text.trim().slice(0, 256) || null;
+                return base;
               };
               const sensitiveFor = (element) => {
                 const type = (element.getAttribute('type') || '').toLowerCase();
@@ -2895,6 +2932,449 @@ impl CdpStateCollector {
             "target bounds are not actionable"
         );
         Ok(target)
+    }
+
+    /// Resolves a target for interactive execution. If the target is enabled and interactive but
+    /// currently outside the viewport (`OUTSIDE_VIEWPORT`, not hidden or occluded), smoothly
+    /// scrolls it into the center of the viewport, re-collects live geometry, and returns the
+    /// refreshed viewport coordinates.
+    pub async fn resolve_target_for_action(
+        &self,
+        session_id: &str,
+        target_ref: &str,
+        target_revision: u64,
+    ) -> anyhow::Result<ResolvedTarget> {
+        let offscreen_candidate: Option<(String, String)> = {
+            let registries = self.target_registries.lock().await;
+            let registry = registries
+                .get(session_id)
+                .ok_or_else(|| anyhow::anyhow!("target registry is unavailable"))?;
+            anyhow::ensure!(
+                registry.target_revision == target_revision,
+                "target revision is stale"
+            );
+            let entry = registry
+                .targets
+                .get(target_ref)
+                .or_else(|| {
+                    registry
+                        .targets
+                        .values()
+                        .find(|target| target.interactive.element_id == target_ref)
+                })
+                .filter(|target| target.interactive.interactive)
+                .ok_or_else(|| {
+                    anyhow::anyhow!("target reference is stale, unknown, or not actionable")
+                })?;
+            let resolved = entry.resolved.clone().ok_or_else(|| {
+                anyhow::anyhow!("target reference is stale, unknown, or not actionable")
+            })?;
+            anyhow::ensure!(resolved.enabled, "target is not enabled");
+            if resolved.visible && resolved.in_viewport && !resolved.occluded {
+                anyhow::ensure!(
+                    resolved.bounds.width > 0.0 && resolved.bounds.height > 0.0,
+                    "target bounds are not actionable"
+                );
+                return Ok(resolved);
+            }
+            if !resolved.in_viewport
+                && !resolved.occluded
+                && entry.interactive.visibility_reason.as_deref() == Some("OUTSIDE_VIEWPORT")
+                && resolved.bounds.width > 0.0
+                && resolved.bounds.height > 0.0
+            {
+                Some((resolved.path.clone(), resolved.element_id.clone()))
+            } else {
+                anyhow::ensure!(resolved.visible, "target is not visible");
+                anyhow::ensure!(resolved.in_viewport, "target is outside viewport");
+                anyhow::ensure!(!resolved.occluded, "target is occluded");
+                return Ok(resolved);
+            }
+        };
+
+        let (path, element_id) = offscreen_candidate.expect("offscreen candidate checked");
+        self.scroll_path_into_view(session_id, &path).await?;
+        tokio::time::sleep(Duration::from_millis(120)).await;
+        let fresh = self.collect_current_state(session_id).await?;
+        match self
+            .resolve_target(session_id, &element_id, fresh.target_revision)
+            .await
+        {
+            Ok(resolved) => Ok(resolved),
+            Err(first_error) if first_error.to_string().contains("occluded") => {
+                // Sticky headers occasionally overlap center-scrolled elements; nudge up once.
+                let _ = self.scroll(session_id, -120).await;
+                tokio::time::sleep(Duration::from_millis(80)).await;
+                let nudged = self.collect_current_state(session_id).await?;
+                self.resolve_target(session_id, &element_id, nudged.target_revision)
+                    .await
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    async fn scroll_path_into_view(&self, session_id: &str, path: &str) -> anyhow::Result<()> {
+        let websocket_url = self.active_page_websocket(session_id).await?;
+        let (mut socket, _) = timeout(
+            Duration::from_secs(3),
+            tokio_tungstenite::connect_async(websocket_url),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("CDP scroll-into-view connection timed out"))??;
+        let requested_path = serde_json::to_string(path)?;
+        let expression = r#"
+          (() => {
+            const expected = __EXPECTED_PATH__;
+            const pathFor = (element) => {
+              const parts = [];
+              let current = element;
+              while (current && current.nodeType === Node.ELEMENT_NODE && parts.length < 24) {
+                const tag = current.tagName.toLowerCase();
+                let index = 1;
+                let sibling = current.previousElementSibling;
+                while (sibling) {
+                  if (sibling.tagName === current.tagName) index += 1;
+                  sibling = sibling.previousElementSibling;
+                }
+                parts.unshift(`${tag}:nth-of-type(${index})`);
+                const parent = current.parentElement;
+                if (parent) current = parent;
+                else {
+                  const root = current.getRootNode?.();
+                  if (root instanceof ShadowRoot) {
+                    parts.unshift('>>shadow>>');
+                    current = root.host;
+                  } else current = null;
+                }
+              }
+              return parts.join('>');
+            };
+            let found = null;
+            const walk = (walkRoot, prefix = '') => {
+              const elements = walkRoot === document
+                ? Array.from(document.querySelectorAll('*'))
+                : Array.from(walkRoot.querySelectorAll?.('*') || []);
+              for (const element of elements) {
+                const candidate = `${prefix}${pathFor(element)}`;
+                if (candidate === expected) { found = element; return true; }
+                if (element.shadowRoot && walk(element.shadowRoot, `${candidate}>>>`)) return true;
+                if (element.tagName === 'IFRAME') {
+                  try {
+                    if (element.contentDocument?.documentElement
+                        && walk(element.contentDocument, `${candidate}::frame::`)) return true;
+                  } catch (_) {}
+                }
+              }
+              return false;
+            };
+            walk(document);
+            if (!found) return false;
+            found.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+            return true;
+          })()
+        "#
+        .replace("__EXPECTED_PATH__", &requested_path);
+        socket
+            .send(Message::Text(
+                serde_json::json!({
+                    "id": 511,
+                    "method": "Runtime.evaluate",
+                    "params": {
+                        "expression": expression,
+                        "returnByValue": true,
+                        "awaitPromise": false,
+                        "userGesture": true
+                    }
+                })
+                .to_string(),
+            ))
+            .await?;
+        let evaluated = next_cdp_response(&mut socket, 511, "scroll target into view").await?;
+        let scrolled = evaluated
+            .pointer("/result/result/value")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false);
+        anyhow::ensure!(scrolled, "target disappeared before scrolling into view");
+        Ok(())
+    }
+
+    /// Probes the resolved target for `SELECT_OPTION`:
+    /// - If it is a native `<select>`, matches the option by `value` or label text, sets it, and
+    ///   dispatches `input` and `change` events directly.
+    /// - If it is a custom dropdown trigger (options hidden until clicked), reports
+    ///   `CustomDropdown { is_text_input }` so the caller clicks to open it and clicks the newly
+    ///   rendered visible option.
+    pub async fn select_option_probe(
+        &self,
+        session_id: &str,
+        target_path: &str,
+        option_query: &str,
+    ) -> anyhow::Result<DropdownSelectionProbe> {
+        let websocket_url = self.active_page_websocket(session_id).await?;
+        let (mut socket, _) = timeout(
+            Duration::from_secs(3),
+            tokio_tungstenite::connect_async(websocket_url),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("CDP select probe connection timed out"))??;
+        let requested_path = serde_json::to_string(target_path)?;
+        let requested_query = serde_json::to_string(option_query)?;
+        let expression = r#"
+          (() => {
+            const expected = __EXPECTED_PATH__;
+            const query = String(__QUERY__ || '').trim();
+            const lowerQuery = query.toLowerCase();
+            const pathFor = (element) => {
+              const parts = [];
+              let current = element;
+              while (current && current.nodeType === Node.ELEMENT_NODE && parts.length < 24) {
+                const tag = current.tagName.toLowerCase();
+                let index = 1;
+                let sibling = current.previousElementSibling;
+                while (sibling) {
+                  if (sibling.tagName === current.tagName) index += 1;
+                  sibling = sibling.previousElementSibling;
+                }
+                parts.unshift(`${tag}:nth-of-type(${index})`);
+                const parent = current.parentElement;
+                if (parent) current = parent;
+                else {
+                  const root = current.getRootNode?.();
+                  if (root instanceof ShadowRoot) {
+                    parts.unshift('>>shadow>>');
+                    current = root.host;
+                  } else current = null;
+                }
+              }
+              return parts.join('>');
+            };
+            let found = null;
+            const walk = (walkRoot, prefix = '') => {
+              const elements = walkRoot === document
+                ? Array.from(document.querySelectorAll('*'))
+                : Array.from(walkRoot.querySelectorAll?.('*') || []);
+              for (const element of elements) {
+                const candidate = `${prefix}${pathFor(element)}`;
+                if (candidate === expected) { found = element; return true; }
+                if (element.shadowRoot && walk(element.shadowRoot, `${candidate}>>>`)) return true;
+                if (element.tagName === 'IFRAME') {
+                  try {
+                    if (element.contentDocument?.documentElement
+                        && walk(element.contentDocument, `${candidate}::frame::`)) return true;
+                  } catch (_) {}
+                }
+              }
+              return false;
+            };
+            walk(document);
+            if (!found) return { status: 'NOT_FOUND' };
+            if (found.tagName === 'SELECT') {
+              const options = Array.from(found.options || []).filter((o) => !o.disabled);
+              const pick =
+                options.find((o) => o.value === query) ||
+                options.find((o) => (o.textContent || '').trim() === query || (o.label || '').trim() === query) ||
+                options.find((o) => (o.value || '').trim().toLowerCase() === lowerQuery
+                  || (o.textContent || '').trim().toLowerCase() === lowerQuery
+                  || (o.label || '').trim().toLowerCase() === lowerQuery) ||
+                (() => {
+                  const partials = options.filter((o) =>
+                    (o.textContent || '').trim().toLowerCase().includes(lowerQuery)
+                    || (o.label || '').trim().toLowerCase().includes(lowerQuery));
+                  return partials.length === 1 ? partials[0] : null;
+                })();
+              if (!pick) return { status: 'NATIVE_OPTION_NOT_FOUND' };
+              found.focus?.();
+              found.value = pick.value;
+              pick.selected = true;
+              found.dispatchEvent(new Event('input', { bubbles: true }));
+              found.dispatchEvent(new Event('change', { bubbles: true }));
+              return { status: 'NATIVE_SELECTED' };
+            }
+            const tag = found.tagName;
+            const isTextInput = tag === 'INPUT' || tag === 'TEXTAREA' || !!found.isContentEditable
+              || !!found.querySelector?.('input:not([type="hidden"]):not([disabled])');
+            return { status: 'CUSTOM_DROPDOWN', isTextInput };
+          })()
+        "#
+        .replace("__EXPECTED_PATH__", &requested_path)
+        .replace("__QUERY__", &requested_query);
+        socket
+            .send(Message::Text(
+                serde_json::json!({
+                    "id": 512,
+                    "method": "Runtime.evaluate",
+                    "params": {
+                        "expression": expression,
+                        "returnByValue": true,
+                        "awaitPromise": false,
+                        "userGesture": true
+                    }
+                })
+                .to_string(),
+            ))
+            .await?;
+        let evaluated = match next_cdp_response(&mut socket, 512, "select option probe").await {
+            Ok(value) => value,
+            Err(_) => return Ok(DropdownSelectionProbe::FallbackKeyboard),
+        };
+        let value = evaluated.pointer("/result/result/value");
+        let status = value
+            .and_then(|v| v.get("status"))
+            .and_then(serde_json::Value::as_str);
+        match status {
+            Some("NATIVE_SELECTED") => Ok(DropdownSelectionProbe::NativeSelected),
+            Some("NATIVE_OPTION_NOT_FOUND") => Ok(DropdownSelectionProbe::NativeOptionNotFound),
+            Some("CUSTOM_DROPDOWN") => {
+                let is_text_input = value
+                    .and_then(|v| v.get("isTextInput"))
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false);
+                Ok(DropdownSelectionProbe::CustomDropdown { is_text_input })
+            }
+            Some("NOT_FOUND") => anyhow::bail!("dropdown target disappeared before selection"),
+            _ => Ok(DropdownSelectionProbe::FallbackKeyboard),
+        }
+    }
+
+    /// Scans the active page (including open shadow roots and same-origin iframes) for a visible
+    /// dropdown option matching `option_query` after a custom dropdown trigger has been clicked.
+    /// Scrolls the matched option into view if it sits inside a scrollable popup list, and returns
+    /// its live viewport center coordinates.
+    pub async fn find_visible_dropdown_option(
+        &self,
+        session_id: &str,
+        option_query: &str,
+    ) -> anyhow::Result<Option<(i32, i32)>> {
+        let websocket_url = self.active_page_websocket(session_id).await?;
+        let (mut socket, _) = timeout(
+            Duration::from_secs(3),
+            tokio_tungstenite::connect_async(websocket_url),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("CDP dropdown option lookup timed out"))??;
+        let requested_query = serde_json::to_string(option_query)?;
+        let expression = r#"
+          (() => {
+            const query = String(__QUERY__ || '').trim();
+            const lowerQuery = query.toLowerCase();
+            if (!query) return null;
+            const optionSelector = [
+              '[role="option"]', '[role="menuitem"]', '[role="menuitemradio"]',
+              '[role="menuitemcheckbox"]', '[role="treeitem"]',
+              '[role="listbox"] li', '[role="menu"] li',
+              '.ant-select-item-option', '.el-select-dropdown__item',
+              '.MuiMenuItem-root', '[data-radix-collection-item]', '[data-value]'
+            ].join(',');
+            const isHidden = (el) => {
+              let cur = el;
+              while (cur && cur.nodeType === Node.ELEMENT_NODE) {
+                const st = cur.ownerDocument.defaultView.getComputedStyle(cur);
+                if (cur.hidden || cur.getAttribute('aria-hidden') === 'true'
+                    || st.display === 'none' || st.visibility === 'hidden'
+                    || st.visibility === 'collapse' || Number.parseFloat(st.opacity || '1') <= 0.01
+                    || st.pointerEvents === 'none') {
+                  return true;
+                }
+                cur = cur.parentElement || cur.getRootNode?.()?.host || null;
+              }
+              return false;
+            };
+            const candidates = [];
+            const walk = (walkRoot, offsetX = 0, offsetY = 0) => {
+              const all = Array.from(walkRoot.querySelectorAll?.(optionSelector) || []);
+              for (const el of all) {
+                if (el.disabled || el.getAttribute('aria-disabled') === 'true') continue;
+                if (isHidden(el)) continue;
+                const rect = el.getBoundingClientRect();
+                if (rect.width <= 0 || rect.height <= 0) continue;
+                const text = String(el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+                const dataVal = String(el.getAttribute('data-value') || el.getAttribute('value') || '').trim();
+                let score = 0;
+                if (dataVal === query || text === query) score = 3;
+                else if (dataVal.toLowerCase() === lowerQuery || text.toLowerCase() === lowerQuery) score = 2;
+                else if (text.toLowerCase().includes(lowerQuery)) score = 1;
+                if (score > 0) {
+                  candidates.push({ el, score, textLen: text.length || 9999, offsetX, offsetY });
+                }
+              }
+              const containers = walkRoot === document
+                ? Array.from(document.querySelectorAll('*'))
+                : Array.from(walkRoot.querySelectorAll?.('*') || []);
+              for (const node of containers) {
+                if (node.shadowRoot) walk(node.shadowRoot, offsetX, offsetY);
+                if (node.tagName === 'IFRAME') {
+                  try {
+                    if (node.contentDocument?.documentElement) {
+                      const fr = node.getBoundingClientRect();
+                      walk(node.contentDocument, offsetX + fr.x, offsetY + fr.y);
+                    }
+                  } catch (_) {}
+                }
+              }
+            };
+            walk(document);
+            if (!candidates.length) return null;
+            candidates.sort((a, b) => (b.score - a.score) || (a.textLen - b.textLen));
+            for (const candidate of candidates) {
+              const el = candidate.el;
+              let rect = el.getBoundingClientRect();
+              const gx = rect.x + candidate.offsetX;
+              const gy = rect.y + candidate.offsetY;
+              const inVp = gx + rect.width > 0 && gy + rect.height > 0
+                && gx < window.innerWidth && gy < window.innerHeight;
+              if (!inVp) {
+                el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+                rect = el.getBoundingClientRect();
+              }
+              const cx = rect.x + rect.width / 2;
+              const cy = rect.y + rect.height / 2;
+              const docView = el.ownerDocument.defaultView;
+              if (cx < 0 || cy < 0 || cx >= docView.innerWidth || cy >= docView.innerHeight) continue;
+              const hit = el.ownerDocument.elementFromPoint(cx, cy);
+              if (hit && hit !== el && !el.contains(hit) && !hit.contains(el)) continue;
+              return {
+                x: Math.round(cx + candidate.offsetX),
+                y: Math.round(cy + candidate.offsetY)
+              };
+            }
+            return null;
+          })()
+        "#
+        .replace("__QUERY__", &requested_query);
+        socket
+            .send(Message::Text(
+                serde_json::json!({
+                    "id": 513,
+                    "method": "Runtime.evaluate",
+                    "params": {
+                        "expression": expression,
+                        "returnByValue": true,
+                        "awaitPromise": false,
+                        "userGesture": true
+                    }
+                })
+                .to_string(),
+            ))
+            .await?;
+        let evaluated = match next_cdp_response(&mut socket, 513, "find dropdown option").await {
+            Ok(value) => value,
+            Err(_) => return Ok(None),
+        };
+        let value = evaluated.pointer("/result/result/value");
+        let x = value
+            .and_then(|v| v.get("x"))
+            .and_then(serde_json::Value::as_i64);
+        let y = value
+            .and_then(|v| v.get("y"))
+            .and_then(serde_json::Value::as_i64);
+        match (x, y) {
+            (Some(x), Some(y))
+                if x >= 0 && y >= 0 && x <= i32::MAX as i64 && y <= i32::MAX as i64 =>
+            {
+                Ok(Some((x as i32, y as i32)))
+            }
+            _ => Ok(None),
+        }
     }
 
     /// Sets a Session-staged file on the exact structured `<input type=file>` target through CDP.

@@ -93,7 +93,7 @@ class AgentBrowserActionApplicationServiceTest {
     var task = mock(AgentTaskView.class);
     when(task.taskId()).thenReturn("agt_1234567890abcdef");
     when(task.state()).thenReturn(TaskState.PLANNED);
-    when(tasks.create(anyString(), anyString(), any(), eq("direct:create"))).thenReturn(task);
+    when(tasks.createDirect(anyString(), anyString(), any(), eq("direct:create"))).thenReturn(task);
     var request = request("9:2:" + "a".repeat(64));
     var direct =
         new ExecuteActionsRequest(
@@ -126,7 +126,7 @@ class AgentBrowserActionApplicationServiceTest {
     var task = mock(AgentTaskView.class);
     when(task.taskId()).thenReturn("agt_1234567890abcdef");
     when(task.state()).thenReturn(TaskState.PLANNED);
-    when(tasks.create(anyString(), anyString(), any(), eq("direct:create"))).thenReturn(task);
+    when(tasks.createDirect(anyString(), anyString(), any(), eq("direct:create"))).thenReturn(task);
     doThrow(
             new AgentBrowserActionApplicationService.AgentBrowserActionRejectedException(
                 "DIRECT_EXECUTION_REQUIRES_MANAGED_REVIEW"))
@@ -160,7 +160,7 @@ class AgentBrowserActionApplicationServiceTest {
     when(task.state()).thenReturn(TaskState.PLANNED);
     when(task.taskId()).thenReturn("agt_1234567890abcdef");
     var create = ArgumentCaptor.forClass(CreateAgentTaskRequest.class);
-    when(tasks.create(anyString(), anyString(), create.capture(), eq("navigate:create")))
+    when(tasks.createDirect(anyString(), anyString(), create.capture(), eq("navigate:create")))
         .thenReturn(task);
 
     service.act(
@@ -367,7 +367,7 @@ class AgentBrowserActionApplicationServiceTest {
   }
 
   @Test
-  void directPublicTextFillAndSelectAllowNonSensitiveTargetsAndRejectSensitiveOrCredentialInput() {
+  void directModeAllowsPasswordOffscreenAndCustomDropdownWhileRejectingHiddenOrSecretRefs() {
     var cursor = "9:2:" + "a".repeat(64);
     var publicTextbox =
         new BrowserStateView.InteractiveTargetView(
@@ -409,6 +409,46 @@ class AgentBrowserActionApplicationServiceTest {
             true,
             false,
             null);
+    var offscreenDropdown =
+        new BrowserStateView.InteractiveTargetView(
+            "target:2:country",
+            "e_country",
+            "button",
+            "Country",
+            "",
+            "button",
+            new BrowserStateView.BoundsView(10, 1400, 200, 36),
+            true,
+            false,
+            false,
+            false,
+            null,
+            null,
+            true,
+            "main",
+            false,
+            false,
+            "OUTSIDE_VIEWPORT");
+    var hiddenTextbox =
+        new BrowserStateView.InteractiveTargetView(
+            "target:2:hidden",
+            "e_hidden",
+            "textbox",
+            "Hidden",
+            "",
+            "text",
+            new BrowserStateView.BoundsView(10, 100, 200, 32),
+            true,
+            false,
+            false,
+            false,
+            null,
+            null,
+            true,
+            "main",
+            true,
+            false,
+            "DISPLAY_NONE");
     var state =
         new BrowserStateView(
             "ses_1234567890abcdef",
@@ -422,7 +462,7 @@ class AgentBrowserActionApplicationServiceTest {
             "complete",
             500,
             true,
-            List.of(publicTextbox, passwordTextbox),
+            List.of(publicTextbox, passwordTextbox, offscreenDropdown, hiddenTextbox),
             List.of(
                 new BrowserStateView.BrowserTabView(
                     "tab-search", "https://example.com/search", "Search", true)),
@@ -432,14 +472,14 @@ class AgentBrowserActionApplicationServiceTest {
     var task = mock(AgentTaskView.class);
     when(task.taskId()).thenReturn("agt_1234567890abcdef");
     when(task.state()).thenReturn(TaskState.PLANNED);
-    when(tasks.create(anyString(), anyString(), any(), eq("direct-fill:create"))).thenReturn(task);
+    when(tasks.createDirect(anyString(), anyString(), any(), anyString())).thenReturn(task);
 
     service.act(
         "ses_1234567890abcdef",
         "tenant-test",
         "direct-fill",
         new ExecuteActionsRequest(
-            "Search for browser automation",
+            "Fill search, password, and select country from offscreen dropdown",
             cursor,
             List.of(
                 new CreateAgentTaskRequest.BatchActionRequest(
@@ -447,6 +487,26 @@ class AgentBrowserActionApplicationServiceTest {
                     "e_search",
                     2L,
                     "browser automation",
+                    null,
+                    io.browsercloud.domain.agent.AgentModels.ActionDataClass.PUBLIC,
+                    null,
+                    null,
+                    null),
+                new CreateAgentTaskRequest.BatchActionRequest(
+                    ToolId.FILL,
+                    "e_password",
+                    2L,
+                    "my-agent-password-123",
+                    null,
+                    io.browsercloud.domain.agent.AgentModels.ActionDataClass.CREDENTIAL,
+                    null,
+                    null,
+                    null),
+                new CreateAgentTaskRequest.BatchActionRequest(
+                    ToolId.SELECT_OPTION,
+                    "e_country",
+                    2L,
+                    "Singapore",
                     null,
                     io.browsercloud.domain.agent.AgentModels.ActionDataClass.PUBLIC,
                     null,
@@ -461,64 +521,16 @@ class AgentBrowserActionApplicationServiceTest {
                 service.act(
                     "ses_1234567890abcdef",
                     "tenant-test",
-                    "direct-sensitive",
+                    "direct-hidden",
                     new ExecuteActionsRequest(
-                        "Fill password",
+                        "Fill hidden input",
                         cursor,
                         List.of(
                             new CreateAgentTaskRequest.BatchActionRequest(
                                 ToolId.FILL,
-                                "e_password",
+                                "e_hidden",
                                 2L,
-                                "not-allowed",
-                                null,
-                                io.browsercloud.domain.agent.AgentModels.ActionDataClass.PUBLIC,
-                                null,
-                                null,
-                                null)),
-                        true,
-                        ExecutionMode.DIRECT)))
-        .hasMessage("DIRECT_EXECUTION_REQUIRES_MANAGED_REVIEW");
-
-    assertThatThrownBy(
-            () ->
-                service.act(
-                    "ses_1234567890abcdef",
-                    "tenant-test",
-                    "direct-pii",
-                    new ExecuteActionsRequest(
-                        "Fill PII",
-                        cursor,
-                        List.of(
-                            new CreateAgentTaskRequest.BatchActionRequest(
-                                ToolId.FILL,
-                                "e_search",
-                                2L,
-                                "john@example.com",
-                                null,
-                                io.browsercloud.domain.agent.AgentModels.ActionDataClass.PII,
-                                null,
-                                null,
-                                null)),
-                        true,
-                        ExecutionMode.DIRECT)))
-        .hasMessage("DIRECT_EXECUTION_REQUIRES_MANAGED_REVIEW");
-
-    assertThatThrownBy(
-            () ->
-                service.act(
-                    "ses_1234567890abcdef",
-                    "tenant-test",
-                    "direct-cred",
-                    new ExecuteActionsRequest(
-                        "Fill token",
-                        cursor,
-                        List.of(
-                            new CreateAgentTaskRequest.BatchActionRequest(
-                                ToolId.FILL,
-                                "e_search",
-                                2L,
-                                "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.sig",
+                                "cannot-type-into-display-none",
                                 null,
                                 io.browsercloud.domain.agent.AgentModels.ActionDataClass.PUBLIC,
                                 null,
@@ -554,7 +566,7 @@ class AgentBrowserActionApplicationServiceTest {
     when(task.taskId()).thenReturn("agt_1234567890abcdef");
     when(task.state()).thenReturn(TaskState.PLANNED);
     var create = ArgumentCaptor.forClass(CreateAgentTaskRequest.class);
-    when(tasks.create(anyString(), anyString(), create.capture(), eq("open-tab:create")))
+    when(tasks.createDirect(anyString(), anyString(), create.capture(), eq("open-tab:create")))
         .thenReturn(task);
 
     service.act(

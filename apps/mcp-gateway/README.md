@@ -30,19 +30,22 @@ Profile。过渡和未知状态保留运行名额；只有控制面权威终态�
    （按精确游标读取指定元素）减少 Token 消耗。
 2. 首次打开网页时，用 `browser_navigate` 提交目标 HTTP(S) URL，并用
    `browser_wait_action_task` 等待完成。
-3. 读取新快照或搜索目标，用 `browser_act` 提交直连动作。每个目标动作使用
-   `elementId` 作为 `targetRef`，并传入 `targetRevision`。支持点击/双击/右键/悬停、
-   勾选/取消勾选、非敏感公共文本输入/填充/清空/下拉选择（`TYPE_TEXT`/`FILL`/
-   `CLEAR_TARGET`/`SELECT_OPTION`，凭据/OTP/PII/敏感输入框仍拒绝）、按键（`PRESS_KEY`）、
-   原子鼠标拖动（`DRAG_TARGET`：可传终点 `endTargetRef`，同起点终点即原位长按，也可传
-   `deltaX`/`deltaY` 像素偏移以原子拖动滑块，避免多轮思考导致松开失败，最长 5000ms）、
-   触控滑动（`SWIPE_TARGET`）、滚轮（`MOUSE_WHEEL`）、滚动（`SCROLL`）、等待（`WAIT_FOR`）、
-   新建/切换标签页（`OPEN_TAB`/`SWITCH_TAB`）与关闭原生弹窗（`DISMISS_DIALOG`）。
+3. 读取新快照或搜索目标（`browser_find` 默认也包含屏幕下方的 `OUTSIDE_VIEWPORT` 目标），
+   用 `browser_act` 提交直连动作。每个目标动作使用 `elementId` 作为 `targetRef`，并传入
+   `targetRevision`。屏幕外的元素在执行前会自动滚动进视口再操作。支持点击/双击/右键/悬停、
+   勾选/取消勾选、文本输入/填充/清空（`TYPE_TEXT`/`FILL`/`CLEAR_TARGET`，直连模式允许直接
+   输入登录账号与密码，值在控制面以 AES-GCM 密文封存派发，宿主机隔离边界不变）、下拉选择
+   （`SELECT_OPTION`，自动支持原生 `<select>` 与点击后才显示选项的自定义下拉框，如
+   `combobox`/`listbox`/`button`/`generic`）、按键（`PRESS_KEY`）、原子鼠标拖动
+   （`DRAG_TARGET`：可传终点 `endTargetRef`，同起点终点即原位长按，也可传 `deltaX`/`deltaY`
+   像素偏移以原子拖动滑块，避免多轮思考导致松开失败，最长 5000ms）、触控滑动（`SWIPE_TARGET`）、
+   滚轮（`MOUSE_WHEEL`）、滚动（`SCROLL`）、等待（`WAIT_FOR`）、新建/切换/关闭标签页
+   （`OPEN_TAB`/`SWITCH_TAB`/`CLOSE_TAB`）与接受/关闭原生弹窗（`ACCEPT_DIALOG`/`DISMISS_DIALOG`）。
 4. 用 `browser_wait_action_task`（有界等待 1—25 秒）或 `browser_get_action_task` 检查任务
    和动作结果。等待超时不取消任务，继续查询原 `taskId`。页面变化时重新取快照。
 
-直连操作由外部 AI 决定下一步，控制面负责校验并直接派发。敏感输入和需要模型审核的
-动作返回明确拒绝，已有的人工确认与部署配置的结果验证继续生效。
+直连操作由外部 AI 决定下一步，控制面负责校验并直接派发（严格保持宿主机/沙箱/域名/租户隔离）；
+托管模式仍保留既有的 Reviewer 审核、人工确认与结果验证策略。
 
 关闭Gateway：`docker compose --profile mcp stop mcp-gateway`。不使用`down -v`，不会清理
 核心服务或环境。撤销单个连接立即拒绝其后续请求，无需停止Gateway。

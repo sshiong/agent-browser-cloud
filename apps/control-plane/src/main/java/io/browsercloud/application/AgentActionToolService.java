@@ -106,6 +106,20 @@ public class AgentActionToolService {
       PlanStep step,
       Instant now,
       RiskClass authoritativeTaskRisk) {
+    return authorizeAndQueue(
+        tenantId, session, operation, taskId, intentId, step, now, authoritativeTaskRisk, false);
+  }
+
+  public PendingAction authorizeAndQueue(
+      String tenantId,
+      SessionContext session,
+      ExclusiveOperation operation,
+      String taskId,
+      String intentId,
+      PlanStep step,
+      Instant now,
+      RiskClass authoritativeTaskRisk,
+      boolean directAuthorized) {
     if (!SUPPORTED.contains(step.toolId()) || step.input() == null) {
       throw new ActionToolException("ACTION_STEP_INVALID");
     }
@@ -142,7 +156,7 @@ public class AgentActionToolService {
             && mayRebindMainDocument(step, authoritativeTaskRisk, step.riskClass(), policy)
             && browserCapacity.nodeHasCapability(
                 session.nodeId(), "agentSingleTargetRebind", "main-document-element-v1");
-    validateInput(step, state, policy, planIdentityAdvance);
+    validateInput(step, state, policy, planIdentityAdvance, directAuthorized);
     var currentDomain = domainOf(state.url());
     var claims =
         capabilityTokens.verify(
@@ -294,18 +308,36 @@ public class AgentActionToolService {
     return target.elementId();
   }
 
-  private static void validateInput(
-      PlanStep step,
-      io.browsercloud.coordinator.NodeEvent.StateUpdated state,
-      AgentControlPolicyService.Policy policy) {
-    validateInput(step, state, policy, false);
+  private static boolean isActionableOrOffscreen(
+      io.browsercloud.coordinator.NodeEvent.InteractiveTarget target) {
+    if (target == null || !target.interactive() || !target.enabled() || target.bounds() == null) {
+      return false;
+    }
+    if (target.elementId() != null && target.occluded()) {
+      return false;
+    }
+    if (target.visible()) {
+      return target.elementId() == null || target.inViewport();
+    }
+    return target.elementId() != null
+        && !target.inViewport()
+        && "OUTSIDE_VIEWPORT".equals(target.visibilityReason());
   }
 
   private static void validateInput(
       PlanStep step,
       io.browsercloud.coordinator.NodeEvent.StateUpdated state,
       AgentControlPolicyService.Policy policy,
-      boolean planIdentityAdvance) {
+      boolean directAuthorized) {
+    validateInput(step, state, policy, false, directAuthorized);
+  }
+
+  private static void validateInput(
+      PlanStep step,
+      io.browsercloud.coordinator.NodeEvent.StateUpdated state,
+      AgentControlPolicyService.Policy policy,
+      boolean planIdentityAdvance,
+      boolean directAuthorized) {
     var input = step.input();
     switch (step.toolId()) {
       case CLICK_TARGET,
@@ -349,33 +381,34 @@ public class AgentActionToolService {
                             || input.targetRef().equals(candidate.elementId()))
                 .findFirst()
                 .orElseThrow(() -> new ActionToolException("TARGET_NOT_FOUND"));
-        if (!target.interactive()
-            || !target.visible()
-            || !target.enabled()
-            || target.bounds() == null
-            || (target.elementId() != null && (target.occluded() || !target.inViewport()))) {
+        if (!isActionableOrOffscreen(target)) {
           throw new ActionToolException("TARGET_NOT_ACTIONABLE");
         }
         if (isTextInput(step.toolId())) {
           var sensitiveData =
               input.dataClass() == ActionDataClass.CREDENTIAL
                   || input.dataClass() == ActionDataClass.OTP;
-          if (target.sensitive()
-              && (!policy.autonomous() || !input.allowSensitiveTarget() || !sensitiveData)) {
+          if (!directAuthorized) {
+            if (target.sensitive()
+                && (!policy.autonomous() || !input.allowSensitiveTarget() || !sensitiveData)) {
+              throw new ActionToolException("SENSITIVE_TARGET_FORBIDDEN");
+            }
+            if (input.allowSensitiveTarget()
+                && (!policy.autonomous()
+                    || !sensitiveData
+                    || input.maximumAttempts() < 1
+                    || input.maximumAttempts() > policy.sensitiveInputMaximumAttempts())) {
+              throw new ActionToolException("AUTONOMOUS_SENSITIVE_INPUT_POLICY_MISMATCH");
+            }
+          } else if (target.sensitive() && !input.allowSensitiveTarget()) {
             throw new ActionToolException("SENSITIVE_TARGET_FORBIDDEN");
           }
-          if (input.allowSensitiveTarget()
-              && (!policy.autonomous()
-                  || !sensitiveData
-                  || input.maximumAttempts() < 1
-                  || input.maximumAttempts() > policy.sensitiveInputMaximumAttempts())) {
-            throw new ActionToolException("AUTONOMOUS_SENSITIVE_INPUT_POLICY_MISMATCH");
-          }
-          if (!Set.of("textbox", "combobox").contains(target.role())) {
+          if (step.toolId() == ToolId.SELECT_OPTION) {
+            if (!Set.of("combobox", "listbox", "button", "generic").contains(target.role())) {
+              throw new ActionToolException("SELECT_TARGET_ROLE_INVALID");
+            }
+          } else if (!Set.of("textbox", "combobox").contains(target.role())) {
             throw new ActionToolException("TYPE_TARGET_ROLE_INVALID");
-          }
-          if (step.toolId() == ToolId.SELECT_OPTION && !"combobox".equals(target.role())) {
-            throw new ActionToolException("SELECT_TARGET_ROLE_INVALID");
           }
           if (input.sealedPayload() == null
               || input.sealedPayload().isBlank()
@@ -449,13 +482,13 @@ public class AgentActionToolService {
         }
       }
       case ACCEPT_DIALOG, DISMISS_DIALOG ->
-          validateDialogInput(step.toolId(), input, state, policy);
+          validateDialogInput(step.toolId(), input, state, policy, directAuthorized);
       case EXECUTE_ACTIONS -> {
         if (input.actions().isEmpty() || input.actions().size() > 20) {
           throw new ActionToolException("BATCH_ACTION_COUNT_INVALID");
         }
         for (var action : input.actions()) {
-          validateBatchAction(action, state, policy);
+          validateBatchAction(action, state, policy, directAuthorized);
         }
       }
       default -> throw new ActionToolException("ACTION_STEP_INVALID");
@@ -465,7 +498,8 @@ public class AgentActionToolService {
   private static void validateBatchAction(
       ActionInput input,
       io.browsercloud.coordinator.NodeEvent.StateUpdated state,
-      AgentControlPolicyService.Policy policy) {
+      AgentControlPolicyService.Policy policy,
+      boolean directAuthorized) {
     if (input.actionId() == null || !input.actionId().matches("^action_[1-9][0-9]?$")) {
       throw new ActionToolException("BATCH_ACTION_ID_INVALID");
     }
@@ -546,7 +580,7 @@ public class AgentActionToolService {
             "BATCH",
             "",
             "");
-    validateInput(step, state, policy);
+    validateInput(step, state, policy, directAuthorized);
   }
 
   private static String dataScope(PlanStep step) {
@@ -637,7 +671,8 @@ public class AgentActionToolService {
       ToolId toolId,
       StepInput input,
       io.browsercloud.coordinator.NodeEvent.StateUpdated state,
-      AgentControlPolicyService.Policy policy) {
+      AgentControlPolicyService.Policy policy,
+      boolean directAuthorized) {
     if (input.dialogId() == null
         || input.dialogId().isBlank()
         || input.targetRef() != null
@@ -674,6 +709,7 @@ public class AgentActionToolService {
           input.dataClass() == ActionDataClass.CREDENTIAL
               || input.dataClass() == ActionDataClass.OTP;
       if (sensitive
+          && !directAuthorized
           && (!policy.autonomous()
               || !input.allowSensitiveTarget()
               || input.maximumAttempts() != 1)) {
@@ -756,12 +792,7 @@ public class AgentActionToolService {
                           || input.endTargetRef().equals(candidate.elementId()))
               .findFirst()
               .orElseThrow(() -> new ActionToolException("DRAG_DESTINATION_NOT_FOUND"));
-      if (!destination.interactive()
-          || !destination.visible()
-          || !destination.enabled()
-          || destination.bounds() == null
-          || destination.occluded()
-          || !destination.inViewport()) {
+      if (!isActionableOrOffscreen(destination)) {
         throw new ActionToolException("DRAG_DESTINATION_NOT_ACTIONABLE");
       }
       return;

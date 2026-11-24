@@ -988,6 +988,7 @@ export interface InteractiveTargetView {
   interactive?: boolean;
   inViewport?: boolean;
   occluded?: boolean;
+  visibilityReason?: string | null;
   role: string;
   name?: string;
   bounds?: TargetBoundsView;

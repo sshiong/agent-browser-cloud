@@ -130,7 +130,12 @@ public class AgentBrowserPerceptionService {
     var limit = request.limit() == null ? 20 : request.limit();
     var matching =
         snapshot.state().targets().stream()
-            .filter(target -> request.includeHidden() || target.visible())
+            .filter(
+                target ->
+                    request.includeHidden()
+                        || target.visible()
+                        || (!target.occluded()
+                            && "OUTSIDE_VIEWPORT".equals(target.visibilityReason())))
             .filter(
                 target -> roles.isEmpty() || roles.contains(target.role().toLowerCase(Locale.ROOT)))
             .filter(target -> matches(target, query))

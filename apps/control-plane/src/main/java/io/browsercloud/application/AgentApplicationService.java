@@ -141,6 +141,21 @@ public class AgentApplicationService {
   @Transactional
   public AgentTaskView create(
       String sessionId, String tenantId, CreateAgentTaskRequest request, String idempotencyKey) {
+    return createInternal(sessionId, tenantId, request, idempotencyKey, false);
+  }
+
+  @Transactional
+  AgentTaskView createDirect(
+      String sessionId, String tenantId, CreateAgentTaskRequest request, String idempotencyKey) {
+    return createInternal(sessionId, tenantId, request, idempotencyKey, true);
+  }
+
+  private AgentTaskView createInternal(
+      String sessionId,
+      String tenantId,
+      CreateAgentTaskRequest request,
+      String idempotencyKey,
+      boolean directExecution) {
     var descriptor = sessionRepository.describe(sessionId);
     var session = descriptor.context();
     if (!session.tenantId().equals(tenantId)) {
@@ -158,7 +173,9 @@ public class AgentApplicationService {
     var controlPolicy = controlPolicyService.require(sessionId, tenantId);
     var evaluation =
         promptSecurityService.evaluate(
-            request.goal(), request.contextSources(), controlPolicy.mode());
+            request.goal(),
+            request.contextSources(),
+            directExecution ? AgentControlMode.AUTONOMOUS : controlPolicy.mode());
     var allowedDomains = normalizeDomains(request.allowedDomains());
     var expectedOutcomes =
         AgentExpectedOutcomePolicy.normalize(request.expectedOutcomes(), allowedDomains);
@@ -193,7 +210,8 @@ public class AgentApplicationService {
             request.actions(),
             agentPolicy,
             descriptor.humanTakeoverEnabled(),
-            controlPolicy);
+            controlPolicy,
+            directExecution);
     var authorizedDomain = resolveAuthorizedDomain(request.startUrl(), sessionId);
     var plan =
         blockReason.isBlank()
@@ -208,7 +226,8 @@ public class AgentApplicationService {
                 maxActions,
                 replanBudget,
                 expiresAt,
-                controlPolicy)
+                controlPolicy,
+                directExecution)
             : new AgentPlan(intentId, List.of(), maxActions, replanBudget, expiresAt);
     var securityEvents = new ArrayList<>(evaluation.securityEvents());
     if (!blockReason.isBlank()) {
@@ -316,7 +335,8 @@ public class AgentApplicationService {
       List<CreateAgentTaskRequest.ActionRequest> requestedActions,
       AgentPolicy agentPolicy,
       boolean humanTakeoverEnabled,
-      AgentControlPolicyService.Policy controlPolicy) {
+      AgentControlPolicyService.Policy controlPolicy,
+      boolean directExecution) {
     var actions =
         requestedActions == null
             ? List.<CreateAgentTaskRequest.ActionRequest>of()
@@ -375,7 +395,11 @@ public class AgentApplicationService {
       }
       var actionError =
           validateRequestedActions(
-              actions, snapshot.orElseThrow().state(), controlPolicy, allowedDomains);
+              actions,
+              snapshot.orElseThrow().state(),
+              controlPolicy,
+              allowedDomains,
+              directExecution);
       if (!actionError.isBlank()) {
         return actionError;
       }
@@ -387,11 +411,26 @@ public class AgentApplicationService {
     return "";
   }
 
+  private static boolean isActionableOrOffscreen(
+      io.browsercloud.coordinator.NodeEvent.InteractiveTarget target) {
+    return target != null
+        && target.enabled()
+        && target.bounds() != null
+        && !target.occluded()
+        && (target.visible()
+            || (!target.inViewport() && "OUTSIDE_VIEWPORT".equals(target.visibilityReason())));
+  }
+
+  private static boolean isSelectTargetRole(String role) {
+    return java.util.Set.of("combobox", "listbox", "button", "generic").contains(role);
+  }
+
   private String validateRequestedActions(
       List<CreateAgentTaskRequest.ActionRequest> actions,
       io.browsercloud.coordinator.NodeEvent.StateUpdated state,
       AgentControlPolicyService.Policy controlPolicy,
-      List<String> allowedDomains) {
+      List<String> allowedDomains,
+      boolean directExecution) {
     var handoffCount =
         actions.stream().filter(action -> action.toolId() == ToolId.REQUEST_HUMAN_TAKEOVER).count();
     if (handoffCount > 1
@@ -441,7 +480,7 @@ public class AgentApplicationService {
                               || action.targetRef().equals(candidate.elementId()))
                   .findFirst()
                   .orElse(null);
-          if (target == null || !target.visible() || !target.enabled() || target.bounds() == null) {
+          if (!isActionableOrOffscreen(target)) {
             return "TARGET_NOT_ACTIONABLE";
           }
           if (isTextInput(action.toolId())) {
@@ -459,14 +498,16 @@ public class AgentApplicationService {
               return "AUTONOMOUS_SENSITIVE_INPUT_REQUIRED";
             }
             if (target.sensitive()
+                && !directExecution
                 && (!controlPolicy.autonomous() || action.secretId() == null || !sensitiveData)) {
               return "SENSITIVE_TARGET_FORBIDDEN";
             }
-            if (!java.util.Set.of("textbox", "combobox").contains(target.role())) {
+            if (action.toolId() == ToolId.SELECT_OPTION) {
+              if (!isSelectTargetRole(target.role())) {
+                return "SELECT_TARGET_ROLE_INVALID";
+              }
+            } else if (!java.util.Set.of("textbox", "combobox").contains(target.role())) {
               return "TYPE_TARGET_ROLE_INVALID";
-            }
-            if (action.toolId() == ToolId.SELECT_OPTION && !"combobox".equals(target.role())) {
-              return "SELECT_TARGET_ROLE_INVALID";
             }
             if (action.toolId() == ToolId.SELECT_OPTION
                 && (action.value() == null || action.value().isBlank())
@@ -483,7 +524,8 @@ public class AgentApplicationService {
                 && action.secretId() == null) {
               return "TYPE_TEXT_VALUE_REQUIRED";
             }
-            if (isSecretInput(action.toolId())
+            if (!directExecution
+                && isSecretInput(action.toolId())
                 && action.value() != null
                 && AgentDataMinimizer.containsCredentialLikeValue(action.value())) {
               return "CREDENTIAL_VALUE_FORBIDDEN";
@@ -596,7 +638,8 @@ public class AgentApplicationService {
                 || (action.secretId() != null && (!controlPolicy.autonomous() || !sensitive))) {
               return "DIALOG_PROMPT_PAYLOAD_INVALID";
             }
-            if (action.value() != null
+            if (!directExecution
+                && action.value() != null
                 && AgentDataMinimizer.containsCredentialLikeValue(action.value())) {
               return "CREDENTIAL_VALUE_FORBIDDEN";
             }
@@ -685,7 +728,8 @@ public class AgentApplicationService {
             return "BATCH_ACTION_TOOL_FORBIDDEN";
           }
           var primitiveError =
-              validateRequestedActions(primitives, state, controlPolicy, allowedDomains);
+              validateRequestedActions(
+                  primitives, state, controlPolicy, allowedDomains, directExecution);
           if (!primitiveError.isBlank()) {
             return primitiveError;
           }
@@ -775,14 +819,7 @@ public class AgentApplicationService {
                           || action.endTargetRef().equals(target.elementId()))
               .findFirst()
               .orElse(null);
-      return destination == null
-              || !destination.visible()
-              || !destination.enabled()
-              || destination.bounds() == null
-              || destination.occluded()
-              || !destination.inViewport()
-          ? "DRAG_DESTINATION_NOT_ACTIONABLE"
-          : "";
+      return !isActionableOrOffscreen(destination) ? "DRAG_DESTINATION_NOT_ACTIONABLE" : "";
     }
     if (java.util.Set.of(ToolId.SWIPE_TARGET, ToolId.MOUSE_WHEEL).contains(toolId)) {
       var invalid =
@@ -855,7 +892,8 @@ public class AgentApplicationService {
       int maxActions,
       int replanBudget,
       Instant expiresAt,
-      AgentControlPolicyService.Policy controlPolicy) {
+      AgentControlPolicyService.Policy controlPolicy,
+      boolean directExecution) {
     var steps = new ArrayList<PlanStep>();
     var actions =
         requestedActions == null
@@ -906,7 +944,8 @@ public class AgentApplicationService {
               authorizedDomain,
               action,
               expiresAt,
-              controlPolicy));
+              controlPolicy,
+              directExecution));
     }
     var endsWithHandoff =
         !actions.isEmpty() && actions.getLast().toolId() == ToolId.REQUEST_HUMAN_TAKEOVER;
@@ -998,12 +1037,15 @@ public class AgentApplicationService {
       String allowedDomain,
       CreateAgentTaskRequest.ActionRequest request,
       Instant expiresAt,
-      AgentControlPolicyService.Policy controlPolicy) {
+      AgentControlPolicyService.Policy controlPolicy,
+      boolean directExecution) {
     var stepId = newId("step_");
     var input =
         request.toolId() == ToolId.EXECUTE_ACTIONS
-            ? batchInput(tenantId, sessionId, taskId, stepId, request, controlPolicy)
-            : singleActionInput(tenantId, sessionId, taskId, stepId, request, controlPolicy);
+            ? batchInput(
+                tenantId, sessionId, taskId, stepId, request, controlPolicy, directExecution)
+            : singleActionInput(
+                tenantId, sessionId, taskId, stepId, request, controlPolicy, directExecution);
     var risk =
         switch (request.toolId()) {
           case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, CLEAR_TARGET, SELECT_OPTION ->
@@ -1089,7 +1131,8 @@ public class AgentApplicationService {
       String taskId,
       String stepId,
       CreateAgentTaskRequest.ActionRequest request,
-      AgentControlPolicyService.Policy controlPolicy) {
+      AgentControlPolicyService.Policy controlPolicy,
+      boolean directExecution) {
     if (request.toolId() == ToolId.REQUEST_HUMAN_TAKEOVER) return null;
     // Capture the complete Node-issued entity identity in the persisted plan, before
     // materializing a one-time secret. A later authorization cannot reconstruct it
@@ -1126,6 +1169,21 @@ public class AgentApplicationService {
             : resolvedSecret == null ? request.value() : resolvedSecret.plaintext();
     var sensitiveInput =
         dataClass == ActionDataClass.CREDENTIAL || dataClass == ActionDataClass.OTP;
+    var resolvedTargetRef = targetRef;
+    var targetSensitive =
+        identityState != null
+            && resolvedTargetRef != null
+            && identityState.targets().stream()
+                .anyMatch(
+                    candidate ->
+                        (resolvedTargetRef.equals(candidate.targetRef())
+                                || resolvedTargetRef.equals(candidate.elementId()))
+                            && candidate.sensitive());
+    var allowSensitive =
+        (supportsSensitiveInput(request.toolId()) && sensitiveInput && controlPolicy.autonomous())
+            || (directExecution
+                && isTextInput(request.toolId())
+                && (targetSensitive || sensitiveInput));
     var carriesText =
         plaintext != null
             && (isTextInput(request.toolId()) || request.toolId() == ToolId.ACCEPT_DIALOG);
@@ -1136,15 +1194,16 @@ public class AgentApplicationService {
         request.targetRevision(),
         sealedPayload,
         carriesText
-            ? PromptSecurityService.sha256(sensitiveInput ? sealedPayload : plaintext)
+            ? PromptSecurityService.sha256(
+                (sensitiveInput || targetSensitive) ? sealedPayload : plaintext)
             : null,
         carriesText ? plaintext.length() : null,
         carriesText ? dataClass : null,
         request.scrollDeltaY(),
         request.waitCondition(),
         request.timeoutMs(),
-        supportsSensitiveInput(request.toolId()) && sensitiveInput && controlPolicy.autonomous(),
-        isSecretInput(request.toolId()) && sensitiveInput
+        allowSensitive,
+        isSecretInput(request.toolId()) && (sensitiveInput || allowSensitive)
             ? controlPolicy.sensitiveInputMaximumAttempts()
             : 1,
         List.of(),
@@ -1190,7 +1249,8 @@ public class AgentApplicationService {
       String taskId,
       String stepId,
       CreateAgentTaskRequest.ActionRequest request,
-      AgentControlPolicyService.Policy controlPolicy) {
+      AgentControlPolicyService.Policy controlPolicy,
+      boolean directExecution) {
     var actions = new ArrayList<ActionInput>();
     var currentState =
         stateRepository
@@ -1211,6 +1271,19 @@ public class AgentApplicationService {
               ? requireClipboard().materializeForPaste(sessionId, tenantId)
               : secret == null ? action.value() : secret.plaintext();
       var sensitive = dataClass == ActionDataClass.CREDENTIAL || dataClass == ActionDataClass.OTP;
+      var targetSensitive =
+          action.targetRef() != null
+              && currentState.targets().stream()
+                  .anyMatch(
+                      candidate ->
+                          (action.targetRef().equals(candidate.targetRef())
+                                  || action.targetRef().equals(candidate.elementId()))
+                              && candidate.sensitive());
+      var allowSensitive =
+          (supportsSensitiveInput(action.toolId()) && sensitive && controlPolicy.autonomous())
+              || (directExecution
+                  && (isTextInput(action.toolId()) || action.toolId() == ToolId.ACCEPT_DIALOG)
+                  && (targetSensitive || sensitive));
       var carriesText =
           plaintext != null
               && (isTextInput(action.toolId()) || action.toolId() == ToolId.ACCEPT_DIALOG);
@@ -1228,14 +1301,17 @@ public class AgentApplicationService {
               elementId,
               action.targetRevision(),
               sealed,
-              carriesText ? PromptSecurityService.sha256(sensitive ? sealed : plaintext) : null,
+              carriesText
+                  ? PromptSecurityService.sha256(
+                      (sensitive || targetSensitive) ? sealed : plaintext)
+                  : null,
               carriesText ? plaintext.length() : null,
               carriesText ? dataClass : null,
               action.scrollDeltaY(),
               action.waitCondition(),
               action.timeoutMs(),
-              supportsSensitiveInput(action.toolId()) && sensitive && controlPolicy.autonomous(),
-              isSecretInput(action.toolId()) && sensitive
+              allowSensitive,
+              isSecretInput(action.toolId()) && (sensitive || allowSensitive)
                   ? controlPolicy.sensitiveInputMaximumAttempts()
                   : 1,
               action.tabId(),

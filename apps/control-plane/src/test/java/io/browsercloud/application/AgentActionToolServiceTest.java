@@ -630,6 +630,30 @@ class AgentActionToolServiceTest {
     verifyNoInteractions(tokens, uses, attempts, gateway);
   }
 
+  @Test
+  void directAuthorizedTaskAllowsSensitiveInputEvenInSafeSessionPolicy() {
+    prepareSensitiveInput();
+    when(policies.require("ses_test", "tenant-test"))
+        .thenReturn(new AgentControlPolicyService.Policy(AgentControlMode.SAFE, 3));
+    when(tokens.verify(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenThrow(new IllegalStateException("DIRECT_SENSITIVE_REACHED_CAPABILITY"));
+    var operation = mock(ExclusiveOperation.class);
+    assertThatThrownBy(
+            () ->
+                service.authorizeAndQueue(
+                    "tenant-test",
+                    session,
+                    operation,
+                    "agt_test",
+                    "int_test",
+                    sensitiveStep(ActionDataClass.CREDENTIAL),
+                    Instant.parse("2026-10-01T00:00:00Z"),
+                    RiskClass.R2_DATA_CHANGE,
+                    true))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("DIRECT_SENSITIVE_REACHED_CAPABILITY");
+  }
+
   private void assertExactRevisionDispatch() throws Exception {
     var command = ArgumentCaptor.forClass(NodeCommand.class);
     verify(gateway).send(command.capture());

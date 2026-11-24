@@ -308,6 +308,12 @@ progress 166。
 
 ### 最近验证状态
 
+- 直连全量浏览器操控、屏外自动滚动与自定义下拉选择闭环已完成，见 [progress330](docs/progress/330-直连全量浏览器操控与屏外滚动及自定义下拉选择闭环.md)：
+  Browser Node `state-collector` 与 `node-agent` 补齐 `OUTSIDE_VIEWPORT` 目标自动 `scrollIntoView` + 重采（含吸顶遮挡自动上推复验），
+  新增原生 `<select>` 选项摘要投影与直接选中、`SELECT_OPTION` 自动点击展开自定义下拉框并定位点击可见选项（支持 `combobox`/`listbox`/`button`/`generic`、Shadow DOM 与同源 iframe）；
+  Control Plane 保持宿主机/沙箱/域名/租户隔离与托管模式 `R2`/SAFE 门禁不变，为直连模式（`DIRECT`）开放完整浏览器操控（含直连输入密码/敏感输入框并 AES-GCM 封存派发、`CLOSE_TAB`、`ACCEPT_DIALOG`、`browser_find` 默认含屏外元素），Web 控制台与 MCP 说明同步更新。
+  Rust（`state-collector` 89 项、`node-agent` 36 项、fmt/clippy）、Java（全量单测+Spotless）、MCP 3 项协议测试、Web lint/format/test（153+5）/build 全通过；OpenAPI（273/368）与 V141 不变。
+
 - 外部 AI 直连非敏感文本输入、区域稳定动作、MCP 精准感知、防误松拖动与资源回收闭环已完成，见 [progress329](docs/progress/329-外部AI直连文本输入与区域稳定拖动及资源回收闭环.md)：
   Control Plane 在保留托管模式 `R2_DATA_CHANGE` 模型 Reviewer 不变前提下，为直连模式放行带非敏感 `PUBLIC`/非凭据围栏的
   `TYPE_TEXT`/`FILL`/`CLEAR_TARGET`/`SELECT_OPTION`（并补齐 `Bearer <token>` 拦截）；新增

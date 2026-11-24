@@ -11453,8 +11453,14 @@ async fn main() -> Result<()> {
             root: PathBuf::from(runtime_cgroup_root),
         })?;
     }
-    let desktop_config = match (std::env::var("XVFB_PATH"), std::env::var("X11VNC_PATH")) {
-        (Ok(xvfb_binary), Ok(x11vnc_binary)) => Some(DesktopRuntimeConfig {
+    let non_empty_env = |name: &str| {
+        std::env::var(name)
+            .ok()
+            .map(|value| value.trim().to_owned())
+            .filter(|value| !value.is_empty())
+    };
+    let desktop_config = match (non_empty_env("XVFB_PATH"), non_empty_env("X11VNC_PATH")) {
+        (Some(xvfb_binary), Some(x11vnc_binary)) => Some(DesktopRuntimeConfig {
             xvfb_binary: PathBuf::from(xvfb_binary),
             x11vnc_binary: PathBuf::from(x11vnc_binary),
             width: std::env::var("REMOTE_DESKTOP_WIDTH")
@@ -11467,7 +11473,7 @@ async fn main() -> Result<()> {
                 .unwrap_or_else(|_| "24".to_owned())
                 .parse()?,
         }),
-        (Err(_), Err(_)) => None,
+        (None, None) => None,
         _ => anyhow::bail!("XVFB_PATH and X11VNC_PATH must be configured together"),
     };
     let desktop_enabled = desktop_config.is_some();

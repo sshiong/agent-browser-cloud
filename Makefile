@@ -185,6 +185,24 @@ compose-verify:
 compose-down:
 	docker compose down
 
+# Modular build/run selector & low-memory stack (override flags via STACK_ARGS="...")
+STACK_ARGS ?= --preset direct-lite
+.PHONY: stack-config stack-build stack-up stack-down stack-ps
+stack-config:
+	./tools/local-dev/stack.sh $(STACK_ARGS) config
+
+stack-build:
+	./tools/local-dev/stack.sh $(STACK_ARGS) build
+
+stack-up:
+	./tools/local-dev/stack.sh $(STACK_ARGS) up
+
+stack-down:
+	./tools/local-dev/stack.sh $(STACK_ARGS) down
+
+stack-ps:
+	./tools/local-dev/stack.sh $(STACK_ARGS) ps
+
 personal-secure-init:
 	./deploy/personal-secure/personal-secure init
 

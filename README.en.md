@@ -158,7 +158,7 @@ broken local links in either README.
 | `packages/` | [contracts](packages/contracts/) |
 | `sdks/` | [go](sdks/go/), [java](sdks/java/), [python](sdks/python/), [typescript](sdks/typescript/) |
 | `database/` | [migrations](database/migrations/), [online-migrations](database/online-migrations/), [seeds](database/seeds/) |
-| `deploy/` | [docker](deploy/docker/), [kubernetes](deploy/kubernetes/), [personal-secure](deploy/personal-secure/), [terraform](deploy/terraform/) |
+| `deploy/` | [compose](deploy/compose/), [docker](deploy/docker/), [kubernetes](deploy/kubernetes/), [personal-secure](deploy/personal-secure/), [terraform](deploy/terraform/) |
 | `tools/` | [browser-session-operator](tools/browser-session-operator/), [docs](tools/docs/), [local-dev](tools/local-dev/), [sdk](tools/sdk/), [supply-chain](tools/supply-chain/) |
 
 <!-- END GENERATED MODULES -->

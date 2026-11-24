@@ -1177,6 +1177,19 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
             .stderr(std::process::Stdio::null())
             .kill_on_drop(true);
 
+        if std::env::var("BROWSER_LOW_MEMORY_MODE")
+            .map(|value| value.eq_ignore_ascii_case("true"))
+            .unwrap_or(false)
+        {
+            // Keep the Chromium sandbox intact while curbing /dev/shm pressure, renderer fan-out,
+            // cache growth, and per-renderer V8 heap on memory-constrained hosts.
+            command
+                .arg("--disable-dev-shm-usage")
+                .arg("--renderer-process-limit=2")
+                .arg("--disk-cache-size=33554432")
+                .arg("--js-flags=--max-old-space-size=256");
+        }
+
         if spec.extension_dirs.is_empty() {
             command.arg("--disable-extensions");
         } else {

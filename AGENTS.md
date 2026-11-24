@@ -308,6 +308,11 @@ progress 166。
 
 ### 最近验证状态
 
+- 小内存运行优化与模块化按需构建闭环已完成，见 [progress331](docs/progress/331-小内存运行优化与模块化构建裁剪闭环.md)：
+  新增 `deploy/compose/modular.yml`（Core 常驻，`mcp`/`web`/`workers` 独立 Profile）、`deploy/compose/low-memory.yml`（Control Plane SerialGC 288M 堆/448M 上限、PG 32M/192M、Redis 48M/64M、Chromium `BROWSER_LOW_MEMORY_MODE=true` 沙箱不降级）与交互/CLI 入口 `tools/local-dev/stack.sh`（预设 `minimal-mcp`/`direct-lite`/`full` 与各单模块开关，`Makefile` 同步 `stack-*` 目标）；
+  Browser Node `Dockerfile` 支持 `ENABLE_REMOTE_DESKTOP`/`ENABLE_RECORDING_SCANNER` 构建期裁剪（关录制可减约 700 MB 镜像），`node-agent` 支持空值 `XVFB_PATH`/`X11VNC_PATH` 运行时关 VNC，Control Plane 支持 `JAVA_OPTS`/Tomcat 线程/Hikari 连接池环境变量调优；原根目录 `docker-compose.yml` 不变。
+  Compose 9 项、Rust（`runtime-supervisor`+`node-agent`+clippy）、Java 全量与 `make docs-check` 通过；前序 `51c5d13` 主 CI（45424110973）与 Desktop（45424110800）均已成功。
+
 - 直连全量浏览器操控、屏外自动滚动与自定义下拉选择闭环已完成，见 [progress330](docs/progress/330-直连全量浏览器操控与屏外滚动及自定义下拉选择闭环.md)：
   Browser Node `state-collector` 与 `node-agent` 补齐 `OUTSIDE_VIEWPORT` 目标自动 `scrollIntoView` + 重采（含吸顶遮挡自动上推复验），
   新增原生 `<select>` 选项摘要投影与直接选中、`SELECT_OPTION` 自动点击展开自定义下拉框并定位点击可见选项（支持 `combobox`/`listbox`/`button`/`generic`、Shadow DOM 与同源 iframe）；

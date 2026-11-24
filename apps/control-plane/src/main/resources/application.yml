@@ -1,5 +1,9 @@
 server:
   port: 8080
+  tomcat:
+    threads:
+      max: ${SERVER_TOMCAT_THREADS_MAX:200}
+      min-spare: ${SERVER_TOMCAT_THREADS_MIN_SPARE:10}
 
 spring:
   task:
@@ -23,6 +27,8 @@ spring:
     password: ${DATABASE_PASSWORD:browsercloud}
     driver-class-name: org.postgresql.Driver
     hikari:
+      maximum-pool-size: ${DATABASE_POOL_MAX_SIZE:10}
+      minimum-idle: ${DATABASE_POOL_MIN_IDLE:2}
       connection-timeout: ${DATABASE_CONNECTION_TIMEOUT_MS:3000}
       validation-timeout: ${DATABASE_VALIDATION_TIMEOUT_MS:1000}
       data-source-properties:

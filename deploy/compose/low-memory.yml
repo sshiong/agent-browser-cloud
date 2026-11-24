@@ -1,0 +1,88 @@
+# Low-memory runtime tuning overlay for 2–4 GiB RAM hosts.
+#
+# Stack with deploy/compose/modular.yml (recommended via tools/local-dev/stack.sh) or root
+# docker-compose.yml:
+#   docker compose -f deploy/compose/modular.yml -f deploy/compose/low-memory.yml --profile mcp up -d
+#
+# Preserves all Chromium sandbox, seccomp, tenant, and host-isolation guarantees while cutting
+# idle RAM footprint from ~1.5–2.0 GiB down to ~450–650 MiB.
+
+services:
+  postgres:
+    mem_limit: ${POSTGRES_MEM_LIMIT:-192m}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=32MB
+      - -c
+      - work_mem=2MB
+      - -c
+      - maintenance_work_mem=16MB
+      - -c
+      - effective_cache_size=96MB
+      - -c
+      - max_connections=40
+      - -c
+      - wal_buffers=4MB
+      - -c
+      - checkpoint_completion_target=0.9
+
+  redis:
+    mem_limit: ${REDIS_MEM_LIMIT:-64m}
+    command:
+      - redis-server
+      - --maxmemory
+      - 48mb
+      - --maxmemory-policy
+      - allkeys-lru
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+
+  control-plane:
+    mem_limit: ${CONTROL_PLANE_MEM_LIMIT:-448m}
+    environment:
+      JAVA_OPTS: ${CONTROL_PLANE_JAVA_OPTS:--Xms96m -Xmx288m -XX:MaxMetaspaceSize=160m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError}
+      DATABASE_POOL_MAX_SIZE: ${DATABASE_POOL_MAX_SIZE:-5}
+      DATABASE_POOL_MIN_IDLE: ${DATABASE_POOL_MIN_IDLE:-1}
+      SERVER_TOMCAT_THREADS_MAX: ${SERVER_TOMCAT_THREADS_MAX:-24}
+      SERVER_TOMCAT_THREADS_MIN_SPARE: ${SERVER_TOMCAT_THREADS_MIN_SPARE:-4}
+      CONTROL_PLANE_SCHEDULER_POOL_SIZE: ${CONTROL_PLANE_SCHEDULER_POOL_SIZE:-2}
+      BROWSER_NODE_DISPATCH_INTERVAL_MS: ${BROWSER_NODE_DISPATCH_INTERVAL_MS:-500}
+      COORDINATOR_COMMAND_DISPATCH_INTERVAL_MS: ${COORDINATOR_COMMAND_DISPATCH_INTERVAL_MS:-250}
+      BROWSER_DENSITY_PRESSURE_REMEDIATION_INTERVAL_MS: ${BROWSER_DENSITY_PRESSURE_REMEDIATION_INTERVAL_MS:-3000}
+
+  browser-node:
+    mem_limit: ${BROWSER_NODE_MEM_LIMIT:-1536m}
+    environment:
+      BROWSER_LOW_MEMORY_MODE: "true"
+      NODE_CERTIFIED_MEMORY_MIB: ${NODE_CERTIFIED_MEMORY_MIB:-1536}
+      NODE_CERTIFIED_CPU_MILLIS: ${NODE_CERTIFIED_CPU_MILLIS:-2000}
+      NODE_MAX_SESSIONS: ${NODE_MAX_SESSIONS:-2}
+      REMOTE_DESKTOP_WIDTH: ${REMOTE_DESKTOP_WIDTH:-1280}
+      REMOTE_DESKTOP_HEIGHT: ${REMOTE_DESKTOP_HEIGHT:-720}
+      SESSION_RESOURCE_REPORT_INTERVAL_SECONDS: ${SESSION_RESOURCE_REPORT_INTERVAL_SECONDS:-10}
+      PROXY_HEALTH_PROBE_INTERVAL_SECONDS: ${PROXY_HEALTH_PROBE_INTERVAL_SECONDS:-30}
+      STATE_DIFF_MAX_BYTES: ${STATE_DIFF_MAX_BYTES:-262144}
+
+  storage-helper:
+    mem_limit: ${STORAGE_HELPER_MEM_LIMIT:-96m}
+
+  mcp-gateway:
+    mem_limit: ${MCP_GATEWAY_MEM_LIMIT:-96m}
+
+  web-console:
+    mem_limit: ${WEB_CONSOLE_MEM_LIMIT:-64m}
+
+  agent-worker:
+    mem_limit: ${AGENT_WORKER_MEM_LIMIT:-96m}
+
+  reviewer-worker:
+    mem_limit: ${REVIEWER_WORKER_MEM_LIMIT:-96m}
+
+  outcome-verifier-worker:
+    mem_limit: ${OUTCOME_VERIFIER_WORKER_MEM_LIMIT:-96m}
+
+  vision-worker:
+    mem_limit: ${VISION_WORKER_MEM_LIMIT:-128m}

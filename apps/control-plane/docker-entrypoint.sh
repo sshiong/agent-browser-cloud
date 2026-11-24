@@ -32,4 +32,9 @@ do
   load_secret "$variable_name"
 done
 
+if [ -n "${JAVA_OPTS:-}" ]; then
+  # shellcheck disable=SC2086
+  exec java $JAVA_OPTS -jar /app/app.jar
+fi
+
 exec java -XX:MaxRAMPercentage=75 -jar /app/app.jar

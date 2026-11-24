@@ -11,22 +11,36 @@ RUN cargo build \
     --bin node-agent
 
 FROM debian:bookworm-slim
-RUN apt-get update \
-    && apt-get install --no-install-recommends -y ca-certificates chromium chromium-sandbox tini xvfb x11vnc \
-        opencv-data python3 python3-numpy python3-opencv tesseract-ocr tesseract-ocr-eng tesseract-ocr-chi-sim \
-    && rm -rf /var/lib/apt/lists/* \
-    && groupadd --gid 65532 browsercloud \
-    && useradd --uid 65532 --gid browsercloud --no-log-init --home-dir /var/lib/browsercloud browsercloud \
-    && mkdir -p /var/lib/browsercloud/runtime \
-    && chown -R browsercloud:browsercloud /var/lib/browsercloud
+ARG ENABLE_REMOTE_DESKTOP=true
+ARG ENABLE_RECORDING_SCANNER=true
+RUN set -eux; \
+    apt-get update; \
+    packages="ca-certificates chromium chromium-sandbox tini"; \
+    if [ "${ENABLE_REMOTE_DESKTOP}" = "true" ]; then \
+        packages="${packages} xvfb x11vnc"; \
+    fi; \
+    if [ "${ENABLE_RECORDING_SCANNER}" = "true" ]; then \
+        packages="${packages} opencv-data python3 python3-numpy python3-opencv tesseract-ocr tesseract-ocr-eng tesseract-ocr-chi-sim"; \
+    fi; \
+    apt-get install --no-install-recommends -y ${packages}; \
+    rm -rf /var/lib/apt/lists/*; \
+    groupadd --gid 65532 browsercloud; \
+    useradd --uid 65532 --gid browsercloud --no-log-init --home-dir /var/lib/browsercloud browsercloud; \
+    mkdir -p /var/lib/browsercloud/runtime; \
+    chown -R browsercloud:browsercloud /var/lib/browsercloud
 COPY --from=build /workspace/apps/browser-node/target/release/node-agent /usr/local/bin/node-agent
 COPY --from=build /workspace/apps/browser-node/target/release/network-helper /usr/local/bin/network-helper
 COPY --from=build /workspace/apps/browser-node/target/release/storage-helper /usr/local/bin/storage-helper
 COPY apps/browser-node/scripts/recording_privacy_scanner.py /usr/local/libexec/browsercloud/recording-privacy-scanner
 COPY apps/browser-node/assets/recording-privacy /usr/local/share/browsercloud/recording-privacy
-RUN chmod 0555 /usr/local/libexec/browsercloud/recording-privacy-scanner \
-    && chmod 0444 /usr/local/share/browsercloud/recording-privacy/* \
-    && /usr/local/libexec/browsercloud/recording-privacy-scanner --self-test
+RUN set -eux; \
+    if [ "${ENABLE_RECORDING_SCANNER}" = "true" ]; then \
+        chmod 0555 /usr/local/libexec/browsercloud/recording-privacy-scanner; \
+        chmod 0444 /usr/local/share/browsercloud/recording-privacy/*; \
+        /usr/local/libexec/browsercloud/recording-privacy-scanner --self-test; \
+    else \
+        rm -rf /usr/local/libexec/browsercloud/recording-privacy-scanner /usr/local/share/browsercloud/recording-privacy; \
+    fi
 USER browsercloud
 ENV CHROMIUM_PATH=/usr/bin/chromium \
     RUNTIME_ROOT=/var/lib/browsercloud/runtime \

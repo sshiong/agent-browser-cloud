@@ -898,6 +898,11 @@ impl LiteRuntime {
                 Ok(json!({
                     "saved": true,
                     "checkpoint": cp_rec,
+                    "version": manifest.version,
+                    "reusedChunks": manifest.reused_chunks,
+                    "newChunks": manifest.new_chunks,
+                    "newBytes": manifest.new_bytes,
+                    "totalRawBytes": manifest.total_raw_bytes,
                     "excludedDirs": manifest.excluded_dirs,
                 }))
             }

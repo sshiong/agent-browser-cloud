@@ -744,8 +744,7 @@ public class BrowserCapacityApplicationService {
     }
 
     int score =
-        node.getActiveSessions() * 20
-            + (node.getReservedMemoryMib() * 100 / Math.max(1, node.getCertifiedMemoryMib()))
+        compositeUtilizationPenalty(node)
             + enterpriseOperationsService.placementCostScore(
                 node.getRegion(), demand.effectiveClass().name());
     var requested = new HashSet<>(demand.extensionIds());
@@ -761,6 +760,43 @@ public class BrowserCapacityApplicationService {
       }
     }
     return new Candidate(node, score, true);
+  }
+
+  /**
+   * Multi-factor normalized node load penalty (lower is better): combines memory reservation, CPU
+   * reservation, active session density, and real-time CPU/memory/I/O PSI signals so I/O- or
+   * CPU-pressured nodes are avoided proactively before reaching the CLOSED cliff.
+   */
+  static int compositeUtilizationPenalty(BrowserNodeEntity node) {
+    int memoryPercent =
+        (node.getReservedMemoryMib() * 100) / Math.max(1, node.getCertifiedMemoryMib());
+    int cpuPercent =
+        (node.getReservedCpuMillis() * 100) / Math.max(1, node.getCertifiedCpuMillis());
+    int sessionDensityPercent =
+        (node.getActiveSessions() * 100) / Math.max(1, node.getMaxSessions());
+    double ioPsiPenalty =
+        node.getIoPsiFullAvg10() == null ? 0.0 : node.getIoPsiFullAvg10().doubleValue() * 25.0;
+    double memoryPsiPenalty =
+        (node.getMemoryPsiFullAvg10() == null
+                ? 0.0
+                : node.getMemoryPsiFullAvg10().doubleValue() * 30.0)
+            + (node.getMemoryPsiSomeAvg10() == null
+                ? 0.0
+                : node.getMemoryPsiSomeAvg10().doubleValue() * 2.0);
+    double cpuPsiPenalty =
+        node.getCpuPsiSomeAvg10() == null ? 0.0 : node.getCpuPsiSomeAvg10().doubleValue() * 1.0;
+    int pressureStatePenalty =
+        switch (node.getPressureState() == null ? "NORMAL" : node.getPressureState()) {
+          case "CRITICAL" -> 300;
+          case "DEGRADED" -> 120;
+          default -> 0;
+        };
+    return node.getActiveSessions() * 20
+        + memoryPercent
+        + (cpuPercent / 4)
+        + (sessionDensityPercent / 3)
+        + (int) Math.round(ioPsiPenalty + memoryPsiPenalty + cpuPsiPenalty)
+        + pressureStatePenalty;
   }
 
   private BrowserNodeView toNodeView(BrowserNodeEntity node) {

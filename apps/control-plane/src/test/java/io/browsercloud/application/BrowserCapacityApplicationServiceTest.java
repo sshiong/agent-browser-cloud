@@ -718,6 +718,94 @@ class BrowserCapacityApplicationServiceTest {
     assertThat(placement.getReasonCodes()).contains("NODE_PRESSURE_EVICTION");
   }
 
+  @Test
+  void compositeScoringSteersAwayFromIoAndCpuPressuredNodeBeforeDegradedCliff() {
+    var now = Instant.now();
+    var ioPressured =
+        new BrowserNodeEntity(
+            "node_io_busy",
+            "local",
+            "localhost:9091",
+            10_000,
+            16_384,
+            4096,
+            0,
+            0,
+            20,
+            10,
+            true,
+            false,
+            false,
+            false,
+            true,
+            "{}",
+            now);
+    ioPressured.recordPressure(
+        new java.math.BigDecimal("8.0"),
+        new java.math.BigDecimal("0.4"),
+        new java.math.BigDecimal("22.0"),
+        new java.math.BigDecimal("0.9"),
+        "",
+        now);
+
+    var healthy =
+        new BrowserNodeEntity(
+            "node_healthy",
+            "local",
+            "localhost:9092",
+            10_000,
+            16_384,
+            4096,
+            0,
+            0,
+            20,
+            10,
+            true,
+            false,
+            false,
+            false,
+            true,
+            "{}",
+            now);
+    healthy.recordPressure(
+        new java.math.BigDecimal("0.5"),
+        new java.math.BigDecimal("0.0"),
+        new java.math.BigDecimal("2.0"),
+        new java.math.BigDecimal("0.0"),
+        "",
+        now);
+
+    int busyScore = BrowserCapacityApplicationService.compositeUtilizationPenalty(ioPressured);
+    int healthyScore = BrowserCapacityApplicationService.compositeUtilizationPenalty(healthy);
+    assertThat(busyScore).isGreaterThan(healthyScore + 50);
+
+    var demand =
+        new SessionResourceDemandEntity(
+            "ses_1234567890abcdef",
+            "tenant-a",
+            ResourceClass.L2,
+            2,
+            0,
+            false,
+            false,
+            false,
+            0,
+            0,
+            "[]",
+            now);
+    when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
+    when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
+    when(extensionRepository.findAllById(any())).thenReturn(List.of());
+    when(nodeRepository.lockPlacementCandidates(eq("local"), any(), eq(false)))
+        .thenReturn(List.of(ioPressured, healthy));
+    when(placementRepository.findAllByNodeIdAndStateIn(any(), any())).thenReturn(List.of());
+    when(nodeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    when(placementRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var placement = service.reserve(session(ResourceClass.L2), "local");
+    assertThat(placement.nodeId()).isEqualTo("node_healthy");
+  }
+
   private static BrowserNodeEntity standardNode(Instant now) {
     return standardNode(now, "{}");
   }

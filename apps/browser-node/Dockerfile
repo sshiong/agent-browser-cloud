@@ -7,9 +7,29 @@ RUN cargo build \
     --locked \
     --manifest-path apps/browser-node/Cargo.toml \
     --bin browsercloud-lite \
+    --bin browsercloud-worker-supervisor \
     --bin network-helper \
     --bin storage-helper \
     --bin node-agent
+
+# ---------------------------------------------------------------------------
+# Target: worker-supervisor (Pure-Rust unified Agent/Reviewer/Outcome/Vision
+# worker replacing 4 Python worker containers for L1/L2)
+# ---------------------------------------------------------------------------
+FROM debian:bookworm-slim AS worker-supervisor
+RUN set -eux; \
+    apt-get update; \
+    apt-get install --no-install-recommends -y ca-certificates tini; \
+    rm -rf /var/lib/apt/lists/*; \
+    groupadd --gid 65532 browsercloud; \
+    useradd --uid 65532 --gid browsercloud --no-log-init --home-dir /tmp browsercloud
+COPY --from=build /workspace/apps/browser-node/target/release/browsercloud-worker-supervisor /usr/local/bin/browsercloud-worker-supervisor
+USER browsercloud
+ENV WORKER_ROLES=agent,reviewer,outcome,vision \
+    WORKER_ENVIRONMENT=production \
+    WORKER_READY_FILE=/tmp/worker-ready \
+    RUST_LOG=info
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/browsercloud-worker-supervisor"]
 
 # ---------------------------------------------------------------------------
 # Target: lite (L0 Standalone — single pure-Rust container + Headless Chromium)

@@ -13,7 +13,8 @@ members = [
   "crates/node-contracts",
   "crates/remote-desktop-gateway",
   "crates/session-recorder",
-  "crates/lite-server"
+  "crates/lite-server",
+  "crates/worker-supervisor"
 ]
 resolver = "2"
 

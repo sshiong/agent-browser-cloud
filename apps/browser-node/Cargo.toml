@@ -12,7 +12,8 @@ members = [
   "crates/node-journal",
   "crates/node-contracts",
   "crates/remote-desktop-gateway",
-  "crates/session-recorder"
+  "crates/session-recorder",
+  "crates/lite-server"
 ]
 resolver = "2"
 
@@ -56,3 +57,4 @@ jpeg-decoder = { version = "0.3", default-features = false }
 jpeg-encoder = "0.6"
 sha2 = "0.10"
 nix = { version = "0.29", features = ["fs", "socket", "user"] }
+axum = { version = "0.7.9", default-features = false, features = ["http1", "json", "tokio", "query"] }

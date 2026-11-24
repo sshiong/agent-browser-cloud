@@ -1091,7 +1091,162 @@ struct NodeCapacityReporter {
     isolation_capable: bool,
     labels: HashMap<String, String>,
     pressure_root: PathBuf,
+    psi_smoother: Arc<std::sync::Mutex<PsiSmoother>>,
     hold_helper: Option<Arc<StorageHelperClient>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NodeBackpressureTier {
+    Normal,
+    Degraded,
+    QueueOnly,
+    NoNewSessions,
+    Recovering,
+    Closed,
+}
+
+impl NodeBackpressureTier {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Normal => "NORMAL",
+            Self::Degraded => "DEGRADED",
+            Self::QueueOnly => "QUEUE_ONLY",
+            Self::NoNewSessions => "NO_NEW_SESSIONS",
+            Self::Recovering => "RECOVERING",
+            Self::Closed => "CLOSED",
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct MetricWindow {
+    samples: std::collections::VecDeque<f64>,
+    ewma: Option<f64>,
+    consecutive_high: u32,
+}
+
+impl MetricWindow {
+    fn observe(&mut self, raw: f64, high_threshold: f64) -> f64 {
+        let clamped = raw.clamp(0.0, 100.0);
+        if self.samples.len() >= 8 {
+            self.samples.pop_front();
+        }
+        self.samples.push_back(clamped);
+        let next_ewma = match self.ewma {
+            Some(prev) => 0.35 * clamped + 0.65 * prev,
+            None => clamped,
+        };
+        self.ewma = Some(next_ewma);
+        if clamped >= high_threshold {
+            self.consecutive_high = self.consecutive_high.saturating_add(1);
+        } else {
+            self.consecutive_high = 0;
+        }
+        if self.consecutive_high >= 3 {
+            let mut sorted: Vec<f64> = self.samples.iter().copied().collect();
+            sorted.sort_by(|a, b| a.total_cmp(b));
+            let p75_idx = ((sorted.len().saturating_sub(1)) * 3) / 4;
+            next_ewma.max(sorted[p75_idx])
+        } else {
+            next_ewma
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SmoothedPsiSample {
+    memory_some: f64,
+    memory_full: f64,
+    cpu_some: f64,
+    io_full: f64,
+    tier: NodeBackpressureTier,
+}
+
+#[derive(Debug)]
+struct PsiSmoother {
+    memory_some: MetricWindow,
+    memory_full: MetricWindow,
+    cpu_some: MetricWindow,
+    io_full: MetricWindow,
+    tier: NodeBackpressureTier,
+    consecutive_healthy: u32,
+}
+
+impl Default for PsiSmoother {
+    fn default() -> Self {
+        Self {
+            memory_some: MetricWindow::default(),
+            memory_full: MetricWindow::default(),
+            cpu_some: MetricWindow::default(),
+            io_full: MetricWindow::default(),
+            tier: NodeBackpressureTier::Normal,
+            consecutive_healthy: 0,
+        }
+    }
+}
+
+impl PsiSmoother {
+    fn observe(
+        &mut self,
+        memory_some: f64,
+        memory_full: f64,
+        cpu_some: f64,
+        io_full: f64,
+    ) -> SmoothedPsiSample {
+        let s_mem_some = self.memory_some.observe(memory_some, 20.0);
+        let s_mem_full = self.memory_full.observe(memory_full, 10.0);
+        let s_cpu_some = self.cpu_some.observe(cpu_some, 35.0);
+        let s_io_full = self.io_full.observe(io_full, 20.0);
+
+        let sustained_critical = self.io_full.consecutive_high >= 3 && s_io_full >= 35.0
+            || (self.memory_full.consecutive_high >= 3 && s_mem_full >= 20.0);
+        let sustained_high = self.io_full.consecutive_high >= 2 && s_io_full >= 20.0
+            || (self.memory_some.consecutive_high >= 2 && s_mem_some >= 25.0);
+        let moderate = s_io_full >= 12.0 || s_mem_some >= 15.0 || s_cpu_some >= 35.0;
+
+        let next_tier = if sustained_critical {
+            self.consecutive_healthy = 0;
+            NodeBackpressureTier::Closed
+        } else if sustained_high {
+            self.consecutive_healthy = 0;
+            NodeBackpressureTier::NoNewSessions
+        } else if moderate {
+            self.consecutive_healthy = 0;
+            if matches!(
+                self.tier,
+                NodeBackpressureTier::Closed | NodeBackpressureTier::NoNewSessions
+            ) {
+                NodeBackpressureTier::QueueOnly
+            } else {
+                NodeBackpressureTier::Degraded
+            }
+        } else {
+            self.consecutive_healthy = self.consecutive_healthy.saturating_add(1);
+            match self.tier {
+                NodeBackpressureTier::Closed | NodeBackpressureTier::NoNewSessions => {
+                    NodeBackpressureTier::Recovering
+                }
+                NodeBackpressureTier::QueueOnly | NodeBackpressureTier::Recovering => {
+                    if self.consecutive_healthy >= 2 {
+                        NodeBackpressureTier::Normal
+                    } else {
+                        NodeBackpressureTier::Recovering
+                    }
+                }
+                NodeBackpressureTier::Degraded | NodeBackpressureTier::Normal => {
+                    NodeBackpressureTier::Normal
+                }
+            }
+        };
+        self.tier = next_tier;
+        SmoothedPsiSample {
+            memory_some: s_mem_some,
+            memory_full: s_mem_full,
+            cpu_some: s_cpu_some,
+            io_full: s_io_full,
+            tier: self.tier,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -1404,6 +1559,7 @@ impl NodeCapacityReporter {
             isolation_capable: cgroup_capabilities.enforcement,
             labels,
             pressure_root,
+            psi_smoother: Arc::new(std::sync::Mutex::new(PsiSmoother::default())),
             hold_helper: None,
         })
     }
@@ -1494,6 +1650,20 @@ impl NodeCapacityReporter {
         }
         let channel = endpoint.connect().await?;
         let mut client = NodeEventServiceClient::new(channel);
+        let raw_mem_some = self.psi_avg10("memory", "some")?;
+        let raw_mem_full = self.psi_avg10("memory", "full")?;
+        let raw_cpu_some = self.psi_avg10("cpu", "some")?;
+        let raw_io_full = self.psi_avg10("io", "full")?;
+        let smoothed = self
+            .psi_smoother
+            .lock()
+            .map_err(|_| anyhow::anyhow!("psi smoother lock poisoned"))?
+            .observe(raw_mem_some, raw_mem_full, raw_cpu_some, raw_io_full);
+        let pressure_reason = if smoothed.tier == NodeBackpressureTier::Normal {
+            String::new()
+        } else {
+            format!("GRADED_BACKPRESSURE:{}", smoothed.tier.as_str())
+        };
         let response = client
             .report_capacity(ReportCapacityRequest {
                 node_id: self.node_id.clone(),
@@ -1512,11 +1682,11 @@ impl NodeCapacityReporter {
                 supports_native_os: self.supports_native_os,
                 isolation_capable: self.isolation_capable,
                 labels: self.recording_hold_labels().await,
-                memory_psi_some_avg10: self.psi_avg10("memory", "some")?,
-                memory_psi_full_avg10: self.psi_avg10("memory", "full")?,
-                cpu_psi_some_avg10: self.psi_avg10("cpu", "some")?,
-                io_psi_full_avg10: self.psi_avg10("io", "full")?,
-                pressure_reason: String::new(),
+                memory_psi_some_avg10: smoothed.memory_some,
+                memory_psi_full_avg10: smoothed.memory_full,
+                cpu_psi_some_avg10: smoothed.cpu_some,
+                io_psi_full_avg10: smoothed.io_full,
+                pressure_reason,
             })
             .await?
             .into_inner();
@@ -13168,6 +13338,7 @@ mod tests {
             isolation_capable: false,
             labels: HashMap::from([("existing".into(), "preserved".into())]),
             pressure_root: std::env::temp_dir(),
+            psi_smoother: Arc::new(std::sync::Mutex::new(PsiSmoother::default())),
             hold_helper: Some(helper),
         };
         let supported = reporter.recording_hold_labels().await;
@@ -13197,6 +13368,42 @@ mod tests {
             "unavailable"
         );
         std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn psi_smoother_absorbs_single_io_spike_and_escalates_on_sustained_pressure() {
+        let mut smoother = PsiSmoother::default();
+        // Establish healthy baseline.
+        let s1 = smoother.observe(1.0, 0.2, 5.0, 0.5);
+        assert_eq!(s1.tier, NodeBackpressureTier::Normal);
+        let s2 = smoother.observe(1.0, 0.2, 5.0, 0.5);
+        assert_eq!(s2.tier, NodeBackpressureTier::Normal);
+
+        // Single transient I/O PSI spike must not immediately close the node.
+        let spike = smoother.observe(1.0, 0.2, 5.0, 45.0);
+        assert_ne!(spike.tier, NodeBackpressureTier::Closed);
+        assert_ne!(spike.tier, NodeBackpressureTier::NoNewSessions);
+        assert!(spike.io_full < 25.0);
+
+        // Back to calm immediately recovers to Normal.
+        let calm = smoother.observe(1.0, 0.2, 5.0, 0.5);
+        assert_eq!(calm.tier, NodeBackpressureTier::Normal);
+
+        // Sustained high I/O PSI escalates smoothly to Closed.
+        let _ = smoother.observe(2.0, 0.5, 8.0, 45.0);
+        let high2 = smoother.observe(2.0, 0.5, 8.0, 48.0);
+        assert_eq!(high2.tier, NodeBackpressureTier::NoNewSessions);
+        let high3 = smoother.observe(2.0, 0.5, 8.0, 52.0);
+        assert_eq!(high3.tier, NodeBackpressureTier::Closed);
+        assert!(high3.io_full >= 35.0);
+
+        // Recovery steps through Recovering before Normal (hysteresis).
+        let rec1 = smoother.observe(1.0, 0.2, 4.0, 0.5);
+        assert_ne!(rec1.tier, NodeBackpressureTier::Normal);
+        let _ = smoother.observe(1.0, 0.2, 4.0, 0.5);
+        let _ = smoother.observe(1.0, 0.2, 4.0, 0.5);
+        let rec_done = smoother.observe(1.0, 0.2, 4.0, 0.5);
+        assert_eq!(rec_done.tier, NodeBackpressureTier::Normal);
     }
 
     #[test]

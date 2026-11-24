@@ -6,16 +6,22 @@ import {
 } from '@tanstack/react-query';
 import {
   acceptAgentHandoff,
+  actAgentBrowser,
   approveAgentTask,
   createAgentTask,
   executeAgentTask,
   getAgentTask,
+  getAgentBrowserSnapshot,
   listAgentTaskSummaries,
   listAgentTasks,
   rejectAgentHandoff,
   rejectAgentTask,
 } from '@/api/agent';
-import type { CreateAgentTaskRequest } from '@/types/agent';
+import type {
+  AgentBrowserSnapshot,
+  CreateAgentTaskRequest,
+  ExecuteAgentBrowserActionsRequest,
+} from '@/types/agent';
 
 const agentTaskKeys = {
   all: ['agent-tasks'] as const,
@@ -145,5 +151,31 @@ export function useExecuteAgentTask() {
       executeAgentTask(taskId, `agent-execute-${crypto.randomUUID()}`),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: agentTaskKeys.all }),
+  });
+}
+
+export function useDirectBrowserAction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      sessionId,
+      buildRequest,
+    }: {
+      sessionId: string;
+      buildRequest: (
+        snapshot: AgentBrowserSnapshot
+      ) => ExecuteAgentBrowserActionsRequest;
+    }) => {
+      const snapshot = await getAgentBrowserSnapshot(sessionId);
+      return actAgentBrowser(
+        sessionId,
+        buildRequest(snapshot),
+        `agent-direct-${crypto.randomUUID()}`
+      );
+    },
+    onSuccess: (task) => {
+      queryClient.setQueryData(agentTaskKeys.detail(task.taskId), task);
+      void queryClient.invalidateQueries({ queryKey: agentTaskKeys.all });
+    },
   });
 }

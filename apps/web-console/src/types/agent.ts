@@ -125,6 +125,8 @@ export interface ExecuteAgentBrowserActionsRequest {
   expectedStateCursor: string;
   actions: AgentBatchActionRequest[];
   stopOnError?: boolean;
+  executionMode?: 'MANAGED' | 'DIRECT';
+  navigateUrl?: string;
 }
 
 export interface WaitForAgentBrowserRequest {

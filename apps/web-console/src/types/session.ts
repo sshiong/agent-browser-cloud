@@ -984,6 +984,10 @@ export interface StateResyncResponse {
 
 export interface InteractiveTargetView {
   targetRef: string;
+  elementId?: string;
+  interactive?: boolean;
+  inViewport?: boolean;
+  occluded?: boolean;
   role: string;
   name?: string;
   bounds?: TargetBoundsView;

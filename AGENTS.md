@@ -309,8 +309,9 @@ progress 166。
 ### 最近验证状态
 
 - 外部 AI 直连模式已加入，见 [progress327](docs/progress/327-外部AI直连浏览器操作.md)。MCP 默认关闭直连授权，
-  显式授权后可读取快照、导航、派发低风险动作和查询任务。SDK 支持 `DIRECT`，正式契约
-  为 271 Operations / 368 Schemas，权限迁移 V141。Oracle 上的新版本验收仍待完成。
+  显式授权后可读取快照、导航、派发低风险动作和查询任务。普通 Web/桌面可在执行控制台
+  选择直接执行，也可从运行中环境详情进入。SDK 支持 `DIRECT`，正式契约为 271 Operations /
+  368 Schemas，权限迁移 V141。Chrome 界面回归通过，Oracle 上的新版本验收仍待完成。
 
 - Oracle ARM真实Chromium/MCP单环境完整生命周期已通过，见 progress326：用户授权
   暂停aitown后端后PSI降至0.04、节点NORMAL/OPEN；官方客户端9工具、创建/启动/

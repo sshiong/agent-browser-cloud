@@ -278,6 +278,18 @@ export function SessionDetailPage() {
                     <Monitor size={13} />
                     {takeoverActive ? '打开协作远程桌面' : '打开远程桌面'}
                   </button>
+                  {auth.canOperate &&
+                    session.state === 'RUNNING' &&
+                    session.agentPolicy !== 'DISABLED' &&
+                    session.agentPolicy !== 'RESTRICTED' && (
+                      <Link
+                        to={`/automation/tasks?session=${encodeURIComponent(id)}&mode=direct`}
+                        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[7px] border border-border-default px-3 text-[11px] text-text-secondary hover:bg-surface-2"
+                      >
+                        <Crosshair size={13} aria-hidden="true" />
+                        直接操作
+                      </Link>
+                    )}
                   {canStart && (
                     <button
                       type="button"

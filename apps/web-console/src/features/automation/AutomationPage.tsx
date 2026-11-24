@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
+import { useSearchParams } from 'react-router';
 import {
   AlertTriangle,
   ArrowRight,
@@ -21,6 +22,7 @@ import {
   Trash2,
   UserRoundCheck,
 } from 'lucide-react';
+import { isSessionApiError } from '@/api/session';
 import { TopContextBar } from '@/components/layout/TopContextBar';
 import {
   EmptyState,
@@ -38,12 +40,14 @@ import {
   useAgentTaskSummaries,
   useApproveAgentTask,
   useCreateAgentTask,
+  useDirectBrowserAction,
   useExecuteAgentTask,
   useRejectAgentHandoff,
   useRejectAgentTask,
 } from '@/features/automation/agentQueries';
 import { cn } from '@/shared/lib/utils';
 import type {
+  AgentBatchActionRequest,
   AgentRiskClass,
   AgentExpectedOutcomeRequest,
   AgentExpectedOutcomeType,
@@ -125,15 +129,17 @@ const agentPolicyBudgets: Record<
   BALANCED: { defaultMaxActions: 8, maximumMaxActions: 12, replanBudget: 1 },
   INTERACTIVE: {
     defaultMaxActions: 12,
-    maximumMaxActions: 20,
+    maximumMaxActions: 23,
     replanBudget: 2,
   },
 };
 
 export function AutomationPage() {
+  const [searchParams] = useSearchParams();
   const tasksQuery = useAgentTaskSummaries();
   const sessionsQuery = useSessions({ state: 'RUNNING', limit: 100 });
   const createTask = useCreateAgentTask();
+  const directAction = useDirectBrowserAction();
   const executeTask = useExecuteAgentTask();
   const approveTask = useApproveAgentTask();
   const rejectTask = useRejectAgentTask();
@@ -141,14 +147,25 @@ export function AutomationPage() {
   const rejectHandoff = useRejectAgentHandoff();
   const [selectedTaskId, setSelectedTaskId] = useState('');
   const selectedTaskQuery = useAgentTask(selectedTaskId);
-  const [sessionId, setSessionId] = useState('');
+  const [sessionId, setSessionId] = useState(
+    () => searchParams.get('session') ?? ''
+  );
   const [goal, setGoal] = useState('');
   const [startUrl, setStartUrl] = useState('');
   const [allowedDomains, setAllowedDomains] = useState('');
   const [externalContent, setExternalContent] = useState('');
   const [sourceType, setSourceType] =
     useState<InstructionSourceType>('WEB_CONTENT');
-  const [actions, setActions] = useState<DraftAction[]>([]);
+  const [executionMode, setExecutionMode] = useState<'MANAGED' | 'DIRECT'>(
+    () => (searchParams.get('mode') === 'direct' ? 'DIRECT' : 'MANAGED')
+  );
+  const [managedActions, setManagedActions] = useState<DraftAction[]>([]);
+  const [directActions, setDirectActions] = useState<DraftAction[]>([]);
+  const direct = executionMode === 'DIRECT';
+  const actions = direct ? directActions : managedActions;
+  const setActions = direct ? setDirectActions : setManagedActions;
+  const submitting = createTask.isPending || directAction.isPending;
+  const submitError = direct ? directAction.error : createTask.error;
   const [expectedOutcomes, setExpectedOutcomes] = useState<
     DraftExpectedOutcome[]
   >([]);
@@ -169,6 +186,8 @@ export function AutomationPage() {
   const policyBudget = agentPolicyBudgets[agentPolicy];
   const permittedActionOptions = actionOptions.filter((option) => {
     if (agentPolicy === 'DISABLED') return false;
+    if (direct && !['CLICK_TARGET', 'SCROLL'].includes(option.value))
+      return false;
     if (
       agentPolicy === 'RESTRICTED' &&
       !['WAIT_FOR', 'REQUEST_HUMAN_TAKEOVER'].includes(option.value)
@@ -224,8 +243,10 @@ export function AutomationPage() {
   const policyConflict =
     agentPolicy === 'DISABLED'
       ? '该 Session 在创建时已禁用 Agent，服务端会拒绝所有计划。'
-      : startUrl.trim() && agentPolicy === 'RESTRICTED'
-        ? 'Restricted 策略禁止 Agent 导航；请在浏览器中先打开目标页面。'
+      : agentPolicy === 'RESTRICTED' && (direct || startUrl.trim())
+        ? direct
+          ? '当前环境的 Restricted 策略只允许读取、等待和请求接管。'
+          : 'Restricted 策略禁止 Agent 导航；请在浏览器中先打开目标页面。'
         : actions.some(
               (action) =>
                 !permittedActionOptions.some(
@@ -236,27 +257,89 @@ export function AutomationPage() {
           : requiredActionBudget > policyBudget.maximumMaxActions
             ? `计划需要 ${requiredActionBudget} 个动作，超过 ${agentPolicy} 上限 ${policyBudget.maximumMaxActions}。`
             : '';
-  const submitDisabledReason = createTask.isPending
-    ? '计划正在创建'
-    : !sessionId
+  const submitDisabledReason = submitting
+    ? '正在提交'
+    : !selectedSession
       ? '请选择运行中的 Session'
       : !goal.trim()
         ? '请填写用户目标'
-        : !allowedDomains.trim()
-          ? '请填写授权域名'
-          : navigationConflict
-            ? '起始 URL 与结构化动作不能同时提交'
-            : policyConflict
-              ? policyConflict
-              : !actionsValid
-                ? '结构化动作尚未完整绑定'
-                : !expectedOutcomesValid
-                  ? 'Expected Outcome 尚未完整声明'
-                  : '';
+        : direct && !startUrl.trim() && actions.length === 0
+          ? '请填写网址或添加动作'
+          : !direct && !allowedDomains.trim()
+            ? '请填写授权域名'
+            : navigationConflict
+              ? '请先导航，再对新页面执行动作'
+              : policyConflict
+                ? policyConflict
+                : !actionsValid
+                  ? '结构化动作尚未完整绑定'
+                  : !direct && !expectedOutcomesValid
+                    ? 'Expected Outcome 尚未完整声明'
+                    : '';
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (submitDisabledReason) return;
     setBindingError('');
+    if (direct) {
+      try {
+        const task = await directAction.mutateAsync({
+          sessionId,
+          buildRequest: (snapshot) => {
+            const rebound = browserState.data
+              ? rebindActionsToState(actions, browserState.data, snapshot.state)
+              : actions;
+            if (!rebound) {
+              throw new Error('目标已变化，请重新选择后再执行。');
+            }
+            return {
+              goal: goal.trim(),
+              expectedStateCursor: snapshot.stateCursor,
+              executionMode: 'DIRECT',
+              navigateUrl: startUrl.trim() || undefined,
+              actions: rebound.map((action): AgentBatchActionRequest => {
+                if (action.toolId === 'SCROLL') {
+                  return {
+                    toolId: 'SCROLL',
+                    scrollDeltaY: action.scrollDeltaY,
+                  };
+                }
+                const target = snapshot.state.targets.find(
+                  (candidate) => candidate.targetRef === action.targetRef
+                );
+                if (
+                  action.toolId !== 'CLICK_TARGET' ||
+                  !target?.elementId ||
+                  target.sensitive ||
+                  !target.interactive ||
+                  !target.inViewport ||
+                  target.occluded
+                ) {
+                  throw new Error('请选择当前页面可见、可操作的目标。');
+                }
+                return {
+                  toolId: 'CLICK_TARGET',
+                  targetRef: target.elementId,
+                  targetRevision: snapshot.state.targetRevision,
+                };
+              }),
+            };
+          },
+        });
+        setSelectedTaskId(task.taskId);
+        if (
+          task.state === 'RUNNING' ||
+          task.state === 'COMPLETED' ||
+          task.state === 'VERIFYING_OUTCOME'
+        ) {
+          setActions([]);
+          setStartUrl('');
+        }
+      } catch {
+        // The mutation holds the error so the form and draft remain available.
+      }
+      return;
+    }
     let submittedActions = actions;
     if (
       actions.some(
@@ -288,38 +371,41 @@ export function AutomationPage() {
       .split(/[\s,]+/)
       .map((domain) => domain.trim())
       .filter(Boolean);
-    const task = await createTask.mutateAsync({
-      sessionId,
-      request: {
-        goal,
-        startUrl: startUrl.trim() || undefined,
-        allowedDomains: domains,
-        maxActions: Math.max(
-          policyBudget.defaultMaxActions,
-          requiredActionBudget
-        ),
-        replanBudget: policyBudget.replanBudget,
-        contextSources: externalContent.trim()
-          ? [
-              {
-                sourceId: `console-${crypto.randomUUID()}`,
-                sourceType,
-                classification: 'PUBLIC',
-                content: externalContent,
-              },
-            ]
-          : [],
-        actions: submittedActions.map(toActionRequest),
-        expectedOutcomes: expectedOutcomes.map((outcome, index) => ({
-          outcomeId: `expected-${index + 1}`,
-          type: outcome.type,
-          role: outcome.type.startsWith('TARGET_')
-            ? outcome.role?.trim()
-            : undefined,
-          matchValue: outcome.matchValue.trim(),
-        })),
-      },
-    });
+    const task = await createTask
+      .mutateAsync({
+        sessionId,
+        request: {
+          goal,
+          startUrl: startUrl.trim() || undefined,
+          allowedDomains: domains,
+          maxActions: Math.max(
+            policyBudget.defaultMaxActions,
+            requiredActionBudget
+          ),
+          replanBudget: policyBudget.replanBudget,
+          contextSources: externalContent.trim()
+            ? [
+                {
+                  sourceId: `console-${crypto.randomUUID()}`,
+                  sourceType,
+                  classification: 'PUBLIC',
+                  content: externalContent,
+                },
+              ]
+            : [],
+          actions: submittedActions.map(toActionRequest),
+          expectedOutcomes: expectedOutcomes.map((outcome, index) => ({
+            outcomeId: `expected-${index + 1}`,
+            type: outcome.type,
+            role: outcome.type.startsWith('TARGET_')
+              ? outcome.role?.trim()
+              : undefined,
+            matchValue: outcome.matchValue.trim(),
+          })),
+        },
+      })
+      .catch(() => undefined);
+    if (!task) return;
     setSelectedTaskId(task.taskId);
     setGoal('');
     setExternalContent('');
@@ -383,10 +469,10 @@ export function AutomationPage() {
               onRetry={() => tasksQuery.refetch()}
               title="Agent 任务不可用"
             />
-          ) : tasks.length === 0 ? (
+          ) : tasks.length === 0 && !selectedTaskId ? (
             <EmptyState
               title="尚无安全计划"
-              description="从右侧创建第一个受限任务。系统会先完成 Intent Guard 与 Plan Validation，不会直接执行。"
+              description="选择运行中的环境，然后创建托管计划或直接执行动作。"
             />
           ) : (
             <div className="grid min-h-[580px] lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.18fr)]">
@@ -465,21 +551,46 @@ export function AutomationPage() {
               </div>
               <div>
                 <h2 className="text-[13px] font-semibold text-text-primary">
-                  创建受限计划
+                  {direct ? '直接操作浏览器' : '创建受限计划'}
                 </h2>
                 <p className="mt-0.5 text-[10px] leading-4 text-text-muted">
-                  动作必须绑定当前 Target Revision；敏感输入目标不可被 Agent
-                  使用。
+                  {direct
+                    ? '按你指定的顺序执行导航、点击或滚动。'
+                    : '创建计划后，可在任务详情中审核并执行。'}
                 </p>
               </div>
             </div>
           </div>
 
           <form onSubmit={submit} className="space-y-4 p-5">
+            <Field label="执行模式">
+              <select
+                value={executionMode}
+                disabled={submitting}
+                className={inputClass}
+                onChange={(event) => {
+                  setExecutionMode(
+                    event.target.value === 'DIRECT' ? 'DIRECT' : 'MANAGED'
+                  );
+                  setBindingError('');
+                  directAction.reset();
+                  createTask.reset();
+                }}
+              >
+                <option value="MANAGED">托管执行</option>
+                <option value="DIRECT">直接执行</option>
+              </select>
+            </Field>
             <Field label="运行中的 Session" required>
               <select
                 value={sessionId}
-                onChange={(event) => setSessionId(event.target.value)}
+                disabled={submitting}
+                onChange={(event) => {
+                  setSessionId(event.target.value);
+                  setDirectActions([]);
+                  directAction.reset();
+                  setBindingError('');
+                }}
                 required
                 className={inputClass}
               >
@@ -505,7 +616,7 @@ export function AutomationPage() {
                 </div>
                 <p className="mt-1 text-[9px] leading-4 text-text-muted">
                   动作上限 {policyBudget.maximumMaxActions} · Replan{' '}
-                  {policyBudget.replanBudget}
+                  {direct ? 0 : policyBudget.replanBudget}
                   {selectedSession.humanTakeoverEnabled === false
                     ? ' · HumanTakeover disabled'
                     : ''}
@@ -525,7 +636,7 @@ export function AutomationPage() {
               />
             </Field>
 
-            <Field label="起始 URL">
+            <Field label={direct ? '打开网址' : '起始 URL'}>
               <input
                 value={startUrl}
                 onChange={(event) => setStartUrl(event.target.value)}
@@ -540,160 +651,167 @@ export function AutomationPage() {
               />
             </Field>
 
-            <Field label="授权域名" required hint="精确匹配">
-              <input
-                value={allowedDomains}
-                onChange={(event) => setAllowedDomains(event.target.value)}
-                required
-                placeholder="example.com"
-                className={cn(inputClass, 'font-mono')}
-              />
-            </Field>
+            {!direct && (
+              <Field label="授权域名" required hint="精确匹配">
+                <input
+                  value={allowedDomains}
+                  onChange={(event) => setAllowedDomains(event.target.value)}
+                  required
+                  placeholder="example.com"
+                  className={cn(inputClass, 'font-mono')}
+                />
+              </Field>
+            )}
 
             <StateBindingPanel
               isLoading={browserState.isLoading}
               state={browserState.data}
             />
 
-            <div className="border-t border-border-subtle pt-4">
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-text-muted">
-                    Expected Outcome
-                  </p>
-                  <p className="mt-1 text-[10px] leading-4 text-text-muted">
-                    声明任务完成后必须成立的确定性条件；匹配正文仅在提交时使用，服务端只保存哈希。
-                  </p>
+            {!direct && (
+              <div className="border-t border-border-subtle pt-4">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-text-muted">
+                      Expected Outcome
+                    </p>
+                    <p className="mt-1 text-[10px] leading-4 text-text-muted">
+                      声明任务完成后必须成立的确定性条件；匹配正文仅在提交时使用，服务端只保存哈希。
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="添加 Expected Outcome"
+                    disabled={expectedOutcomes.length >= 10}
+                    onClick={() =>
+                      setExpectedOutcomes((current) => [
+                        ...current,
+                        {
+                          clientId: crypto.randomUUID(),
+                          type: 'TARGET_PRESENT',
+                          role: 'status',
+                          matchValue: '',
+                        },
+                      ])
+                    }
+                    className="inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] border border-border-default px-2 text-[10px] text-text-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-35"
+                  >
+                    <Plus size={11} />
+                    添加
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  aria-label="添加 Expected Outcome"
-                  disabled={expectedOutcomes.length >= 10}
-                  onClick={() =>
-                    setExpectedOutcomes((current) => [
-                      ...current,
-                      {
-                        clientId: crypto.randomUUID(),
-                        type: 'TARGET_PRESENT',
-                        role: 'status',
-                        matchValue: '',
-                      },
-                    ])
-                  }
-                  className="inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] border border-border-default px-2 text-[10px] text-text-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-35"
-                >
-                  <Plus size={11} />
-                  添加
-                </button>
-              </div>
 
-              {expectedOutcomes.length === 0 ? (
-                <div className="border border-dashed border-border-default bg-surface-2/40 px-3 py-4 text-center text-[10px] text-text-muted">
-                  未声明确定性结果；任务仍会经过独立语义 Outcome Verifier。
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {expectedOutcomes.map((outcome, index) => {
-                    const targetOutcome = outcome.type.startsWith('TARGET_');
-                    return (
-                      <div
-                        key={outcome.clientId}
-                        className="grid gap-2 border border-border-subtle bg-surface-2/45 p-3 sm:grid-cols-[1fr_0.7fr_1.4fr_auto]"
-                      >
-                        <select
-                          value={outcome.type}
-                          onChange={(event) =>
-                            setExpectedOutcomes((current) =>
-                              current.map((item) =>
-                                item.clientId === outcome.clientId
-                                  ? {
-                                      ...item,
-                                      type: event.target
-                                        .value as AgentExpectedOutcomeType,
-                                      role: event.target.value.startsWith(
-                                        'TARGET_'
-                                      )
-                                        ? item.role || 'status'
-                                        : undefined,
-                                    }
-                                  : item
-                              )
-                            )
-                          }
-                          className={inputClass}
-                          aria-label={`Expected Outcome ${index + 1} 类型`}
+                {expectedOutcomes.length === 0 ? (
+                  <div className="border border-dashed border-border-default bg-surface-2/40 px-3 py-4 text-center text-[10px] text-text-muted">
+                    未声明确定性结果；任务仍会经过独立语义 Outcome Verifier。
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {expectedOutcomes.map((outcome, index) => {
+                      const targetOutcome = outcome.type.startsWith('TARGET_');
+                      return (
+                        <div
+                          key={outcome.clientId}
+                          className="grid gap-2 border border-border-subtle bg-surface-2/45 p-3 sm:grid-cols-[1fr_0.7fr_1.4fr_auto]"
                         >
-                          {expectedOutcomeOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          value={outcome.role ?? ''}
-                          onChange={(event) =>
-                            setExpectedOutcomes((current) =>
-                              current.map((item) =>
-                                item.clientId === outcome.clientId
-                                  ? { ...item, role: event.target.value }
-                                  : item
+                          <select
+                            value={outcome.type}
+                            onChange={(event) =>
+                              setExpectedOutcomes((current) =>
+                                current.map((item) =>
+                                  item.clientId === outcome.clientId
+                                    ? {
+                                        ...item,
+                                        type: event.target
+                                          .value as AgentExpectedOutcomeType,
+                                        role: event.target.value.startsWith(
+                                          'TARGET_'
+                                        )
+                                          ? item.role || 'status'
+                                          : undefined,
+                                      }
+                                    : item
+                                )
                               )
-                            )
-                          }
-                          disabled={!targetOutcome}
-                          maxLength={64}
-                          placeholder={
-                            targetOutcome ? 'role，例如 status' : '无需 role'
-                          }
-                          className={cn(
-                            inputClass,
-                            'font-mono disabled:opacity-40'
-                          )}
-                          aria-label={`Expected Outcome ${index + 1} role`}
-                        />
-                        <input
-                          value={outcome.matchValue}
-                          onChange={(event) =>
-                            setExpectedOutcomes((current) =>
-                              current.map((item) =>
-                                item.clientId === outcome.clientId
-                                  ? { ...item, matchValue: event.target.value }
-                                  : item
+                            }
+                            className={inputClass}
+                            aria-label={`Expected Outcome ${index + 1} 类型`}
+                          >
+                            {expectedOutcomeOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            value={outcome.role ?? ''}
+                            onChange={(event) =>
+                              setExpectedOutcomes((current) =>
+                                current.map((item) =>
+                                  item.clientId === outcome.clientId
+                                    ? { ...item, role: event.target.value }
+                                    : item
+                                )
                               )
-                            )
-                          }
-                          required
-                          maxLength={512}
-                          placeholder={
-                            outcome.type === 'FINAL_URL_EQUALS'
-                              ? 'https://example.com/saved'
-                              : outcome.type === 'PAGE_TITLE_EQUALS'
-                                ? '保存成功'
-                                : '目标可访问名称，例如 Changes saved'
-                          }
-                          className={inputClass}
-                          aria-label={`Expected Outcome ${index + 1} 匹配值`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpectedOutcomes((current) =>
-                              current.filter(
-                                (item) => item.clientId !== outcome.clientId
+                            }
+                            disabled={!targetOutcome}
+                            maxLength={64}
+                            placeholder={
+                              targetOutcome ? 'role，例如 status' : '无需 role'
+                            }
+                            className={cn(
+                              inputClass,
+                              'font-mono disabled:opacity-40'
+                            )}
+                            aria-label={`Expected Outcome ${index + 1} role`}
+                          />
+                          <input
+                            value={outcome.matchValue}
+                            onChange={(event) =>
+                              setExpectedOutcomes((current) =>
+                                current.map((item) =>
+                                  item.clientId === outcome.clientId
+                                    ? {
+                                        ...item,
+                                        matchValue: event.target.value,
+                                      }
+                                    : item
+                                )
                               )
-                            )
-                          }
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-[6px] border border-border-default text-text-muted hover:border-danger/40 hover:text-danger"
-                          aria-label={`移除 Expected Outcome ${index + 1}`}
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                            }
+                            required
+                            maxLength={512}
+                            placeholder={
+                              outcome.type === 'FINAL_URL_EQUALS'
+                                ? 'https://example.com/saved'
+                                : outcome.type === 'PAGE_TITLE_EQUALS'
+                                  ? '保存成功'
+                                  : '目标可访问名称，例如 Changes saved'
+                            }
+                            className={inputClass}
+                            aria-label={`Expected Outcome ${index + 1} 匹配值`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpectedOutcomes((current) =>
+                                current.filter(
+                                  (item) => item.clientId !== outcome.clientId
+                                )
+                              )
+                            }
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-[6px] border border-border-default text-text-muted hover:border-danger/40 hover:text-danger"
+                            aria-label={`移除 Expected Outcome ${index + 1}`}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="border-t border-border-subtle pt-4">
               <div className="mb-3 flex items-start justify-between gap-3">
@@ -702,7 +820,9 @@ export function AutomationPage() {
                     结构化动作
                   </p>
                   <p className="mt-1 text-[10px] leading-4 text-text-muted">
-                    每个点击/输入都在创建时绑定当前目标版本。
+                    {direct
+                      ? '点击会在提交时核对最新的页面目标。'
+                      : '每个点击或输入都绑定当前目标版本。'}
                   </p>
                 </div>
                 <button
@@ -733,7 +853,9 @@ export function AutomationPage() {
 
               {actions.length === 0 ? (
                 <div className="border border-dashed border-border-default bg-surface-2/40 px-3 py-4 text-center text-[10px] text-text-muted">
-                  无写动作；计划仅执行状态读取与验证。
+                  {direct
+                    ? '填写网址，或添加点击、滚动动作。'
+                    : '无写动作；计划仅执行状态读取与验证。'}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -745,6 +867,7 @@ export function AutomationPage() {
                       targets={browserState.data?.targets ?? []}
                       targetRevision={browserState.data?.targetRevision}
                       options={permittedActionOptions}
+                      direct={direct}
                       onChange={(next) =>
                         setActions((current) =>
                           current.map((item) =>
@@ -781,55 +904,61 @@ export function AutomationPage() {
               )}
             </div>
 
-            <details className="group border-t border-border-subtle pt-4">
-              <summary className="flex cursor-pointer list-none items-center justify-between text-[11px] font-medium text-text-secondary">
-                外部上下文安全测试
-                <ChevronRight
-                  size={13}
-                  className="transition-transform group-open:rotate-90"
-                />
-              </summary>
-              <div className="mt-3 space-y-3">
-                <Field label="来源类型">
-                  <select
-                    value={sourceType}
-                    onChange={(event) =>
-                      setSourceType(event.target.value as InstructionSourceType)
-                    }
-                    className={inputClass}
-                  >
-                    {sourceOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="不可信正文" hint="仅保留 Hash 与规则命中">
-                  <textarea
-                    value={externalContent}
-                    onChange={(event) => setExternalContent(event.target.value)}
-                    rows={4}
-                    maxLength={10000}
-                    placeholder="粘贴网页、邮件或文档片段以验证 Injection 防护"
-                    className={cn(
-                      inputClass,
-                      'min-h-24 resize-y py-2 leading-4'
-                    )}
+            {!direct && (
+              <details className="group border-t border-border-subtle pt-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between text-[11px] font-medium text-text-secondary">
+                  外部上下文安全测试
+                  <ChevronRight
+                    size={13}
+                    className="transition-transform group-open:rotate-90"
                   />
-                </Field>
-              </div>
-            </details>
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <Field label="来源类型">
+                    <select
+                      value={sourceType}
+                      onChange={(event) =>
+                        setSourceType(
+                          event.target.value as InstructionSourceType
+                        )
+                      }
+                      className={inputClass}
+                    >
+                      {sourceOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="不可信正文" hint="仅保留 Hash 与规则命中">
+                    <textarea
+                      value={externalContent}
+                      onChange={(event) =>
+                        setExternalContent(event.target.value)
+                      }
+                      rows={4}
+                      maxLength={10000}
+                      placeholder="粘贴网页、邮件或文档片段以验证 Injection 防护"
+                      className={cn(
+                        inputClass,
+                        'min-h-24 resize-y py-2 leading-4'
+                      )}
+                    />
+                  </Field>
+                </div>
+              </details>
+            )}
 
-            {createTask.isError && (
+            {submitError && (
               <div
                 role="alert"
                 className="flex gap-2 border border-danger/30 bg-danger/8 p-3 text-[11px] leading-4 text-danger"
               >
                 <AlertTriangle className="mt-0.5 shrink-0" size={13} />
-                {createTask.error instanceof Error
-                  ? createTask.error.message
-                  : '创建任务失败'}
+                {direct
+                  ? directActionErrorMessage(submitError)
+                  : submitError.message}
               </div>
             )}
 
@@ -849,18 +978,31 @@ export function AutomationPage() {
               title={submitDisabledReason || undefined}
               className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-[7px] bg-accent px-4 text-[12px] font-semibold text-canvas transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {createTask.isPending ? (
+              {submitting ? (
                 <LoaderCircle className="animate-spin" size={14} />
               ) : (
                 <ShieldCheck size={14} />
               )}
-              运行安全校验并生成计划
+              {direct ? '直接执行' : '运行安全校验并生成计划'}
             </button>
           </form>
         </aside>
       </div>
     </div>
   );
+}
+
+function directActionErrorMessage(error: Error) {
+  if (isSessionApiError(error)) {
+    const reason = error.body.details?.reason;
+    if (reason === 'STATE_CURSOR_STALE' || reason === 'BROWSER_STATE_STALE') {
+      return '页面状态已变化。请确认当前目标后重试。';
+    }
+    if (reason === 'DIRECT_EXECUTION_REQUIRES_MANAGED_REVIEW') {
+      return '此动作需要审核。请选择托管执行。';
+    }
+  }
+  return error.message;
 }
 
 export function StateBindingPanel({
@@ -918,6 +1060,7 @@ function ActionEditor({
   targets,
   targetRevision,
   options,
+  direct,
   onChange,
   onRemove,
 }: {
@@ -926,11 +1069,21 @@ function ActionEditor({
   targets: InteractiveTargetView[];
   targetRevision?: number;
   options: typeof actionOptions;
+  direct: boolean;
   onChange: (action: DraftAction) => void;
   onRemove: () => void;
 }) {
   const actionableTargets = targets.filter(
-    (target) => target.visible && target.enabled && target.bounds
+    (target) =>
+      target.visible &&
+      target.enabled &&
+      target.bounds &&
+      (!direct ||
+        (target.elementId &&
+          target.interactive &&
+          target.inViewport &&
+          !target.occluded &&
+          !target.sensitive))
   );
   const icon =
     action.toolId === 'CLICK_TARGET' ? (

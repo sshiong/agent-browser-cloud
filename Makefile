@@ -203,6 +203,29 @@ stack-down:
 stack-ps:
 	./tools/local-dev/stack.sh $(STACK_ARGS) ps
 
+# L0 Lite (single pure-Rust container, zero Java/PG/Redis/Python/model key) & L1/L2 tiered stacks
+.PHONY: lite-config lite-build lite-up lite-down lite-token personal-up team-up
+lite-config:
+	docker compose -f deploy/compose/lite.yml config
+
+lite-build:
+	docker compose -f deploy/compose/lite.yml build
+
+lite-up:
+	docker compose -f deploy/compose/lite.yml up -d --build
+
+lite-down:
+	docker compose -f deploy/compose/lite.yml down
+
+lite-token:
+	docker compose -f deploy/compose/lite.yml exec -T browsercloud-lite cat /data/bootstrap-token
+
+personal-up:
+	cargo run --locked --manifest-path apps/browser-node/Cargo.toml --bin browsercloud-ctl -- --tier personal up
+
+team-up:
+	cargo run --locked --manifest-path apps/browser-node/Cargo.toml --bin browsercloud-ctl -- --tier team up
+
 personal-secure-init:
 	./deploy/personal-secure/personal-secure init
 

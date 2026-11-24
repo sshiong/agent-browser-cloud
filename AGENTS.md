@@ -308,6 +308,11 @@ progress 166。
 
 ### 最近验证状态
 
+- 纯 Rust 轻量化 L0 单容器与 L0/L1/L2 分档部署重构已完成，见 [progress332](docs/progress/332-纯Rust轻量化L0单容器与L0_L1_L2分档部署重构.md)：
+  新增纯 Rust `apps/browser-node/crates/lite-server`（二进制 `browsercloud-lite` 与 `browsercloud-ctl`），零 Java/PG/Redis/Python/模型 Key 依赖，直接复用 `runtime-supervisor`/`state-collector`/`input-sandbox` 与 SQLite 提供多 Agent Token 隔离、多浏览器休眠/自动唤醒、排除临时缓存的 SHA-256 Profile Checkpoint、EWMA/P95 分级背压状态机、REST API 及原生 10 工具 MCP Streamable HTTP（含 `browser_observe` `diff` 增量快照与 `browser_act_batch`）；
+  `apps/browser-node/Dockerfile` 拆分为 `lite`/`core`/`desktop`/`vision` 四目标，新增 `deploy/compose/lite.yml`、`personal.yml`、`team.yml` 与 `Makefile` `lite-*`/`personal-up`/`team-up` 目标。
+  Rust 全工作区 `cargo test --locked --workspace` 与严格 Clippy、Compose 12 项及 `make docs-check` 全通过；原 `docker-compose.yml`、OpenAPI（273/368）与 V141 不变。
+
 - 小内存运行优化与模块化按需构建闭环已完成，见 [progress331](docs/progress/331-小内存运行优化与模块化构建裁剪闭环.md)：
   新增 `deploy/compose/modular.yml`（Core 常驻，`mcp`/`web`/`workers` 独立 Profile）、`deploy/compose/low-memory.yml`（Control Plane SerialGC 288M 堆/448M 上限、PG 32M/192M、Redis 48M/64M、Chromium `BROWSER_LOW_MEMORY_MODE=true` 沙箱不降级）与交互/CLI 入口 `tools/local-dev/stack.sh`（预设 `minimal-mcp`/`direct-lite`/`full` 与各单模块开关，`Makefile` 同步 `stack-*` 目标）；
   Browser Node `Dockerfile` 支持 `ENABLE_REMOTE_DESKTOP`/`ENABLE_RECORDING_SCANNER` 构建期裁剪（关录制可减约 700 MB 镜像），`node-agent` 支持空值 `XVFB_PATH`/`X11VNC_PATH` 运行时关 VNC，Control Plane 支持 `JAVA_OPTS`/Tomcat 线程/Hikari 连接池环境变量调优；原根目录 `docker-compose.yml` 不变。

@@ -1,0 +1,44 @@
+# L0 Lite: Single-container pure-Rust Agent Browser Cloud.
+#
+# Zero Java Control Plane, zero PostgreSQL, zero Redis, zero Python workers, zero LLM API key.
+# Runs multi-browser Chromium sessions with SQLite metadata, per-Agent token isolation, local
+# Profile checkpointing, graded PSI/memory backpressure, REST API, and native 10-tool MCP
+# Streamable HTTP at http://127.0.0.1:8130/mcp.
+#
+# Quickstart:
+#   docker compose -f deploy/compose/lite.yml up -d --build
+#   docker compose -f deploy/compose/lite.yml exec browsercloud-lite cat /data/bootstrap-token
+
+services:
+  browsercloud-lite:
+    build:
+      context: ../..
+      dockerfile: apps/browser-node/Dockerfile
+      target: lite
+    restart: unless-stopped
+    security_opt:
+      - seccomp=../docker/chromium-seccomp.json
+    mem_limit: ${LITE_MEM_LIMIT:-1536m}
+    environment:
+      LITE_BIND_ADDR: 0.0.0.0:8130
+      LITE_DATA_DIR: /data
+      LITE_MAX_SESSIONS: ${LITE_MAX_SESSIONS:-4}
+      LITE_IDLE_TIMEOUT_SECONDS: ${LITE_IDLE_TIMEOUT_SECONDS:-900}
+      LITE_ALLOW_PRIVATE_NETWORK: ${LITE_ALLOW_PRIVATE_NETWORK:-false}
+      LITE_ALLOWED_HOSTS: ${LITE_ALLOWED_HOSTS:-127.0.0.1:* localhost:*}
+      LITE_ALLOWED_ORIGINS: ${LITE_ALLOWED_ORIGINS:-http://127.0.0.1:* http://localhost:*}
+      LITE_BOOTSTRAP_TOKEN: ${LITE_BOOTSTRAP_TOKEN:-}
+      BROWSER_LOW_MEMORY_MODE: ${BROWSER_LOW_MEMORY_MODE:-true}
+      RUST_LOG: ${RUST_LOG:-info}
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${LITE_PORT:-8130}:8130"
+    volumes:
+      - lite_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "test -S /proc/1/fd/0 || true; exec 3<>/dev/tcp/127.0.0.1/8130 && printf 'GET /healthz HTTP/1.0\r\nHost: 127.0.0.1:8130\r\n\r\n' >&3 && grep -q '\"status\":\"UP\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  lite_data:

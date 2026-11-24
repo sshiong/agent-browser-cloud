@@ -1,0 +1,29 @@
+# L2 Team: Multi-agent / multi-node capable tier.
+#
+# Runs Control Plane, PostgreSQL, Redis, Web Console, MCP Gateway, and Browser Node (`core` by
+# default; override BROWSER_NODE_TARGET=desktop or vision when VNC/OCR are needed).
+# External model workers remain opt-in via --profile workers.
+#
+# Usage:
+#   docker compose -f deploy/compose/modular.yml -f deploy/compose/team.yml \
+#     --profile web --profile mcp up -d --build
+
+services:
+  control-plane:
+    environment:
+      JAVA_OPTS: ${CONTROL_PLANE_JAVA_OPTS:--Xms256m -Xmx768m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
+
+  browser-node:
+    build:
+      target: ${BROWSER_NODE_TARGET:-core}
+    environment:
+      NODE_MAX_SESSIONS: ${NODE_MAX_SESSIONS:-6}
+      NODE_CERTIFIED_MEMORY_MIB: ${NODE_CERTIFIED_MEMORY_MIB:-6144}
+
+  browser-storage-init:
+    build:
+      target: ${BROWSER_NODE_TARGET:-core}
+
+  storage-helper:
+    build:
+      target: ${BROWSER_NODE_TARGET:-core}

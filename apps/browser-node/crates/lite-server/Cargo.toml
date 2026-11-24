@@ -12,6 +12,10 @@ path = "src/lib.rs"
 name = "browsercloud-lite"
 path = "src/main.rs"
 
+[[bin]]
+name = "browsercloud-ctl"
+path = "src/bin/ctl.rs"
+
 [dependencies]
 runtime-supervisor = { path = "../runtime-supervisor" }
 input-sandbox = { path = "../input-sandbox" }

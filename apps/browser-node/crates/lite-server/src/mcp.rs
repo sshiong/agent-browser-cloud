@@ -3,8 +3,8 @@
 use crate::backpressure::BackpressureState;
 use crate::runtime::{
     ActBatchParams, ActionStepParams, CloseSessionParams, CreateCredentialParams,
-    CreateProfileParams, CreateSessionParams, LiteRuntime, ObserveParams, OpenProfileParams,
-    ProfileOpParams, ScreenshotParams, WaitParams,
+    CreateProfileParams, CreateSessionParams, IntranetAuthMode, LiteRuntime, ObserveParams,
+    OpenProfileParams, ProfileOpParams, ScreenshotParams, WaitParams,
 };
 use crate::security::{matches_allowlist, validate_identifier};
 use crate::store::AgentTokenRecord;
@@ -75,7 +75,15 @@ pub fn build_router(runtime: Arc<LiteRuntime>) -> Router {
         )
         .route(
             "/api/v1/lite/sessions/:session_id/network-policy",
-            patch(rest_update_session_network_policy),
+            get(rest_get_session_network_policy).patch(rest_update_session_network_policy),
+        )
+        .route(
+            "/api/v1/lite/sessions/:session_id/network-policy/authorize",
+            post(rest_authorize_session_private_hosts),
+        )
+        .route(
+            "/api/v1/lite/sessions/:session_id/network-policy/grants",
+            delete(rest_revoke_session_private_hosts),
         )
         .route("/api/v1/lite/sessions/:session_id/close", post(rest_close))
         .route(
@@ -247,6 +255,17 @@ fn authorize(
 
 fn map_runtime_error(error: anyhow::Error) -> (StatusCode, Json<Value>) {
     let msg = error.to_string();
+    if let Some(host) = msg.strip_prefix("PRIVATE_NETWORK_HOST_NOT_AUTHORIZED:") {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "error": msg,
+                "host": host,
+                "sessionPreserved": true,
+                "authorizationOptions": ["once", "permanent"],
+            })),
+        );
+    }
     let status = if msg.contains("ACCESS_DENIED")
         || msg.contains("FORBIDDEN")
         || msg.contains("NOT_AUTHORIZED")
@@ -444,6 +463,55 @@ async fn rest_close(
 struct NetworkPolicyBody {
     #[serde(default, alias = "allowed_private_hosts")]
     allowed_private_hosts: Vec<String>,
+    #[serde(default)]
+    mode: Option<IntranetAuthMode>,
+    #[serde(default, alias = "ttl_seconds")]
+    ttl_seconds: Option<u64>,
+    #[serde(default)]
+    replace: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AuthorizePrivateHostsBody {
+    #[serde(default)]
+    host: Option<String>,
+    #[serde(default, alias = "allowed_private_hosts")]
+    hosts: Vec<String>,
+    #[serde(default = "default_intranet_mode")]
+    mode: IntranetAuthMode,
+    #[serde(default, alias = "ttl_seconds")]
+    ttl_seconds: Option<u64>,
+}
+
+fn default_intranet_mode() -> IntranetAuthMode {
+    IntranetAuthMode::Once
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RevokePrivateHostsBody {
+    #[serde(default)]
+    host: Option<String>,
+    #[serde(default)]
+    hosts: Vec<String>,
+    #[serde(default)]
+    mode: Option<IntranetAuthMode>,
+}
+
+async fn rest_get_session_network_policy(
+    State(rt): State<Arc<LiteRuntime>>,
+    headers: HeaderMap,
+    Path(session_id): Path<String>,
+) -> Response {
+    let caller = match authorize(&rt, &headers, "sessions") {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+    match rt.get_session_network_policy(&caller, &session_id).await {
+        Ok(val) => Json(val).into_response(),
+        Err(err) => map_runtime_error(err).into_response(),
+    }
 }
 
 async fn rest_update_session_network_policy(
@@ -456,8 +524,67 @@ async fn rest_update_session_network_policy(
         Ok(c) => c,
         Err(resp) => return resp.into_response(),
     };
+    let result = match body.mode {
+        Some(mode) if !body.replace => {
+            rt.authorize_session_private_hosts(
+                &caller,
+                &session_id,
+                &body.allowed_private_hosts,
+                mode,
+                body.ttl_seconds,
+            )
+            .await
+        }
+        _ => {
+            rt.update_session_network_policy(&caller, &session_id, &body.allowed_private_hosts)
+                .await
+        }
+    };
+    match result {
+        Ok(val) => Json(val).into_response(),
+        Err(err) => map_runtime_error(err).into_response(),
+    }
+}
+
+async fn rest_authorize_session_private_hosts(
+    State(rt): State<Arc<LiteRuntime>>,
+    headers: HeaderMap,
+    Path(session_id): Path<String>,
+    Json(body): Json<AuthorizePrivateHostsBody>,
+) -> Response {
+    let caller = match authorize(&rt, &headers, "sessions") {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+    let mut hosts = body.hosts;
+    if let Some(single) = body.host {
+        hosts.push(single);
+    }
     match rt
-        .update_session_network_policy(&caller, &session_id, &body.allowed_private_hosts)
+        .authorize_session_private_hosts(&caller, &session_id, &hosts, body.mode, body.ttl_seconds)
+        .await
+    {
+        Ok(val) => Json(val).into_response(),
+        Err(err) => map_runtime_error(err).into_response(),
+    }
+}
+
+async fn rest_revoke_session_private_hosts(
+    State(rt): State<Arc<LiteRuntime>>,
+    headers: HeaderMap,
+    Path(session_id): Path<String>,
+    Json(body): Json<RevokePrivateHostsBody>,
+) -> Response {
+    let caller = match authorize(&rt, &headers, "sessions") {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+    let mut hosts = body.hosts;
+    if let Some(single) = body.host {
+        hosts.push(single);
+    }
+    match rt
+        .revoke_session_private_hosts(&caller, &session_id, &hosts, body.mode)
         .await
     {
         Ok(val) => Json(val).into_response(),
@@ -1235,6 +1362,64 @@ async fn dispatch_mcp_tool(
                         rt.revoke_profile_grant(caller, profile_id, agent_id)?,
                     ))
                 }
+                "authorize_private_host" => {
+                    let session_id = require_session_id(&args)?;
+                    let mut hosts: Vec<String> = args
+                        .get("hosts")
+                        .and_then(Value::as_array)
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(Value::as_str)
+                                .map(ToOwned::to_owned)
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    if let Some(h) = args.get("host").and_then(Value::as_str) {
+                        hosts.push(h.to_owned());
+                    }
+                    let mode = match args.get("mode").and_then(Value::as_str) {
+                        Some("permanent") => IntranetAuthMode::Permanent,
+                        Some("once") | None => IntranetAuthMode::Once,
+                        Some(_) => anyhow::bail!("INTRANET_AUTH_MODE_INVALID"),
+                    };
+                    let ttl_seconds = args.get("ttl_seconds").and_then(Value::as_u64);
+                    Ok(json_text(
+                        rt.authorize_session_private_hosts(
+                            caller,
+                            &session_id,
+                            &hosts,
+                            mode,
+                            ttl_seconds,
+                        )
+                        .await?,
+                    ))
+                }
+                "revoke_private_host" => {
+                    let session_id = require_session_id(&args)?;
+                    let mut hosts: Vec<String> = args
+                        .get("hosts")
+                        .and_then(Value::as_array)
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(Value::as_str)
+                                .map(ToOwned::to_owned)
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    if let Some(h) = args.get("host").and_then(Value::as_str) {
+                        hosts.push(h.to_owned());
+                    }
+                    let mode = match args.get("mode").and_then(Value::as_str) {
+                        Some("permanent") => Some(IntranetAuthMode::Permanent),
+                        Some("once") => Some(IntranetAuthMode::Once),
+                        None => None,
+                        Some(_) => anyhow::bail!("INTRANET_AUTH_MODE_INVALID"),
+                    };
+                    Ok(json_text(
+                        rt.revoke_session_private_hosts(caller, &session_id, &hosts, mode)
+                            .await?,
+                    ))
+                }
                 _ => {
                     let session_id = require_session_id(&args)?;
                     let params: ProfileOpParams = serde_json::from_value(args)?;
@@ -1394,7 +1579,7 @@ pub fn mcp_tool_catalog() -> Vec<Value> {
         }),
         json!({
             "name": "browser_profile",
-            "description": "Manage admin-owned Profiles and local checkpoints: save/restore/list checkpoints on a session, list_profiles (authorized profiles only), open (attach to running browser for collaboration or start single-writer instance), or grant/revoke Agent access (admin).",
+            "description": "Manage admin-owned Profiles, checkpoints, and per-environment intranet authorization (once vs permanent): save/restore/list checkpoints, list_profiles, open (collaborate or start single-writer), grant/revoke Agent access (admin), or authorize_private_host/revoke_private_host.",
             "inputSchema": {
                 "type": "object",
                 "required": ["action"],
@@ -1402,7 +1587,11 @@ pub fn mcp_tool_catalog() -> Vec<Value> {
                     "session_id": { "type": "string" },
                     "profile_id": { "type": "string" },
                     "agent_id": { "type": "string" },
-                    "action": { "type": "string", "enum": ["save", "restore", "list", "list_profiles", "open", "grant", "revoke"] },
+                    "host": { "type": "string", "description": "Intranet host/port/CIDR for authorize_private_host or revoke_private_host" },
+                    "hosts": { "type": "array", "items": { "type": "string" } },
+                    "mode": { "type": "string", "enum": ["once", "permanent"], "description": "'once' (temporary for current session only) or 'permanent' (persisted on environment/profile so it never prompts again)" },
+                    "ttl_seconds": { "type": "integer", "minimum": 10, "maximum": 86400 },
+                    "action": { "type": "string", "enum": ["save", "restore", "list", "list_profiles", "open", "grant", "revoke", "authorize_private_host", "revoke_private_host"] },
                     "checkpoint_id": { "type": "string" }
                 }
             }

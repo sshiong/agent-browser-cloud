@@ -223,6 +223,20 @@ pub struct CloseSessionParams {
     pub hibernate: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IntranetAuthMode {
+    Once,
+    Permanent,
+}
+
+#[derive(Debug, Clone)]
+struct TemporaryPrivateHostGrant {
+    rule: String,
+    expires_at_mono: Option<Instant>,
+    expires_at_utc: Option<DateTime<Utc>>,
+}
+
 struct WarmInstance {
     warm_id: String,
     cdp_endpoint: String,
@@ -251,6 +265,8 @@ pub struct LiteRuntime {
     live: Arc<Mutex<HashMap<String, LiveSessionState>>>,
     session_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
     capacity_lock: Arc<Mutex<()>>,
+    temporary_private_grants:
+        Arc<std::sync::Mutex<HashMap<String, Vec<TemporaryPrivateHostGrant>>>>,
     warm_pool: Arc<Mutex<Vec<WarmInstance>>>,
     backpressure: Arc<Mutex<GradedBackpressure>>,
     sys: Arc<Mutex<sysinfo::System>>,
@@ -271,6 +287,7 @@ impl LiteRuntime {
             live: Arc::new(Mutex::new(HashMap::new())),
             session_locks: Arc::new(Mutex::new(HashMap::new())),
             capacity_lock: Arc::new(Mutex::new(())),
+            temporary_private_grants: Arc::new(std::sync::Mutex::new(HashMap::new())),
             warm_pool: Arc::new(Mutex::new(Vec::new())),
             backpressure: Arc::new(Mutex::new(GradedBackpressure::new(
                 12,
@@ -461,7 +478,8 @@ impl LiteRuntime {
                 break;
             }
             let Ok(egress_guard) =
-                EgressGuardHandle::spawn(self.config.allow_private_network, Vec::new()).await
+                EgressGuardHandle::spawn(self.config.allow_private_network, Vec::new(), Vec::new())
+                    .await
             else {
                 break;
             };
@@ -1045,6 +1063,148 @@ impl LiteRuntime {
         }))
     }
 
+    pub async fn get_session_network_policy(
+        &self,
+        caller: &AgentTokenRecord,
+        session_id: &str,
+    ) -> Result<Value> {
+        let record = self.require_owned_session(caller, session_id)?;
+        Ok(self.build_network_policy_view(&record))
+    }
+
+    /// Authorizes one or more intranet hosts/CIDRs on a session in either:
+    /// - `IntranetAuthMode::Once`: temporary in-memory grant valid ONLY for the current running
+    ///   session (and optional `ttl_seconds`); automatically cleared on hibernate/close/restart.
+    /// - `IntranetAuthMode::Permanent`: persisted into the Profile & Session allowlist so
+    ///   subsequent visits, restarts, and re-grants never prompt again.
+    pub async fn authorize_session_private_hosts(
+        &self,
+        caller: &AgentTokenRecord,
+        session_id: &str,
+        raw_hosts: &[String],
+        mode: IntranetAuthMode,
+        ttl_seconds: Option<u64>,
+    ) -> Result<Value> {
+        let record = self.require_owned_session(caller, session_id)?;
+        let normalized = normalize_private_host_rules(raw_hosts)?;
+        ensure!(!normalized.is_empty(), "PRIVATE_HOST_REQUIRED");
+
+        match mode {
+            IntranetAuthMode::Permanent => {
+                let merged =
+                    merge_private_hosts(&self.permanent_private_hosts(&record), &normalized);
+                self.store
+                    .update_session_private_hosts(session_id, &merged)?;
+                let _ = self
+                    .store
+                    .update_profile_private_hosts(&record.profile_id, &merged);
+                self.sync_live_egress_policy(session_id, &record.profile_id, &merged)
+                    .await;
+                self.store.record_audit(
+                    &caller.agent_id,
+                    Some(session_id),
+                    "NETWORK_POLICY_AUTHORIZE_PERMANENT",
+                    "OK",
+                    Some(&normalized.join(",")),
+                );
+            }
+            IntranetAuthMode::Once => {
+                let now_mono = Instant::now();
+                let now_utc = Utc::now();
+                let (exp_mono, exp_utc) = match ttl_seconds {
+                    Some(secs) => {
+                        let clamped = secs.clamp(10, 86_400);
+                        (
+                            Some(now_mono + Duration::from_secs(clamped)),
+                            Some(now_utc + chrono::Duration::seconds(clamped as i64)),
+                        )
+                    }
+                    None => (None, None),
+                };
+                {
+                    let mut map = self
+                        .temporary_private_grants
+                        .lock()
+                        .expect("temporary_private_grants mutex poisoned");
+                    let list = map.entry(session_id.to_owned()).or_default();
+                    list.retain(|g| g.expires_at_mono.is_none_or(|e| now_mono < e));
+                    for rule in &normalized {
+                        list.retain(|g| g.rule != *rule);
+                        list.push(TemporaryPrivateHostGrant {
+                            rule: rule.clone(),
+                            expires_at_mono: exp_mono,
+                            expires_at_utc: exp_utc,
+                        });
+                    }
+                }
+                let perm = self.permanent_private_hosts(&record);
+                self.sync_live_egress_policy(session_id, &record.profile_id, &perm)
+                    .await;
+                self.store.record_audit(
+                    &caller.agent_id,
+                    Some(session_id),
+                    "NETWORK_POLICY_AUTHORIZE_ONCE",
+                    "OK",
+                    Some(&normalized.join(",")),
+                );
+            }
+        }
+
+        let refreshed = self.require_owned_session(caller, session_id)?;
+        let mut view = self.build_network_policy_view(&refreshed);
+        view["mode"] = json!(mode);
+        Ok(view)
+    }
+
+    pub async fn revoke_session_private_hosts(
+        &self,
+        caller: &AgentTokenRecord,
+        session_id: &str,
+        raw_hosts: &[String],
+        mode: Option<IntranetAuthMode>,
+    ) -> Result<Value> {
+        let record = self.require_owned_session(caller, session_id)?;
+        let targets: Vec<String> = raw_hosts
+            .iter()
+            .map(|r| r.trim().to_ascii_lowercase())
+            .filter(|r| !r.is_empty())
+            .collect();
+        ensure!(!targets.is_empty(), "PRIVATE_HOST_REQUIRED");
+
+        if matches!(mode, None | Some(IntranetAuthMode::Once)) {
+            let mut map = self
+                .temporary_private_grants
+                .lock()
+                .expect("temporary_private_grants mutex poisoned");
+            if let Some(list) = map.get_mut(session_id) {
+                list.retain(|g| !targets.contains(&g.rule));
+            }
+        }
+        if matches!(mode, None | Some(IntranetAuthMode::Permanent)) {
+            let mut perm = self.permanent_private_hosts(&record);
+            perm.retain(|r| !targets.contains(r));
+            self.store.update_session_private_hosts(session_id, &perm)?;
+            let _ = self
+                .store
+                .update_profile_private_hosts(&record.profile_id, &perm);
+            self.sync_live_egress_policy(session_id, &record.profile_id, &perm)
+                .await;
+        } else {
+            let perm = self.permanent_private_hosts(&record);
+            self.sync_live_egress_policy(session_id, &record.profile_id, &perm)
+                .await;
+        }
+        self.store.record_audit(
+            &caller.agent_id,
+            Some(session_id),
+            "NETWORK_POLICY_REVOKE",
+            "OK",
+            Some(&targets.join(",")),
+        );
+        let refreshed = self.require_owned_session(caller, session_id)?;
+        Ok(self.build_network_policy_view(&refreshed))
+    }
+
     pub async fn update_session_network_policy(
         &self,
         caller: &AgentTokenRecord,
@@ -1058,11 +1218,8 @@ impl LiteRuntime {
         let _ = self
             .store
             .update_profile_private_hosts(&record.profile_id, &normalized);
-        if let Some(live) = self.live.lock().await.get(session_id) {
-            if let Some(guard) = live.egress_guard.as_ref() {
-                guard.set_allowed_private_hosts(normalized.clone());
-            }
-        }
+        self.sync_live_egress_policy(session_id, &record.profile_id, &normalized)
+            .await;
         self.store.record_audit(
             &caller.agent_id,
             Some(session_id),
@@ -1070,11 +1227,8 @@ impl LiteRuntime {
             "OK",
             Some(&normalized.join(",")),
         );
-        Ok(json!({
-            "sessionId": session_id,
-            "profileId": record.profile_id,
-            "allowedPrivateHosts": normalized,
-        }))
+        let refreshed = self.require_owned_session(caller, session_id)?;
+        Ok(self.build_network_policy_view(&refreshed))
     }
 
     pub async fn update_profile_network_policy(
@@ -1099,11 +1253,8 @@ impl LiteRuntime {
             let _ = self
                 .store
                 .update_session_private_hosts(&active.session_id, &normalized);
-            if let Some(live) = self.live.lock().await.get(&active.session_id) {
-                if let Some(guard) = live.egress_guard.as_ref() {
-                    guard.set_allowed_private_hosts(normalized.clone());
-                }
-            }
+            self.sync_live_egress_policy(&active.session_id, profile_id, &normalized)
+                .await;
         }
         self.store.record_audit(
             &caller.agent_id,
@@ -1114,11 +1265,27 @@ impl LiteRuntime {
         );
         Ok(json!({
             "profileId": profile_id,
+            "mode": "permanent",
+            "permanentAllowedPrivateHosts": normalized,
             "allowedPrivateHosts": normalized,
         }))
     }
 
-    fn effective_private_hosts(&self, record: &SessionRecord) -> Vec<String> {
+    async fn sync_live_egress_policy(
+        &self,
+        session_id: &str,
+        _profile_id: &str,
+        permanent_hosts: &[String],
+    ) {
+        let temp_pairs = self.active_temporary_egress_pairs(session_id);
+        if let Some(live) = self.live.lock().await.get(session_id) {
+            if let Some(guard) = live.egress_guard.as_ref() {
+                guard.set_policy(permanent_hosts.to_vec(), temp_pairs);
+            }
+        }
+    }
+
+    fn permanent_private_hosts(&self, record: &SessionRecord) -> Vec<String> {
         let profile_hosts = self
             .store
             .get_profile(&record.profile_id)
@@ -1127,6 +1294,61 @@ impl LiteRuntime {
             .map(|p| p.allowed_private_hosts)
             .unwrap_or_default();
         merge_private_hosts(&profile_hosts, &record.allowed_private_hosts)
+    }
+
+    fn active_temporary_grants(&self, session_id: &str) -> Vec<TemporaryPrivateHostGrant> {
+        let now = Instant::now();
+        let mut map = self
+            .temporary_private_grants
+            .lock()
+            .expect("temporary_private_grants mutex poisoned");
+        let Some(list) = map.get_mut(session_id) else {
+            return Vec::new();
+        };
+        list.retain(|g| g.expires_at_mono.is_none_or(|e| now < e));
+        list.clone()
+    }
+
+    fn active_temporary_egress_pairs(&self, session_id: &str) -> Vec<(String, Option<Instant>)> {
+        self.active_temporary_grants(session_id)
+            .into_iter()
+            .map(|g| (g.rule, g.expires_at_mono))
+            .collect()
+    }
+
+    fn effective_private_hosts(&self, record: &SessionRecord) -> Vec<String> {
+        let perm = self.permanent_private_hosts(record);
+        let temp: Vec<String> = self
+            .active_temporary_grants(&record.session_id)
+            .into_iter()
+            .map(|g| g.rule)
+            .collect();
+        merge_private_hosts(&perm, &temp)
+    }
+
+    fn build_network_policy_view(&self, record: &SessionRecord) -> Value {
+        let permanent = self.permanent_private_hosts(record);
+        let once_grants = self.active_temporary_grants(&record.session_id);
+        let once_json: Vec<Value> = once_grants
+            .iter()
+            .map(|g| {
+                json!({
+                    "rule": g.rule,
+                    "mode": "once",
+                    "expiresAt": g.expires_at_utc.map(|dt| dt.to_rfc3339()),
+                })
+            })
+            .collect();
+        let once_rules: Vec<String> = once_grants.into_iter().map(|g| g.rule).collect();
+        let effective = merge_private_hosts(&permanent, &once_rules);
+        json!({
+            "sessionId": record.session_id,
+            "profileId": record.profile_id,
+            "permanentAllowedPrivateHosts": permanent,
+            "onceAllowedPrivateHosts": once_json,
+            "effectiveAllowedPrivateHosts": effective,
+            "allowedPrivateHosts": effective,
+        })
     }
 
     pub async fn navigate(
@@ -1158,7 +1380,12 @@ impl LiteRuntime {
                     &caller.agent_id,
                     Some(session_id),
                     None,
-                    json!({ "url": url, "reason": reason, "sessionPreserved": true }),
+                    json!({
+                        "url": url,
+                        "reason": reason,
+                        "sessionPreserved": true,
+                        "authorizationOptions": ["once", "permanent"],
+                    }),
                 );
                 return Err(err);
             }
@@ -1934,7 +2161,8 @@ impl LiteRuntime {
                 .update_session_state(&record.session_id, "RESTORING", None)?;
         }
 
-        let effective_private_hosts = self.effective_private_hosts(record);
+        let permanent_private_hosts = self.permanent_private_hosts(record);
+        let temporary_egress_pairs = self.active_temporary_egress_pairs(&record.session_id);
 
         let launch_result: Result<()> = async {
             let profile_dir = self.profile_dir(&record.profile_id);
@@ -1967,8 +2195,10 @@ impl LiteRuntime {
 
             let (runtime_key, cdp_endpoint, warm_handoff, egress_guard) =
                 if let Some(warm) = claimed_warm {
-                    warm.egress_guard
-                        .set_allowed_private_hosts(effective_private_hosts.clone());
+                    warm.egress_guard.set_policy(
+                        permanent_private_hosts.clone(),
+                        temporary_egress_pairs.clone(),
+                    );
                     (
                         warm.warm_id,
                         warm.cdp_endpoint,
@@ -1986,7 +2216,8 @@ impl LiteRuntime {
                     } else {
                         let guard = EgressGuardHandle::spawn(
                             self.config.allow_private_network,
-                            effective_private_hosts.clone(),
+                            permanent_private_hosts.clone(),
+                            temporary_egress_pairs.clone(),
                         )
                         .await?;
                         let url = guard.proxy_url.clone();
@@ -2047,6 +2278,9 @@ impl LiteRuntime {
     }
 
     async fn stop_live_session(&self, session_id: &str) -> Result<()> {
+        if let Ok(mut grants) = self.temporary_private_grants.lock() {
+            grants.remove(session_id);
+        }
         let removed = self.live.lock().await.remove(session_id);
         let (runtime_key, warm_handoff) = if let Some(live) = removed {
             let _ = live.input.release_all().await;

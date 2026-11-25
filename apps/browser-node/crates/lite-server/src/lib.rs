@@ -996,4 +996,230 @@ mod integration_tests {
 
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    #[tokio::test]
+    async fn intranet_authorization_distinguishes_once_temporary_and_permanent_environment_grants()
+    {
+        let dir = std::env::temp_dir().join(format!("lite-intranet-{}", Uuid::new_v4().simple()));
+        let store = Arc::new(LiteStore::open(&dir.join("lite.sqlite3")).unwrap());
+        let admin = store.ensure_bootstrap_token(None, 4).unwrap().unwrap();
+        let agent_a = store
+            .create_token(
+                "agent_a",
+                "Agent A",
+                vec!["mcp".to_owned(), "sessions".to_owned()],
+                2,
+            )
+            .unwrap();
+
+        let cfg = LiteConfig {
+            data_dir: dir.clone(),
+            chromium_path: std::path::PathBuf::from("/nonexistent/chromium-test"),
+            max_sessions: 4,
+            allow_private_network: false,
+            ..LiteConfig::default()
+        };
+        let rt = Arc::new(LiteRuntime::new(cfg, store.clone()).unwrap());
+        let app = build_router(rt);
+
+        // Create session for Agent A and mark RUNNING.
+        let created = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/lite/sessions")
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(
+                        json!({ "name": "NetTest", "start": false }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(created.status(), StatusCode::CREATED);
+        let cjson = json_body(created).await;
+        let sid = cjson["session"]["sessionId"].as_str().unwrap().to_owned();
+        let pid = cjson["session"]["profileId"].as_str().unwrap().to_owned();
+        store.update_session_state(&sid, "RUNNING", None).unwrap();
+
+        // 1. Unauthorized private request returns 403 with once/permanent options and keeps session RUNNING.
+        let denied = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/lite/sessions/{sid}/navigate"))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(
+                        json!({ "url": "http://192.168.1.50:8080/admin" }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+        let djson = json_body(denied).await;
+        assert_eq!(djson["host"], "192.168.1.50:8080");
+        assert_eq!(djson["sessionPreserved"], true);
+        assert_eq!(djson["authorizationOptions"], json!(["once", "permanent"]));
+        assert_eq!(store.get_session(&sid).unwrap().unwrap().state, "RUNNING");
+
+        // 2. Grant 192.168.1.50:8080 as ONCE (ephemeral, NOT written to Profile DB).
+        let once_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!(
+                        "/api/v1/lite/sessions/{sid}/network-policy/authorize"
+                    ))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(
+                        json!({ "host": "192.168.1.50:8080", "mode": "once", "ttlSeconds": 300 })
+                            .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(once_resp.status(), StatusCode::OK);
+        let ojson = json_body(once_resp).await;
+        assert_eq!(ojson["mode"], "once");
+        assert_eq!(ojson["permanentAllowedPrivateHosts"], json!([]));
+        assert_eq!(
+            ojson["onceAllowedPrivateHosts"].as_array().unwrap().len(),
+            1
+        );
+        assert_eq!(
+            ojson["effectiveAllowedPrivateHosts"],
+            json!(["192.168.1.50:8080"])
+        );
+        // SQLite profile MUST still have empty permanent allowlist!
+        assert!(store
+            .get_profile(&pid)
+            .unwrap()
+            .unwrap()
+            .allowed_private_hosts
+            .is_empty());
+
+        // 3. Grant 10.0.0.5:3000 as PERMANENT (additive! preserves once grant AND persists to Profile DB).
+        let perm_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!(
+                        "/api/v1/lite/sessions/{sid}/network-policy/authorize"
+                    ))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(
+                        json!({ "host": "10.0.0.5:3000", "mode": "permanent" }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(perm_resp.status(), StatusCode::OK);
+        let pjson = json_body(perm_resp).await;
+        assert_eq!(pjson["mode"], "permanent");
+        assert_eq!(
+            pjson["permanentAllowedPrivateHosts"],
+            json!(["10.0.0.5:3000"])
+        );
+        assert_eq!(
+            pjson["onceAllowedPrivateHosts"].as_array().unwrap().len(),
+            1
+        );
+        assert_eq!(
+            store
+                .get_profile(&pid)
+                .unwrap()
+                .unwrap()
+                .allowed_private_hosts,
+            vec!["10.0.0.5:3000".to_owned()]
+        );
+
+        // 4. Hibernate session -> ONCE grant is automatically cleared; PERMANENT grant persists!
+        let hib = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/lite/sessions/{sid}/close"))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(json!({ "hibernate": true }).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(hib.status(), StatusCode::OK);
+
+        let policy_after = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/v1/lite/sessions/{sid}/network-policy"))
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let after_json = json_body(policy_after).await;
+        assert_eq!(after_json["onceAllowedPrivateHosts"], json!([]));
+        assert_eq!(
+            after_json["permanentAllowedPrivateHosts"],
+            json!(["10.0.0.5:3000"])
+        );
+
+        // New session opened by Admin on the same Profile inherits PERMANENT grant automatically (never asks again)!
+        let reopen = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/lite/profiles/{pid}/open"))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", admin.bearer_token))
+                    .body(Body::from(json!({ "start": false }).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let rjson = json_body(reopen).await;
+        assert_eq!(
+            rjson["session"]["allowedPrivateHosts"],
+            json!(["10.0.0.5:3000"])
+        );
+
+        // 5. Revoke permanent grant cleanly.
+        let revoke = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("DELETE")
+                    .uri(format!("/api/v1/lite/sessions/{sid}/network-policy/grants"))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", admin.bearer_token))
+                    .body(Body::from(
+                        json!({ "host": "10.0.0.5:3000", "mode": "permanent" }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(revoke.status(), StatusCode::OK);
+        assert_eq!(
+            json_body(revoke).await["permanentAllowedPrivateHosts"],
+            json!([])
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

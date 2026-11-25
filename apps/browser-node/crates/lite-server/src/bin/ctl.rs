@@ -583,6 +583,94 @@ async fn run_profile_cmd(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+async fn run_network_cmd(args: &[String]) -> Result<()> {
+    let sub = args.first().map(String::as_str).unwrap_or("show");
+    let mut url = env::var("LITE_URL").unwrap_or_else(|_| "http://127.0.0.1:8130".to_owned());
+    let mut bearer = env::var("LITE_TOKEN").unwrap_or_default();
+    let mut session_id = String::new();
+    let mut hosts: Vec<String> = Vec::new();
+    let mut mode = "once".to_owned();
+    let mut ttl_seconds: Option<u64> = None;
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--url" => {
+                url = args.get(i + 1).context("missing --url")?.clone();
+                i += 2;
+            }
+            "--token" => {
+                bearer = args.get(i + 1).context("missing --token")?.clone();
+                i += 2;
+            }
+            "--session-id" => {
+                session_id = args.get(i + 1).context("missing --session-id")?.clone();
+                i += 2;
+            }
+            "--host" => {
+                hosts.push(args.get(i + 1).context("missing --host")?.clone());
+                i += 2;
+            }
+            "--mode" => {
+                mode = args.get(i + 1).context("missing --mode")?.clone();
+                i += 2;
+            }
+            "--ttl-seconds" => {
+                ttl_seconds = Some(args.get(i + 1).context("missing --ttl-seconds")?.parse()?);
+                i += 2;
+            }
+            other => bail!("unknown network flag: {other}"),
+        }
+    }
+    ensure!(!bearer.is_empty(), "--token or LITE_TOKEN required");
+    ensure!(!session_id.is_empty(), "--session-id required");
+    let base = url.trim_end_matches('/');
+    let http = Client::builder().no_proxy().build()?;
+    let resp = match sub {
+        "show" => {
+            http.get(format!(
+                "{base}/api/v1/lite/sessions/{session_id}/network-policy"
+            ))
+            .header("authorization", format!("Bearer {bearer}"))
+            .send()
+            .await?
+        }
+        "authorize" => {
+            ensure!(!hosts.is_empty(), "--host required for network authorize");
+            ensure!(
+                mode == "once" || mode == "permanent",
+                "--mode must be 'once' or 'permanent'"
+            );
+            let mut payload = json!({ "hosts": hosts, "mode": mode });
+            if let Some(ttl) = ttl_seconds {
+                payload["ttlSeconds"] = json!(ttl);
+            }
+            http.post(format!(
+                "{base}/api/v1/lite/sessions/{session_id}/network-policy/authorize"
+            ))
+            .header("authorization", format!("Bearer {bearer}"))
+            .json(&payload)
+            .send()
+            .await?
+        }
+        "revoke" => {
+            ensure!(!hosts.is_empty(), "--host required for network revoke");
+            http.delete(format!(
+                "{base}/api/v1/lite/sessions/{session_id}/network-policy/grants"
+            ))
+            .header("authorization", format!("Bearer {bearer}"))
+            .json(&json!({ "hosts": hosts }))
+            .send()
+            .await?
+        }
+        other => bail!("unknown network action '{other}' (expected show|authorize|revoke)"),
+    };
+    let status = resp.status();
+    let text = resp.text().await?;
+    println!("{text}");
+    ensure!(status.is_success(), "network command failed: HTTP {status}");
+    Ok(())
+}
+
 fn parse_compose_args<I: IntoIterator<Item = String>>(iter: I) -> Result<PlanOptions> {
     let raw: Vec<String> = iter.into_iter().collect();
     let mut tier = Tier::Lite;
@@ -784,6 +872,7 @@ async fn main() -> Result<()> {
         }
         "token" => return run_token_cmd(&raw_args[1..]).await,
         "profile" => return run_profile_cmd(&raw_args[1..]).await,
+        "network" => return run_network_cmd(&raw_args[1..]).await,
         "bench" => {
             let status = Command::new("browsercloud-bench")
                 .args(&raw_args[1..])

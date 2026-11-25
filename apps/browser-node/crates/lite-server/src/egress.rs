@@ -16,32 +16,55 @@ use anyhow::Result;
 use reqwest::Url;
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
+use std::time::Instant;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{lookup_host, TcpListener, TcpStream};
 use tokio::task::AbortHandle;
 
+#[derive(Debug, Clone)]
+pub struct EgressPolicyRules {
+    pub permanent_hosts: Vec<String>,
+    pub temporary_hosts: Vec<(String, Option<Instant>)>,
+}
+
+impl EgressPolicyRules {
+    pub fn effective_hosts(&self, now: Instant) -> Vec<String> {
+        let mut out = self.permanent_hosts.clone();
+        for (rule, expires_at) in &self.temporary_hosts {
+            if expires_at.is_none_or(|exp| now < exp) && !out.contains(rule) {
+                out.push(rule.clone());
+            }
+        }
+        out
+    }
+}
+
 pub struct EgressGuardHandle {
     pub proxy_url: String,
-    allowed_private_hosts: Arc<RwLock<Vec<String>>>,
+    policy: Arc<RwLock<EgressPolicyRules>>,
     abort_handle: AbortHandle,
 }
 
 impl EgressGuardHandle {
     pub async fn spawn(
         global_allow_private: bool,
-        initial_allowed_private_hosts: Vec<String>,
+        initial_permanent_hosts: Vec<String>,
+        initial_temporary_hosts: Vec<(String, Option<Instant>)>,
     ) -> Result<Self> {
         let listener = TcpListener::bind(("127.0.0.1", 0)).await?;
         let port = listener.local_addr()?.port();
-        let allowed_private_hosts = Arc::new(RwLock::new(initial_allowed_private_hosts));
-        let rules_ref = allowed_private_hosts.clone();
+        let policy = Arc::new(RwLock::new(EgressPolicyRules {
+            permanent_hosts: initial_permanent_hosts,
+            temporary_hosts: initial_temporary_hosts,
+        }));
+        let policy_ref = policy.clone();
 
         let task = tokio::spawn(async move {
             loop {
                 let Ok((stream, _peer)) = listener.accept().await else {
                     break;
                 };
-                let rules = rules_ref.clone();
+                let rules = policy_ref.clone();
                 tokio::spawn(async move {
                     let _ = handle_client(stream, global_allow_private, rules).await;
                 });
@@ -50,14 +73,31 @@ impl EgressGuardHandle {
 
         Ok(Self {
             proxy_url: format!("http://127.0.0.1:{port}"),
-            allowed_private_hosts,
+            policy,
             abort_handle: task.abort_handle(),
         })
     }
 
     pub fn set_allowed_private_hosts(&self, hosts: Vec<String>) {
-        if let Ok(mut guard) = self.allowed_private_hosts.write() {
-            *guard = hosts;
+        if let Ok(mut guard) = self.policy.write() {
+            guard.permanent_hosts = hosts;
+        }
+    }
+
+    pub fn set_policy(
+        &self,
+        permanent_hosts: Vec<String>,
+        temporary_hosts: Vec<(String, Option<Instant>)>,
+    ) {
+        if let Ok(mut guard) = self.policy.write() {
+            guard.permanent_hosts = permanent_hosts;
+            guard.temporary_hosts = temporary_hosts;
+        }
+    }
+
+    pub fn clear_temporary_hosts(&self) {
+        if let Ok(mut guard) = self.policy.write() {
+            guard.temporary_hosts.clear();
         }
     }
 }
@@ -71,7 +111,7 @@ impl Drop for EgressGuardHandle {
 async fn handle_client(
     mut client: TcpStream,
     global_allow_private: bool,
-    allowed_rules: Arc<RwLock<Vec<String>>>,
+    allowed_rules: Arc<RwLock<EgressPolicyRules>>,
 ) -> Result<()> {
     let mut buf = Vec::with_capacity(4096);
     let mut chunk = [0u8; 2048];
@@ -104,7 +144,11 @@ async fn handle_client(
         return Ok(());
     }
 
-    let rules_snapshot = allowed_rules.read().map(|g| g.clone()).unwrap_or_default();
+    let now = Instant::now();
+    let rules_snapshot = allowed_rules
+        .read()
+        .map(|g| g.effective_hosts(now))
+        .unwrap_or_default();
 
     if method.eq_ignore_ascii_case("CONNECT") {
         let Some((host, port)) = parse_authority(target, 443) else {
@@ -306,7 +350,9 @@ mod tests {
             }
         });
 
-        let guard = EgressGuardHandle::spawn(false, vec![]).await.unwrap();
+        let guard = EgressGuardHandle::spawn(false, vec![], vec![])
+            .await
+            .unwrap();
         let proxy = reqwest::Proxy::http(&guard.proxy_url).unwrap();
         let client = reqwest::Client::builder().proxy(proxy).build().unwrap();
         let target_url = format!("http://127.0.0.1:{internal_port}/dashboard");
@@ -322,13 +368,24 @@ mod tests {
             .unwrap()
             .contains("PRIVATE_NETWORK_HOST_NOT_AUTHORIZED"));
 
-        // 2. Authorize this internal host dynamically in environment config — NO browser restart!
+        // 2. Temporary "once" authorization works live and expires when cleared or TTL lapses.
+        guard.set_policy(vec![], vec![(format!("127.0.0.1:{internal_port}"), None)]);
+        let once_allowed = client.get(&target_url).send().await.unwrap();
+        assert_eq!(once_allowed.status().as_u16(), 200);
+        assert_eq!(once_allowed.text().await.unwrap(), "ADMIN_HOME");
+
+        guard.clear_temporary_hosts();
+        let blocked_again = client.get(&target_url).send().await.unwrap();
+        assert_eq!(blocked_again.status().as_u16(), 403);
+
+        // 3. Permanent authorization survives clearing temporary grants.
         guard.set_allowed_private_hosts(vec![format!("127.0.0.1:{internal_port}")]);
+        guard.clear_temporary_hosts();
         let allowed = client.get(&target_url).send().await.unwrap();
         assert_eq!(allowed.status().as_u16(), 200);
         assert_eq!(allowed.text().await.unwrap(), "ADMIN_HOME");
 
-        // 3. Cloud metadata endpoint stays blocked even if global/rules exist.
+        // 4. Cloud metadata endpoint stays blocked even if global/rules exist.
         let meta = client
             .get("http://169.254.169.254/latest/meta-data")
             .send()

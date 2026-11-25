@@ -237,7 +237,8 @@ impl ScannerRuntime {
             height: h,
             rgb: vec![255u8; w * h * 3],
         };
-        qr::draw_bitmap_text(&mut synth.rgb, w, h, "user@example.com", 24, 48, 5);
+        qr::draw_bitmap_text(&mut synth.rgb, w, h, "user@example.com", 24, 48, 3);
+        qr::draw_bitmap_text(&mut synth.rgb, w, h, "123-45-6789", 24, 150, 4);
         qr::draw_synthetic_qr(&mut synth.rgb, w, h, 540, 110, 10);
         let synth_jpg = encode_jpeg(&synth, 95)?;
         let synth_b64 = base64::engine::general_purpose::STANDARD.encode(&synth_jpg);

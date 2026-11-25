@@ -209,13 +209,13 @@ impl HaarCascade {
                         .rects
                         .iter()
                         .map(|r| {
-                            (
-                                (r.x as f64 * scale).round() as usize,
-                                (r.y as f64 * scale).round() as usize,
-                                ((r.w as f64 * scale).round() as usize).max(1),
-                                ((r.h as f64 * scale).round() as usize).max(1),
-                                r.weight,
-                            )
+                            let rx = ((r.x as f64 * scale).round() as usize)
+                                .min(win_w.saturating_sub(1));
+                            let ry = ((r.y as f64 * scale).round() as usize)
+                                .min(win_h.saturating_sub(1));
+                            let rw = ((r.w as f64 * scale).round() as usize).clamp(1, win_w - rx);
+                            let rh = ((r.h as f64 * scale).round() as usize).clamp(1, win_h - ry);
+                            (rx, ry, rw, rh, r.weight)
                         })
                         .collect();
                     if srects.len() >= 2 {

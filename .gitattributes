@@ -1,0 +1,18 @@
+# GitHub Linguist classification rules:
+# Exclude machine-generated contract bindings, generated SDK sources, and lockfiles from
+# repository language statistics so GitHub Languages reflects hand-authored source code.
+
+packages/contracts/generated/** linguist-generated=true
+
+sdks/java/src/** linguist-generated=true
+sdks/typescript/src/** linguist-generated=true
+sdks/python/browsercloud/** linguist-generated=true
+sdks/go/browsercloud/** linguist-generated=true
+sdks/generated-multilang-manifest.json linguist-generated=true
+sdks/typescript/generated-manifest.json linguist-generated=true
+
+**/Cargo.lock linguist-generated=true
+**/pnpm-lock.yaml linguist-generated=true
+**/package-lock.json linguist-generated=true
+
+docs/** linguist-documentation=true

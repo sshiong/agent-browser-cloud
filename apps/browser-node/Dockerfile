@@ -22,7 +22,10 @@ RUN cargo build \
     --bin browsercloud-application-adapter \
     --bin browsercloud-operator \
     --bin browsercloud-gameday-worker \
-    --bin browsercloud-validation-worker
+    --bin browsercloud-gameday-runner \
+    --bin browsercloud-validation-worker \
+    --bin browsercloud-validation-runner \
+    --bin browsercloud-release-bundle
 
 FROM build-base AS build-node
 RUN cargo build \
@@ -35,7 +38,7 @@ RUN cargo build \
     --bin node-agent
 
 # ---------------------------------------------------------------------------
-# Target: ops-workers (Pure-Rust GameDay & Validation Workers replacing Python)
+# Target: ops-workers (Pure-Rust GameDay, Validation Workers, Runners & Release Bundle)
 # ---------------------------------------------------------------------------
 FROM debian:bookworm-slim AS ops-workers
 RUN set -eux; \
@@ -43,7 +46,10 @@ RUN set -eux; \
     apt-get install --no-install-recommends -y ca-certificates tini; \
     rm -rf /var/lib/apt/lists/*
 COPY --from=build-services /workspace/apps/browser-node/target/release/browsercloud-gameday-worker /usr/local/bin/browsercloud-gameday-worker
+COPY --from=build-services /workspace/apps/browser-node/target/release/browsercloud-gameday-runner /usr/local/bin/browsercloud-gameday-runner
 COPY --from=build-services /workspace/apps/browser-node/target/release/browsercloud-validation-worker /usr/local/bin/browsercloud-validation-worker
+COPY --from=build-services /workspace/apps/browser-node/target/release/browsercloud-validation-runner /usr/local/bin/browsercloud-validation-runner
+COPY --from=build-services /workspace/apps/browser-node/target/release/browsercloud-release-bundle /usr/local/bin/browsercloud-release-bundle
 USER 65532:65532
 ENTRYPOINT ["/usr/bin/tini", "--"]
 

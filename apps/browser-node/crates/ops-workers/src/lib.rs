@@ -1,8 +1,13 @@
-//! Pure-Rust least-privilege Recovery GameDay Worker and Runtime Validation Worker.
+//! Pure-Rust least-privilege Recovery GameDay Worker, Runtime Validation Worker,
+//! their isolated execution runners, and the supply-chain release bundle tool.
 //!
-//! 100% protocol-compatible drop-in replacements for `apps/gameday-worker/gameday_worker.py`
-//! and `apps/validation-worker/validation_worker.py`, eliminating the last Python worker
-//! containers from L1/L2 operations.
+//! 100% protocol-compatible drop-in replacements for `apps/gameday-worker/{gameday_worker,gameday_runner}.py`,
+//! `apps/validation-worker/{validation_worker,runtime_validation_runner}.py`, and
+//! `tools/supply-chain/release_bundle.py`, eliminating Python from L1/L2 ops workers and runners.
+
+pub mod gameday_runner;
+pub mod release_bundle;
+pub mod validation_runner;
 
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};

@@ -356,10 +356,19 @@ impl LiteStore {
     }
 
     pub fn count_running_sessions_total(&self) -> Result<u32> {
+        self.count_running_sessions_excluding(None)
+    }
+
+    pub fn count_running_sessions_excluding(
+        &self,
+        exclude_session_id: Option<&str>,
+    ) -> Result<u32> {
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
         let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM browser_sessions WHERE state IN ('CREATING', 'RUNNING', 'IDLE', 'RESTORING')",
-            [],
+            "SELECT COUNT(*) FROM browser_sessions
+             WHERE state IN ('CREATING', 'RUNNING', 'IDLE', 'RESTORING')
+               AND (?1 IS NULL OR session_id != ?1)",
+            params![exclude_session_id],
             |row| row.get(0),
         )?;
         Ok(count.max(0) as u32)

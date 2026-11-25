@@ -220,6 +220,8 @@ pub struct LiteRuntime {
     supervisor: Arc<ChromiumRuntimeSupervisor>,
     collector: Arc<CdpStateCollector>,
     live: Arc<Mutex<HashMap<String, LiveSessionState>>>,
+    session_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
+    capacity_lock: Arc<Mutex<()>>,
     warm_pool: Arc<Mutex<Vec<WarmInstance>>>,
     backpressure: Arc<Mutex<GradedBackpressure>>,
     sys: Arc<Mutex<sysinfo::System>>,
@@ -238,6 +240,8 @@ impl LiteRuntime {
             supervisor: Arc::new(ChromiumRuntimeSupervisor::new(config.chromium_path.clone())),
             collector: Arc::new(CdpStateCollector::new()),
             live: Arc::new(Mutex::new(HashMap::new())),
+            session_locks: Arc::new(Mutex::new(HashMap::new())),
+            capacity_lock: Arc::new(Mutex::new(())),
             warm_pool: Arc::new(Mutex::new(Vec::new())),
             backpressure: Arc::new(Mutex::new(GradedBackpressure::new(
                 12,
@@ -1113,9 +1117,13 @@ impl LiteRuntime {
                 }))
             }
             "save" => {
-                let was_running = self.is_live(session_id).await;
+                let sess_lock = self.session_lock(session_id).await;
+                let _sess_guard = sess_lock.lock().await;
+                let record = self.require_owned_session(caller, session_id)?;
+                let was_running = self.is_live(session_id).await || is_running_state(&record.state);
                 if was_running {
-                    // Gracefully flush Chromium profile before snapshotting.
+                    // Gracefully flush Chromium profile and mark HIBERNATED before snapshotting so
+                    // DB running-slot accounting stays accurate even at max_sessions capacity.
                     self.stop_live_session(session_id).await?;
                 }
                 let checkpoint_id = format!("chk_{}", &Uuid::new_v4().simple().to_string()[..16]);
@@ -1136,7 +1144,8 @@ impl LiteRuntime {
                 };
                 self.store.insert_checkpoint(&cp_rec)?;
                 if was_running {
-                    self.ensure_running(&record).await?;
+                    let latest = self.require_owned_session(caller, session_id)?;
+                    self.ensure_running_locked(&latest).await?;
                 }
                 Ok(json!({
                     "saved": true,
@@ -1155,13 +1164,16 @@ impl LiteRuntime {
                     .as_deref()
                     .ok_or_else(|| anyhow::anyhow!("CHECKPOINT_ID_REQUIRED"))?;
                 validate_identifier(checkpoint_id, "chk_")?;
+                let sess_lock = self.session_lock(session_id).await;
+                let _sess_guard = sess_lock.lock().await;
+                let record = self.require_owned_session(caller, session_id)?;
                 let owned = self
                     .store
                     .list_checkpoints(&record.profile_id, &caller.agent_id)?
                     .into_iter()
                     .any(|c| c.checkpoint_id == checkpoint_id);
                 ensure!(owned, "PROFILE_CHECKPOINT_NOT_FOUND");
-                let was_running = self.is_live(session_id).await;
+                let was_running = self.is_live(session_id).await || is_running_state(&record.state);
                 if was_running {
                     self.stop_live_session(session_id).await?;
                 }
@@ -1172,7 +1184,8 @@ impl LiteRuntime {
                     checkpoint_id,
                 )?;
                 if was_running {
-                    self.ensure_running(&record).await?;
+                    let latest = self.require_owned_session(caller, session_id)?;
+                    self.ensure_running_locked(&latest).await?;
                 }
                 Ok(json!({
                     "restored": true,
@@ -1191,6 +1204,8 @@ impl LiteRuntime {
         session_id: &str,
         params: CloseSessionParams,
     ) -> Result<Value> {
+        let sess_lock = self.session_lock(session_id).await;
+        let _sess_guard = sess_lock.lock().await;
         let _record = self.require_owned_session(caller, session_id)?;
         let _ = self.stop_live_session(session_id).await;
         let next_state = if params.hibernate {
@@ -1314,7 +1329,21 @@ impl LiteRuntime {
         self.live.lock().await.contains_key(session_id)
     }
 
+    async fn session_lock(&self, session_id: &str) -> Arc<Mutex<()>> {
+        let mut locks = self.session_locks.lock().await;
+        locks
+            .entry(session_id.to_owned())
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
+    }
+
     async fn ensure_running(&self, record: &SessionRecord) -> Result<()> {
+        let sess_lock = self.session_lock(&record.session_id).await;
+        let _sess_guard = sess_lock.lock().await;
+        self.ensure_running_locked(record).await
+    }
+
+    async fn ensure_running_locked(&self, record: &SessionRecord) -> Result<()> {
         if let Some(runtime_key) = self
             .live
             .lock()
@@ -1331,96 +1360,111 @@ impl LiteRuntime {
             let _ = self.stop_live_session(&record.session_id).await;
         }
 
-        let total_running = self.store.count_running_sessions_total()?;
-        ensure!(
-            total_running < self.config.max_sessions || record.state == "CREATING",
-            "NODE_MAX_SESSIONS_REACHED"
-        );
-
-        let profile_dir = self.profile_dir(&record.profile_id);
-        let profile_is_fresh = !profile_dir.exists()
-            || std::fs::read_dir(&profile_dir)
-                .map(|mut d| d.next().is_none())
-                .unwrap_or(false);
-
-        self.store
-            .update_session_state(&record.session_id, "RESTORING", None)?;
-
-        // Clean Warm Pool handoff: only for brand-new empty profiles with no custom proxy, and
-        // each warm instance is consumed once and never returned to the pool.
-        let claimed_warm = if profile_is_fresh && record.proxy_url.is_none() {
-            let mut pool = self.warm_pool.lock().await;
-            let mut valid = None;
-            while let Some(candidate) = pool.pop() {
-                if matches!(
-                    self.supervisor.health(&candidate.warm_id).await,
-                    Ok(RuntimeHealth::Healthy)
-                ) {
-                    valid = Some(candidate);
-                    break;
-                }
-                let _ = self.supervisor.stop(&candidate.warm_id).await;
-                let _ = std::fs::remove_dir_all(&candidate.profile_dir);
-                let _ = std::fs::remove_dir_all(&candidate.cache_dir);
-            }
-            valid
-        } else {
-            None
-        };
-
-        let (runtime_key, cdp_endpoint, warm_handoff) = if let Some(warm) = claimed_warm {
-            (
-                warm.warm_id,
-                warm.cdp_endpoint,
-                Some((warm.profile_dir, profile_dir, warm.cache_dir)),
-            )
-        } else {
-            let cdp_port = allocate_ephemeral_port()?;
-            let cache_dir = self.config.data_dir.join("cache").join(&record.session_id);
-            std::fs::create_dir_all(&profile_dir)?;
-            std::fs::create_dir_all(&cache_dir)?;
-
-            let spec = RuntimeSpec {
-                session_id: record.session_id.clone(),
-                runtime_build_id: "lite-chromium-v1".to_owned(),
-                profile_dir,
-                cache_dir,
-                proxy_server: record.proxy_url.clone(),
-                display: String::new(),
-                cdp_port,
-                vnc_port: None,
-                extension_dirs: Vec::new(),
-                resource_limits: RuntimeResourceLimits::local_test_default(),
-                browser_identity: BrowserIdentitySpec::default(),
-            };
-            let handle = self.supervisor.start(spec).await?;
-            (record.session_id.clone(), handle.cdp_endpoint, None)
-        };
-
-        self.collector
-            .register_runtime(&record.session_id, &cdp_endpoint)
-            .await?;
-        let _ = self
-            .collector
-            .start_native_dialog_monitor(&record.session_id)
-            .await;
-        let input = Arc::new(CdpDesktopInput::connect(&cdp_endpoint).await?);
-
+        // Atomically verify node running capacity excluding this session itself and reserve slot
+        // via DB state transition to RESTORING so concurrent starts cannot oversubscribe.
         {
-            let mut live = self.live.lock().await;
-            live.insert(
-                record.session_id.clone(),
-                LiveSessionState {
-                    runtime_key,
-                    cdp_endpoint,
-                    input,
-                    last_states: Vec::new(),
-                    warm_handoff,
-                },
+            let _cap = self.capacity_lock.lock().await;
+            let other_running = self
+                .store
+                .count_running_sessions_excluding(Some(&record.session_id))?;
+            ensure!(
+                other_running < self.config.max_sessions,
+                "NODE_MAX_SESSIONS_REACHED"
             );
+            self.store
+                .update_session_state(&record.session_id, "RESTORING", None)?;
         }
-        self.store
-            .update_session_state(&record.session_id, "RUNNING", None)?;
+
+        let launch_result: Result<()> = async {
+            let profile_dir = self.profile_dir(&record.profile_id);
+            let profile_is_fresh = !profile_dir.exists()
+                || std::fs::read_dir(&profile_dir)
+                    .map(|mut d| d.next().is_none())
+                    .unwrap_or(false);
+
+            // Clean Warm Pool handoff: only for brand-new empty profiles with no custom proxy, and
+            // each warm instance is consumed once and never returned to the pool.
+            let claimed_warm = if profile_is_fresh && record.proxy_url.is_none() {
+                let mut pool = self.warm_pool.lock().await;
+                let mut valid = None;
+                while let Some(candidate) = pool.pop() {
+                    if matches!(
+                        self.supervisor.health(&candidate.warm_id).await,
+                        Ok(RuntimeHealth::Healthy)
+                    ) {
+                        valid = Some(candidate);
+                        break;
+                    }
+                    let _ = self.supervisor.stop(&candidate.warm_id).await;
+                    let _ = std::fs::remove_dir_all(&candidate.profile_dir);
+                    let _ = std::fs::remove_dir_all(&candidate.cache_dir);
+                }
+                valid
+            } else {
+                None
+            };
+
+            let (runtime_key, cdp_endpoint, warm_handoff) = if let Some(warm) = claimed_warm {
+                (
+                    warm.warm_id,
+                    warm.cdp_endpoint,
+                    Some((warm.profile_dir, profile_dir, warm.cache_dir)),
+                )
+            } else {
+                let cdp_port = allocate_ephemeral_port()?;
+                let cache_dir = self.config.data_dir.join("cache").join(&record.session_id);
+                std::fs::create_dir_all(&profile_dir)?;
+                std::fs::create_dir_all(&cache_dir)?;
+
+                let spec = RuntimeSpec {
+                    session_id: record.session_id.clone(),
+                    runtime_build_id: "lite-chromium-v1".to_owned(),
+                    profile_dir,
+                    cache_dir,
+                    proxy_server: record.proxy_url.clone(),
+                    display: String::new(),
+                    cdp_port,
+                    vnc_port: None,
+                    extension_dirs: Vec::new(),
+                    resource_limits: RuntimeResourceLimits::local_test_default(),
+                    browser_identity: BrowserIdentitySpec::default(),
+                };
+                let handle = self.supervisor.start(spec).await?;
+                (record.session_id.clone(), handle.cdp_endpoint, None)
+            };
+
+            self.collector
+                .register_runtime(&record.session_id, &cdp_endpoint)
+                .await?;
+            let _ = self
+                .collector
+                .start_native_dialog_monitor(&record.session_id)
+                .await;
+            let input = Arc::new(CdpDesktopInput::connect(&cdp_endpoint).await?);
+
+            {
+                let mut live = self.live.lock().await;
+                live.insert(
+                    record.session_id.clone(),
+                    LiveSessionState {
+                        runtime_key,
+                        cdp_endpoint,
+                        input,
+                        last_states: Vec::new(),
+                        warm_handoff,
+                    },
+                );
+            }
+            self.store
+                .update_session_state(&record.session_id, "RUNNING", None)?;
+            Ok(())
+        }
+        .await;
+
+        if let Err(err) = launch_result {
+            let _ = self.stop_live_session(&record.session_id).await;
+            return Err(err);
+        }
         Ok(())
     }
 
@@ -1450,6 +1494,13 @@ impl LiteRuntime {
             let _ = std::fs::remove_dir_all(&warm_cache_dir);
             if let Some(warm_parent) = warm_cache_dir.parent() {
                 let _ = std::fs::remove_dir(warm_parent);
+            }
+        }
+        if let Ok(Some(current)) = self.store.get_session(session_id) {
+            if is_running_state(&current.state) {
+                let _ = self
+                    .store
+                    .update_session_state(session_id, "HIBERNATED", None);
             }
         }
         Ok(())
@@ -1936,6 +1987,10 @@ fn compact_tree_payload(state: &CurrentState) -> Value {
     })
 }
 
+fn is_running_state(state: &str) -> bool {
+    matches!(state, "CREATING" | "RUNNING" | "IDLE" | "RESTORING")
+}
+
 fn allocate_ephemeral_port() -> Result<u16> {
     let listener = TcpListener::bind(("127.0.0.1", 0))
         .context("failed to allocate loopback ephemeral port for Chromium CDP")?;
@@ -1981,4 +2036,127 @@ async fn capture_cdp_screenshot(ws_url: &str, params: Value) -> Result<String> {
         return Ok(data.to_owned());
     }
     bail!("CDP_SCREENSHOT_CLOSED")
+}
+
+#[cfg(test)]
+mod quota_and_save_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn full_capacity_save_and_restore_do_not_self_block_and_rollback_on_launch_failure() {
+        let dir = std::env::temp_dir().join(format!("lite-save-quota-{}", Uuid::new_v4().simple()));
+        let store = Arc::new(LiteStore::open(&dir.join("lite.sqlite3")).unwrap());
+        let admin = store.ensure_bootstrap_token(None, 2).unwrap().unwrap();
+        let cfg = LiteConfig {
+            data_dir: dir.clone(),
+            chromium_path: PathBuf::from("/nonexistent/chromium-test-bin"),
+            max_sessions: 1,
+            ..LiteConfig::default()
+        };
+        let rt = Arc::new(LiteRuntime::new(cfg, store.clone()).unwrap());
+
+        // Create a hibernated session, write a profile file, then simulate RUNNING at full 1/1 capacity.
+        let created = rt
+            .create_session(
+                &admin.token,
+                CreateSessionParams {
+                    name: Some("FullCap".to_owned()),
+                    profile_id: None,
+                    proxy_url: None,
+                    start_url: None,
+                    isolation_mode: None,
+                    idle_timeout_seconds: None,
+                    start: false,
+                },
+            )
+            .await
+            .unwrap();
+        let sid = created["session"]["sessionId"].as_str().unwrap().to_owned();
+        let pid = created["session"]["profileId"].as_str().unwrap().to_owned();
+        std::fs::create_dir_all(dir.join("profiles").join(&pid)).unwrap();
+        std::fs::write(dir.join("profiles").join(&pid).join("Cookies"), b"login=ok").unwrap();
+        store.update_session_state(&sid, "RUNNING", None).unwrap();
+        assert_eq!(store.count_running_sessions_total().unwrap(), 1);
+        assert_eq!(
+            store.count_running_sessions_excluding(Some(&sid)).unwrap(),
+            0
+        );
+
+        // Save while at 1/1 capacity: must NOT fail with NODE_MAX_SESSIONS_REACHED.
+        // Because chromium_path is nonexistent, restart fails at binary spawn, and DB MUST roll back to HIBERNATED.
+        let save_err = rt
+            .profile_op(
+                &admin.token,
+                &sid,
+                ProfileOpParams {
+                    action: "save".to_owned(),
+                    checkpoint_id: None,
+                },
+            )
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(
+            !save_err.contains("NODE_MAX_SESSIONS_REACHED"),
+            "unexpected self-quota block on save: {save_err}"
+        );
+        assert_eq!(
+            store.get_session(&sid).unwrap().unwrap().state,
+            "HIBERNATED"
+        );
+        assert_eq!(store.count_running_sessions_total().unwrap(), 0);
+
+        // Checkpoint WAS saved cleanly; simulate RUNNING at 1/1 again and verify restore also avoids self-block.
+        let checkpoints = store.list_checkpoints(&pid, &admin.token.agent_id).unwrap();
+        assert_eq!(checkpoints.len(), 1);
+        store.update_session_state(&sid, "RUNNING", None).unwrap();
+        let restore_err = rt
+            .profile_op(
+                &admin.token,
+                &sid,
+                ProfileOpParams {
+                    action: "restore".to_owned(),
+                    checkpoint_id: Some(checkpoints[0].checkpoint_id.clone()),
+                },
+            )
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(
+            !restore_err.contains("NODE_MAX_SESSIONS_REACHED"),
+            "unexpected self-quota block on restore: {restore_err}"
+        );
+        assert_eq!(
+            store.get_session(&sid).unwrap().unwrap().state,
+            "HIBERNATED"
+        );
+        assert_eq!(store.count_running_sessions_total().unwrap(), 0);
+
+        // When ANOTHER session truly occupies the 1/1 slot, a second session MUST get NODE_MAX_SESSIONS_REACHED.
+        let second = rt
+            .create_session(
+                &admin.token,
+                CreateSessionParams {
+                    name: Some("Second".to_owned()),
+                    profile_id: None,
+                    proxy_url: None,
+                    start_url: None,
+                    isolation_mode: None,
+                    idle_timeout_seconds: None,
+                    start: false,
+                },
+            )
+            .await
+            .unwrap();
+        let sid2 = second["session"]["sessionId"].as_str().unwrap().to_owned();
+        store.update_session_state(&sid, "RUNNING", None).unwrap();
+        let rec2 = store.get_session(&sid2).unwrap().unwrap();
+        let cap_err = rt.ensure_running(&rec2).await.unwrap_err().to_string();
+        assert!(
+            cap_err.contains("NODE_MAX_SESSIONS_REACHED"),
+            "err={cap_err}"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

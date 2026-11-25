@@ -5,6 +5,7 @@
 //! zero Java, PostgreSQL, Redis, Python, or external model API key dependencies.
 
 pub mod backpressure;
+pub mod egress;
 pub mod events;
 pub mod mcp;
 pub mod profile;
@@ -587,6 +588,411 @@ mod integration_tests {
         .unwrap();
         assert!(metrics_text.contains("browsercloud_lite_requests_total"));
         assert!(metrics_text.contains("browsercloud_lite_events_published_total"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn admin_owned_profiles_regrant_single_writer_per_token_quota_and_intranet_policy() {
+        let dir = std::env::temp_dir().join(format!("lite-policy-{}", Uuid::new_v4().simple()));
+        let store = Arc::new(LiteStore::open(&dir.join("lite.sqlite3")).unwrap());
+        let admin = store.ensure_bootstrap_token(None, 4).unwrap().unwrap();
+        let agent_a = store
+            .create_token(
+                "agent_a",
+                "Agent A",
+                vec!["mcp".to_owned(), "sessions".to_owned()],
+                1, // Strict per-token quota = 1
+            )
+            .unwrap();
+        let agent_b = store
+            .create_token(
+                "agent_b",
+                "Agent B",
+                vec!["mcp".to_owned(), "sessions".to_owned()],
+                1,
+            )
+            .unwrap();
+
+        let cfg = LiteConfig {
+            data_dir: dir.clone(),
+            chromium_path: std::path::PathBuf::from("/nonexistent/chromium-test"),
+            max_sessions: 4,
+            allow_private_network: false,
+            ..LiteConfig::default()
+        };
+        let rt = Arc::new(LiteRuntime::new(cfg, store.clone()).unwrap());
+        let app = build_router(rt);
+
+        // 1. Admin creates an admin-owned Profile; non-admin agents CANNOT see or open it yet.
+        let create_prof = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/lite/profiles")
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", admin.bearer_token))
+                    .body(Body::from(
+                        json!({ "name": "Corp Admin Account" }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(create_prof.status(), StatusCode::CREATED);
+        let prof_json = json_body(create_prof).await;
+        let profile_id = prof_json["profile"]["profileId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        assert_eq!(prof_json["profile"]["ownerAccountId"], "agent_admin");
+
+        // Seed login cookie data in the profile directory.
+        std::fs::create_dir_all(dir.join("profiles").join(&profile_id)).unwrap();
+        std::fs::write(
+            dir.join("profiles").join(&profile_id).join("Cookies"),
+            b"session=admin_logged_in",
+        )
+        .unwrap();
+
+        // Agent A sees 0 profiles and gets 403 trying to open the ungranted profile.
+        let list_a_0 = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/lite/profiles")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(json_body(list_a_0).await["count"], 0);
+
+        let denied_open = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/lite/profiles/{profile_id}/open"))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(json!({ "start": false }).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(denied_open.status(), StatusCode::FORBIDDEN);
+
+        // 2. Admin grants Profile to Agent A -> Agent A sees it, opens it, saves a checkpoint.
+        let grant_a = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/lite/profiles/{profile_id}/grants"))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", admin.bearer_token))
+                    .body(Body::from(json!({ "agentId": "agent_a" }).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(grant_a.status(), StatusCode::OK);
+
+        let open_a = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/lite/profiles/{profile_id}/open"))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(json!({ "start": false }).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(open_a.status(), StatusCode::OK);
+        let ses_a = json_body(open_a).await["session"]["sessionId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+
+        let save_a = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/lite/sessions/{ses_a}/profile"))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(json!({ "action": "save" }).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(save_a.status(), StatusCode::OK);
+        let chk_id = json_body(save_a).await["checkpoint"]["checkpointId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+
+        // 3. Single-writer & same-browser collaboration: simulate ses_a RUNNING on profile_id.
+        store.update_session_state(&ses_a, "RUNNING", None).unwrap();
+
+        // Attempting to spawn a SECOND concurrent writer session on the same Profile -> 409 CONFLICT!
+        let second_writer = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/lite/sessions")
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", admin.bearer_token))
+                    .body(Body::from(
+                        json!({ "profile_id": profile_id, "start": true }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(second_writer.status(), StatusCode::CONFLICT);
+        assert!(json_body(second_writer).await["error"]
+            .as_str()
+            .unwrap()
+            .contains("PROFILE_ALREADY_IN_USE"));
+
+        // Admin calling /profiles/:id/open joins ses_a directly for same-browser collaboration!
+        let admin_collab = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/lite/profiles/{profile_id}/open"))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", admin.bearer_token))
+                    .body(Body::from(json!({ "start": true }).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(admin_collab.status(), StatusCode::OK);
+        let collab_json = json_body(admin_collab).await;
+        assert_eq!(collab_json["collaborating"], true);
+        assert_eq!(collab_json["singleWriterSessionId"], ses_a);
+
+        // 4. Per-Agent-Token running quota isolation:
+        // Agent A has max_sessions = 1 and ses_a is RUNNING -> starting a 2nd session returns 429!
+        let quota_a_2 = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/lite/sessions")
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(
+                        json!({ "name": "A2", "start": true }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(quota_a_2.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(
+            json_body(quota_a_2).await["error"],
+            "AGENT_SESSION_QUOTA_EXCEEDED"
+        );
+        // Agent A's already-running session ses_a stays RUNNING!
+        assert_eq!(store.get_session(&ses_a).unwrap().unwrap().state, "RUNNING");
+
+        // Agent B is NOT blocked by Agent A's quota (machine still has capacity 1/4)!
+        let start_b = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/lite/sessions")
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_b.bearer_token))
+                    .body(Body::from(
+                        json!({ "name": "B1", "start": false }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(start_b.status(), StatusCode::CREATED);
+
+        // Admin bumps Agent A's token quota from 1 -> 2.
+        let bump = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri(format!("/api/v1/lite/tokens/{}", agent_a.token.token_id))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", admin.bearer_token))
+                    .body(Body::from(json!({ "maxSessions": 2 }).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(bump.status(), StatusCode::OK);
+        assert_eq!(json_body(bump).await["token"]["maxSessions"], 2);
+
+        // 5. Public internet works normally; unauthorized intranet request is rejected (403)
+        //    WITHOUT stopping or failing the running browser session; authorizing once unlocks it!
+        let nav_private_denied = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/lite/sessions/{ses_a}/navigate"))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(
+                        json!({ "url": "http://192.168.1.50:8080/admin" }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(nav_private_denied.status(), StatusCode::FORBIDDEN);
+        assert!(json_body(nav_private_denied).await["error"]
+            .as_str()
+            .unwrap()
+            .contains("PRIVATE_NETWORK_HOST_NOT_AUTHORIZED"));
+        // Session MUST still be RUNNING!
+        assert_eq!(store.get_session(&ses_a).unwrap().unwrap().state, "RUNNING");
+
+        // Authorize internal admin panel once on this environment.
+        let auth_net = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri(format!("/api/v1/lite/sessions/{ses_a}/network-policy"))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(
+                        json!({ "allowedPrivateHosts": ["192.168.1.50:8080", "10.0.0.0/8"] })
+                            .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(auth_net.status(), StatusCode::OK);
+        assert!(security::validate_navigation_url_with_policy(
+            "http://192.168.1.50:8080/admin",
+            false,
+            &store
+                .get_session(&ses_a)
+                .unwrap()
+                .unwrap()
+                .allowed_private_hosts,
+        )
+        .is_ok());
+        assert!(security::validate_navigation_url_with_policy(
+            "https://example.com/public",
+            false,
+            &[],
+        )
+        .is_ok());
+
+        // 6. Revoke Agent A and re-grant Profile to Agent B (replacing Agent/Token while keeping login state).
+        store
+            .update_session_state(&ses_a, "HIBERNATED", None)
+            .unwrap();
+        let revoke_a = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("DELETE")
+                    .uri(format!("/api/v1/lite/profiles/{profile_id}/grants/agent_a"))
+                    .header("authorization", format!("Bearer {}", admin.bearer_token))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(revoke_a.status(), StatusCode::OK);
+
+        // Agent A immediately loses access to the profile and its session!
+        let denied_a_after_revoke = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/lite/sessions/{ses_a}/profile"))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(json!({ "action": "list" }).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(denied_a_after_revoke.status(), StatusCode::FORBIDDEN);
+
+        // Re-grant to Agent B -> Agent B sees Profile & Agent A's saved checkpoint and restores login state!
+        let grant_b = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/lite/profiles/{profile_id}/grants"))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", admin.bearer_token))
+                    .body(Body::from(json!({ "agentId": "agent_b" }).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(grant_b.status(), StatusCode::OK);
+
+        let chk_b = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/v1/lite/profiles/{profile_id}/checkpoints"))
+                    .header("authorization", format!("Bearer {}", agent_b.bearer_token))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(chk_b.status(), StatusCode::OK);
+        assert_eq!(
+            json_body(chk_b).await["checkpoints"][0]["checkpointId"],
+            chk_id
+        );
+
+        // Overwrite cookie file, then let Agent B restore checkpoint -> login cookie preserved!
+        std::fs::write(
+            dir.join("profiles").join(&profile_id).join("Cookies"),
+            b"corrupted",
+        )
+        .unwrap();
+        let restore_b = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/lite/profiles/{profile_id}/restore"))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_b.bearer_token))
+                    .body(Body::from(json!({ "checkpointId": chk_id }).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(restore_b.status(), StatusCode::OK);
+        let restored_cookie =
+            std::fs::read(dir.join("profiles").join(&profile_id).join("Cookies")).unwrap();
+        assert_eq!(restored_cookie, b"session=admin_logged_in");
 
         let _ = std::fs::remove_dir_all(&dir);
     }

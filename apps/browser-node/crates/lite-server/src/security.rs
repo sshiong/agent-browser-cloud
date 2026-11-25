@@ -47,10 +47,18 @@ pub fn hex_encode(bytes: &[u8]) -> String {
 /// Validates an external navigation URL against SSRF and unsafe browser schemes.
 ///
 /// Always rejects non-HTTP(S) schemes (`file://`, `chrome://`, `javascript:`, `data:`) and
-/// cloud metadata endpoints (`169.254.169.254`, `metadata.google.internal`). Unless
-/// `allow_private_network` is explicitly enabled (local dev/tests), also rejects loopback,
-/// link-local, and RFC1918/ULA private IP addresses.
+/// cloud metadata endpoints (`169.254.169.254`, `metadata.google.internal`). Public internet
+/// hosts are always allowed. Private/intranet hosts are blocked unless `allow_private_network`
+/// is globally enabled or matched by per-environment `allowed_private_hosts`.
 pub fn validate_navigation_url(raw: &str, allow_private_network: bool) -> Result<String> {
+    validate_navigation_url_with_policy(raw, allow_private_network, &[])
+}
+
+pub fn validate_navigation_url_with_policy(
+    raw: &str,
+    global_allow_private: bool,
+    allowed_private_hosts: &[String],
+) -> Result<String> {
     let trimmed = raw.trim();
     ensure!(
         !trimmed.is_empty() && trimmed.len() <= 4096,
@@ -66,25 +74,199 @@ pub fn validate_navigation_url(raw: &str, allow_private_network: bool) -> Result
         .host_str()
         .ok_or_else(|| anyhow::anyhow!("NAVIGATION_HOST_MISSING"))?
         .to_ascii_lowercase();
-    if host == "metadata.google.internal"
-        || host == "metadata.goog"
-        || host == "169.254.169.254"
-        || host == "[fd00:ec2::254]"
-    {
+    let port = parsed.port_or_known_default().unwrap_or(80);
+    if is_cloud_metadata_host(&host) {
         bail!("NAVIGATION_SSRF_BLOCKED");
     }
-    if !allow_private_network {
-        if host == "localhost" || host.ends_with(".localhost") || host.ends_with(".local") {
-            bail!("NAVIGATION_PRIVATE_HOST_BLOCKED");
-        }
-        let unbracketed = host.trim_start_matches('[').trim_end_matches(']');
-        if let Ok(ip) = unbracketed.parse::<IpAddr>() {
-            if is_non_public_ip(ip) {
-                bail!("NAVIGATION_PRIVATE_IP_BLOCKED");
-            }
-        }
+    if is_private_or_intranet_host(&host)
+        && !is_private_target_authorized(
+            &host,
+            port,
+            parse_literal_ip(&host),
+            global_allow_private,
+            allowed_private_hosts,
+        )
+    {
+        bail!("PRIVATE_NETWORK_HOST_NOT_AUTHORIZED:{host}:{port}");
     }
     Ok(parsed.to_string())
+}
+
+pub fn is_cloud_metadata_host(host: &str) -> bool {
+    let lower = host
+        .trim()
+        .to_ascii_lowercase()
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .to_owned();
+    matches!(
+        lower.as_str(),
+        "metadata.google.internal"
+            | "metadata.goog"
+            | "169.254.169.254"
+            | "fd00:ec2::254"
+            | "100.100.100.200"
+    )
+}
+
+pub fn parse_literal_ip(host: &str) -> Option<IpAddr> {
+    let unbracketed = host.trim().trim_start_matches('[').trim_end_matches(']');
+    unbracketed.parse::<IpAddr>().ok()
+}
+
+pub fn is_private_or_intranet_host(host: &str) -> bool {
+    let lower = host.trim().to_ascii_lowercase();
+    if lower.is_empty() {
+        return true;
+    }
+    if lower == "localhost"
+        || lower.ends_with(".localhost")
+        || lower.ends_with(".local")
+        || lower.ends_with(".internal")
+        || lower.ends_with(".lan")
+        || lower.ends_with(".home.arpa")
+    {
+        return true;
+    }
+    if let Some(ip) = parse_literal_ip(&lower) {
+        return is_non_public_ip(ip);
+    }
+    // Single-label hostnames (e.g. `intranet`, `grafana`) resolve inside private LAN/Docker DNS.
+    !lower.contains('.')
+}
+
+pub fn normalize_private_host_rules(raw_rules: &[String]) -> Result<Vec<String>> {
+    ensure!(raw_rules.len() <= 64, "PRIVATE_HOST_RULES_LIMIT_EXCEEDED");
+    let mut out = Vec::with_capacity(raw_rules.len());
+    for raw in raw_rules {
+        let rule = raw.trim().to_ascii_lowercase();
+        ensure!(
+            !rule.is_empty()
+                && rule.len() <= 253
+                && rule.is_ascii()
+                && !rule.chars().any(char::is_whitespace)
+                && rule != "*"
+                && rule != "*:*",
+            "PRIVATE_HOST_RULE_INVALID"
+        );
+        // Reject cloud metadata rules even if explicitly requested.
+        let host_part = split_rule_host_port(&rule).0;
+        ensure!(
+            !is_cloud_metadata_host(host_part),
+            "PRIVATE_HOST_RULE_FORBIDDEN"
+        );
+        if let Some((ip_str, prefix_str)) = rule.split_once('/') {
+            let ip: std::net::Ipv4Addr = ip_str
+                .parse()
+                .map_err(|_| anyhow::anyhow!("PRIVATE_HOST_RULE_INVALID"))?;
+            let prefix: u8 = prefix_str
+                .parse()
+                .map_err(|_| anyhow::anyhow!("PRIVATE_HOST_RULE_INVALID"))?;
+            ensure!(
+                (8..=32).contains(&prefix) && is_non_public_ip(IpAddr::V4(ip)),
+                "PRIVATE_HOST_RULE_INVALID"
+            );
+        }
+        if !out.contains(&rule) {
+            out.push(rule);
+        }
+    }
+    Ok(out)
+}
+
+pub fn is_private_target_authorized(
+    host: &str,
+    port: u16,
+    resolved_ip: Option<IpAddr>,
+    global_allow_private: bool,
+    allowed_private_hosts: &[String],
+) -> bool {
+    if is_cloud_metadata_host(host) {
+        return false;
+    }
+    if let Some(ip) = resolved_ip {
+        if is_cloud_metadata_host(&ip.to_string()) {
+            return false;
+        }
+    }
+    if global_allow_private {
+        return true;
+    }
+    allowed_private_hosts
+        .iter()
+        .any(|rule| private_host_rule_matches(host, port, resolved_ip, rule))
+}
+
+fn split_rule_host_port(rule: &str) -> (&str, Option<&str>) {
+    if let Some(rest) = rule.strip_prefix('[') {
+        if let Some((host, after)) = rest.split_once(']') {
+            if let Some(port) = after.strip_prefix(':') {
+                return (host, Some(port));
+            }
+            return (host, None);
+        }
+    }
+    if rule.matches(':').count() == 1 {
+        if let Some((h, p)) = rule.split_once(':') {
+            return (h, Some(p));
+        }
+    }
+    (rule, None)
+}
+
+fn private_host_rule_matches(
+    host: &str,
+    port: u16,
+    resolved_ip: Option<IpAddr>,
+    rule: &str,
+) -> bool {
+    let norm_rule = rule.trim().to_ascii_lowercase();
+    if let Some((cidr_ip, prefix_str)) = norm_rule.split_once('/') {
+        let Ok(net) = cidr_ip.parse::<std::net::Ipv4Addr>() else {
+            return false;
+        };
+        let Ok(prefix) = prefix_str.parse::<u32>() else {
+            return false;
+        };
+        if prefix == 0 || prefix > 32 {
+            return false;
+        }
+        let mask = u32::MAX.checked_shl(32 - prefix).unwrap_or(0);
+        let candidate_ip = resolved_ip.or_else(|| parse_literal_ip(host));
+        return match candidate_ip {
+            Some(IpAddr::V4(v4)) => (u32::from(v4) & mask) == (u32::from(net) & mask),
+            Some(IpAddr::V6(v6)) => v6
+                .to_ipv4_mapped()
+                .is_some_and(|v4| (u32::from(v4) & mask) == (u32::from(net) & mask)),
+            None => false,
+        };
+    }
+
+    let (rule_host, rule_port) = split_rule_host_port(&norm_rule);
+    if let Some(rp) = rule_port {
+        if rp != "*" && rp.parse::<u16>().ok() != Some(port) {
+            return false;
+        }
+    }
+
+    let norm_host = host
+        .trim()
+        .to_ascii_lowercase()
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .to_owned();
+    if let Some(suffix) = rule_host.strip_prefix("*.") {
+        return norm_host == suffix || norm_host.ends_with(&format!(".{suffix}"));
+    }
+    if norm_host == rule_host {
+        return true;
+    }
+    if let Some(ip) = resolved_ip {
+        if ip.to_string().eq_ignore_ascii_case(rule_host) {
+            return true;
+        }
+    }
+    false
 }
 
 /// Validates a per-session proxy URL (`http://`, `https://`, `socks5://`).
@@ -142,7 +324,7 @@ pub fn matches_allowlist(value: &str, patterns: &[String]) -> bool {
     })
 }
 
-fn is_non_public_ip(ip: IpAddr) -> bool {
+pub fn is_non_public_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(v4) => {
             v4.is_loopback()

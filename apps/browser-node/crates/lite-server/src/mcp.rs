@@ -3,7 +3,8 @@
 use crate::backpressure::BackpressureState;
 use crate::runtime::{
     ActBatchParams, ActionStepParams, CloseSessionParams, CreateCredentialParams,
-    CreateSessionParams, LiteRuntime, ObserveParams, ProfileOpParams, ScreenshotParams, WaitParams,
+    CreateProfileParams, CreateSessionParams, LiteRuntime, ObserveParams, OpenProfileParams,
+    ProfileOpParams, ScreenshotParams, WaitParams,
 };
 use crate::security::{matches_allowlist, validate_identifier};
 use crate::store::AgentTokenRecord;
@@ -12,7 +13,7 @@ use axum::extract::{Path, Query, Request, State};
 use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{delete, get, post};
+use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
 use base64::Engine as _;
 use futures_util::{SinkExt, StreamExt};
@@ -72,7 +73,39 @@ pub fn build_router(runtime: Arc<LiteRuntime>) -> Router {
             "/api/v1/lite/sessions/:session_id/profile",
             post(rest_profile),
         )
+        .route(
+            "/api/v1/lite/sessions/:session_id/network-policy",
+            patch(rest_update_session_network_policy),
+        )
         .route("/api/v1/lite/sessions/:session_id/close", post(rest_close))
+        .route(
+            "/api/v1/lite/profiles",
+            get(rest_list_profiles).post(rest_create_profile),
+        )
+        .route(
+            "/api/v1/lite/profiles/:profile_id/open",
+            post(rest_open_profile),
+        )
+        .route(
+            "/api/v1/lite/profiles/:profile_id/grants",
+            post(rest_grant_profile),
+        )
+        .route(
+            "/api/v1/lite/profiles/:profile_id/grants/:agent_id",
+            delete(rest_revoke_profile_grant),
+        )
+        .route(
+            "/api/v1/lite/profiles/:profile_id/checkpoints",
+            get(rest_list_profile_checkpoints),
+        )
+        .route(
+            "/api/v1/lite/profiles/:profile_id/restore",
+            post(rest_restore_profile_by_id),
+        )
+        .route(
+            "/api/v1/lite/profiles/:profile_id/network-policy",
+            patch(rest_update_profile_network_policy),
+        )
         .route(
             "/api/v1/lite/tokens",
             get(rest_list_tokens).post(rest_create_token),
@@ -81,7 +114,10 @@ pub fn build_router(runtime: Arc<LiteRuntime>) -> Router {
             "/api/v1/lite/tokens/:token_id/rotate",
             post(rest_rotate_token),
         )
-        .route("/api/v1/lite/tokens/:token_id", delete(rest_revoke_token))
+        .route(
+            "/api/v1/lite/tokens/:token_id",
+            patch(rest_update_token_quota).delete(rest_revoke_token),
+        )
         .layer(middleware::from_fn_with_state(
             runtime.clone(),
             trace_and_metrics_middleware,
@@ -211,8 +247,14 @@ fn authorize(
 
 fn map_runtime_error(error: anyhow::Error) -> (StatusCode, Json<Value>) {
     let msg = error.to_string();
-    let status = if msg.contains("ACCESS_DENIED") || msg.contains("FORBIDDEN") {
+    let status = if msg.contains("ACCESS_DENIED")
+        || msg.contains("FORBIDDEN")
+        || msg.contains("NOT_AUTHORIZED")
+        || msg.contains("ADMIN_SCOPE_REQUIRED")
+    {
         StatusCode::FORBIDDEN
+    } else if msg.contains("ALREADY_IN_USE") {
+        StatusCode::CONFLICT
     } else if msg.contains("NOT_FOUND") {
         StatusCode::NOT_FOUND
     } else if msg.contains("QUOTA") || msg.contains("MAX_SESSIONS") || msg.contains("BACKPRESSURE")
@@ -397,6 +439,174 @@ async fn rest_close(
     }
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NetworkPolicyBody {
+    #[serde(default, alias = "allowed_private_hosts")]
+    allowed_private_hosts: Vec<String>,
+}
+
+async fn rest_update_session_network_policy(
+    State(rt): State<Arc<LiteRuntime>>,
+    headers: HeaderMap,
+    Path(session_id): Path<String>,
+    Json(body): Json<NetworkPolicyBody>,
+) -> Response {
+    let caller = match authorize(&rt, &headers, "sessions") {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+    match rt
+        .update_session_network_policy(&caller, &session_id, &body.allowed_private_hosts)
+        .await
+    {
+        Ok(val) => Json(val).into_response(),
+        Err(err) => map_runtime_error(err).into_response(),
+    }
+}
+
+// ---------- Admin-Owned Profile Management, Authorization & Collaboration ----------
+
+async fn rest_list_profiles(State(rt): State<Arc<LiteRuntime>>, headers: HeaderMap) -> Response {
+    let caller = match authorize(&rt, &headers, "sessions") {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+    match rt.list_profiles(&caller) {
+        Ok(val) => Json(val).into_response(),
+        Err(err) => map_runtime_error(err).into_response(),
+    }
+}
+
+async fn rest_create_profile(
+    State(rt): State<Arc<LiteRuntime>>,
+    headers: HeaderMap,
+    Json(params): Json<CreateProfileParams>,
+) -> Response {
+    let caller = match authorize(&rt, &headers, "admin") {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+    match rt.create_profile(&caller, params) {
+        Ok(val) => (StatusCode::CREATED, Json(val)).into_response(),
+        Err(err) => map_runtime_error(err).into_response(),
+    }
+}
+
+async fn rest_open_profile(
+    State(rt): State<Arc<LiteRuntime>>,
+    headers: HeaderMap,
+    Path(profile_id): Path<String>,
+    Json(params): Json<OpenProfileParams>,
+) -> Response {
+    let caller = match authorize(&rt, &headers, "sessions") {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+    match rt.open_profile(&caller, &profile_id, params).await {
+        Ok(val) => Json(val).into_response(),
+        Err(err) => map_runtime_error(err).into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GrantProfileBody {
+    #[serde(alias = "agent_id")]
+    agent_id: String,
+}
+
+async fn rest_grant_profile(
+    State(rt): State<Arc<LiteRuntime>>,
+    headers: HeaderMap,
+    Path(profile_id): Path<String>,
+    Json(body): Json<GrantProfileBody>,
+) -> Response {
+    let caller = match authorize(&rt, &headers, "admin") {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+    match rt.grant_profile(&caller, &profile_id, &body.agent_id) {
+        Ok(val) => Json(val).into_response(),
+        Err(err) => map_runtime_error(err).into_response(),
+    }
+}
+
+async fn rest_revoke_profile_grant(
+    State(rt): State<Arc<LiteRuntime>>,
+    headers: HeaderMap,
+    Path((profile_id, agent_id)): Path<(String, String)>,
+) -> Response {
+    let caller = match authorize(&rt, &headers, "admin") {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+    match rt.revoke_profile_grant(&caller, &profile_id, &agent_id) {
+        Ok(val) => Json(val).into_response(),
+        Err(err) => map_runtime_error(err).into_response(),
+    }
+}
+
+async fn rest_list_profile_checkpoints(
+    State(rt): State<Arc<LiteRuntime>>,
+    headers: HeaderMap,
+    Path(profile_id): Path<String>,
+) -> Response {
+    let caller = match authorize(&rt, &headers, "sessions") {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+    match rt.list_profile_checkpoints(&caller, &profile_id) {
+        Ok(val) => Json(val).into_response(),
+        Err(err) => map_runtime_error(err).into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RestoreProfileBody {
+    #[serde(alias = "checkpoint_id")]
+    checkpoint_id: String,
+}
+
+async fn rest_restore_profile_by_id(
+    State(rt): State<Arc<LiteRuntime>>,
+    headers: HeaderMap,
+    Path(profile_id): Path<String>,
+    Json(body): Json<RestoreProfileBody>,
+) -> Response {
+    let caller = match authorize(&rt, &headers, "sessions") {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+    match rt
+        .restore_profile_by_id(&caller, &profile_id, &body.checkpoint_id)
+        .await
+    {
+        Ok(val) => Json(val).into_response(),
+        Err(err) => map_runtime_error(err).into_response(),
+    }
+}
+
+async fn rest_update_profile_network_policy(
+    State(rt): State<Arc<LiteRuntime>>,
+    headers: HeaderMap,
+    Path(profile_id): Path<String>,
+    Json(body): Json<NetworkPolicyBody>,
+) -> Response {
+    let caller = match authorize(&rt, &headers, "admin") {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+    match rt
+        .update_profile_network_policy(&caller, &profile_id, &body.allowed_private_hosts)
+        .await
+    {
+        Ok(val) => Json(val).into_response(),
+        Err(err) => map_runtime_error(err).into_response(),
+    }
+}
+
 // ---------- Multi-Agent Token Administration ----------
 
 #[derive(Deserialize)]
@@ -491,6 +701,53 @@ async fn rest_rotate_token(
                 Some(&token_id),
             );
             Json(issued).into_response()
+        }
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "TOKEN_NOT_FOUND" })),
+        )
+            .into_response(),
+        Err(err) => map_runtime_error(err).into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateTokenQuotaBody {
+    #[serde(alias = "max_sessions")]
+    max_sessions: u32,
+}
+
+async fn rest_update_token_quota(
+    State(rt): State<Arc<LiteRuntime>>,
+    headers: HeaderMap,
+    Path(token_id): Path<String>,
+    Json(body): Json<UpdateTokenQuotaBody>,
+) -> Response {
+    let caller = match authorize(&rt, &headers, "admin") {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+    if validate_identifier(&token_id, "tok_").is_err() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "TOKEN_ID_INVALID" })),
+        )
+            .into_response();
+    }
+    match rt
+        .store
+        .update_token_quota(&token_id, body.max_sessions.clamp(1, 64))
+    {
+        Ok(Some(token)) => {
+            rt.store.record_audit(
+                &caller.agent_id,
+                None,
+                "TOKEN_QUOTA_UPDATE",
+                "OK",
+                Some(&format!("{token_id}:{}", token.max_sessions)),
+            );
+            Json(json!({ "token": token })).into_response()
         }
         Ok(None) => (
             StatusCode::NOT_FOUND,
@@ -930,9 +1187,60 @@ async fn dispatch_mcp_tool(
             }))
         }
         "browser_profile" => {
-            let session_id = require_session_id(&args)?;
-            let params: ProfileOpParams = serde_json::from_value(args)?;
-            Ok(json_text(rt.profile_op(caller, &session_id, params).await?))
+            let action = args
+                .get("action")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            match action {
+                "list_profiles" => Ok(json_text(rt.list_profiles(caller)?)),
+                "open" => {
+                    let profile_id = args
+                        .get("profile_id")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| anyhow::anyhow!("PROFILE_ID_REQUIRED"))?;
+                    let params: OpenProfileParams =
+                        serde_json::from_value(args.clone()).unwrap_or(OpenProfileParams {
+                            name: None,
+                            proxy_url: None,
+                            start_url: None,
+                            allowed_private_hosts: Vec::new(),
+                            idle_timeout_seconds: None,
+                            start: true,
+                        });
+                    Ok(json_text(
+                        rt.open_profile(caller, profile_id, params).await?,
+                    ))
+                }
+                "grant" => {
+                    let profile_id = args
+                        .get("profile_id")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| anyhow::anyhow!("PROFILE_ID_REQUIRED"))?;
+                    let agent_id = args
+                        .get("agent_id")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| anyhow::anyhow!("AGENT_ID_REQUIRED"))?;
+                    Ok(json_text(rt.grant_profile(caller, profile_id, agent_id)?))
+                }
+                "revoke" => {
+                    let profile_id = args
+                        .get("profile_id")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| anyhow::anyhow!("PROFILE_ID_REQUIRED"))?;
+                    let agent_id = args
+                        .get("agent_id")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| anyhow::anyhow!("AGENT_ID_REQUIRED"))?;
+                    Ok(json_text(
+                        rt.revoke_profile_grant(caller, profile_id, agent_id)?,
+                    ))
+                }
+                _ => {
+                    let session_id = require_session_id(&args)?;
+                    let params: ProfileOpParams = serde_json::from_value(args)?;
+                    Ok(json_text(rt.profile_op(caller, &session_id, params).await?))
+                }
+            }
         }
         "browser_close" => {
             let session_id = require_session_id(&args)?;
@@ -963,6 +1271,11 @@ pub fn mcp_tool_catalog() -> Vec<Value> {
                         "enum": ["process", "context"],
                         "default": "process",
                         "description": "'process' (default, strong per-session Chromium process isolation) or 'context' (lightweight opt-in same-agent isolation; does not provide process-level isolation)"
+                    },
+                    "allowed_private_hosts": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Optional per-environment intranet host/CIDR allowlist (e.g. ['127.0.0.1:3000', '192.168.1.0/24', 'admin.internal']). Public internet works by default; unauthorized private requests are rejected without stopping the browser."
                     },
                     "idle_timeout_seconds": { "type": "integer", "minimum": 30, "maximum": 86400 },
                     "start": { "type": "boolean", "default": true }
@@ -1081,13 +1394,15 @@ pub fn mcp_tool_catalog() -> Vec<Value> {
         }),
         json!({
             "name": "browser_profile",
-            "description": "Save, restore, or list local Profile checkpoints (preserves Cookies/LocalStorage/IndexedDB while excluding disposable caches, verified by SHA-256 manifest).",
+            "description": "Manage admin-owned Profiles and local checkpoints: save/restore/list checkpoints on a session, list_profiles (authorized profiles only), open (attach to running browser for collaboration or start single-writer instance), or grant/revoke Agent access (admin).",
             "inputSchema": {
                 "type": "object",
-                "required": ["session_id", "action"],
+                "required": ["action"],
                 "properties": {
                     "session_id": { "type": "string" },
-                    "action": { "type": "string", "enum": ["save", "restore", "list"] },
+                    "profile_id": { "type": "string" },
+                    "agent_id": { "type": "string" },
+                    "action": { "type": "string", "enum": ["save", "restore", "list", "list_profiles", "open", "grant", "revoke"] },
                     "checkpoint_id": { "type": "string" }
                 }
             }

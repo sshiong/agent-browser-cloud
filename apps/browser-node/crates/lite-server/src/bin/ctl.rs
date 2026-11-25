@@ -448,6 +448,14 @@ async fn run_token_cmd(args: &[String]) -> Result<()> {
                 .send()
                 .await?
         }
+        "quota" => {
+            ensure!(!token_id.is_empty(), "--token-id required for token quota");
+            http.patch(format!("{base}/api/v1/lite/tokens/{token_id}"))
+                .header("authorization", format!("Bearer {admin_token}"))
+                .json(&json!({ "maxSessions": max_sessions }))
+                .send()
+                .await?
+        }
         "revoke" => {
             ensure!(!token_id.is_empty(), "--token-id required for token revoke");
             http.delete(format!("{base}/api/v1/lite/tokens/{token_id}"))
@@ -455,12 +463,123 @@ async fn run_token_cmd(args: &[String]) -> Result<()> {
                 .send()
                 .await?
         }
-        other => bail!("unknown token action '{other}' (expected list|create|rotate|revoke)"),
+        other => bail!("unknown token action '{other}' (expected list|create|rotate|quota|revoke)"),
     };
     let status = resp.status();
     let text = resp.text().await?;
     println!("{text}");
     ensure!(status.is_success(), "token command failed: HTTP {status}");
+    Ok(())
+}
+
+async fn run_profile_cmd(args: &[String]) -> Result<()> {
+    let sub = args.first().map(String::as_str).unwrap_or("list");
+    let mut url = env::var("LITE_URL").unwrap_or_else(|_| "http://127.0.0.1:8130".to_owned());
+    let mut bearer = env::var("LITE_TOKEN").unwrap_or_default();
+    let mut profile_id = String::new();
+    let mut agent_id = String::new();
+    let mut name = String::new();
+    let mut allow_hosts: Vec<String> = Vec::new();
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--url" => {
+                url = args.get(i + 1).context("missing --url")?.clone();
+                i += 2;
+            }
+            "--token" => {
+                bearer = args.get(i + 1).context("missing --token")?.clone();
+                i += 2;
+            }
+            "--profile-id" => {
+                profile_id = args.get(i + 1).context("missing --profile-id")?.clone();
+                i += 2;
+            }
+            "--agent-id" => {
+                agent_id = args.get(i + 1).context("missing --agent-id")?.clone();
+                i += 2;
+            }
+            "--name" => {
+                name = args.get(i + 1).context("missing --name")?.clone();
+                i += 2;
+            }
+            "--allow-private-host" => {
+                allow_hosts.push(
+                    args.get(i + 1)
+                        .context("missing --allow-private-host")?
+                        .clone(),
+                );
+                i += 2;
+            }
+            other => bail!("unknown profile flag: {other}"),
+        }
+    }
+    ensure!(!bearer.is_empty(), "--token or LITE_TOKEN required");
+    let base = url.trim_end_matches('/');
+    let http = Client::builder().no_proxy().build()?;
+    let resp = match sub {
+        "list" => {
+            http.get(format!("{base}/api/v1/lite/profiles"))
+                .header("authorization", format!("Bearer {bearer}"))
+                .send()
+                .await?
+        }
+        "create" => {
+            ensure!(!name.is_empty(), "--name required for profile create");
+            http.post(format!("{base}/api/v1/lite/profiles"))
+                .header("authorization", format!("Bearer {bearer}"))
+                .json(&json!({
+                    "name": name,
+                    "allowed_private_hosts": allow_hosts,
+                }))
+                .send()
+                .await?
+        }
+        "grant" => {
+            ensure!(!profile_id.is_empty(), "--profile-id required");
+            ensure!(!agent_id.is_empty(), "--agent-id required");
+            http.post(format!("{base}/api/v1/lite/profiles/{profile_id}/grants"))
+                .header("authorization", format!("Bearer {bearer}"))
+                .json(&json!({ "agentId": agent_id }))
+                .send()
+                .await?
+        }
+        "revoke" => {
+            ensure!(!profile_id.is_empty(), "--profile-id required");
+            ensure!(!agent_id.is_empty(), "--agent-id required");
+            http.delete(format!(
+                "{base}/api/v1/lite/profiles/{profile_id}/grants/{agent_id}"
+            ))
+            .header("authorization", format!("Bearer {bearer}"))
+            .send()
+            .await?
+        }
+        "open" => {
+            ensure!(!profile_id.is_empty(), "--profile-id required");
+            http.post(format!("{base}/api/v1/lite/profiles/{profile_id}/open"))
+                .header("authorization", format!("Bearer {bearer}"))
+                .json(&json!({ "start": true }))
+                .send()
+                .await?
+        }
+        "allow-private" => {
+            ensure!(!profile_id.is_empty(), "--profile-id required");
+            http.patch(format!(
+                "{base}/api/v1/lite/profiles/{profile_id}/network-policy"
+            ))
+            .header("authorization", format!("Bearer {bearer}"))
+            .json(&json!({ "allowedPrivateHosts": allow_hosts }))
+            .send()
+            .await?
+        }
+        other => bail!(
+            "unknown profile action '{other}' (expected list|create|grant|revoke|open|allow-private)"
+        ),
+    };
+    let status = resp.status();
+    let text = resp.text().await?;
+    println!("{text}");
+    ensure!(status.is_success(), "profile command failed: HTTP {status}");
     Ok(())
 }
 
@@ -664,6 +783,7 @@ async fn main() -> Result<()> {
             return Ok(());
         }
         "token" => return run_token_cmd(&raw_args[1..]).await,
+        "profile" => return run_profile_cmd(&raw_args[1..]).await,
         "bench" => {
             let status = Command::new("browsercloud-bench")
                 .args(&raw_args[1..])

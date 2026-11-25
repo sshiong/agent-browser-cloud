@@ -40,16 +40,42 @@ pub struct IssuedAgentToken {
 pub struct SessionRecord {
     pub session_id: String,
     pub owner_agent_id: String,
+    #[serde(default)]
+    pub owner_token_id: String,
     pub display_name: String,
     pub profile_id: String,
     pub state: String,
     pub proxy_url: Option<String>,
     pub current_url: Option<String>,
     pub isolation_mode: String,
+    #[serde(default)]
+    pub allowed_private_hosts: Vec<String>,
     pub idle_timeout_seconds: u64,
     pub created_at: String,
     pub updated_at: String,
     pub last_activity_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileRecord {
+    pub profile_id: String,
+    pub owner_account_id: String,
+    pub display_name: String,
+    #[serde(default)]
+    pub allowed_private_hosts: Vec<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileGrantRecord {
+    pub profile_id: String,
+    pub grantee_agent_id: String,
+    pub granted_by: String,
+    pub granted_at: String,
+    pub revoked_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -117,18 +143,41 @@ impl LiteStore {
             CREATE TABLE IF NOT EXISTS browser_sessions (
                 session_id TEXT PRIMARY KEY,
                 owner_agent_id TEXT NOT NULL,
+                owner_token_id TEXT NOT NULL DEFAULT '',
                 display_name TEXT NOT NULL,
                 profile_id TEXT NOT NULL,
                 state TEXT NOT NULL,
                 proxy_url TEXT,
                 current_url TEXT,
                 isolation_mode TEXT NOT NULL DEFAULT 'process',
+                allowed_private_hosts_json TEXT NOT NULL DEFAULT '[]',
                 idle_timeout_seconds INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 last_activity_at TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_browser_sessions_owner ON browser_sessions(owner_agent_id);
+            CREATE INDEX IF NOT EXISTS idx_browser_sessions_profile ON browser_sessions(profile_id);
+
+            CREATE TABLE IF NOT EXISTS profiles (
+                profile_id TEXT PRIMARY KEY,
+                owner_account_id TEXT NOT NULL,
+                display_name TEXT NOT NULL,
+                allowed_private_hosts_json TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_profiles_owner ON profiles(owner_account_id);
+
+            CREATE TABLE IF NOT EXISTS profile_grants (
+                profile_id TEXT NOT NULL,
+                grantee_agent_id TEXT NOT NULL,
+                granted_by TEXT NOT NULL,
+                granted_at TEXT NOT NULL,
+                revoked_at TEXT,
+                PRIMARY KEY (profile_id, grantee_agent_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_profile_grants_grantee ON profile_grants(grantee_agent_id);
 
             CREATE TABLE IF NOT EXISTS profile_checkpoints (
                 checkpoint_id TEXT PRIMARY KEY,
@@ -164,9 +213,21 @@ impl LiteStore {
             CREATE INDEX IF NOT EXISTS idx_credentials_owner ON credentials(owner_agent_id);
             "#,
         )?;
-        // Expand-only migration for existing L0 SQLite databases created before isolation_mode.
+        // Expand-only migrations for existing L0 SQLite databases.
         let _ = conn.execute(
             "ALTER TABLE browser_sessions ADD COLUMN isolation_mode TEXT NOT NULL DEFAULT 'process'",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE browser_sessions ADD COLUMN owner_token_id TEXT NOT NULL DEFAULT ''",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE browser_sessions ADD COLUMN allowed_private_hosts_json TEXT NOT NULL DEFAULT '[]'",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE profiles ADD COLUMN allowed_private_hosts_json TEXT NOT NULL DEFAULT '[]'",
             [],
         );
         Ok(Self {
@@ -345,11 +406,94 @@ impl LiteStore {
         }))
     }
 
+    pub fn update_token_quota(
+        &self,
+        token_id: &str,
+        max_sessions: u32,
+    ) -> Result<Option<AgentTokenRecord>> {
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        let affected = conn.execute(
+            "UPDATE agent_tokens SET max_sessions = ?1 WHERE token_id = ?2 AND revoked = 0",
+            params![max_sessions, token_id],
+        )?;
+        if affected == 0 {
+            return Ok(None);
+        }
+        let record = conn.query_row(
+            "SELECT token_id, agent_id, label, scopes_json, max_sessions, revoked, created_at, rotated_at
+             FROM agent_tokens WHERE token_id = ?1",
+            params![token_id],
+            |row| {
+                let scopes_json: String = row.get(3)?;
+                let scopes: Vec<String> = serde_json::from_str(&scopes_json).unwrap_or_default();
+                Ok(AgentTokenRecord {
+                    token_id: row.get(0)?,
+                    agent_id: row.get(1)?,
+                    label: row.get(2)?,
+                    scopes,
+                    max_sessions: row.get(4)?,
+                    revoked: row.get::<_, i64>(5)? != 0,
+                    created_at: row.get(6)?,
+                    rotated_at: row.get(7)?,
+                })
+            },
+        )?;
+        Ok(Some(record))
+    }
+
+    pub fn get_token_by_id(&self, token_id: &str) -> Result<Option<AgentTokenRecord>> {
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        let row = conn
+            .query_row(
+                "SELECT token_id, agent_id, label, scopes_json, max_sessions, revoked, created_at, rotated_at
+                 FROM agent_tokens WHERE token_id = ?1",
+                params![token_id],
+                |row| {
+                    let scopes_json: String = row.get(3)?;
+                    let scopes: Vec<String> =
+                        serde_json::from_str(&scopes_json).unwrap_or_default();
+                    Ok(AgentTokenRecord {
+                        token_id: row.get(0)?,
+                        agent_id: row.get(1)?,
+                        label: row.get(2)?,
+                        scopes,
+                        max_sessions: row.get(4)?,
+                        revoked: row.get::<_, i64>(5)? != 0,
+                        created_at: row.get(6)?,
+                        rotated_at: row.get(7)?,
+                    })
+                },
+            )
+            .optional()?;
+        Ok(row)
+    }
+
     pub fn count_active_sessions_for_agent(&self, agent_id: &str) -> Result<u32> {
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
         let count: i64 = conn.query_row(
             "SELECT COUNT(*) FROM browser_sessions WHERE owner_agent_id = ?1 AND state != 'CLOSED'",
             params![agent_id],
+            |row| row.get(0),
+        )?;
+        Ok(count.max(0) as u32)
+    }
+
+    /// Counts currently running browser sessions owned by a specific Agent Token (with legacy
+    /// fallback to `owner_agent_id` for pre-migration rows where `owner_token_id` is empty).
+    pub fn count_running_sessions_for_token(
+        &self,
+        token_id: &str,
+        agent_id: &str,
+        exclude_session_id: Option<&str>,
+    ) -> Result<u32> {
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM browser_sessions
+             WHERE ((owner_token_id != '' AND owner_token_id = ?1)
+                    OR (owner_token_id = '' AND owner_agent_id = ?2))
+               AND state IN ('CREATING', 'RUNNING', 'IDLE', 'RESTORING')
+               AND (?3 IS NULL OR session_id != ?3)",
+            params![token_id, agent_id, exclude_session_id],
             |row| row.get(0),
         )?;
         Ok(count.max(0) as u32)
@@ -375,21 +519,24 @@ impl LiteStore {
     }
 
     pub fn insert_session(&self, record: &SessionRecord) -> Result<()> {
+        let hosts_json = serde_json::to_string(&record.allowed_private_hosts)?;
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
         conn.execute(
             "INSERT INTO browser_sessions
-             (session_id, owner_agent_id, display_name, profile_id, state, proxy_url, current_url,
-              isolation_mode, idle_timeout_seconds, created_at, updated_at, last_activity_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+             (session_id, owner_agent_id, owner_token_id, display_name, profile_id, state, proxy_url, current_url,
+              isolation_mode, allowed_private_hosts_json, idle_timeout_seconds, created_at, updated_at, last_activity_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             params![
                 record.session_id,
                 record.owner_agent_id,
+                record.owner_token_id,
                 record.display_name,
                 record.profile_id,
                 record.state,
                 record.proxy_url,
                 record.current_url,
                 record.isolation_mode,
+                hosts_json,
                 record.idle_timeout_seconds as i64,
                 record.created_at,
                 record.updated_at,
@@ -403,8 +550,9 @@ impl LiteStore {
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
         let row = conn
             .query_row(
-                "SELECT session_id, owner_agent_id, display_name, profile_id, state, proxy_url,
-                        current_url, isolation_mode, idle_timeout_seconds, created_at, updated_at, last_activity_at
+                "SELECT session_id, owner_agent_id, owner_token_id, display_name, profile_id, state, proxy_url,
+                        current_url, isolation_mode, allowed_private_hosts_json, idle_timeout_seconds,
+                        created_at, updated_at, last_activity_at
                  FROM browser_sessions WHERE session_id = ?1",
                 params![session_id],
                 Self::map_session,
@@ -413,33 +561,242 @@ impl LiteStore {
         Ok(row)
     }
 
+    pub fn list_sessions_for_admin(&self, include_closed: bool) -> Result<Vec<SessionRecord>> {
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        let sql = if include_closed {
+            "SELECT session_id, owner_agent_id, owner_token_id, display_name, profile_id, state, proxy_url,
+                    current_url, isolation_mode, allowed_private_hosts_json, idle_timeout_seconds,
+                    created_at, updated_at, last_activity_at
+             FROM browser_sessions ORDER BY created_at DESC"
+        } else {
+            "SELECT session_id, owner_agent_id, owner_token_id, display_name, profile_id, state, proxy_url,
+                    current_url, isolation_mode, allowed_private_hosts_json, idle_timeout_seconds,
+                    created_at, updated_at, last_activity_at
+             FROM browser_sessions WHERE state != 'CLOSED' ORDER BY created_at DESC"
+        };
+        let mut stmt = conn.prepare(sql)?;
+        let rows = stmt
+            .query_map([], Self::map_session)?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
     pub fn list_sessions_for_agent(
         &self,
         agent_id: &str,
         include_closed: bool,
     ) -> Result<Vec<SessionRecord>> {
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
-        let sql = if include_closed {
-            "SELECT session_id, owner_agent_id, display_name, profile_id, state, proxy_url,
-                    current_url, isolation_mode, idle_timeout_seconds, created_at, updated_at, last_activity_at
-             FROM browser_sessions WHERE owner_agent_id = ?1 ORDER BY created_at DESC"
+        let closed_filter = if include_closed {
+            ""
         } else {
-            "SELECT session_id, owner_agent_id, display_name, profile_id, state, proxy_url,
-                    current_url, isolation_mode, idle_timeout_seconds, created_at, updated_at, last_activity_at
-             FROM browser_sessions WHERE owner_agent_id = ?1 AND state != 'CLOSED' ORDER BY created_at DESC"
+            "AND s.state != 'CLOSED'"
         };
-        let mut stmt = conn.prepare(sql)?;
+        let sql = format!(
+            "SELECT s.session_id, s.owner_agent_id, s.owner_token_id, s.display_name, s.profile_id,
+                    s.state, s.proxy_url, s.current_url, s.isolation_mode, s.allowed_private_hosts_json,
+                    s.idle_timeout_seconds, s.created_at, s.updated_at, s.last_activity_at
+             FROM browser_sessions s
+             WHERE (
+                 (s.owner_agent_id = ?1 AND (
+                     NOT EXISTS (SELECT 1 FROM profiles p WHERE p.profile_id = s.profile_id)
+                     OR EXISTS (
+                         SELECT 1 FROM profile_grants g
+                         WHERE g.profile_id = s.profile_id AND g.grantee_agent_id = ?1 AND g.revoked_at IS NULL
+                     )
+                 ))
+                 OR (s.state IN ('CREATING', 'RUNNING', 'IDLE', 'RESTORING') AND EXISTS (
+                     SELECT 1 FROM profile_grants g
+                     WHERE g.profile_id = s.profile_id AND g.grantee_agent_id = ?1 AND g.revoked_at IS NULL
+                 ))
+             ) {closed_filter}
+             ORDER BY s.created_at DESC"
+        );
+        let mut stmt = conn.prepare(&sql)?;
         let rows = stmt
             .query_map(params![agent_id], Self::map_session)?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         Ok(rows)
     }
 
+    pub fn find_active_session_for_profile(
+        &self,
+        profile_id: &str,
+        exclude_session_id: Option<&str>,
+    ) -> Result<Option<SessionRecord>> {
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        let row = conn
+            .query_row(
+                "SELECT session_id, owner_agent_id, owner_token_id, display_name, profile_id, state, proxy_url,
+                        current_url, isolation_mode, allowed_private_hosts_json, idle_timeout_seconds,
+                        created_at, updated_at, last_activity_at
+                 FROM browser_sessions
+                 WHERE profile_id = ?1
+                   AND state IN ('CREATING', 'RUNNING', 'IDLE', 'RESTORING')
+                   AND (?2 IS NULL OR session_id != ?2)
+                 ORDER BY updated_at DESC
+                 LIMIT 1",
+                params![profile_id, exclude_session_id],
+                Self::map_session,
+            )
+            .optional()?;
+        Ok(row)
+    }
+
+    pub fn update_session_private_hosts(&self, session_id: &str, hosts: &[String]) -> Result<()> {
+        let now = Utc::now().to_rfc3339();
+        let hosts_json = serde_json::to_string(hosts)?;
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        conn.execute(
+            "UPDATE browser_sessions SET allowed_private_hosts_json = ?1, updated_at = ?2 WHERE session_id = ?3",
+            params![hosts_json, now, session_id],
+        )?;
+        Ok(())
+    }
+
+    // ---------- Admin-Owned Profiles & Grants ----------
+
+    pub fn upsert_profile(&self, profile: &ProfileRecord) -> Result<()> {
+        let hosts_json = serde_json::to_string(&profile.allowed_private_hosts)?;
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        conn.execute(
+            "INSERT INTO profiles (profile_id, owner_account_id, display_name, allowed_private_hosts_json, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(profile_id) DO UPDATE SET
+               display_name = excluded.display_name,
+               allowed_private_hosts_json = excluded.allowed_private_hosts_json,
+               updated_at = excluded.updated_at",
+            params![
+                profile.profile_id,
+                profile.owner_account_id,
+                profile.display_name,
+                hosts_json,
+                profile.created_at,
+                profile.updated_at,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_profile(&self, profile_id: &str) -> Result<Option<ProfileRecord>> {
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        let row = conn
+            .query_row(
+                "SELECT profile_id, owner_account_id, display_name, allowed_private_hosts_json, created_at, updated_at
+                 FROM profiles WHERE profile_id = ?1",
+                params![profile_id],
+                Self::map_profile,
+            )
+            .optional()?;
+        Ok(row)
+    }
+
+    pub fn list_profiles_for_admin(&self) -> Result<Vec<ProfileRecord>> {
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        let mut stmt = conn.prepare(
+            "SELECT profile_id, owner_account_id, display_name, allowed_private_hosts_json, created_at, updated_at
+             FROM profiles ORDER BY created_at DESC",
+        )?;
+        let rows = stmt
+            .query_map([], Self::map_profile)?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    pub fn list_profiles_for_agent(&self, agent_id: &str) -> Result<Vec<ProfileRecord>> {
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        let mut stmt = conn.prepare(
+            "SELECT p.profile_id, p.owner_account_id, p.display_name, p.allowed_private_hosts_json,
+                    p.created_at, p.updated_at
+             FROM profiles p
+             INNER JOIN profile_grants g ON p.profile_id = g.profile_id
+             WHERE g.grantee_agent_id = ?1 AND g.revoked_at IS NULL
+             ORDER BY p.created_at DESC",
+        )?;
+        let rows = stmt
+            .query_map(params![agent_id], Self::map_profile)?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    pub fn grant_profile(
+        &self,
+        profile_id: &str,
+        grantee_agent_id: &str,
+        granted_by: &str,
+    ) -> Result<ProfileGrantRecord> {
+        let now = Utc::now().to_rfc3339();
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        conn.execute(
+            "INSERT INTO profile_grants (profile_id, grantee_agent_id, granted_by, granted_at, revoked_at)
+             VALUES (?1, ?2, ?3, ?4, NULL)
+             ON CONFLICT(profile_id, grantee_agent_id) DO UPDATE SET
+               granted_by = excluded.granted_by,
+               granted_at = excluded.granted_at,
+               revoked_at = NULL",
+            params![profile_id, grantee_agent_id, granted_by, now],
+        )?;
+        Ok(ProfileGrantRecord {
+            profile_id: profile_id.to_owned(),
+            grantee_agent_id: grantee_agent_id.to_owned(),
+            granted_by: granted_by.to_owned(),
+            granted_at: now,
+            revoked_at: None,
+        })
+    }
+
+    pub fn revoke_profile_grant(&self, profile_id: &str, grantee_agent_id: &str) -> Result<bool> {
+        let now = Utc::now().to_rfc3339();
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        let affected = conn.execute(
+            "UPDATE profile_grants SET revoked_at = ?1
+             WHERE profile_id = ?2 AND grantee_agent_id = ?3 AND revoked_at IS NULL",
+            params![now, profile_id, grantee_agent_id],
+        )?;
+        Ok(affected > 0)
+    }
+
+    pub fn has_active_profile_grant(&self, profile_id: &str, agent_id: &str) -> Result<bool> {
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM profile_grants
+             WHERE profile_id = ?1 AND grantee_agent_id = ?2 AND revoked_at IS NULL",
+            params![profile_id, agent_id],
+            |row| row.get(0),
+        )?;
+        Ok(count > 0)
+    }
+
+    pub fn list_active_grants_for_profile(&self, profile_id: &str) -> Result<Vec<String>> {
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        let mut stmt = conn.prepare(
+            "SELECT grantee_agent_id FROM profile_grants
+             WHERE profile_id = ?1 AND revoked_at IS NULL
+             ORDER BY grantee_agent_id ASC",
+        )?;
+        let rows = stmt
+            .query_map(params![profile_id], |row| row.get(0))?
+            .collect::<std::result::Result<Vec<String>, _>>()?;
+        Ok(rows)
+    }
+
+    pub fn update_profile_private_hosts(&self, profile_id: &str, hosts: &[String]) -> Result<()> {
+        let now = Utc::now().to_rfc3339();
+        let hosts_json = serde_json::to_string(hosts)?;
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        conn.execute(
+            "UPDATE profiles SET allowed_private_hosts_json = ?1, updated_at = ?2 WHERE profile_id = ?3",
+            params![hosts_json, now, profile_id],
+        )?;
+        Ok(())
+    }
+
     pub fn list_running_sessions(&self) -> Result<Vec<SessionRecord>> {
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
         let mut stmt = conn.prepare(
-            "SELECT session_id, owner_agent_id, display_name, profile_id, state, proxy_url,
-                    current_url, isolation_mode, idle_timeout_seconds, created_at, updated_at, last_activity_at
+            "SELECT session_id, owner_agent_id, owner_token_id, display_name, profile_id, state, proxy_url,
+                    current_url, isolation_mode, allowed_private_hosts_json, idle_timeout_seconds,
+                    created_at, updated_at, last_activity_at
              FROM browser_sessions WHERE state IN ('RUNNING', 'IDLE')",
         )?;
         let rows = stmt
@@ -511,6 +868,33 @@ impl LiteStore {
             ],
         )?;
         Ok(())
+    }
+
+    pub fn list_checkpoints_for_profile(
+        &self,
+        profile_id: &str,
+    ) -> Result<Vec<ProfileCheckpointRecord>> {
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        let mut stmt = conn.prepare(
+            "SELECT checkpoint_id, profile_id, owner_agent_id, archive_sha256, archive_bytes, file_count, created_at
+             FROM profile_checkpoints
+             WHERE profile_id = ?1
+             ORDER BY created_at DESC",
+        )?;
+        let rows = stmt
+            .query_map(params![profile_id], |row| {
+                Ok(ProfileCheckpointRecord {
+                    checkpoint_id: row.get(0)?,
+                    profile_id: row.get(1)?,
+                    owner_agent_id: row.get(2)?,
+                    archive_sha256: row.get(3)?,
+                    archive_bytes: row.get::<_, i64>(4)?.max(0) as u64,
+                    file_count: row.get::<_, i64>(5)?.max(0) as u64,
+                    created_at: row.get(6)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(rows)
     }
 
     pub fn list_checkpoints(
@@ -641,20 +1025,39 @@ impl LiteStore {
         }
     }
 
+    fn map_profile(row: &rusqlite::Row<'_>) -> rusqlite::Result<ProfileRecord> {
+        let hosts_json: String = row.get(3)?;
+        let allowed_private_hosts: Vec<String> =
+            serde_json::from_str(&hosts_json).unwrap_or_default();
+        Ok(ProfileRecord {
+            profile_id: row.get(0)?,
+            owner_account_id: row.get(1)?,
+            display_name: row.get(2)?,
+            allowed_private_hosts,
+            created_at: row.get(4)?,
+            updated_at: row.get(5)?,
+        })
+    }
+
     fn map_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRecord> {
+        let hosts_json: String = row.get(9)?;
+        let allowed_private_hosts: Vec<String> =
+            serde_json::from_str(&hosts_json).unwrap_or_default();
         Ok(SessionRecord {
             session_id: row.get(0)?,
             owner_agent_id: row.get(1)?,
-            display_name: row.get(2)?,
-            profile_id: row.get(3)?,
-            state: row.get(4)?,
-            proxy_url: row.get(5)?,
-            current_url: row.get(6)?,
-            isolation_mode: row.get(7)?,
-            idle_timeout_seconds: row.get::<_, i64>(8)?.max(0) as u64,
-            created_at: row.get(9)?,
-            updated_at: row.get(10)?,
-            last_activity_at: row.get(11)?,
+            owner_token_id: row.get(2)?,
+            display_name: row.get(3)?,
+            profile_id: row.get(4)?,
+            state: row.get(5)?,
+            proxy_url: row.get(6)?,
+            current_url: row.get(7)?,
+            isolation_mode: row.get(8)?,
+            allowed_private_hosts,
+            idle_timeout_seconds: row.get::<_, i64>(10)?.max(0) as u64,
+            created_at: row.get(11)?,
+            updated_at: row.get(12)?,
+            last_activity_at: row.get(13)?,
         })
     }
 }
@@ -688,12 +1091,14 @@ mod tests {
             .insert_session(&SessionRecord {
                 session_id: "ses_a1".to_owned(),
                 owner_agent_id: "agent_a".to_owned(),
+                owner_token_id: agent_a.token.token_id.clone(),
                 display_name: "A1".to_owned(),
                 profile_id: "prf_a1".to_owned(),
                 state: "RUNNING".to_owned(),
                 proxy_url: None,
                 current_url: None,
                 isolation_mode: "process".to_owned(),
+                allowed_private_hosts: Vec::new(),
                 idle_timeout_seconds: 600,
                 created_at: now.clone(),
                 updated_at: now.clone(),

@@ -3,14 +3,16 @@
 use crate::backpressure::{
     read_host_io_psi_some10, BackpressureSnapshot, GradedBackpressure, PressureSample,
 };
+use crate::egress::EgressGuardHandle;
 use crate::events::{EventBus, LiteMetrics};
 use crate::profile::{restore_profile_checkpoint, save_profile_checkpoint};
 use crate::security::{
-    hex_encode, validate_identifier, validate_navigation_url, validate_proxy_url,
+    hex_encode, normalize_private_host_rules, validate_identifier,
+    validate_navigation_url_with_policy, validate_proxy_url,
 };
 use crate::store::{
-    AgentTokenRecord, CredentialMetadata, LiteStore, ProfileCheckpointRecord, SessionRecord,
-    StoredCredential,
+    AgentTokenRecord, CredentialMetadata, LiteStore, ProfileCheckpointRecord, ProfileRecord,
+    SessionRecord, StoredCredential,
 };
 use crate::vault::{normalize_allowed_domain, url_matches_allowed_domain, CredentialVault};
 use anyhow::{bail, ensure, Context, Result};
@@ -79,6 +81,31 @@ pub struct CreateSessionParams {
     pub proxy_url: Option<String>,
     pub start_url: Option<String>,
     pub isolation_mode: Option<String>,
+    #[serde(default)]
+    pub allowed_private_hosts: Vec<String>,
+    pub idle_timeout_seconds: Option<u64>,
+    #[serde(default = "default_true")]
+    pub start: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct CreateProfileParams {
+    pub name: String,
+    #[serde(default)]
+    pub allowed_private_hosts: Vec<String>,
+    #[serde(default)]
+    pub grant_agents: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct OpenProfileParams {
+    pub name: Option<String>,
+    pub proxy_url: Option<String>,
+    pub start_url: Option<String>,
+    #[serde(default)]
+    pub allowed_private_hosts: Vec<String>,
     pub idle_timeout_seconds: Option<u64>,
     #[serde(default = "default_true")]
     pub start: bool,
@@ -201,6 +228,7 @@ struct WarmInstance {
     cdp_endpoint: String,
     profile_dir: PathBuf,
     cache_dir: PathBuf,
+    egress_guard: EgressGuardHandle,
 }
 
 struct LiveSessionState {
@@ -209,6 +237,7 @@ struct LiveSessionState {
     input: Arc<CdpDesktopInput>,
     last_states: Vec<CurrentState>,
     warm_handoff: Option<(PathBuf, PathBuf, PathBuf)>,
+    egress_guard: Option<EgressGuardHandle>,
 }
 
 pub struct LiteRuntime {
@@ -431,12 +460,17 @@ impl LiteRuntime {
             {
                 break;
             }
+            let Ok(egress_guard) =
+                EgressGuardHandle::spawn(self.config.allow_private_network, Vec::new()).await
+            else {
+                break;
+            };
             let spec = RuntimeSpec {
                 session_id: warm_id.clone(),
                 runtime_build_id: "lite-chromium-warm-v1".to_owned(),
                 profile_dir: profile_dir.clone(),
                 cache_dir: cache_dir.clone(),
-                proxy_server: None,
+                proxy_server: Some(egress_guard.proxy_url.clone()),
                 display: String::new(),
                 cdp_port,
                 vnc_port: None,
@@ -451,6 +485,7 @@ impl LiteRuntime {
                         cdp_endpoint: handle.cdp_endpoint,
                         profile_dir,
                         cache_dir,
+                        egress_guard,
                     });
                 }
                 Err(error) => {
@@ -499,38 +534,10 @@ impl LiteRuntime {
         let bp = self.backpressure_snapshot().await;
         ensure!(bp.accepts_new_sessions, "NODE_BACKPRESSURE_REJECTED");
 
-        let agent_count = self
-            .store
-            .count_active_sessions_for_agent(&caller.agent_id)?;
-        ensure!(
-            agent_count < caller.max_sessions,
-            "AGENT_SESSION_QUOTA_EXCEEDED"
-        );
-        if params.start {
-            let total_running = self.store.count_running_sessions_total()?;
-            ensure!(
-                total_running < self.config.max_sessions,
-                "NODE_MAX_SESSIONS_REACHED"
-            );
-        }
-
+        let requested_private_hosts = normalize_private_host_rules(&params.allowed_private_hosts)?;
         let proxy_url = match params.proxy_url.as_deref() {
             Some(raw) if !raw.trim().is_empty() => Some(validate_proxy_url(raw)?),
             _ => None,
-        };
-        let start_url = match params.start_url.as_deref() {
-            Some(raw) if !raw.trim().is_empty() => Some(validate_navigation_url(
-                raw,
-                self.config.allow_private_network,
-            )?),
-            _ => None,
-        };
-        let profile_id = match params.profile_id.as_deref() {
-            Some(id) if !id.trim().is_empty() => {
-                validate_identifier(id, "prf_")?;
-                id.to_owned()
-            }
-            _ => format!("prf_{}", &Uuid::new_v4().simple().to_string()[..16]),
         };
 
         let session_id = format!("ses_{}", &Uuid::new_v4().simple().to_string()[..16]);
@@ -543,6 +550,75 @@ impl LiteRuntime {
             .chars()
             .take(128)
             .collect::<String>();
+
+        let now = Utc::now().to_rfc3339();
+        let (profile_id, effective_private_hosts) = match params.profile_id.as_deref() {
+            Some(id) if !id.trim().is_empty() => {
+                validate_identifier(id, "prf_")?;
+                if let Some(existing) = self.store.get_profile(id)? {
+                    ensure!(
+                        caller.has_scope("admin")
+                            || self.store.has_active_profile_grant(id, &caller.agent_id)?,
+                        "PROFILE_ACCESS_DENIED"
+                    );
+                    let merged = merge_private_hosts(
+                        &existing.allowed_private_hosts,
+                        &requested_private_hosts,
+                    );
+                    (id.to_owned(), merged)
+                } else {
+                    let owner_account = if caller.has_scope("admin") {
+                        caller.agent_id.clone()
+                    } else {
+                        "agent_admin".to_owned()
+                    };
+                    self.store.upsert_profile(&ProfileRecord {
+                        profile_id: id.to_owned(),
+                        owner_account_id: owner_account,
+                        display_name: display_name.clone(),
+                        allowed_private_hosts: requested_private_hosts.clone(),
+                        created_at: now.clone(),
+                        updated_at: now.clone(),
+                    })?;
+                    if !caller.has_scope("admin") {
+                        self.store
+                            .grant_profile(id, &caller.agent_id, "agent_admin")?;
+                    }
+                    (id.to_owned(), requested_private_hosts.clone())
+                }
+            }
+            _ => {
+                let pid = format!("prf_{}", &Uuid::new_v4().simple().to_string()[..16]);
+                let owner_account = if caller.has_scope("admin") {
+                    caller.agent_id.clone()
+                } else {
+                    "agent_admin".to_owned()
+                };
+                self.store.upsert_profile(&ProfileRecord {
+                    profile_id: pid.clone(),
+                    owner_account_id: owner_account,
+                    display_name: display_name.clone(),
+                    allowed_private_hosts: requested_private_hosts.clone(),
+                    created_at: now.clone(),
+                    updated_at: now.clone(),
+                })?;
+                if !caller.has_scope("admin") {
+                    self.store
+                        .grant_profile(&pid, &caller.agent_id, "agent_admin")?;
+                }
+                (pid, requested_private_hosts.clone())
+            }
+        };
+
+        let start_url = match params.start_url.as_deref() {
+            Some(raw) if !raw.trim().is_empty() => Some(validate_navigation_url_with_policy(
+                raw,
+                self.config.allow_private_network,
+                &effective_private_hosts,
+            )?),
+            _ => None,
+        };
+
         let idle_timeout_seconds = params
             .idle_timeout_seconds
             .unwrap_or(self.config.default_idle_timeout_seconds)
@@ -557,7 +633,32 @@ impl LiteRuntime {
             Some("context") => "context".to_owned(),
             Some(_) => bail!("ISOLATION_MODE_INVALID"),
         };
-        let now = Utc::now().to_rfc3339();
+
+        // Pre-flight running-quota, single-writer, and node capacity checks when starting immediately.
+        if params.start {
+            let _cap = self.capacity_lock.lock().await;
+            let token_running = self.store.count_running_sessions_for_token(
+                &caller.token_id,
+                &caller.agent_id,
+                None,
+            )?;
+            ensure!(
+                token_running < caller.max_sessions,
+                "AGENT_SESSION_QUOTA_EXCEEDED"
+            );
+            if let Some(active) = self
+                .store
+                .find_active_session_for_profile(&profile_id, None)?
+            {
+                bail!("PROFILE_ALREADY_IN_USE:{}", active.session_id);
+            }
+            let total_running = self.store.count_running_sessions_total()?;
+            ensure!(
+                total_running < self.config.max_sessions,
+                "NODE_MAX_SESSIONS_REACHED"
+            );
+        }
+
         let initial_state = if params.start {
             "CREATING"
         } else {
@@ -566,12 +667,14 @@ impl LiteRuntime {
         let record = SessionRecord {
             session_id: session_id.clone(),
             owner_agent_id: caller.agent_id.clone(),
+            owner_token_id: caller.token_id.clone(),
             display_name,
             profile_id: profile_id.clone(),
             state: initial_state.to_owned(),
             isolation_mode,
             proxy_url,
             current_url: start_url.clone(),
+            allowed_private_hosts: effective_private_hosts,
             idle_timeout_seconds,
             created_at: now.clone(),
             updated_at: now.clone(),
@@ -619,14 +722,411 @@ impl LiteRuntime {
         caller: &AgentTokenRecord,
         include_closed: bool,
     ) -> Result<Value> {
-        let sessions = self
-            .store
-            .list_sessions_for_agent(&caller.agent_id, include_closed)?;
+        let sessions = if caller.has_scope("admin") {
+            self.store.list_sessions_for_admin(include_closed)?
+        } else {
+            self.store
+                .list_sessions_for_agent(&caller.agent_id, include_closed)?
+        };
         Ok(json!({
             "sessions": sessions,
             "count": sessions.len(),
             "backpressure": self.backpressure_snapshot().await,
         }))
+    }
+
+    // ---------- Admin-Owned Profile Management, Authorization & Same-Browser Collaboration ----------
+
+    pub fn create_profile(
+        &self,
+        caller: &AgentTokenRecord,
+        params: CreateProfileParams,
+    ) -> Result<Value> {
+        ensure!(caller.has_scope("admin"), "ADMIN_SCOPE_REQUIRED");
+        let display_name = params.name.trim();
+        ensure!(
+            !display_name.is_empty() && display_name.len() <= 128,
+            "PROFILE_NAME_INVALID"
+        );
+        let allowed_private_hosts = normalize_private_host_rules(&params.allowed_private_hosts)?;
+        let profile_id = format!("prf_{}", &Uuid::new_v4().simple().to_string()[..16]);
+        let now = Utc::now().to_rfc3339();
+        let profile = ProfileRecord {
+            profile_id: profile_id.clone(),
+            owner_account_id: caller.agent_id.clone(),
+            display_name: display_name.to_owned(),
+            allowed_private_hosts,
+            created_at: now.clone(),
+            updated_at: now,
+        };
+        self.store.upsert_profile(&profile)?;
+        let mut granted = Vec::new();
+        for agent in &params.grant_agents {
+            let trimmed = agent.trim();
+            if !trimmed.is_empty() && trimmed.len() <= 64 {
+                self.store
+                    .grant_profile(&profile_id, trimmed, &caller.agent_id)?;
+                granted.push(trimmed.to_owned());
+            }
+        }
+        self.store.record_audit(
+            &caller.agent_id,
+            None,
+            "PROFILE_CREATE",
+            "OK",
+            Some(&profile_id),
+        );
+        Ok(json!({
+            "profile": profile,
+            "activeGrants": granted,
+        }))
+    }
+
+    pub fn list_profiles(&self, caller: &AgentTokenRecord) -> Result<Value> {
+        let is_admin = caller.has_scope("admin");
+        let profiles = if is_admin {
+            self.store.list_profiles_for_admin()?
+        } else {
+            self.store.list_profiles_for_agent(&caller.agent_id)?
+        };
+        let mut items = Vec::with_capacity(profiles.len());
+        for profile in profiles {
+            let active_session = self
+                .store
+                .find_active_session_for_profile(&profile.profile_id, None)?;
+            let mut entry = json!({
+                "profile": profile,
+                "activeSessionId": active_session.as_ref().map(|s| s.session_id.clone()),
+                "activeSessionState": active_session.as_ref().map(|s| s.state.clone()),
+            });
+            if is_admin {
+                let grants = self
+                    .store
+                    .list_active_grants_for_profile(&profile.profile_id)?;
+                entry["activeGrants"] = json!(grants);
+            }
+            items.push(entry);
+        }
+        Ok(json!({
+            "profiles": items,
+            "count": items.len(),
+        }))
+    }
+
+    pub fn grant_profile(
+        &self,
+        caller: &AgentTokenRecord,
+        profile_id: &str,
+        grantee_agent_id: &str,
+    ) -> Result<Value> {
+        ensure!(caller.has_scope("admin"), "ADMIN_SCOPE_REQUIRED");
+        validate_identifier(profile_id, "prf_")?;
+        let grantee = grantee_agent_id.trim();
+        ensure!(
+            !grantee.is_empty() && grantee.len() <= 64,
+            "AGENT_ID_INVALID"
+        );
+        ensure!(
+            self.store.get_profile(profile_id)?.is_some(),
+            "PROFILE_NOT_FOUND"
+        );
+        let grant = self
+            .store
+            .grant_profile(profile_id, grantee, &caller.agent_id)?;
+        let active_grants = self.store.list_active_grants_for_profile(profile_id)?;
+        self.store.record_audit(
+            &caller.agent_id,
+            None,
+            "PROFILE_GRANT",
+            "OK",
+            Some(&format!("{profile_id}->{grantee}")),
+        );
+        self.events.publish(
+            "profile.granted",
+            grantee,
+            None,
+            None,
+            json!({ "profileId": profile_id, "granteeAgentId": grantee }),
+        );
+        Ok(json!({
+            "grant": grant,
+            "activeGrants": active_grants,
+        }))
+    }
+
+    pub fn revoke_profile_grant(
+        &self,
+        caller: &AgentTokenRecord,
+        profile_id: &str,
+        grantee_agent_id: &str,
+    ) -> Result<Value> {
+        ensure!(caller.has_scope("admin"), "ADMIN_SCOPE_REQUIRED");
+        validate_identifier(profile_id, "prf_")?;
+        let grantee = grantee_agent_id.trim();
+        ensure!(
+            !grantee.is_empty() && grantee.len() <= 64,
+            "AGENT_ID_INVALID"
+        );
+        ensure!(
+            self.store.get_profile(profile_id)?.is_some(),
+            "PROFILE_NOT_FOUND"
+        );
+        let revoked = self.store.revoke_profile_grant(profile_id, grantee)?;
+        let active_grants = self.store.list_active_grants_for_profile(profile_id)?;
+        self.store.record_audit(
+            &caller.agent_id,
+            None,
+            "PROFILE_REVOKE",
+            "OK",
+            Some(&format!("{profile_id}-x-{grantee}")),
+        );
+        self.events.publish(
+            "profile.revoked",
+            grantee,
+            None,
+            None,
+            json!({ "profileId": profile_id, "granteeAgentId": grantee }),
+        );
+        Ok(json!({
+            "revoked": revoked,
+            "profileId": profile_id,
+            "granteeAgentId": grantee,
+            "activeGrants": active_grants,
+        }))
+    }
+
+    /// Opens an authorized Profile. If a browser instance is already writing to this Profile,
+    /// attaches the caller (e.g., Admin + Agent collaboration) to that SAME running browser
+    /// instead of spawning a second writer that would corrupt login cookies/storage.
+    pub async fn open_profile(
+        &self,
+        caller: &AgentTokenRecord,
+        profile_id: &str,
+        params: OpenProfileParams,
+    ) -> Result<Value> {
+        validate_identifier(profile_id, "prf_")?;
+        let profile = self
+            .store
+            .get_profile(profile_id)?
+            .ok_or_else(|| anyhow::anyhow!("PROFILE_NOT_FOUND"))?;
+        ensure!(
+            caller.has_scope("admin")
+                || self
+                    .store
+                    .has_active_profile_grant(profile_id, &caller.agent_id)?,
+            "PROFILE_ACCESS_DENIED"
+        );
+
+        if let Some(existing) = self
+            .store
+            .find_active_session_for_profile(profile_id, None)?
+        {
+            self.store.record_audit(
+                &caller.agent_id,
+                Some(&existing.session_id),
+                "SESSION_COLLABORATE",
+                "OK",
+                Some(profile_id),
+            );
+            return Ok(json!({
+                "session": existing,
+                "collaborating": true,
+                "singleWriterSessionId": existing.session_id,
+                "backpressure": self.backpressure_snapshot().await,
+            }));
+        }
+
+        let mut created = self
+            .create_session(
+                caller,
+                CreateSessionParams {
+                    name: params.name.or(Some(profile.display_name)),
+                    profile_id: Some(profile_id.to_owned()),
+                    proxy_url: params.proxy_url,
+                    start_url: params.start_url,
+                    isolation_mode: None,
+                    allowed_private_hosts: params.allowed_private_hosts,
+                    idle_timeout_seconds: params.idle_timeout_seconds,
+                    start: params.start,
+                },
+            )
+            .await?;
+        let sid = created["session"]["sessionId"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
+        created["collaborating"] = json!(false);
+        created["singleWriterSessionId"] = json!(sid);
+        Ok(created)
+    }
+
+    pub fn list_profile_checkpoints(
+        &self,
+        caller: &AgentTokenRecord,
+        profile_id: &str,
+    ) -> Result<Value> {
+        validate_identifier(profile_id, "prf_")?;
+        ensure!(
+            self.store.get_profile(profile_id)?.is_some(),
+            "PROFILE_NOT_FOUND"
+        );
+        ensure!(
+            caller.has_scope("admin")
+                || self
+                    .store
+                    .has_active_profile_grant(profile_id, &caller.agent_id)?,
+            "PROFILE_ACCESS_DENIED"
+        );
+        let checkpoints = self.store.list_checkpoints_for_profile(profile_id)?;
+        Ok(json!({
+            "profileId": profile_id,
+            "checkpoints": checkpoints,
+        }))
+    }
+
+    pub async fn restore_profile_by_id(
+        &self,
+        caller: &AgentTokenRecord,
+        profile_id: &str,
+        checkpoint_id: &str,
+    ) -> Result<Value> {
+        validate_identifier(profile_id, "prf_")?;
+        validate_identifier(checkpoint_id, "chk_")?;
+        ensure!(
+            self.store.get_profile(profile_id)?.is_some(),
+            "PROFILE_NOT_FOUND"
+        );
+        ensure!(
+            caller.has_scope("admin")
+                || self
+                    .store
+                    .has_active_profile_grant(profile_id, &caller.agent_id)?,
+            "PROFILE_ACCESS_DENIED"
+        );
+        if let Some(active) = self
+            .store
+            .find_active_session_for_profile(profile_id, None)?
+        {
+            return self
+                .profile_op(
+                    caller,
+                    &active.session_id,
+                    ProfileOpParams {
+                        action: "restore".to_owned(),
+                        checkpoint_id: Some(checkpoint_id.to_owned()),
+                    },
+                )
+                .await;
+        }
+        let exists = self
+            .store
+            .list_checkpoints_for_profile(profile_id)?
+            .into_iter()
+            .any(|c| c.checkpoint_id == checkpoint_id);
+        ensure!(exists, "PROFILE_CHECKPOINT_NOT_FOUND");
+        let manifest = restore_profile_checkpoint(
+            &self.profile_dir(profile_id),
+            &self.config.data_dir.join("checkpoints"),
+            profile_id,
+            checkpoint_id,
+        )?;
+        self.store.record_audit(
+            &caller.agent_id,
+            None,
+            "PROFILE_RESTORE",
+            "OK",
+            Some(checkpoint_id),
+        );
+        Ok(json!({
+            "restored": true,
+            "profileId": profile_id,
+            "checkpointId": manifest.checkpoint_id,
+            "fileCount": manifest.file_count,
+        }))
+    }
+
+    pub async fn update_session_network_policy(
+        &self,
+        caller: &AgentTokenRecord,
+        session_id: &str,
+        raw_hosts: &[String],
+    ) -> Result<Value> {
+        let record = self.require_owned_session(caller, session_id)?;
+        let normalized = normalize_private_host_rules(raw_hosts)?;
+        self.store
+            .update_session_private_hosts(session_id, &normalized)?;
+        let _ = self
+            .store
+            .update_profile_private_hosts(&record.profile_id, &normalized);
+        if let Some(live) = self.live.lock().await.get(session_id) {
+            if let Some(guard) = live.egress_guard.as_ref() {
+                guard.set_allowed_private_hosts(normalized.clone());
+            }
+        }
+        self.store.record_audit(
+            &caller.agent_id,
+            Some(session_id),
+            "NETWORK_POLICY_UPDATE",
+            "OK",
+            Some(&normalized.join(",")),
+        );
+        Ok(json!({
+            "sessionId": session_id,
+            "profileId": record.profile_id,
+            "allowedPrivateHosts": normalized,
+        }))
+    }
+
+    pub async fn update_profile_network_policy(
+        &self,
+        caller: &AgentTokenRecord,
+        profile_id: &str,
+        raw_hosts: &[String],
+    ) -> Result<Value> {
+        ensure!(caller.has_scope("admin"), "ADMIN_SCOPE_REQUIRED");
+        validate_identifier(profile_id, "prf_")?;
+        ensure!(
+            self.store.get_profile(profile_id)?.is_some(),
+            "PROFILE_NOT_FOUND"
+        );
+        let normalized = normalize_private_host_rules(raw_hosts)?;
+        self.store
+            .update_profile_private_hosts(profile_id, &normalized)?;
+        if let Some(active) = self
+            .store
+            .find_active_session_for_profile(profile_id, None)?
+        {
+            let _ = self
+                .store
+                .update_session_private_hosts(&active.session_id, &normalized);
+            if let Some(live) = self.live.lock().await.get(&active.session_id) {
+                if let Some(guard) = live.egress_guard.as_ref() {
+                    guard.set_allowed_private_hosts(normalized.clone());
+                }
+            }
+        }
+        self.store.record_audit(
+            &caller.agent_id,
+            None,
+            "PROFILE_NETWORK_POLICY_UPDATE",
+            "OK",
+            Some(&normalized.join(",")),
+        );
+        Ok(json!({
+            "profileId": profile_id,
+            "allowedPrivateHosts": normalized,
+        }))
+    }
+
+    fn effective_private_hosts(&self, record: &SessionRecord) -> Vec<String> {
+        let profile_hosts = self
+            .store
+            .get_profile(&record.profile_id)
+            .ok()
+            .flatten()
+            .map(|p| p.allowed_private_hosts)
+            .unwrap_or_default();
+        merge_private_hosts(&profile_hosts, &record.allowed_private_hosts)
     }
 
     pub async fn navigate(
@@ -636,7 +1136,33 @@ impl LiteRuntime {
         url: &str,
     ) -> Result<Value> {
         let record = self.require_owned_session(caller, session_id)?;
-        let validated = validate_navigation_url(url, self.config.allow_private_network)?;
+        let allowed_private = self.effective_private_hosts(&record);
+        let validated = match validate_navigation_url_with_policy(
+            url,
+            self.config.allow_private_network,
+            &allowed_private,
+        ) {
+            Ok(v) => v,
+            Err(err) => {
+                // Reject ONLY this network request; keep browser session and task running untouched!
+                let reason = err.to_string();
+                self.store.record_audit(
+                    &caller.agent_id,
+                    Some(session_id),
+                    "NAVIGATION_PRIVATE_DENIED",
+                    "DENIED",
+                    Some(&reason),
+                );
+                self.events.publish(
+                    "network.request_blocked",
+                    &caller.agent_id,
+                    Some(session_id),
+                    None,
+                    json!({ "url": url, "reason": reason, "sessionPreserved": true }),
+                );
+                return Err(err);
+            }
+        };
         self.ensure_running(&record).await?;
         self.collector.navigate(session_id, &validated).await?;
         let state = self.refresh_state(session_id).await?;
@@ -1110,7 +1636,7 @@ impl LiteRuntime {
             "list" => {
                 let checkpoints = self
                     .store
-                    .list_checkpoints(&record.profile_id, &caller.agent_id)?;
+                    .list_checkpoints_for_profile(&record.profile_id)?;
                 Ok(json!({
                     "profileId": record.profile_id,
                     "checkpoints": checkpoints,
@@ -1169,7 +1695,7 @@ impl LiteRuntime {
                 let record = self.require_owned_session(caller, session_id)?;
                 let owned = self
                     .store
-                    .list_checkpoints(&record.profile_id, &caller.agent_id)?
+                    .list_checkpoints_for_profile(&record.profile_id)?
                     .into_iter()
                     .any(|c| c.checkpoint_id == checkpoint_id);
                 ensure!(owned, "PROFILE_CHECKPOINT_NOT_FOUND");
@@ -1313,12 +1839,26 @@ impl LiteRuntime {
             .store
             .get_session(session_id)?
             .ok_or_else(|| anyhow::anyhow!("SESSION_NOT_FOUND"))?;
-        ensure!(
-            record.owner_agent_id == caller.agent_id || caller.has_scope("admin"),
-            "SESSION_ACCESS_DENIED"
-        );
         ensure!(record.state != "CLOSED", "SESSION_CLOSED");
-        Ok(record)
+        if caller.has_scope("admin") {
+            return Ok(record);
+        }
+        let profile_managed = self.store.get_profile(&record.profile_id)?.is_some();
+        let has_profile_grant = if profile_managed {
+            self.store
+                .has_active_profile_grant(&record.profile_id, &caller.agent_id)?
+        } else {
+            true
+        };
+        if record.owner_agent_id == caller.agent_id {
+            ensure!(has_profile_grant, "PROFILE_ACCESS_DENIED");
+            return Ok(record);
+        }
+        // Authorized grantee may collaborate on an already-running browser bound to that Profile.
+        if profile_managed && has_profile_grant && is_running_state(&record.state) {
+            return Ok(record);
+        }
+        bail!("SESSION_ACCESS_DENIED");
     }
 
     fn profile_dir(&self, profile_id: &str) -> PathBuf {
@@ -1360,10 +1900,29 @@ impl LiteRuntime {
             let _ = self.stop_live_session(&record.session_id).await;
         }
 
-        // Atomically verify node running capacity excluding this session itself and reserve slot
-        // via DB state transition to RESTORING so concurrent starts cannot oversubscribe.
+        // Atomically verify per-token running quota, single-writer profile lock, and node capacity
+        // excluding this session itself, then reserve the slot via DB transition to RESTORING.
         {
             let _cap = self.capacity_lock.lock().await;
+            if !record.owner_token_id.is_empty() {
+                if let Some(owner_token) = self.store.get_token_by_id(&record.owner_token_id)? {
+                    let token_running = self.store.count_running_sessions_for_token(
+                        &owner_token.token_id,
+                        &owner_token.agent_id,
+                        Some(&record.session_id),
+                    )?;
+                    ensure!(
+                        token_running < owner_token.max_sessions,
+                        "AGENT_SESSION_QUOTA_EXCEEDED"
+                    );
+                }
+            }
+            if let Some(other) = self
+                .store
+                .find_active_session_for_profile(&record.profile_id, Some(&record.session_id))?
+            {
+                bail!("PROFILE_ALREADY_IN_USE:{}", other.session_id);
+            }
             let other_running = self
                 .store
                 .count_running_sessions_excluding(Some(&record.session_id))?;
@@ -1374,6 +1933,8 @@ impl LiteRuntime {
             self.store
                 .update_session_state(&record.session_id, "RESTORING", None)?;
         }
+
+        let effective_private_hosts = self.effective_private_hosts(record);
 
         let launch_result: Result<()> = async {
             let profile_dir = self.profile_dir(&record.profile_id);
@@ -1404,34 +1965,50 @@ impl LiteRuntime {
                 None
             };
 
-            let (runtime_key, cdp_endpoint, warm_handoff) = if let Some(warm) = claimed_warm {
-                (
-                    warm.warm_id,
-                    warm.cdp_endpoint,
-                    Some((warm.profile_dir, profile_dir, warm.cache_dir)),
-                )
-            } else {
-                let cdp_port = allocate_ephemeral_port()?;
-                let cache_dir = self.config.data_dir.join("cache").join(&record.session_id);
-                std::fs::create_dir_all(&profile_dir)?;
-                std::fs::create_dir_all(&cache_dir)?;
+            let (runtime_key, cdp_endpoint, warm_handoff, egress_guard) =
+                if let Some(warm) = claimed_warm {
+                    warm.egress_guard
+                        .set_allowed_private_hosts(effective_private_hosts.clone());
+                    (
+                        warm.warm_id,
+                        warm.cdp_endpoint,
+                        Some((warm.profile_dir, profile_dir, warm.cache_dir)),
+                        Some(warm.egress_guard),
+                    )
+                } else {
+                    let cdp_port = allocate_ephemeral_port()?;
+                    let cache_dir = self.config.data_dir.join("cache").join(&record.session_id);
+                    std::fs::create_dir_all(&profile_dir)?;
+                    std::fs::create_dir_all(&cache_dir)?;
 
-                let spec = RuntimeSpec {
-                    session_id: record.session_id.clone(),
-                    runtime_build_id: "lite-chromium-v1".to_owned(),
-                    profile_dir,
-                    cache_dir,
-                    proxy_server: record.proxy_url.clone(),
-                    display: String::new(),
-                    cdp_port,
-                    vnc_port: None,
-                    extension_dirs: Vec::new(),
-                    resource_limits: RuntimeResourceLimits::local_test_default(),
-                    browser_identity: BrowserIdentitySpec::default(),
+                    let (proxy_server, guard) = if let Some(user_proxy) = record.proxy_url.clone() {
+                        (Some(user_proxy), None)
+                    } else {
+                        let guard = EgressGuardHandle::spawn(
+                            self.config.allow_private_network,
+                            effective_private_hosts.clone(),
+                        )
+                        .await?;
+                        let url = guard.proxy_url.clone();
+                        (Some(url), Some(guard))
+                    };
+
+                    let spec = RuntimeSpec {
+                        session_id: record.session_id.clone(),
+                        runtime_build_id: "lite-chromium-v1".to_owned(),
+                        profile_dir,
+                        cache_dir,
+                        proxy_server,
+                        display: String::new(),
+                        cdp_port,
+                        vnc_port: None,
+                        extension_dirs: Vec::new(),
+                        resource_limits: RuntimeResourceLimits::local_test_default(),
+                        browser_identity: BrowserIdentitySpec::default(),
+                    };
+                    let handle = self.supervisor.start(spec).await?;
+                    (record.session_id.clone(), handle.cdp_endpoint, None, guard)
                 };
-                let handle = self.supervisor.start(spec).await?;
-                (record.session_id.clone(), handle.cdp_endpoint, None)
-            };
 
             self.collector
                 .register_runtime(&record.session_id, &cdp_endpoint)
@@ -1452,6 +2029,7 @@ impl LiteRuntime {
                         input,
                         last_states: Vec::new(),
                         warm_handoff,
+                        egress_guard,
                     },
                 );
             }
@@ -1553,8 +2131,16 @@ impl LiteRuntime {
                     .as_deref()
                     .or(step.value.as_deref())
                     .ok_or_else(|| anyhow::anyhow!("TAB_URL_REQUIRED"))?;
-                let validated =
-                    validate_navigation_url(raw_url, self.config.allow_private_network)?;
+                let allowed_private = self
+                    .store
+                    .get_session(session_id)?
+                    .map(|rec| self.effective_private_hosts(&rec))
+                    .unwrap_or_default();
+                let validated = validate_navigation_url_with_policy(
+                    raw_url,
+                    self.config.allow_private_network,
+                    &allowed_private,
+                )?;
                 self.collector.open_tab(session_id, &validated).await?;
             }
             "switch_tab" => {
@@ -1987,6 +2573,16 @@ fn compact_tree_payload(state: &CurrentState) -> Value {
     })
 }
 
+fn merge_private_hosts(base: &[String], extra: &[String]) -> Vec<String> {
+    let mut out = Vec::with_capacity(base.len() + extra.len());
+    for item in base.iter().chain(extra.iter()) {
+        if !out.contains(item) {
+            out.push(item.clone());
+        }
+    }
+    out
+}
+
 fn is_running_state(state: &str) -> bool {
     matches!(state, "CREATING" | "RUNNING" | "IDLE" | "RESTORING")
 }
@@ -2065,6 +2661,7 @@ mod quota_and_save_tests {
                     proxy_url: None,
                     start_url: None,
                     isolation_mode: None,
+                    allowed_private_hosts: Vec::new(),
                     idle_timeout_seconds: None,
                     start: false,
                 },
@@ -2142,6 +2739,7 @@ mod quota_and_save_tests {
                     proxy_url: None,
                     start_url: None,
                     isolation_mode: None,
+                    allowed_private_hosts: Vec::new(),
                     idle_timeout_seconds: None,
                     start: false,
                 },

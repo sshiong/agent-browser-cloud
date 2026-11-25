@@ -10,10 +10,24 @@ RUN cargo build \
     --bin browsercloud-worker-supervisor \
     --bin browsercloud-mcp-gateway \
     --bin browsercloud-application-adapter \
+    --bin browsercloud-operator \
     --bin recording-privacy-scanner \
     --bin network-helper \
     --bin storage-helper \
     --bin node-agent
+
+# ---------------------------------------------------------------------------
+# Target: browser-session-operator (Pure-Rust K8s Operator replacing Python)
+# ---------------------------------------------------------------------------
+FROM debian:bookworm-slim AS browser-session-operator
+RUN set -eux; \
+    apt-get update; \
+    apt-get install --no-install-recommends -y ca-certificates tini; \
+    rm -rf /var/lib/apt/lists/*
+COPY --from=build /workspace/apps/browser-node/target/release/browsercloud-operator /usr/local/bin/browsercloud-operator
+USER 65532:65532
+EXPOSE 8080
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/browsercloud-operator"]
 
 # ---------------------------------------------------------------------------
 # Target: application-adapter (Pure-Rust least-privilege adapter replacing Python)

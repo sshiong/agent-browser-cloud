@@ -245,7 +245,7 @@ mod tests {
         assert!(has_email("contact user@example.com now"));
         assert!(has_phone("call +1 (415) 555-2671"));
         assert!(has_ssn("ssn 123-45-6789"));
-        assert!(has_secret_assignment("api_key=sk_live_1234567890"));
+        assert!(has_secret_assignment("api_key=test_secret_1234567890"));
         assert!(has_otp("Verification code: 482910"));
         assert!(has_jwt(
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.abcdefghij"

@@ -183,6 +183,12 @@ impl LiteRuntime {
         params: OpenProfileParams,
     ) -> Result<Value> {
         validate_identifier(profile_id, "prf_")?;
+        if !params.allowed_private_hosts.is_empty() && !caller.has_scope("admin") {
+            bail!("ADMIN_SCOPE_REQUIRED");
+        }
+        let prof_lock = self.profile_lock(profile_id).await;
+        let _prof_guard = prof_lock.lock().await;
+
         let profile = self
             .store
             .get_profile(profile_id)?
@@ -215,7 +221,7 @@ impl LiteRuntime {
         }
 
         let mut created = self
-            .create_session(
+            .create_session_profile_locked(
                 caller,
                 CreateSessionParams {
                     name: params.name.or(Some(profile.display_name)),
@@ -227,6 +233,7 @@ impl LiteRuntime {
                     idle_timeout_seconds: params.idle_timeout_seconds,
                     start: params.start,
                 },
+                profile_id.to_owned(),
             )
             .await?;
         let sid = created["session"]["sessionId"]
@@ -270,6 +277,9 @@ impl LiteRuntime {
     ) -> Result<Value> {
         validate_identifier(profile_id, "prf_")?;
         validate_identifier(checkpoint_id, "chk_")?;
+        let prof_lock = self.profile_lock(profile_id).await;
+        let _prof_guard = prof_lock.lock().await;
+
         ensure!(
             self.store.get_profile(profile_id)?.is_some(),
             "PROFILE_NOT_FOUND"
@@ -286,7 +296,7 @@ impl LiteRuntime {
             .find_active_session_for_profile(profile_id, None)?
         {
             return self
-                .profile_op(
+                .profile_op_with_profile_lock(
                     caller,
                     &active.session_id,
                     ProfileOpParams {
@@ -333,6 +343,29 @@ impl LiteRuntime {
         params: ProfileOpParams,
     ) -> Result<Value> {
         let record = self.require_owned_session(caller, session_id)?;
+        if params.action == "list" {
+            let checkpoints = self
+                .store
+                .list_checkpoints_for_profile(&record.profile_id)?;
+            return Ok(json!({
+                "profileId": record.profile_id,
+                "checkpoints": checkpoints,
+            }));
+        }
+        let prof_lock = self.profile_lock(&record.profile_id).await;
+        let _prof_guard = prof_lock.lock().await;
+        self.profile_op_with_profile_lock(caller, session_id, params)
+            .await
+    }
+
+    async fn profile_op_with_profile_lock(
+        &self,
+        caller: &AgentTokenRecord,
+        session_id: &str,
+        params: ProfileOpParams,
+    ) -> Result<Value> {
+        let _active_op = self.begin_active_op(session_id);
+        let record = self.require_owned_session(caller, session_id)?;
         let profile_dir = self.profile_dir(&record.profile_id);
         let checkpoints_root = self.config.data_dir.join("checkpoints");
 
@@ -354,6 +387,8 @@ impl LiteRuntime {
                 if was_running {
                     // Gracefully flush Chromium profile and mark HIBERNATED before snapshotting so
                     // DB running-slot accounting stays accurate even at max_sessions capacity.
+                    // The outer `profile_lock` prevents any concurrent open/restore on this Profile
+                    // while Chromium is stopped.
                     self.stop_live_session(session_id).await?;
                 }
                 let checkpoint_id = format!("chk_{}", &Uuid::new_v4().simple().to_string()[..16]);

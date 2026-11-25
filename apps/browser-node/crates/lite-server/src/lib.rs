@@ -869,8 +869,8 @@ mod integration_tests {
         // Session MUST still be RUNNING!
         assert_eq!(store.get_session(&ses_a).unwrap().unwrap().state, "RUNNING");
 
-        // Authorize internal admin panel once on this environment.
-        let auth_net = app
+        // Non-admin Agent MUST NOT be able to self-authorize intranet hosts.
+        let self_auth_denied = app
             .clone()
             .oneshot(
                 Request::builder()
@@ -878,6 +878,25 @@ mod integration_tests {
                     .uri(format!("/api/v1/lite/sessions/{ses_a}/network-policy"))
                     .header("content-type", "application/json")
                     .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(
+                        json!({ "allowedPrivateHosts": ["192.168.1.50:8080", "10.0.0.0/8"] })
+                            .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(self_auth_denied.status(), StatusCode::FORBIDDEN);
+
+        // Admin configures intranet scope for the environment -> Agent operates within that scope.
+        let auth_net = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri(format!("/api/v1/lite/sessions/{ses_a}/network-policy"))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", admin.bearer_token))
                     .body(Body::from(
                         json!({ "allowedPrivateHosts": ["192.168.1.50:8080", "10.0.0.0/8"] })
                             .to_string(),
@@ -1068,8 +1087,8 @@ mod integration_tests {
         assert_eq!(djson["authorizationOptions"], json!(["once", "permanent"]));
         assert_eq!(store.get_session(&sid).unwrap().unwrap().state, "RUNNING");
 
-        // 2. Grant 192.168.1.50:8080 as ONCE (ephemeral, NOT written to Profile DB).
-        let once_resp = app
+        // 1b. Non-admin Agent CANNOT self-authorize (neither once nor permanent) via REST or create_session.
+        let self_once_denied = app
             .clone()
             .oneshot(
                 Request::builder()
@@ -1079,6 +1098,67 @@ mod integration_tests {
                     ))
                     .header("content-type", "application/json")
                     .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(
+                        json!({ "host": "192.168.1.50:8080", "mode": "once" }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(self_once_denied.status(), StatusCode::FORBIDDEN);
+
+        let self_perm_denied = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!(
+                        "/api/v1/lite/sessions/{sid}/network-policy/authorize"
+                    ))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(
+                        json!({ "host": "10.0.0.5:3000", "mode": "permanent" }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(self_perm_denied.status(), StatusCode::FORBIDDEN);
+
+        let self_create_denied = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/lite/sessions")
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .body(Body::from(
+                        json!({
+                            "name": "Escalate",
+                            "start": false,
+                            "allowed_private_hosts": ["10.0.0.5:3000"]
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(self_create_denied.status(), StatusCode::FORBIDDEN);
+
+        // 2. Admin grants 192.168.1.50:8080 as ONCE (ephemeral, NOT written to Profile DB).
+        let once_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!(
+                        "/api/v1/lite/sessions/{sid}/network-policy/authorize"
+                    ))
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {}", admin.bearer_token))
                     .body(Body::from(
                         json!({ "host": "192.168.1.50:8080", "mode": "once", "ttlSeconds": 300 })
                             .to_string(),
@@ -1107,7 +1187,7 @@ mod integration_tests {
             .allowed_private_hosts
             .is_empty());
 
-        // 3. Grant 10.0.0.5:3000 as PERMANENT (additive! preserves once grant AND persists to Profile DB).
+        // 3. Admin grants 10.0.0.5:3000 as PERMANENT (additive! preserves once grant AND persists to Profile DB).
         let perm_resp = app
             .clone()
             .oneshot(
@@ -1117,7 +1197,7 @@ mod integration_tests {
                         "/api/v1/lite/sessions/{sid}/network-policy/authorize"
                     ))
                     .header("content-type", "application/json")
-                    .header("authorization", format!("Bearer {}", agent_a.bearer_token))
+                    .header("authorization", format!("Bearer {}", admin.bearer_token))
                     .body(Body::from(
                         json!({ "host": "10.0.0.5:3000", "mode": "permanent" }).to_string(),
                     ))

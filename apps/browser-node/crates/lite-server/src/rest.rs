@@ -6,7 +6,7 @@ use crate::runtime::{
     CreateProfileParams, CreateSessionParams, IntranetAuthMode, LiteRuntime, ObserveParams,
     OpenProfileParams, ProfileOpParams, ScreenshotParams, WaitParams,
 };
-use crate::security::{matches_allowlist, validate_identifier};
+use crate::security::{matches_allowlist, normalize_private_host_rules, validate_identifier};
 use crate::store::AgentTokenRecord;
 use axum::body::Body;
 use axum::extract::{Path, Query, Request, State};
@@ -520,7 +520,7 @@ async fn rest_update_session_network_policy(
     Path(session_id): Path<String>,
     Json(body): Json<NetworkPolicyBody>,
 ) -> Response {
-    let caller = match authorize(&rt, &headers, "sessions") {
+    let caller = match authorize(&rt, &headers, "admin") {
         Ok(c) => c,
         Err(resp) => return resp.into_response(),
     };
@@ -552,7 +552,7 @@ async fn rest_authorize_session_private_hosts(
     Path(session_id): Path<String>,
     Json(body): Json<AuthorizePrivateHostsBody>,
 ) -> Response {
-    let caller = match authorize(&rt, &headers, "sessions") {
+    let caller = match authorize(&rt, &headers, "admin") {
         Ok(c) => c,
         Err(resp) => return resp.into_response(),
     };
@@ -575,7 +575,7 @@ async fn rest_revoke_session_private_hosts(
     Path(session_id): Path<String>,
     Json(body): Json<RevokePrivateHostsBody>,
 ) -> Response {
-    let caller = match authorize(&rt, &headers, "sessions") {
+    let caller = match authorize(&rt, &headers, "admin") {
         Ok(c) => c,
         Err(resp) => return resp.into_response(),
     };
@@ -745,6 +745,8 @@ struct CreateTokenBody {
     scopes: Vec<String>,
     #[serde(default = "default_agent_max_sessions")]
     max_sessions: u32,
+    #[serde(default, alias = "allowed_private_hosts")]
+    allowed_private_hosts: Vec<String>,
 }
 
 fn default_agent_scopes() -> Vec<String> {
@@ -782,11 +784,16 @@ async fn rest_create_token(
         )
             .into_response();
     }
-    match rt.store.create_token(
+    let allowed_private_hosts = match normalize_private_host_rules(&body.allowed_private_hosts) {
+        Ok(rules) => rules,
+        Err(err) => return map_runtime_error(err).into_response(),
+    };
+    match rt.store.create_token_with_policy(
         agent_id,
         body.label.trim(),
         body.scopes,
         body.max_sessions.clamp(1, 64),
+        allowed_private_hosts,
     ) {
         Ok(issued) => {
             rt.store.record_audit(
@@ -841,8 +848,10 @@ async fn rest_rotate_token(
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct UpdateTokenQuotaBody {
-    #[serde(alias = "max_sessions")]
-    max_sessions: u32,
+    #[serde(default, alias = "max_sessions")]
+    max_sessions: Option<u32>,
+    #[serde(default, alias = "allowed_private_hosts")]
+    allowed_private_hosts: Option<Vec<String>>,
 }
 
 async fn rest_update_token_quota(
@@ -862,15 +871,33 @@ async fn rest_update_token_quota(
         )
             .into_response();
     }
-    match rt
-        .store
-        .update_token_quota(&token_id, body.max_sessions.clamp(1, 64))
-    {
+    if body.max_sessions.is_none() && body.allowed_private_hosts.is_none() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "TOKEN_UPDATE_FIELDS_REQUIRED" })),
+        )
+            .into_response();
+    }
+    let normalized_hosts = match body.allowed_private_hosts.as_deref() {
+        Some(raw) => match normalize_private_host_rules(raw) {
+            Ok(rules) => Some(rules),
+            Err(err) => return map_runtime_error(err).into_response(),
+        },
+        None => None,
+    };
+    match rt.store.update_token_policy(
+        &token_id,
+        body.max_sessions.map(|m| m.clamp(1, 64)),
+        normalized_hosts.as_deref(),
+    ) {
         Ok(Some(token)) => {
+            if normalized_hosts.is_some() {
+                rt.sync_live_egress_for_token(&token_id).await;
+            }
             rt.store.record_audit(
                 &caller.agent_id,
                 None,
-                "TOKEN_QUOTA_UPDATE",
+                "TOKEN_POLICY_UPDATE",
                 "OK",
                 Some(&format!("{token_id}:{}", token.max_sessions)),
             );
@@ -1116,8 +1143,10 @@ async fn rest_cdp_ws_proxy(
     let metrics = rt.metrics.clone();
     metrics.cdp_proxy_total.fetch_add(1, Ordering::Relaxed);
     metrics.cdp_proxy_active.fetch_add(1, Ordering::Relaxed);
+    let active_op_guard = rt.begin_active_op(&session_id);
 
     tokio::spawn(async move {
+        let _active_op = active_op_guard;
         if let Ok(upgraded) = hyper::upgrade::on(req).await {
             let client_ws =
                 WebSocketStream::from_raw_socket(TokioIo::new(upgraded), Role::Server, None).await;

@@ -35,8 +35,40 @@ use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-const INPUT_WATCHDOG_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
+const DEFAULT_INPUT_WATCHDOG_IDLE_TIMEOUT_SECS: u64 = 120;
 const DEFAULT_IDLE_TIMEOUT_SECS: u64 = 900;
+
+fn input_watchdog_idle_timeout() -> Duration {
+    let secs = std::env::var("INPUT_WATCHDOG_IDLE_TIMEOUT_SECONDS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(DEFAULT_INPUT_WATCHDOG_IDLE_TIMEOUT_SECS)
+        .clamp(15, 600);
+    Duration::from_secs(secs)
+}
+
+/// RAII guard tracking an in-flight operation (wait, action, observe, navigate, screenshot,
+/// profile save/restore, or live CDP WebSocket proxy) so `maintenance_tick` never auto-hibernates
+/// an active session mid-operation.
+pub(crate) struct ActiveOpGuard {
+    session_id: String,
+    in_flight: Arc<std::sync::Mutex<HashMap<String, usize>>>,
+    store: Arc<LiteStore>,
+}
+
+impl Drop for ActiveOpGuard {
+    fn drop(&mut self) {
+        if let Ok(mut map) = self.in_flight.lock() {
+            if let Some(count) = map.get_mut(&self.session_id) {
+                *count = count.saturating_sub(1);
+                if *count == 0 {
+                    map.remove(&self.session_id);
+                }
+            }
+        }
+        let _ = self.store.touch_session_activity(&self.session_id, None);
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct LiteConfig {
@@ -258,7 +290,11 @@ pub struct LiteRuntime {
     supervisor: Arc<ChromiumRuntimeSupervisor>,
     collector: Arc<CdpStateCollector>,
     live: Arc<Mutex<HashMap<String, LiveSessionState>>>,
+    /// Per-Profile async lock acquired BEFORE `session_locks` to serialize open/save/restore/close
+    /// on the same Profile while keeping different Profiles 100% parallel.
+    profile_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
     session_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
+    in_flight_ops: Arc<std::sync::Mutex<HashMap<String, usize>>>,
     capacity_lock: Arc<Mutex<()>>,
     temporary_private_grants:
         Arc<std::sync::Mutex<HashMap<String, Vec<TemporaryPrivateHostGrant>>>>,
@@ -280,7 +316,9 @@ impl LiteRuntime {
             supervisor: Arc::new(ChromiumRuntimeSupervisor::new(config.chromium_path.clone())),
             collector: Arc::new(CdpStateCollector::new()),
             live: Arc::new(Mutex::new(HashMap::new())),
+            profile_locks: Arc::new(Mutex::new(HashMap::new())),
             session_locks: Arc::new(Mutex::new(HashMap::new())),
+            in_flight_ops: Arc::new(std::sync::Mutex::new(HashMap::new())),
             capacity_lock: Arc::new(Mutex::new(())),
             temporary_private_grants: Arc::new(std::sync::Mutex::new(HashMap::new())),
             warm_pool: Arc::new(Mutex::new(Vec::new())),
@@ -550,6 +588,35 @@ impl LiteRuntime {
         let bp = self.backpressure_snapshot().await;
         ensure!(bp.accepts_new_sessions, "NODE_BACKPRESSURE_REJECTED");
 
+        if !params.allowed_private_hosts.is_empty() && !caller.has_scope("admin") {
+            bail!("ADMIN_SCOPE_REQUIRED");
+        }
+        let target_profile_id = match params.profile_id.as_deref() {
+            Some(id) if !id.trim().is_empty() => {
+                validate_identifier(id, "prf_")?;
+                id.to_owned()
+            }
+            _ => format!("prf_{}", &Uuid::new_v4().simple().to_string()[..16]),
+        };
+
+        let prof_lock = self.profile_lock(&target_profile_id).await;
+        let _prof_guard = prof_lock.lock().await;
+        self.create_session_profile_locked(caller, params, target_profile_id)
+            .await
+    }
+
+    pub(super) async fn create_session_profile_locked(
+        &self,
+        caller: &AgentTokenRecord,
+        params: CreateSessionParams,
+        profile_id: String,
+    ) -> Result<Value> {
+        let bp = self.backpressure_snapshot().await;
+        ensure!(bp.accepts_new_sessions, "NODE_BACKPRESSURE_REJECTED");
+
+        if !params.allowed_private_hosts.is_empty() && !caller.has_scope("admin") {
+            bail!("ADMIN_SCOPE_REQUIRED");
+        }
         let requested_private_hosts = normalize_private_host_rules(&params.allowed_private_hosts)?;
         let proxy_url = match params.proxy_url.as_deref() {
             Some(raw) if !raw.trim().is_empty() => Some(validate_proxy_url(raw)?),
@@ -568,50 +635,24 @@ impl LiteRuntime {
             .collect::<String>();
 
         let now = Utc::now().to_rfc3339();
-        let (profile_id, effective_private_hosts) = match params.profile_id.as_deref() {
-            Some(id) if !id.trim().is_empty() => {
-                validate_identifier(id, "prf_")?;
-                if let Some(existing) = self.store.get_profile(id)? {
-                    ensure!(
-                        caller.has_scope("admin")
-                            || self.store.has_active_profile_grant(id, &caller.agent_id)?,
-                        "PROFILE_ACCESS_DENIED"
-                    );
-                    let merged = merge_private_hosts(
-                        &existing.allowed_private_hosts,
-                        &requested_private_hosts,
-                    );
-                    (id.to_owned(), merged)
-                } else {
-                    let owner_account = if caller.has_scope("admin") {
-                        caller.agent_id.clone()
-                    } else {
-                        "agent_admin".to_owned()
-                    };
-                    self.store.upsert_profile(&ProfileRecord {
-                        profile_id: id.to_owned(),
-                        owner_account_id: owner_account,
-                        display_name: display_name.clone(),
-                        allowed_private_hosts: requested_private_hosts.clone(),
-                        created_at: now.clone(),
-                        updated_at: now.clone(),
-                    })?;
-                    if !caller.has_scope("admin") {
-                        self.store
-                            .grant_profile(id, &caller.agent_id, "agent_admin")?;
-                    }
-                    (id.to_owned(), requested_private_hosts.clone())
-                }
-            }
-            _ => {
-                let pid = format!("prf_{}", &Uuid::new_v4().simple().to_string()[..16]);
+        let profile_and_request_hosts =
+            if let Some(existing) = self.store.get_profile(&profile_id)? {
+                ensure!(
+                    caller.has_scope("admin")
+                        || self
+                            .store
+                            .has_active_profile_grant(&profile_id, &caller.agent_id)?,
+                    "PROFILE_ACCESS_DENIED"
+                );
+                merge_private_hosts(&existing.allowed_private_hosts, &requested_private_hosts)
+            } else {
                 let owner_account = if caller.has_scope("admin") {
                     caller.agent_id.clone()
                 } else {
                     "agent_admin".to_owned()
                 };
                 self.store.upsert_profile(&ProfileRecord {
-                    profile_id: pid.clone(),
+                    profile_id: profile_id.clone(),
                     owner_account_id: owner_account,
                     display_name: display_name.clone(),
                     allowed_private_hosts: requested_private_hosts.clone(),
@@ -620,11 +661,13 @@ impl LiteRuntime {
                 })?;
                 if !caller.has_scope("admin") {
                     self.store
-                        .grant_profile(&pid, &caller.agent_id, "agent_admin")?;
+                        .grant_profile(&profile_id, &caller.agent_id, "agent_admin")?;
                 }
-                (pid, requested_private_hosts.clone())
-            }
-        };
+                requested_private_hosts.clone()
+            };
+
+        let effective_private_hosts =
+            merge_private_hosts(&caller.allowed_private_hosts, &profile_and_request_hosts);
 
         let start_url = match params.start_url.as_deref() {
             Some(raw) if !raw.trim().is_empty() => Some(validate_navigation_url_with_policy(
@@ -690,7 +733,7 @@ impl LiteRuntime {
             isolation_mode,
             proxy_url,
             current_url: start_url.clone(),
-            allowed_private_hosts: effective_private_hosts,
+            allowed_private_hosts: profile_and_request_hosts,
             idle_timeout_seconds,
             created_at: now.clone(),
             updated_at: now.clone(),
@@ -706,7 +749,9 @@ impl LiteRuntime {
         );
 
         if params.start {
-            if let Err(error) = self.ensure_running(&record).await {
+            let sess_lock = self.session_lock(&session_id).await;
+            let _sess_guard = sess_lock.lock().await;
+            if let Err(error) = self.ensure_running_locked(&record).await {
                 let _ = self.store.update_session_state(&session_id, "FAILED", None);
                 return Err(error);
             }
@@ -757,6 +802,9 @@ impl LiteRuntime {
         session_id: &str,
         params: CloseSessionParams,
     ) -> Result<Value> {
+        let initial = self.require_owned_session(caller, session_id)?;
+        let prof_lock = self.profile_lock(&initial.profile_id).await;
+        let _prof_guard = prof_lock.lock().await;
         let sess_lock = self.session_lock(session_id).await;
         let _sess_guard = sess_lock.lock().await;
         let _record = self.require_owned_session(caller, session_id)?;
@@ -788,6 +836,8 @@ impl LiteRuntime {
         );
         drop(_sess_guard);
         drop(sess_lock);
+        drop(_prof_guard);
+        drop(prof_lock);
         if !params.hibernate {
             self.prune_idle_session_locks().await;
         }
@@ -801,15 +851,23 @@ impl LiteRuntime {
     async fn prune_idle_session_locks(&self) {
         let live_keys: std::collections::HashSet<String> =
             self.live.lock().await.keys().cloned().collect();
-        let mut locks = self.session_locks.lock().await;
-        locks.retain(|id, lock| live_keys.contains(id) || Arc::strong_count(lock) > 1);
+        {
+            let mut locks = self.session_locks.lock().await;
+            locks.retain(|id, lock| live_keys.contains(id) || Arc::strong_count(lock) > 1);
+        }
+        {
+            let mut plocks = self.profile_locks.lock().await;
+            plocks.retain(|_, lock| Arc::strong_count(lock) > 1);
+        }
     }
 
-    /// Background maintenance tick: releases stale mouse/key holds (>30s), detects crashed
-    /// Chromium processes, hibernates idle sessions, prunes idle locks & old audit rows, and
-    /// refreshes host backpressure.
+    /// Background maintenance tick: releases stale mouse/key holds, detects crashed Chromium
+    /// processes, hibernates truly idle sessions (skipping any session with active in-flight
+    /// waits/actions/CDP proxy), prunes idle locks & old audit rows, and refreshes host
+    /// backpressure.
     pub async fn maintenance_tick(&self) {
         let _ = self.sample_pressure().await;
+        let watchdog_timeout = input_watchdog_idle_timeout();
         let live_entries: Vec<(String, String, Arc<CdpDesktopInput>)> = {
             let live = self.live.lock().await;
             live.iter()
@@ -817,7 +875,7 @@ impl LiteRuntime {
                 .collect()
         };
         for (session_id, runtime_key, input) in live_entries {
-            let _ = input.release_if_idle(INPUT_WATCHDOG_IDLE_TIMEOUT).await;
+            let _ = input.release_if_idle(watchdog_timeout).await;
             if let Ok(health) = self.supervisor.health(&runtime_key).await {
                 if matches!(health, RuntimeHealth::Crashed(_)) {
                     tracing::warn!(session_id, ?health, "Detected crashed Chromium runtime");
@@ -832,22 +890,54 @@ impl LiteRuntime {
         if let Ok(running) = self.store.list_running_sessions() {
             let now = Utc::now();
             for session in running {
-                if let Ok(last) = DateTime::parse_from_rfc3339(&session.last_activity_at) {
-                    let idle = now
-                        .signed_duration_since(last.with_timezone(&Utc))
+                if self.has_in_flight_ops(&session.session_id) {
+                    let _ = self.store.touch_session_activity(&session.session_id, None);
+                    continue;
+                }
+                let Ok(last) = DateTime::parse_from_rfc3339(&session.last_activity_at) else {
+                    continue;
+                };
+                let idle = now
+                    .signed_duration_since(last.with_timezone(&Utc))
+                    .num_seconds();
+                if idle < session.idle_timeout_seconds as i64 {
+                    continue;
+                }
+                // Acquire locks non-blockingly in canonical order (profile -> session); if busy,
+                // an operation/save/restore is actively running so skip auto-hibernation.
+                let prof_lock = self.profile_lock(&session.profile_id).await;
+                let Ok(_prof_guard) = prof_lock.try_lock() else {
+                    continue;
+                };
+                let sess_lock = self.session_lock(&session.session_id).await;
+                let Ok(_sess_guard) = sess_lock.try_lock() else {
+                    continue;
+                };
+                if self.has_in_flight_ops(&session.session_id) {
+                    let _ = self.store.touch_session_activity(&session.session_id, None);
+                    continue;
+                }
+                // Re-read authoritative last_activity_at under lock to eliminate TOCTOU races.
+                let Ok(Some(fresh)) = self.store.get_session(&session.session_id) else {
+                    continue;
+                };
+                if !is_running_state(&fresh.state) {
+                    continue;
+                }
+                if let Ok(fresh_last) = DateTime::parse_from_rfc3339(&fresh.last_activity_at) {
+                    let fresh_idle = Utc::now()
+                        .signed_duration_since(fresh_last.with_timezone(&Utc))
                         .num_seconds();
-                    if idle >= session.idle_timeout_seconds as i64 {
+                    if fresh_idle >= fresh.idle_timeout_seconds as i64 {
                         tracing::info!(
-                            session_id = session.session_id,
-                            idle_seconds = idle,
+                            session_id = fresh.session_id,
+                            idle_seconds = fresh_idle,
                             "Auto-hibernating idle session"
                         );
-                        let _ = self.stop_live_session(&session.session_id).await;
-                        let _ = self.store.update_session_state(
-                            &session.session_id,
-                            "HIBERNATED",
-                            None,
-                        );
+                        let _ = self.stop_live_session(&fresh.session_id).await;
+                        let _ =
+                            self.store
+                                .update_session_state(&fresh.session_id, "HIBERNATED", None);
                     }
                 }
             }
@@ -911,6 +1001,33 @@ impl LiteRuntime {
         self.live.lock().await.contains_key(session_id)
     }
 
+    pub(crate) fn begin_active_op(&self, session_id: &str) -> ActiveOpGuard {
+        if let Ok(mut map) = self.in_flight_ops.lock() {
+            *map.entry(session_id.to_owned()).or_insert(0) += 1;
+        }
+        let _ = self.store.touch_session_activity(session_id, None);
+        ActiveOpGuard {
+            session_id: session_id.to_owned(),
+            in_flight: self.in_flight_ops.clone(),
+            store: self.store.clone(),
+        }
+    }
+
+    fn has_in_flight_ops(&self, session_id: &str) -> bool {
+        self.in_flight_ops
+            .lock()
+            .map(|map| map.get(session_id).copied().unwrap_or(0) > 0)
+            .unwrap_or(false)
+    }
+
+    pub(super) async fn profile_lock(&self, profile_id: &str) -> Arc<Mutex<()>> {
+        let mut locks = self.profile_locks.lock().await;
+        locks
+            .entry(profile_id.to_owned())
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
+    }
+
     async fn session_lock(&self, session_id: &str) -> Arc<Mutex<()>> {
         let mut locks = self.session_locks.lock().await;
         locks
@@ -920,6 +1037,8 @@ impl LiteRuntime {
     }
 
     async fn ensure_running(&self, record: &SessionRecord) -> Result<()> {
+        let prof_lock = self.profile_lock(&record.profile_id).await;
+        let _prof_guard = prof_lock.lock().await;
         let sess_lock = self.session_lock(&record.session_id).await;
         let _sess_guard = sess_lock.lock().await;
         self.ensure_running_locked(record).await
@@ -1026,18 +1145,17 @@ impl LiteRuntime {
                     std::fs::create_dir_all(&profile_dir)?;
                     std::fs::create_dir_all(&cache_dir)?;
 
-                    let (proxy_server, guard) = if let Some(user_proxy) = record.proxy_url.clone() {
-                        (Some(user_proxy), None)
-                    } else {
-                        let guard = EgressGuardHandle::spawn(
-                            self.config.allow_private_network,
-                            permanent_private_hosts.clone(),
-                            temporary_egress_pairs.clone(),
-                        )
-                        .await?;
-                        let url = guard.proxy_url.clone();
-                        (Some(url), Some(guard))
-                    };
+                    // Always launch Chromium behind the built-in egress guard so custom proxy_url
+                    // cannot bypass cloud-metadata blocking or Admin-configured intranet scope.
+                    let guard = EgressGuardHandle::spawn_with_upstream(
+                        self.config.allow_private_network,
+                        permanent_private_hosts.clone(),
+                        temporary_egress_pairs.clone(),
+                        record.proxy_url.clone(),
+                    )
+                    .await?;
+                    let proxy_server = Some(guard.proxy_url.clone());
+                    let guard = Some(guard);
 
                     let spec = RuntimeSpec {
                         session_id: record.session_id.clone(),
@@ -1306,6 +1424,254 @@ mod quota_and_save_tests {
             .unwrap();
         assert!(!rt.session_locks.lock().await.contains_key(&sid2));
 
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn in_flight_operation_prevents_auto_hibernate_until_finished() {
+        let dir = std::env::temp_dir().join(format!("lite-inflight-{}", Uuid::new_v4().simple()));
+        let store = Arc::new(LiteStore::open(&dir.join("lite.sqlite3")).unwrap());
+        let admin = store.ensure_bootstrap_token(None, 4).unwrap().unwrap();
+        let cfg = LiteConfig {
+            data_dir: dir.clone(),
+            chromium_path: PathBuf::from("/nonexistent/chromium-test-bin"),
+            max_sessions: 4,
+            ..LiteConfig::default()
+        };
+        let rt = Arc::new(LiteRuntime::new(cfg, store.clone()).unwrap());
+
+        let created = rt
+            .create_session(
+                &admin.token,
+                CreateSessionParams {
+                    name: Some("WaitSession".to_owned()),
+                    profile_id: None,
+                    proxy_url: None,
+                    start_url: None,
+                    isolation_mode: None,
+                    allowed_private_hosts: Vec::new(),
+                    idle_timeout_seconds: Some(30),
+                    start: false,
+                },
+            )
+            .await
+            .unwrap();
+        let sid = created["session"]["sessionId"].as_str().unwrap().to_owned();
+        store.update_session_state(&sid, "RUNNING", None).unwrap();
+
+        // Simulate a 30s wait/action in flight while last_activity_at would otherwise be stale.
+        let guard = rt.begin_active_op(&sid);
+        {
+            let conn = rusqlite::Connection::open(dir.join("lite.sqlite3")).unwrap();
+            let old_ts = (Utc::now() - chrono::Duration::seconds(120)).to_rfc3339();
+            conn.execute(
+                "UPDATE browser_sessions SET last_activity_at = ?1 WHERE session_id = ?2",
+                rusqlite::params![old_ts, &sid],
+            )
+            .unwrap();
+        }
+        rt.maintenance_tick().await;
+        assert_eq!(
+            store.get_session(&sid).unwrap().unwrap().state,
+            "RUNNING",
+            "in-flight wait/action must NOT be auto-hibernated"
+        );
+
+        // Once the operation completes and the session is genuinely idle past timeout, hibernate works.
+        drop(guard);
+        {
+            let conn = rusqlite::Connection::open(dir.join("lite.sqlite3")).unwrap();
+            let old_ts = (Utc::now() - chrono::Duration::seconds(120)).to_rfc3339();
+            conn.execute(
+                "UPDATE browser_sessions SET last_activity_at = ?1 WHERE session_id = ?2",
+                rusqlite::params![old_ts, &sid],
+            )
+            .unwrap();
+        }
+        rt.maintenance_tick().await;
+        assert_eq!(
+            store.get_session(&sid).unwrap().unwrap().state,
+            "HIBERNATED",
+            "truly idle session with zero in-flight ops should auto-hibernate"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn per_profile_lock_serializes_same_profile_and_allows_different_profiles_in_parallel() {
+        let dir = std::env::temp_dir().join(format!("lite-proflock-{}", Uuid::new_v4().simple()));
+        let store = Arc::new(LiteStore::open(&dir.join("lite.sqlite3")).unwrap());
+        let admin = store.ensure_bootstrap_token(None, 4).unwrap().unwrap();
+        let cfg = LiteConfig {
+            data_dir: dir.clone(),
+            chromium_path: PathBuf::from("/nonexistent/chromium-test-bin"),
+            max_sessions: 4,
+            ..LiteConfig::default()
+        };
+        let rt = Arc::new(LiteRuntime::new(cfg, store.clone()).unwrap());
+
+        let p1 = rt
+            .create_profile(
+                &admin.token,
+                CreateProfileParams {
+                    name: "ProfileOne".to_owned(),
+                    allowed_private_hosts: Vec::new(),
+                    grant_agents: Vec::new(),
+                },
+            )
+            .unwrap();
+        let p2 = rt
+            .create_profile(
+                &admin.token,
+                CreateProfileParams {
+                    name: "ProfileTwo".to_owned(),
+                    allowed_private_hosts: Vec::new(),
+                    grant_agents: Vec::new(),
+                },
+            )
+            .unwrap();
+        let pid1 = p1["profile"]["profileId"].as_str().unwrap().to_owned();
+        let pid2 = p2["profile"]["profileId"].as_str().unwrap().to_owned();
+
+        // Hold profile_lock(pid1) to simulate an active save/restore on Profile 1.
+        let lock1 = rt.profile_lock(&pid1).await;
+        let guard1 = lock1.lock().await;
+
+        let rt_c1 = rt.clone();
+        let admin_c1 = admin.token.clone();
+        let pid1_c = pid1.clone();
+        let open_p1 = tokio::spawn(async move {
+            rt_c1
+                .open_profile(
+                    &admin_c1,
+                    &pid1_c,
+                    OpenProfileParams {
+                        name: None,
+                        proxy_url: None,
+                        start_url: None,
+                        allowed_private_hosts: Vec::new(),
+                        idle_timeout_seconds: None,
+                        start: false,
+                    },
+                )
+                .await
+        });
+
+        // Profile 2 MUST open immediately in parallel without waiting for Profile 1's lock!
+        let opened_p2 = tokio::time::timeout(
+            Duration::from_millis(500),
+            rt.open_profile(
+                &admin.token,
+                &pid2,
+                OpenProfileParams {
+                    name: None,
+                    proxy_url: None,
+                    start_url: None,
+                    allowed_private_hosts: Vec::new(),
+                    idle_timeout_seconds: None,
+                    start: false,
+                },
+            ),
+        )
+        .await
+        .expect("different profile must not be blocked by Profile 1 lock")
+        .unwrap();
+        assert_eq!(opened_p2["session"]["profileId"], pid2);
+
+        // Profile 1 MUST still be waiting until guard1 is released.
+        tokio::time::sleep(Duration::from_millis(40)).await;
+        assert!(
+            !open_p1.is_finished(),
+            "concurrent open on same profile must wait for in-flight save/restore lock"
+        );
+
+        drop(guard1);
+        let opened_p1 = tokio::time::timeout(Duration::from_millis(500), open_p1)
+            .await
+            .expect("Profile 1 open should proceed once lock released")
+            .unwrap()
+            .unwrap();
+        assert_eq!(opened_p1["session"]["profileId"], pid1);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn admin_preconfigures_token_intranet_scope_for_agent_direct_operation() {
+        let dir = std::env::temp_dir().join(format!("lite-tokscope-{}", Uuid::new_v4().simple()));
+        let store = Arc::new(LiteStore::open(&dir.join("lite.sqlite3")).unwrap());
+        let admin = store.ensure_bootstrap_token(None, 4).unwrap().unwrap();
+        let agent = store
+            .create_token_with_policy(
+                "agent_ops",
+                "Ops Agent",
+                vec!["mcp".to_owned(), "sessions".to_owned()],
+                2,
+                vec![
+                    "10.20.0.0/16".to_owned(),
+                    "grafana.internal:3000".to_owned(),
+                ],
+            )
+            .unwrap();
+        let cfg = LiteConfig {
+            data_dir: dir.clone(),
+            chromium_path: PathBuf::from("/nonexistent/chromium-test-bin"),
+            max_sessions: 4,
+            allow_private_network: false,
+            ..LiteConfig::default()
+        };
+        let rt = Arc::new(LiteRuntime::new(cfg, store.clone()).unwrap());
+
+        // Agent creates a session without specifying allowed_private_hosts -> automatically inherits
+        // Admin's token-level intranet scope and can navigate directly within it!
+        let created = rt
+            .create_session(
+                &agent.token,
+                CreateSessionParams {
+                    name: Some("OpsSession".to_owned()),
+                    profile_id: None,
+                    proxy_url: None,
+                    start_url: Some("http://grafana.internal:3000/dash".to_owned()),
+                    isolation_mode: None,
+                    allowed_private_hosts: Vec::new(),
+                    idle_timeout_seconds: None,
+                    start: false,
+                },
+            )
+            .await
+            .unwrap();
+        let sid = created["session"]["sessionId"].as_str().unwrap().to_owned();
+        let policy = rt
+            .get_session_network_policy(&agent.token, &sid)
+            .await
+            .unwrap();
+        assert_eq!(
+            policy["permanentAllowedPrivateHosts"],
+            json!(["10.20.0.0/16", "grafana.internal:3000"])
+        );
+
+        // Agent attempting to expand scope on create_session or authorize_session_private_hosts fails.
+        let esc = rt
+            .create_session(
+                &agent.token,
+                CreateSessionParams {
+                    name: Some("Bad".to_owned()),
+                    profile_id: None,
+                    proxy_url: None,
+                    start_url: None,
+                    isolation_mode: None,
+                    allowed_private_hosts: vec!["192.168.0.0/16".to_owned()],
+                    idle_timeout_seconds: None,
+                    start: false,
+                },
+            )
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(esc.contains("ADMIN_SCOPE_REQUIRED"), "err={esc}");
+
+        let _ = admin;
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

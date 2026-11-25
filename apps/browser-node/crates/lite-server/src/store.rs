@@ -17,6 +17,8 @@ pub struct AgentTokenRecord {
     pub label: String,
     pub scopes: Vec<String>,
     pub max_sessions: u32,
+    #[serde(default)]
+    pub allowed_private_hosts: Vec<String>,
     pub revoked: bool,
     pub created_at: String,
     pub rotated_at: Option<String>,
@@ -138,6 +140,7 @@ impl LiteStore {
                 token_hash TEXT NOT NULL UNIQUE,
                 scopes_json TEXT NOT NULL,
                 max_sessions INTEGER NOT NULL,
+                allowed_private_hosts_json TEXT NOT NULL DEFAULT '[]',
                 revoked INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 rotated_at TEXT
@@ -219,6 +222,10 @@ impl LiteStore {
         )?;
         // Expand-only migrations for existing L0 SQLite databases.
         let _ = conn.execute(
+            "ALTER TABLE agent_tokens ADD COLUMN allowed_private_hosts_json TEXT NOT NULL DEFAULT '[]'",
+            [],
+        );
+        let _ = conn.execute(
             "ALTER TABLE browser_sessions ADD COLUMN isolation_mode TEXT NOT NULL DEFAULT 'process'",
             [],
         );
@@ -243,9 +250,136 @@ impl LiteStore {
             CREATE INDEX IF NOT EXISTS idx_audit_events_created_at ON audit_events(created_at);
             "#,
         )?;
+        Self::backfill_legacy_profiles_and_grants(&conn)?;
         Ok(Self {
             conn: Mutex::new(conn),
         })
+    }
+
+    /// Backfills `profiles` and `profile_grants` for legacy L0 SQLite databases upgraded from
+    /// versions that only stored `browser_sessions` / `profile_checkpoints`.
+    ///
+    /// Grants are only created for profiles that were missing from `profiles` before this call,
+    /// ensuring later explicit admin revocations are never reverted across restarts.
+    fn backfill_legacy_profiles_and_grants(conn: &Connection) -> Result<()> {
+        let admin_owner: String = conn
+            .query_row(
+                "SELECT agent_id FROM agent_tokens
+                 WHERE scopes_json LIKE '%\"admin\"%'
+                 ORDER BY created_at ASC LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?
+            .unwrap_or_else(|| "agent_admin".to_owned());
+
+        let missing_profile_ids: Vec<String> = {
+            let mut stmt = conn.prepare(
+                "SELECT DISTINCT profile_id FROM (
+                    SELECT profile_id FROM browser_sessions
+                    UNION
+                    SELECT profile_id FROM profile_checkpoints
+                 ) legacy
+                 WHERE legacy.profile_id != ''
+                   AND NOT EXISTS (
+                       SELECT 1 FROM profiles p WHERE p.profile_id = legacy.profile_id
+                   )",
+            )?;
+            let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+            rows.collect::<std::result::Result<Vec<_>, _>>()?
+        };
+
+        if missing_profile_ids.is_empty() {
+            return Ok(());
+        }
+
+        let now = Utc::now().to_rfc3339();
+        for profile_id in missing_profile_ids {
+            let latest_session: Option<(String, String, String)> = conn
+                .query_row(
+                    "SELECT display_name, created_at, updated_at
+                     FROM browser_sessions
+                     WHERE profile_id = ?1
+                     ORDER BY updated_at DESC LIMIT 1",
+                    params![&profile_id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .optional()?;
+
+            let (display_name, created_at, updated_at) = match latest_session {
+                Some(tuple) => tuple,
+                None => {
+                    let cp_created: String = conn
+                        .query_row(
+                            "SELECT created_at FROM profile_checkpoints
+                             WHERE profile_id = ?1 ORDER BY created_at DESC LIMIT 1",
+                            params![&profile_id],
+                            |row| row.get(0),
+                        )
+                        .optional()?
+                        .unwrap_or_else(|| now.clone());
+                    (profile_id.clone(), cp_created.clone(), cp_created)
+                }
+            };
+
+            let mut merged_hosts: Vec<String> = Vec::new();
+            {
+                let mut hstmt = conn.prepare(
+                    "SELECT allowed_private_hosts_json FROM browser_sessions WHERE profile_id = ?1",
+                )?;
+                let host_jsons =
+                    hstmt.query_map(params![&profile_id], |row| row.get::<_, String>(0))?;
+                for raw in host_jsons.flatten() {
+                    if let Ok(parsed) = serde_json::from_str::<Vec<String>>(&raw) {
+                        for host in parsed {
+                            if !merged_hosts.contains(&host) {
+                                merged_hosts.push(host);
+                            }
+                        }
+                    }
+                }
+            }
+            let hosts_json = serde_json::to_string(&merged_hosts)?;
+
+            conn.execute(
+                "INSERT OR IGNORE INTO profiles
+                 (profile_id, owner_account_id, display_name, allowed_private_hosts_json, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    &profile_id,
+                    &admin_owner,
+                    &display_name,
+                    &hosts_json,
+                    &created_at,
+                    &updated_at,
+                ],
+            )?;
+
+            let legacy_agents: Vec<String> = {
+                let mut astmt = conn.prepare(
+                    "SELECT DISTINCT owner_agent_id FROM (
+                        SELECT owner_agent_id FROM browser_sessions WHERE profile_id = ?1
+                        UNION
+                        SELECT owner_agent_id FROM profile_checkpoints WHERE profile_id = ?1
+                     ) owners
+                     WHERE owner_agent_id != '' AND owner_agent_id != ?2",
+                )?;
+                let rows = astmt.query_map(params![&profile_id, &admin_owner], |row| {
+                    row.get::<_, String>(0)
+                })?;
+                rows.collect::<std::result::Result<Vec<_>, _>>()?
+            };
+
+            for agent_id in legacy_agents {
+                conn.execute(
+                    "INSERT OR IGNORE INTO profile_grants
+                     (profile_id, grantee_agent_id, granted_by, granted_at, revoked_at)
+                     VALUES (?1, ?2, ?3, ?4, NULL)",
+                    params![&profile_id, &agent_id, &admin_owner, &now],
+                )?;
+            }
+        }
+        Ok(())
     }
 
     /// Ensures at least one bootstrap admin token exists. Returns `Some(plaintext)` only when a
@@ -271,6 +405,7 @@ impl LiteStore {
             "Bootstrap Admin",
             vec!["admin".to_owned(), "mcp".to_owned(), "sessions".to_owned()],
             max_sessions,
+            Vec::new(),
             &plaintext,
         )?;
         Ok(Some(issued))
@@ -283,8 +418,26 @@ impl LiteStore {
         scopes: Vec<String>,
         max_sessions: u32,
     ) -> Result<IssuedAgentToken> {
+        self.create_token_with_policy(agent_id, label, scopes, max_sessions, Vec::new())
+    }
+
+    pub fn create_token_with_policy(
+        &self,
+        agent_id: &str,
+        label: &str,
+        scopes: Vec<String>,
+        max_sessions: u32,
+        allowed_private_hosts: Vec<String>,
+    ) -> Result<IssuedAgentToken> {
         let plaintext = generate_agent_token()?;
-        self.insert_token(agent_id, label, scopes, max_sessions, &plaintext)
+        self.insert_token(
+            agent_id,
+            label,
+            scopes,
+            max_sessions,
+            allowed_private_hosts,
+            &plaintext,
+        )
     }
 
     fn insert_token(
@@ -293,17 +446,19 @@ impl LiteStore {
         label: &str,
         scopes: Vec<String>,
         max_sessions: u32,
+        allowed_private_hosts: Vec<String>,
         plaintext: &str,
     ) -> Result<IssuedAgentToken> {
         let token_id = format!("tok_{}", &Uuid::new_v4().simple().to_string()[..16]);
         let now = Utc::now().to_rfc3339();
         let hash = hash_token(plaintext);
         let scopes_json = serde_json::to_string(&scopes)?;
+        let hosts_json = serde_json::to_string(&allowed_private_hosts)?;
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
         conn.execute(
-            "INSERT INTO agent_tokens (token_id, agent_id, label, token_hash, scopes_json, max_sessions, revoked, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7)",
-            params![token_id, agent_id, label, hash, scopes_json, max_sessions, now],
+            "INSERT INTO agent_tokens (token_id, agent_id, label, token_hash, scopes_json, max_sessions, allowed_private_hosts_json, revoked, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, ?8)",
+            params![token_id, agent_id, label, hash, scopes_json, max_sessions, hosts_json, now],
         )?;
         Ok(IssuedAgentToken {
             token: AgentTokenRecord {
@@ -312,6 +467,7 @@ impl LiteStore {
                 label: label.to_owned(),
                 scopes,
                 max_sessions,
+                allowed_private_hosts,
                 revoked: false,
                 created_at: now,
                 rotated_at: None,
@@ -324,7 +480,7 @@ impl LiteStore {
         let hash = hash_token(bearer_token.trim());
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
         let mut stmt = conn.prepare_cached(
-            "SELECT token_id, agent_id, label, scopes_json, max_sessions, revoked, created_at, rotated_at
+            "SELECT token_id, agent_id, label, scopes_json, max_sessions, allowed_private_hosts_json, revoked, created_at, rotated_at
              FROM agent_tokens WHERE token_hash = ?1",
         )?;
         let row = stmt.query_row(params![hash], Self::map_token).optional()?;
@@ -334,7 +490,7 @@ impl LiteStore {
     pub fn list_tokens(&self) -> Result<Vec<AgentTokenRecord>> {
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
         let mut stmt = conn.prepare(
-            "SELECT token_id, agent_id, label, scopes_json, max_sessions, revoked, created_at, rotated_at
+            "SELECT token_id, agent_id, label, scopes_json, max_sessions, allowed_private_hosts_json, revoked, created_at, rotated_at
              FROM agent_tokens ORDER BY created_at DESC",
         )?;
         let rows = stmt
@@ -365,7 +521,7 @@ impl LiteStore {
             return Ok(None);
         }
         let record = conn.query_row(
-            "SELECT token_id, agent_id, label, scopes_json, max_sessions, revoked, created_at, rotated_at
+            "SELECT token_id, agent_id, label, scopes_json, max_sessions, allowed_private_hosts_json, revoked, created_at, rotated_at
              FROM agent_tokens WHERE token_id = ?1",
             params![token_id],
             Self::map_token,
@@ -381,16 +537,38 @@ impl LiteStore {
         token_id: &str,
         max_sessions: u32,
     ) -> Result<Option<AgentTokenRecord>> {
+        self.update_token_policy(token_id, Some(max_sessions), None)
+    }
+
+    pub fn update_token_policy(
+        &self,
+        token_id: &str,
+        max_sessions: Option<u32>,
+        allowed_private_hosts: Option<&[String]>,
+    ) -> Result<Option<AgentTokenRecord>> {
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
-        let affected = conn.execute(
-            "UPDATE agent_tokens SET max_sessions = ?1 WHERE token_id = ?2 AND revoked = 0",
-            params![max_sessions, token_id],
-        )?;
-        if affected == 0 {
+        let existing = conn
+            .query_row(
+                "SELECT token_id, agent_id, label, scopes_json, max_sessions, allowed_private_hosts_json, revoked, created_at, rotated_at
+                 FROM agent_tokens WHERE token_id = ?1 AND revoked = 0",
+                params![token_id],
+                Self::map_token,
+            )
+            .optional()?;
+        let Some(current) = existing else {
             return Ok(None);
-        }
+        };
+        let next_max = max_sessions.unwrap_or(current.max_sessions);
+        let next_hosts = allowed_private_hosts
+            .map(|h| h.to_vec())
+            .unwrap_or(current.allowed_private_hosts);
+        let hosts_json = serde_json::to_string(&next_hosts)?;
+        conn.execute(
+            "UPDATE agent_tokens SET max_sessions = ?1, allowed_private_hosts_json = ?2 WHERE token_id = ?3 AND revoked = 0",
+            params![next_max, hosts_json, token_id],
+        )?;
         let record = conn.query_row(
-            "SELECT token_id, agent_id, label, scopes_json, max_sessions, revoked, created_at, rotated_at
+            "SELECT token_id, agent_id, label, scopes_json, max_sessions, allowed_private_hosts_json, revoked, created_at, rotated_at
              FROM agent_tokens WHERE token_id = ?1",
             params![token_id],
             Self::map_token,
@@ -402,7 +580,7 @@ impl LiteStore {
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
         let row = conn
             .query_row(
-                "SELECT token_id, agent_id, label, scopes_json, max_sessions, revoked, created_at, rotated_at
+                "SELECT token_id, agent_id, label, scopes_json, max_sessions, allowed_private_hosts_json, revoked, created_at, rotated_at
                  FROM agent_tokens WHERE token_id = ?1",
                 params![token_id],
                 Self::map_token,
@@ -965,15 +1143,19 @@ impl LiteStore {
     fn map_token(row: &rusqlite::Row<'_>) -> rusqlite::Result<AgentTokenRecord> {
         let scopes_json: String = row.get(3)?;
         let scopes: Vec<String> = serde_json::from_str(&scopes_json).unwrap_or_default();
+        let hosts_json: String = row.get(5)?;
+        let allowed_private_hosts: Vec<String> =
+            serde_json::from_str(&hosts_json).unwrap_or_default();
         Ok(AgentTokenRecord {
             token_id: row.get(0)?,
             agent_id: row.get(1)?,
             label: row.get(2)?,
             scopes,
             max_sessions: row.get(4)?,
-            revoked: row.get::<_, i64>(5)? != 0,
-            created_at: row.get(6)?,
-            rotated_at: row.get(7)?,
+            allowed_private_hosts,
+            revoked: row.get::<_, i64>(6)? != 0,
+            created_at: row.get(7)?,
+            rotated_at: row.get(8)?,
         })
     }
 
@@ -1100,6 +1282,106 @@ mod tests {
         }
         let pruned = store.prune_old_audit_events(3).unwrap();
         assert_eq!(pruned, 7);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn migrates_legacy_sqlite_sessions_into_admin_profiles_and_preserves_revocations() {
+        let dir = std::env::temp_dir().join(format!("lite-legacy-mig-{}", Uuid::new_v4().simple()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let db_path = dir.join("lite.sqlite3");
+
+        // Build an exact pre-profile-table legacy L0 SQLite database.
+        {
+            let conn = Connection::open(&db_path).unwrap();
+            conn.execute_batch(
+                r#"
+                CREATE TABLE agent_tokens (
+                    token_id TEXT PRIMARY KEY,
+                    agent_id TEXT NOT NULL,
+                    label TEXT NOT NULL,
+                    token_hash TEXT NOT NULL UNIQUE,
+                    scopes_json TEXT NOT NULL,
+                    max_sessions INTEGER NOT NULL,
+                    revoked INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL,
+                    rotated_at TEXT
+                );
+                CREATE TABLE browser_sessions (
+                    session_id TEXT PRIMARY KEY,
+                    owner_agent_id TEXT NOT NULL,
+                    display_name TEXT NOT NULL,
+                    profile_id TEXT NOT NULL,
+                    state TEXT NOT NULL,
+                    proxy_url TEXT,
+                    current_url TEXT,
+                    idle_timeout_seconds INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    last_activity_at TEXT NOT NULL
+                );
+                CREATE TABLE profile_checkpoints (
+                    checkpoint_id TEXT PRIMARY KEY,
+                    profile_id TEXT NOT NULL,
+                    owner_agent_id TEXT NOT NULL,
+                    archive_sha256 TEXT NOT NULL,
+                    archive_bytes INTEGER NOT NULL,
+                    file_count INTEGER NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                INSERT INTO agent_tokens
+                    (token_id, agent_id, label, token_hash, scopes_json, max_sessions, revoked, created_at)
+                VALUES
+                    ('tok_adm', 'agent_admin', 'Admin', 'h_adm', '["admin","mcp","sessions"]', 4, 0, '2026-01-01T00:00:00Z'),
+                    ('tok_a', 'agent_legacy', 'Legacy', 'h_a', '["mcp","sessions"]', 2, 0, '2026-01-01T00:00:01Z');
+                INSERT INTO browser_sessions
+                    (session_id, owner_agent_id, display_name, profile_id, state, idle_timeout_seconds, created_at, updated_at, last_activity_at)
+                VALUES
+                    ('ses_old1', 'agent_legacy', 'Legacy Shop', 'prf_old1', 'HIBERNATED', 900, '2026-01-01T00:00:02Z', '2026-01-01T00:00:05Z', '2026-01-01T00:00:05Z'),
+                    ('ses_old2', 'agent_admin', 'Admin Portal', 'prf_old2', 'HIBERNATED', 900, '2026-01-01T00:00:03Z', '2026-01-01T00:00:06Z', '2026-01-01T00:00:06Z');
+                INSERT INTO profile_checkpoints
+                    (checkpoint_id, profile_id, owner_agent_id, archive_sha256, archive_bytes, file_count, created_at)
+                VALUES
+                    ('chk_old3', 'prf_old3', 'agent_legacy', 'abc', 128, 1, '2026-01-01T00:00:04Z');
+                "#,
+            )
+            .unwrap();
+        }
+
+        // Open with new LiteStore: legacy profiles & grants MUST be backfilled automatically.
+        let store = LiteStore::open(&db_path).unwrap();
+        let all_profiles = store.list_profiles_for_admin().unwrap();
+        assert_eq!(all_profiles.len(), 3);
+        let p1 = store.get_profile("prf_old1").unwrap().unwrap();
+        assert_eq!(p1.owner_account_id, "agent_admin");
+        assert_eq!(p1.display_name, "Legacy Shop");
+        assert!(store
+            .has_active_profile_grant("prf_old1", "agent_legacy")
+            .unwrap());
+        assert!(store
+            .has_active_profile_grant("prf_old3", "agent_legacy")
+            .unwrap());
+        assert!(!store
+            .has_active_profile_grant("prf_old2", "agent_legacy")
+            .unwrap());
+        assert_eq!(
+            store.list_profiles_for_agent("agent_legacy").unwrap().len(),
+            2
+        );
+
+        // Revoking a migrated grant MUST stay revoked across subsequent restarts/reopens.
+        assert!(store
+            .revoke_profile_grant("prf_old1", "agent_legacy")
+            .unwrap());
+        drop(store);
+        let reopened = LiteStore::open(&db_path).unwrap();
+        assert!(!reopened
+            .has_active_profile_grant("prf_old1", "agent_legacy")
+            .unwrap());
+        assert!(reopened
+            .has_active_profile_grant("prf_old3", "agent_legacy")
+            .unwrap());
 
         let _ = std::fs::remove_dir_all(&dir);
     }

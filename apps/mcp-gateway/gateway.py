@@ -26,18 +26,33 @@ server = FastMCP("agent_browser_cloud", host=HOST, port=PORT, stateless_http=Tru
         enable_dns_rebinding_protection=True, allowed_hosts=hosts, allowed_origins=origins))
 
 
+class UpstreamUnavailableError(RuntimeError):
+    pass
+
+
+class AuthenticationError(RuntimeError):
+    pass
+
+
 async def api(path, method="GET", body=None, key=None, token=None):
     token = token or credential.get()
     if not token:
-        raise ValueError("MCP_AUTHENTICATION_REQUIRED")
+        raise AuthenticationError("MCP_AUTHENTICATION_REQUIRED")
     headers = {"Authorization": "Bearer " + token}
     if key is not None:
         if not key.strip() or len(key) > 128:
             raise ValueError("IDEMPOTENCY_KEY_INVALID")
         headers["Idempotency-Key"] = key
-    async with httpx.AsyncClient(trust_env=False, timeout=30) as client:
-        response = await client.request(method, BASE + "/api/v1/agent-access" + path,
-            headers=headers, json=body)
+    try:
+        async with httpx.AsyncClient(trust_env=False, timeout=30) as client:
+            response = await client.request(method, BASE + "/api/v1/agent-access" + path,
+                headers=headers, json=body)
+    except httpx.HTTPError as exc:
+        raise UpstreamUnavailableError(f"CONTROL_PLANE_UNAVAILABLE: {exc}") from exc
+    if response.status_code >= 500:
+        raise UpstreamUnavailableError(f"CONTROL_PLANE_UNAVAILABLE: HTTP {response.status_code}")
+    if response.status_code == 401:
+        raise AuthenticationError("MCP_AUTHENTICATION_REQUIRED")
     if response.status_code >= 400:
         code = "CONTROL_PLANE_REQUEST_REJECTED"
         reason = None
@@ -135,10 +150,10 @@ async def browser_get_operation(operation_id: str) -> dict:
 
 
 @server.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-async def browser_wait_operation(operation_id: str, timeout_seconds: int = 10) -> dict[str, Any]:
-    """Wait up to 25 seconds for COMMITTED, ABORTED or TIMED_OUT. A wait timeout does not cancel the operation or release quota. Continue querying the same operation ID; do not repeat the write with a new key. Requires operation permission."""
+async def browser_wait_operation(operation_id: str, timeout_seconds: int = 30) -> dict[str, Any]:
+    """Wait up to 120 seconds for COMMITTED, ABORTED or TIMED_OUT. A wait timeout does not cancel the operation or release quota. Continue querying the same operation ID; do not repeat the write with a new key. Requires operation permission."""
     path = "/operations/" + identifier(operation_id, "op_")
-    if not 1 <= timeout_seconds <= 25:
+    if not 1 <= timeout_seconds <= 120:
         raise ValueError("WAIT_TIMEOUT_INVALID")
     last = None
     # Bound the entire read, including an upstream HTTP call and sleeps.
@@ -237,11 +252,11 @@ async def browser_get_action_task(environment_id: str, task_id: str) -> dict:
 
 @server.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
 async def browser_wait_action_task(environment_id: str, task_id: str,
-                                   timeout_seconds: int = 10) -> dict[str, Any]:
-    """Wait up to 25 seconds for a browser action task to finish (COMPLETED, FAILED, BLOCKED, WAITING_FOR_HUMAN or AWAITING_CONFIRMATION). A wait timeout does not cancel the task; continue polling the same task ID instead of repeating the write with a new idempotency key. Requires direct permission."""
+                                   timeout_seconds: int = 30) -> dict[str, Any]:
+    """Wait up to 120 seconds for a browser action task to finish (COMPLETED, FAILED, BLOCKED, WAITING_FOR_HUMAN or AWAITING_CONFIRMATION). A wait timeout does not cancel the task; continue polling the same task ID instead of repeating the write with a new idempotency key. Requires direct permission."""
     path = ("/environments/" + identifier(environment_id, "ses_") +
             "/browser/tasks/" + identifier(task_id, "agt_"))
-    if not 1 <= timeout_seconds <= 25:
+    if not 1 <= timeout_seconds <= 120:
         raise ValueError("WAIT_TIMEOUT_INVALID")
     last = None
     settled_states = ("COMPLETED", "FAILED", "BLOCKED", "WAITING_FOR_HUMAN", "AWAITING_CONFIRMATION")
@@ -252,11 +267,20 @@ async def browser_wait_action_task(environment_id: str, task_id: str,
                 state = last.get("state")
                 if state in settled_states:
                     return {"completed": True, "waitTimedOut": False,
-                        "succeeded": state == "COMPLETED", "state": state, "task": last}
+                        "succeeded": state == "COMPLETED", "state": state,
+                        "waitingForHumanInput": state == "WAITING_FOR_HUMAN",
+                        "executionWait": last.get("executionWait"), "task": last}
                 await asyncio.sleep(.25)
     except TimeoutError:
+        exec_wait = (last or {}).get("executionWait")
+        state = (last or {}).get("state")
+        waiting_human = (
+            (isinstance(exec_wait, dict) and exec_wait.get("reason") == "HUMAN_INPUT_PRIORITY")
+            or state == "WAITING_FOR_HUMAN"
+        )
         return {"completed": False, "waitTimedOut": True,
-            "succeeded": False, "state": (last or {}).get("state"), "task": last}
+            "succeeded": False, "state": state,
+            "waitingForHumanInput": waiting_human, "executionWait": exec_wait, "task": last}
 
 
 class AuthenticatedGateway:
@@ -266,9 +290,17 @@ class AuthenticatedGateway:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
-        if scope["path"] == "/healthz" and scope["method"] == "GET":
-            await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"application/json")]})
-            return await send({"type": "http.response.body", "body": b'{"status":"UP"}'})
+        if scope["path"] in ("/healthz", "/readyz") and scope["method"] == "GET":
+            try:
+                async with httpx.AsyncClient(timeout=2.0, trust_env=False) as client:
+                    probe = await client.get(f"{BASE}/actuator/health")
+                if 200 <= probe.status_code < 300:
+                    await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"application/json")]})
+                    return await send({"type": "http.response.body", "body": b'{"status":"UP","upstream":"UP"}'})
+            except httpx.HTTPError:
+                pass
+            await send({"type": "http.response.start", "status": 503, "headers": [(b"content-type", b"application/json")]})
+            return await send({"type": "http.response.body", "body": b'{"status":"DEGRADED","upstream":"DOWN","error":"CONTROL_PLANE_UNAVAILABLE","retryable":true}'})
         headers = dict(scope["headers"])
         bearer = headers.get(b"authorization", b"").decode("latin1")
         token = bearer[7:] if bearer.startswith("Bearer ") else None
@@ -276,6 +308,8 @@ class AuthenticatedGateway:
             return await self.reject(send, 401)
         try:
             await api("/identity", token=token)
+        except UpstreamUnavailableError:
+            return await self.reject_unavailable(send)
         except Exception:
             return await self.reject(send, 401)
         value = credential.set(token)
@@ -289,6 +323,12 @@ class AuthenticatedGateway:
         await send({"type": "http.response.start", "status": status,
             "headers": [(b"content-type", b"application/json"), (b"cache-control", b"no-store")]})
         await send({"type": "http.response.body", "body": b'{"error":"MCP_AUTHENTICATION_REQUIRED"}'})
+
+    @staticmethod
+    async def reject_unavailable(send):
+        await send({"type": "http.response.start", "status": 503,
+            "headers": [(b"content-type", b"application/json"), (b"cache-control", b"no-store"), (b"retry-after", b"2")]})
+        await send({"type": "http.response.body", "body": b'{"error":"CONTROL_PLANE_UNAVAILABLE","retryable":true}'})
 
 
 app = AuthenticatedGateway(server.streamable_http_app())

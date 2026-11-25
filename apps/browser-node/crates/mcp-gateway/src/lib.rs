@@ -135,9 +135,31 @@ pub fn validate_identifier<'a>(value: &'a str, prefix: &str) -> Result<&'a str> 
     Ok(value)
 }
 
+#[derive(Debug)]
+enum GatewayApiError {
+    Unauthorized,
+    Forbidden(String),
+    UpstreamUnavailable(String),
+    Rejected(String),
+}
+
+impl std::fmt::Display for GatewayApiError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unauthorized => f.write_str("MCP_AUTHENTICATION_REQUIRED"),
+            Self::Forbidden(code) => f.write_str(code),
+            Self::UpstreamUnavailable(detail) => write!(f, "CONTROL_PLANE_UNAVAILABLE: {detail}"),
+            Self::Rejected(detail) => f.write_str(detail),
+        }
+    }
+}
+
+impl std::error::Error for GatewayApiError {}
+
 pub struct GatewayState {
     pub config: GatewayConfig,
     pub http: Client,
+    health_http: Client,
 }
 
 impl GatewayState {
@@ -146,28 +168,53 @@ impl GatewayState {
             .no_proxy()
             .timeout(Duration::from_secs(30))
             .build()?;
-        Ok(Self { config, http })
+        let health_http = Client::builder()
+            .no_proxy()
+            .pool_max_idle_per_host(0)
+            .timeout(Duration::from_secs(2))
+            .build()?;
+        Ok(Self {
+            config,
+            http,
+            health_http,
+        })
     }
 
-    async fn api(
+    async fn check_upstream_health(&self) -> bool {
+        let probe_url = match self.config.backend {
+            GatewayBackend::ControlPlane => {
+                format!("{}/actuator/health", self.config.upstream_url)
+            }
+            GatewayBackend::Lite => format!("{}/healthz", self.config.upstream_url),
+        };
+        match self.health_http.get(&probe_url).send().await {
+            Ok(resp) => resp.status().is_success(),
+            Err(_) => false,
+        }
+    }
+
+    async fn api_checked(
         &self,
         token: &str,
         path: &str,
         method: Method,
         body: Option<Value>,
         idempotency_key: Option<&str>,
-    ) -> Result<Value> {
-        ensure!(!token.is_empty(), "MCP_AUTHENTICATION_REQUIRED");
+    ) -> std::result::Result<Value, GatewayApiError> {
+        if token.is_empty() {
+            return Err(GatewayApiError::Unauthorized);
+        }
         let url = format!("{}/api/v1/agent-access{path}", self.config.upstream_url);
         let mut req = self
             .http
             .request(method, &url)
             .header(header::AUTHORIZATION, format!("Bearer {token}"));
         if let Some(key) = idempotency_key {
-            ensure!(
-                !key.trim().is_empty() && key.len() <= 128,
-                "IDEMPOTENCY_KEY_INVALID"
-            );
+            if key.trim().is_empty() || key.len() > 128 {
+                return Err(GatewayApiError::Rejected(
+                    "IDEMPOTENCY_KEY_INVALID".to_owned(),
+                ));
+            }
             req = req.header("Idempotency-Key", key);
         }
         if let Some(payload) = body {
@@ -176,9 +223,21 @@ impl GatewayState {
         let resp = req
             .send()
             .await
-            .map_err(|e| anyhow!("CONTROL_PLANE_UNAVAILABLE: {e}"))?;
+            .map_err(|e| GatewayApiError::UpstreamUnavailable(e.to_string()))?;
         let status = resp.status();
-        let bytes = resp.bytes().await?;
+        let bytes = resp
+            .bytes()
+            .await
+            .map_err(|e| GatewayApiError::UpstreamUnavailable(e.to_string()))?;
+        if status.as_u16() >= 500 {
+            return Err(GatewayApiError::UpstreamUnavailable(format!(
+                "HTTP {}",
+                status.as_u16()
+            )));
+        }
+        if status == StatusCode::UNAUTHORIZED {
+            return Err(GatewayApiError::Unauthorized);
+        }
         if status.as_u16() >= 400 {
             let mut code = "CONTROL_PLANE_REQUEST_REJECTED".to_owned();
             let mut reason: Option<String> = None;
@@ -194,14 +253,34 @@ impl GatewayState {
                     }
                 }
             }
+            if status == StatusCode::FORBIDDEN {
+                return Err(GatewayApiError::Forbidden(code));
+            }
             let detail = match reason {
                 Some(r) if r != code => format!("{code} ({r})"),
                 _ => code,
             };
-            bail!("{detail}: HTTP {}", status.as_u16());
+            return Err(GatewayApiError::Rejected(format!(
+                "{detail}: HTTP {}",
+                status.as_u16()
+            )));
         }
-        let parsed: Value = serde_json::from_slice(&bytes)?;
-        Ok(parsed)
+        serde_json::from_slice::<Value>(&bytes).map_err(|e| {
+            GatewayApiError::UpstreamUnavailable(format!("INVALID_UPSTREAM_JSON: {e}"))
+        })
+    }
+
+    async fn api(
+        &self,
+        token: &str,
+        path: &str,
+        method: Method,
+        body: Option<Value>,
+        idempotency_key: Option<&str>,
+    ) -> Result<Value> {
+        self.api_checked(token, path, method, body, idempotency_key)
+            .await
+            .map_err(|e| anyhow!("{e}"))
     }
 }
 
@@ -215,11 +294,13 @@ fn is_safe_code(s: &str) -> bool {
 pub fn build_router(state: Arc<GatewayState>) -> Router {
     Router::new()
         .route("/healthz", get(healthz))
+        .route("/readyz", get(healthz))
+        .route("/livez", get(livez))
         .route("/mcp", post(handle_mcp).delete(handle_mcp_delete))
         .with_state(state)
 }
 
-async fn healthz(State(state): State<Arc<GatewayState>>) -> Json<Value> {
+async fn livez(State(state): State<Arc<GatewayState>>) -> Json<Value> {
     Json(json!({
         "status": "UP",
         "runtime": "rust",
@@ -228,6 +309,38 @@ async fn healthz(State(state): State<Arc<GatewayState>>) -> Json<Value> {
             GatewayBackend::Lite => "lite",
         }
     }))
+}
+
+async fn healthz(State(state): State<Arc<GatewayState>>) -> Response {
+    let backend = match state.config.backend {
+        GatewayBackend::ControlPlane => "control-plane",
+        GatewayBackend::Lite => "lite",
+    };
+    if state.check_upstream_health().await {
+        (
+            StatusCode::OK,
+            Json(json!({
+                "status": "UP",
+                "upstream": "UP",
+                "runtime": "rust",
+                "backend": backend,
+            })),
+        )
+            .into_response()
+    } else {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "status": "DEGRADED",
+                "upstream": "DOWN",
+                "runtime": "rust",
+                "backend": backend,
+                "error": "CONTROL_PLANE_UNAVAILABLE",
+                "retryable": true,
+            })),
+        )
+            .into_response()
+    }
 }
 
 fn reject_unauth() -> Response {
@@ -244,6 +357,21 @@ fn reject_forbidden(code: &str) -> Response {
         StatusCode::FORBIDDEN,
         [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
         Json(json!({ "error": code })),
+    )
+        .into_response()
+}
+
+fn reject_upstream_unavailable() -> Response {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        [
+            (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
+            (header::RETRY_AFTER, HeaderValue::from_static("2")),
+        ],
+        Json(json!({
+            "error": "CONTROL_PLANE_UNAVAILABLE",
+            "retryable": true,
+        })),
     )
         .into_response()
 }
@@ -319,12 +447,18 @@ async fn handle_mcp(
     }
 
     // 3. Introspect Bearer token against Control Plane `/api/v1/agent-access/identity`.
-    if state
-        .api(token, "/identity", Method::GET, None, None)
+    // Distinguish genuine authentication/authorization failures (401/403) from upstream Control
+    // Plane outages/timeouts/5xx (503 retryable) so Agents can retry instead of treating a backend
+    // outage as a revoked credential.
+    match state
+        .api_checked(token, "/identity", Method::GET, None, None)
         .await
-        .is_err()
     {
-        return reject_unauth();
+        Ok(_) => {}
+        Err(GatewayApiError::Unauthorized) => return reject_unauth(),
+        Err(GatewayApiError::Forbidden(code)) => return reject_forbidden(&code),
+        Err(GatewayApiError::UpstreamUnavailable(_)) => return reject_upstream_unavailable(),
+        Err(GatewayApiError::Rejected(_)) => return reject_unauth(),
     }
 
     // 4. Parse JSON-RPC 2.0 request.
@@ -565,8 +699,8 @@ async fn dispatch_tool(
             let timeout_seconds = args
                 .get("timeout_seconds")
                 .and_then(Value::as_i64)
-                .unwrap_or(10);
-            ensure!((1..=25).contains(&timeout_seconds), "WAIT_TIMEOUT_INVALID");
+                .unwrap_or(30);
+            ensure!((1..=120).contains(&timeout_seconds), "WAIT_TIMEOUT_INVALID");
             let path = format!("/operations/{op_id}");
             let deadline = Instant::now() + Duration::from_secs(timeout_seconds as u64);
             let mut last: Value = Value::Null;
@@ -759,22 +893,33 @@ async fn dispatch_tool(
             let timeout_seconds = args
                 .get("timeout_seconds")
                 .and_then(Value::as_i64)
-                .unwrap_or(10);
-            ensure!((1..=25).contains(&timeout_seconds), "WAIT_TIMEOUT_INVALID");
+                .unwrap_or(30);
+            ensure!((1..=120).contains(&timeout_seconds), "WAIT_TIMEOUT_INVALID");
             let path = format!("/environments/{env_id}/browser/tasks/{task_id}");
             let deadline = Instant::now() + Duration::from_secs(timeout_seconds as u64);
             let mut last: Value = Value::Null;
+            let build_timeout_payload = |last: Value| {
+                let st = last.get("state").cloned().unwrap_or(Value::Null);
+                let execution_wait = last.get("executionWait").cloned().unwrap_or(Value::Null);
+                let waiting_for_human_input = execution_wait
+                    .get("reason")
+                    .and_then(Value::as_str)
+                    .is_some_and(|r| r == "HUMAN_INPUT_PRIORITY")
+                    || st.as_str() == Some("WAITING_FOR_HUMAN");
+                json!({
+                    "completed": false,
+                    "waitTimedOut": true,
+                    "succeeded": false,
+                    "state": st,
+                    "waitingForHumanInput": waiting_for_human_input,
+                    "executionWait": execution_wait,
+                    "task": last,
+                })
+            };
             loop {
                 let remaining = deadline.saturating_duration_since(Instant::now());
                 if remaining.is_zero() {
-                    let st = last.get("state").cloned().unwrap_or(Value::Null);
-                    return Ok(json!({
-                        "completed": false,
-                        "waitTimedOut": true,
-                        "succeeded": false,
-                        "state": st,
-                        "task": last,
-                    }));
+                    return Ok(build_timeout_payload(last));
                 }
                 match tokio::time::timeout(
                     remaining,
@@ -792,11 +937,15 @@ async fn dispatch_tool(
                                 | "WAITING_FOR_HUMAN"
                                 | "AWAITING_CONFIRMATION"
                         ) {
+                            let execution_wait =
+                                task.get("executionWait").cloned().unwrap_or(Value::Null);
                             return Ok(json!({
                                 "completed": true,
                                 "waitTimedOut": false,
                                 "succeeded": st == "COMPLETED",
                                 "state": st,
+                                "waitingForHumanInput": st == "WAITING_FOR_HUMAN",
+                                "executionWait": execution_wait,
                                 "task": task,
                             }));
                         }
@@ -804,27 +953,13 @@ async fn dispatch_tool(
                     }
                     Ok(Err(e)) => return Err(e),
                     Err(_) => {
-                        let st = last.get("state").cloned().unwrap_or(Value::Null);
-                        return Ok(json!({
-                            "completed": false,
-                            "waitTimedOut": true,
-                            "succeeded": false,
-                            "state": st,
-                            "task": last,
-                        }));
+                        return Ok(build_timeout_payload(last));
                     }
                 }
                 let sleep_for = Duration::from_millis(250)
                     .min(deadline.saturating_duration_since(Instant::now()));
                 if sleep_for.is_zero() {
-                    let st = last.get("state").cloned().unwrap_or(Value::Null);
-                    return Ok(json!({
-                        "completed": false,
-                        "waitTimedOut": true,
-                        "succeeded": false,
-                        "state": st,
-                        "task": last,
-                    }));
+                    return Ok(build_timeout_payload(last));
                 }
                 tokio::time::sleep(sleep_for).await;
             }
@@ -933,14 +1068,14 @@ pub fn mcp_tool_catalog() -> Vec<Value> {
         }),
         json!({
             "name": "browser_wait_operation",
-            "description": "Wait up to 25 seconds for COMMITTED, ABORTED or TIMED_OUT.",
+            "description": "Wait up to 120 seconds for COMMITTED, ABORTED or TIMED_OUT.",
             "annotations": { "readOnlyHint": true, "destructiveHint": false },
             "inputSchema": {
                 "type": "object",
                 "required": ["operation_id"],
                 "properties": {
                     "operation_id": { "type": "string" },
-                    "timeout_seconds": { "type": "integer", "default": 10 }
+                    "timeout_seconds": { "type": "integer", "default": 30, "minimum": 1, "maximum": 120 }
                 }
             }
         }),
@@ -1031,7 +1166,7 @@ pub fn mcp_tool_catalog() -> Vec<Value> {
         }),
         json!({
             "name": "browser_wait_action_task",
-            "description": "Wait up to 25 seconds for a browser action task to finish.",
+            "description": "Wait up to 120 seconds for a browser action task to finish (including while waiting for collaborative human input).",
             "annotations": { "readOnlyHint": true, "destructiveHint": false },
             "inputSchema": {
                 "type": "object",
@@ -1039,7 +1174,7 @@ pub fn mcp_tool_catalog() -> Vec<Value> {
                 "properties": {
                     "environment_id": { "type": "string" },
                     "task_id": { "type": "string" },
-                    "timeout_seconds": { "type": "integer", "default": 10 }
+                    "timeout_seconds": { "type": "integer", "default": 30, "minimum": 1, "maximum": 120 }
                 }
             }
         }),
@@ -1066,6 +1201,10 @@ mod tests {
         let revoked = Arc::new(AtomicBool::new(false));
         let rev_c = revoked.clone();
         let mock_cp = Router::new()
+            .route(
+                "/actuator/health",
+                get(|| async { Json(json!({ "status": "UP" })) }),
+            )
             .route(
                 "/api/v1/agent-access/identity",
                 get(move |headers: HeaderMap| {
@@ -1125,7 +1264,15 @@ mod tests {
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
-        let cp_srv = tokio::spawn(async move { axum::serve(listener, mock_cp).await.unwrap() });
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+        let cp_srv = tokio::spawn(async move {
+            axum::serve(listener, mock_cp)
+                .with_graceful_shutdown(async move {
+                    let _ = shutdown_rx.await;
+                })
+                .await
+                .unwrap()
+        });
 
         let cfg = GatewayConfig {
             backend: GatewayBackend::ControlPlane,
@@ -1291,6 +1438,7 @@ mod tests {
         // 7. Revoked token rejected with 401.
         revoked.store(true, Ordering::SeqCst);
         let rev_resp = app
+            .clone()
             .oneshot(
                 Request::builder()
                     .method("POST")
@@ -1305,6 +1453,206 @@ mod tests {
             .unwrap();
         assert_eq!(rev_resp.status(), StatusCode::UNAUTHORIZED);
 
-        cp_srv.abort();
+        // 8. Healthy upstream -> /healthz returns 200 UP.
+        let health_up = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/healthz")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(health_up.status(), StatusCode::OK);
+        assert_eq!(read_json(health_up).await["upstream"], "UP");
+
+        // 9. When Control Plane stops, /healthz returns 503 DEGRADED and /mcp returns 503
+        // CONTROL_PLANE_UNAVAILABLE (retryable) instead of misreporting 401 Unauthorized!
+        let _ = shutdown_tx.send(());
+        let _ = cp_srv.await;
+        revoked.store(false, Ordering::SeqCst);
+
+        let health_down = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/healthz")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(health_down.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let hd_json = read_json(health_down).await;
+        assert_eq!(hd_json["status"], "DEGRADED");
+        assert_eq!(hd_json["upstream"], "DOWN");
+
+        let outage_resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/mcp")
+                    .header("authorization", "Bearer fixture")
+                    .body(Body::from(
+                        json!({"jsonrpc": "2.0", "id": 6, "method": "ping"}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(outage_resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let oj = read_json(outage_resp).await;
+        assert_eq!(oj["error"], "CONTROL_PLANE_UNAVAILABLE");
+        assert_eq!(oj["retryable"], true);
+    }
+
+    #[tokio::test]
+    async fn control_plane_5xx_returns_503_and_wait_action_task_reports_human_input_wait() {
+        let fail_503 = Arc::new(AtomicBool::new(true));
+        let fail_c = fail_503.clone();
+        let mock_cp = Router::new()
+            .route(
+                "/actuator/health",
+                get(|| async { Json(json!({ "status": "UP" })) }),
+            )
+            .route(
+                "/api/v1/agent-access/identity",
+                get(move || {
+                    let f = fail_c.clone();
+                    async move {
+                        if f.load(Ordering::SeqCst) {
+                            (
+                                StatusCode::SERVICE_UNAVAILABLE,
+                                Json(json!({ "code": "UPSTREAM_OVERLOADED" })),
+                            )
+                        } else {
+                            (StatusCode::OK, Json(json!({ "tenantId": "owned" })))
+                        }
+                    }
+                }),
+            )
+            .route(
+                "/api/v1/agent-access/environments/ses_owned/browser/tasks/agt_human",
+                get(|| async {
+                    Json(json!({
+                        "taskId": "agt_human",
+                        "state": "RUNNING",
+                        "executionWait": { "reason": "HUMAN_INPUT_PRIORITY" }
+                    }))
+                }),
+            );
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+        let cp_srv = tokio::spawn(async move {
+            axum::serve(listener, mock_cp)
+                .with_graceful_shutdown(async move {
+                    let _ = shutdown_rx.await;
+                })
+                .await
+                .unwrap()
+        });
+
+        let cfg = GatewayConfig {
+            backend: GatewayBackend::ControlPlane,
+            upstream_url: format!("http://{addr}"),
+            bind_host: "127.0.0.1".to_owned(),
+            bind_port: 0,
+            allowed_hosts: vec!["127.0.0.1:*".to_owned(), "localhost:*".to_owned()],
+            allowed_origins: vec!["http://127.0.0.1:*".to_owned()],
+        };
+        let app = build_router(Arc::new(GatewayState::new(cfg).unwrap()));
+
+        // Control Plane returning 503 MUST map to 503 CONTROL_PLANE_UNAVAILABLE (not 401).
+        let resp_503 = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/mcp")
+                    .header("authorization", "Bearer fixture")
+                    .body(Body::from(
+                        json!({"jsonrpc": "2.0", "id": 1, "method": "ping"}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp_503.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            read_json(resp_503).await["error"],
+            "CONTROL_PLANE_UNAVAILABLE"
+        );
+
+        // When upstream recovers, wait_action_task surfaces waitingForHumanInput=true and allows
+        // timeout_seconds up to 120 (rejecting 121).
+        fail_503.store(false, Ordering::SeqCst);
+        let wait_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/mcp")
+                    .header("authorization", "Bearer fixture")
+                    .body(Body::from(
+                        json!({
+                            "jsonrpc": "2.0",
+                            "id": 2,
+                            "method": "tools/call",
+                            "params": {
+                                "name": "browser_wait_action_task",
+                                "arguments": {
+                                    "environment_id": "ses_owned",
+                                    "task_id": "agt_human",
+                                    "timeout_seconds": 1
+                                }
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let wj = read_json(wait_resp).await;
+        assert_eq!(wj["result"]["structuredContent"]["waitTimedOut"], true);
+        assert_eq!(
+            wj["result"]["structuredContent"]["waitingForHumanInput"],
+            true
+        );
+
+        let too_long = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/mcp")
+                    .header("authorization", "Bearer fixture")
+                    .body(Body::from(
+                        json!({
+                            "jsonrpc": "2.0",
+                            "id": 3,
+                            "method": "tools/call",
+                            "params": {
+                                "name": "browser_wait_action_task",
+                                "arguments": {
+                                    "environment_id": "ses_owned",
+                                    "task_id": "agt_human",
+                                    "timeout_seconds": 121
+                                }
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let tj = read_json(too_long).await;
+        assert_eq!(tj["result"]["isError"], true);
+
+        let _ = shutdown_tx.send(());
+        let _ = cp_srv.await;
     }
 }

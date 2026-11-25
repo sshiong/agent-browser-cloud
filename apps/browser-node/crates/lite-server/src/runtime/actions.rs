@@ -24,6 +24,7 @@ impl LiteRuntime {
         url: &str,
     ) -> Result<Value> {
         let record = self.require_owned_session(caller, session_id)?;
+        let _active_op = self.begin_active_op(session_id);
         let allowed_private = self.effective_private_hosts(&record);
         let validated = match validate_navigation_url_with_policy(
             url,
@@ -92,6 +93,7 @@ impl LiteRuntime {
         params: ObserveParams,
     ) -> Result<Value> {
         let record = self.require_owned_session(caller, session_id)?;
+        let _active_op = self.begin_active_op(session_id);
         self.ensure_running(&record).await?;
         let state = self.refresh_state(session_id).await?;
         self.store
@@ -217,6 +219,7 @@ impl LiteRuntime {
         step: ActionStepParams,
     ) -> Result<Value> {
         let record = self.require_owned_session(caller, session_id)?;
+        let _active_op = self.begin_active_op(session_id);
         self.ensure_running(&record).await?;
         let started = Instant::now();
         let state = self.execute_single_step(caller, session_id, &step).await?;
@@ -260,6 +263,7 @@ impl LiteRuntime {
             "BATCH_STEP_COUNT_INVALID"
         );
         let record = self.require_owned_session(caller, session_id)?;
+        let _active_op = self.begin_active_op(session_id);
         self.ensure_running(&record).await?;
         let max_duration =
             Duration::from_millis(params.max_duration_ms.unwrap_or(60_000).min(180_000));
@@ -270,6 +274,7 @@ impl LiteRuntime {
         let mut all_succeeded = true;
 
         for (index, step) in params.steps.iter().enumerate() {
+            let _ = self.store.touch_session_activity(session_id, None);
             if batch_start.elapsed() >= max_duration {
                 all_succeeded = false;
                 outcomes.push(BatchStepOutcome {
@@ -359,15 +364,21 @@ impl LiteRuntime {
         params: WaitParams,
     ) -> Result<Value> {
         let record = self.require_owned_session(caller, session_id)?;
+        let _active_op = self.begin_active_op(session_id);
         self.ensure_running(&record).await?;
-        let budget = Duration::from_millis(params.timeout_ms.unwrap_or(5_000).clamp(100, 30_000));
+        let budget = Duration::from_millis(params.timeout_ms.unwrap_or(5_000).clamp(100, 120_000));
         let deadline = Instant::now() + budget;
+        let mut last_activity_touch = Instant::now();
         let mut previous_hash: Option<String> = None;
         let mut previous_visual_hash: Option<String> = None;
         let mut stable_visual_count: u32 = 0;
         let required_visual_frames = params.stable_frames.unwrap_or(2).clamp(2, 5);
 
         loop {
+            if last_activity_touch.elapsed() >= Duration::from_secs(5) {
+                let _ = self.store.touch_session_activity(session_id, None);
+                last_activity_touch = Instant::now();
+            }
             let state = self.refresh_state(session_id).await?;
             let ready = match params.mode.as_str() {
                 "element_ready" => {
@@ -476,6 +487,7 @@ impl LiteRuntime {
         params: ScreenshotParams,
     ) -> Result<(String, Value)> {
         let record = self.require_owned_session(caller, session_id)?;
+        let _active_op = self.begin_active_op(session_id);
         self.ensure_running(&record).await?;
         let state = self.refresh_state(session_id).await?;
 

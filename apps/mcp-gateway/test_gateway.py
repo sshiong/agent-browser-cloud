@@ -28,6 +28,13 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
             def handle_api(self):
                 length = int(self.headers.get('Content-Length', '0'))
                 body = json.loads(self.rfile.read(length)) if length else None
+                if self.path == '/actuator/health':
+                    encoded = json.dumps({'status': 'UP'}).encode()
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Content-Length', str(len(encoded)))
+                    self.end_headers(); self.wfile.write(encoded)
+                    return
                 test.calls.append((self.command, self.path, body))
                 authenticated = self.headers.get('Authorization') == 'Bearer fixture' and not test.revoked
                 status = 200 if authenticated else 401
@@ -174,7 +181,7 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(result.isError)
                 self.assertFalse(result.structuredContent['completed'])
                 self.assertTrue(result.structuredContent['waitTimedOut'])
-                for seconds in (0, 26):
+                for seconds in (0, 121):
                     self.assertTrue((await wait(timeout_seconds=seconds)).isError)
                 self.assertTrue(all(method == 'GET' for method, _, _ in self.calls))
 
@@ -200,7 +207,7 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(result.structuredContent['completed'])
                 self.assertTrue(result.structuredContent['waitTimedOut'])
                 self.assertEqual(result.structuredContent['state'], 'RUNNING')
-                for seconds in (0, 26):
+                for seconds in (0, 121):
                     self.assertTrue((await wait(timeout_seconds=seconds)).isError)
                 self.error_response = (422, {
                     'code': 'AGENT_BROWSER_PERCEPTION_REJECTED',

@@ -31,6 +31,7 @@ impl LiteRuntime {
         mode: IntranetAuthMode,
         ttl_seconds: Option<u64>,
     ) -> Result<Value> {
+        ensure!(caller.has_scope("admin"), "ADMIN_SCOPE_REQUIRED");
         let record = self.require_owned_session(caller, session_id)?;
         let normalized = normalize_private_host_rules(raw_hosts)?;
         ensure!(!normalized.is_empty(), "PRIVATE_HOST_REQUIRED");
@@ -109,6 +110,7 @@ impl LiteRuntime {
         raw_hosts: &[String],
         mode: Option<IntranetAuthMode>,
     ) -> Result<Value> {
+        ensure!(caller.has_scope("admin"), "ADMIN_SCOPE_REQUIRED");
         let record = self.require_owned_session(caller, session_id)?;
         let targets: Vec<String> = raw_hosts
             .iter()
@@ -157,6 +159,7 @@ impl LiteRuntime {
         session_id: &str,
         raw_hosts: &[String],
     ) -> Result<Value> {
+        ensure!(caller.has_scope("admin"), "ADMIN_SCOPE_REQUIRED");
         let record = self.require_owned_session(caller, session_id)?;
         let normalized = normalize_private_host_rules(raw_hosts)?;
         self.store
@@ -231,7 +234,30 @@ impl LiteRuntime {
         }
     }
 
+    pub async fn sync_live_egress_for_token(&self, token_id: &str) {
+        if let Ok(running) = self.store.list_running_sessions() {
+            for session in running {
+                if session.owner_token_id == token_id {
+                    let perm = self.permanent_private_hosts(&session);
+                    self.sync_live_egress_policy(&session.session_id, &session.profile_id, &perm)
+                        .await;
+                }
+            }
+        }
+    }
+
     pub(super) fn permanent_private_hosts(&self, record: &SessionRecord) -> Vec<String> {
+        let token_hosts = if !record.owner_token_id.is_empty() {
+            self.store
+                .get_token_by_id(&record.owner_token_id)
+                .ok()
+                .flatten()
+                .filter(|t| !t.revoked)
+                .map(|t| t.allowed_private_hosts)
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         let profile_hosts = self
             .store
             .get_profile(&record.profile_id)
@@ -239,7 +265,8 @@ impl LiteRuntime {
             .flatten()
             .map(|p| p.allowed_private_hosts)
             .unwrap_or_default();
-        merge_private_hosts(&profile_hosts, &record.allowed_private_hosts)
+        let combined = merge_private_hosts(&token_hosts, &profile_hosts);
+        merge_private_hosts(&combined, &record.allowed_private_hosts)
     }
 
     fn active_temporary_grants(&self, session_id: &str) -> Vec<TemporaryPrivateHostGrant> {

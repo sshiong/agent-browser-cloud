@@ -269,7 +269,8 @@ fn private_host_rule_matches(
     false
 }
 
-/// Validates a per-session proxy URL (`http://`, `https://`, `socks5://`).
+/// Validates a per-session proxy URL (`http://`, `socks5://`, `socks5h://`) chained behind the
+/// built-in L0 egress guard.
 pub fn validate_proxy_url(raw: &str) -> Result<String> {
     let trimmed = raw.trim();
     ensure!(
@@ -278,7 +279,7 @@ pub fn validate_proxy_url(raw: &str) -> Result<String> {
     );
     let parsed = Url::parse(trimmed).map_err(|_| anyhow::anyhow!("PROXY_URL_INVALID"))?;
     ensure!(
-        matches!(parsed.scheme(), "http" | "https" | "socks5" | "socks5h"),
+        matches!(parsed.scheme(), "http" | "socks5" | "socks5h"),
         "PROXY_SCHEME_INVALID"
     );
     ensure!(parsed.host_str().is_some(), "PROXY_HOST_INVALID");

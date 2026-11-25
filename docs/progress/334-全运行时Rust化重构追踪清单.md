@@ -10,8 +10,8 @@
 | R1 | L1/L2 MCP Gateway（16 工具 + 双模式） | `apps/mcp-gateway/gateway.py` (297 行 Python) | `crates/mcp-gateway` (`browsercloud-mcp-gateway`) | **DONE** | `cargo test -p mcp-gateway` + clippy 0 warning + `mcp-gateway-rust.yml` |
 | R2 | 录屏隐私脱敏扫描器（移除 OpenCV/NumPy/Python） | `apps/browser-node/scripts/recording_privacy_scanner.py` (334 行 Python) | `crates/recording-privacy-scanner` (`recording-privacy-scanner`) | **DONE** | `cargo test -p recording-privacy-scanner`（4/4）+ clippy 0 warning + `Dockerfile` 移除 Python/OpenCV/NumPy |
 | R3 | 一站式纯 Rust CLI（`doctor`/`token`/`mcp-config`/`bench`） | `tools/local-dev/stack.sh` + `ctl.rs` | `crates/lite-server/src/bin/ctl.rs` (`browsercloud-ctl`) | **DONE** | `cargo test -p lite-server` + `browsercloud-ctl doctor` / `mcp-config` 实测 |
-| R4 | 业务租约适配服务 Application Adapter | `apps/application-adapter/application_adapter.py` (582 行 Python) | `crates/application-adapter` (`browsercloud-application-adapter`) | **IN_PROGRESS** | 进行中 |
-| R5 | Kubernetes BrowserSession Operator | `tools/browser-session-operator/browser_session_operator.py` (774 行 Python) | `crates/browser-session-operator` (`browsercloud-operator`) | **PENDING** | 待开始 |
+| R4 | 业务租约适配服务 Application Adapter | `apps/application-adapter/application_adapter.py` (582 行 Python) | `crates/application-adapter` (`browsercloud-application-adapter`) | **DONE** | `cargo test -p application-adapter` + clippy 0 warning + Docker target |
+| R5 | Kubernetes BrowserSession Operator | `tools/browser-session-operator/browser_session_operator.py` (774 行 Python) | `crates/browser-session-operator` (`browsercloud-operator`) | **IN_PROGRESS** | 进行中 |
 | R6 | GameDay 与 Validation 隔离 Worker/Runner | `apps/gameday-worker/` + `apps/validation-worker/` (1,771 行 Python) | `crates/ops-workers` (`browsercloud-gameday-worker`, `browsercloud-validation-worker`) | **PENDING** | 待开始 |
 | R7 | OrbStack 全量实机构建、实时内存/体积实测与全回归验收 | Docker (OrbStack) + Rust + Compose + Docs | 全工作区验收 | **PENDING** | 待开始 |
 

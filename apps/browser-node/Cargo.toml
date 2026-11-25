@@ -16,7 +16,8 @@ members = [
   "crates/lite-server",
   "crates/worker-supervisor",
   "crates/mcp-gateway",
-  "crates/recording-privacy-scanner"
+  "crates/recording-privacy-scanner",
+  "crates/application-adapter"
 ]
 resolver = "2"
 

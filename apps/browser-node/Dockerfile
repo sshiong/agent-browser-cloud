@@ -9,10 +9,23 @@ RUN cargo build \
     --bin browsercloud-lite \
     --bin browsercloud-worker-supervisor \
     --bin browsercloud-mcp-gateway \
+    --bin browsercloud-application-adapter \
     --bin recording-privacy-scanner \
     --bin network-helper \
     --bin storage-helper \
     --bin node-agent
+
+# ---------------------------------------------------------------------------
+# Target: application-adapter (Pure-Rust least-privilege adapter replacing Python)
+# ---------------------------------------------------------------------------
+FROM debian:bookworm-slim AS application-adapter
+RUN set -eux; \
+    apt-get update; \
+    apt-get install --no-install-recommends -y ca-certificates; \
+    rm -rf /var/lib/apt/lists/*
+COPY --from=build /workspace/apps/browser-node/target/release/browsercloud-application-adapter /usr/local/bin/browsercloud-application-adapter
+USER 65532:65532
+ENTRYPOINT ["/usr/local/bin/browsercloud-application-adapter"]
 
 # ---------------------------------------------------------------------------
 # Target: mcp-gateway (Pure-Rust drop-in replacement for Python mcp-gateway)

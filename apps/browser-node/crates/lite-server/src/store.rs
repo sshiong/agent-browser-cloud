@@ -315,21 +315,7 @@ impl LiteStore {
                 "SELECT token_id, agent_id, label, scopes_json, max_sessions, revoked, created_at, rotated_at
                  FROM agent_tokens WHERE token_hash = ?1",
                 params![hash],
-                |row| {
-                    let scopes_json: String = row.get(3)?;
-                    let scopes: Vec<String> =
-                        serde_json::from_str(&scopes_json).unwrap_or_default();
-                    Ok(AgentTokenRecord {
-                        token_id: row.get(0)?,
-                        agent_id: row.get(1)?,
-                        label: row.get(2)?,
-                        scopes,
-                        max_sessions: row.get(4)?,
-                        revoked: row.get::<_, i64>(5)? != 0,
-                        created_at: row.get(6)?,
-                        rotated_at: row.get(7)?,
-                    })
-                },
+                Self::map_token,
             )
             .optional()?;
         Ok(row.filter(|record| !record.revoked))
@@ -342,20 +328,7 @@ impl LiteStore {
              FROM agent_tokens ORDER BY created_at DESC",
         )?;
         let rows = stmt
-            .query_map([], |row| {
-                let scopes_json: String = row.get(3)?;
-                let scopes: Vec<String> = serde_json::from_str(&scopes_json).unwrap_or_default();
-                Ok(AgentTokenRecord {
-                    token_id: row.get(0)?,
-                    agent_id: row.get(1)?,
-                    label: row.get(2)?,
-                    scopes,
-                    max_sessions: row.get(4)?,
-                    revoked: row.get::<_, i64>(5)? != 0,
-                    created_at: row.get(6)?,
-                    rotated_at: row.get(7)?,
-                })
-            })?
+            .query_map([], Self::map_token)?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         Ok(rows)
     }
@@ -385,20 +358,7 @@ impl LiteStore {
             "SELECT token_id, agent_id, label, scopes_json, max_sessions, revoked, created_at, rotated_at
              FROM agent_tokens WHERE token_id = ?1",
             params![token_id],
-            |row| {
-                let scopes_json: String = row.get(3)?;
-                let scopes: Vec<String> = serde_json::from_str(&scopes_json).unwrap_or_default();
-                Ok(AgentTokenRecord {
-                    token_id: row.get(0)?,
-                    agent_id: row.get(1)?,
-                    label: row.get(2)?,
-                    scopes,
-                    max_sessions: row.get(4)?,
-                    revoked: row.get::<_, i64>(5)? != 0,
-                    created_at: row.get(6)?,
-                    rotated_at: row.get(7)?,
-                })
-            },
+            Self::map_token,
         )?;
         Ok(Some(IssuedAgentToken {
             token: record,
@@ -423,20 +383,7 @@ impl LiteStore {
             "SELECT token_id, agent_id, label, scopes_json, max_sessions, revoked, created_at, rotated_at
              FROM agent_tokens WHERE token_id = ?1",
             params![token_id],
-            |row| {
-                let scopes_json: String = row.get(3)?;
-                let scopes: Vec<String> = serde_json::from_str(&scopes_json).unwrap_or_default();
-                Ok(AgentTokenRecord {
-                    token_id: row.get(0)?,
-                    agent_id: row.get(1)?,
-                    label: row.get(2)?,
-                    scopes,
-                    max_sessions: row.get(4)?,
-                    revoked: row.get::<_, i64>(5)? != 0,
-                    created_at: row.get(6)?,
-                    rotated_at: row.get(7)?,
-                })
-            },
+            Self::map_token,
         )?;
         Ok(Some(record))
     }
@@ -448,21 +395,7 @@ impl LiteStore {
                 "SELECT token_id, agent_id, label, scopes_json, max_sessions, revoked, created_at, rotated_at
                  FROM agent_tokens WHERE token_id = ?1",
                 params![token_id],
-                |row| {
-                    let scopes_json: String = row.get(3)?;
-                    let scopes: Vec<String> =
-                        serde_json::from_str(&scopes_json).unwrap_or_default();
-                    Ok(AgentTokenRecord {
-                        token_id: row.get(0)?,
-                        agent_id: row.get(1)?,
-                        label: row.get(2)?,
-                        scopes,
-                        max_sessions: row.get(4)?,
-                        revoked: row.get::<_, i64>(5)? != 0,
-                        created_at: row.get(6)?,
-                        rotated_at: row.get(7)?,
-                    })
-                },
+                Self::map_token,
             )
             .optional()?;
         Ok(row)
@@ -882,17 +815,7 @@ impl LiteStore {
              ORDER BY created_at DESC",
         )?;
         let rows = stmt
-            .query_map(params![profile_id], |row| {
-                Ok(ProfileCheckpointRecord {
-                    checkpoint_id: row.get(0)?,
-                    profile_id: row.get(1)?,
-                    owner_agent_id: row.get(2)?,
-                    archive_sha256: row.get(3)?,
-                    archive_bytes: row.get::<_, i64>(4)?.max(0) as u64,
-                    file_count: row.get::<_, i64>(5)?.max(0) as u64,
-                    created_at: row.get(6)?,
-                })
-            })?
+            .query_map(params![profile_id], Self::map_checkpoint)?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         Ok(rows)
     }
@@ -910,17 +833,7 @@ impl LiteStore {
              ORDER BY created_at DESC",
         )?;
         let rows = stmt
-            .query_map(params![profile_id, owner_agent_id], |row| {
-                Ok(ProfileCheckpointRecord {
-                    checkpoint_id: row.get(0)?,
-                    profile_id: row.get(1)?,
-                    owner_agent_id: row.get(2)?,
-                    archive_sha256: row.get(3)?,
-                    archive_bytes: row.get::<_, i64>(4)?.max(0) as u64,
-                    file_count: row.get::<_, i64>(5)?.max(0) as u64,
-                    created_at: row.get(6)?,
-                })
-            })?
+            .query_map(params![profile_id, owner_agent_id], Self::map_checkpoint)?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         Ok(rows)
     }
@@ -1023,6 +936,33 @@ impl LiteStore {
                 params![agent_id, session_id, action, outcome, detail, now],
             );
         }
+    }
+
+    fn map_token(row: &rusqlite::Row<'_>) -> rusqlite::Result<AgentTokenRecord> {
+        let scopes_json: String = row.get(3)?;
+        let scopes: Vec<String> = serde_json::from_str(&scopes_json).unwrap_or_default();
+        Ok(AgentTokenRecord {
+            token_id: row.get(0)?,
+            agent_id: row.get(1)?,
+            label: row.get(2)?,
+            scopes,
+            max_sessions: row.get(4)?,
+            revoked: row.get::<_, i64>(5)? != 0,
+            created_at: row.get(6)?,
+            rotated_at: row.get(7)?,
+        })
+    }
+
+    fn map_checkpoint(row: &rusqlite::Row<'_>) -> rusqlite::Result<ProfileCheckpointRecord> {
+        Ok(ProfileCheckpointRecord {
+            checkpoint_id: row.get(0)?,
+            profile_id: row.get(1)?,
+            owner_agent_id: row.get(2)?,
+            archive_sha256: row.get(3)?,
+            archive_bytes: row.get::<_, i64>(4)?.max(0) as u64,
+            file_count: row.get::<_, i64>(5)?.max(0) as u64,
+            created_at: row.get(6)?,
+        })
     }
 
     fn map_profile(row: &rusqlite::Row<'_>) -> rusqlite::Result<ProfileRecord> {

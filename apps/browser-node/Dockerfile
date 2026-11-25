@@ -1,18 +1,34 @@
-FROM rust:1.98-bookworm AS build
+FROM rust:1.98-bookworm AS build-base
 WORKDIR /workspace
 COPY apps/browser-node apps/browser-node
 COPY packages/contracts/proto packages/contracts/proto
+
+# Split release compilation into three focused stages so building L0 `lite` or lightweight
+# HTTP/K8s services never compiles AWS S3 SDK, Tonic gRPC, or LevelDB/node-agent crates.
+FROM build-base AS build-lite
 RUN cargo build \
     --release \
     --locked \
     --manifest-path apps/browser-node/Cargo.toml \
-    --bin browsercloud-lite \
+    --bin browsercloud-lite
+
+FROM build-base AS build-services
+RUN cargo build \
+    --release \
+    --locked \
+    --manifest-path apps/browser-node/Cargo.toml \
     --bin browsercloud-worker-supervisor \
     --bin browsercloud-mcp-gateway \
     --bin browsercloud-application-adapter \
     --bin browsercloud-operator \
     --bin browsercloud-gameday-worker \
-    --bin browsercloud-validation-worker \
+    --bin browsercloud-validation-worker
+
+FROM build-base AS build-node
+RUN cargo build \
+    --release \
+    --locked \
+    --manifest-path apps/browser-node/Cargo.toml \
     --bin recording-privacy-scanner \
     --bin network-helper \
     --bin storage-helper \
@@ -26,8 +42,8 @@ RUN set -eux; \
     apt-get update; \
     apt-get install --no-install-recommends -y ca-certificates tini; \
     rm -rf /var/lib/apt/lists/*
-COPY --from=build /workspace/apps/browser-node/target/release/browsercloud-gameday-worker /usr/local/bin/browsercloud-gameday-worker
-COPY --from=build /workspace/apps/browser-node/target/release/browsercloud-validation-worker /usr/local/bin/browsercloud-validation-worker
+COPY --from=build-services /workspace/apps/browser-node/target/release/browsercloud-gameday-worker /usr/local/bin/browsercloud-gameday-worker
+COPY --from=build-services /workspace/apps/browser-node/target/release/browsercloud-validation-worker /usr/local/bin/browsercloud-validation-worker
 USER 65532:65532
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
@@ -39,7 +55,7 @@ RUN set -eux; \
     apt-get update; \
     apt-get install --no-install-recommends -y ca-certificates tini; \
     rm -rf /var/lib/apt/lists/*
-COPY --from=build /workspace/apps/browser-node/target/release/browsercloud-operator /usr/local/bin/browsercloud-operator
+COPY --from=build-services /workspace/apps/browser-node/target/release/browsercloud-operator /usr/local/bin/browsercloud-operator
 USER 65532:65532
 EXPOSE 8080
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/browsercloud-operator"]
@@ -52,7 +68,7 @@ RUN set -eux; \
     apt-get update; \
     apt-get install --no-install-recommends -y ca-certificates; \
     rm -rf /var/lib/apt/lists/*
-COPY --from=build /workspace/apps/browser-node/target/release/browsercloud-application-adapter /usr/local/bin/browsercloud-application-adapter
+COPY --from=build-services /workspace/apps/browser-node/target/release/browsercloud-application-adapter /usr/local/bin/browsercloud-application-adapter
 USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/browsercloud-application-adapter"]
 
@@ -66,7 +82,7 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*; \
     groupadd --gid 65532 browsercloud; \
     useradd --uid 65532 --gid browsercloud --no-log-init --home-dir /tmp browsercloud
-COPY --from=build /workspace/apps/browser-node/target/release/browsercloud-mcp-gateway /usr/local/bin/browsercloud-mcp-gateway
+COPY --from=build-services /workspace/apps/browser-node/target/release/browsercloud-mcp-gateway /usr/local/bin/browsercloud-mcp-gateway
 USER 65532:65532
 ENV MCP_HOST=0.0.0.0 \
     MCP_PORT=8130 \
@@ -86,7 +102,7 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*; \
     groupadd --gid 65532 browsercloud; \
     useradd --uid 65532 --gid browsercloud --no-log-init --home-dir /tmp browsercloud
-COPY --from=build /workspace/apps/browser-node/target/release/browsercloud-worker-supervisor /usr/local/bin/browsercloud-worker-supervisor
+COPY --from=build-services /workspace/apps/browser-node/target/release/browsercloud-worker-supervisor /usr/local/bin/browsercloud-worker-supervisor
 USER browsercloud
 ENV WORKER_ROLES=agent,reviewer,outcome,vision \
     WORKER_ENVIRONMENT=production \
@@ -107,7 +123,7 @@ RUN set -eux; \
     useradd --uid 65532 --gid browsercloud --no-log-init --home-dir /data browsercloud; \
     mkdir -p /data; \
     chown -R browsercloud:browsercloud /data
-COPY --from=build /workspace/apps/browser-node/target/release/browsercloud-lite /usr/local/bin/browsercloud-lite
+COPY --from=build-lite /workspace/apps/browser-node/target/release/browsercloud-lite /usr/local/bin/browsercloud-lite
 USER browsercloud
 ENV CHROMIUM_PATH=/usr/bin/chromium \
     LITE_DATA_DIR=/data \
@@ -130,9 +146,9 @@ RUN set -eux; \
     useradd --uid 65532 --gid browsercloud --no-log-init --home-dir /var/lib/browsercloud browsercloud; \
     mkdir -p /var/lib/browsercloud/runtime; \
     chown -R browsercloud:browsercloud /var/lib/browsercloud
-COPY --from=build /workspace/apps/browser-node/target/release/node-agent /usr/local/bin/node-agent
-COPY --from=build /workspace/apps/browser-node/target/release/network-helper /usr/local/bin/network-helper
-COPY --from=build /workspace/apps/browser-node/target/release/storage-helper /usr/local/bin/storage-helper
+COPY --from=build-node /workspace/apps/browser-node/target/release/node-agent /usr/local/bin/node-agent
+COPY --from=build-node /workspace/apps/browser-node/target/release/network-helper /usr/local/bin/network-helper
+COPY --from=build-node /workspace/apps/browser-node/target/release/storage-helper /usr/local/bin/storage-helper
 USER browsercloud
 ENV CHROMIUM_PATH=/usr/bin/chromium \
     RUNTIME_ROOT=/var/lib/browsercloud/runtime \
@@ -181,7 +197,7 @@ RUN set -eux; \
         apt-get install --no-install-recommends -y ${packages}; \
         rm -rf /var/lib/apt/lists/*; \
     fi
-COPY --from=build /workspace/apps/browser-node/target/release/recording-privacy-scanner /usr/local/libexec/browsercloud/recording-privacy-scanner
+COPY --from=build-node /workspace/apps/browser-node/target/release/recording-privacy-scanner /usr/local/libexec/browsercloud/recording-privacy-scanner
 COPY apps/browser-node/assets/recording-privacy /usr/local/share/browsercloud/recording-privacy
 RUN set -eux; \
     if [ "${ENABLE_RECORDING_SCANNER}" = "true" ]; then \

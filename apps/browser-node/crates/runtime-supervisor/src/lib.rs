@@ -980,13 +980,27 @@ impl ChromiumRuntimeSupervisor {
         let _ = timeout(deadline, child.wait()).await;
     }
 
+    fn loopback_http_client() -> anyhow::Result<&'static reqwest::Client> {
+        static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+        if let Some(client) = CLIENT.get() {
+            return Ok(client);
+        }
+        let built = reqwest::Client::builder()
+            .connect_timeout(Duration::from_millis(500))
+            .timeout(Duration::from_secs(2))
+            .pool_max_idle_per_host(4)
+            .no_proxy()
+            .build()?;
+        let _ = CLIENT.set(built);
+        CLIENT
+            .get()
+            .ok_or_else(|| anyhow::anyhow!("loopback HTTP client unavailable"))
+    }
+
     // Browser.close lets Chromium flush cookies, preferences, and session storage before the
     // Node checkpoints the Profile. Never send this command to an unverified remote endpoint.
     async fn close_browser(endpoint: &str) -> anyhow::Result<()> {
-        let client = reqwest::Client::builder()
-            .no_proxy()
-            .timeout(Duration::from_secs(2))
-            .build()?;
+        let client = Self::loopback_http_client()?;
         let version: serde_json::Value = client
             .get(format!("{endpoint}/json/version"))
             .send()
@@ -1016,15 +1030,16 @@ impl ChromiumRuntimeSupervisor {
     }
 
     async fn wait_for_cdp(endpoint: &str, deadline: Duration) -> anyhow::Result<()> {
-        let client = reqwest::Client::builder()
-            .connect_timeout(Duration::from_millis(500))
-            .timeout(Duration::from_secs(1))
-            .no_proxy()
-            .build()?;
+        let client = Self::loopback_http_client()?;
         let version_endpoint = format!("{endpoint}/json/version");
         let expires_at = Instant::now() + deadline;
         loop {
-            if let Ok(response) = client.get(&version_endpoint).send().await {
+            if let Ok(response) = client
+                .get(&version_endpoint)
+                .timeout(Duration::from_secs(1))
+                .send()
+                .await
+            {
                 if response.status().is_success() {
                     let payload: serde_json::Value = response.json().await?;
                     let browser = payload
@@ -1072,7 +1087,7 @@ impl ChromiumRuntimeSupervisor {
         );
         tokio::task::spawn_blocking(move || {
             let process_id = sysinfo::Pid::from_u32(pid);
-            let mut system = sysinfo::System::new();
+            let mut system = sysinfo::System::new_with_specifics(sysinfo::RefreshKind::nothing());
             system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[process_id]), true);
             let Some(process) = system.process(process_id) else {
                 return Ok(false);
@@ -1302,7 +1317,8 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
             pid,
             process_started_at: {
                 let process_id = sysinfo::Pid::from_u32(pid);
-                let mut system = sysinfo::System::new();
+                let mut system =
+                    sysinfo::System::new_with_specifics(sysinfo::RefreshKind::nothing());
                 system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[process_id]), true);
                 system
                     .process(process_id)

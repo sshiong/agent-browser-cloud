@@ -1664,12 +1664,21 @@ impl CdpStateCollector {
             .ok_or_else(|| anyhow::anyhow!("runtime CDP endpoint is not registered"))
     }
 
-    fn http_client() -> anyhow::Result<reqwest::Client> {
-        Ok(reqwest::Client::builder()
+    pub(crate) fn http_client() -> anyhow::Result<&'static reqwest::Client> {
+        static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+        if let Some(client) = CLIENT.get() {
+            return Ok(client);
+        }
+        let built = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(1))
             .timeout(Duration::from_secs(2))
+            .pool_max_idle_per_host(8)
             .no_proxy()
-            .build()?)
+            .build()?;
+        let _ = CLIENT.set(built);
+        CLIENT
+            .get()
+            .ok_or_else(|| anyhow::anyhow!("loopback HTTP client unavailable"))
     }
 
     async fn list_targets(endpoint: &str) -> anyhow::Result<Vec<CdpTarget>> {

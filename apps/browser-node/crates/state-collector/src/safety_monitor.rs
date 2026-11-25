@@ -825,12 +825,7 @@ pub(crate) fn spawn(
 }
 
 async fn browser_websocket(endpoint: &str) -> anyhow::Result<String> {
-    let client = reqwest::Client::builder()
-        .connect_timeout(Duration::from_secs(1))
-        .timeout(Duration::from_secs(2))
-        .no_proxy()
-        .build()?;
-    let version: CdpVersion = client
+    let version: CdpVersion = crate::CdpStateCollector::http_client()?
         .get(format!("{endpoint}/json/version"))
         .send()
         .await?

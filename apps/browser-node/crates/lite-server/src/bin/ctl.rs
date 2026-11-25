@@ -306,7 +306,9 @@ pub fn render_mcp_client_config(
 }
 
 async fn run_doctor(root: &Path, url: &str) -> Result<()> {
-    let mut sys = System::new();
+    let mut sys = System::new_with_specifics(
+        sysinfo::RefreshKind::nothing().with_memory(sysinfo::MemoryRefreshKind::everything()),
+    );
     sys.refresh_memory();
     let total_mib = sys.total_memory() / (1024 * 1024);
     let avail_mib = sys.available_memory() / (1024 * 1024);

@@ -293,7 +293,10 @@ impl LiteRuntime {
                 12,
                 Duration::from_secs(15),
             ))),
-            sys: Arc::new(Mutex::new(sysinfo::System::new())),
+            sys: Arc::new(Mutex::new(sysinfo::System::new_with_specifics(
+                sysinfo::RefreshKind::nothing()
+                    .with_memory(sysinfo::MemoryRefreshKind::everything()),
+            ))),
             events: Arc::new(EventBus::new()),
             metrics: Arc::new(LiteMetrics::default()),
             vault,

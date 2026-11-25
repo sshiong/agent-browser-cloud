@@ -151,6 +151,23 @@ pub struct CdpDesktopInput {
 }
 
 impl CdpDesktopInput {
+    fn loopback_http_client() -> anyhow::Result<&'static reqwest::Client> {
+        static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+        if let Some(client) = CLIENT.get() {
+            return Ok(client);
+        }
+        let built = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(1))
+            .timeout(Duration::from_secs(2))
+            .pool_max_idle_per_host(4)
+            .no_proxy()
+            .build()?;
+        let _ = CLIENT.set(built);
+        CLIENT
+            .get()
+            .ok_or_else(|| anyhow::anyhow!("loopback HTTP client unavailable"))
+    }
+
     pub async fn connect(cdp_endpoint: &str) -> anyhow::Result<Self> {
         anyhow::ensure!(
             cdp_endpoint.starts_with("http://127.0.0.1:")
@@ -158,11 +175,7 @@ impl CdpDesktopInput {
             "CDP endpoint must use the Browser Node loopback interface"
         );
         let endpoint = cdp_endpoint.trim_end_matches('/');
-        let response = reqwest::Client::builder()
-            .connect_timeout(Duration::from_secs(1))
-            .timeout(Duration::from_secs(2))
-            .no_proxy()
-            .build()?
+        let response = Self::loopback_http_client()?
             .get(format!("{endpoint}/json/list"))
             .send()
             .await?

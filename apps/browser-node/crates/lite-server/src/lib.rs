@@ -9,6 +9,7 @@ pub mod egress;
 pub mod events;
 pub mod mcp;
 pub mod profile;
+pub mod rest;
 pub mod runtime;
 pub mod security;
 pub mod store;

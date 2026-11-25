@@ -1,0 +1,15 @@
+# Pure-Rust MCP Gateway overlay replacing Python apps/mcp-gateway (~65 MiB -> ~4 MiB RAM).
+# Compatible with all 16 Control Plane tools and optional L0 Lite forwarding.
+#
+# Example:
+#   docker compose -f deploy/compose/modular.yml -f deploy/compose/mcp-gateway-rust.yml --profile mcp up -d
+
+services:
+  mcp-gateway:
+    build:
+      context: ../..
+      dockerfile: apps/browser-node/Dockerfile
+      target: mcp-gateway
+    mem_limit: ${MCP_GATEWAY_MEM_LIMIT:-32m}
+    cpus: ${MCP_GATEWAY_CPUS:-0.5}
+    read_only: true

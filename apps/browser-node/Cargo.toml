@@ -14,7 +14,8 @@ members = [
   "crates/remote-desktop-gateway",
   "crates/session-recorder",
   "crates/lite-server",
-  "crates/worker-supervisor"
+  "crates/worker-supervisor",
+  "crates/mcp-gateway"
 ]
 resolver = "2"
 

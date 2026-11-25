@@ -8,9 +8,29 @@ RUN cargo build \
     --manifest-path apps/browser-node/Cargo.toml \
     --bin browsercloud-lite \
     --bin browsercloud-worker-supervisor \
+    --bin browsercloud-mcp-gateway \
     --bin network-helper \
     --bin storage-helper \
     --bin node-agent
+
+# ---------------------------------------------------------------------------
+# Target: mcp-gateway (Pure-Rust drop-in replacement for Python mcp-gateway)
+# ---------------------------------------------------------------------------
+FROM debian:bookworm-slim AS mcp-gateway
+RUN set -eux; \
+    apt-get update; \
+    apt-get install --no-install-recommends -y ca-certificates tini; \
+    rm -rf /var/lib/apt/lists/*; \
+    groupadd --gid 65532 browsercloud; \
+    useradd --uid 65532 --gid browsercloud --no-log-init --home-dir /tmp browsercloud
+COPY --from=build /workspace/apps/browser-node/target/release/browsercloud-mcp-gateway /usr/local/bin/browsercloud-mcp-gateway
+USER 65532:65532
+ENV MCP_HOST=0.0.0.0 \
+    MCP_PORT=8130 \
+    MCP_BACKEND=control-plane \
+    RUST_LOG=info
+EXPOSE 8130
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/browsercloud-mcp-gateway"]
 
 # ---------------------------------------------------------------------------
 # Target: worker-supervisor (Pure-Rust unified Agent/Reviewer/Outcome/Vision

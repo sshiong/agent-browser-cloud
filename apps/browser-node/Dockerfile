@@ -9,6 +9,7 @@ RUN cargo build \
     --bin browsercloud-lite \
     --bin browsercloud-worker-supervisor \
     --bin browsercloud-mcp-gateway \
+    --bin recording-privacy-scanner \
     --bin network-helper \
     --bin storage-helper \
     --bin node-agent
@@ -131,14 +132,14 @@ RUN set -eux; \
         packages="${packages} xvfb x11vnc"; \
     fi; \
     if [ "${ENABLE_RECORDING_SCANNER}" = "true" ]; then \
-        packages="${packages} opencv-data python3 python3-numpy python3-opencv tesseract-ocr tesseract-ocr-eng tesseract-ocr-chi-sim"; \
+        packages="${packages} opencv-data tesseract-ocr tesseract-ocr-eng tesseract-ocr-chi-sim"; \
     fi; \
     if [ -n "${packages}" ]; then \
         apt-get update; \
         apt-get install --no-install-recommends -y ${packages}; \
         rm -rf /var/lib/apt/lists/*; \
     fi
-COPY apps/browser-node/scripts/recording_privacy_scanner.py /usr/local/libexec/browsercloud/recording-privacy-scanner
+COPY --from=build /workspace/apps/browser-node/target/release/recording-privacy-scanner /usr/local/libexec/browsercloud/recording-privacy-scanner
 COPY apps/browser-node/assets/recording-privacy /usr/local/share/browsercloud/recording-privacy
 RUN set -eux; \
     if [ "${ENABLE_RECORDING_SCANNER}" = "true" ]; then \

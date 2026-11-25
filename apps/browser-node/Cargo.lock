@@ -2345,6 +2345,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "recording-privacy-scanner"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "jpeg-decoder",
+ "jpeg-encoder",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"

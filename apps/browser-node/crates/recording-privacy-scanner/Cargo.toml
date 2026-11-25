@@ -1,0 +1,18 @@
+[package]
+name = "recording-privacy-scanner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "recording-privacy-scanner"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+base64.workspace = true
+jpeg-decoder.workspace = true
+jpeg-encoder.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true

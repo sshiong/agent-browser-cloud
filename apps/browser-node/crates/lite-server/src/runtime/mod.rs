@@ -35,7 +35,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-const DEFAULT_INPUT_WATCHDOG_IDLE_TIMEOUT_SECS: u64 = 120;
+const DEFAULT_INPUT_WATCHDOG_IDLE_TIMEOUT_SECS: u64 = 300;
 const DEFAULT_IDLE_TIMEOUT_SECS: u64 = 900;
 
 fn input_watchdog_idle_timeout() -> Duration {
@@ -43,7 +43,7 @@ fn input_watchdog_idle_timeout() -> Duration {
         .ok()
         .and_then(|v| v.parse::<u64>().ok())
         .unwrap_or(DEFAULT_INPUT_WATCHDOG_IDLE_TIMEOUT_SECS)
-        .clamp(15, 600);
+        .clamp(15, 3600);
     Duration::from_secs(secs)
 }
 

@@ -424,7 +424,7 @@ pub fn mcp_tool_catalog() -> Vec<Value> {
                     "url_contains": { "type": "string" },
                     "title_contains": { "type": "string" },
                     "stable_frames": { "type": "integer", "minimum": 2, "maximum": 5 },
-                    "timeout_ms": { "type": "integer", "minimum": 100, "maximum": 30000 }
+                    "timeout_ms": { "type": "integer", "default": 300000, "minimum": 100, "maximum": 900000 }
                 }
             }
         }),

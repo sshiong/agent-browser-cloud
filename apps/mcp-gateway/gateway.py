@@ -19,6 +19,8 @@ if parsed.scheme == "http" and parsed.hostname not in ("127.0.0.1", "localhost")
 credential = contextvars.ContextVar("mcp_credential", default=None)
 HOST = os.environ.get("MCP_HOST", "127.0.0.1")
 PORT = int(os.environ.get("MCP_PORT", "8130"))
+MAX_WAIT_TIMEOUT_SECONDS = max(30, min(3600, int(os.environ.get("MCP_MAX_WAIT_TIMEOUT_SECONDS", "900"))))
+DEFAULT_WAIT_TIMEOUT_SECONDS = max(1, min(MAX_WAIT_TIMEOUT_SECONDS, int(os.environ.get("MCP_DEFAULT_WAIT_TIMEOUT_SECONDS", "300"))))
 origins = os.environ.get("MCP_ALLOWED_ORIGINS", "http://127.0.0.1:* http://localhost:*").split()
 hosts = os.environ.get("MCP_ALLOWED_HOSTS", "127.0.0.1:* localhost:*").split()
 server = FastMCP("agent_browser_cloud", host=HOST, port=PORT, stateless_http=True,
@@ -150,10 +152,10 @@ async def browser_get_operation(operation_id: str) -> dict:
 
 
 @server.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-async def browser_wait_operation(operation_id: str, timeout_seconds: int = 30) -> dict[str, Any]:
-    """Wait up to 120 seconds for COMMITTED, ABORTED or TIMED_OUT. A wait timeout does not cancel the operation or release quota. Continue querying the same operation ID; do not repeat the write with a new key. Requires operation permission."""
+async def browser_wait_operation(operation_id: str, timeout_seconds: int = DEFAULT_WAIT_TIMEOUT_SECONDS) -> dict[str, Any]:
+    """Wait (default 5 minutes, adjustable via timeout_seconds up to MCP_MAX_WAIT_TIMEOUT_SECONDS) for COMMITTED, ABORTED or TIMED_OUT. A wait timeout does not cancel the operation or release quota. Continue querying the same operation ID; do not repeat the write with a new key. Requires operation permission."""
     path = "/operations/" + identifier(operation_id, "op_")
-    if not 1 <= timeout_seconds <= 120:
+    if not 1 <= timeout_seconds <= MAX_WAIT_TIMEOUT_SECONDS:
         raise ValueError("WAIT_TIMEOUT_INVALID")
     last = None
     # Bound the entire read, including an upstream HTTP call and sleeps.
@@ -252,11 +254,11 @@ async def browser_get_action_task(environment_id: str, task_id: str) -> dict:
 
 @server.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
 async def browser_wait_action_task(environment_id: str, task_id: str,
-                                   timeout_seconds: int = 30) -> dict[str, Any]:
-    """Wait up to 120 seconds for a browser action task to finish (COMPLETED, FAILED, BLOCKED, WAITING_FOR_HUMAN or AWAITING_CONFIRMATION). A wait timeout does not cancel the task; continue polling the same task ID instead of repeating the write with a new idempotency key. Requires direct permission."""
+                                   timeout_seconds: int = DEFAULT_WAIT_TIMEOUT_SECONDS) -> dict[str, Any]:
+    """Wait (default 5 minutes, adjustable via timeout_seconds up to MCP_MAX_WAIT_TIMEOUT_SECONDS) for a browser action task to finish (COMPLETED, FAILED, BLOCKED, WAITING_FOR_HUMAN or AWAITING_CONFIRMATION). A wait timeout does not cancel the task; continue polling the same task ID instead of repeating the write with a new idempotency key. Requires direct permission."""
     path = ("/environments/" + identifier(environment_id, "ses_") +
             "/browser/tasks/" + identifier(task_id, "agt_"))
-    if not 1 <= timeout_seconds <= 120:
+    if not 1 <= timeout_seconds <= MAX_WAIT_TIMEOUT_SECONDS:
         raise ValueError("WAIT_TIMEOUT_INVALID")
     last = None
     settled_states = ("COMPLETED", "FAILED", "BLOCKED", "WAITING_FOR_HUMAN", "AWAITING_CONFIRMATION")

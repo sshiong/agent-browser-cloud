@@ -18,6 +18,25 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 pub const MCP_PROTOCOL_VERSION: &str = "2025-03-26";
+const DEFAULT_WAIT_TIMEOUT_SECS: i64 = 300;
+const DEFAULT_MAX_WAIT_TIMEOUT_SECS: i64 = 900;
+
+fn max_wait_timeout_seconds() -> i64 {
+    std::env::var("MCP_MAX_WAIT_TIMEOUT_SECONDS")
+        .ok()
+        .and_then(|v| v.parse::<i64>().ok())
+        .unwrap_or(DEFAULT_MAX_WAIT_TIMEOUT_SECS)
+        .clamp(30, 3600)
+}
+
+fn default_wait_timeout_seconds() -> i64 {
+    let max_secs = max_wait_timeout_seconds();
+    std::env::var("MCP_DEFAULT_WAIT_TIMEOUT_SECONDS")
+        .ok()
+        .and_then(|v| v.parse::<i64>().ok())
+        .unwrap_or(DEFAULT_WAIT_TIMEOUT_SECS)
+        .clamp(1, max_secs)
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GatewayBackend {
@@ -696,11 +715,15 @@ async fn dispatch_tool(
         }
         "browser_wait_operation" => {
             let op_id = validate_identifier(req_str(&args, "operation_id")?, "op_")?;
+            let max_wait = max_wait_timeout_seconds();
             let timeout_seconds = args
                 .get("timeout_seconds")
                 .and_then(Value::as_i64)
-                .unwrap_or(30);
-            ensure!((1..=120).contains(&timeout_seconds), "WAIT_TIMEOUT_INVALID");
+                .unwrap_or_else(default_wait_timeout_seconds);
+            ensure!(
+                (1..=max_wait).contains(&timeout_seconds),
+                "WAIT_TIMEOUT_INVALID"
+            );
             let path = format!("/operations/{op_id}");
             let deadline = Instant::now() + Duration::from_secs(timeout_seconds as u64);
             let mut last: Value = Value::Null;
@@ -890,11 +913,15 @@ async fn dispatch_tool(
         "browser_wait_action_task" => {
             let env_id = validate_identifier(req_str(&args, "environment_id")?, "ses_")?;
             let task_id = validate_identifier(req_str(&args, "task_id")?, "agt_")?;
+            let max_wait = max_wait_timeout_seconds();
             let timeout_seconds = args
                 .get("timeout_seconds")
                 .and_then(Value::as_i64)
-                .unwrap_or(30);
-            ensure!((1..=120).contains(&timeout_seconds), "WAIT_TIMEOUT_INVALID");
+                .unwrap_or_else(default_wait_timeout_seconds);
+            ensure!(
+                (1..=max_wait).contains(&timeout_seconds),
+                "WAIT_TIMEOUT_INVALID"
+            );
             let path = format!("/environments/{env_id}/browser/tasks/{task_id}");
             let deadline = Instant::now() + Duration::from_secs(timeout_seconds as u64);
             let mut last: Value = Value::Null;
@@ -1068,14 +1095,14 @@ pub fn mcp_tool_catalog() -> Vec<Value> {
         }),
         json!({
             "name": "browser_wait_operation",
-            "description": "Wait up to 120 seconds for COMMITTED, ABORTED or TIMED_OUT.",
+            "description": format!("Wait up to {} seconds (default {} seconds, adjustable via timeout_seconds) for COMMITTED, ABORTED or TIMED_OUT.", max_wait_timeout_seconds(), default_wait_timeout_seconds()),
             "annotations": { "readOnlyHint": true, "destructiveHint": false },
             "inputSchema": {
                 "type": "object",
                 "required": ["operation_id"],
                 "properties": {
                     "operation_id": { "type": "string" },
-                    "timeout_seconds": { "type": "integer", "default": 30, "minimum": 1, "maximum": 120 }
+                    "timeout_seconds": { "type": "integer", "default": default_wait_timeout_seconds(), "minimum": 1, "maximum": max_wait_timeout_seconds() }
                 }
             }
         }),
@@ -1166,7 +1193,7 @@ pub fn mcp_tool_catalog() -> Vec<Value> {
         }),
         json!({
             "name": "browser_wait_action_task",
-            "description": "Wait up to 120 seconds for a browser action task to finish (including while waiting for collaborative human input).",
+            "description": format!("Wait up to {} seconds (default {} seconds, adjustable via timeout_seconds) for a browser action task to finish (including while waiting for collaborative human input).", max_wait_timeout_seconds(), default_wait_timeout_seconds()),
             "annotations": { "readOnlyHint": true, "destructiveHint": false },
             "inputSchema": {
                 "type": "object",
@@ -1174,7 +1201,7 @@ pub fn mcp_tool_catalog() -> Vec<Value> {
                 "properties": {
                     "environment_id": { "type": "string" },
                     "task_id": { "type": "string" },
-                    "timeout_seconds": { "type": "integer", "default": 30, "minimum": 1, "maximum": 120 }
+                    "timeout_seconds": { "type": "integer", "default": default_wait_timeout_seconds(), "minimum": 1, "maximum": max_wait_timeout_seconds() }
                 }
             }
         }),
@@ -1639,7 +1666,7 @@ mod tests {
                                 "arguments": {
                                     "environment_id": "ses_owned",
                                     "task_id": "agt_human",
-                                    "timeout_seconds": 121
+                                    "timeout_seconds": 901
                                 }
                             }
                         })

@@ -200,7 +200,7 @@ progress 166。
 ### Agent 与真人远程协作
 
 - [已确认] VNC 连接不会断开、暂停或终止 Agent；默认只读观察可以持续查看 Agent 行为。
-- [已确认] 开启协作控制后，只有 Gateway 实际收到真人键盘/鼠标/剪贴板输入时才触发 `HUMAN_INPUT_PRIORITY`；真人停止输入超过空闲窗口（默认 12 秒，可通过 `HUMAN_INPUT_PRIORITY_IDLE_SECONDS` 在 2–300 秒间配置，见 progress 337）后，同一持久 Operation 自动续行。
+- [已确认] 开启协作控制后，只有 Gateway 实际收到真人键盘/鼠标/剪贴板输入时才触发 `HUMAN_INPUT_PRIORITY`；真人停止输入超过空闲窗口（默认 5 分钟 / 300 秒，可通过 `HUMAN_INPUT_PRIORITY_IDLE_SECONDS` 在 2–3600 秒间配置，见 progress 337）后，同一持久 Operation 自动续行。
 - [已确认] 新票据只签发 `COLLABORATIVE`；遗留 `EXCLUSIVE_TAKEOVER` 在 Gateway 中 fail-collaborative，不再踢出协作者。
 - [已确认] 多参与者、单上游 RFB Fan-out、慢消费者隔离、每 Actor 带宽/FPS/成本、在线列表、精准撤销和历史治理已实现。
 - [已确认] 弱网 Viewer 超过有界广播队列后不再被直接断开：Gateway 丢弃陈旧增量帧，先重订阅再读取
@@ -1778,7 +1778,7 @@ Delete API 或短期签名 URL 冒充目标云监管保留。
 3. [已确认] **AUTO 资源策略**：5 秒采集、30 秒决策、5 分钟趋势；危险事件立即保护；滑动窗口/EWMA/P95/持续时间/冷却/Hysteresis；扩容快、缩容慢。
 4. [已确认] **资源与运行环境分离**：Native OS 是 Execution Environment，不是资源等级；内部 Template 不直接暴露成用户等级。
 5. [已确认] **迁移安全**：真人连续输入、拖拽、上传/下载、表单/支付/账号安全、Snapshot、Profile Flush、关键事务或 Business Recovery Unknown 时不得自动迁移。
-6. [已确认] **VNC/Agent 协作**：连接不触发 Agent 断开；真人实际输入优先（默认 12 秒空闲窗口，可配 `HUMAN_INPUT_PRIORITY_IDLE_SECONDS`）；Agent 保持同一 Operation 并自动恢复。
+6. [已确认] **VNC/Agent 协作**：连接不触发 Agent 断开；真人实际输入优先（默认 5 分钟 / 300 秒空闲窗口，可配 `HUMAN_INPUT_PRIORITY_IDLE_SECONDS`）；Agent 保持同一 Operation 并自动恢复。
 7. [已确认] **Challenge 与敏感输入自动化**：低风险视觉挑战默认三次自动尝试，截图先脱敏、Worker 最小权限、Node 状态绑定；Session 默认 SAFE，AUTONOMOUS 只通过一次性用途绑定密文输入账号/密码/OTP，只有自动路径耗尽后才通知一次；原 Task 保持可续行，人工可发送 OTP 由 Agent 代填或自愿协作填写，真人输入始终优先；支付和破坏性账号决策仍独立确认。
 8. [已确认] **事件流**：只在有完整、持久、单调变化源时删除轮询；SSE payload 最小化，租户隔离，支持 Resume/Reset，不在前端伪造曲线或状态。
 9. [已确认] **安全默认值**：OIDC/RBAC、mTLS、最小权限、fail-closed、用途绑定短期授权、签名与重放防护；公共 API 不返回 Secret URL、对象路径或敏感快照内容。

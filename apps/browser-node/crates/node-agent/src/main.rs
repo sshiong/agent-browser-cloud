@@ -71,11 +71,11 @@ use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 use tonic::{Request, Response, Status};
 use tracing_subscriber::EnvFilter;
 
-/// Default idle window before the Browser Node assumes collaborative human VNC input has ended
-/// and allows deferred Agent commands to resume. Configurable via `HUMAN_INPUT_PRIORITY_IDLE_SECONDS`
-/// (2..=300s) so pauses while reading prompts, switching fields, or retrieving OTP codes are not
-/// misclassified as input completion.
-const DEFAULT_HUMAN_INPUT_PRIORITY_IDLE_SECS: u64 = 12;
+/// Default idle window (5 minutes) before the Browser Node assumes collaborative human VNC input
+/// has ended and allows deferred Agent commands to resume. Configurable via
+/// `HUMAN_INPUT_PRIORITY_IDLE_SECONDS` (2..=3600s) so pauses while reading prompts, waiting for
+/// SMS/email OTP, or switching fields are not misclassified as input completion.
+const DEFAULT_HUMAN_INPUT_PRIORITY_IDLE_SECS: u64 = 300;
 const STATE_SNAPSHOT_CHUNK_BYTES: usize = 16 * 1024;
 const STATE_SNAPSHOT_MAX_CHUNKS: usize = 32;
 const STATE_SNAPSHOT_MAX_BYTES: usize = STATE_SNAPSHOT_CHUNK_BYTES * STATE_SNAPSHOT_MAX_CHUNKS;
@@ -85,17 +85,17 @@ const MICRO_BATCH_SETTLE_TIMEOUT: Duration = Duration::from_secs(5);
 const MICRO_BATCH_SETTLE_POLL: Duration = Duration::from_millis(100);
 const MICRO_BATCH_NETWORK_QUIET: u64 = 250;
 const MICRO_BATCH_COMPONENT_QUIET: u64 = 250;
-/// Allow multi-turn AI thinking or human input pauses without premature watchdog release, while
-/// still reclaiming truly abandoned input if an agent stops responding. Configurable via
-/// `INPUT_WATCHDOG_IDLE_TIMEOUT_SECONDS` (15..=600s).
-const DEFAULT_INPUT_WATCHDOG_IDLE_TIMEOUT_SECS: u64 = 120;
+/// Allow multi-turn AI thinking or human input pauses (default 5 minutes) without premature
+/// watchdog release, while still reclaiming truly abandoned input if an agent stops responding.
+/// Configurable via `INPUT_WATCHDOG_IDLE_TIMEOUT_SECONDS` (15..=3600s).
+const DEFAULT_INPUT_WATCHDOG_IDLE_TIMEOUT_SECS: u64 = 300;
 
 fn human_input_priority_idle() -> Duration {
     let secs = std::env::var("HUMAN_INPUT_PRIORITY_IDLE_SECONDS")
         .ok()
         .and_then(|v| v.parse::<u64>().ok())
         .unwrap_or(DEFAULT_HUMAN_INPUT_PRIORITY_IDLE_SECS)
-        .clamp(2, 300);
+        .clamp(2, 3600);
     Duration::from_secs(secs)
 }
 
@@ -104,7 +104,7 @@ fn input_watchdog_idle_timeout() -> Duration {
         .ok()
         .and_then(|v| v.parse::<u64>().ok())
         .unwrap_or(DEFAULT_INPUT_WATCHDOG_IDLE_TIMEOUT_SECS)
-        .clamp(15, 600);
+        .clamp(15, 3600);
     Duration::from_secs(secs)
 }
 const DEFAULT_RECORDING_PRIVACY_SCANNER_PATH: &str =

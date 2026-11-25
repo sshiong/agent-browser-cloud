@@ -366,7 +366,22 @@ impl LiteRuntime {
         let record = self.require_owned_session(caller, session_id)?;
         let _active_op = self.begin_active_op(session_id);
         self.ensure_running(&record).await?;
-        let budget = Duration::from_millis(params.timeout_ms.unwrap_or(5_000).clamp(100, 120_000));
+        let max_wait_ms = std::env::var("LITE_MAX_WAIT_TIMEOUT_MS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(900_000)
+            .clamp(30_000, 3_600_000);
+        let default_wait_ms = std::env::var("LITE_DEFAULT_WAIT_TIMEOUT_MS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(300_000)
+            .clamp(100, max_wait_ms);
+        let budget = Duration::from_millis(
+            params
+                .timeout_ms
+                .unwrap_or(default_wait_ms)
+                .clamp(100, max_wait_ms),
+        );
         let deadline = Instant::now() + budget;
         let mut last_activity_touch = Instant::now();
         let mut previous_hash: Option<String> = None;

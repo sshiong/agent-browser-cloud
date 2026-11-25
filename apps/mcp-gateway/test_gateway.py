@@ -181,7 +181,7 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(result.isError)
                 self.assertFalse(result.structuredContent['completed'])
                 self.assertTrue(result.structuredContent['waitTimedOut'])
-                for seconds in (0, 121):
+                for seconds in (0, 901):
                     self.assertTrue((await wait(timeout_seconds=seconds)).isError)
                 self.assertTrue(all(method == 'GET' for method, _, _ in self.calls))
 
@@ -207,7 +207,7 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(result.structuredContent['completed'])
                 self.assertTrue(result.structuredContent['waitTimedOut'])
                 self.assertEqual(result.structuredContent['state'], 'RUNNING')
-                for seconds in (0, 121):
+                for seconds in (0, 901):
                     self.assertTrue((await wait(timeout_seconds=seconds)).isError)
                 self.error_response = (422, {
                     'code': 'AGENT_BROWSER_PERCEPTION_REJECTED',

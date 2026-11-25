@@ -12,8 +12,8 @@
 | R3 | 一站式纯 Rust CLI（`doctor`/`token`/`mcp-config`/`bench`） | `tools/local-dev/stack.sh` + `ctl.rs` | `crates/lite-server/src/bin/ctl.rs` (`browsercloud-ctl`) | **DONE** | `cargo test -p lite-server` + `browsercloud-ctl doctor` / `mcp-config` 实测 |
 | R4 | 业务租约适配服务 Application Adapter | `apps/application-adapter/application_adapter.py` (582 行 Python) | `crates/application-adapter` (`browsercloud-application-adapter`) | **DONE** | `cargo test -p application-adapter` + clippy 0 warning + Docker target |
 | R5 | Kubernetes BrowserSession Operator | `tools/browser-session-operator/browser_session_operator.py` (774 行 Python) | `crates/browser-session-operator` (`browsercloud-operator`) | **DONE** | `cargo test -p browser-session-operator` + clippy 0 warning + Docker target |
-| R6 | GameDay 与 Validation 隔离 Worker/Runner | `apps/gameday-worker/` + `apps/validation-worker/` (1,771 行 Python) | `crates/ops-workers` (`browsercloud-gameday-worker`, `browsercloud-validation-worker`) | **IN_PROGRESS** | 进行中 |
-| R7 | OrbStack 全量实机构建、实时内存/体积实测与全回归验收 | Docker (OrbStack) + Rust + Compose + Docs | 全工作区验收 | **PENDING** | 待开始 |
+| R6 | GameDay 与 Validation 隔离 Worker/Runner | `apps/gameday-worker/` + `apps/validation-worker/` (1,771 行 Python) | `crates/ops-workers` (`browsercloud-gameday-worker`, `browsercloud-validation-worker`) | **DONE** | `cargo test -p ops-workers` + clippy 0 warning + `ops-workers` Docker target |
+| R7 | OrbStack 全量实机构建、实时内存/体积实测与全回归验收 | Docker (OrbStack) + Rust + Compose + Docs | 全工作区验收 | **IN_PROGRESS** | 进行中 |
 
 ## 实机对比数据（R7 完成后填入真实 OrbStack 实测结果）
 

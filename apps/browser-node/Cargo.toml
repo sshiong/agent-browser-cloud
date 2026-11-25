@@ -18,7 +18,8 @@ members = [
   "crates/mcp-gateway",
   "crates/recording-privacy-scanner",
   "crates/application-adapter",
-  "crates/browser-session-operator"
+  "crates/browser-session-operator",
+  "crates/ops-workers"
 ]
 resolver = "2"
 

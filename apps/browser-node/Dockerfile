@@ -11,10 +11,25 @@ RUN cargo build \
     --bin browsercloud-mcp-gateway \
     --bin browsercloud-application-adapter \
     --bin browsercloud-operator \
+    --bin browsercloud-gameday-worker \
+    --bin browsercloud-validation-worker \
     --bin recording-privacy-scanner \
     --bin network-helper \
     --bin storage-helper \
     --bin node-agent
+
+# ---------------------------------------------------------------------------
+# Target: ops-workers (Pure-Rust GameDay & Validation Workers replacing Python)
+# ---------------------------------------------------------------------------
+FROM debian:bookworm-slim AS ops-workers
+RUN set -eux; \
+    apt-get update; \
+    apt-get install --no-install-recommends -y ca-certificates tini; \
+    rm -rf /var/lib/apt/lists/*
+COPY --from=build /workspace/apps/browser-node/target/release/browsercloud-gameday-worker /usr/local/bin/browsercloud-gameday-worker
+COPY --from=build /workspace/apps/browser-node/target/release/browsercloud-validation-worker /usr/local/bin/browsercloud-validation-worker
+USER 65532:65532
+ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # ---------------------------------------------------------------------------
 # Target: browser-session-operator (Pure-Rust K8s Operator replacing Python)

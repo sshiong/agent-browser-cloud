@@ -125,6 +125,10 @@ impl LiteStore {
         conn.pragma_update(None, "synchronous", "NORMAL")?;
         conn.pragma_update(None, "foreign_keys", "ON")?;
         conn.pragma_update(None, "busy_timeout", 5000)?;
+        // Cap SQLite page cache at 2 MiB and disable mmap for predictable low-memory RSS.
+        conn.pragma_update(None, "cache_size", -2048)?;
+        conn.pragma_update(None, "temp_store", "MEMORY")?;
+        conn.pragma_update(None, "mmap_size", 0)?;
         conn.execute_batch(
             r#"
             CREATE TABLE IF NOT EXISTS agent_tokens (
@@ -230,6 +234,15 @@ impl LiteStore {
             "ALTER TABLE profiles ADD COLUMN allowed_private_hosts_json TEXT NOT NULL DEFAULT '[]'",
             [],
         );
+        // Post-migration composite indexes for O(1) hot-path quota, single-writer, and retention queries.
+        conn.execute_batch(
+            r#"
+            CREATE INDEX IF NOT EXISTS idx_browser_sessions_state ON browser_sessions(state);
+            CREATE INDEX IF NOT EXISTS idx_browser_sessions_token_state ON browser_sessions(owner_token_id, state);
+            CREATE INDEX IF NOT EXISTS idx_browser_sessions_profile_state ON browser_sessions(profile_id, state);
+            CREATE INDEX IF NOT EXISTS idx_audit_events_created_at ON audit_events(created_at);
+            "#,
+        )?;
         Ok(Self {
             conn: Mutex::new(conn),
         })
@@ -310,14 +323,11 @@ impl LiteStore {
     pub fn authenticate(&self, bearer_token: &str) -> Result<Option<AgentTokenRecord>> {
         let hash = hash_token(bearer_token.trim());
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
-        let row = conn
-            .query_row(
-                "SELECT token_id, agent_id, label, scopes_json, max_sessions, revoked, created_at, rotated_at
-                 FROM agent_tokens WHERE token_hash = ?1",
-                params![hash],
-                Self::map_token,
-            )
-            .optional()?;
+        let mut stmt = conn.prepare_cached(
+            "SELECT token_id, agent_id, label, scopes_json, max_sessions, revoked, created_at, rotated_at
+             FROM agent_tokens WHERE token_hash = ?1",
+        )?;
+        let row = stmt.query_row(params![hash], Self::map_token).optional()?;
         Ok(row.filter(|record| !record.revoked))
     }
 
@@ -420,15 +430,17 @@ impl LiteStore {
         exclude_session_id: Option<&str>,
     ) -> Result<u32> {
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
-        let count: i64 = conn.query_row(
+        let mut stmt = conn.prepare_cached(
             "SELECT COUNT(*) FROM browser_sessions
              WHERE ((owner_token_id != '' AND owner_token_id = ?1)
                     OR (owner_token_id = '' AND owner_agent_id = ?2))
                AND state IN ('CREATING', 'RUNNING', 'IDLE', 'RESTORING')
                AND (?3 IS NULL OR session_id != ?3)",
-            params![token_id, agent_id, exclude_session_id],
-            |row| row.get(0),
         )?;
+        let count: i64 = stmt
+            .query_row(params![token_id, agent_id, exclude_session_id], |row| {
+                row.get(0)
+            })?;
         Ok(count.max(0) as u32)
     }
 
@@ -441,13 +453,12 @@ impl LiteStore {
         exclude_session_id: Option<&str>,
     ) -> Result<u32> {
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
-        let count: i64 = conn.query_row(
+        let mut stmt = conn.prepare_cached(
             "SELECT COUNT(*) FROM browser_sessions
              WHERE state IN ('CREATING', 'RUNNING', 'IDLE', 'RESTORING')
                AND (?1 IS NULL OR session_id != ?1)",
-            params![exclude_session_id],
-            |row| row.get(0),
         )?;
+        let count: i64 = stmt.query_row(params![exclude_session_id], |row| row.get(0))?;
         Ok(count.max(0) as u32)
     }
 
@@ -481,15 +492,14 @@ impl LiteStore {
 
     pub fn get_session(&self, session_id: &str) -> Result<Option<SessionRecord>> {
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
-        let row = conn
-            .query_row(
-                "SELECT session_id, owner_agent_id, owner_token_id, display_name, profile_id, state, proxy_url,
-                        current_url, isolation_mode, allowed_private_hosts_json, idle_timeout_seconds,
-                        created_at, updated_at, last_activity_at
-                 FROM browser_sessions WHERE session_id = ?1",
-                params![session_id],
-                Self::map_session,
-            )
+        let mut stmt = conn.prepare_cached(
+            "SELECT session_id, owner_agent_id, owner_token_id, display_name, profile_id, state, proxy_url,
+                    current_url, isolation_mode, allowed_private_hosts_json, idle_timeout_seconds,
+                    created_at, updated_at, last_activity_at
+             FROM browser_sessions WHERE session_id = ?1",
+        )?;
+        let row = stmt
+            .query_row(params![session_id], Self::map_session)
             .optional()?;
         Ok(row)
     }
@@ -691,12 +701,11 @@ impl LiteStore {
 
     pub fn has_active_profile_grant(&self, profile_id: &str, agent_id: &str) -> Result<bool> {
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
-        let count: i64 = conn.query_row(
+        let mut stmt = conn.prepare_cached(
             "SELECT COUNT(*) FROM profile_grants
              WHERE profile_id = ?1 AND grantee_agent_id = ?2 AND revoked_at IS NULL",
-            params![profile_id, agent_id],
-            |row| row.get(0),
         )?;
+        let count: i64 = stmt.query_row(params![profile_id, agent_id], |row| row.get(0))?;
         Ok(count > 0)
     }
 
@@ -759,12 +768,12 @@ impl LiteStore {
     ) -> Result<()> {
         let now = Utc::now().to_rfc3339();
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
-        conn.execute(
+        let mut stmt = conn.prepare_cached(
             "UPDATE browser_sessions
              SET state = ?1, current_url = COALESCE(?2, current_url), updated_at = ?3, last_activity_at = ?3
              WHERE session_id = ?4",
-            params![state, current_url, now, session_id],
         )?;
+        stmt.execute(params![state, current_url, now, session_id])?;
         Ok(())
     }
 
@@ -775,12 +784,12 @@ impl LiteStore {
     ) -> Result<()> {
         let now = Utc::now().to_rfc3339();
         let conn = self.conn.lock().expect("sqlite mutex poisoned");
-        conn.execute(
+        let mut stmt = conn.prepare_cached(
             "UPDATE browser_sessions
              SET current_url = COALESCE(?1, current_url), updated_at = ?2, last_activity_at = ?2
              WHERE session_id = ?3",
-            params![current_url, now, session_id],
         )?;
+        stmt.execute(params![current_url, now, session_id])?;
         Ok(())
     }
 
@@ -930,12 +939,27 @@ impl LiteStore {
     ) {
         let now = Utc::now().to_rfc3339();
         if let Ok(conn) = self.conn.lock() {
-            let _ = conn.execute(
+            if let Ok(mut stmt) = conn.prepare_cached(
                 "INSERT INTO audit_events (agent_id, session_id, action, outcome, detail, created_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![agent_id, session_id, action, outcome, detail, now],
-            );
+            ) {
+                let _ = stmt.execute(params![agent_id, session_id, action, outcome, detail, now]);
+            }
         }
+    }
+
+    /// Retains at most `keep_latest` most recent audit rows so 72h+ long-running L0 deployments
+    /// maintain bounded SQLite disk footprint.
+    pub fn prune_old_audit_events(&self, keep_latest: usize) -> Result<usize> {
+        let conn = self.conn.lock().expect("sqlite mutex poisoned");
+        let deleted = conn.execute(
+            "DELETE FROM audit_events
+             WHERE event_id NOT IN (
+                 SELECT event_id FROM audit_events ORDER BY event_id DESC LIMIT ?1
+             )",
+            params![keep_latest as i64],
+        )?;
+        Ok(deleted)
     }
 
     fn map_token(row: &rusqlite::Row<'_>) -> rusqlite::Result<AgentTokenRecord> {
@@ -1070,6 +1094,12 @@ mod tests {
 
         assert!(store.revoke_token(&agent_b.token.token_id).unwrap());
         assert!(store.authenticate(&agent_b.bearer_token).unwrap().is_none());
+
+        for idx in 0..10 {
+            store.record_audit("agent_a", Some("ses_a1"), &format!("ACT_{idx}"), "OK", None);
+        }
+        let pruned = store.prune_old_audit_events(3).unwrap();
+        assert_eq!(pruned, 7);
 
         let _ = std::fs::remove_dir_all(&dir);
     }

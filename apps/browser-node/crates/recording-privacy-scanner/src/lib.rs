@@ -48,7 +48,9 @@ pub struct RgbImage {
 impl RgbImage {
     pub fn to_gray(&self) -> Vec<u8> {
         self.rgb
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .map(|p| {
                 // ITU-R BT.601 luma matching OpenCV COLOR_BGR2GRAY.
                 ((299u32 * p[0] as u32 + 587u32 * p[1] as u32 + 114u32 * p[2] as u32 + 500) / 1000)

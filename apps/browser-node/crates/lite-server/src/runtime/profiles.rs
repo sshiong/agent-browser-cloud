@@ -302,12 +302,15 @@ impl LiteRuntime {
             .into_iter()
             .any(|c| c.checkpoint_id == checkpoint_id);
         ensure!(exists, "PROFILE_CHECKPOINT_NOT_FOUND");
-        let manifest = restore_profile_checkpoint(
-            &self.profile_dir(profile_id),
-            &self.config.data_dir.join("checkpoints"),
-            profile_id,
-            checkpoint_id,
-        )?;
+        let profile_dir = self.profile_dir(profile_id);
+        let checkpoints_root = self.config.data_dir.join("checkpoints");
+        let pid_owned = profile_id.to_owned();
+        let chk_owned = checkpoint_id.to_owned();
+        let manifest = tokio::task::spawn_blocking(move || {
+            restore_profile_checkpoint(&profile_dir, &checkpoints_root, &pid_owned, &chk_owned)
+        })
+        .await
+        .map_err(|e| anyhow::anyhow!("PROFILE_RESTORE_JOIN_FAILED: {e}"))??;
         self.store.record_audit(
             &caller.agent_id,
             None,
@@ -354,12 +357,15 @@ impl LiteRuntime {
                     self.stop_live_session(session_id).await?;
                 }
                 let checkpoint_id = format!("chk_{}", &Uuid::new_v4().simple().to_string()[..16]);
-                let manifest = save_profile_checkpoint(
-                    &profile_dir,
-                    &checkpoints_root,
-                    &record.profile_id,
-                    &checkpoint_id,
-                )?;
+                let pdir = profile_dir.clone();
+                let croot = checkpoints_root.clone();
+                let pid_owned = record.profile_id.clone();
+                let chk_owned = checkpoint_id.clone();
+                let manifest = tokio::task::spawn_blocking(move || {
+                    save_profile_checkpoint(&pdir, &croot, &pid_owned, &chk_owned)
+                })
+                .await
+                .map_err(|e| anyhow::anyhow!("PROFILE_SAVE_JOIN_FAILED: {e}"))??;
                 let cp_rec = ProfileCheckpointRecord {
                     checkpoint_id: manifest.checkpoint_id.clone(),
                     profile_id: record.profile_id.clone(),
@@ -404,12 +410,15 @@ impl LiteRuntime {
                 if was_running {
                     self.stop_live_session(session_id).await?;
                 }
-                let manifest = restore_profile_checkpoint(
-                    &profile_dir,
-                    &checkpoints_root,
-                    &record.profile_id,
-                    checkpoint_id,
-                )?;
+                let pdir = profile_dir.clone();
+                let croot = checkpoints_root.clone();
+                let pid_owned = record.profile_id.clone();
+                let chk_owned = checkpoint_id.to_owned();
+                let manifest = tokio::task::spawn_blocking(move || {
+                    restore_profile_checkpoint(&pdir, &croot, &pid_owned, &chk_owned)
+                })
+                .await
+                .map_err(|e| anyhow::anyhow!("PROFILE_RESTORE_JOIN_FAILED: {e}"))??;
                 if was_running {
                     let latest = self.require_owned_session(caller, session_id)?;
                     self.ensure_running_locked(&latest).await?;

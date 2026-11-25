@@ -12,6 +12,7 @@
 | **S3** | 消除 SQLite 行映射重复代码 | `crates/lite-server/src/store.rs` | 抽出 `Self::map_token` 与 `Self::map_checkpoint`，消除 5 处重复 Token 映射闭包与 2 处 Checkpoint 映射闭包 |
 | **S4** | 拆分巨型 `lite-server/src/runtime.rs`（2,994 行） | `crates/lite-server/src/runtime/{mod,profiles,network_policy,actions}.rs` | 拆分为 4 个高内聚子模块：会话生命周期与调度（`mod.rs`）、账号级 Profile 与协作（`profiles.rs`）、单次/永久内网策略（`network_policy.rs`）、动作/观察/截图（`actions.rs`），公开接口零变更 |
 | **S5** | 拆分 `lite-server/src/mcp.rs`（1,612 行） | `crates/lite-server/src/{rest,mcp}.rs` | REST/SSE/CDP 代理路由独立为 `rest.rs`（1,156 行），`mcp.rs` 收敛为纯 MCP JSON-RPC 2.0 协议与 10 工具目录（476 行） |
+| **S6** | Rust 1.100 CI 兼容 + 异步非阻塞 Checkpoint + SQLite 缓存/索引 + 长稳防泄漏 + Egress 超时/并发限流 | `crates/recording-privacy-scanner/src/{lib,qr}.rs`、`crates/lite-server/src/{runtime/profiles,runtime/mod,store,egress}.rs` | `chunks_exact(3)` 迁移为 `as_chunks::<3>().0.iter()` 修复 GitHub Actions Rust 1.100 Clippy；Profile 压缩/解压移入 `tokio::task::spawn_blocking` 不阻塞异步执行器；SQLite 限制 2 MiB 页缓存 + 新增 4 条复合索引 + 热路径 `prepare_cached`；`session_locks` 关闭/维护自动回收且 `audit_events` 有界保留 10,000 行；`egress.rs` 新增 10 秒读头/建连超时、`TCP_NODELAY`、零分配头过滤与单会话 128 并发连接信号量 |
 
 ## 2. OrbStack 实机实测数据对比
 

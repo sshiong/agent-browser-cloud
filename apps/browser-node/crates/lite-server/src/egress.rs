@@ -16,10 +16,16 @@ use anyhow::Result;
 use reqwest::Url;
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{lookup_host, TcpListener, TcpStream};
+use tokio::sync::Semaphore;
 use tokio::task::AbortHandle;
+use tokio::time::timeout;
+
+const MAX_CONCURRENT_EGRESS_CONNS: usize = 128;
+const HEADER_READ_TIMEOUT: Duration = Duration::from_secs(10);
+const UPSTREAM_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone)]
 pub struct EgressPolicyRules {
@@ -58,14 +64,23 @@ impl EgressGuardHandle {
             temporary_hosts: initial_temporary_hosts,
         }));
         let policy_ref = policy.clone();
+        let conn_limit = Arc::new(Semaphore::new(MAX_CONCURRENT_EGRESS_CONNS));
 
         let task = tokio::spawn(async move {
             loop {
-                let Ok((stream, _peer)) = listener.accept().await else {
+                let Ok((mut stream, _peer)) = listener.accept().await else {
                     break;
+                };
+                let _ = stream.set_nodelay(true);
+                let Ok(permit) = conn_limit.clone().try_acquire_owned() else {
+                    tokio::spawn(async move {
+                        write_error(&mut stream, 503, "EGRESS_CONCURRENCY_LIMIT_REACHED").await;
+                    });
+                    continue;
                 };
                 let rules = policy_ref.clone();
                 tokio::spawn(async move {
+                    let _permit = permit;
                     let _ = handle_client(stream, global_allow_private, rules).await;
                 });
             }
@@ -115,8 +130,21 @@ async fn handle_client(
 ) -> Result<()> {
     let mut buf = Vec::with_capacity(4096);
     let mut chunk = [0u8; 2048];
+    let header_deadline = tokio::time::Instant::now() + HEADER_READ_TIMEOUT;
     let header_end = loop {
-        let n = client.read(&mut chunk).await?;
+        let remaining = header_deadline.saturating_duration_since(tokio::time::Instant::now());
+        if remaining.is_zero() {
+            write_error(&mut client, 408, "HEADER_READ_TIMEOUT").await;
+            return Ok(());
+        }
+        let n = match timeout(remaining, client.read(&mut chunk)).await {
+            Ok(Ok(n)) => n,
+            Ok(Err(e)) => return Err(e.into()),
+            Err(_) => {
+                write_error(&mut client, 408, "HEADER_READ_TIMEOUT").await;
+                return Ok(());
+            }
+        };
         if n == 0 {
             return Ok(());
         }
@@ -163,13 +191,21 @@ async fn handle_client(
                     return Ok(());
                 }
             };
-        let mut upstream = match TcpStream::connect(upstream_addr).await {
-            Ok(s) => s,
-            Err(_) => {
-                write_error(&mut client, 502, "UPSTREAM_CONNECT_FAILED").await;
-                return Ok(());
-            }
-        };
+        let mut upstream =
+            match timeout(UPSTREAM_CONNECT_TIMEOUT, TcpStream::connect(upstream_addr)).await {
+                Ok(Ok(s)) => {
+                    let _ = s.set_nodelay(true);
+                    s
+                }
+                Ok(Err(_)) => {
+                    write_error(&mut client, 502, "UPSTREAM_CONNECT_FAILED").await;
+                    return Ok(());
+                }
+                Err(_) => {
+                    write_error(&mut client, 504, "UPSTREAM_CONNECT_TIMEOUT").await;
+                    return Ok(());
+                }
+            };
         client
             .write_all(b"HTTP/1.1 200 Connection Established\r\n\r\n")
             .await?;
@@ -202,13 +238,21 @@ async fn handle_client(
             }
         };
 
-    let mut upstream = match TcpStream::connect(upstream_addr).await {
-        Ok(s) => s,
-        Err(_) => {
-            write_error(&mut client, 502, "UPSTREAM_CONNECT_FAILED").await;
-            return Ok(());
-        }
-    };
+    let mut upstream =
+        match timeout(UPSTREAM_CONNECT_TIMEOUT, TcpStream::connect(upstream_addr)).await {
+            Ok(Ok(s)) => {
+                let _ = s.set_nodelay(true);
+                s
+            }
+            Ok(Err(_)) => {
+                write_error(&mut client, 502, "UPSTREAM_CONNECT_FAILED").await;
+                return Ok(());
+            }
+            Err(_) => {
+                write_error(&mut client, 504, "UPSTREAM_CONNECT_TIMEOUT").await;
+                return Ok(());
+            }
+        };
 
     let mut origin_path = parsed.path().to_owned();
     if let Some(q) = parsed.query() {
@@ -220,8 +264,9 @@ async fn handle_client(
         if line.is_empty() {
             continue;
         }
-        let lower = line.to_ascii_lowercase();
-        if lower.starts_with("proxy-connection:") || lower.starts_with("proxy-authorization:") {
+        if starts_with_ignore_ascii_case(line, "proxy-connection:")
+            || starts_with_ignore_ascii_case(line, "proxy-authorization:")
+        {
             continue;
         }
         forwarded.push_str(line);
@@ -304,6 +349,12 @@ fn parse_authority(raw: &str, default_port: u16) -> Option<(String, u16)> {
     }
 }
 
+fn starts_with_ignore_ascii_case(haystack: &str, prefix: &str) -> bool {
+    haystack
+        .get(..prefix.len())
+        .is_some_and(|head| head.eq_ignore_ascii_case(prefix))
+}
+
 fn find_header_end(buf: &[u8]) -> Option<usize> {
     buf.windows(4).position(|w| w == b"\r\n\r\n")
 }
@@ -312,8 +363,11 @@ async fn write_error(stream: &mut TcpStream, status: u16, reason: &str) {
     let status_text = match status {
         400 => "Bad Request",
         403 => "Forbidden",
+        408 => "Request Timeout",
         431 => "Request Header Fields Too Large",
         502 => "Bad Gateway",
+        503 => "Service Unavailable",
+        504 => "Gateway Timeout",
         _ => "Error",
     };
     let body = format!("{{\"error\":\"{reason}\"}}");

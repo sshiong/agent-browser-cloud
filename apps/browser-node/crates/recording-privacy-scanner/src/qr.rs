@@ -583,7 +583,7 @@ mod tests {
         let (w, h) = (800, 360);
         let mut rgb = vec![255u8; w * h * 3];
         draw_synthetic_qr(&mut rgb, w, h, 540, 110, 10);
-        let gray: Vec<u8> = rgb.chunks_exact(3).map(|p| p[0]).collect();
+        let gray: Vec<u8> = rgb.as_chunks::<3>().0.iter().map(|p| p[0]).collect();
         let boxes = detect_qr_regions(&gray, w, h);
         assert_eq!(boxes.len(), 1, "expected 1 QR region, got {boxes:?}");
         let (l, t, r, b) = boxes[0];

@@ -786,6 +786,11 @@ impl LiteRuntime {
             None,
             json!({ "state": next_state }),
         );
+        drop(_sess_guard);
+        drop(sess_lock);
+        if !params.hibernate {
+            self.prune_idle_session_locks().await;
+        }
         Ok(json!({
             "sessionId": session_id,
             "state": next_state,
@@ -793,8 +798,16 @@ impl LiteRuntime {
         }))
     }
 
+    async fn prune_idle_session_locks(&self) {
+        let live_keys: std::collections::HashSet<String> =
+            self.live.lock().await.keys().cloned().collect();
+        let mut locks = self.session_locks.lock().await;
+        locks.retain(|id, lock| live_keys.contains(id) || Arc::strong_count(lock) > 1);
+    }
+
     /// Background maintenance tick: releases stale mouse/key holds (>30s), detects crashed
-    /// Chromium processes, hibernates idle sessions, and refreshes host backpressure.
+    /// Chromium processes, hibernates idle sessions, prunes idle locks & old audit rows, and
+    /// refreshes host backpressure.
     pub async fn maintenance_tick(&self) {
         let _ = self.sample_pressure().await;
         let live_entries: Vec<(String, String, Arc<CdpDesktopInput>)> = {
@@ -839,6 +852,8 @@ impl LiteRuntime {
                 }
             }
         }
+        self.prune_idle_session_locks().await;
+        let _ = self.store.prune_old_audit_events(10_000);
     }
 
     pub async fn shutdown(&self) {
@@ -1284,6 +1299,12 @@ mod quota_and_save_tests {
             cap_err.contains("NODE_MAX_SESSIONS_REACHED"),
             "err={cap_err}"
         );
+
+        // Closing a session prunes idle per-session locks to prevent unbounded HashMap growth.
+        rt.close_session(&admin.token, &sid2, CloseSessionParams { hibernate: false })
+            .await
+            .unwrap();
+        assert!(!rt.session_locks.lock().await.contains_key(&sid2));
 
         let _ = std::fs::remove_dir_all(&dir);
     }

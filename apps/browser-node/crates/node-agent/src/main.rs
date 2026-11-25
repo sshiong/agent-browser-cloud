@@ -11568,12 +11568,7 @@ async fn main() -> Result<()> {
     let state_event_backlog_limit = std::env::var("STATE_EVENT_BACKLOG_LIMIT")
         .unwrap_or_else(|_| "64".to_owned())
         .parse::<u32>()?;
-    anyhow::ensure!(
-        (1024..=60_000).contains(&diff_max_bytes)
-            && diff_max_changes > 0
-            && (4..=4096).contains(&state_event_backlog_limit),
-        "State Diff limits are invalid"
-    );
+    validate_state_diff_limits(diff_max_bytes, diff_max_changes, state_event_backlog_limit)?;
     let resource_report_interval_probes = std::env::var("SESSION_RESOURCE_REPORT_INTERVAL_SECONDS")
         .unwrap_or_else(|_| "5".to_owned())
         .parse::<u64>()?;
@@ -12044,6 +12039,20 @@ async fn shutdown_signal() {
     if let Err(error) = tokio::signal::ctrl_c().await {
         tracing::error!(%error, "Failed to install shutdown signal handler");
     }
+}
+
+fn validate_state_diff_limits(
+    diff_max_bytes: usize,
+    diff_max_changes: usize,
+    state_event_backlog_limit: u32,
+) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        (1024..=60_000).contains(&diff_max_bytes)
+            && diff_max_changes > 0
+            && (4..=4096).contains(&state_event_backlog_limit),
+        "State Diff limits are invalid (expected STATE_DIFF_MAX_BYTES in 1024..=60000, got {diff_max_bytes})"
+    );
+    Ok(())
 }
 
 #[cfg(test)]
@@ -13629,5 +13638,16 @@ mod tests {
 
         server.abort();
         let _ = tokio::fs::remove_dir_all(root).await;
+    }
+
+    #[test]
+    fn validates_state_diff_limits_consistently_with_compose_defaults() {
+        assert!(validate_state_diff_limits(1024, 200, 64).is_ok());
+        assert!(validate_state_diff_limits(32_768, 200, 64).is_ok());
+        assert!(validate_state_diff_limits(60_000, 200, 64).is_ok());
+        assert!(validate_state_diff_limits(512, 200, 64).is_err());
+        assert!(validate_state_diff_limits(262_144, 200, 64).is_err());
+        assert!(validate_state_diff_limits(32_768, 0, 64).is_err());
+        assert!(validate_state_diff_limits(32_768, 200, 3).is_err());
     }
 }

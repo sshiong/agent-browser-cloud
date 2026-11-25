@@ -35,7 +35,7 @@ services:
     volumes:
       - lite_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "test -S /proc/1/fd/0 || true; exec 3<>/dev/tcp/127.0.0.1/8130 && printf 'GET /healthz HTTP/1.0\r\nHost: 127.0.0.1:8130\r\n\r\n' >&3 && grep -q '\"status\":\"UP\"' <&3"]
+      test: ["CMD", "/usr/local/bin/browsercloud-lite", "--healthcheck"]
       interval: 10s
       timeout: 5s
       retries: 10

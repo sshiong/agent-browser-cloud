@@ -21,6 +21,9 @@ services:
   browser-node:
     build:
       target: ${BROWSER_NODE_TARGET:-core}
+    environment:
+      XVFB_PATH: ${BROWSER_XVFB_PATH:-}
+      X11VNC_PATH: ${BROWSER_X11VNC_PATH:-}
 
   browser-storage-init:
     build:

@@ -19,6 +19,8 @@ services:
     environment:
       NODE_MAX_SESSIONS: ${NODE_MAX_SESSIONS:-6}
       NODE_CERTIFIED_MEMORY_MIB: ${NODE_CERTIFIED_MEMORY_MIB:-6144}
+      XVFB_PATH: ${BROWSER_XVFB_PATH:-}
+      X11VNC_PATH: ${BROWSER_X11VNC_PATH:-}
 
   browser-storage-init:
     build:

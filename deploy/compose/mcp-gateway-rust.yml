@@ -13,3 +13,8 @@ services:
     mem_limit: ${MCP_GATEWAY_MEM_LIMIT:-32m}
     cpus: ${MCP_GATEWAY_CPUS:-0.5}
     read_only: true
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/browsercloud-mcp-gateway", "--healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
